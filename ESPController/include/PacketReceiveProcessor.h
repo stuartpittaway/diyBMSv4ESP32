@@ -14,7 +14,8 @@ class PacketReceiveProcessor {
      uint16_t totalMissedPacketCount=0;
      uint16_t totalCRCErrors=0;
      uint16_t totalNotProcessedErrors=0;
-     uint8_t commsError=0;
+     uint16_t commsError=0;
+     uint16_t abortedComms=0;
 
   private:
     packet _packetbuffer;

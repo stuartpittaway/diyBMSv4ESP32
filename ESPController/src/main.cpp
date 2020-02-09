@@ -206,6 +206,8 @@ void onPacketReceived(const uint8_t* receivebuffer, size_t len)
     //We received a packet (although may have been an error)
     waitingForReply=false;
 
+    receiveProc.abortedComms=0;
+
     Serial1.println();
   }
 }
@@ -222,9 +224,13 @@ void timerTransmitCallback() {
     receiveProc.commsError++;
 
     //After X attempts give up and send another packet
+    //about 5 seconds per bank, it seems to take about 115ms per module
     if (receiveProc.commsError> (mysettings.totalNumberOfBanks* 10)) {
+      Serial1.println("** Aborted COMMS **");
       waitingForReply=false;
       receiveProc.totalMissedPacketCount++;
+      receiveProc.commsError=0;
+      receiveProc.abortedComms++;
     } else {
         return;
     }
@@ -284,7 +290,7 @@ void ProcessRules() {
   }
 
   //If we have a communications error
-  if (receiveProc.commsError > 2) {
+  if (receiveProc.abortedComms > 2) {
     rule_outcome[1]=true;
   }
 
@@ -441,6 +447,7 @@ void timerProcessRules() {
 uint8_t counter=0;
 
 void timerEnqueueCallback() {
+
   //this is called regularly on a timer, it determines what request to make to the modules (via the request queue)
   for (uint8_t b = 0; b < mysettings.totalNumberOfBanks; b++)
   {
