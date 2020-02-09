@@ -163,6 +163,10 @@ bool PacketProcessor::onPacketReceived(const uint8_t* receivebuffer, size_t len)
     }
   }
 
+  //Clear the packet buffer on an invalid packet so the previous packet
+  //is not re-transmitted issue #22
+  memset(&buffer, 0, sizeof(buffer));
+
   //We need to do something here, the packet received was not correct
   badpackets++;
   return false;
