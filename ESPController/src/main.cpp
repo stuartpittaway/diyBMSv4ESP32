@@ -84,6 +84,8 @@ uint8_t packetType=0;
 uint8_t previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
 
+volatile uint32_t debug_packet_timer_millisecond = 0;
+
 //PCF8574P has an i2c address of 0x38 instead of the normal 0x20
 PCF857x pcf8574(0x38, &Wire);
 
@@ -126,16 +128,13 @@ WiFiEventHandler wifiConnectHandler;
 WiFiEventHandler wifiDisconnectHandler;
 
 Ticker myTimerRelay;
-
 Ticker myTimer;
 Ticker myTransmitTimer;
 Ticker wifiReconnectTimer;
 Ticker mqttReconnectTimer;
 Ticker myTimerSendMqttPacket;
 Ticker myTimerSendInfluxdbPacket;
-
 Ticker myTimerSwitchPulsedRelay;
-
 
 uint16_t sequence=0;
 
@@ -187,8 +186,17 @@ void onPacketReceived(const uint8_t* receivebuffer, size_t len)
   //due to the way the modules operate
 
   if (len==sizeof(packet)) {
+
+    debug_packet_timer_millisecond=millis()-debug_packet_timer_millisecond;
+
+    Serial1.print(" T:");
+    Serial1.print(debug_packet_timer_millisecond);
+
+    Serial1.print(" E:");
+    Serial1.print(receiveProc.commsError);
+
     // Process decoded incoming packet
-    Serial1.print("R:");
+    Serial1.print(" R:");
     dumpPacketToDebug((packet*)receivebuffer);
 
     if (!receiveProc.ProcessReply(receivebuffer,sequence)) {
@@ -202,6 +210,7 @@ void onPacketReceived(const uint8_t* receivebuffer, size_t len)
   }
 }
 
+
 void timerTransmitCallback() {
   //Don't send another message until we have received reply from the last one
   //this slows the transmit process down a lot so potentially need to look at a better
@@ -212,7 +221,7 @@ void timerTransmitCallback() {
     //Increment the counter to watch for complete comms failures
     receiveProc.commsError++;
 
-    //After 5 attempts give up and send another packet
+    //After X attempts give up and send another packet
     if (receiveProc.commsError> (mysettings.totalNumberOfBanks* 10)) {
       waitingForReply=false;
       receiveProc.totalMissedPacketCount++;
@@ -238,6 +247,9 @@ void timerTransmitCallback() {
     myPacketSerial.send((byte*)&transmitBuffer, sizeof(transmitBuffer));
 
     waitingForReply=true;
+
+    //Grab the time we sent this packet to time when the reply should be
+    debug_packet_timer_millisecond=millis();
 
     Serial1.print("S:");
     dumpPacketToDebug(&transmitBuffer);
