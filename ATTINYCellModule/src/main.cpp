@@ -120,10 +120,10 @@ void onPacketReceived(const uint8_t* receivebuffer, size_t len) {
     myPacketSerial.send(PP.GetBufferPointer(), PP.GetBufferSize());
 
     //DEBUG: Are there any known issues with Serial Flush causing a CPU to hang?
-    hardware.FlushSerial0();
+    //hardware.FlushSerial0();
 
     //Replace flush with a simple delay - we have 35+ bytes to transmit at 4800 baud + COBS encoding
-    //delay(10);
+    delay(10);
 
     hardware.DisableSerial0TX();
   }
