@@ -167,13 +167,13 @@ void setup() {
   }
 
   hardware.double_tap_green_led();
+  hardware.double_tap_blue_led();
 
   //Set up data handler
   Serial.begin(4800, SERIAL_8N1);
 
   myPacketSerial.setStream(&Serial);
   myPacketSerial.setPacketHandler(&onPacketReceived);
-
 }
 
 //bool hztiming=false;
@@ -207,8 +207,8 @@ void loop() {
   //We are awake....
 
   if (wdt_triggered) {
-    //Flash green LED twice after a watchdog wake up
-    hardware.double_tap_green_led();
+    //Flash blue LED twice after a watchdog wake up
+    hardware.double_tap_blue_led();
   }
 
   //We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass
@@ -216,7 +216,7 @@ void loop() {
   //Probably over kill to do it this frequently
   hardware.ReferenceVoltageOn();
 
-  //allow 2.048V to stabalize
+  //allow reference voltage to stabalize
   delay(4);
 
   PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
@@ -246,7 +246,6 @@ void loop() {
       hardware.StartTimer2();
 
       PP.WeAreInBypass = true;
-
       //This controls how many cycles of loop() we make before re-checking the situation
       bypassCountDown = 200;
     }
@@ -254,10 +253,10 @@ void loop() {
 
   if (bypassCountDown > 0) {
 
-    hardware.BlueLedOn();
+    //hardware.BlueLedOn();
     //Compare the real temperature against max setpoint, we want the PID to keep at this temperature
     uint16_t output = myPID.step(myConfig.BypassOverTempShutdown, PP.InternalTemperature());
-    hardware.BlueLedOff();
+    //hardware.BlueLedOff();
 
     hardware.SetTimer2Value(output);
 

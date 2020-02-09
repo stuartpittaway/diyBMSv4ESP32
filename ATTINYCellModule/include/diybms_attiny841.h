@@ -27,7 +27,6 @@ public:
    void DumpLoadOn();
    void DumpLoadOff();
 
-
    void SparePinOn();
    void SparePinOff();
 
@@ -69,6 +68,7 @@ public:
    void SetTimer2Value(uint16_t value);
 
    void double_tap_green_led();
+   void double_tap_blue_led();
 };
 
 #endif

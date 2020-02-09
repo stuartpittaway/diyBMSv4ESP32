@@ -96,6 +96,16 @@ void DiyBMSATTiny841::double_tap_green_led() {
   GreenLedOff();
 }
 
+void DiyBMSATTiny841::double_tap_blue_led() {
+  BlueLedOn();
+  delay(50);
+  BlueLedOff();
+  delay(50);
+  BlueLedOn();
+  delay(50);
+  BlueLedOff();
+}
+
 void DiyBMSATTiny841::ConfigurePorts() {
   //PUEA – Port A Pull-Up Enable Control Register (All disabled)
   PUEA = 0;
