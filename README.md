@@ -7,13 +7,18 @@ Do it yourself battery management system for Lithium ion battery packs/cells
 If you are looking for version 3 of this project take a look here https://github.com/stuartpittaway/diyBMS
 
 # TRAVIS-CI
-[![Build Status](https://travis-ci.org/stuartpittaway/diyBMSv4.svg?branch=master)](https://travis-ci.org/stuartpittaway/diyBMSv4)
+[![Build Status](https://travis-ci.org/stuartpittaway/diyBMSv4Code.svg?branch=master)](https://travis-ci.org/stuartpittaway/diyBMSv4Code)
 
 
 # Videos on how to use and build
 
 https://www.youtube.com/stuartpittaway
 
+# Hardware
+
+Hardware for this code is in a seperate repo
+
+https://github.com/stuartpittaway/diyBMSv4Code
 
 # WARNING
 
