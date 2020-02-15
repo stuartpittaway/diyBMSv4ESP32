@@ -18,7 +18,7 @@ https://www.youtube.com/stuartpittaway
 
 Hardware for this code is in a seperate repo
 
-https://github.com/stuartpittaway/diyBMSv4Code
+https://github.com/stuartpittaway/diyBMSv4
 
 # WARNING
 
