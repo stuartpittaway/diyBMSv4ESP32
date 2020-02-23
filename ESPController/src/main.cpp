@@ -44,6 +44,8 @@ The time.h file in this library conflicts with the time.h file in the ESP core p
    https://www.hackster.io/Aritro/getting-started-with-esp-nodemcu-using-arduinoide-aa7267
 */
 
+#define COMMS_BAUD_RATE 2400
+
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
@@ -779,7 +781,7 @@ void setup() {
     cmi[3][i].voltagemVMin=6000;
   }
 
-  Serial.begin(4800, SERIAL_8N1);           // Serial for comms to modules
+  Serial.begin(COMMS_BAUD_RATE, SERIAL_8N1);           // Serial for comms to modules
 
   //Use alternative GPIO pins of D7/D8
   //D7 = GPIO13 = RECEIVE SERIAL

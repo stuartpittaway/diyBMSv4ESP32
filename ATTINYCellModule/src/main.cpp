@@ -31,6 +31,8 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #error Processor speed should be 8 Mhz internal
 #endif
 
+#define COMMS_BAUD_RATE 2400
+
 //An Arduino Library that facilitates packet-based serial communication using COBS or SLIP encoding.
 //https://github.com/bakercp/PacketSerial
 #include <PacketSerial.h>
@@ -170,7 +172,7 @@ void setup() {
   hardware.double_tap_blue_led();
 
   //Set up data handler
-  Serial.begin(4800, SERIAL_8N1);
+  Serial.begin(COMMS_BAUD_RATE, SERIAL_8N1);
 
   myPacketSerial.setStream(&Serial);
   myPacketSerial.setPacketHandler(&onPacketReceived);
