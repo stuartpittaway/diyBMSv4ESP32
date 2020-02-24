@@ -275,6 +275,8 @@ bool PacketProcessor::processPacket() {
       buffer.moduledata[7] = _config->BypassThresholdmV;
       buffer.moduledata[8] = _config->Internal_BCoefficient;
       buffer.moduledata[9] = _config->External_BCoefficient;
+      buffer.moduledata[10] = DIYBMSMODULEVERSION;
+
 
       return true;
     }

@@ -31,7 +31,6 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #error Processor speed should be 8 Mhz internal
 #endif
 
-#define COMMS_BAUD_RATE 2400
 
 //An Arduino Library that facilitates packet-based serial communication using COBS or SLIP encoding.
 //https://github.com/bakercp/PacketSerial
@@ -116,16 +115,19 @@ void onPacketReceived(const uint8_t* receivebuffer, size_t len) {
     //byte which the receiver will ignore
     Serial.write(framingmarker);
     //Let connected module wake up
-    delay(8);
+    hardware.FlushSerial0();
+    //delay(1);
 
     //Send the packet (even if it was invalid so controller can count crc errors)
     myPacketSerial.send(PP.GetBufferPointer(), PP.GetBufferSize());
 
     //DEBUG: Are there any known issues with Serial Flush causing a CPU to hang?
-    //hardware.FlushSerial0();
+    hardware.FlushSerial0();
 
-    //Replace flush with a simple delay - we have 35+ bytes to transmit at 4800 baud + COBS encoding
-    delay(10);
+    //Replace flush with a simple delay - we have 35+ bytes to transmit at 2400 baud + COBS encoding
+    //delay(10);
+
+    //At 2400bits per second, = 300 bytes per second = 1000ms/300bytes/sec= 3ms per byte
 
     hardware.DisableSerial0TX();
   }

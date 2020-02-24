@@ -34,6 +34,18 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #ifndef DIYBMS_DEFINES_H // include guard
 #define DIYBMS_DEFINES_H
 
+
+// Use value of 4 for all 4.0, 4.1 and 4.2 PCB module designs - these circuits are identical
+#define DIYBMSMODULEVERSION 4
+
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION >= 4
+  #define COMMS_BAUD_RATE 2400
+#else
+  #error Incorrect value for DIYBMSMODULEVERSION
+#endif
+
+
+
 //This is where the data begins in EEPROM
 #define EEPROM_CONFIG_ADDRESS 0
 
