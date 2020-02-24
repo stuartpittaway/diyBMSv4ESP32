@@ -179,4 +179,6 @@ void PacketReceiveProcessor::ProcessReplySettings() {
   cmi[b][m].Internal_BCoefficient = _packetbuffer.moduledata[8];
   // uint16_t
   cmi[b][m].External_BCoefficient = _packetbuffer.moduledata[9];
+  // uint16_t
+  cmi[b][m].BoardVersionNumber = _packetbuffer.moduledata[10];
 }

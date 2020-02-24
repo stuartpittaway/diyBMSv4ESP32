@@ -567,6 +567,7 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request) {
 
       settings["bank"] = b;
       settings["module"] = m;
+      settings["ver"] = cmi[b][m].BoardVersionNumber;
 
       settings["Cached"] = cmi[b][m].settingsCached;
       // settings["Requested"] = cmi[b][m].settingsRequested;
@@ -579,6 +580,8 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request) {
       settings["mVPerADC"] = cmi[b][m].mVPerADC;
       settings["IntBCoef"] = cmi[b][m].Internal_BCoefficient;
       settings["ExtBCoef"] = cmi[b][m].External_BCoefficient;
+
+
 
       serializeJson(doc, *response);
       request->send(response);

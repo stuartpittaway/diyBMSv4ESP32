@@ -129,6 +129,8 @@ struct CellModuleInfo {
   //External Thermistor settings
   uint16_t External_BCoefficient;
 
+  //Version number returned by code of module
+  uint16_t BoardVersionNumber;
 };
 
 //This holds all the cell information in a large array 2D array (4x16)

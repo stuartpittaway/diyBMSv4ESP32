@@ -88,6 +88,10 @@ const char FILE_INDEX_HTML[] PROGMEM = R"=====(
                 <input name="b" id="b" type="hidden" value="0">
                 <input name="m" id="m" type="hidden" value="0">
                 <div>
+                    <label for="Version">Module version</label>
+                    <input type="number" name="Version" id="Version" value="" readonly="">
+                </div>
+                <div>
                     <label for="BypassOverTempShutdown">Bypass over temperature</label>
                     <input type="number" min="20" max="90" step="1" name="BypassOverTempShutdown" id="BypassOverTempShutdown" value="70" required="">
                 </div>
@@ -403,7 +407,8 @@ function configureModule(button, bank, module) {
       $('#m').val(data.settings.module);
 
       if (data.settings.Cached==true){
-        $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);
+        $('#Version').val(data.settings.ver);
+        $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);      
         $('#BypassThresholdmV').val(data.settings.BypassThresholdmV);
         $('#Calib').val(data.settings.Calib.toFixed(4));
         $('#ExtBCoef').val(data.settings.ExtBCoef);
