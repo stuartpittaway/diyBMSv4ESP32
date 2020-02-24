@@ -17,7 +17,7 @@ individual modules to be addressed with a specific command, or for them all
 to respond to a single command. The protocol allows space in the packet for
 each module to provide a response.
 
-**Serial Parameters:** 4800, N81
+**Serial Parameters:** 2400, N81
 
 ```
                                CONTROLLER
@@ -209,6 +209,7 @@ following foramt:
 |  7  | 4100    | bypass threshold millivolts               |
 |  8  | 4150    | internal thermistor B coefficient         |
 |  9  | 4150    | external thermistor B coefficient         |
+| 10  | 4       | Hardware version of the module (4/4.1/4.2 are reported as 4  |
 
 ### Write Settings (6)
 
