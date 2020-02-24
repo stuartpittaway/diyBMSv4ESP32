@@ -145,7 +145,8 @@ ISR(USART0_START_vect) {
 //Kd: Determines how aggressively the PID reacts to the change in error (Derivative)
 
 //6Hz rate - number of times we call this code in Loop
-FastPID myPID(175.0, 3.5, 8, 6, 16, false);
+//Kp, Ki, Kd, Hz, output_bits, output_signed);
+FastPID myPID(30, 10, 5, 6, 16, false);
 
 void setup() {
   //Must be first line of code
