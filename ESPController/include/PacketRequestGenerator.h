@@ -36,6 +36,8 @@ class PacketRequestGenerator {
      void sendCellTemperatureRequest(uint8_t b);
      void sendMoveToBank(uint8_t b,uint8_t m,uint8_t movetobank);
 
+     uint32_t packetsGenerated = 0;
+
   private:
     Queue* _requestq;
     packet _packetbuffer;

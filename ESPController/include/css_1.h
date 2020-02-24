@@ -43,7 +43,7 @@ h2 { margin:0; }
   .header a {float:none;padding:6px;font-size:14px;line-height:20px;}
   .graphs {height:480px;width:95%;}
   .info .stat .v { font-size:12pt;}
-  .info .stat { min-width:85px;min-height:75px;}
+  .info .stat { min-width:85px;min-height:55px;}
   form label {width:160px;}
   form input[type='input'] {width:175px;}
 

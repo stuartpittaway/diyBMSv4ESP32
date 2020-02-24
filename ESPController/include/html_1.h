@@ -39,9 +39,11 @@ const char FILE_INDEX_HTML[] PROGMEM = R"=====(
     <div id="range3" class="stat"><span class="x t">Range 2:</span><span class="x v"></span></div>
     <div id="range4" class="stat"><span class="x t">Range 3:</span><span class="x v"></span></div>
     <div id="current" class="stat"><span class="x t">Current:</span><span class="x v"></span></div>
-    <div id="badpkt" class="stat"><span class="x t">Packet Errors:</span><span class="x v"></span></div>
     <div id="badcrc" class="stat"><span class="x t">CRC Errors:</span><span class="x v"></span></div>
     <div id="ignored" class="stat"><span class="x t">Ignored request errors:</span><span class="x v"></span></div>
+    <div id="sent" class="stat"><span class="x t">Packets sent:</span><span class="x v"></span></div>
+    <div id="received" class="stat"><span class="x t">Packets rec'd:</span><span class="x v"></span></div>
+    <div id="roundtrip" class="stat"><span class="x t">Roundtrip (ms):</span><span class="x v"></span></div>
 </div>
 <div class="page" id="homePage">
     <div class="graphs" style="">
@@ -408,7 +410,7 @@ function configureModule(button, bank, module) {
 
       if (data.settings.Cached==true){
         $('#Version').val(data.settings.ver);
-        $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);      
+        $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);
         $('#BypassThresholdmV').val(data.settings.BypassThresholdmV);
         $('#Calib').val(data.settings.Calib.toFixed(4));
         $('#ExtBCoef').val(data.settings.ExtBCoef);
@@ -485,8 +487,11 @@ function queryBMS() {
 
     //Ignore and hide any errors which are zero
     if (jsondata.monitor.badcrc==0) { $("#badcrc").hide(); } else { $("#badcrc .v").html(jsondata.monitor.badcrc);$("#badcrc").show();}
-    if (jsondata.monitor.badpkt==0) { $("#badpkt").hide(); } else { $("#badpkt .v").html(jsondata.monitor.badpkt);$("#badpkt").show();}
     if (jsondata.monitor.ignored==0) { $("#ignored").hide(); } else { $("#ignored .v").html(jsondata.monitor.ignored);$("#ignored").show();}
+
+    if (jsondata.monitor.sent==0) { $("#sent").hide(); } else { $("#sent .v").html(jsondata.monitor.sent);$("#sent").show();}
+    if (jsondata.monitor.received==0) { $("#received").hide(); } else { $("#received .v").html(jsondata.monitor.received);$("#received").show();}
+    if (jsondata.monitor.roundtrip==0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.monitor.roundtrip);$("#roundtrip").show();}
 
     for (var bankNumber = 0; bankNumber < 4; bankNumber++) {
       if (voltage[bankNumber]>0) {

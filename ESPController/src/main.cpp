@@ -86,7 +86,7 @@ uint8_t packetType=0;
 uint8_t previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
 
-volatile uint32_t debug_packet_timer_millisecond = 0;
+
 
 //PCF8574P has an i2c address of 0x38 instead of the normal 0x20
 PCF857x pcf8574(0x38, &Wire);
@@ -123,8 +123,6 @@ PacketReceiveProcessor receiveProc=PacketReceiveProcessor();
 #define framingmarker (uint8_t)0x00
 
 PacketSerial_<COBS, framingmarker, 128> myPacketSerial;
-
-volatile bool waitingForReply=false;
 
 WiFiEventHandler wifiConnectHandler;
 WiFiEventHandler wifiDisconnectHandler;
@@ -188,57 +186,26 @@ void onPacketReceived(const uint8_t* receivebuffer, size_t len)
   //due to the way the modules operate
 
   if (len==sizeof(packet)) {
-
-    debug_packet_timer_millisecond=millis()-debug_packet_timer_millisecond;
-
-    Serial1.print(" T:");
-    Serial1.print(debug_packet_timer_millisecond);
-
-    Serial1.print(" E:");
-    Serial1.print(receiveProc.commsError);
-
     // Process decoded incoming packet
-    Serial1.print(" R:");
+    Serial1.print("R:");
     dumpPacketToDebug((packet*)receivebuffer);
 
     if (!receiveProc.ProcessReply(receivebuffer,sequence)) {
-      Serial1.println("**FAILED PROCESS REPLY**");
+      Serial1.print("**FAIL PROCESS REPLY**");
     }
+    Serial1.println("");
 
-    //We received a packet (although may have been an error)
-    waitingForReply=false;
+    Serial1.print("Timing:");
+    Serial1.print(receiveProc.packetTimerMillisecond);
+    Serial1.println("ms");
 
-    receiveProc.abortedComms=0;
-
-    Serial1.println();
   }
 }
 
 
 void timerTransmitCallback() {
-  //Don't send another message until we have received reply from the last one
-  //this slows the transmit process down a lot so potentially need to look at a better
-  //way to do this and also keep track of missing messages replies for error tracking
-  if (waitingForReply) {
-    //Serial1.print('E');Serial1.print(receiveProc.commsError);
-
-    //Increment the counter to watch for complete comms failures
-    receiveProc.commsError++;
-
-    //After X attempts give up and send another packet
-    //about 5 seconds per bank, it seems to take about 115ms per module
-    if (receiveProc.commsError> (mysettings.totalNumberOfBanks* 10)) {
-      Serial1.println("** Aborted COMMS **");
-      waitingForReply=false;
-      receiveProc.totalMissedPacketCount++;
-      receiveProc.commsError=0;
-      receiveProc.abortedComms++;
-    } else {
-        return;
-    }
-  }
-
-  //Called every second to transmit anything that remains in the transmit queue
+  // Called to transmit the next packet in the queue need to ensure this procedure is called more frequently than
+  // items are added into the queue
   if (!requestQueue.isEmpty()) {
     packet transmitBuffer;
 
@@ -246,7 +213,7 @@ void timerTransmitCallback() {
 
     //Wake up the connected cell module from sleep
     Serial.write(framingmarker);
-    delay(10);
+    delay(3);
 
     requestQueue.pop(&transmitBuffer);
     sequence++;
@@ -254,17 +221,17 @@ void timerTransmitCallback() {
     transmitBuffer.crc=CRC16::CalculateArray((uint8_t*)&transmitBuffer, sizeof(packet) - 2);
     myPacketSerial.send((byte*)&transmitBuffer, sizeof(transmitBuffer));
 
-    waitingForReply=true;
+    //Grab the time we sent this packet to time how long packets take to move
+    //through the modules.  We only time the COMMAND::ReadVoltageAndStatus packets
+    if (transmitBuffer.command==COMMAND::ReadVoltageAndStatus) {
+      receiveProc.packetLastSentMillisecond=millis();
+    }
 
-    //Grab the time we sent this packet to time when the reply should be
-    debug_packet_timer_millisecond=millis();
-
+    // Output the packet we just transmitted to debug console
     Serial1.print("S:");
     dumpPacketToDebug(&transmitBuffer);
-
     Serial1.print("/Q:");
-    Serial1.print(requestQueue.getCount());
-    Serial1.print(" # ");
+    Serial1.println(requestQueue.getCount());
 
     GREEN_LED_OFF;
   }
@@ -292,7 +259,7 @@ void ProcessRules() {
   }
 
   //If we have a communications error
-  if (receiveProc.abortedComms > 2) {
+  if (receiveProc.HasCommsTimedOut()) {
     rule_outcome[1]=true;
   }
 

@@ -5,17 +5,24 @@
 #include <defines.h>
 
 #include "crc16.h"
+#include <cppQueue.h>
 
 class PacketReceiveProcessor {
    public:
      PacketReceiveProcessor() {}
      ~PacketReceiveProcessor() {}
      bool ProcessReply(const uint8_t* receivebuffer, uint16_t sequenceToExpect);
-     uint16_t totalMissedPacketCount=0;
+     bool HasCommsTimedOut();
+     //uint16_t totalMissedPacketCount=0;
      uint16_t totalCRCErrors=0;
      uint16_t totalNotProcessedErrors=0;
-     uint16_t commsError=0;
-     uint16_t abortedComms=0;
+
+     uint32_t packetsReceived = 0;
+
+     //Timer for "read voltage" packets (default to 1 minute at startup)
+     uint32_t packetTimerMillisecond = 60*1000;
+     uint32_t packetLastReceivedMillisecond = 0;
+     uint32_t packetLastSentMillisecond = 0;
 
   private:
     packet _packetbuffer;
@@ -31,6 +38,7 @@ class PacketReceiveProcessor {
     void ProcessReplyTemperature();
     void ProcessReplyAddressByte();
     void ProcessReplyBadPacketCount();
+
 };
 
 

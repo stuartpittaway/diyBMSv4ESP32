@@ -1,22 +1,35 @@
 #include "PacketReceiveProcessor.h"
 
+
+
+bool PacketReceiveProcessor::HasCommsTimedOut() {
+  //We timeout the comms if we dont receive a packet within 5 times the normal
+  //round trip time of the packets through the modules
+  return ((millis()-packetLastReceivedMillisecond)> 5*packetTimerMillisecond );
+}
+
 bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
                                           uint16_t sequenceToExpect) {
 
-  // Copy to our buffer
+
+  packetsReceived++;
+
+  // Copy to our buffer (probably dont need to do this)
   memcpy(&_packetbuffer, receivebuffer, sizeof(_packetbuffer));
 
   // Calculate the CRC and compare to received
   uint16_t validateCRC = CRC16::CalculateArray((uint8_t*)&_packetbuffer, sizeof(_packetbuffer) - 2);
 
   if (validateCRC == _packetbuffer.crc) {
-    if (_packetbuffer.sequence == sequenceToExpect) {
+      //Its a valid packet...
+      packetLastReceivedMillisecond=millis();
 
       if (ReplyWasProcessedByAModule()) {
         switch (ReplyForCommand()) {
           case COMMAND::SetBankIdentity:
             break;  // Ignore reply
           case COMMAND::ReadVoltageAndStatus:
+            packetTimerMillisecond=millis()-packetLastSentMillisecond;
             ProcessReplyVoltage();
             break;
           case COMMAND::ReadBadPacketCounter:
@@ -32,9 +45,6 @@ bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
             break;
         }
 
-        //Clear any error counter - we have a good packet
-        commsError=0;
-
         return true;
       } else {
         //Error count for a request that was not processed by any module
@@ -43,10 +53,7 @@ bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
         //or we have just configured a module to another bank
         numberOfModules[ReplyFromBank()]=0;
       }
-    } else {
-      // Increase the error count of out of sequence packets
-      totalMissedPacketCount++;
-    }
+
   } else {
     //crc error
     totalCRCErrors++;
