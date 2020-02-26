@@ -15,7 +15,7 @@
 #define RELAY_OFF 0x99
 #define RELAY_X 0x00
 
-#define RELAY_RULES 9
+#define RELAY_RULES 10
 //Number of relays on board (4)
 #define RELAY_TOTAL 4
 

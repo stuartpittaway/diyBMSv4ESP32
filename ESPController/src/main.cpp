@@ -239,6 +239,20 @@ void timerTransmitCallback() {
 
 void ProcessRules() {
 
+//Needs to match the ordering on the HTML screen
+#define RULE_EmergencyStop 0
+#define RULE_CommunicationsError 1
+#define RULE_Individualcellovervoltage 2
+#define RULE_Individualcellundervoltage 3
+#define RULE_IndividualcellovertemperatureExternal 4
+#define RULE_IndividualcellundertemperatureExternal 5
+#define RULE_PackOverVoltage 6
+#define RULE_PackUnderVoltage 7
+
+#define RULE_Timer1 8
+#define RULE_Timer2 9
+
+
 //Runs the rules and populates rule_outcome array with true/false for each rule
 
   uint32_t packvoltage[4];
@@ -255,12 +269,12 @@ void ProcessRules() {
 
   //If we have a communications error
   if (emergencyStop) {
-    rule_outcome[0]=true;
+    rule_outcome[RULE_EmergencyStop]=true;
   }
 
   //If we have a communications error
   if (receiveProc.HasCommsTimedOut()) {
-    rule_outcome[1]=true;
+    rule_outcome[RULE_CommunicationsError]=true;
   }
 
   //Loop through cells
@@ -270,50 +284,64 @@ void ProcessRules() {
 
       packvoltage[bank]+=cmi[bank][i].voltagemV;
 
-      if (cmi[bank][i].voltagemV > mysettings.rulevalue[2]) {
-          //Rule 2 - Individual cell over voltage
-          rule_outcome[2]=true;
+      if (cmi[bank][i].voltagemV > mysettings.rulevalue[RULE_Individualcellovervoltage]) {
+          //Rule Individual cell over voltage
+          rule_outcome[RULE_Individualcellovervoltage]=true;
       }
 
-      if (cmi[bank][i].voltagemV < mysettings.rulevalue[3]) {
-          //Rule 3 - Individual cell under voltage (mV)
-          rule_outcome[3]=true;
+      if (cmi[bank][i].voltagemV < mysettings.rulevalue[RULE_Individualcellundervoltage]) {
+          //Rule Individual cell under voltage (mV)
+          rule_outcome[RULE_Individualcellundervoltage]=true;
       }
 
-      if ((cmi[bank][i].externalTemp!=-40) && (cmi[bank][i].externalTemp > mysettings.rulevalue[4])) {
-          //Rule 4 - Individual cell over temperature (external probe)
-          rule_outcome[4]=true;
+      if ((cmi[bank][i].externalTemp!=-40) && (cmi[bank][i].externalTemp > mysettings.rulevalue[RULE_IndividualcellovertemperatureExternal])) {
+          //Rule Individual cell over temperature (external probe)
+          rule_outcome[RULE_IndividualcellovertemperatureExternal]=true;
+      }
+
+      if ((cmi[bank][i].externalTemp!=-40) && (cmi[bank][i].externalTemp < mysettings.rulevalue[RULE_IndividualcellundertemperatureExternal])) {
+          //Rule Individual cell UNDER temperature (external probe)
+          rule_outcome[RULE_IndividualcellundertemperatureExternal]=true;
       }
     }
   }
 
   //Combine the voltages if we need to
-  if (mysettings.combinationParallel==false) {
-    packvoltage[0]+=packvoltage[1]+packvoltage[2]+packvoltage[3];
-    packvoltage[1]=0;
-    packvoltage[2]=0;
-    packvoltage[3]=0;
-  }
+  if (mysettings.combinationParallel) {
+      //We have multiple banks which should be evaluated individually
+      for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
+      {
+        if (packvoltage[bank] > mysettings.rulevalue[RULE_PackOverVoltage]) {
+          //Rule - Pack over voltage (mV)
+          rule_outcome[RULE_PackOverVoltage]=true;
+        }
 
-  for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
-  {
-    if (packvoltage[bank] > mysettings.rulevalue[5]) {
-      //Rule 5 - Pack over voltage (mV)
-      rule_outcome[5]=true;
-    }
+        if (packvoltage[bank] < mysettings.rulevalue[RULE_PackUnderVoltage]) {
+          //Rule - Pack under voltage (mV)
+          rule_outcome[RULE_PackUnderVoltage]=true;
+        }
+      }
 
-    if (packvoltage[bank] < mysettings.rulevalue[6]) {
-      //Rule 6 - Pack under voltage (mV)
-      rule_outcome[6]=true;
-    }
+  } else {
+      //We have multiple banks which should be evaluated as a whole
+      if ((packvoltage[0]+packvoltage[1]+packvoltage[2]+packvoltage[3]) > mysettings.rulevalue[RULE_PackOverVoltage]) {
+        //Rule - Pack over voltage (mV)
+        rule_outcome[RULE_PackOverVoltage]=true;
+      }
+
+      if ((packvoltage[0]+packvoltage[1]+packvoltage[2]+packvoltage[3]) < mysettings.rulevalue[RULE_PackUnderVoltage]) {
+        //Rule - Pack under voltage (mV)
+        rule_outcome[RULE_PackUnderVoltage]=true;
+      }
   }
 
   //Time based rules
-  if (minutesSinceMidnight() >= mysettings.rulevalue[7]) {
-    rule_outcome[7]=true;
+  if (minutesSinceMidnight() >= mysettings.rulevalue[RULE_Timer1]) {
+    rule_outcome[RULE_Timer1]=true;
   }
-  if (minutesSinceMidnight() >= mysettings.rulevalue[8]) {
-    rule_outcome[8]=true;
+
+  if (minutesSinceMidnight() >= mysettings.rulevalue[RULE_Timer2]) {
+    rule_outcome[RULE_Timer2]=true;
   }
 
 }

@@ -236,48 +236,53 @@ const char FILE_INDEX_HTML[] PROGMEM = R"=====(
     <div class="settings">
 
     <div class="rule">
-      <label for="rule1value">1. Emergency stop</label>
+      <label for="rule1value">Emergency stop</label>
       <input type="number" min="0" max="0" step="1" name="rule1value" id="rule1value" value="0" required="" readonly="">
     </div>
 
     <div class="rule">
-      <label for="rule2value">2. Communications error</label>
+      <label for="rule2value">Communications error</label>
       <input type="number" min="0" max="0" step="1" name="rule2value" id="rule2value" value="0" required="" readonly="">
     </div>
 
     <div class="rule">
-      <label for="rule3value">3. Individual cell over voltage (mV)</label>
+      <label for="rule3value">Individual cell over voltage (mV)</label>
       <input type="number" min="2500" max="4500" step="10" name="rule3value" id="rule3value" value="4100" required="">
     </div>
 
     <div class="rule">
-      <label for="rule4value">4. Individual cell under voltage (mV)</label>
+      <label for="rule4value">Individual cell under voltage (mV)</label>
       <input type="number" min="2500" max="4500" step="10" name="rule4value" id="rule4value" value="3000" required="">
     </div>
 
     <div class="rule">
-    <label for="rule5value">5. Individual cell over temperature (external probe) °C</label>
+    <label for="rule5value">Individual cell over temperature (external) °C</label>
     <input type="number" min="10" max="90" step="1" name="rule5value" id="rule5value" value="45" required="">
     </div>
 
     <div class="rule">
-    <label for="rule6value">6. Pack over voltage (mV)</label>
-    <input type="number" min="1000" max="99999999" step="100" name="rule6value" id="rule6value" value="16000" required="">
+    <label for="rule6value">Individual cell under temperature (external) °C</label>
+    <input type="number" min="-39" max="90" step="1" name="rule6value" id="rule6value" value="5" required="">
     </div>
 
     <div class="rule">
-    <label for="rule7value">7. Pack under voltage (mV)</label>
-    <input type="number" min="1000" max="99999999" step="100" name="rule7value" id="rule7value" value="12000" required="">
+    <label for="rule7value">Pack over voltage (mV)</label>
+    <input type="number" min="1000" max="99999999" step="100" name="rule7value" id="rule7value" value="16000" required="">
     </div>
 
     <div class="rule">
-    <label for="rule8value">8. Minutes after 2</label>
-    <input type="number" min="0" max="1440" step="1" name="rule8value" id="rule8value" value="0" required="">
+    <label for="rule8value">Pack under voltage (mV)</label>
+    <input type="number" min="1000" max="99999999" step="100" name="rule8value" id="rule8value" value="12000" required="">
     </div>
 
     <div class="rule">
-    <label for="rule9value">9. Minutes after 1</label>
+    <label for="rule9value">Minutes after 2</label>
     <input type="number" min="0" max="1440" step="1" name="rule9value" id="rule9value" value="0" required="">
+    </div>
+
+    <div class="rule">
+    <label for="rule10value">Minutes after 1</label>
+    <input type="number" min="0" max="1440" step="1" name="rule10value" id="rule10value" value="0" required="">
     </div>
 
     <div>
