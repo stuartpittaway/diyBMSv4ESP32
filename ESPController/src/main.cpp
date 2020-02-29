@@ -636,31 +636,69 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
 
 
 void sendMqttPacket() {
-  if (!mysettings.mqtt_enabled) return;
+  if (!mysettings.mqtt_enabled && !mqttClient.connected()) return;
 
   Serial1.println("Sending MQTT");
 
-  char buffer[50];
-  char value[20];
+  char topic[50];
+  char jsonbuffer[100];
+  //char value[20];
+  uint16_t reply;
 
   for (uint8_t bank = 0; bank < 4; bank++) {
     for (uint8_t i = 0; i < numberOfModules[bank]; i++) {
+
+      StaticJsonDocument<100> doc;
+      doc["voltage"] = (float)cmi[bank][i].voltagemV/1000.0;
+      doc["inttemp"]=cmi[bank][i].internalTemp;
+      doc["exttemp"]=cmi[bank][i].externalTemp;
+      doc["bypass"]=cmi[bank][i].inBypass ? 1:0;
+      serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+
+      sprintf(topic, "diybms/%d/%d", bank,i);
+      reply=mqttClient.publish(topic, 0, false, jsonbuffer);
+      Serial1.println(topic);
+      //Serial1.print(" ");      Serial1.print(jsonbuffer);      Serial1.print(" ");      Serial1.println(reply);
+
+
+/*
       sprintf(buffer, "diybms/%d/%d/voltage", bank,i);
       float v=(float)cmi[bank][i].voltagemV/1000.0;
       dtostrf(v,7, 3, value);
-      mqttClient.publish(buffer, 0, true, value);
+      reply=mqttClient.publish(buffer, 0, false, value);
+      Serial1.print(buffer);
+      Serial1.print(" ");
+      Serial1.print(value);
+      Serial1.print(" ");
+      Serial1.println(reply);
 
       sprintf(buffer, "diybms/%d/%d/inttemp", bank,i);
       sprintf(value, "%d", cmi[bank][i].internalTemp);
-      mqttClient.publish(buffer, 0, true, value);
+      reply=mqttClient.publish(buffer, 0, false, value);
+      Serial1.print(buffer);
+      Serial1.print(" ");
+      Serial1.print(value);
+      Serial1.print(" ");
+      Serial1.println(reply);
 
       sprintf(buffer, "diybms/%d/%d/exttemp", bank,i);
       sprintf(value, "%d", cmi[bank][i].externalTemp);
-      mqttClient.publish(buffer, 0, true, value);
+      reply=mqttClient.publish(buffer, 0, false, value);
+      Serial1.print(buffer);
+      Serial1.print(" ");
+      Serial1.print(value);
+      Serial1.print(" ");
+      Serial1.println(reply);
 
       sprintf(buffer, "diybms/%d/%d/bypass", bank,i);
       sprintf(value, "%d", cmi[bank][i].inBypass ? 1:0);
-      mqttClient.publish(buffer, 0, true, value);
+      reply=mqttClient.publish(buffer, 0, false, value);
+      Serial1.print(buffer);
+      Serial1.print(" ");
+      Serial1.print(value);
+      Serial1.print(" ");
+      Serial1.println(reply);
+      */
     }
   }
 }
