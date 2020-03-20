@@ -10,26 +10,16 @@
   This is the code for the controller - it talks to the V4 cell modules over isolated serial bus
 
   This code runs on ESP-8266-12E (NODE MCU 1.0) and compiles with Arduino 1.8.5 environment
-
-  Arduino settings
-  NodeMCU 1.0 (ESP-12E module), Flash 4M (3MSPIFF), CPU 80MHZ
-
-  Setting up ESP-8266-12E (NODE MCU 1.0) on Arduino
-  http://www.instructables.com/id/Programming-a-HTTP-Server-on-ESP-8266-12E/
-
-  "c:\Program Files (x86)\PuTTY\putty.exe" -serial COM4 -sercfg 115200,8,n,1,N
+  
 */
 /*
 *** NOTE IF YOU GET ISSUES WHEN COMPILING IN PLATFORM.IO ***
-
 ERROR: "ESP Async WebServer\src\WebHandlers.cpp:67:64: error: 'strftime' was not declared in this scope"
-
-Delete the file <project folder>\diyBMSv4\ESPController\.pio\libdeps\nodemcuv2\Time\Time.h
-
+Delete the file <project folder>\diyBMSv4\ESPController\.pio\libdeps\esp8266_d1minipro\Time\Time.h
 The time.h file in this library conflicts with the time.h file in the ESP core platform code
 */
 /*
-   PINS
+   ESP8266 PINS
    D0 = GREEN_LED
    D1 = i2c SDA
    D2 = i2c SCL
@@ -39,18 +29,25 @@ The time.h file in this library conflicts with the time.h file in the ESP core p
    D7 = GPIO13 = RECEIVE SERIAL
    D8 = GPIO15 = TRANSMIT SERIAL
 
-
    DIAGRAM
    https://www.hackster.io/Aritro/getting-started-with-esp-nodemcu-using-arduinoide-aa7267
 */
 
 #define COMMS_BAUD_RATE 2400
 
-
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <Hash.h>
+#if defined(ESP8266)
+#include <ESP8266WiFi.h>          
+#include <NtpClientLib.h>
+#else
+#include <WiFi.h>
+#include "time.h"
+#endif
+
+#include <TimeLib.h>
+
 #include <ESPAsyncWebServer.h>
+
 #include <AsyncMqttClient.h>
 #include <PacketSerial.h>
 #include <cppQueue.h>
@@ -62,11 +59,7 @@ The time.h file in this library conflicts with the time.h file in the ESP core p
 #define DBG_PORT Serial1
 #define DEBUG_NTPCLIENT
 
-#include <TimeLib.h>
-#include <NtpClientLib.h>
-
 #include "defines.h"
-
 
 bool PCF8574Enabled;
 volatile bool emergencyStop=false;
@@ -75,18 +68,19 @@ bool rule_outcome[RELAY_RULES];
 uint16_t ConfigHasChanged=0;
 diybms_eeprom_settings mysettings;
 
-AsyncWebServer server(80);
-
 bool server_running=false;
 bool wifiFirstConnected = false;
-bool NTPsyncEventTriggered = false; // True if a time even has been triggered
-NTPSyncEvent_t ntpEvent; // Last triggered event
-
 uint8_t packetType=0;
 uint8_t previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
 
+#if defined(ESP8266)
+bool NTPsyncEventTriggered = false; // True if a time even has been triggered
+NTPSyncEvent_t ntpEvent; // Last triggered event
+#endif
 
+
+AsyncWebServer server(80);
 
 //PCF8574P has an i2c address of 0x38 instead of the normal 0x20
 PCF857x pcf8574(0x38, &Wire);
@@ -124,8 +118,10 @@ PacketReceiveProcessor receiveProc=PacketReceiveProcessor();
 
 PacketSerial_<COBS, framingmarker, 128> myPacketSerial;
 
+#if defined(ESP8266)
 WiFiEventHandler wifiConnectHandler;
 WiFiEventHandler wifiDisconnectHandler;
+#endif
 
 Ticker myTimerRelay;
 Ticker myTimer;
@@ -159,7 +155,7 @@ void dumpPacketToDebug(packet *buffer) {
 uint16_t minutesSinceMidnight() {
   return (hour() * 60) + minute();
 }
-
+#if defined(ESP8266)
 void processSyncEvent (NTPSyncEvent_t ntpEvent) {
     if (ntpEvent < 0) {
         Serial1.printf ("Time Sync error: %d\n", ntpEvent);
@@ -178,6 +174,7 @@ void processSyncEvent (NTPSyncEvent_t ntpEvent) {
         }
     }
 }
+#endif
 
 
 void onPacketReceived(const uint8_t* receivebuffer, size_t len)
@@ -577,7 +574,12 @@ void startTimerToInfluxdb() {
   myTimerSendInfluxdbPacket.attach(30, SendInfluxdbPacket);
 }
 
+
+#if defined(ESP8266)
 void onWifiConnect(const WiFiEventStationModeGotIP& event) {
+#else
+void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info) {
+#endif
 
   wifiFirstConnected = true;
 
@@ -610,7 +612,12 @@ void onWifiConnect(const WiFiEventStationModeGotIP& event) {
 }
 
 
+
+#if defined(ESP8266)
 void onWifiDisconnect(const WiFiEventStationModeDisconnected& event) {
+#else
+void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info) {
+#endif
   Serial1.println("Disconnected from Wi-Fi.");
 
   // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
@@ -776,10 +783,12 @@ void setup() {
 
   Serial.begin(COMMS_BAUD_RATE, SERIAL_8N1);           // Serial for comms to modules
 
+#if defined(ESP8266)
   //Use alternative GPIO pins of D7/D8
   //D7 = GPIO13 = RECEIVE SERIAL
   //D8 = GPIO15 = TRANSMIT SERIAL
   Serial.swap();
+#endif
 
   myPacketSerial.setStream(&Serial);           // start serial for output
   myPacketSerial.setPacketHandler(&onPacketReceived);
@@ -849,19 +858,26 @@ void setup() {
       DIYBMSSoftAP::SetupAccessPoint(&server);
   } else {
 
+#if defined(ESP8266)
     //Config NTP
       NTP.onNTPSyncEvent ([](NTPSyncEvent_t event) {
          ntpEvent = event;
          NTPsyncEventTriggered = true;
      });
+#endif
 
       Serial1.println("Connecting to WIFI");
 
     /* Explicitly set the ESP8266 to be a WiFi-client, otherwise by default,
       would try to act as both a client and an access-point */
 
+#if defined(ESP8266)
       wifiConnectHandler = WiFi.onStationModeGotIP(onWifiConnect);
       wifiDisconnectHandler = WiFi.onStationModeDisconnected(onWifiDisconnect);
+#else
+      WiFi.onEvent(onWifiConnect, WiFiEvent_t::SYSTEM_EVENT_STA_GOT_IP);
+      WiFi.onEvent(onWifiDisconnect, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
+#endif
 
       mqttClient.onConnect(onMqttConnect);
       mqttClient.onDisconnect(onMqttDisconnect);
@@ -904,15 +920,20 @@ void loop() {
       Serial1.print("Requesting NTP from ");
       Serial1.println(mysettings.ntpServer);
       wifiFirstConnected = false;
+
+#if defined(ESP8266)
       //Update time every 10 minutes
       NTP.setInterval (600);
       NTP.setNTPTimeout (NTP_TIMEOUT);
       // String ntpServerName, int8_t timeZone, bool daylight, int8_t minutes, AsyncUDP* udp_conn
       NTP.begin (mysettings.ntpServer, mysettings.timeZone, mysettings.daylight, mysettings.minutesTimeZone);
+#endif
   }
 
+#if defined(ESP8266)
   if (NTPsyncEventTriggered) {
       processSyncEvent (ntpEvent);
       NTPsyncEventTriggered = false;
   }
+#endif
 }

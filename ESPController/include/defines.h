@@ -3,6 +3,9 @@
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
+//Maximum of 16 cell modules (dont change this!)
+#define maximum_cell_modules 16
+#define maximum_bank_of_modules 4
 
 #define GREEN_LED D0
 
@@ -44,7 +47,6 @@ struct diybms_eeprom_settings {
   bool daylight;//=false;
   char ntpServer[64+1];// = "time.google.com";
 
-
   //NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
   uint16_t mqtt_port;
@@ -85,10 +87,6 @@ enum COMMAND: uint8_t
     // 0000 0100  = Report number of bad packets
     // 0000 0101  = Report settings/configuration
 };
-
-//Maximum of 16 cell modules (dont change this!)
-#define maximum_cell_modules 16
-#define maximum_bank_of_modules 4
 
 //NOTE THIS MUST BE EVEN IN SIZE (BYTES) ESP8266 IS 32 BIT AND WILL ALIGN AS SUCH!
 struct packet {

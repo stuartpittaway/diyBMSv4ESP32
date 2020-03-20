@@ -93,10 +93,10 @@ void DIYBMSSoftAP::SetupAccessPoint(AsyncWebServer  *webserver) {
   {
     for (int i = 0; i < n; ++i)
     {
-      if (WiFi.encryptionType(i) != ENC_TYPE_NONE) {
+      //if (WiFi.encryptionType(i) != ENC_TYPE_NONE) {
         // Only show encrypted networks
         DIYBMSSoftAP::networks += "<option>"+WiFi.SSID(i)+"</option>";
-      }
+      //}
       delay(10);
     }
   }

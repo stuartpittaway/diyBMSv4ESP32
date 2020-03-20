@@ -29,7 +29,9 @@ distribute your   contributions under the same license as the original.
 #include "DIYBMSServer.h"
 #include "ArduinoJson.h"
 #include "defines.h"
+#if defined(ESP8266)
 #include "ESP8266TrueRandom.h"
+#endif
 #include <TimeLib.h>
 #include "settings.h"
 
@@ -44,12 +46,39 @@ String DIYBMSServer::UUIDString;
 
 #define REBOOT_COUNT_DOWN 2000
 
+String DIYBMSServer::uuidToString(uint8_t* uuidLocation) {
+  String string = "";
+  int i;
+  for (i=0; i<16; i++) {
+    if (i==4) string += "-";
+    if (i==6) string += "-";
+    if (i==8) string += "-";
+    if (i==10) string += "-";
+    int topDigit = uuidLocation[i] >> 4;
+    int bottomDigit = uuidLocation[i] & 0x0f;
+    // High hex digit
+    string += "0123456789abcdef"[topDigit];
+    // Low hex digit
+    string += "0123456789abcdef"[bottomDigit];
+  }
+
+  return string;
+}
+
 void DIYBMSServer::generateUUID() {
     //Serial1.print("generateUUID=");
     byte uuidNumber[16]; // UUIDs in binary form are 16 bytes long
+    #if defined(ESP8266)
     ESP8266TrueRandom.uuid(uuidNumber);
-    UUIDString = ESP8266TrueRandom.uuidToString(uuidNumber);
-    //Serial1.println(UUIDString);
+    #endif
+
+    #if defined(ESP32)
+    //ESP32 has inbuilt random number generator
+    //https://techtutorialsx.com/2017/12/22/esp32-arduino-random-number-generation/
+    for (uint8_t x=0;x<16;x--) uuidNumber[x] = random(0xFF);
+    #endif
+
+    UUIDString = uuidToString(uuidNumber);
 }
 
 bool DIYBMSServer::validateXSS(AsyncWebServerRequest* request)

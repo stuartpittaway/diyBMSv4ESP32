@@ -5,9 +5,16 @@
 
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <Hash.h>
+#if defined(ESP8266)
+//https://github.com/esp8266/Arduino
+#include <ESP8266WiFi.h>          
 #include <ESPAsyncTCP.h>
+#else
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#endif
+
+
 #include <ESPAsyncWebServer.h>
 
 #include <EEPROM.h>
