@@ -643,7 +643,7 @@ void sendMqttPacket() {
   char topic[50];
   char jsonbuffer[100];
   //char value[20];
-  uint16_t reply;
+  //uint16_t reply;
 
   for (uint8_t bank = 0; bank < 4; bank++) {
     for (uint8_t i = 0; i < numberOfModules[bank]; i++) {
@@ -656,49 +656,9 @@ void sendMqttPacket() {
       serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
 
       sprintf(topic, "diybms/%d/%d", bank,i);
-      reply=mqttClient.publish(topic, 0, false, jsonbuffer);
+      mqttClient.publish(topic, 0, false, jsonbuffer);
       Serial1.println(topic);
       //Serial1.print(" ");      Serial1.print(jsonbuffer);      Serial1.print(" ");      Serial1.println(reply);
-
-
-/*
-      sprintf(buffer, "diybms/%d/%d/voltage", bank,i);
-      float v=(float)cmi[bank][i].voltagemV/1000.0;
-      dtostrf(v,7, 3, value);
-      reply=mqttClient.publish(buffer, 0, false, value);
-      Serial1.print(buffer);
-      Serial1.print(" ");
-      Serial1.print(value);
-      Serial1.print(" ");
-      Serial1.println(reply);
-
-      sprintf(buffer, "diybms/%d/%d/inttemp", bank,i);
-      sprintf(value, "%d", cmi[bank][i].internalTemp);
-      reply=mqttClient.publish(buffer, 0, false, value);
-      Serial1.print(buffer);
-      Serial1.print(" ");
-      Serial1.print(value);
-      Serial1.print(" ");
-      Serial1.println(reply);
-
-      sprintf(buffer, "diybms/%d/%d/exttemp", bank,i);
-      sprintf(value, "%d", cmi[bank][i].externalTemp);
-      reply=mqttClient.publish(buffer, 0, false, value);
-      Serial1.print(buffer);
-      Serial1.print(" ");
-      Serial1.print(value);
-      Serial1.print(" ");
-      Serial1.println(reply);
-
-      sprintf(buffer, "diybms/%d/%d/bypass", bank,i);
-      sprintf(value, "%d", cmi[bank][i].inBypass ? 1:0);
-      reply=mqttClient.publish(buffer, 0, false, value);
-      Serial1.print(buffer);
-      Serial1.print(" ");
-      Serial1.print(value);
-      Serial1.print(" ");
-      Serial1.println(reply);
-      */
     }
   }
 }
