@@ -30,6 +30,11 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #include "ESP8266TrueRandom.h"
 #endif
 
+#if defined(ESP32)
+#include <SPIFFS.h>
+#endif
+
+
 #include <TimeLib.h>
 #include "settings.h"
 

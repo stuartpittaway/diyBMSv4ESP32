@@ -37,7 +37,6 @@ The time.h file in this library conflicts with the time.h file in the ESP core p
 #include <Arduino.h>
 #include <TimeLib.h>
 
-
 #if defined(ESP8266)
 #include <ESP8266WiFi.h>          
 #include <NtpClientLib.h>
@@ -46,6 +45,7 @@ The time.h file in this library conflicts with the time.h file in the ESP core p
 #if defined(ESP32)
 #include <WiFi.h>
 #include "time.h"
+#include <SPIFFS.h>
 #endif
 
 #include <Ticker.h>
