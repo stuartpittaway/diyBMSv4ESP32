@@ -36,6 +36,9 @@ The time.h file in this library conflicts with the time.h file in the ESP core p
 #define COMMS_BAUD_RATE 2400
 
 #include <Arduino.h>
+#include <TimeLib.h>
+
+
 #if defined(ESP8266)
 #include <ESP8266WiFi.h>          
 #include <NtpClientLib.h>
@@ -44,14 +47,11 @@ The time.h file in this library conflicts with the time.h file in the ESP core p
 #include "time.h"
 #endif
 
-#include <TimeLib.h>
-
+#include <Ticker.h>
 #include <ESPAsyncWebServer.h>
-
 #include <AsyncMqttClient.h>
 #include <PacketSerial.h>
 #include <cppQueue.h>
-#include <Ticker.h>
 #include <pcf8574_esp.h>
 #include <Wire.h>
 
