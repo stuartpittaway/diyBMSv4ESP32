@@ -797,6 +797,11 @@ void setup() {
   Serial1.begin(115200, SERIAL_8N1);
   Serial1.setDebugOutput(true);
 
+  // initialize SPIFFS
+  if (!SPIFFS.begin()) {
+      Serial1.println("An Error has occurred while mounting SPIFFS");
+  }
+  
   LoadConfiguration();
 
   //SDA / SCL
@@ -845,10 +850,10 @@ void setup() {
 
 
   //Temporarly force WIFI settings
-  //wifi_eeprom_settings xxxx;
-  //strcpy(xxxx.wifi_ssid,"XXXXXXXXXXXXXXXXX");
-  //strcpy(xxxx.wifi_passphrase,"XXXXXXXXXXXXXX");
-  //Settings::WriteConfigToEEPROM((char*)&xxxx, sizeof(xxxx), EEPROM_WIFI_START_ADDRESS);
+  wifi_eeprom_settings xxxx;
+  strcpy(xxxx.wifi_ssid,"private-wifi-MI6");
+  strcpy(xxxx.wifi_passphrase,"!g1raffesRuleThew0rld!");
+  Settings::WriteConfigToEEPROM((char*)&xxxx, sizeof(xxxx), EEPROM_WIFI_START_ADDRESS);
 
   if (!DIYBMSSoftAP::LoadConfigFromEEPROM() || clearAPSettings==0) {
       Serial1.print("Clear AP settings");

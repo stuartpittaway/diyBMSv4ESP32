@@ -29,17 +29,13 @@ distribute your   contributions under the same license as the original.
 #include "DIYBMSServer.h"
 #include "ArduinoJson.h"
 #include "defines.h"
+
 #if defined(ESP8266)
 #include "ESP8266TrueRandom.h"
 #endif
+
 #include <TimeLib.h>
 #include "settings.h"
-
-#include "html_1.h"
-#include "css_1.h"
-#include "jquery.h"
-#include "logo.h"
-#include "echarts_js.h"
 
 AsyncWebServer *DIYBMSServer::_myserver;
 String DIYBMSServer::UUIDString;
@@ -694,38 +690,14 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver) {
   cookieValue+=String("; path=/; HttpOnly");
   DefaultHeaders::Instance().addHeader("Set-Cookie", cookieValue);
 
-  _myserver->on("/monitor.json", HTTP_GET, DIYBMSServer::monitor);
+  //_myserver->on("/", HTTP_GET, [](AsyncWebServerRequest *request) {    AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/diybms.html", "text/html",false,DIYBMSServer::TemplateProcessor);     request->send(response);  });
+  //_myserver->on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {    AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/diybms.css", "text/css");     request->send(response);  });
 
-  _myserver->on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", FILE_INDEX_HTML,DIYBMSServer::TemplateProcessor);
-    request->send(response);
-  });
-
-  _myserver->on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/css", FILE_STYLE_CSS);
-    request->send(response);
-  });
-
-  // Return GZIP'ed JQUERY code to browser
-  _myserver->on("/jquery.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/javascript", FILE_JQUERY, FILE_JQUERY_SIZE_BYTES);
-    response->addHeader("Content-Encoding", "gzip");
-    request->send(response);
-  });
-
-  _myserver->on("/logo.gif", HTTP_GET, [](AsyncWebServerRequest *request) {
-    AsyncWebServerResponse *response = request->beginResponse_P(200, "image/gif", FILE_LOGO, FILE_LOGO_SIZE_BYTES);
-    request->send(response);
-  });
-
-  _myserver->on(
-      "/echarts.simple.min.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-        AsyncWebServerResponse *response = request->beginResponse_P(200, "text/javascript", FILE_ECHARTS, FILE_ECHARTS_SIZE_BYTES);
-        response->addHeader("Content-Encoding", "gzip");
-        request->send(response);
-      });
+  webserver->serveStatic("/default.html", SPIFFS, "/default.html").setTemplateProcessor(DIYBMSServer::TemplateProcessor);
+  webserver->serveStatic("/", SPIFFS, "/www/").setDefaultFile("default.html");
 
 //Read endpoints
+  _myserver->on("/monitor.json", HTTP_GET, DIYBMSServer::monitor);
   _myserver->on("/integration.json", HTTP_GET, DIYBMSServer::integration);
   _myserver->on("/modules.json", HTTP_GET, DIYBMSServer::modules);
   _myserver->on("/identifyModule.json", HTTP_GET, DIYBMSServer::identifyModule);

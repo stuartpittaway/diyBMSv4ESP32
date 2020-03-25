@@ -1,16 +1,14 @@
-const char FILE_INDEX_HTML[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script src="/jquery.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+<script src="/echarts.simple.min.js" integrity="sha256-CxlxgbUXeGRJaKmzCtFtuI75BynXJMwegbBzSX9ANjY=" crossorigin="anonymous"></script>
 <link href="https://fonts.googleapis.com/css?family=Nova+Mono" rel="stylesheet">
-<link href="style.css" rel="stylesheet">
+<link href="/style.css" rel="stylesheet">
 <title>DIY BMS CONTROLLER v4</title>
-<script src="jquery.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
-<script src="echarts.simple.min.js" integrity="sha256-CxlxgbUXeGRJaKmzCtFtuI75BynXJMwegbBzSX9ANjY=" crossorigin="anonymous"></script>
 </head>
-
 <body>
 <div class="header">
     <div class="logocontainer">
@@ -178,7 +176,7 @@ const char FILE_INDEX_HTML[] PROGMEM = R"=====(
             </div>
             <div>
                 <label for="mqttPassword">Password</label>
-                <input type="password" name="mqttPassword" id="mqttPassword" value="" required="" maxlength="32">
+                <input type="password" autocomplete="current-password" name="mqttPassword" id="mqttPassword" value="" required="" maxlength="32">
             </div>
             <input type="submit" value="Save MQTT settings"/>
         </div>
@@ -211,7 +209,7 @@ const char FILE_INDEX_HTML[] PROGMEM = R"=====(
             </div>
             <div>
                 <label for="influxPassword">Password</label>
-                <input type="password" name="influxPassword" id="influxPassword" value="" required="" maxlength="32">
+                <input type="password"  autocomplete="current-password" name="influxPassword" id="influxPassword" value="" required="" maxlength="32">
             </div>
             <input type="submit" value="Save Influx DB settings"/>
         </div>
@@ -378,6 +376,7 @@ const char FILE_INDEX_HTML[] PROGMEM = R"=====(
     </div>
 </div>
 
+
 <script type="text/javascript">
 var g1=null;
 var g2=null;
@@ -386,10 +385,7 @@ var XSS_KEY='%XSS_KEY%';
 
 function identifyModule(button, bank, module) {
   //Populate settings div
-  $.getJSON( "identifyModule.json",
-  {       b: bank,       m: module    },
-    function(data) {    }
-  ).fail(function() {   $("#iperror").show();});
+  $.getJSON( "identifyModule.json",  { b: bank, m: module },    function(data) {  }  ).fail(function() {   $("#iperror").show();});
 }
 
 function configureModule(button, bank, module) {
@@ -898,4 +894,3 @@ $("form").unbind('submit').submit(function (e) {
 });
 </script>
 </body></html>
-)=====";
