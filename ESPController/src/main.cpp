@@ -5,12 +5,11 @@
  )(_) )_)(_  \  /  ) _ < )    ( \__ \   \  /(_  _)
 (____/(____) (__) (____/(_/\/\_)(___/    \/   (_)
 
-  (c) 2017/18/19 Stuart Pittaway
+  (c) 2017/18/19/20 Stuart Pittaway
 
-  This is the code for the controller - it talks to the V4 cell modules over isolated serial bus
+  This is the code for the controller - it talks to the V4.X cell modules over isolated serial bus
 
-  This code runs on ESP-8266-12E (NODE MCU 1.0) and compiles with Arduino 1.8.5 environment
-  
+  This code runs on ESP-8266 WEMOS D1 PRO and compiles with VS CODE and PLATFORM IO environment
 */
 /*
 *** NOTE IF YOU GET ISSUES WHEN COMPILING IN PLATFORM.IO ***
@@ -42,7 +41,9 @@ The time.h file in this library conflicts with the time.h file in the ESP core p
 #if defined(ESP8266)
 #include <ESP8266WiFi.h>          
 #include <NtpClientLib.h>
-#else
+#endif
+
+#if defined(ESP32)
 #include <WiFi.h>
 #include "time.h"
 #endif

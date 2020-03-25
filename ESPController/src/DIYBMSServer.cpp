@@ -16,14 +16,10 @@ Attribution-NonCommercial-ShareAlike 2.0 UK: England & Wales (CC BY-NC-SA 2.0 UK
 https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 * Non-Commercial — You may not use the material for commercial purposes.
-* Attribution — You must give appropriate credit, provide a link to the license,
-and indicate if changes were made.
-  You may do so in any reasonable manner, but not in any way that suggests the
-licensor endorses you or your use.
-* ShareAlike — If you remix, transform, or build upon the material, you must
-distribute your   contributions under the same license as the original.
-* No additional restrictions — You may not apply legal terms or technological measures
-  that legally restrict others from doing anything the license permits.
+* Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made.
+  You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+* ShareAlike — If you remix, transform, or build upon the material, you must distribute your   contributions under the same license as the original.
+* No additional restrictions — You may not apply legal terms or technological measures that legally restrict others from doing anything the license permits.
 */
 
 #include "DIYBMSServer.h"
@@ -690,11 +686,13 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver) {
   cookieValue+=String("; path=/; HttpOnly");
   DefaultHeaders::Instance().addHeader("Set-Cookie", cookieValue);
 
-  //_myserver->on("/", HTTP_GET, [](AsyncWebServerRequest *request) {    AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/diybms.html", "text/html",false,DIYBMSServer::TemplateProcessor);     request->send(response);  });
-  //_myserver->on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {    AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/diybms.css", "text/css");     request->send(response);  });
+  _myserver->on("/", HTTP_GET, [](AsyncWebServerRequest *request) {    
+    request->redirect("/default.htm");
+  });
 
-  webserver->serveStatic("/default.html", SPIFFS, "/default.html").setTemplateProcessor(DIYBMSServer::TemplateProcessor);
-  webserver->serveStatic("/", SPIFFS, "/www/").setDefaultFile("default.html");
+  _myserver->serveStatic("/default.htm", SPIFFS, "/default.htm").setTemplateProcessor(DIYBMSServer::TemplateProcessor);
+  //webserver->serveStatic("/", SPIFFS, "/").setDefaultFile("default.htm");
+  _myserver->serveStatic("/files/", SPIFFS, "/files/");
 
 //Read endpoints
   _myserver->on("/monitor.json", HTTP_GET, DIYBMSServer::monitor);
