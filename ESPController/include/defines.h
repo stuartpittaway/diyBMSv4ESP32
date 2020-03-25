@@ -7,7 +7,20 @@
 #define maximum_cell_modules 16
 #define maximum_bank_of_modules 4
 
+#define COMMS_BAUD_RATE 2400
+
+#if defined(ESP8266)
+#define RESET_WIFI_PIN D3
+#define PFC_INTERRUPT_PIN D5
 #define GREEN_LED D0
+#endif
+
+#if defined(ESP32)
+#define GREEN_LED 2
+#define RESET_WIFI_PIN D3
+#define PFC_INTERRUPT_PIN D5
+#endif
+
 
 #define GREEN_LED_ON digitalWrite(GREEN_LED,HIGH)
 #define GREEN_LED_OFF digitalWrite(GREEN_LED,LOW)

@@ -32,7 +32,6 @@ The time.h file in this library conflicts with the time.h file in the ESP core p
    https://www.hackster.io/Aritro/getting-started-with-esp-nodemcu-using-arduinoide-aa7267
 */
 
-#define COMMS_BAUD_RATE 2400
 
 #include <Arduino.h>
 #include <TimeLib.h>
@@ -742,15 +741,16 @@ void LoadConfiguration() {
     }
 }
 
+
 void setup() {
   WiFi.mode(WIFI_OFF);
 
   //Serial is used for communication to modules, Serial1 is for debug output
   pinMode(GREEN_LED, OUTPUT);
   //D3 is used to reset access point WIFI details on boot up
-  pinMode(D3,INPUT_PULLUP);
+  pinMode(RESET_WIFI_PIN,INPUT_PULLUP);
   //D5 is interrupt pin from PCF8574
-  pinMode(D5,INPUT_PULLUP);
+  pinMode(PFC_INTERRUPT_PIN,INPUT_PULLUP);
 
   //Fix for issue 5, delay for 3 seconds on power up with green LED lit so
   //people get chance to jump WIFI reset pin (d3)
