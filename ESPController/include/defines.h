@@ -13,12 +13,21 @@
 #define RESET_WIFI_PIN D3
 #define PFC_INTERRUPT_PIN D5
 #define GREEN_LED D0
+#define SERIAL_DATA Serial
+#define SERIAL_DEBUG Serial1
+
+//Debug flags for ntpclientlib
+#define DBG_PORT Serial1
+#define DEBUG_NTPCLIENT
 #endif
 
 #if defined(ESP32)
 #define GREEN_LED 2
-#define RESET_WIFI_PIN D3
-#define PFC_INTERRUPT_PIN D5
+#define RESET_WIFI_PIN 32
+#define PFC_INTERRUPT_PIN 33
+//Data uses Rx2/TX2 and debug logs go to serial0 - USB
+#define SERIAL_DATA Serial2
+#define SERIAL_DEBUG Serial
 #endif
 
 

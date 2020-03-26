@@ -63,7 +63,7 @@ String DIYBMSServer::uuidToString(uint8_t* uuidLocation) {
 }
 
 void DIYBMSServer::generateUUID() {
-    //Serial1.print("generateUUID=");
+    //SERIAL_DEBUG.print("generateUUID=");
     byte uuidNumber[16]; // UUIDs in binary form are 16 bytes long
     #if defined(ESP8266)
     ESP8266TrueRandom.uuid(uuidNumber);
@@ -672,13 +672,8 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request) {
 
 String DIYBMSServer::TemplateProcessor(const String& var)
 {
-  //Serial1.println(var);
-
-
   if(var == "XSS_KEY")
     return DIYBMSServer::UUIDString;
-
-
   return String();
 }
 

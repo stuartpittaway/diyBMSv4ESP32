@@ -59,7 +59,7 @@ bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
     totalCRCErrors++;
   }
 
-  //Serial1.println("Failed ProcessReply");
+  //SERIAL_DEBUG.println("Failed ProcessReply");
   return false;
 }
 
@@ -90,7 +90,7 @@ void PacketReceiveProcessor::ProcessReplyAddressByte() {
   if (broadcast > 0) {
     if (numberOfModules[ReplyFromBank()] != ReplyLastAddress()) {
 
-      //Serial1.println("Reset bank values");
+      //SERIAL_DEBUG.println("Reset bank values");
 
       numberOfModules[ReplyFromBank()] = ReplyLastAddress();
 
@@ -132,7 +132,7 @@ void PacketReceiveProcessor::ProcessReplyVoltage() {
 
   uint8_t b = ReplyFromBank();
 
-  //Serial1.print("Bank=");  Serial1.println(b);
+  //SERIAL_DEBUG.print("Bank=");  SERIAL_DEBUG.println(b);
 
   for (uint8_t i = 0; i < maximum_cell_modules; i++) {
     // 3 top bits remaining

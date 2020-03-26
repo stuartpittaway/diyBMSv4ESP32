@@ -1,3 +1,4 @@
+#include "defines.h"
 #include "SoftAP.h"
 
 wifi_eeprom_settings DIYBMSSoftAP::_config;
@@ -16,7 +17,6 @@ char* DIYBMSSoftAP::WifiPassword() {
 void DIYBMSSoftAP::handleNotFound(AsyncWebServerRequest *request) {
     request->send(404, "text/plain", "Not found");
 }
-
 
 String DIYBMSSoftAP::htmlHeader() {
   return String(F("<!DOCTYPE HTML>\r\n<html><head><style>.page {width:300px;margin:0 auto 0 auto;background-color:cornsilk;font-family:sans-serif;padding:22px;} label {min-width:120px;display:inline-block;padding: 22px 0 22px 0;}</style></head><body><div class=\"page\"><h1>DIY BMS</h1>"));
@@ -56,9 +56,9 @@ void DIYBMSSoftAP::handleSave(AsyncWebServerRequest *request) {
 
     request->send(200, "text/html", s);
 
-    //Serial1.println("handleSave");
-    //Serial1.println(_config.wifi_ssid);
-    //Serial1.println(_config.wifi_passphrase);
+    //SERIAL_DEBUG.println("handleSave");
+    //SERIAL_DEBUG.println(_config.wifi_ssid);
+    //SERIAL_DEBUG.println(_config.wifi_passphrase);
 
     //Delay 6 seconds
     for (size_t i = 0; i < 60; i++) {    delay(100);  }
@@ -96,6 +96,7 @@ void DIYBMSSoftAP::SetupAccessPoint(AsyncWebServer  *webserver) {
       //if (WiFi.encryptionType(i) != ENC_TYPE_NONE) {
         // Only show encrypted networks
         DIYBMSSoftAP::networks += "<option>"+WiFi.SSID(i)+"</option>";
+        SERIAL_DEBUG.println(WiFi.SSID(i));
       //}
       delay(10);
     }
@@ -108,4 +109,8 @@ void DIYBMSSoftAP::SetupAccessPoint(AsyncWebServer  *webserver) {
   _myserver->on("/save", HTTP_POST, handleSave);
   _myserver->onNotFound(handleNotFound);
   _myserver->begin();
+
+  IPAddress IP = WiFi.softAPIP();
+  SERIAL_DEBUG.print("Access point IP address: ");
+  SERIAL_DEBUG.println(IP);
 }
