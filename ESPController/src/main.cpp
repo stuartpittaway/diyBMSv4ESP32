@@ -15,7 +15,10 @@
 *** NOTE IF YOU GET ISSUES WHEN COMPILING IN PLATFORM.IO ***
 ERROR: "ESP Async WebServer\src\WebHandlers.cpp:67:64: error: 'strftime' was not declared in this scope"
 Delete the file <project folder>\diyBMSv4\ESPController\.pio\libdeps\esp8266_d1minipro\Time\Time.h
-The time.h file in this library conflicts with the time.h file in the ESP core platform code
+The Time.h file in this library conflicts with the time.h file in the ESP core platform code
+
+See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
+
 */
 /*
    ESP8266 PINS
@@ -34,17 +37,17 @@ The time.h file in this library conflicts with the time.h file in the ESP core p
 
 
 #include <Arduino.h>
-#include <TimeLib.h>
 
 #if defined(ESP8266)
+#include <TimeLib.h>
 #include <ESP8266WiFi.h>          
 #include <NtpClientLib.h>
 #endif
 
 #if defined(ESP32)
 #include <WiFi.h>
-#include "time.h"
 #include <SPIFFS.h>
+#include "time.h"
 #endif
 
 #include <Ticker.h>
@@ -54,7 +57,6 @@ The time.h file in this library conflicts with the time.h file in the ESP core p
 #include <cppQueue.h>
 #include <pcf8574_esp.h>
 #include <Wire.h>
-
 
 #include "defines.h"
 
@@ -66,7 +68,7 @@ uint16_t ConfigHasChanged=0;
 diybms_eeprom_settings mysettings;
 
 bool server_running=false;
-bool wifiFirstConnected = false;
+//bool wifiFirstConnected = false;
 uint8_t packetType=0;
 uint8_t previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
@@ -150,7 +152,12 @@ void dumpPacketToDebug(packet *buffer) {
 }
 
 uint16_t minutesSinceMidnight() {
-  return (hour() * 60) + minute();
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+      return 0;
+  } else {
+    return (timeinfo.tm_hour * 60) + timeinfo.tm_min;
+  }
 }
 #if defined(ESP8266)
 void processSyncEvent (NTPSyncEvent_t ntpEvent) {
@@ -233,18 +240,6 @@ void timerTransmitCallback() {
 
 void ProcessRules() {
 
-//Needs to match the ordering on the HTML screen
-#define RULE_EmergencyStop 0
-#define RULE_CommunicationsError 1
-#define RULE_Individualcellovervoltage 2
-#define RULE_Individualcellundervoltage 3
-#define RULE_IndividualcellovertemperatureExternal 4
-#define RULE_IndividualcellundertemperatureExternal 5
-#define RULE_PackOverVoltage 6
-#define RULE_PackUnderVoltage 7
-
-#define RULE_Timer1 8
-#define RULE_Timer2 9
 
 
 //Runs the rules and populates rule_outcome array with true/false for each rule
@@ -578,12 +573,26 @@ void onWifiConnect(const WiFiEventStationModeGotIP& event) {
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info) {
 #endif
 
-  wifiFirstConnected = true;
-
-  SERIAL_DEBUG.println("Connected to Wi-Fi.");
+  SERIAL_DEBUG.print("DIYBMS Wi-Fi, ");
   SERIAL_DEBUG.print( WiFi.status() );
   SERIAL_DEBUG.print(F(". Connected IP:"));
   SERIAL_DEBUG.println(WiFi.localIP());
+
+  SERIAL_DEBUG.print("Requesting NTP from ");
+  SERIAL_DEBUG.println(mysettings.ntpServer);
+#if defined(ESP8266)
+      //Update time every 10 minutes
+      NTP.setInterval (600);
+      NTP.setNTPTimeout (NTP_TIMEOUT);
+      // String ntpServerName, int8_t timeZone, bool daylight, int8_t minutes, AsyncUDP* udp_conn
+      NTP.begin (mysettings.ntpServer, mysettings.timeZone, mysettings.daylight, mysettings.minutesTimeZone);
+#endif
+
+
+#if defined(ESP32)
+//Use native ESP32 code
+  configTime(mysettings.minutesTimeZone*60, mysettings.daylight*60, mysettings.ntpServer);
+#endif
 
   /*
   TODO: CHECK ERROR CODES BETTER!
@@ -606,6 +615,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info) {
   if (mysettings.influxdb_enabled) {
     startTimerToInfluxdb();
   }
+
 }
 
 
@@ -707,26 +717,24 @@ void LoadConfiguration() {
       mysettings.rulerelaydefault[x]=RELAY_OFF;
     }
 
-
-    int index=0;
     //1. Emergency stop
-    mysettings.rulevalue[index++]=0;
+    mysettings.rulevalue[RULE_EmergencyStop]=0;
     //2. Communications error
-    mysettings.rulevalue[index++]=0;
+    mysettings.rulevalue[RULE_CommunicationsError]=0;
     //3. Individual cell over voltage
-    mysettings.rulevalue[index++]=4150;
+    mysettings.rulevalue[RULE_Individualcellovervoltage]=4150;
     //4. Individual cell under voltage
-    mysettings.rulevalue[index++]=3000;
+    mysettings.rulevalue[RULE_Individualcellundervoltage]=3000;
     //5. Individual cell over temperature (external probe)
-    mysettings.rulevalue[index++]=55;
+    mysettings.rulevalue[RULE_IndividualcellovertemperatureExternal]=55;
     //6. Pack over voltage (mV)
-    mysettings.rulevalue[index++]=16000;
+    mysettings.rulevalue[RULE_IndividualcellundertemperatureExternal]=5;
     //7. Pack under voltage (mV)
-    mysettings.rulevalue[index++]=12000;
-    //8. Minutes after 2
-    mysettings.rulevalue[index++]=60*9; //9am
-    //9. Minutes after 1
-    mysettings.rulevalue[index++]=60*17;  //5pm
+    mysettings.rulevalue[RULE_PackOverVoltage]=4200*8;
+    //8. RULE_PackUnderVoltage
+    mysettings.rulevalue[RULE_PackUnderVoltage]=3000*8;
+    mysettings.rulevalue[RULE_Timer1]=60*8;  //8am
+    mysettings.rulevalue[RULE_Timer2]=60*17;  //5pm
 
     //Set all relays to don't care
     for (size_t i = 0; i < RELAY_RULES; i++) {
@@ -800,6 +808,12 @@ void setup() {
 
 #if defined(ESP32)
   btStop();
+#endif
+
+#if defined(ESP32)
+  esp_log_level_set("*", ESP_LOG_WARN);        // set all components to ERROR level
+  //esp_log_level_set("wifi", ESP_LOG_WARN);      // enable WARN logs from WiFi stack
+  //esp_log_level_set("dhcpc", ESP_LOG_INFO);     // enable INFO logs from DHCP client
 #endif
 
   //Serial is used for communication to modules, SERIAL_DEBUG is for debug output
@@ -926,6 +940,9 @@ void setup() {
 }
 
 void loop() {
+
+  //ESP_LOGW("LOOP","LOOP");
+
   // Call update to receive, decode and process incoming packets.
   if (SERIAL_DATA.available()) {
     myPacketSerial.update();
@@ -948,21 +965,7 @@ void loop() {
 
   //if (emergencyStop) {    SERIAL_DEBUG.println("EMERGENCY STOP");  }
 
-  if (wifiFirstConnected) {
-      wifiFirstConnected = false;
-
-#if defined(ESP8266)
-      SERIAL_DEBUG.print("Requesting NTP from ");
-      SERIAL_DEBUG.println(mysettings.ntpServer);
-
-      //Update time every 10 minutes
-      NTP.setInterval (600);
-      NTP.setNTPTimeout (NTP_TIMEOUT);
-      // String ntpServerName, int8_t timeZone, bool daylight, int8_t minutes, AsyncUDP* udp_conn
-      NTP.begin (mysettings.ntpServer, mysettings.timeZone, mysettings.daylight, mysettings.minutesTimeZone);
-#endif
-
-  }
+  //if (wifiFirstConnected) {      wifiFirstConnected = false;  }
 
 #if defined(ESP8266)
   if (NTPsyncEventTriggered) {

@@ -1,3 +1,4 @@
+
 /*
   ____  ____  _  _  ____  __  __  ___
  (  _ \(_  _)( \/ )(  _ \(  \/  )/ __)
@@ -28,14 +29,15 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 #if defined(ESP8266)
 #include "ESP8266TrueRandom.h"
+#include <TimeLib.h>
 #endif
 
 #if defined(ESP32)
 #include <SPIFFS.h>
+#include "time.h"
 #endif
 
 
-#include <TimeLib.h>
 #include "settings.h"
 
 AsyncWebServer *DIYBMSServer::_myserver;
@@ -472,7 +474,12 @@ void DIYBMSServer::rules(AsyncWebServerRequest *request) {
   DynamicJsonDocument doc(2048);
   JsonObject root = doc.to<JsonObject>();
 
-  root["timenow"]=(hour() * 60) + minute();
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    root["timenow"]=0;
+  } else {
+    root["timenow"]=(timeinfo.tm_hour * 60) + timeinfo.tm_min;
+  }
 
   root["PCF8574"]=PCF8574Enabled;
 
@@ -534,7 +541,11 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request) {
   mqtt["MinutesTimeZone"] =mysettings.minutesTimeZone;
   mqtt["DST"] =mysettings.daylight;
 
-  mqtt["now"] = now();
+
+  time_t now;
+  if (time(&now)) {
+    mqtt["now"]=now;
+  }
 
   serializeJson(doc, *response);
   request->send(response);
@@ -674,6 +685,18 @@ String DIYBMSServer::TemplateProcessor(const String& var)
 {
   if(var == "XSS_KEY")
     return DIYBMSServer::UUIDString;
+
+#if defined(ESP8266)
+  if(var == "PLATFORM")
+    return String("ESP8266");
+#endif
+
+#if defined(ESP32)
+  if(var == "PLATFORM")
+    return String("ESP32");
+#endif
+
+
   return String();
 }
 

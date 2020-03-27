@@ -32,6 +32,20 @@
 #endif
 
 
+//Needs to match the ordering on the HTML screen
+#define RULE_EmergencyStop 0
+#define RULE_CommunicationsError 1
+#define RULE_Individualcellovervoltage 2
+#define RULE_Individualcellundervoltage 3
+#define RULE_IndividualcellovertemperatureExternal 4
+#define RULE_IndividualcellundertemperatureExternal 5
+#define RULE_PackOverVoltage 6
+#define RULE_PackUnderVoltage 7
+
+#define RULE_Timer1 8
+#define RULE_Timer2 9
+
+
 #define GREEN_LED_ON digitalWrite(GREEN_LED,HIGH)
 #define GREEN_LED_OFF digitalWrite(GREEN_LED,LOW)
 
