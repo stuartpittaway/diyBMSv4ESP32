@@ -1,0 +1,44 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>DIYBMS WIFI Configuration</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+    @viewport {  width: device-width ;  zoom: 1.0 ;}
+    .page {
+        width: 300px;
+        margin: 0 auto 0 auto;
+        background-color: lightgray;
+        font-family: sans-serif;
+        padding: 22px;
+    }
+    
+    label {
+        min-width: 120px;
+        display: inline-block;
+        padding: 22px 0 22px 0;
+    }
+</style>
+</head>
+<body>
+    <div class="page">
+        <h1>DIY BMS v4</h1>
+        <h2>WiFi Setup</h2>
+        <p>Select local WIFI to connect to:</p>
+        <form autocomplete="off" method="post" enctype="application/x-www-form-urlencoded" action="save">
+            <div>
+                <label for="ssid">SSID:</label>
+                <select id="ssid" name="ssid">%SSID%</select>
+            </div>
+            <div>
+                <label for="pass">Password:</label>
+                <input type="password" id="id" name="pass">
+                <br/>
+            </div>
+            <div>
+                <input minlength="8" maxlength="32" type="submit" value="Save">
+            </div>
+        </form>
+    </div>
+</body>
+</html>

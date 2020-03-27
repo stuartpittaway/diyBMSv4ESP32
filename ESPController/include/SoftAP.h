@@ -14,6 +14,10 @@
 #include <AsyncTCP.h>
 #endif
 
+#if defined(ESP32)
+#include <SPIFFS.h>
+#endif
+
 
 #include <ESPAsyncWebServer.h>
 
@@ -42,12 +46,9 @@ class DIYBMSSoftAP {
       static void handleRoot(AsyncWebServerRequest *request);
       static void handleSave(AsyncWebServerRequest *request);
 
-
-      static String htmlHeader();
-      static String htmlFooter();
-
       static wifi_eeprom_settings _config;
       static String networks;
+      static String TemplateProcessor(const String& var);
 };
 
 

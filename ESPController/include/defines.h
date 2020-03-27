@@ -23,6 +23,7 @@
 
 #if defined(ESP32)
 #define GREEN_LED 2
+//34,35,36,39 are input only and dont have pullup/down resistors
 #define RESET_WIFI_PIN 32
 #define PFC_INTERRUPT_PIN 33
 //Data uses Rx2/TX2 and debug logs go to serial0 - USB

@@ -10,31 +10,15 @@ AsyncWebServer * DIYBMSSoftAP::_myserver;
 char* DIYBMSSoftAP::WifiSSID() {
   return _config.wifi_ssid;
 }
+
 char* DIYBMSSoftAP::WifiPassword() {
   return _config.wifi_passphrase;
-}
-
-void DIYBMSSoftAP::handleNotFound(AsyncWebServerRequest *request) {
-    request->send(404, "text/plain", "Not found");
-}
-
-String DIYBMSSoftAP::htmlHeader() {
-  return String(F("<!DOCTYPE HTML>\r\n<html><head><style>.page {width:300px;margin:0 auto 0 auto;background-color:cornsilk;font-family:sans-serif;padding:22px;} label {min-width:120px;display:inline-block;padding: 22px 0 22px 0;}</style></head><body><div class=\"page\"><h1>DIY BMS</h1>"));
-}
-
-String DIYBMSSoftAP::htmlFooter() {
-  return String(F("</div></body></html>\r\n\r\n"));
 }
 
 void DIYBMSSoftAP::handleRoot(AsyncWebServerRequest *request)
 {
   String s;
-  s = htmlHeader();
-  //F Macro - http://arduino-esp8266.readthedocs.io/en/latest/PROGMEM.html
-  s += F("<h2>WiFi Setup</h2><p>Select local WIFI to connect to:</p><form autocomplete=\"off\" method=\"post\" enctype=\"application/x-www-form-urlencoded\" action=\"\\save\"><label for=\"ssid\">SSID:</label><select id=\"ssid\" name=\"ssid\">");
   s += DIYBMSSoftAP::networks;
-  s += F("</select><label for=\"pass\">Password:</label><input type=\"password\" id=\"id\" name=\"pass\"><br/><input minlength=\"8\" maxlength=\"32\" type=\"submit\" value=\"Submit\"></form>");
-  s += htmlFooter();
   request->send(200, "text/html", s);
 }
 
@@ -52,22 +36,17 @@ void DIYBMSSoftAP::handleSave(AsyncWebServerRequest *request) {
 
     Settings::WriteConfigToEEPROM((char*)&_config, sizeof(_config), EEPROM_WIFI_START_ADDRESS);
 
-    s = htmlHeader() + F("<p>WIFI settings saved, will reboot in 5 seconds.</p>") + htmlFooter();
+    s = F("<p>WIFI settings saved, will reboot in 5 seconds.</p>");
 
     request->send(200, "text/html", s);
 
-    //SERIAL_DEBUG.println("handleSave");
-    //SERIAL_DEBUG.println(_config.wifi_ssid);
-    //SERIAL_DEBUG.println(_config.wifi_passphrase);
-
     //Delay 6 seconds
-    for (size_t i = 0; i < 60; i++) {    delay(100);  }
+    for (size_t i = 0; i < 60; i++) { delay(100); }
 
     ESP.restart();
 
   } else {
-    s = htmlHeader() + F("<p>WIFI settings too long.</p>") + htmlFooter();
-
+    s =  F("<p>WIFI settings too long.</p>");
     request->send(200, "text/html", s);
   }
 }
@@ -77,7 +56,6 @@ bool DIYBMSSoftAP::LoadConfigFromEEPROM() {
 }
 
 void DIYBMSSoftAP::SetupAccessPoint(AsyncWebServer  *webserver) {
-
   _myserver=webserver;
   const char* ssid = "DIY_BMS_CONTROLLER";
 
@@ -91,26 +69,41 @@ void DIYBMSSoftAP::SetupAccessPoint(AsyncWebServer  *webserver) {
     DIYBMSSoftAP::networks = "no networks found";
   else
   {
+    DIYBMSSoftAP::networks="";
     for (int i = 0; i < n; ++i)
     {
-      //if (WiFi.encryptionType(i) != ENC_TYPE_NONE) {
-        // Only show encrypted networks
         DIYBMSSoftAP::networks += "<option>"+WiFi.SSID(i)+"</option>";
         SERIAL_DEBUG.println(WiFi.SSID(i));
-      //}
-      delay(10);
+        delay(5);
     }
   }
 
+  WiFi.mode(WIFI_OFF);
+  delay(100);
   WiFi.mode(WIFI_AP);
+  delay(100);
   WiFi.softAP(ssid);
 
-  _myserver->on("/", HTTP_GET, handleRoot);
+  _myserver->on("/", HTTP_GET, [](AsyncWebServerRequest *request) {    
+    request->redirect("/softap.htm");
+  });
+
+  _myserver->serveStatic("/softap.htm", SPIFFS, "/softap/softap.htm").setTemplateProcessor(DIYBMSSoftAP::TemplateProcessor);
   _myserver->on("/save", HTTP_POST, handleSave);
-  _myserver->onNotFound(handleNotFound);
+  //_myserver->onNotFound(handleNotFound);
   _myserver->begin();
 
   IPAddress IP = WiFi.softAPIP();
   SERIAL_DEBUG.print("Access point IP address: ");
   SERIAL_DEBUG.println(IP);
+}
+
+String DIYBMSSoftAP::TemplateProcessor(const String& var)
+{
+  //SERIAL_DEBUG.print("TemplateProcessor: ");  SERIAL_DEBUG.println(var);
+
+  if(var == "SSID")
+    return DIYBMSSoftAP::networks;
+
+  return String();
 }

@@ -739,8 +739,68 @@ void LoadConfiguration() {
 }
 
 
+void ConfigureI2C() {
+  #if defined(ESP8266)
+  //SDA / SCL
+  //I'm sure this should be 4,5 !
+  Wire.begin(5,4);
+#endif
+
+#if defined(ESP32)
+  //SDA / SCL
+  //ESP32 = I2C0-SDA / I2C0-SCL
+  //I2C Bus 1: uses GPIO 27 (SDA) and GPIO 26 (SCL);
+  //I2C Bus 2: uses GPIO 33 (SDA) and GPIO 32 (SCL);
+  Wire.begin(27,26);
+#endif
+
+  Wire.setClock(100000L);
+
+  //Make PINs 4-7 INPUTs - the interrupt fires when triggered
+  pcf8574.begin();
+
+  //We test to see if the i2c expander is actually fitted
+  pcf8574.read8();
+
+  //Set relay defaults
+  for (int8_t y = 0; y<RELAY_TOTAL; y++)
+  {
+      previousRelayState[y]=mysettings.rulerelaydefault[y]==RELAY_ON ? LOW:HIGH;
+  }
+
+  if (pcf8574.lastError()==0) {
+    SERIAL_DEBUG.println("Found pcf8574");
+    pcf8574.write(4, HIGH);
+    pcf8574.write(5, HIGH);
+    pcf8574.write(6, HIGH);
+    pcf8574.write(7, HIGH);
+
+    //Set relay defaults
+    for (int8_t y = 0; y<RELAY_TOTAL; y++)
+    {
+        pcf8574.write(y,previousRelayState[y]);
+    }
+    PCF8574Enabled=true;
+  } else {
+    //Not fitted
+    SERIAL_DEBUG.println("pcf8574 not fitted");
+    PCF8574Enabled=false;
+  }
+
+  //internal pullup-resistor on the interrupt line via ESP8266
+  pcf8574.resetInterruptPin();
+
+  //TODO: Fix this for ESP32 different PIN
+  attachInterrupt(digitalPinToInterrupt(PFC_INTERRUPT_PIN), PCFInterrupt, FALLING);
+}
+
+
 void setup() {
   WiFi.mode(WIFI_OFF);
+
+#if defined(ESP32)
+  btStop();
+#endif
 
   //Serial is used for communication to modules, SERIAL_DEBUG is for debug output
   pinMode(GREEN_LED, OUTPUT);
@@ -802,55 +862,8 @@ void setup() {
   
   LoadConfiguration();
 
-  //SDA / SCL
-  //I'm sure this should be 4,5 !
-  Wire.begin(5,4);
-  Wire.setClock(100000L);
 
-  //Make PINs 4-7 INPUTs - the interrupt fires when triggered
-  pcf8574.begin();
-
-  //We test to see if the i2c expander is actually fitted
-  pcf8574.read8();
-
-    //Set relay defaults
-    for (int8_t y = 0; y<RELAY_TOTAL; y++)
-    {
-        previousRelayState[y]=mysettings.rulerelaydefault[y]==RELAY_ON ? LOW:HIGH;
-    }
-
-  if (pcf8574.lastError()==0) {
-    SERIAL_DEBUG.println("Found pcf8574");
-    pcf8574.write(4, HIGH);
-    pcf8574.write(5, HIGH);
-    pcf8574.write(6, HIGH);
-    pcf8574.write(7, HIGH);
-
-    //Set relay defaults
-    for (int8_t y = 0; y<RELAY_TOTAL; y++)
-    {
-        pcf8574.write(y,previousRelayState[y]);
-    }
-    PCF8574Enabled=true;
-  } else {
-    //Not fitted
-    SERIAL_DEBUG.println("pcf8574 not fitted");
-    PCF8574Enabled=false;
-  }
-
-  //internal pullup-resistor on the interrupt line via ESP8266
-  pcf8574.resetInterruptPin();
-  //TODO: Fix this for ESP32 different PIN
-  attachInterrupt(digitalPinToInterrupt(PFC_INTERRUPT_PIN), PCFInterrupt, FALLING);
-
-  //Ensure we service the cell modules every 4 seconds
-  myTimer.attach(4, timerEnqueueCallback);
-
-  //Process rules every 5 seconds (this prevents the relays from clattering on and off)
-  myTimerRelay.attach(5, timerProcessRules);
-
-  //We process the transmit queue every 0.5 seconds (this needs to be lower delay than the queue fills)
-  myTransmitTimer.attach(0.5, timerTransmitCallback);
+  ConfigureI2C();
 
   //Temporarly force WIFI settings
   //wifi_eeprom_settings xxxx;
@@ -882,7 +895,9 @@ void setup() {
 #if defined(ESP8266)
       wifiConnectHandler = WiFi.onStationModeGotIP(onWifiConnect);
       wifiDisconnectHandler = WiFi.onStationModeDisconnected(onWifiDisconnect);
-#else
+#endif
+
+#if defined(ESP32)
       WiFi.onEvent(onWifiConnect, WiFiEvent_t::SYSTEM_EVENT_STA_GOT_IP);
       WiFi.onEvent(onWifiDisconnect, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
 #endif
@@ -898,6 +913,16 @@ void setup() {
 
       connectToWifi();
   }
+
+
+    //Ensure we service the cell modules every 4 seconds
+  myTimer.attach(4, timerEnqueueCallback);
+
+  //Process rules every 5 seconds (this prevents the relays from clattering on and off)
+  myTimerRelay.attach(5, timerProcessRules);
+
+  //We process the transmit queue every 0.5 seconds (this needs to be lower delay than the queue fills)
+  myTransmitTimer.attach(0.5, timerTransmitCallback);
 }
 
 void loop() {
@@ -919,7 +944,6 @@ void loop() {
         WiFi.disconnect();
         ESP.restart();
       }
-      delay(1);
   }
 
   //if (emergencyStop) {    SERIAL_DEBUG.println("EMERGENCY STOP");  }
@@ -937,6 +961,7 @@ void loop() {
       // String ntpServerName, int8_t timeZone, bool daylight, int8_t minutes, AsyncUDP* udp_conn
       NTP.begin (mysettings.ntpServer, mysettings.timeZone, mysettings.daylight, mysettings.minutesTimeZone);
 #endif
+
   }
 
 #if defined(ESP8266)
