@@ -7,14 +7,13 @@
 <script type="text/javascript">var XSS_KEY='%XSS_KEY%';</script>   
 <script type="text/javascript" src="/files/jquery.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
 <script type="text/javascript" src="/files/echarts.simple.min.js" integrity="sha256-CxlxgbUXeGRJaKmzCtFtuI75BynXJMwegbBzSX9ANjY=" crossorigin="anonymous"></script>
-<link href="https://fonts.googleapis.com/css?family=Nova+Mono" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
 <title>DIY BMS CONTROLLER v4</title>
 </head>
 <body>
     <div class="header">
     <div class="logocontainer">
-        <img class="logo" src="/files/logo.gif" width="191" height="48" alt="DIYBMS" />
-        <div id="refreshbar"></div>
+        <img class="logo" src="/files/logo.png" width="152" height="48" alt="DIYBMS" />
     </div>
     <div class="header-right">
         <a id="home" class="active" href="#home">Home</a>
@@ -387,8 +386,6 @@ var g2=null;
 var g3=null;
 
 $(function() {
-  //On page ready
-  countdown();
 
   //Populate all the setting rules with relay select lists
   $.each($(".settings .rule")  , function(index, value) {
@@ -615,7 +612,12 @@ $("form").unbind('submit').submit(function (e) {
     });
 
   $("#homePage").show();
+
+  
+  //On page ready
+  queryBMS();
 });
+
 
 </script>
 </body></html>
