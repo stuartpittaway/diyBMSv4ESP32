@@ -32,18 +32,16 @@ int16_t Steinhart::ThermistorToCelcius(uint16_t BCOEFFICIENT, uint16_t RawADC) {
     //Temp = 1.0 / (A + (B*Temp) + (C * Temp * Temp * Temp ));
  }
 
- return -273;
+ return (int16_t)-999;
 }
 
-//This function reduces the scale of temperatures from float types to a single byte (unsigned)
+//This function reduces the scale of temperatures from int16_t type to a single byte (unsigned)
 //We have an artifical floor at 40oC, anything below +40 is considered negative (below freezing)
 //Gives range of -40 to +216 degrees C
 uint8_t Steinhart::TemperatureToByte(int16_t TempInCelcius) {
   TempInCelcius += 40;
-
-  //Set the limits
+  //Set the limits and convert from signed to unsigned
   if (TempInCelcius < 0) TempInCelcius = 0;
   if (TempInCelcius > 255) TempInCelcius = 255;
-
-  return (uint8_t) TempInCelcius;
+  return (uint8_t)TempInCelcius;
 }

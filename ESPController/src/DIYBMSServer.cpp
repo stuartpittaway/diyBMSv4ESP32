@@ -474,12 +474,27 @@ void DIYBMSServer::rules(AsyncWebServerRequest *request) {
   DynamicJsonDocument doc(2048);
   JsonObject root = doc.to<JsonObject>();
 
+
+#if defined(ESP8266)
+  time_t now;
+  struct tm * timeinfo;
+  time(&now);
+  timeinfo = localtime(&now);  
+  root["timenow"]=(timeinfo->tm_hour * 60) + timeinfo->tm_min;
+#endif
+
+#if defined(ESP32)
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
     root["timenow"]=0;
   } else {
     root["timenow"]=(timeinfo.tm_hour * 60) + timeinfo.tm_min;
   }
+#endif
+
+
+
+
 
   root["PCF8574"]=PCF8574Enabled;
 

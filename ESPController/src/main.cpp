@@ -152,13 +152,25 @@ void dumpPacketToDebug(packet *buffer) {
 }
 
 uint16_t minutesSinceMidnight() {
+
+#if defined(ESP8266)
+  time_t now;
+  struct tm * timeinfo;
+  time(&now);
+  timeinfo = localtime(&now);  
+  return (timeinfo->tm_hour * 60) + timeinfo->tm_min;
+#endif
+
+#if defined(ESP32)
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
       return 0;
   } else {
     return (timeinfo.tm_hour * 60) + timeinfo.tm_min;
   }
+#endif
 }
+
 #if defined(ESP8266)
 void processSyncEvent (NTPSyncEvent_t ntpEvent) {
     if (ntpEvent < 0) {
