@@ -476,11 +476,7 @@ void DIYBMSServer::rules(AsyncWebServerRequest *request) {
 
 
 #if defined(ESP8266)
-  time_t now;
-  struct tm * timeinfo;
-  time(&now);
-  timeinfo = localtime(&now);  
-  root["timenow"]=(timeinfo->tm_hour * 60) + timeinfo->tm_min;
+ root["timenow"]=(hour() * 60) + minute();
 #endif
 
 #if defined(ESP32)
@@ -491,9 +487,6 @@ void DIYBMSServer::rules(AsyncWebServerRequest *request) {
     root["timenow"]=(timeinfo.tm_hour * 60) + timeinfo.tm_min;
   }
 #endif
-
-
-
 
 
   root["PCF8574"]=PCF8574Enabled;

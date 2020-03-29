@@ -154,11 +154,7 @@ void dumpPacketToDebug(packet *buffer) {
 uint16_t minutesSinceMidnight() {
 
 #if defined(ESP8266)
-  time_t now;
-  struct tm * timeinfo;
-  time(&now);
-  timeinfo = localtime(&now);  
-  return (timeinfo->tm_hour * 60) + timeinfo->tm_min;
+ return (hour() * 60) + minute();
 #endif
 
 #if defined(ESP32)
@@ -185,8 +181,8 @@ void processSyncEvent (NTPSyncEvent_t ntpEvent) {
             SERIAL_DEBUG.println ("NTP response error");
     } else {
         if (ntpEvent == timeSyncd) {
-            SERIAL_DEBUG.print ("Got NTP time: ");
-            SERIAL_DEBUG.println (NTP.getTimeDateString (NTP.getLastNTPSync()));
+            SERIAL_DEBUG.print ("Got NTP time");
+            //SERIAL_DEBUG.println (NTP.getTimeDateString(NTP.getLastNTPSync()));
         }
     }
 }
