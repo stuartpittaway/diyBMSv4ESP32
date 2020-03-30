@@ -134,6 +134,8 @@ function queryBMS() {
       $("#commserr").fadeOut();
     }
 
+    $("#info").show();
+        
     $("#iperror").hide();
 
     if($('#modulesPage').is(':visible')){
@@ -172,12 +174,46 @@ function queryBMS() {
 
 
     if($('#homePage').is(':visible')){
-        if (g1==null) {
-          // based on prepared DOM, initialize echarts instance
-          g1 = echarts.init(document.getElementById('graph1'));      
-    
 
-          var labelOption = {
+      
+      if (g1==null) {
+        // based on prepared DOM, initialize echarts instance
+        g1 = echarts.init(document.getElementById('graph1'));
+
+        var labelOption = {
+            normal: {
+                show: true,
+                position: 'insideBottom',
+                distance: 15,
+                align: 'left',
+                verticalAlign: 'middle',
+                rotate: 90,
+                formatter: '{c}V',
+                fontSize: 24, color: '#eeeeee',fontFamily: 'Inconsolata'                  
+            }
+        };
+
+        var labelOption3 = {
+            normal: {
+                show: true,
+                position: 'top',
+                distance:5,
+                formatter: '{c}V',
+                fontSize: 14, color: '#c1bdbd',fontFamily: 'Inconsolata'
+            }
+        };
+
+        var labelOption4 = {
+            normal: {
+                show: true,
+                position: 'bottom',
+                distance:5,
+                formatter: '{c}V',
+                fontSize: 14, color: '#807d7d',fontFamily: 'Inconsolata'
+            }
+        };
+
+        var labelOption2 = {
               normal: {
                   show: true,
                   position: 'insideBottom',
@@ -185,89 +221,59 @@ function queryBMS() {
                   align: 'left',
                   verticalAlign: 'middle',
                   rotate: 90,
-                  formatter: '{c}V',
-                  fontSize: 24, color: '#eeeeee',fontFamily: 'Inconsolata'                  
+                  formatter: '{c}°C',
+                  fontSize: 20, color: '#eeeeee'
+                  ,fontFamily: 'Inconsolata'
               }
           };
 
-          var labelOption3 = {
-              normal: {
-                  show: true,
-                  position: 'top',
-                  distance:5,
-                  formatter: '{c}V',
-                  fontSize: 14, color: '#c1bdbd',fontFamily: 'Inconsolata'
-              }
-          };
-
-          var labelOption4 = {
-              normal: {
-                  show: true,
-                  position: 'bottom',
-                  distance:5,
-                  formatter: '{c}V',
-                  fontSize: 14, color: '#807d7d',fontFamily: 'Inconsolata'
-              }
-          };
-
-          var labelOption2 = {
-                normal: {
-                    show: true,
-                    position: 'insideBottom',
-                    distance: 15,
-                    align: 'left',
-                    verticalAlign: 'middle',
-                    rotate: 90,
-                    formatter: '{c}°C',
-                    fontSize: 20, color: '#eeeeee'
-                    ,fontFamily: 'Inconsolata'
-                }
-            };
-
-          
-          // specify chart configuration item and data
-          var option = {
-//            color: ['#c1bdbd', '#c1bdbd', '#c1bdbd'],
-            tooltip: { trigger: 'axis', axisPointer: { type: 'cross', crossStyle: { color: '#525252' } } },
-              legend: { data:['Voltage'], show:false },
-              xAxis: [
-                {gridIndex:0,type:'category',axisLine:{lineStyle:{color:'#c1bdbd'}} }
-               ,{gridIndex:1,type:'category',axisLine:{lineStyle:{color:'#c1bdbd'}} }
-              ],
-              yAxis: [
-                {gridIndex:0,name:'Volts',type:'value',min:minVoltage,max:maxVoltage,interval:0.25,position:'left',
-                axisLine:{lineStyle:{color:'#c1bdbd'}}
-                ,axisLabel:{formatter:'{value}V'}
-              },
-                
-                {gridIndex:1,name:'Temperature',type:'value',interval:10,position:'left'
-                ,axisLine:{lineStyle:{color:'#c1bdbd'}}
-                ,axisLabel:{ formatter: '{value}°C' }
-              } 
-              ]
-              ,series: [{ name: 'Voltage', type: 'bar', data: [], label:labelOption
-            }
-                  ,{name:'Min V', type:'line', data: [], label: labelOption4,symbolSize:20,symbol:['circle'], itemStyle:{normal:{lineStyle:{color:'transparent',type:'dotted'}} } }
-                  ,{name:'Max V', type:'line', data: [], label: labelOption3,symbolSize:20,symbol:['triangle'], itemStyle:{normal:{lineStyle:{color:'transparent',type:'dotted'}} } }
-                  ,{xAxisIndex:1, yAxisIndex:1, name:'BypassTemperature',type:'bar', data: [], label: labelOption2 }
-                  ,{xAxisIndex:1, yAxisIndex:1, name:'CellTemperature',type:'bar',data: [], label: labelOption2 }
-              ],
-              grid: [{containLabel:false,
+        
+        // specify chart configuration item and data
+        var option = {
+    //            color: ['#c1bdbd', '#c1bdbd', '#c1bdbd'],
+          tooltip: { trigger: 'axis', axisPointer: { show:true, type:'line', crossStyle:{ color: '#525252' } } },
+            legend: { data:['Voltage'], show:false },
+            xAxis: [
+              {gridIndex:0,type:'category',axisLine:{lineStyle:{color:'#c1bdbd'}} }
+            ,{gridIndex:1,type:'category',axisLine:{lineStyle:{color:'#c1bdbd'}} }
+            ],
+            yAxis: [
+              {gridIndex:0,name:'Volts',type:'value',min:minVoltage,max:maxVoltage,interval:0.25,position:'left',
+              axisLine:{lineStyle:{color:'#c1bdbd'}}
+              ,axisLabel:{formatter:'{value}V'}
+            },
+              
+              {gridIndex:1,name:'Temperature',type:'value',interval:10,position:'left'
+              ,axisLine:{lineStyle:{color:'#c1bdbd'}}
+              ,axisLabel:{ formatter: '{value}°C' }
+            } 
+            ]
+            ,series: [{ name: 'Voltage', type: 'bar', data: [], label:labelOption
+          }
+                ,{name:'Min V', type:'line', data: [], label: labelOption4,symbolSize:20,symbol:['circle'], itemStyle:{normal:{lineStyle:{color:'transparent',type:'dotted'}} } }
+                ,{name:'Max V', type:'line', data: [], label: labelOption3,symbolSize:20,symbol:['triangle'], itemStyle:{normal:{lineStyle:{color:'transparent',type:'dotted'}} } }
+                ,{xAxisIndex:1, yAxisIndex:1, name:'BypassTemperature',type:'bar', data: [], label: labelOption2 }
+                ,{xAxisIndex:1, yAxisIndex:1, name:'CellTemperature',type:'bar',data: [], label: labelOption2 }
+            ],
+            grid: [{containLabel:false,
+              left:'5%',
+              right:'5%',
+              bottom:'32%'},{containLabel:false,
                 left:'5%',
                 right:'5%',
-                bottom:'32%'},{containLabel:false,
-                  left:'5%',
-                  right:'5%',
-                  top:'78%'}],
-          };
+                top:'78%'}],
+        };
 
-          // use configuration item and data specified to show chart
-          g1.setOption(option);
+        // use configuration item and data specified to show chart
+        g1.setOption(option);
+      }
 
-        } else {
+
+      if (g1!=null) {
           g1.setOption({
               xAxis: { data: labels },
-              series: [{ name: 'Voltage', data: voltages }
+              yAxis: [ {gridIndex:0,min:minVoltage,max:maxVoltage}]
+              ,series: [{ name: 'Voltage', data: voltages }
               ,{ name: 'Min V', data: voltagesmin }
               ,{ name: 'Max V', data: voltagesmax }
               ,{ name: 'BypassTemperature', data: tempint }
@@ -275,14 +281,19 @@ function queryBMS() {
           });
         }
     }//end homepage visible
+
     //Call again in a few seconds
     setTimeout(queryBMS, 4000);
+
+    $("#loading").hide();
 
   }).fail(function() {
      $("#iperror").show();
       //Try again in a few seconds (2 seconds if errored)
       setTimeout(queryBMS, 2000);
+      $("#loading").hide();
   });
 }
 
 $(window).on('resize', function(){ if(g1 != null && g1 != undefined && $('#homePage').is(':visible')){g1.resize();}});
+

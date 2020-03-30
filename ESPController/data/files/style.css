@@ -8,8 +8,8 @@ p {margin-block-start: 1em; margin-block-end:0;}
 .header a.logo{font-size:25px;font-weight:700}
 .header-right{float:right}
 .logocontainer{float:left;width:191px;height:52px;}
-.info {width:100%;padding:4px;}
-.info .stat {display:block;border:solid 2px gray;padding:2px;margin:2px;float:left;min-width:145px;}
+.info {width:100%;padding:4px;display:none;}
+.info .stat {display:block;border:solid 2px gray;padding:2px;margin:2px;float:left;min-width:125px;}
 .info .stat .x {display:block;width:100%;text-align:right;}
 .info .stat .t {font-size:10pt;}
 .info .stat .v {font-size:22pt;font-family:'Inconsolata',monospace;;font-weight:bold;}
@@ -28,6 +28,7 @@ form input[type='submit'] {font-family:Arial,Helvetica,sans-serif;border:none;te
 #modulesTable .rows span {min-width:90px;font-family:'Inconsolata',monospace;text-align:right;}
 #modulesTable .rows button {margin-left:20px;}
 #modulesTable .th span {text-align:right;min-width:90px}
+#loading {width:100px;position:absolute;height:100px;margin-left: auto;margin-right: auto;padding: 0;top:50%;left:50%;}
 
 @media screen and (max-width:640px){
   .page .region {width:98%;}
@@ -47,7 +48,6 @@ form input[type='submit'] {font-family:Arial,Helvetica,sans-serif;border:none;te
   .logocontainer {width:80px;height:28px;}
 }
 
-
 /* Blue style */
 body{background-color: white;}
 .header{background-color:#d4f0fb}
@@ -57,7 +57,7 @@ body{background-color: white;}
 .info .stat {border:solid 2px gray;}
 .info .stat .t {color:darkgray;}
 .info .stat .v {color:#1e90ff;}
-.ct-series-a .ct-bar {stroke:purple;}
+.ct-series-a .ct-bar {stroke:blue;}
 form input[type='submit'] {color:white;background-color:#1e90ff;}
 .error {color:#D8000C;background-color:#FFBABA;}
 .success {color:#000000;background-color:#49BE3B;}

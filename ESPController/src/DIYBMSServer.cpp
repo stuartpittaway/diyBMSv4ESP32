@@ -725,8 +725,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver) {
   });
 
   _myserver->serveStatic("/default.htm", SPIFFS, "/default.htm").setTemplateProcessor(DIYBMSServer::TemplateProcessor);
-  //webserver->serveStatic("/", SPIFFS, "/").setDefaultFile("default.htm");
-  _myserver->serveStatic("/files/", SPIFFS, "/files/");
+  _myserver->serveStatic("/files/", SPIFFS, "/files/").setCacheControl("max-age=600");
 
 //Read endpoints
   _myserver->on("/monitor.json", HTTP_GET, DIYBMSServer::monitor);

@@ -3,14 +3,16 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
 <link href="/files/style.css" rel="stylesheet">
 <script type="text/javascript">var XSS_KEY='%XSS_KEY%';</script>   
 <script type="text/javascript" src="/files/jquery.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
-<script type="text/javascript" src="/files/echarts.simple.min.js" integrity="sha256-S+tiVxS2UntK+TMqhiPXUTS2erJLaeUlxBBttPmguN4=" crossorigin="anonymous"></script>
-<link href="https://fonts.googleapis.com/css?family=Inconsolata&display=swap" rel="stylesheet">
 <title>DIY BMS CONTROLLER v4</title>
 </head>
 <body>
+    <div id="loading">
+        <img src="/files/wait.png" width="100" height="100" alt="Please wait"/>
+    </div>
     <div class="header">
     <div class="logocontainer">
         <img class="logo" src="/files/logo.png" width="152" height="48" alt="DIYBMS" />
@@ -43,6 +45,8 @@
     <div id="received" class="stat"><span class="x t">Packets rec'd:</span><span class="x v"></span></div>
     <div id="roundtrip" class="stat"><span class="x t">Roundtrip (ms):</span><span class="x v"></span></div>
 </div>
+
+
 <div class="page" id="homePage">
     <div class="graphs">
         <div id="graph1" style="width:100%%; height:100%%;"></div>
@@ -81,7 +85,6 @@
         </div>
         <div class="rows" id="modulesRows"></div>
     </div>
-
     <div id="settingConfig">
         <h2>Settings for module </h2>
         <div id='waitforsettings'>Configuration data has been requested from cell module. Please wait 5 seconds and click button again.</div>
@@ -378,14 +381,18 @@
     </div>
 </div>
 
-<script src="/files/pagecode.js" crossorigin="anonymous"></script>
 
 <script type="text/javascript">
-var g1=null;
-var g2=null;
-var g3=null;
-
+    var g1=null;
+    var g2=null;
+    var g3=null;
+</script>    
+<script type="text/javascript" src="/files/echarts.simple.min.js" integrity="sha256-S+tiVxS2UntK+TMqhiPXUTS2erJLaeUlxBBttPmguN4=" crossorigin="anonymous" defer></script>
+<script src="/files/pagecode.js" crossorigin="anonymous"></script>
+<script type="text/javascript">
 $(function() {
+
+  $("#loading").show();
 
   //Populate all the setting rules with relay select lists
   $.each($(".settings .rule")  , function(index, value) {
@@ -421,6 +428,8 @@ $(function() {
   });
 
   $("#modules").click(function() {
+    $("#loading").show();
+
     $(".header-right a").removeClass("active");
     $(this).addClass("active");
     $(".page").hide();
@@ -442,7 +451,7 @@ $(function() {
     $("#rulesForm").hide();
     $("#settingsPage").show();
 
-    $.getJSON( "settings.json",
+    $.getJSON("settings.json",
       function(data) {
 
           $("#NTPServer").val(data.settings.NTPServerName);
@@ -475,7 +484,6 @@ $(function() {
             if (value2===false){relay_value="Off";}
             $("#defaultrelay"+(index2+1)).val(relay_value);
           });
-
 
           //Default relay settings
           $.each(data.relaytype, function(index2, value2) {
@@ -611,13 +619,13 @@ $("form").unbind('submit').submit(function (e) {
         beforeSend:function (xhr, settings){settings.data += '&xss='+XSS_KEY;}
     });
 
-  $("#homePage").show();
+    //$(document).ajaxStart(function(){ }); 
+    //$(document).ajaxStop(function(){ });
 
-  
-  //On page ready
-  queryBMS();
+    $("#homePage").show();
+
+    //On page ready
+    queryBMS();
 });
-
-
 </script>
 </body></html>
