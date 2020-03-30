@@ -226,6 +226,7 @@ void DiyBMSATTiny841::EnableStartFrameDetection() {
   interrupts();
 }
 
+/*
 void DiyBMSATTiny841::EnablePinChangeInterrupt() {
   //Fire pin change interrupt on RXD0 changing state
   noInterrupts();
@@ -249,6 +250,7 @@ void DiyBMSATTiny841::EnablePinChangeInterrupt() {
 void DiyBMSATTiny841::DisablePinChangeInterrupt() {
   GIMSK &= ~(1 << PCIE0); // disable interrupt
 }
+*/
 
 void DiyBMSATTiny841::SetWatchdog8sec() {
   //Setup a watchdog timer for 8 seconds
@@ -320,7 +322,15 @@ void DiyBMSATTiny841::Sleep() {
   //ADCSRA&=(~(1<<ADEN));
   // disable ADC
   ADCSRA = 0;
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+#else
+//Using an external crystal so keep it awake - consumes more power (about 0.97mA vs 0.78mA)
+//but module wakes quicker (6 clock cycles)
+set_sleep_mode(SLEEP_MODE_STANDBY);
+#endif
+  
   power_spi_disable();
   power_timer0_disable();
   power_timer1_disable();

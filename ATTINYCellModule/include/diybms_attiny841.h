@@ -50,10 +50,10 @@ public:
 
    void DisableSerial1();
    void EnableSerial1();
-
+/*
    void EnablePinChangeInterrupt();
    void DisablePinChangeInterrupt();
-
+*/
    void SetWatchdog8sec();
 
    uint16_t ReadADC();
