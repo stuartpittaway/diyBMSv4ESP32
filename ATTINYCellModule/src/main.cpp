@@ -23,14 +23,17 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 * No additional restrictions — You may not apply legal terms or technological measures
   that legally restrict others from doing anything the license permits.
 */
+/*
+IMPORTANT
 
+You need to configure the correct DIYBMSMODULEVERSION in defines.h file to build for your module
 
+*/
 #include <Arduino.h>
 
 #if !(F_CPU == 8000000)
 #error Processor speed should be 8 Mhz internal
 #endif
-
 
 //An Arduino Library that facilitates packet-based serial communication using COBS or SLIP encoding.
 //https://github.com/bakercp/PacketSerial
@@ -63,7 +66,21 @@ uint16_t bypassCountDown = 0;
 uint8_t bypassHasJustFinished = 0;
 
 void DefaultConfig() {
+
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION==400
   myConfig.LoadResistance = 4.40;
+#endif  
+
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION==410
+  myConfig.LoadResistance = 4.00;
+#endif  
+
+#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION==420 || DIYBMSMODULEVERSION==421)
+  myConfig.LoadResistance = 4.96;
+#endif
+
+  //Default bank zero
+  myConfig.mybank = 0;
 
   //About 2.2100 seems about right
   myConfig.Calibration = 2.21000;
@@ -71,16 +88,27 @@ void DefaultConfig() {
   //2mV per ADC resolution
   myConfig.mVPerADC = 2.0; //2048.0/1024.0;
 
+#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION==400 || DIYBMSMODULEVERSION==410)
   //Stop running bypass if temperature over 70 degrees C
   myConfig.BypassOverTempShutdown = 70;
+#endif  
 
-  myConfig.mybank = 0;
+#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION==420 || DIYBMSMODULEVERSION==421)
+  myConfig.BypassOverTempShutdown = 45;
+#endif
 
-  //Start bypass at 4.1 volt
+
+  //Start bypass at 4.1V
   myConfig.BypassThresholdmV = 4100;
 
+#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION==420 || DIYBMSMODULEVERSION==421)
+  //Murata Electronics NCP18WB473J03RB = 47K ±5% 4050K ±2% 100mW 0603 NTC Thermistors RoHS
+  myConfig.Internal_BCoefficient = 4050;
+#else
   //4150 = B constant (25-50℃)
   myConfig.Internal_BCoefficient = 4150;
+#endif
+
   //4150 = B constant (25-50℃)
   myConfig.External_BCoefficient = 4150;
 
