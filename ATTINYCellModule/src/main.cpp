@@ -199,7 +199,10 @@ void setup() {
   }
 
   hardware.double_tap_green_led();
+
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430  
   hardware.double_tap_blue_led();
+#endif  
 
   //Set up data handler
   Serial.begin(COMMS_BAUD_RATE, SERIAL_8N1);
@@ -239,8 +242,13 @@ void loop() {
   //We are awake....
 
   if (wdt_triggered) {
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
     //Flash blue LED twice after a watchdog wake up
     hardware.double_tap_blue_led();
+#else
+    //Flash green LED twice after a watchdog wake up
+    hardware.double_tap_green_led();
+#endif
   }
 
   //We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass

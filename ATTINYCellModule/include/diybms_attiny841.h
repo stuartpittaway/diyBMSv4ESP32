@@ -27,11 +27,15 @@ public:
    void DumpLoadOn();
    void DumpLoadOff();
 
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
    void SparePinOn();
    void SparePinOff();
+#endif
 
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
    void BlueLedOn();
    void BlueLedOff();
+#endif
 
    void ReferenceVoltageOn();
    void ReferenceVoltageOff();
@@ -68,7 +72,9 @@ public:
    void SetTimer2Value(uint16_t value);
 
    void double_tap_green_led();
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
    void double_tap_blue_led();
+#endif   
 };
 
 #endif

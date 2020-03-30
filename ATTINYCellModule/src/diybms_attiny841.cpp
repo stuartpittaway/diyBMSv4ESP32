@@ -37,12 +37,12 @@ HARDWARE ABSTRACTION CODE FOR ATTINY841
 FOR MODULE VERSION 400,410,420,421....
   PA3 = DUMP LOAD ENABLE / PIN 10 /  ARDUINO PIN 7/A3 / TOCC2
   PA4 = ADC4 PIN 9 ARDUINO PIN 6/A4 = ON BOARD TEMP sensor
-  PA5 = SERIAL PORT 1 TXD1 - NOT USED (BLUE LED)
+  PA5 = SERIAL PORT 1 TXD1 - NOT USED (BLUE LED ON <V430 BOARDS AND EXT TEMP SENSOR ON >=430)
   PA6 = GREEN_LED / PIN 7 / ARDUINO PIN 4/A6
   PA7 = ADC7 = PIN 6 = ARDUINO PIN 3/A7 = 2.048V REFERENCE ENABLE
   PB2 = ADC8 PIN 5 ARDUINO PIN 2/A8 = VOLTAGE reading
-  PB0 = ADC11 PIN 2 ARDUINO PIN 0/A11 = REMOTE TEMP sensor
-  PB1 = ADC10 PIN 3 ARDUINO PIN 1/A10 = SPARE INPUT/OUTPUT
+  PB0 = ADC11 PIN 2 ARDUINO PIN 0/A11 = REMOTE TEMP sensor = XTAL
+  PB1 = ADC10 PIN 3 ARDUINO PIN 1/A10 = SPARE INPUT/OUTPUT = XTAL
 
   ATTiny841 data sheet
   http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-8495-8-bit-AVR-Microcontrollers-ATtiny441-ATtiny841_Datasheet.pdf
@@ -96,6 +96,7 @@ void DiyBMSATTiny841::double_tap_green_led() {
   GreenLedOff();
 }
 
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
 void DiyBMSATTiny841::double_tap_blue_led() {
   BlueLedOn();
   delay(50);
@@ -105,6 +106,7 @@ void DiyBMSATTiny841::double_tap_blue_led() {
   delay(50);
   BlueLedOff();
 }
+#endif
 
 void DiyBMSATTiny841::ConfigurePorts() {
   //PUEA – Port A Pull-Up Enable Control Register (All disabled)
@@ -114,8 +116,12 @@ void DiyBMSATTiny841::ConfigurePorts() {
 
   //DDRA – Port A Data Direction Register
   //When DDAn is set, the pin PAn is configured as an output. When DDAn is cleared, the pin is configured as an input
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
   DDRA |= _BV(DDA3) | _BV(DDA6) | _BV(DDA7) | _BV(DDA5);
-
+#else
+//4.3 boards dont have blue led, so don't configure DA5
+  DDRA |= _BV(DDA3) | _BV(DDA6) | _BV(DDA7);
+#endif
   //DDRB – Port B Data Direction Register
   //Spare pin is output
   DDRB |= _BV(DDB1);
@@ -127,7 +133,9 @@ void DiyBMSATTiny841::ConfigurePorts() {
   DumpLoadOff();
   ReferenceVoltageOff();
 
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
   BlueLedOff();
+#endif
   GreenLedOff();
 }
 
@@ -157,6 +165,7 @@ void DiyBMSATTiny841::GreenLedOff() {
   PORTA &= (~_BV(PORTA6));
 }
 
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
 void DiyBMSATTiny841::SparePinOn() {
   PORTB |= _BV(PORTB1);
 }
@@ -164,7 +173,9 @@ void DiyBMSATTiny841::SparePinOn() {
 void DiyBMSATTiny841::SparePinOff() {
   PORTB &= (~_BV(PORTB1));
 }
+#endif
 
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
 void DiyBMSATTiny841::BlueLedOn() {
   PORTA |= _BV(PORTA5);
 }
@@ -172,6 +183,7 @@ void DiyBMSATTiny841::BlueLedOn() {
 void DiyBMSATTiny841::BlueLedOff() {
   PORTA &= (~_BV(PORTA5));
 }
+#endif
 
 void DiyBMSATTiny841::FlushSerial0() {
   Serial.flush();
@@ -357,6 +369,13 @@ void DiyBMSATTiny841::SelectInternalTemperatureChannel() {
 void DiyBMSATTiny841::SelectExternalTemperatureChannel() {
   //External sensor
   //ADMUXA – ADC Multiplexer Selection Register A
+
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
   //ADC11 (single end) MUX[5:0] 00 1011
   ADMUXA = (0 << MUX5) | (0 << MUX4) | (1 << MUX3) | (0 << MUX2) | (1 << MUX1) | (1 << MUX0);
+#else
+  //V4.3 boards ADC5 (single end) MUX[5:0] 00 0101
+  ADMUXA = (0 << MUX5) | (0 << MUX4) | (0 << MUX3) | (1 << MUX2) | (0 << MUX1) | (1 << MUX0);
+#endif
+
 }

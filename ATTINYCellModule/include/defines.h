@@ -32,21 +32,22 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #error You need to enable one of the DIYBMS_MOD_VER define statements
 #endif
 
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION > 421
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION > 430
 #error Incorrect value for DIYBMS_MOD_VER
 #endif
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
   #define COMMS_BAUD_RATE 2400
-#else
-  #error Incorrect value for DIYBMSMODULEVERSION
+#endif
+
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION == 430
+  #define COMMS_BAUD_RATE 2400
 #endif
 
 //This is where the data begins in EEPROM
 #define EEPROM_CONFIG_ADDRESS 0
 
 #define nop  __asm__("nop\n\t");
-
 
 
 
