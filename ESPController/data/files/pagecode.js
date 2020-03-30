@@ -135,7 +135,7 @@ function queryBMS() {
     }
 
     $("#info").show();
-        
+
     $("#iperror").hide();
 
     if($('#modulesPage').is(':visible')){
@@ -231,37 +231,34 @@ function queryBMS() {
         // specify chart configuration item and data
         var option = {
     //            color: ['#c1bdbd', '#c1bdbd', '#c1bdbd'],
-          tooltip: { trigger: 'axis', axisPointer: { show:true, type:'line', crossStyle:{ color: '#525252' } } },
+          tooltip: { trigger:'axis', show:true },
             legend: { data:['Voltage'], show:false },
             xAxis: [
               {gridIndex:0,type:'category',axisLine:{lineStyle:{color:'#c1bdbd'}} }
             ,{gridIndex:1,type:'category',axisLine:{lineStyle:{color:'#c1bdbd'}} }
             ],
             yAxis: [
-              {gridIndex:0,name:'Volts',type:'value',min:minVoltage,max:maxVoltage,interval:0.25,position:'left',
-              axisLine:{lineStyle:{color:'#c1bdbd'}}
-              ,axisLabel:{formatter:'{value}V'}
+              {gridIndex:0,name:'Volts',type:'value',min:minVoltage,max:maxVoltage
+              ,interval:0.25,position:'left'
+              ,axisLine:{lineStyle:{color:'#c1bdbd'}}
+              ,axisLabel:{formatter:'{value}V'}              
             },
               
               {gridIndex:1,name:'Temperature',type:'value',interval:10,position:'left'
               ,axisLine:{lineStyle:{color:'#c1bdbd'}}
-              ,axisLabel:{ formatter: '{value}°C' }
+              ,axisLabel:{ formatter: '{value}°C' }              
             } 
             ]
-            ,series: [{ name: 'Voltage', type: 'bar', data: [], label:labelOption
-          }
+            ,series: [{ name: 'Voltage', type: 'bar', data: [], label:labelOption }
                 ,{name:'Min V', type:'line', data: [], label: labelOption4,symbolSize:20,symbol:['circle'], itemStyle:{normal:{lineStyle:{color:'transparent',type:'dotted'}} } }
                 ,{name:'Max V', type:'line', data: [], label: labelOption3,symbolSize:20,symbol:['triangle'], itemStyle:{normal:{lineStyle:{color:'transparent',type:'dotted'}} } }
                 ,{xAxisIndex:1, yAxisIndex:1, name:'BypassTemperature',type:'bar', data: [], label: labelOption2 }
                 ,{xAxisIndex:1, yAxisIndex:1, name:'CellTemperature',type:'bar',data: [], label: labelOption2 }
             ],
-            grid: [{containLabel:false,
-              left:'5%',
-              right:'5%',
-              bottom:'32%'},{containLabel:false,
-                left:'5%',
-                right:'5%',
-                top:'78%'}],
+            grid: [
+              {containLabel:false, left:'5%', right:'5%', bottom:'32%'}
+             ,{containLabel:false, left:'5%', right:'5%', top:'78%'}
+            ],
         };
 
         // use configuration item and data specified to show chart
