@@ -18,7 +18,7 @@
 
 //Debug flags for ntpclientlib
 #define DBG_PORT Serial1
-#define DEBUG_NTPCLIENT
+//#define DEBUG_NTPCLIENT
 #endif
 
 #if defined(ESP32)

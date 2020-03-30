@@ -96,8 +96,6 @@ void ICACHE_RAM_ATTR PCFInterrupt() {
 CellModuleInfo cmi[maximum_bank_of_modules][maximum_cell_modules];
 uint8_t numberOfModules[maximum_bank_of_modules];
 
-
-
 #include "crc16.h"
 
 #include "settings.h"
@@ -182,7 +180,9 @@ void processSyncEvent (NTPSyncEvent_t ntpEvent) {
     } else {
         if (ntpEvent == timeSyncd) {
             SERIAL_DEBUG.print ("Got NTP time");
-            //SERIAL_DEBUG.println (NTP.getTimeDateString(NTP.getLastNTPSync()));
+            time_t lastTime=NTP.getLastNTPSync();
+            SERIAL_DEBUG.println (NTP.getTimeDateString(lastTime));
+            setTime(lastTime);
         }
     }
 }
@@ -588,6 +588,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info) {
 
   SERIAL_DEBUG.print("Requesting NTP from ");
   SERIAL_DEBUG.println(mysettings.ntpServer);
+
 #if defined(ESP8266)
       //Update time every 10 minutes
       NTP.setInterval (600);
@@ -973,7 +974,6 @@ void loop() {
 
   //if (emergencyStop) {    SERIAL_DEBUG.println("EMERGENCY STOP");  }
 
-  //if (wifiFirstConnected) {      wifiFirstConnected = false;  }
 
 #if defined(ESP8266)
   if (NTPsyncEventTriggered) {
@@ -981,4 +981,5 @@ void loop() {
       NTPsyncEventTriggered = false;
   }
 #endif
+
 }

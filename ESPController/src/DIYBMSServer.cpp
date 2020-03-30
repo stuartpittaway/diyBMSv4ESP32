@@ -488,7 +488,6 @@ void DIYBMSServer::rules(AsyncWebServerRequest *request) {
   }
 #endif
 
-
   root["PCF8574"]=PCF8574Enabled;
 
   JsonArray defaultArray = root.createNestedArray("relaydefault");
@@ -515,9 +514,7 @@ void DIYBMSServer::rules(AsyncWebServerRequest *request) {
   for (uint8_t r = 0; r < RELAY_RULES; r++) {
     JsonObject rule1 = bankArray.createNestedObject();
     rule1["value"] =mysettings.rulevalue[r];
-
     rule1["triggered"] =rule_outcome[r];
-
     JsonArray data = rule1.createNestedArray("relays");
 
     for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++) {
@@ -540,20 +537,26 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request) {
   DynamicJsonDocument doc(2048);
   JsonObject root = doc.to<JsonObject>();
 
-  JsonObject mqtt = root.createNestedObject("settings");
-  mqtt["totalnumberofbanks"] =mysettings.totalNumberOfBanks;
-  mqtt["combinationparallel"] =mysettings.combinationParallel;
+  JsonObject settings = root.createNestedObject("settings");
+  settings["totalnumberofbanks"] =mysettings.totalNumberOfBanks;
+  settings["combinationparallel"] =mysettings.combinationParallel;
 
-  mqtt["NTPServerName"] =mysettings.ntpServer;
-  mqtt["TimeZone"] =mysettings.timeZone;
-  mqtt["MinutesTimeZone"] =mysettings.minutesTimeZone;
-  mqtt["DST"] =mysettings.daylight;
+  settings["NTPServerName"] =mysettings.ntpServer;
+  settings["TimeZone"] =mysettings.timeZone;
+  settings["MinutesTimeZone"] =mysettings.minutesTimeZone;
+  settings["DST"] =mysettings.daylight;
 
 
+#if defined(ESP8266)
+  settings["now"]= now();
+#endif
+
+#if defined(ESP32)
   time_t now;
   if (time(&now)) {
-    mqtt["now"]=now;
+    settings["now"]=now;
   }
+#endif
 
   serializeJson(doc, *response);
   request->send(response);
