@@ -1,15 +1,15 @@
 /*
   ____  ____  _  _  ____  __  __  ___    _  _  __
  (  _ \(_  _)( \/ )(  _ \(  \/  )/ __)  ( \/ )/. |
- )(_) )_)(_  \  /  ) _ < )    ( \__ \   \  /(_  _)
-(____/(____) (__) (____/(_/\/\_)(___/    \/   (_)
+  )(_) )_)(_  \  /  ) _ < )    ( \__ \   \  /(_  _)
+ (____/(____) (__) (____/(_/\/\_)(___/    \/   (_)
 
 DIYBMS V4.0
 CELL MODULE FOR ATTINY841
 
-(c)2019 Stuart Pittaway
+(c)2019/2020 Stuart Pittaway
 
-COMPILE THIS CODE USING PLATFORM.IO
+COMPILE THIS CODE USING PLATFORM.IO AND VSCODE
 
 LICENSE
 Attribution-NonCommercial-ShareAlike 2.0 UK: England & Wales (CC BY-NC-SA 2.0 UK)
@@ -140,22 +140,20 @@ void DiyBMSATTiny841::DumpLoadOff() {
 }
 
 void DiyBMSATTiny841::ReferenceVoltageOn() {
-  //When to switch 2.048V regulator on or off. Connected to Pin 6, PA7
+  //When to switch external voltage reference on or off. Connected to Pin 6, PA7
   PORTA |= _BV(PORTA7);
 }
 
 void DiyBMSATTiny841::ReferenceVoltageOff() {
-  //When to switch 2.048V regulator on or off. Connected to Pin 6, PA7
+  //When to switch external voltage reference on or off. Connected to Pin 6, PA7
   PORTA &= (~_BV(PORTA7));
 }
 
 void DiyBMSATTiny841::GreenLedOn() {
-  //#define GREEN_LED_ON PORTA |= _BV(PORTA6);
   PORTA |= _BV(PORTA6);
 }
 
 void DiyBMSATTiny841::GreenLedOff() {
-  //#define GREEN_LED_OFF PORTA &= (~_BV(PORTA6));
   PORTA &= (~_BV(PORTA6));
 }
 
@@ -258,10 +256,6 @@ void DiyBMSATTiny841::SetWatchdog8sec() {
 }
 
 uint16_t DiyBMSATTiny841::ReadADC() {
-
-  //BlueLedOff();
-
-
   // must read ADCL first
   uint8_t low = ADCL;
   return (ADCH << 8) | low;

@@ -82,7 +82,12 @@ void PacketProcessor::ADCReading(uint16_t value) {
     }
   case ADC_INTERNAL_TEMP:
     {
+#if defined(SWAPR19R20)
+//R19 and R20 swapped on V4.2 board, invert the thermistor reading
+      onboard_temperature = 1225-value;
+#else
       onboard_temperature = value;
+#endif
       break;
     }
   case ADC_EXTERNAL_TEMP:

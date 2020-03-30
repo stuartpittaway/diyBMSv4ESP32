@@ -14,21 +14,19 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #ifndef DIYBMS_DEFINES_H // include guard
 #define DIYBMS_DEFINES_H
 
-/*
-IMPORTANT YOU MUST CONFIGURE THE VERSION OF THE MODULE/BOARD YOU ARE COMPILING FOR
-
-POSSIBLE VALUES
-400 = Original board (marked DIYBMS v4 on silkscreen) - has 8 large resistors (marked 2R20) and likely handsoldered using 0805 sized parts
-410 = JLCPCB built board (marked DIYBMS v4 on silkscreen) - has 8 large resistors (marked 2R00) and machine soldered using 0603 sized parts
-420 = JLCPCB built board (marked DIYBMS v4.2 on silkscreen) - has 20 small resistors (marked 6R20) and machine soldered using 0603 sized parts (R20 is in middle of resistor array)
-421 = JLCPCB built board (marked DIYBMS v4.21 on silkscreen) - has 20 small resistors (marked 6R20) and machine soldered using 0603 sized parts (R19 is in middle of resistor array)
-*/
 
 // ONLY ENABLE ONE OF THE BELOW....
-#define DIYBMSMODULEVERSION 400
+//#define DIYBMSMODULEVERSION 420
 //#define DIYBMSMODULEVERSION 410
 //#define DIYBMSMODULEVERSION 420
 //#define DIYBMSMODULEVERSION 421
+
+//#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION == 420
+// IF YOU HAVE VERSION 4.20 AND HAVE SWAPPED R19 and R20 OVER 
+// (Thermistor is now in middle of resistor array) THEN ENABLE THIS TO FIX THE TEMPERATURE READINGS
+//#define SWAPR19R20
+//#endif
+
 
 #if (!defined(DIYBMSMODULEVERSION))
 #error You need to enable one of the DIYBMS_MOD_VER define statements
