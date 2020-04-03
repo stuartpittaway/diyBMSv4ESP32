@@ -31,7 +31,7 @@ form input[type='submit'] {font-family:Arial,Helvetica,sans-serif;border:none;te
 #modulesTable .th span {text-align:right;min-width:80px}
 #loading {width:100px;position:absolute;height:100px;margin-left: auto;margin-right: auto;padding: 0;top:50%;left:50%;}
 
-@media screen and (max-width:640px){
+@media screen and (max-width:1024px){
   .page .region {width:98%;}
   .header a {float:none;padding:6px;font-size:14px;line-height:20px;}
   .graphs {height:480px;width:95%;}
