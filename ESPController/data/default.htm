@@ -71,11 +71,11 @@
 </div>
 <div class="page" id="modulesPage">
     <h1>Modules</h1>
-
+<div  class="region">
     <div id="modulesTable">
         <div class="th">
             <span>Bank</span>
-            <span>Cell</span>
+            <span>Module</span>
             <span>Voltage</span>
             <span class='hide'>V. Min</span>
             <span class='hide'>V. Max</span>
@@ -87,7 +87,7 @@
     </div>
     <div id="settingConfig">
         <h2>Settings for module </h2>
-        <div id='waitforsettings'>Configuration data has been requested from cell module. Please wait 5 seconds and click button again.</div>
+        
         <form id="settingsForm" method="POST" action="savesetting.json" autocomplete="off">
             <div class="settings">
                 <input name="b" id="b" type="hidden" value="0">
@@ -135,8 +135,8 @@
             </div>
         </form>
     </div>
-
-    <div id="globalConfig">
+</div>
+    <div id="globalConfig" class="region">
         <h2>Global Settings</h2>
         <p>Configure all connected modules (in selected bank) to use following parameters:</p>
         <form id="globalSettingsForm" method="POST" action="saveglobalsetting.json" autocomplete="off">

@@ -3,23 +3,25 @@ function identifyModule(button, bank, module) {
   $.getJSON("identifyModule.json",{ b:bank, m:module }, function(data) { }).fail(function() {$("#iperror").show();});
 }
 
-function configureModule(button, bank, module) {
+function configureModule(button, bank, module, attempts) {
+
+  $('#loading').show();
+
   //Select correct row in table
   $(button).parent().parent().parent().find(".selected").removeClass("selected");
   $(button).parent().parent().addClass("selected");
 
-  //Populate settings div
-  $("#settingConfig h2").html("Settings for module bank:"+bank+" module:"+module);
-  $("#settingConfig").show();
 
-  $.getJSON( "modules.json",  {b:bank,m:module},
+  $.getJSON("modules.json", {b:bank,m:module},
     function(data) {
-
       var div=$("#settingConfig .settings");
       $('#b').val(data.settings.bank);
       $('#m').val(data.settings.module);
 
-      if (data.settings.Cached==true){
+      if (data.settings.Cached == true){
+        $("#settingConfig h2").html("Settings for module bank:"+bank+" module:"+module);
+
+        //Populate settings div
         $('#Version').val(data.settings.ver);
         $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);
         $('#BypassThresholdmV').val(data.settings.BypassThresholdmV);
@@ -30,18 +32,22 @@ function configureModule(button, bank, module) {
         $('#mVPerADC').val(data.settings.mVPerADC.toFixed(2));
         $('#movetobank').val(data.settings.bank);
 
-        $('#settingsForm').show();
-        $('#waitforsettings').hide();
+        $("#settingConfig").show();
+        //$('#settingsForm').show();
+        $('#loading').hide();
       } else {
-        //Data not ready yet
-        $('#settingsForm').hide();
-        $('#waitforsettings').show();
-        //Call back in 5 seconds to refresh page - this is a bad idea!
-        //setTimeout(configureModule, 5000, button, bank, module);
+        //Data not ready yet, we will have to try again soon
+        $('#settingConfig').hide();
+        
+        if (attempts>0) {
+          //Call back to refresh page, only try for a limited number of attempts
+          attempts--;
+          setTimeout(configureModule, 1500, button, bank, module,attempts);
+        }
       }
     }).fail(function() {
-     $("#iperror").show();
-  });
+      $("#iperror").show();
+    });
 }
 
 function queryBMS() {
@@ -153,7 +159,7 @@ function queryBMS() {
                 +"</span><span>"+value+"</span><span></span><span class='hide'></span><span class='hide'></span>"
                 +"<span class='hide'></span><span class='hide'></span><span class='hide'></span>"
                 +"<span><button type='button' onclick='return identifyModule(this,"+bank[index]+","+value+");'>Identify</button></span>"
-                +"<span><button type='button' onclick='return configureModule(this,"+bank[index]+","+value+");'>Configure</button></span></div>")
+                +"<span><button type='button' onclick='return configureModule(this,"+bank[index]+","+value+",5);'>Configure</button></span></div>")
             });
         }
 

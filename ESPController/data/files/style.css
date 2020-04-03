@@ -15,6 +15,7 @@ p {margin-block-start: 1em; margin-block-end:0;}
 .info .stat .v {font-size:22pt;font-family:'Inconsolata',monospace;;font-weight:bold;}
 .graphs {height:768px;width:100%;}
 .ct-series-a .ct-bar {stroke-width:25px;}
+button {font-family:Arial,Helvetica,sans-serif;border:solid 1px transparent;text-align:center;text-decoration:none;display:inline-block;font-size:14px;min-width:55pt;padding:6px;margin:1px;}
 form > div > div {padding-bottom:4px;padding-top:4px;}
 form label {width:220px;display:inline-block;text-align:right;font-size:smaller;}
 form input {width:100px;display:inline-block;padding-left:10px;padding-right:10px;margin-left:10px;font-family:'Inconsolata',monospace;}
@@ -25,9 +26,9 @@ form input[type='submit'] {font-family:Arial,Helvetica,sans-serif;border:none;te
 .page {clear:both; width:100%; display:none;margin:5px;}
 .page .region {float:left;padding:10px;margin-right:10px;width:45%;}
 #modulesTable span {display:inline-block;}
-#modulesTable .rows span {min-width:90px;font-family:'Inconsolata',monospace;text-align:right;}
+#modulesTable .rows span {min-width:80px;font-family:'Inconsolata',monospace;text-align:right;}
 #modulesTable .rows button {margin-left:20px;}
-#modulesTable .th span {text-align:right;min-width:90px}
+#modulesTable .th span {text-align:right;min-width:80px}
 #loading {width:100px;position:absolute;height:100px;margin-left: auto;margin-right: auto;padding: 0;top:50%;left:50%;}
 
 @media screen and (max-width:640px){
@@ -82,7 +83,10 @@ a:visited {color:#e8e8e8;font-weight:bold;}
 .info .stat .t {color:#c1bdbd;}
 .info .stat .v {color: #55a1ea;}
 .ct-series-a .ct-bar {stroke:#525252;}
-form input[type='submit'] {color:#414141;background-color:#1e90ff;}
 #modulesTable .selected {background-color:#414141;}
 .triggered {background-color:rgb(68, 145, 59);}
 .page .region {background-color:#525252;}
+button {color:white;background-color:#1e90ff;}
+button:hover {border:solid 1px white;}
+button:focus {color:#1e90ff;background-color:white;}
+form input[type='submit'] {color:white;background-color:#1e90ff;}
