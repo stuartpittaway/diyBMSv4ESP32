@@ -326,8 +326,7 @@ void DiyBMSATTiny841::Sleep() {
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
 set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 #else
-//Using an external crystal so keep it awake - consumes more power (about 0.97mA vs 0.78mA)
-//but module wakes quicker (6 clock cycles)
+//Using an external crystal so keep it awake - consumes more power (about 0.97mA vs 0.78mA) but module wakes quicker (6 clock cycles)
 set_sleep_mode(SLEEP_MODE_STANDBY);
 #endif
   

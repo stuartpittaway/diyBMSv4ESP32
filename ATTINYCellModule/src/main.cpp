@@ -67,16 +67,15 @@ uint8_t bypassHasJustFinished = 0;
 
 void DefaultConfig() {
 
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION==400
-  myConfig.LoadResistance = 4.40;
-#endif  
+// Value of the resistor for load shedding
 
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION==410
+#if (defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION==410)
   myConfig.LoadResistance = 4.00;
-#endif  
-
-#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION==420 || DIYBMSMODULEVERSION==421)
+#elif defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION>=421)
   myConfig.LoadResistance = 4.96;
+#else
+//For v4.00
+  myConfig.LoadResistance = 4.40;
 #endif
 
   //Default bank zero
@@ -100,7 +99,7 @@ void DefaultConfig() {
   //Start bypass at 4.1V
   myConfig.BypassThresholdmV = 4100;
 
-#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION==420 || DIYBMSMODULEVERSION==421)
+#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION==430 || DIYBMSMODULEVERSION==420 || DIYBMSMODULEVERSION==421)
   //Murata Electronics NCP18WB473J03RB = 47K ±5% 4050K ±2% 100mW 0603 NTC Thermistors RoHS
   myConfig.Internal_BCoefficient = 4050;
 #else
