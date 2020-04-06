@@ -23,14 +23,17 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 * No additional restrictions — You may not apply legal terms or technological measures
   that legally restrict others from doing anything the license permits.
 */
+/*
+IMPORTANT
 
+You need to configure the correct DIYBMSMODULEVERSION in defines.h file to build for your module
 
+*/
 #include <Arduino.h>
 
 #if !(F_CPU == 8000000)
 #error Processor speed should be 8 Mhz internal
 #endif
-
 
 //An Arduino Library that facilitates packet-based serial communication using COBS or SLIP encoding.
 //https://github.com/bakercp/PacketSerial
@@ -63,7 +66,20 @@ uint16_t bypassCountDown = 0;
 uint8_t bypassHasJustFinished = 0;
 
 void DefaultConfig() {
+
+// Value of the resistor for load shedding
+
+#if (defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION==410)
+  myConfig.LoadResistance = 4.00;
+#elif defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION>=421)
+  myConfig.LoadResistance = 4.96;
+#else
+//For v4.00
   myConfig.LoadResistance = 4.40;
+#endif
+
+  //Default bank zero
+  myConfig.mybank = 0;
 
   //About 2.2100 seems about right
   myConfig.Calibration = 2.21000;
@@ -71,16 +87,26 @@ void DefaultConfig() {
   //2mV per ADC resolution
   myConfig.mVPerADC = 2.0; //2048.0/1024.0;
 
+#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION==420 && !defined(SWAPR19R20))
+  //Keep temperature low for modules with R19 and R20 not swapped
+  myConfig.BypassOverTempShutdown = 45;
+#else  
   //Stop running bypass if temperature over 70 degrees C
   myConfig.BypassOverTempShutdown = 70;
+#endif
 
-  myConfig.mybank = 0;
 
-  //Start bypass at 4.1 volt
+  //Start bypass at 4.1V
   myConfig.BypassThresholdmV = 4100;
 
+#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION==430 || DIYBMSMODULEVERSION==420 || DIYBMSMODULEVERSION==421)
+  //Murata Electronics NCP18WB473J03RB = 47K ±5% 4050K ±2% 100mW 0603 NTC Thermistors RoHS
+  myConfig.Internal_BCoefficient = 4050;
+#else
   //4150 = B constant (25-50℃)
   myConfig.Internal_BCoefficient = 4150;
+#endif
+
   //4150 = B constant (25-50℃)
   myConfig.External_BCoefficient = 4150;
 
@@ -172,7 +198,10 @@ void setup() {
   }
 
   hardware.double_tap_green_led();
+
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430  
   hardware.double_tap_blue_led();
+#endif  
 
   //Set up data handler
   Serial.begin(COMMS_BAUD_RATE, SERIAL_8N1);
@@ -212,8 +241,13 @@ void loop() {
   //We are awake....
 
   if (wdt_triggered) {
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
     //Flash blue LED twice after a watchdog wake up
     hardware.double_tap_blue_led();
+#else
+    //Flash green LED twice after a watchdog wake up
+    hardware.double_tap_green_led();
+#endif
   }
 
   //We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass

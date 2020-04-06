@@ -6,12 +6,7 @@
 #include "diybms_attiny841.h"
 #include "Steinhart.h"
 #include "defines.h"
-
 #include "settings.h"
-
-//Tiny and cross-device compatible CCITT CRC16 calculator library - uCRC16Lib
-//https://github.com/Naguissa/uCRC16Lib
-//#include <uCRC16Lib.h>
 #include "crc16.h"
 
 #define ADC_CELL_VOLTAGE 0
