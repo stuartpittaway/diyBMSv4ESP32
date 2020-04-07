@@ -64,8 +64,7 @@ PacketProcessor PP(&hardware, &myConfig);
 volatile bool wdt_triggered = false;
 uint16_t bypassCountDown = 0;
 uint8_t bypassHasJustFinished = 0;
-bool pwmrunning=false;
-
+bool pwmrunning = false;
 
 void DefaultConfig()
 {
@@ -210,9 +209,11 @@ void setup()
 
 #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
   //Keep temperature low for modules with R19 and R20 not swapped
-  if (myConfig.BypassOverTempShutdown>45) {myConfig.BypassOverTempShutdown=45;}
+  if (myConfig.BypassOverTempShutdown > 45)
+  {
+    myConfig.BypassOverTempShutdown = 45;
+  }
 #endif
-
 
   hardware.double_tap_green_led();
 
@@ -229,7 +230,6 @@ void setup()
   myPacketSerial.setStream(&Serial);
   myPacketSerial.setPacketHandler(&onPacketReceived);
 }
-
 
 void loop()
 {
@@ -315,17 +315,18 @@ void loop()
       //Full power if we are nowhere near the setpoint (more than 10 degrees C away)
       hardware.DumpLoadOn();
       hardware.StopTimer2();
-      PP.PWMValue = 100;      
-      pwmrunning=false;
+      PP.PWMValue = 100;
+      pwmrunning = false;
     }
     else
     {
-      if (!pwmrunning) {
+      if (!pwmrunning)
+      {
         //We have approached the set point, enable PWM
         hardware.DumpLoadOff();
         //Start timer2 with zero value
         hardware.StartTimer2();
-        pwmrunning=true;
+        pwmrunning = true;
         myPID.clear();
       }
 
@@ -341,7 +342,7 @@ void loop()
     if (bypassCountDown == 0)
     {
       //Switch everything off for this cycle
-      pwmrunning=false;
+      pwmrunning = false;
 
       PP.WeAreInBypass = false;
 
