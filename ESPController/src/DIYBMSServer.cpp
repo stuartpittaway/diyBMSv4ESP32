@@ -37,7 +37,6 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #include "time.h"
 #endif
 
-
 #include "settings.h"
 
 AsyncWebServer *DIYBMSServer::_myserver;
@@ -684,8 +683,8 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request) {
       cell["bypasshot"] = cmi[bank][i].bypassOverTemp;
       cell["int"] = cmi[bank][i].internalTemp;
       cell["ext"] = cmi[bank][i].externalTemp;
-
       cell["badpkt"] = cmi[bank][i].badPacketCount;
+      cell["pwm"] = cmi[bank][i].PWMValue;
     }
   }
   serializeJson(doc, *response);

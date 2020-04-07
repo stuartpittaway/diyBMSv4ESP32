@@ -43,6 +43,9 @@ bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
           case COMMAND::ReadSettings:
             ProcessReplySettings();
             break;
+          case COMMAND::ReadBalancePowerPWM:
+            ProcessReplyBalancePower();
+            break;            
         }
 
         return true;
@@ -125,6 +128,20 @@ void PacketReceiveProcessor::ProcessReplyTemperature() {
     cmi[ReplyFromBank()][i].externalTemp = (_packetbuffer.moduledata[i] & 0x00FF) - 40;
   }
 }
+
+void PacketReceiveProcessor::ProcessReplyBalancePower() {
+  // Called when a decoded packet has arrived in _packetbuffer for command 1
+  ProcessReplyAddressByte();
+
+  uint8_t b = ReplyFromBank();
+
+  //SERIAL_DEBUG.print("Bank=");  SERIAL_DEBUG.println(b);
+
+  for (uint8_t i = 0; i < maximum_cell_modules; i++) {
+    cmi[b][i].PWMValue = _packetbuffer.moduledata[i];
+  }
+}
+
 
 void PacketReceiveProcessor::ProcessReplyVoltage() {
   // Called when a decoded packet has arrived in _packetbuffer for command 1

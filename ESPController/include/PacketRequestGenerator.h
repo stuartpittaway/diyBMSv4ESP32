@@ -35,6 +35,7 @@ class PacketRequestGenerator {
      void sendCellVoltageRequest(uint8_t b);
      void sendCellTemperatureRequest(uint8_t b);
      void sendMoveToBank(uint8_t b,uint8_t m,uint8_t movetobank);
+     void sendReadBalancePowerRequest(uint8_t b);
 
      uint32_t packetsGenerated = 0;
 

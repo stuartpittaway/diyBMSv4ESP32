@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "ATTINYPIDTuning"
+		},
+		{
+			"path": "ATTINYCellModuleTestPrg"
+		},
+		{
+			"path": "ESPController"
+		},
+		{
+			"path": "ATTINYCellModule"
+		}
+	],
+	"settings": {}
+}

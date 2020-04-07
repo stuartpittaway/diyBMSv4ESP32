@@ -29,11 +29,11 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 
 #if (!defined(DIYBMSMODULEVERSION))
-#error You need to enable one of the DIYBMS_MOD_VER define statements
+#error You need to enable one of the DIYBMSMODULEVERSION define statements
 #endif
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION > 430
-#error Incorrect value for DIYBMS_MOD_VER
+#error Incorrect value for DIYBMSMODULEVERSION
 #endif
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
@@ -59,7 +59,8 @@ enum COMMAND: uint8_t
     ReadTemperature=B00000011,
     ReadBadPacketCounter=B00000100,
     ReadSettings=B00000101,
-    WriteSettings=B00000110
+    WriteSettings=B00000110,
+    ReadBalancePowerPWM=B00000111
 
     // 0000 0000  = set bank identity
     // 0000 0001  = read voltage and status
@@ -68,6 +69,7 @@ enum COMMAND: uint8_t
     // 0000 0100  = Report number of bad packets
     // 0000 0101  = Report settings/configuration
     // 0000 0110  = Write settings/configuration
+    // 0000 0111  = Read current level of PWM for power balance
 };
 
 

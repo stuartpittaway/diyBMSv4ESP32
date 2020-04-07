@@ -61,6 +61,7 @@ function queryBMS() {
     var voltagesmax = [];
     var tempint = [];
     var tempext = [];
+    var pwm = [];
 
     var badpktcount = [];
 
@@ -96,10 +97,13 @@ function queryBMS() {
         cells.push(index);
         badpktcount.push(value.badpkt);
         labels.push(bankNumber + "/" + index);
+        pwm.push(value.pwm);
 
         color = value.bypasshot ? "#B44247" : "#55a1ea";
         tempint.push({ value: value.int, itemStyle: { color: color } });
         tempext.push({ value: (value.ext == -40 ? 0 : value.ext), itemStyle: { color: "#55a1ea" } });
+
+        
 
         var bIndex = jsondata.parallel ? bankNumber : 0;
         voltage[bIndex] += v;
@@ -157,7 +161,7 @@ function queryBMS() {
           $(tbody).append("<div><span>"
             + bank[index]
             + "</span><span>" + value + "</span><span></span><span class='hide'></span><span class='hide'></span>"
-            + "<span class='hide'></span><span class='hide'></span><span class='hide'></span>"
+            + "<span class='hide'></span><span class='hide'></span><span class='hide'></span><span class='hide'></span>"
             + "<span><button type='button' onclick='return identifyModule(this," + bank[index] + "," + value + ");'>Identify</button></span>"
             + "<span><button type='button' onclick='return configureModule(this," + bank[index] + "," + value + ",5);'>Configure</button></span></div>")
         });
@@ -173,8 +177,9 @@ function queryBMS() {
         $(columns[3]).html(voltagesmin[index].toFixed(3));
         $(columns[4]).html(voltagesmax[index].toFixed(3));
         $(columns[5]).html(tempint[index].value);
-        $(columns[6]).html(tempext[index]);
-        $(columns[7]).html(badpktcount[index]);
+        $(columns[6]).html(tempext[index].value);
+        $(columns[7]).html(pwm[index]);
+        $(columns[8]).html(badpktcount[index]);
       });
     }
 

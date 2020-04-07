@@ -38,6 +38,7 @@ class PacketReceiveProcessor {
     void ProcessReplyTemperature();
     void ProcessReplyAddressByte();
     void ProcessReplyBadPacketCount();
+    void ProcessReplyBalancePower();
 
 };
 

@@ -61,9 +61,13 @@ void DiyBMSATTiny841::StopTimer2() {
   //TIMSK2 = 0;
 }
 
+//Start TIMER2 with zero value
 void DiyBMSATTiny841::StartTimer2() {
   //Dump resistor is on PA3 which maps to TOCC2
   //Before this is called, the DDR register has already been set
+
+  //Return if its already enabled
+  if (TOCPMSA0 & (1 << TOCC2S1)>0) return;
 
   //Enable OC2B for TOCC2
   TOCPMSA0 = (1 << TOCC2S1);
