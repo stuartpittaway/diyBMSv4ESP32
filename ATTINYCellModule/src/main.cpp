@@ -208,6 +208,12 @@ void setup()
     Settings::WriteConfigToEEPROM((uint8_t *)&myConfig, sizeof(myConfig), EEPROM_CONFIG_ADDRESS);
   }
 
+#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
+  //Keep temperature low for modules with R19 and R20 not swapped
+  if (myConfig.BypassOverTempShutdown>45) {myConfig.BypassOverTempShutdown=45;}
+#endif
+
+
   hardware.double_tap_green_led();
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430

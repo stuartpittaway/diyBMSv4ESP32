@@ -283,7 +283,7 @@ bool PacketProcessor::processPacket()
   case COMMAND::ReadBalancePowerPWM:
   {
     //Read the last PWM value
-    buffer.moduledata[mymoduleaddress] = WeAreInBypass? (PWMValue & 0xFF):0;
+    buffer.moduledata[mymoduleaddress] = WeAreInBypass ? (PWMValue & 0xFF) : 0;
     return true;
   }
 
@@ -349,6 +349,14 @@ bool PacketProcessor::processPacket()
     if (buffer.moduledata[6] != 0xFF)
     {
       _config->BypassOverTempShutdown = buffer.moduledata[6];
+
+#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
+      //Keep temperature low for modules with R19 and R20 not swapped
+      if (_config->BypassOverTempShutdown > 45)
+      {
+        _config->BypassOverTempShutdown = 45;
+      }
+#endif
     }
 
     if (buffer.moduledata[7] != 0xFFFF)

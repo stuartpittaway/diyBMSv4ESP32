@@ -37,7 +37,7 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 
 #include <Arduino.h>
 
-//#define PACKET_LOGGING
+#define PACKET_LOGGING
 //#define RULES_LOGGING
 
 #if defined(ESP8266)
@@ -131,8 +131,6 @@ Ticker mqttReconnectTimer;
 Ticker myTimerSendMqttPacket;
 Ticker myTimerSendInfluxdbPacket;
 Ticker myTimerSwitchPulsedRelay;
-
-Ticker mypid_debugTimer;
 
 uint16_t sequence = 0;
 
@@ -890,20 +888,6 @@ void ConfigureI2C()
   attachInterrupt(digitalPinToInterrupt(PFC_INTERRUPT_PIN), PCFInterrupt, FALLING);
 }
 
-void pid_debug()
-{
-  //SERIAL_DEBUG.print(',');
-  //SERIAL_DEBUG.print(cmi[0][4].voltagemV);
-  //SERIAL_DEBUG.print(',');
-  //SERIAL_DEBUG.print(cmi[0][4].inBypass);
-  //SERIAL_DEBUG.print(',');
-  SERIAL_DEBUG.print(cmi[0][4].internalTemp);
-  SERIAL_DEBUG.print('\t');
-  //SERIAL_DEBUG.print(millis());
-  //SERIAL_DEBUG.print(',');
-  SERIAL_DEBUG.print(cmi[0][4].PWMValue);
-  SERIAL_DEBUG.println("");
-}
 
 void setup()
 {
@@ -1043,8 +1027,6 @@ void setup()
 
   //We process the transmit queue every 0.5 seconds (this needs to be lower delay than the queue fills)
   myTransmitTimer.attach(0.5, timerTransmitCallback);
-
-  mypid_debugTimer.attach(2, pid_debug);
 }
 
 void loop()
