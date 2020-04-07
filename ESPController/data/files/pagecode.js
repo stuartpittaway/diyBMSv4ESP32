@@ -11,7 +11,6 @@ function configureModule(button, bank, module, attempts) {
   $(button).parent().parent().parent().find(".selected").removeClass("selected");
   $(button).parent().parent().addClass("selected");
 
-
   $.getJSON("modules.json", { b: bank, m: module },
     function (data) {
       var div = $("#settingConfig .settings");
@@ -80,7 +79,7 @@ function queryBMS() {
       $.each(jsondata.bank[bankNumber], function (index, value) {
 
         //Should be in stylesheet....
-        var color = value.bypass ? "#B44247" : "#55a1ea";
+        var color = value.bypass ? "#B44247" : null;
 
         var v = (parseFloat(value.v) / 1000.0);
 
@@ -97,12 +96,12 @@ function queryBMS() {
         cells.push(index);
         badpktcount.push(value.badpkt);
         labels.push(bankNumber + "/" + index);
-        pwm.push(value.pwm);
 
-        color = value.bypasshot ? "#B44247" : "#55a1ea";
+        color = value.bypasshot ? "#B44247" : null;
         tempint.push({ value: value.int, itemStyle: { color: color } });
-        tempext.push({ value: (value.ext == -40 ? 0 : value.ext), itemStyle: { color: "#55a1ea" } });
+        tempext.push({ value: (value.ext == -40 ? 0 : value.ext)  });
 
+        pwm.push({ value: value.pwm==0?null:value.pwm});
         
 
         var bIndex = jsondata.parallel ? bankNumber : 0;
@@ -112,6 +111,8 @@ function queryBMS() {
       });
     }
 
+    if (minVoltage< 2.5) { minVoltage=0; }
+    
     //Ignore and hide any errors which are zero
     if (jsondata.monitor.badcrc == 0) { $("#badcrc").hide(); } else { $("#badcrc .v").html(jsondata.monitor.badcrc); $("#badcrc").show(); }
     if (jsondata.monitor.ignored == 0) { $("#ignored").hide(); } else { $("#ignored .v").html(jsondata.monitor.ignored); $("#ignored").show(); }
@@ -178,7 +179,7 @@ function queryBMS() {
         $(columns[4]).html(voltagesmax[index].toFixed(3));
         $(columns[5]).html(tempint[index].value);
         $(columns[6]).html(tempext[index].value);
-        $(columns[7]).html(pwm[index]);
+        $(columns[7]).html(pwm[index].value);
         $(columns[8]).html(badpktcount[index]);
       });
     }
@@ -191,88 +192,312 @@ function queryBMS() {
         // based on prepared DOM, initialize echarts instance
         g1 = echarts.init(document.getElementById('graph1'));
 
-        var labelOption = {
-          normal: {
-            show: true,
-            position: 'insideBottom',
-            distance: 15,
-            align: 'left',
-            verticalAlign: 'middle',
-            rotate: 90,
-            formatter: '{c}V',
-            fontSize: 24, color: '#eeeeee', fontFamily: 'Inconsolata'
-          }
-        };
+        var labelOption = {normal: {show: true,position: 'insideBottom',distance: 15,align: 'left',verticalAlign: 'middle',rotate: 90,formatter: '{c}V',fontSize: 24, color: '#eeeeee', fontFamily: 'Inconsolata'}};
+        var labelOption2 = {normal: {show: true,position: 'insideBottom',distance: 15,align: 'left',verticalAlign: 'middle',rotate: 90,formatter: '{c}°C',fontSize: 20, color: '#eeeeee', fontFamily: 'Inconsolata'} };
+        var labelOption3 = {normal: {show: true,position: 'top',distance: 5,formatter: '{c}V',fontSize: 14, color: '#c1bdbd', fontFamily: 'Inconsolata'}};
+        var labelOption4 = {normal: {show: true,position: 'bottom',distance: 5,formatter: '{c}V',fontSize: 14, color: '#807d7d', fontFamily: 'Inconsolata'}};
 
-        var labelOption3 = {
-          normal: {
-            show: true,
-            position: 'top',
-            distance: 5,
-            formatter: '{c}V',
-            fontSize: 14, color: '#c1bdbd', fontFamily: 'Inconsolata'
-          }
-        };
-
-        var labelOption4 = {
-          normal: {
-            show: true,
-            position: 'bottom',
-            distance: 5,
-            formatter: '{c}V',
-            fontSize: 14, color: '#807d7d', fontFamily: 'Inconsolata'
-          }
-        };
-
-        var labelOption2 = {
-          normal: {
-            show: true,
-            position: 'insideBottom',
-            distance: 15,
-            align: 'left',
-            verticalAlign: 'middle',
-            rotate: 90,
-            formatter: '{c}°C',
-            fontSize: 20, color: '#eeeeee'
-            , fontFamily: 'Inconsolata'
-          }
-        };
-
+        var labelOptionBypass = {normal: {show: true,position: 'bottom',distance: 5,formatter: '{c}%',fontSize:14, color:'#807d7d', fontFamily: 'Inconsolata'}};
 
         // specify chart configuration item and data
         var option = {
-          //            color: ['#c1bdbd', '#c1bdbd', '#c1bdbd'],
-          tooltip: { trigger: 'axis', show: true },
-          legend: { data: ['Voltage'], show: false },
-          xAxis: [
-            { gridIndex: 0, type: 'category', axisLine: { lineStyle: { color: '#c1bdbd' } } }
-            , { gridIndex: 1, type: 'category', axisLine: { lineStyle: { color: '#c1bdbd' } } }
-          ],
-          yAxis: [
-            {
-              gridIndex: 0, name: 'Volts', type: 'value', min: minVoltage, max: maxVoltage
-              , interval: 0.25, position: 'left'
-              , axisLine: { lineStyle: { color: '#c1bdbd' } }
-              , axisLabel: { formatter: '{value}V' }
-            },
-
-            {
-              gridIndex: 1, name: 'Temperature', type: 'value', interval: 10, position: 'left'
-              , axisLine: { lineStyle: { color: '#c1bdbd' } }
-              , axisLabel: { formatter: '{value}°C' }
-            }
-          ]
-          , series: [{ name: 'Voltage', type: 'bar', data: [], label: labelOption }
-            , { name: 'Min V', type: 'line', data: [], label: labelOption4, symbolSize: 20, symbol: ['circle'], itemStyle: { normal: { lineStyle: { color: 'transparent', type: 'dotted' } } } }
-            , { name: 'Max V', type: 'line', data: [], label: labelOption3, symbolSize: 20, symbol: ['triangle'], itemStyle: { normal: { lineStyle: { color: 'transparent', type: 'dotted' } } } }
-            , { xAxisIndex: 1, yAxisIndex: 1, name: 'BypassTemperature', type: 'bar', data: [], label: labelOption2 }
-            , { xAxisIndex: 1, yAxisIndex: 1, name: 'CellTemperature', type: 'bar', data: [], label: labelOption2 }
+          tooltip: {
+              show: true,
+              axisPointer: {
+                  type: 'cross',
+                  label: {
+                      backgroundColor: '#6a7985'
+                  }
+              }
+          },
+          legend: {
+              show: false
+          },
+          xAxis: [{
+              gridIndex: 0,
+              type: 'category',
+              axisLine: {
+                  lineStyle: {
+                      color: '#c1bdbd'
+                  }
+              }
+          }, {
+              gridIndex: 1,
+              type: 'category',
+              axisLine: {
+                  lineStyle: {
+                      color: '#c1bdbd'
+                  }
+              }
+          }],
+          yAxis: [{
+                      id: 0,
+                      gridIndex: 0,
+                      name: 'Volts',
+                      type: 'value',
+                      min: 2.5,
+                      max: 4.5,
+                      interval: 0.25,
+                      position: 'left',
+                      axisLine: {
+                          lineStyle: {
+                              color: '#c1bdbd'
+                          }
+                      },
+                      axisLabel: {
+                          formatter: function(value, index) {
+                              return value.toFixed(2);
+                          }
+                      }
+                  },
+                  {
+                      id: 1,
+                      gridIndex: 0,
+                      name: 'Bypass',
+                      type: 'value',
+                      min: 0,
+                      max: 100,
+                      interval: 10,
+                      position: 'right',
+                      axisLabel: {
+                          formatter: '{value}%'
+                          
+                      },
+                      splitLine: {show: false},
+                      axisLine: {
+                          
+                          lineStyle: {
+                              type: 'dotted',
+                              color: '#c1bdbd'
+                          }
+                      },
+                      axisTick: {
+                          show: false
+                      }
+                      
+                  },
+                  {
+                      id: 2,
+                      gridIndex: 1,
+                      name: 'Temperature',
+                      type: 'value',
+                      interval: 10,
+                      position: 'left',
+                      axisLine: {
+                          lineStyle: {
+                              color: '#c1bdbd'
+                          }
+                      },
+                      axisLabel: {
+                          formatter: '{value}°C'
+                      }
+                  }
+              ]
+              ,
+          series: [
+              {
+                  xAxisIndex: 0,
+                  name: 'Voltage',
+                  yAxisIndex: 0,
+                  type: 'bar',
+                  data: [],
+                   itemStyle: {
+                      color: '#55a1ea',
+                      barBorderRadius: [8, 8, 0, 0],
+                      color: new echarts.graphic.LinearGradient(
+                          0, 0, 0, 1,
+                          [
+                              {offset: 0, color: '#55a1ea'},
+                              {offset: 1, color: '#aaaaaa'}
+                          ]
+                      )
+                  },
+                  label: {
+                      normal: {
+                          show: true,
+                          position: 'insideBottom',
+                          distance: 15,
+                          align: 'left',
+                          verticalAlign: 'middle',
+                          rotate: 90,
+                          formatter: '{c}V',
+                          fontSize: 24,
+                          color: '#eeeeee',
+                          fontFamily: 'Inconsolata'
+                      }
+                  }
+              }
+      
+              , {
+                  xAxisIndex: 0,
+                  name: 'Min V',
+                  yAxisIndex: 0,
+                  type: 'line',
+                  data: [],
+                  label: {
+                      normal: {
+                          show: true,
+                          position: 'bottom',
+                          distance: 5,
+                          formatter: '{c}V',
+                          fontSize: 14,
+                          color: '#eeeeee',
+                          fontFamily: 'Inconsolata'
+                      }
+                  },
+                  symbolSize: 16,
+                  symbol: ['circle'],
+                  itemStyle: {
+                      normal: {
+                          color: "#c1bdbd",
+                          lineStyle: {
+                              color: 'transparent'
+                          }
+                      }
+                  }
+              }
+      
+      
+              , {
+                  xAxisIndex: 0,
+                  name: 'Max V',
+                  yAxisIndex: 0,
+                  type: 'line',
+                  data: [],
+                  label: {
+                      normal: {
+                          show: true,
+                          position: 'top',
+                          distance: 5,
+                          formatter: '{c}V',
+                          fontSize: 14,
+                          color: '#c1bdbd',
+                          fontFamily: 'Inconsolata'
+                      }
+                  },
+                  symbolSize: 16,
+                  symbol: ['arrow'],
+                  itemStyle: {
+                      normal: {
+                          color: "#c1bdbd",
+                          lineStyle: {
+                              color: 'transparent'
+                          }
+                      }
+                  }
+              }
+      
+              , {
+                  xAxisIndex: 0,
+                  name: 'Bypass',
+                  yAxisIndex: 1,
+                  type: 'line',
+                  data: [],
+                  label: {
+                      normal: {
+                          show: true,
+                          position: 'right',
+                          distance: 5,
+                          formatter: '{c}%',
+                          fontSize: 14,
+                          color: '#807d7d',
+                          fontFamily: 'Inconsolata'
+                      }
+                  },
+                  symbolSize: 16,
+                  symbol: ['square'],
+                  itemStyle: {
+                      normal: {
+                          color: "#807d7d",
+                          lineStyle: {
+                              color: 'transparent'
+                          }
+                      }
+                  }
+              }
+      
+              //Temperatures
+              , {
+                  xAxisIndex: 1,
+                  yAxisIndex: 2,
+                  name: 'BypassTemperature',
+                  type: 'bar',
+                  data: [],
+                   itemStyle: {
+                      color: '#55a1ea',
+                      barBorderRadius: [8, 8, 0, 0],
+                      color: new echarts.graphic.LinearGradient(
+                          0, 0, 0, 1,
+                          [
+                              {offset: 0, color: '#55a1ea'},
+                              {offset: 1, color: '#aaaaaa'}
+                          ]
+                      )
+                  },
+                  label: {
+                      normal: {
+                          show: true,
+                          position: 'insideBottom',
+                          distance: 8,
+                          align: 'left',
+                          verticalAlign: 'middle',
+                          rotate: 90,
+                          formatter: '{c}°C',
+                          fontSize: 20,
+                          color: '#eeeeee',
+                          fontFamily: 'Inconsolata'
+                      }
+                  }
+              }
+      
+              , {
+                  xAxisIndex: 1,
+                  yAxisIndex: 2,
+                  name: 'CellTemperature',
+                  type: 'bar',
+                  data: [],
+                   itemStyle: {
+                      color: '#55a1ea',
+                      barBorderRadius: [8, 8, 0, 0],
+                      color: new echarts.graphic.LinearGradient(
+                          0, 0, 0, 1,
+                          [
+                              {offset: 0, color: '#55a1ea'},
+                              {offset: 1, color: '#aaaaaa'}
+                          ]
+                      )
+                  },
+                  label: {
+                      normal: {
+                          show: true,
+                          position: 'insideBottom',
+                          distance: 8,
+                          align: 'left',
+                          verticalAlign: 'middle',
+                          rotate: 90,
+                          formatter: '{c}°C',
+                          fontSize: 20,
+                          color: '#eeeeee',
+                          fontFamily: 'Inconsolata'
+                      }
+                  }
+      
+              }
           ],
           grid: [
-            { containLabel: false, left: '5%', right: '5%', bottom: '32%' }
-            , { containLabel: false, left: '5%', right: '5%', top: '78%' }
-          ],
-        };
+              {
+              containLabel: false,
+              left: '4%',
+              right: '4%',
+              bottom: '30%'
+              
+          }, {
+              containLabel: false,
+              left: '4%',
+              right: '4%',
+              top: '76%'
+          }]
+      };
 
         // use configuration item and data specified to show chart
         g1.setOption(option);
@@ -286,6 +511,7 @@ function queryBMS() {
           , series: [{ name: 'Voltage', data: voltages }
             , { name: 'Min V', data: voltagesmin }
             , { name: 'Max V', data: voltagesmax }
+            , { name: 'Bypass', data: pwm }
             , { name: 'BypassTemperature', data: tempint }
             , { name: 'CellTemperature', data: tempext }]
         });

@@ -327,7 +327,7 @@ void loop()
         //Start timer2 with zero value
         hardware.StartTimer2();
         pwmrunning = true;
-        myPID.clear();
+        //myPID.clear();
       }
 
       //Compare the real temperature against max setpoint, we want the PID to keep at this temperature
