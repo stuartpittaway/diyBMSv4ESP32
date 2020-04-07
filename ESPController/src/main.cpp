@@ -221,10 +221,7 @@ void onPacketReceived(const uint8_t *receivebuffer, size_t len)
     }
 #if defined(PACKET_LOGGING)
     SERIAL_DEBUG.println("");
-
-    SERIAL_DEBUG.print("Timing:");
-    SERIAL_DEBUG.print(receiveProc.packetTimerMillisecond);
-    SERIAL_DEBUG.println("ms");
+    //SERIAL_DEBUG.print("Timing:");SERIAL_DEBUG.print(receiveProc.packetTimerMillisecond);SERIAL_DEBUG.println("ms");
 #endif
   }
 }
@@ -1020,7 +1017,7 @@ void setup()
   }
 
   //Ensure we service the cell modules every 4 seconds
-  myTimer.attach(2, timerEnqueueCallback);
+  myTimer.attach(4, timerEnqueueCallback);
 
   //Process rules every 5 seconds (this prevents the relays from clattering on and off)
   myTimerRelay.attach(5, timerProcessRules);

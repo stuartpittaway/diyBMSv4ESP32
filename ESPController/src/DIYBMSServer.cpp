@@ -684,7 +684,7 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request) {
       cell["int"] = cmi[bank][i].internalTemp;
       cell["ext"] = cmi[bank][i].externalTemp;
       cell["badpkt"] = cmi[bank][i].badPacketCount;
-      cell["pwm"] = cmi[bank][i].PWMValue;
+      cell["pwm"] = cmi[bank][i].inBypass? cmi[bank][i].PWMValue:0;
     }
   }
   serializeJson(doc, *response);
