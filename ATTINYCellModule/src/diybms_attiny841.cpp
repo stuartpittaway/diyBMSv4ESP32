@@ -67,7 +67,7 @@ void DiyBMSATTiny841::StartTimer2() {
   //Before this is called, the DDR register has already been set
 
   //Return if its already enabled
-  if (TOCPMSA0 & (1 << TOCC2S1)>0) return;
+  if ((TOCPMSA0 & (1 << TOCC2S1))>0) return;
 
   //Enable OC2B for TOCC2
   TOCPMSA0 = (1 << TOCC2S1);
