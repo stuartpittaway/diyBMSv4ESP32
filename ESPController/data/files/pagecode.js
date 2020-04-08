@@ -303,20 +303,13 @@ function queryBMS() {
                   data: [],
                    itemStyle: {
                       color: '#55a1ea',
-                      barBorderRadius: [8, 8, 0, 0],
-                      color: new echarts.graphic.LinearGradient(
-                          0, 0, 0, 1,
-                          [
-                              {offset: 0, color: '#55a1ea'},
-                              {offset: 1, color: '#aaaaaa'}
-                          ]
-                      )
+                      barBorderRadius: [8, 8, 0, 0]                      
                   },
                   label: {
                       normal: {
                           show: true,
                           position: 'insideBottom',
-                          distance: 15,
+                          distance: 10,
                           align: 'left',
                           verticalAlign: 'middle',
                           rotate: 90,
@@ -425,14 +418,7 @@ function queryBMS() {
                   data: [],
                    itemStyle: {
                       color: '#55a1ea',
-                      barBorderRadius: [8, 8, 0, 0],
-                      color: new echarts.graphic.LinearGradient(
-                          0, 0, 0, 1,
-                          [
-                              {offset: 0, color: '#55a1ea'},
-                              {offset: 1, color: '#aaaaaa'}
-                          ]
-                      )
+                      barBorderRadius: [8, 8, 0, 0]
                   },
                   label: {
                       normal: {
@@ -458,14 +444,7 @@ function queryBMS() {
                   data: [],
                    itemStyle: {
                       color: '#55a1ea',
-                      barBorderRadius: [8, 8, 0, 0],
-                      color: new echarts.graphic.LinearGradient(
-                          0, 0, 0, 1,
-                          [
-                              {offset: 0, color: '#55a1ea'},
-                              {offset: 1, color: '#aaaaaa'}
-                          ]
-                      )
+                      barBorderRadius: [8, 8, 0, 0]
                   },
                   label: {
                       normal: {
