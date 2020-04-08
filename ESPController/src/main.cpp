@@ -126,6 +126,7 @@ WiFiEventHandler wifiDisconnectHandler;
 Ticker myTimerRelay;
 Ticker myTimer;
 Ticker myTransmitTimer;
+Ticker myLazyTimer;
 Ticker wifiReconnectTimer;
 Ticker mqttReconnectTimer;
 Ticker myTimerSendMqttPacket;
@@ -885,6 +886,22 @@ void ConfigureI2C()
   attachInterrupt(digitalPinToInterrupt(PFC_INTERRUPT_PIN), PCFInterrupt, FALLING);
 }
 
+//Lazy load the config data - Every 10 seconds see if there is a module we don't have configuration data for, if so request it
+void timerLazyCallback()
+{
+//Find the first module that doesn't have settings cached and request them
+//we only do 1 module at a time to avoid flooding the queue
+  for (uint8_t bank = 0; bank < 4; bank++)
+  {
+    for (uint8_t module = 0; module < numberOfModules[bank]; module++)
+    {
+      if (!cmi[bank][module].settingsCached)
+      {
+        prg.sendGetSettingsRequest(bank, module);
+      }
+    }
+  }
+}
 
 void setup()
 {
@@ -1024,6 +1041,9 @@ void setup()
 
   //We process the transmit queue every 0.5 seconds (this needs to be lower delay than the queue fills)
   myTransmitTimer.attach(0.5, timerTransmitCallback);
+
+  //This is my 10 second lazy timer
+  myLazyTimer.attach(10, timerLazyCallback);
 }
 
 void loop()
