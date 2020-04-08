@@ -77,8 +77,6 @@ function queryBMS() {
     for (var bankNumber = 0; bankNumber < jsondata.banks; bankNumber++) {
       //Need to cater for banks of cells
       $.each(jsondata.bank[bankNumber], function (index, value) {
-
-        //Should be in stylesheet....
         var color = value.bypass ? "#B44247" : null;
 
         var v = (parseFloat(value.v) / 1000.0);
@@ -101,8 +99,7 @@ function queryBMS() {
         tempint.push({ value: value.int, itemStyle: { color: color } });
         tempext.push({ value: (value.ext == -40 ? 0 : value.ext)  });
 
-        pwm.push({ value: value.pwm==0?null:value.pwm});
-        
+        pwm.push({value: value.pwm==0 ? null:value.pwm});       
 
         var bIndex = jsondata.parallel ? bankNumber : 0;
         voltage[bIndex] += v;
@@ -111,7 +108,9 @@ function queryBMS() {
       });
     }
 
-    if (minVoltage< 2.5) { minVoltage=0; }
+    
+    //Scale down for low voltages
+    if (minVoltage<2.5) { minVoltage=0; }
     
     //Ignore and hide any errors which are zero
     if (jsondata.monitor.badcrc == 0) { $("#badcrc").hide(); } else { $("#badcrc .v").html(jsondata.monitor.badcrc); $("#badcrc").show(); }
@@ -146,7 +145,6 @@ function queryBMS() {
     }
 
     $("#info").show();
-
     $("#iperror").hide();
 
     if ($('#modulesPage').is(':visible')) {
