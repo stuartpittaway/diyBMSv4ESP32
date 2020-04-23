@@ -19,4 +19,5 @@ install:
 script:
     - platformio run --project-dir=./ATTINYCellModule  --project-conf=./ATTINYCellModule/platformio.ini
     - platformio run --project-dir=./ATTINYCellModuleTestPrg  --project-conf=./ATTINYCellModuleTestPrg/platformio.ini
+    - platformio run --project-dir=./ATTINYPIDTuning  --project-conf=./ATTINYPIDTuning/platformio.ini
     - platformio run --project-dir=./ESPController  --project-conf=./ESPController/platformio.ini
