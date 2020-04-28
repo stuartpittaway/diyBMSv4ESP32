@@ -14,8 +14,6 @@ void PacketRequestGenerator::clearSettingsForAllModules()
 
 void PacketRequestGenerator::sendMoveToBank(uint8_t b, uint8_t m, uint8_t movetobank)
 {
-  clearSettingsForAllModules();
-
   setPacketAddress(false, b, m);
 
   //Command - SetBankIdentity
@@ -26,29 +24,30 @@ void PacketRequestGenerator::sendMoveToBank(uint8_t b, uint8_t m, uint8_t moveto
   _packetbuffer.moduledata[m] = movetobank & 0x03;
 
   pushPacketToQueue();
+
+  clearSettingsForAllModules();
 }
 
-void PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
+void PacketRequestGenerator::sendSaveGlobalSetting(uint8_t totalNumberOfBanks, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
 {
-  //Set all modules to bypass and temperature shutdown to save values
-
-  setPacketAddress(true, 0, 0);
-  //Command - WriteSettings
-  _packetbuffer.command = COMMAND::WriteSettings;
-
-  //Fill packet with 0xFFFF values - module ignores settings
-  //with this value
-  for (int a = 0; a < maximum_cell_modules; a++)
+  for (uint8_t bank = 0; bank < totalNumberOfBanks; bank++)
   {
-    _packetbuffer.moduledata[a] = 0xFFFF;
+    //Ask all modules to set bypass and temperature value
+    setPacketAddress(true, bank, 0);
+    //Command - WriteSettings
+    _packetbuffer.command = COMMAND::WriteSettings;
+
+    //Fill packet with 0xFFFF values - module ignores settings with this value
+    for (uint8_t a = 0; a < maximum_cell_modules; a++)
+    {
+      _packetbuffer.moduledata[a] = 0xFFFF;
+    }
+    _packetbuffer.moduledata[6] = BypassOverTempShutdown;
+    _packetbuffer.moduledata[7] = BypassThresholdmV;
+    pushPacketToQueue();
   }
 
   clearSettingsForAllModules();
-
-  _packetbuffer.moduledata[6] = BypassOverTempShutdown;
-  _packetbuffer.moduledata[7] = BypassThresholdmV;
-
-  pushPacketToQueue();
 }
 void PacketRequestGenerator::sendSaveSetting(uint8_t b, uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float LoadResistance, float Calibration, float mVPerADC, uint16_t Internal_BCoefficient, uint16_t External_BCoefficient)
 {
@@ -163,7 +162,6 @@ void PacketRequestGenerator::sendReadBalancePowerRequest(uint8_t b)
   clearmoduledata();
   pushPacketToQueue();
 }
-
 
 void PacketRequestGenerator::pushPacketToQueue()
 {
