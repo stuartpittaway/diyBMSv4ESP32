@@ -728,26 +728,24 @@ void sendMqttPacket()
   SERIAL_DEBUG.println("Sending MQTT");
 
   char topic[50];
-  char jsonbuffer[100];
-  //char value[20];
-  //uint16_t reply;
+  char jsonbuffer[1024];
 
   for (uint8_t bank = 0; bank < 4; bank++)
   {
     for (uint8_t i = 0; i < numberOfModules[bank]; i++)
     {
 
-      StaticJsonDocument<100> doc;
-      doc["voltage"] = (float)cmi[bank][i].voltagemV / 1000.0;
-      doc["inttemp"] = cmi[bank][i].internalTemp;
-      doc["exttemp"] = cmi[bank][i].externalTemp;
-      doc["bypass"] = cmi[bank][i].inBypass ? 1 : 0;
+      StaticJsonDocument<1024> doc;
+      doc["v"] = (float)cmi[bank][i].voltagemV / 1000.0;
+      doc["itemp"] = cmi[bank][i].internalTemp;
+      doc["etemp"] = cmi[bank][i].externalTemp;
+      doc["b"] = cmi[bank][i].inBypass ? 1 : 0;
       serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
 
       sprintf(topic, "diybms/%d/%d", bank, i);
       mqttClient.publish(topic, 0, false, jsonbuffer);
       SERIAL_DEBUG.println(topic);
-      //SERIAL_DEBUG.print(" ");      SERIAL_DEBUG.print(jsonbuffer);      SERIAL_DEBUG.print(" ");      SERIAL_DEBUG.println(reply);
+      //SERIAL_DEBUG.print(" ");SERIAL_DEBUG.print(jsonbuffer);SERIAL_DEBUG.print(" ");SERIAL_DEBUG.println(reply);
     }
   }
 }
