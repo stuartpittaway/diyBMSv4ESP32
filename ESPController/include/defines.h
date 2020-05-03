@@ -47,6 +47,7 @@ struct diybms_eeprom_settings {
 
   //NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
+  char mqtt_topic[32+1];
   uint16_t mqtt_port;
   char mqtt_server[64+1];
   char mqtt_username[32+1];

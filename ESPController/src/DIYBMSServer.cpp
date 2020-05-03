@@ -259,30 +259,36 @@ void DIYBMSServer::saveMQTTSetting(AsyncWebServerRequest *request) {
 
     if (request->hasParam("mqttEnabled", true)) {
       AsyncWebParameter *p1 = request->getParam("mqttEnabled", true);
-      mysettings.mqtt_enabled =p1->value().equals("on") ? true:false;
+      mysettings.mqtt_enabled = p1->value().equals("on") ? true:false;
     } else {
-      mysettings.mqtt_enabled =false;
+      mysettings.mqtt_enabled = false;
     }
 
-    if (request->hasParam("mqttEnabled", true)) {
+    if (request->hasParam("mqttTopic", true)) {
+      AsyncWebParameter *p1 = request->getParam("mqttTopic", true);
+      p1->value().toCharArray(mysettings.mqtt_topic, sizeof(mysettings.mqtt_topic));
+    } else {
+      sprintf(mysettings.mqtt_topic, "diybms");
+    }
+
+    if (request->hasParam("mqttPort", true)) {
       AsyncWebParameter *p1 = request->getParam("mqttPort", true);
-      mysettings.mqtt_port =p1->value().toInt();
+      mysettings.mqtt_port = p1->value().toInt();
     }
-
 
     if (request->hasParam("mqttServer", true)) {
       AsyncWebParameter *p1 = request->getParam("mqttServer", true);
-      p1->value().toCharArray(mysettings.mqtt_server,sizeof(mysettings.mqtt_server));
+      p1->value().toCharArray(mysettings.mqtt_server, sizeof(mysettings.mqtt_server));
     }
 
     if (request->hasParam("mqttUsername", true)) {
       AsyncWebParameter *p1 = request->getParam("mqttUsername", true);
-      p1->value().toCharArray(mysettings.mqtt_username,sizeof(mysettings.mqtt_username));
+      p1->value().toCharArray(mysettings.mqtt_username, sizeof(mysettings.mqtt_username));
     }
 
     if (request->hasParam("mqttPassword", true)) {
       AsyncWebParameter *p1 = request->getParam("mqttPassword", true);
-      p1->value().toCharArray(mysettings.mqtt_password,sizeof(mysettings.mqtt_password));
+      p1->value().toCharArray(mysettings.mqtt_password, sizeof(mysettings.mqtt_password));
     }
 
     Settings::WriteConfigToEEPROM((char*)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
@@ -523,10 +529,11 @@ void DIYBMSServer::integration(AsyncWebServerRequest *request) {
   JsonObject root = doc.to<JsonObject>();
 
   JsonObject mqtt = root.createNestedObject("mqtt");
-  mqtt["enabled"] =mysettings.mqtt_enabled;
-  mqtt["port"] =mysettings.mqtt_port;
-  mqtt["server"] =mysettings.mqtt_server;
-  mqtt["username"] =mysettings.mqtt_username;
+  mqtt["enabled"] = mysettings.mqtt_enabled;
+  mqtt["topic"] = mysettings.mqtt_topic;
+  mqtt["port"] = mysettings.mqtt_port;
+  mqtt["server"] = mysettings.mqtt_server;
+  mqtt["username"] = mysettings.mqtt_username;
   //We don't output the password in the json file as this could breach security
   //mqtt["password"] =mysettings.mqtt_password;
 
