@@ -640,7 +640,7 @@ void sendMqttPacket() {
 
   Serial1.println("Sending MQTT");
 
-  char topic[50];
+  char topic[80];
   char jsonbuffer[100];
   //char value[20];
   //uint16_t reply;
@@ -650,12 +650,12 @@ void sendMqttPacket() {
 
       StaticJsonDocument<100> doc;
       doc["voltage"] = (float)cmi[bank][i].voltagemV/1000.0;
-      doc["inttemp"]=cmi[bank][i].internalTemp;
-      doc["exttemp"]=cmi[bank][i].externalTemp;
-      doc["bypass"]=cmi[bank][i].inBypass ? 1:0;
+      doc["inttemp"] = cmi[bank][i].internalTemp;
+      doc["exttemp"] = cmi[bank][i].externalTemp;
+      doc["bypass"] = cmi[bank][i].inBypass ? 1:0;
       serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
 
-      sprintf(topic, "diybms/%d/%d", bank,i);
+      sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, i);
       mqttClient.publish(topic, 0, false, jsonbuffer);
       Serial1.println(topic);
       //Serial1.print(" ");      Serial1.print(jsonbuffer);      Serial1.print(" ");      Serial1.println(reply);
@@ -682,6 +682,7 @@ void LoadConfiguration() {
     mysettings.mqtt_port=1883;
 
     //Default to EMONPI default MQTT settings
+    strcpy(mysettings.mqtt_topic,"diybms");
     strcpy(mysettings.mqtt_server,"192.168.0.26");
     strcpy(mysettings.mqtt_username,"emonpi");
     strcpy(mysettings.mqtt_password,"emonpimqtt2016");

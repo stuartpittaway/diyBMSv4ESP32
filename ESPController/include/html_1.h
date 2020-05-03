@@ -165,6 +165,10 @@ const char FILE_INDEX_HTML[] PROGMEM = R"=====(
                 <input type="checkbox" name="mqttEnabled" id="mqttEnabled">
             </div>
             <div>
+                <label for="mqttTopic">Topic</label>
+                <input type="input" name="mqttTopic" id="mqttTopic" value="diybms" required="" maxlength="32">
+            </div>
+            <div>
                 <label for="mqttServer">Server</label>
                 <input type="input" name="mqttServer" id="mqttServer" value="" required="" maxlength="64">
             </div>
@@ -814,6 +818,7 @@ $(function() {
       function(data) {
 
           $("#mqttEnabled").prop("checked", data.mqtt.enabled );
+          $("#mqttTopic").val(data.mqtt.topic);
           $("#mqttServer").val(data.mqtt.server);
           $("#mqttPort").val(data.mqtt.port);
           $("#mqttUsername").val(data.mqtt.username);
