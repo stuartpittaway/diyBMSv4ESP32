@@ -253,6 +253,7 @@ void timerTransmitCallback()
     //through the modules.  We only time the COMMAND::ReadVoltageAndStatus packets
     if (transmitBuffer.command == COMMAND::ReadVoltageAndStatus)
     {
+      receiveProc.packetLastSentSequence = sequence;
       receiveProc.packetLastSentMillisecond = millis();
     }
 

@@ -29,7 +29,11 @@ bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
           case COMMAND::SetBankIdentity:
             break;  // Ignore reply
           case COMMAND::ReadVoltageAndStatus:
-            packetTimerMillisecond=millis()-packetLastSentMillisecond;
+            if (packetLastSentSequence==_packetbuffer.sequence) {
+              //Record the number of milliseconds taken for this packet to go through the modules
+              //we use this to later check for unusually large timeouts (indication of fault)
+              packetTimerMillisecond=millis()-packetLastSentMillisecond;
+            }
             ProcessReplyVoltage();
             break;
           case COMMAND::ReadBadPacketCounter:

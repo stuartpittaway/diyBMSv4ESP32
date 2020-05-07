@@ -22,6 +22,7 @@ class PacketReceiveProcessor {
      //Timer for "read voltage" packets (default to 1 minute at startup)
      uint32_t packetTimerMillisecond = 60*1000;
      uint32_t packetLastReceivedMillisecond = 0;
+     uint16_t packetLastSentSequence = 0;
      uint32_t packetLastSentMillisecond = 0;
 
   private:
