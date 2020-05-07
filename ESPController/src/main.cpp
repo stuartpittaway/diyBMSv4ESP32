@@ -206,6 +206,7 @@ void onPacketReceived(const uint8_t *receivebuffer, size_t len)
 {
   //Note that this function gets called frequently with zero length packets
   //due to the way the modules operate
+    GREEN_LED_ON;
 
   if (len == sizeof(packet))
   {
@@ -225,6 +226,8 @@ void onPacketReceived(const uint8_t *receivebuffer, size_t len)
     //SERIAL_DEBUG.print("Timing:");SERIAL_DEBUG.print(receiveProc.packetTimerMillisecond);SERIAL_DEBUG.println("ms");
 #endif
   }
+
+    GREEN_LED_OFF;
 }
 
 void timerTransmitCallback()
@@ -235,7 +238,6 @@ void timerTransmitCallback()
   {
     packet transmitBuffer;
 
-    GREEN_LED_ON;
 
     //Wake up the connected cell module from sleep
     SERIAL_DATA.write(framingmarker);
@@ -262,7 +264,6 @@ void timerTransmitCallback()
     SERIAL_DEBUG.println(requestQueue.getCount());
 #endif
 
-    GREEN_LED_OFF;
   }
 }
 
