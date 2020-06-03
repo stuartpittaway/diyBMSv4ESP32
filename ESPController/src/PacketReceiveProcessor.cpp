@@ -4,8 +4,9 @@
 
 bool PacketReceiveProcessor::HasCommsTimedOut() {
   //We timeout the comms if we dont receive a packet within 5 times the normal
-  //round trip time of the packets through the modules
-  return ((millis()-packetLastReceivedMillisecond)> 5*packetTimerMillisecond );
+  //round trip time of the packets through the modules (minimum of 5 seconds to cater for low numbers of modules)
+  uint32_t millisecondSinceLastPacket=millis()-packetLastReceivedMillisecond;
+  return ((millisecondSinceLastPacket> 5*packetTimerMillisecond) && (millisecondSinceLastPacket > 5000));
 }
 
 bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
