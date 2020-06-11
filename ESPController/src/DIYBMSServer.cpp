@@ -611,8 +611,7 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request) {
   AsyncResponseStream *response =
       request->beginResponseStream("application/json");
 
-  uint16_t docSize = 2560 * mysettings.totalNumberOfBanks;
-  DynamicJsonDocument doc(docSize);
+  DynamicJsonDocument doc(10240);
 
   JsonObject root = doc.to<JsonObject>();
 
