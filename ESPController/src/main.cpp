@@ -645,7 +645,7 @@ void sendMqttPacket() {
   //char value[20];
   //uint16_t reply;
 
-  for (uint8_t bank = 0; bank < 4; bank++) {
+  for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++) {
     for (uint8_t i = 0; i < numberOfModules[bank]; i++) {
 
       StaticJsonDocument<100> doc;
