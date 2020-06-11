@@ -658,7 +658,8 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request) {
   AsyncResponseStream *response =
       request->beginResponseStream("application/json");
 
-  DynamicJsonDocument doc(4096);
+  //Allocate buffer large enough for 4 banks of 16 modules
+  DynamicJsonDocument doc(10240);
 
   JsonObject root = doc.to<JsonObject>();
 
