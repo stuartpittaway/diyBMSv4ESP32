@@ -528,6 +528,12 @@ void timerEnqueueCallback()
 void connectToWifi()
 {
   SERIAL_DEBUG.println("Connecting to Wi-Fi...");
+#if defined(ESP8266)
+  WiFi.hostname("diyBMS-ESP8266");
+#endif
+#if defined(ESP32)
+  WiFi.hostname("diyBMS-ESP32");
+#endif
   WiFi.mode(WIFI_STA);
   WiFi.begin(DIYBMSSoftAP::WifiSSID(), DIYBMSSoftAP::WifiPassword());
 }
