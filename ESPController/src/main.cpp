@@ -532,7 +532,7 @@ void connectToWifi()
   WiFi.hostname("diyBMS-ESP8266");
 #endif
 #if defined(ESP32)
-  WiFi.hostname("diyBMS-ESP32");
+  WiFi.setHostname("diyBMS-ESP32");
 #endif
   WiFi.mode(WIFI_STA);
   WiFi.begin(DIYBMSSoftAP::WifiSSID(), DIYBMSSoftAP::WifiPassword());
