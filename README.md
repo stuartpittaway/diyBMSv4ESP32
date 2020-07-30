@@ -4,7 +4,11 @@ Version 4 of the diyBMS.  Do it yourself battery management system for Lithium i
 
 If you are looking for version 3 of this project take a look here https://github.com/stuartpittaway/diyBMS
 
-<strong>USING THIS CODE HAS CHANGED - PLEASE SEE How To Use The Code / Compile Code INSTRUCTIONS BELOW</strong>
+# How to use/compile the code
+
+Please watch this video on how to program the controller and modules.
+
+https://youtu.be/wTqDMg_Ql98
 
 # TRAVIS-CI
 [![Build Status](https://travis-ci.org/stuartpittaway/diyBMSv4Code.svg?branch=master)](https://travis-ci.org/stuartpittaway/diyBMSv4Code)
@@ -32,26 +36,16 @@ The use of this project may not be compliant with local laws or regulations - if
 
 
 
-# How To Use The Code / Compile Code
-
-## Setup
-Install VSCode and PlatformIO - google is your friend on how to do this
-
-The source code for the modules is in he folder "ATTINYCellModule" and the controller code in the folder "ESPController"
-
-
 ## Controller Code
 ESP8266 (recommend Wemos D1 Mini Pro 16MB flash) is currently supported, ESP32 version compiles but is experimental and untested (don't use for production applications)
 
 The current version requires you to program both FLASH memory and SPIFF memory.  This is achieved through platformio.
 
-Open the controller code, navigate to platformio environment "env:esp8266_d1minipro", select "Upload File System Image" followed by "Upload"
-
-For usage on 4MB flash ESP8266 devices see this issue - https://github.com/stuartpittaway/diyBMSv4Code/issues/10
+Please watch this video on how to program the controller and modules.
+https://youtu.be/wTqDMg_Ql98
 
 
 ## Module Code
-
 Module code runs on ATTINY841, it is important to program the chip with the correct version of code depending on your PCB version.
 
 * V400 = Original board (marked DIYBMS v4 on silkscreen) - has 8 large resistors (marked 2R20) and likely handsoldered using 0805 sized parts [4.0 boards do have TP2 near the ATTINY841 chip]
@@ -64,12 +58,9 @@ Module code runs on ATTINY841, it is important to program the chip with the corr
 
 * V421 = JLCPCB built board (marked DIYBMS v4.21 on silkscreen) - has 20 small resistors (marked 6R20) and machine soldered using 0603 sized parts (R19 is in middle of resistor array)
 
-* V430 = JLCPCB built board (marked DIYBMS v4.3 on silkscreen) - not released to public/in test
+* V430 = JLCPCB built board (marked DIYBMS v4.3 on silkscreen) - not released to public - experimental version.
 
 Open the module code, navigate to platformio environment "env:attiny841_VXXX", (where XXX is the version from above).  Connect your USBASP programmer to the module and select "Upload"
-
-
-
 
 
 
