@@ -317,13 +317,15 @@ void ProcessRules()
         rule_outcome[RULE_Individualcellundervoltage] = true;
       }
 
-      if ((cmi[bank][i].externalTemp != -40) && (cmi[bank][i].externalTemp > mysettings.rulevalue[RULE_IndividualcellovertemperatureExternal]))
+      //Doesn't cater for negative temperatres on rule (int8 vs uint32)
+      if ((cmi[bank][i].externalTemp != -40) && ((uint8_t)cmi[bank][i].externalTemp > mysettings.rulevalue[RULE_IndividualcellovertemperatureExternal]))
       {
         //Rule Individual cell over temperature (external probe)
         rule_outcome[RULE_IndividualcellovertemperatureExternal] = true;
       }
 
-      if ((cmi[bank][i].externalTemp != -40) && (cmi[bank][i].externalTemp < mysettings.rulevalue[RULE_IndividualcellundertemperatureExternal]))
+      //Doesn't cater for negative temperatres on rule (int8 vs uint32)
+      if ((cmi[bank][i].externalTemp != -40) && ((uint8_t)cmi[bank][i].externalTemp < mysettings.rulevalue[RULE_IndividualcellundertemperatureExternal]))
       {
         //Rule Individual cell UNDER temperature (external probe)
         rule_outcome[RULE_IndividualcellundertemperatureExternal] = true;

@@ -68,7 +68,7 @@ struct diybms_eeprom_settings
   bool combinationParallel;
   uint8_t totalNumberOfBanks;
 
-  uint16_t rulevalue[RELAY_RULES];
+  uint32_t rulevalue[RELAY_RULES];
 
   //Use a bit pattern to indicate the relay states
   uint8_t rulerelaystate[RELAY_RULES][RELAY_TOTAL];
