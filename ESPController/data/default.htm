@@ -23,8 +23,9 @@
         <div class="header-right">
             <a id="home" class="active" href="#home">Home</a>
             <a id="modules" href="#modules">Modules</a>
-            <a id="integration" href="#integration">Integration</a>
             <a id="settings" href="#settings">Settings</a>
+            <a id="rules" href="#rules">Rules</a>
+            <a id="integration" href="#integration">Integration</a>
             <a id="about" href="#about">About</a>
         </div>
     </div>
@@ -208,7 +209,7 @@
                     <div>
                         <label for="mqttTopic">Topic</label>
                         <input type="input" name="mqttTopic" id="mqttTopic" value="diybms" required="" maxlength="32">
-                    </div>       
+                    </div>
                     <div>
                         <label for="mqttServer">Server</label>
                         <input type="input" name="mqttServer" id="mqttServer" value="" required="" maxlength="64">
@@ -273,137 +274,125 @@
     </div>
 
 
-    <div class="page" id="settingsPage">
+    <div class="page" id="rulesPage">
         <h1>Controller Settings</h1>
-
         <div class="region">
             <h2>Rules</h2>
             <p>DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules below
                 allow you to configure the relays for your situation.</p>
             <p>Rules are processed in REVERSE order. Control the relays using the options. A value of "X" means don't
-                care/leave at previous setting.<p>
-                    <p>'Minutes after' rules allow timed operation, this rule is active when the number of minutes past
-                        midnight has been reached,
-                        for instance 495 is 08:15am. Use the combination of both rules to switch on and off. This only
-                        works if connected to internet for time updates.</p>
-                    <p>Minutes since midnight now is: <span id='minutesnow'></span></p>
-                    <p>Emergency stop is triggered by connector J1, once triggered controller needs to be reset to
-                        disable</p>
-                    <div class="error" id='PCF8574'>PCF8574 is NOT fitted, relay control not possible!</div>
-                    <form id="rulesForm" method="POST" action="saverules.json" autocomplete="off">
-                        <div class="settings">
+                care/leave at previous setting.</p>
+            <p>'Minutes after' rules allow timed operation, this rule is active when the number of minutes past
+                midnight has been reached,
+                for instance 495 is 08:15am. Use the combination of both rules to switch on and off. This only
+                works if connected to internet for time updates.</p>
+            <p>Minutes since midnight now is: <span id='minutesnow'></span></p>
+            <p>Emergency stop is triggered by connector J1, once triggered controller needs to be reset to
+                disable</p>
+            <div class="error" id='PCF8574'>PCF8574 is NOT connected/fitted, relay control not possible!</div>
+            <form id="rulesForm" method="POST" action="saverules.json" autocomplete="off">
+                <div class="settings">
+                    <div class="rule">
+                        <label for="rule1value">Emergency stop</label>
+                        <input type="number" min="0" max="0" step="1" name="rule1value" id="rule1value" value="0"
+                            required="" readonly="">
+                    </div>
+                    <div class="rule">
+                        <label for="rule2value">Communications error</label>
+                        <input type="number" min="0" max="0" step="1" name="rule2value" id="rule2value" value="0"
+                            required="" readonly="">
+                    </div>
+                    <div class="rule">
+                        <label for="rule3value">Individual cell over voltage (mV)</label>
+                        <input type="number" min="2500" max="4500" step="10" name="rule3value" id="rule3value"
+                            value="4100" required="">
+                    </div>
+                    <div class="rule">
+                        <label for="rule4value">Individual cell under voltage (mV)</label>
+                        <input type="number" min="2500" max="4500" step="10" name="rule4value" id="rule4value"
+                            value="3000" required="">
+                    </div>
+                    <div class="rule">
+                        <label for="rule5value">Individual cell over temperature (external) °C</label>
+                        <input type="number" min="0" max="90" step="1" name="rule5value" id="rule5value" value="45"
+                            required="">
+                    </div>
+                    <div class="rule">
+                        <label for="rule6value">Individual cell under temperature (external) °C</label>
+                        <input type="number" min="0" max="90" step="1" name="rule6value" id="rule6value" value="5"
+                            required="">
+                    </div>
+                    <div class="rule">
+                        <label for="rule7value">Pack over voltage (mV)</label>
+                        <input type="number" min="1000" max="99999999" step="100" name="rule7value" id="rule7value"
+                            value="16000" required="">
+                    </div>
+                    <div class="rule">
+                        <label for="rule8value">Pack under voltage (mV)</label>
+                        <input type="number" min="1000" max="99999999" step="100" name="rule8value" id="rule8value"
+                            value="12000" required="">
+                    </div>
+                    <div class="rule">
+                        <label for="rule9value">Minutes after 2</label>
+                        <input type="number" min="0" max="1440" step="1" name="rule9value" id="rule9value" value="0"
+                            required="">
+                    </div>
+                    <div class="rule">
+                        <label for="rule10value">Minutes after 1</label>
+                        <input type="number" min="0" max="1440" step="1" name="rule10value" id="rule10value" value="0"
+                            required="">
+                    </div>
+                    <div>
+                        <label for="defaultvalue">Relay default</label>
+                        <input type="number" min="0" max="999999" step="1" name="defaultvalue" id="defaultvalue"
+                            value="0" required="" readonly="">
+                        <select id="defaultrelay1" name="defaultrelay1">
+                            <option>On</option>
+                            <option>Off</option>
+                        </select>
+                        <select id="defaultrelay2" name="defaultrelay2">
+                            <option>On</option>
+                            <option>Off</option>
+                        </select>
+                        <select id="defaultrelay3" name="defaultrelay3">
+                            <option>On</option>
+                            <option>Off</option>
+                        </select>
+                        <select id="defaultrelay4" name="defaultrelay4">
+                            <option>On</option>
+                            <option>Off</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="relaytype">Relay type</label>
+                        <input type="number" min="0" max="999999" step="1" name="relaytype" id="relaytype" value="0"
+                            required="" readonly="">
+                        <select id="relaytype1" name="relaytype1">
+                            <option>Std</option>
+                            <option>Pulse</option>
+                        </select>
+                        <select id="relaytype2" name="relaytype2">
+                            <option>Std</option>
+                            <option>Pulse</option>
+                        </select>
+                        <select id="relaytype3" name="relaytype3">
+                            <option>Std</option>
+                            <option>Pulse</option>
+                        </select>
+                        <select id="relaytype4" name="relaytype4">
+                            <option>Std</option>
+                            <option>Pulse</option>
+                        </select>
+                    </div>
 
-                            <div class="rule">
-                                <label for="rule1value">Emergency stop</label>
-                                <input type="number" min="0" max="0" step="1" name="rule1value" id="rule1value"
-                                    value="0" required="" readonly="">
-                            </div>
-
-                            <div class="rule">
-                                <label for="rule2value">Communications error</label>
-                                <input type="number" min="0" max="0" step="1" name="rule2value" id="rule2value"
-                                    value="0" required="" readonly="">
-                            </div>
-
-                            <div class="rule">
-                                <label for="rule3value">Individual cell over voltage (mV)</label>
-                                <input type="number" min="2500" max="4500" step="10" name="rule3value" id="rule3value"
-                                    value="4100" required="">
-                            </div>
-
-                            <div class="rule">
-                                <label for="rule4value">Individual cell under voltage (mV)</label>
-                                <input type="number" min="2500" max="4500" step="10" name="rule4value" id="rule4value"
-                                    value="3000" required="">
-                            </div>
-
-                            <div class="rule">
-                                <label for="rule5value">Individual cell over temperature (external) °C</label>
-                                <input type="number" min="0" max="90" step="1" name="rule5value" id="rule5value"
-                                    value="45" required="">
-                            </div>
-
-                            <div class="rule">
-                                <label for="rule6value">Individual cell under temperature (external) °C</label>
-                                <input type="number" min="0" max="90" step="1" name="rule6value" id="rule6value"
-                                    value="5" required="">
-                            </div>
-
-                            <div class="rule">
-                                <label for="rule7value">Pack over voltage (mV)</label>
-                                <input type="number" min="1000" max="99999999" step="100" name="rule7value"
-                                    id="rule7value" value="16000" required="">
-                            </div>
-
-                            <div class="rule">
-                                <label for="rule8value">Pack under voltage (mV)</label>
-                                <input type="number" min="1000" max="99999999" step="100" name="rule8value"
-                                    id="rule8value" value="12000" required="">
-                            </div>
-
-                            <div class="rule">
-                                <label for="rule9value">Minutes after 2</label>
-                                <input type="number" min="0" max="1440" step="1" name="rule9value" id="rule9value"
-                                    value="0" required="">
-                            </div>
-
-                            <div class="rule">
-                                <label for="rule10value">Minutes after 1</label>
-                                <input type="number" min="0" max="1440" step="1" name="rule10value" id="rule10value"
-                                    value="0" required="">
-                            </div>
-
-                            <div>
-                                <label for="defaultvalue">Relay default</label>
-                                <input type="number" min="0" max="999999" step="1" name="defaultvalue" id="defaultvalue"
-                                    value="0" required="" readonly="">
-                                <select id="defaultrelay1" name="defaultrelay1">
-                                    <option>On</option>
-                                    <option>Off</option>
-                                </select>
-                                <select id="defaultrelay2" name="defaultrelay2">
-                                    <option>On</option>
-                                    <option>Off</option>
-                                </select>
-                                <select id="defaultrelay3" name="defaultrelay3">
-                                    <option>On</option>
-                                    <option>Off</option>
-                                </select>
-                                <select id="defaultrelay4" name="defaultrelay4">
-                                    <option>On</option>
-                                    <option>Off</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label for="relaytype">Relay type</label>
-                                <input type="number" min="0" max="999999" step="1" name="relaytype" id="relaytype"
-                                    value="0" required="" readonly="">
-                                <select id="relaytype1" name="relaytype1">
-                                    <option>Std</option>
-                                    <option>Pulse</option>
-                                </select>
-                                <select id="relaytype2" name="relaytype2">
-                                    <option>Std</option>
-                                    <option>Pulse</option>
-                                </select>
-                                <select id="relaytype3" name="relaytype3">
-                                    <option>Std</option>
-                                    <option>Pulse</option>
-                                </select>
-                                <select id="relaytype4" name="relaytype4">
-                                    <option>Std</option>
-                                    <option>Pulse</option>
-                                </select>
-                            </div>
-
-                        </div>
-                        <input type="submit" value="Save rules" />
-                    </form>
-
+                </div>
+                <input type="submit" value="Save rules" />
+            </form>
         </div>
+    </div>
 
-
+    <div class="page" id="settingsPage">
+        <h1>Controller Settings</h1>
         <div class="region">
             <h2>Banks</h2>
             <p>DIYBMS supports up to 16 modules in a single bank. Up to 4 seperate banks can be configured. Only enable
@@ -472,7 +461,6 @@
                     <input type="submit" value="Reset error counters" />
                 </div>
             </form>
-
         </div>
         <div class="region">
             <h2>Restart Controller</h2>
@@ -484,7 +472,6 @@
             </form>
         </div>
     </div>
-
 
     <script type="text/javascript">
         var g1 = null;
@@ -554,7 +541,6 @@
                 $(".page").hide();
 
                 $("#banksForm").hide();
-                $("#rulesForm").hide();
                 $("#settingsPage").show();
 
                 $.getJSON("settings.json",
@@ -578,6 +564,18 @@
                         $("#banksForm").show();
                     }).fail(function () { }
                     );
+
+                return true;
+            });
+
+
+            $("#rules").click(function () {
+                $(".header-right a").removeClass("active");
+                $(this).addClass("active");
+                $(".page").hide();
+
+                $("#rulesForm").hide();
+                $("#rulesPage").show();
 
                 $.getJSON("rules.json",
                     function (data) {
