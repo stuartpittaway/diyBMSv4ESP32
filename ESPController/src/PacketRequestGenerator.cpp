@@ -169,6 +169,10 @@ void PacketRequestGenerator::pushPacketToQueue()
   packetsGenerated++;
 }
 
+uint16_t PacketRequestGenerator::QueueLength() {
+  return _requestq->getRemainingCount();
+}
+
 void PacketRequestGenerator::setPacketAddress(bool broadcast, uint8_t bank, uint8_t module)
 {
   if (broadcast)

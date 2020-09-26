@@ -40,9 +40,8 @@
 #define RULE_IndividualcellundertemperatureExternal 5
 #define RULE_PackOverVoltage 6
 #define RULE_PackUnderVoltage 7
-
-#define RULE_Timer1 8
-#define RULE_Timer2 9
+#define RULE_Timer2 8
+#define RULE_Timer1 9
 
 #define GREEN_LED_ON digitalWrite(GREEN_LED, HIGH)
 #define GREEN_LED_OFF digitalWrite(GREEN_LED, LOW)
@@ -150,6 +149,9 @@ struct CellModuleInfo
 
   bool inBypass;
   bool bypassOverTemp;
+
+  bool relayRuleOverVoltage;
+  bool relayRuleUnderVoltage;
 
   uint8_t BypassOverTempShutdown;
   uint16_t BypassThresholdmV;
