@@ -352,12 +352,28 @@ void ProcessRules()
   }
   else
   {
-    //Just one big pack
+    //Just one big pack, so highest and lowest are the same
     highestPackVoltage = serialvoltage;
     lowestPackVoltage = serialvoltage;
   }
 
+/*
+  SERIAL_DEBUG.print("Rule Values: lowP=");
+  SERIAL_DEBUG.print(lowestPackVoltage);
+  SERIAL_DEBUG.print(" highP=");
+  SERIAL_DEBUG.print(highestPackVoltage);
 
+  SERIAL_DEBUG.print(" / lowC=");
+  SERIAL_DEBUG.print(lowestCellVoltage);
+  SERIAL_DEBUG.print(" highC=");
+  SERIAL_DEBUG.print(highestCellVoltage);
+
+  SERIAL_DEBUG.print(" / highTE=");
+  SERIAL_DEBUG.print(highestExternalTemp);
+  SERIAL_DEBUG.print(" lowTE=");
+  SERIAL_DEBUG.print(lowestExternalTemp);
+  SERIAL_DEBUG.println("");
+*/
   if (highestCellVoltage > mysettings.rulevalue[RULE_Individualcellovervoltage] && rule_outcome[RULE_Individualcellovervoltage] == false)
   {
     //Rule Individual cell over voltage - TRIGGERED
@@ -391,7 +407,7 @@ void ProcessRules()
     }
     else if (((uint8_t)highestExternalTemp < mysettings.rulehysteresis[RULE_IndividualcellovertemperatureExternal]) && rule_outcome[RULE_IndividualcellovertemperatureExternal] == true)
     {
-      //Rule Individual cell over temperature (external probe)
+      //Rule Individual cell over temperature (external probe) - HYSTERESIS RESET
       rule_outcome[RULE_IndividualcellovertemperatureExternal] = false;
     }
 
@@ -403,7 +419,7 @@ void ProcessRules()
     }
     else if (((uint8_t)lowestExternalTemp > mysettings.rulehysteresis[RULE_IndividualcellundertemperatureExternal]) && rule_outcome[RULE_IndividualcellundertemperatureExternal] == true)
     {
-      //Rule Individual cell UNDER temperature (external probe)
+      //Rule Individual cell UNDER temperature (external probe) - HYSTERESIS RESET
       rule_outcome[RULE_IndividualcellundertemperatureExternal] = false;
     }
   }
@@ -423,7 +439,7 @@ void ProcessRules()
   }
   else if (highestPackVoltage < mysettings.rulehysteresis[RULE_PackOverVoltage] && rule_outcome[RULE_PackOverVoltage] == true)
   {
-    //Rule - Pack over voltage (mV)
+    //Rule - Pack over voltage (mV) - HYSTERESIS RESET
     rule_outcome[RULE_PackOverVoltage] = false;
   }
 
@@ -434,7 +450,7 @@ void ProcessRules()
   }
   else if (lowestPackVoltage > mysettings.rulehysteresis[RULE_PackUnderVoltage] && rule_outcome[RULE_PackUnderVoltage] == true)
   {
-    //Rule - Pack under voltage (mV)
+    //Rule - Pack under voltage (mV) - HYSTERESIS RESET
     rule_outcome[RULE_PackUnderVoltage] = false;
   }
 
