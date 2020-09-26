@@ -190,12 +190,11 @@ function queryBMS() {
                 // based on prepared DOM, initialize echarts instance
                 g1 = echarts.init(document.getElementById('graph1'));
 
-                var labelOption = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Inconsolata' } };
-                var labelOption2 = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Inconsolata' } };
-                var labelOption3 = { normal: { show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Inconsolata' } };
-                var labelOption4 = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#807d7d', fontFamily: 'Inconsolata' } };
-
-                var labelOptionBypass = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}%', fontSize: 14, color: '#807d7d', fontFamily: 'Inconsolata' } };
+                var labelOption = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Fira Code' } };
+                var labelOption2 = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Fira Code' } };
+                var labelOption3 = { normal: { show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Fira Code' } };
+                var labelOption4 = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#807d7d', fontFamily: 'Fira Code' } };
+                var labelOptionBypass = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}%', fontSize: 14, color: '#807d7d', fontFamily: 'Fira Code' } };
 
                 // specify chart configuration item and data
                 var option = {
@@ -314,7 +313,7 @@ function queryBMS() {
                                     formatter: '{c}V',
                                     fontSize: 24,
                                     color: '#eeeeee',
-                                    fontFamily: 'Inconsolata'
+                                    fontFamily: 'Fira Code'
                                 }
                             }
                         }
@@ -333,7 +332,7 @@ function queryBMS() {
                                     formatter: '{c}V',
                                     fontSize: 14,
                                     color: '#eeeeee',
-                                    fontFamily: 'Inconsolata'
+                                    fontFamily: 'Fira Code'
                                 }
                             },
                             symbolSize: 16,
@@ -363,7 +362,7 @@ function queryBMS() {
                                     formatter: '{c}V',
                                     fontSize: 14,
                                     color: '#c1bdbd',
-                                    fontFamily: 'Inconsolata'
+                                    fontFamily: 'Fira Code'
                                 }
                             },
                             symbolSize: 16,
@@ -392,7 +391,7 @@ function queryBMS() {
                                     formatter: '{c}%',
                                     fontSize: 14,
                                     color: '#807d7d',
-                                    fontFamily: 'Inconsolata'
+                                    fontFamily: 'Fira Code'
                                 }
                             },
                             symbolSize: 16,
@@ -429,7 +428,7 @@ function queryBMS() {
                                     formatter: '{c}°C',
                                     fontSize: 20,
                                     color: '#eeeeee',
-                                    fontFamily: 'Inconsolata'
+                                    fontFamily: 'Fira Code'
                                 }
                             }
                         }
@@ -455,7 +454,7 @@ function queryBMS() {
                                     formatter: '{c}°C',
                                     fontSize: 20,
                                     color: '#eeeeee',
-                                    fontFamily: 'Inconsolata'
+                                    fontFamily: 'Fira Code'
                                 }
                             }
 
