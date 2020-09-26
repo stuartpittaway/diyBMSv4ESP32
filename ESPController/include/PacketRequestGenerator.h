@@ -38,6 +38,7 @@ class PacketRequestGenerator {
      void sendReadBalancePowerRequest(uint8_t b);
 
      uint32_t packetsGenerated = 0;
+     uint16_t QueueLength();
 
   private:
     Queue* _requestq;
