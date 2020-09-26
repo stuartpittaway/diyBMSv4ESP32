@@ -261,6 +261,13 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
         mysettings.rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RELAY_ON : RELAY_OFF;
       }
     }
+
+
+    //Reset state of rules after updating the new values
+    for (int8_t r = 0; r < RELAY_RULES; r++)
+    {
+      rule_outcome[r] = false;
+    }
   }
 
   //RELAY_TOTAL

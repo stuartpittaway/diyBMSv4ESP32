@@ -150,9 +150,6 @@ struct CellModuleInfo
   bool inBypass;
   bool bypassOverTemp;
 
-  bool relayRuleOverVoltage;
-  bool relayRuleUnderVoltage;
-
   uint8_t BypassOverTempShutdown;
   uint16_t BypassThresholdmV;
   uint16_t badPacketCount;

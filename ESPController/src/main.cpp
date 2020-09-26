@@ -270,114 +270,178 @@ void timerTransmitCallback()
 
 void ProcessRules()
 {
-
   //Runs the rules and populates rule_outcome array with true/false for each rule
 
-  uint32_t packvoltage[4];
-
-  packvoltage[0] = 0;
-  packvoltage[1] = 0;
-  packvoltage[2] = 0;
-  packvoltage[3] = 0;
-
-  for (int8_t r = 0; r < RELAY_RULES; r++)
+  //Array to hold the total voltage of each bank/pack (up to 4)
+  uint32_t packvoltage[maximum_bank_of_modules];
+  for (int8_t r = 0; r < maximum_bank_of_modules; r++)
   {
-    rule_outcome[r] = false;
+    packvoltage[r] = 0;
   }
 
-  //If we have a communications error
-  if (emergencyStop)
-  {
-    rule_outcome[RULE_EmergencyStop] = true;
-  }
+  //Total voltage of all cells (ignoring banks)
+  uint32_t serialvoltage = 0;
+  uint32_t highestPackVoltage = 0;
+  uint32_t lowestPackVoltage = 0xFFFFFFFF;
 
-  //If we have a communications error
-  if (receiveProc.HasCommsTimedOut())
-  {
-    rule_outcome[RULE_CommunicationsError] = true;
-  }
+  //Emergency stop signal...
+  rule_outcome[RULE_EmergencyStop] = emergencyStop;
 
-  //Loop through cells
+  //Communications error...
+  rule_outcome[RULE_CommunicationsError] = receiveProc.HasCommsTimedOut();
+
+  uint16_t highestCellVoltage = 0;
+  uint16_t lowestCellVoltage = 0xFFFF;
+
+  int8_t highestExternalTemp = -127;
+  int8_t lowestExternalTemp = 127;
+  bool moduleHasExternalTempSensor = false;
+
+  //Loop through banks and cells, looking at individual voltages and temperatures
+  //and sum up pack voltages.
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
   {
     for (int8_t i = 0; i < numberOfModules[bank]; i++)
     {
-
       packvoltage[bank] += cmi[bank][i].voltagemV;
+      serialvoltage += cmi[bank][i].voltagemV;
 
-      if (cmi[bank][i].voltagemV > mysettings.rulevalue[RULE_Individualcellovervoltage])
+      if (cmi[bank][i].voltagemV > highestCellVoltage)
       {
-        //Rule Individual cell over voltage
-        rule_outcome[RULE_Individualcellovervoltage] = true;
+        highestCellVoltage = cmi[bank][i].voltagemV;
       }
 
-      if (cmi[bank][i].voltagemV < mysettings.rulevalue[RULE_Individualcellundervoltage])
+      if (cmi[bank][i].voltagemV < lowestCellVoltage)
       {
-        //Rule Individual cell under voltage (mV)
-        rule_outcome[RULE_Individualcellundervoltage] = true;
+        lowestCellVoltage = cmi[bank][i].voltagemV;
       }
 
-      //Doesn't cater for negative temperatres on rule (int8 vs uint32)
-      if ((cmi[bank][i].externalTemp != -40) && ((uint8_t)cmi[bank][i].externalTemp > mysettings.rulevalue[RULE_IndividualcellovertemperatureExternal]))
+      if (cmi[bank][i].externalTemp != -40)
       {
-        //Rule Individual cell over temperature (external probe)
-        rule_outcome[RULE_IndividualcellovertemperatureExternal] = true;
-      }
+        //Record that we do have an external temperature sensor on one of the modules
+        moduleHasExternalTempSensor = true;
 
-      //Doesn't cater for negative temperatres on rule (int8 vs uint32)
-      if ((cmi[bank][i].externalTemp != -40) && ((uint8_t)cmi[bank][i].externalTemp < mysettings.rulevalue[RULE_IndividualcellundertemperatureExternal]))
-      {
-        //Rule Individual cell UNDER temperature (external probe)
-        rule_outcome[RULE_IndividualcellundertemperatureExternal] = true;
+        if (cmi[bank][i].externalTemp > highestExternalTemp)
+        {
+          highestExternalTemp = cmi[bank][i].externalTemp;
+        }
+
+        if (cmi[bank][i].externalTemp < lowestExternalTemp)
+        {
+          lowestExternalTemp = cmi[bank][i].externalTemp;
+        }
       }
     }
   }
 
-  //Combine the voltages if we need to
+  //Combine the voltages if we need to, work out the highest and lowest pack voltages
   if (mysettings.combinationParallel)
   {
     //We have multiple banks which should be evaluated individually
     for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
     {
-      if (packvoltage[bank] > mysettings.rulevalue[RULE_PackOverVoltage])
+      if (packvoltage[bank] > highestPackVoltage)
       {
-        //Rule - Pack over voltage (mV)
-        rule_outcome[RULE_PackOverVoltage] = true;
+        highestPackVoltage = packvoltage[bank];
       }
-
-      if (packvoltage[bank] < mysettings.rulevalue[RULE_PackUnderVoltage])
+      if (packvoltage[bank] < lowestPackVoltage)
       {
-        //Rule - Pack under voltage (mV)
-        rule_outcome[RULE_PackUnderVoltage] = true;
+        lowestPackVoltage = packvoltage[bank];
       }
     }
   }
   else
   {
-    //We have multiple banks which should be evaluated as a whole
-    if ((packvoltage[0] + packvoltage[1] + packvoltage[2] + packvoltage[3]) > mysettings.rulevalue[RULE_PackOverVoltage])
+    //Just one big pack
+    highestPackVoltage = serialvoltage;
+    lowestPackVoltage = serialvoltage;
+  }
+
+
+  if (highestCellVoltage > mysettings.rulevalue[RULE_Individualcellovervoltage] && rule_outcome[RULE_Individualcellovervoltage] == false)
+  {
+    //Rule Individual cell over voltage - TRIGGERED
+    rule_outcome[RULE_Individualcellovervoltage] = true;
+  }
+  else if (highestCellVoltage < mysettings.rulehysteresis[RULE_Individualcellovervoltage] && rule_outcome[RULE_Individualcellovervoltage] == true)
+  {
+    //Rule Individual cell over voltage - HYSTERESIS RESET
+    rule_outcome[RULE_Individualcellovervoltage] = false;
+  }
+
+  if (lowestCellVoltage < mysettings.rulevalue[RULE_Individualcellundervoltage] && rule_outcome[RULE_Individualcellundervoltage] == false)
+  {
+    //Rule Individual cell under voltage (mV) - TRIGGERED
+    rule_outcome[RULE_Individualcellundervoltage] = true;
+  }
+  else if (lowestCellVoltage > mysettings.rulehysteresis[RULE_Individualcellundervoltage] && rule_outcome[RULE_Individualcellundervoltage] == true)
+  {
+    //Rule Individual cell under voltage (mV) - HYSTERESIS RESET
+    rule_outcome[RULE_Individualcellundervoltage] = false;
+  }
+
+  //These rules only fire if external temp sensor actually exists
+  if (moduleHasExternalTempSensor)
+  {
+    //Doesn't cater for negative temperatures on rule (int8 vs uint32)
+    if (((uint8_t)highestExternalTemp > mysettings.rulevalue[RULE_IndividualcellovertemperatureExternal]) && rule_outcome[RULE_IndividualcellovertemperatureExternal] == false)
     {
-      //Rule - Pack over voltage (mV)
-      rule_outcome[RULE_PackOverVoltage] = true;
+      //Rule Individual cell over temperature (external probe)
+      rule_outcome[RULE_IndividualcellovertemperatureExternal] = true;
+    }
+    else if (((uint8_t)highestExternalTemp < mysettings.rulehysteresis[RULE_IndividualcellovertemperatureExternal]) && rule_outcome[RULE_IndividualcellovertemperatureExternal] == true)
+    {
+      //Rule Individual cell over temperature (external probe)
+      rule_outcome[RULE_IndividualcellovertemperatureExternal] = false;
     }
 
-    if ((packvoltage[0] + packvoltage[1] + packvoltage[2] + packvoltage[3]) < mysettings.rulevalue[RULE_PackUnderVoltage])
+    //Doesn't cater for negative temperatures on rule (int8 vs uint32)
+    if (((uint8_t)lowestExternalTemp < mysettings.rulevalue[RULE_IndividualcellundertemperatureExternal]) && rule_outcome[RULE_IndividualcellundertemperatureExternal] == false)
     {
-      //Rule - Pack under voltage (mV)
-      rule_outcome[RULE_PackUnderVoltage] = true;
+      //Rule Individual cell UNDER temperature (external probe)
+      rule_outcome[RULE_IndividualcellundertemperatureExternal] = true;
+    }
+    else if (((uint8_t)lowestExternalTemp > mysettings.rulehysteresis[RULE_IndividualcellundertemperatureExternal]) && rule_outcome[RULE_IndividualcellundertemperatureExternal] == true)
+    {
+      //Rule Individual cell UNDER temperature (external probe)
+      rule_outcome[RULE_IndividualcellundertemperatureExternal] = false;
     }
   }
-
-  //Time based rules
-  if (minutesSinceMidnight() >= mysettings.rulevalue[RULE_Timer1])
+  else
   {
-    rule_outcome[RULE_Timer1] = true;
+    rule_outcome[RULE_IndividualcellovertemperatureExternal] = false;
+    rule_outcome[RULE_IndividualcellundertemperatureExternal] = false;
   }
 
-  if (minutesSinceMidnight() >= mysettings.rulevalue[RULE_Timer2])
+  
+
+  //Test pack voltages
+  if (highestPackVoltage > mysettings.rulevalue[RULE_PackOverVoltage] && rule_outcome[RULE_PackOverVoltage] == false)
   {
-    rule_outcome[RULE_Timer2] = true;
+    //Rule - Pack over voltage (mV)
+    rule_outcome[RULE_PackOverVoltage] = true;
   }
+  else if (highestPackVoltage < mysettings.rulehysteresis[RULE_PackOverVoltage] && rule_outcome[RULE_PackOverVoltage] == true)
+  {
+    //Rule - Pack over voltage (mV)
+    rule_outcome[RULE_PackOverVoltage] = false;
+  }
+
+  if (lowestPackVoltage < mysettings.rulevalue[RULE_PackUnderVoltage] && rule_outcome[RULE_PackUnderVoltage] == false)
+  {
+    //Rule - Pack under voltage (mV)
+    rule_outcome[RULE_PackUnderVoltage] = true;
+  }
+  else if (lowestPackVoltage > mysettings.rulehysteresis[RULE_PackUnderVoltage] && rule_outcome[RULE_PackUnderVoltage] == true)
+  {
+    //Rule - Pack under voltage (mV)
+    rule_outcome[RULE_PackUnderVoltage] = false;
+  }
+
+  //Timer 1 and Timer 2
+  uint16_t mins = minutesSinceMidnight();
+  rule_outcome[RULE_Timer1] = (mins >= mysettings.rulevalue[RULE_Timer1] && mins <= mysettings.rulehysteresis[RULE_Timer1]);
+  rule_outcome[RULE_Timer2] = (mins >= mysettings.rulevalue[RULE_Timer2] && mins <= mysettings.rulehysteresis[RULE_Timer2]);
 }
 
 void timerSwitchPulsedRelay()
@@ -907,16 +971,28 @@ void ConfigureI2C()
 void timerLazyCallback()
 {
 //Find the first module that doesn't have settings cached and request them
-//we only do 1 module at a time to avoid flooding the queue
   for (uint8_t bank = 0; bank < 4; bank++)
   {
     for (uint8_t module = 0; module < numberOfModules[bank]; module++)
     {
       if (!cmi[bank][module].settingsCached)
-      {
+      {      
         prg.sendGetSettingsRequest(bank, module);
+
+        if (prg.QueueLength()>8) {
+          //We really should exit here to avoid flooding the queue
+          return;
+        }       
       }
     }
+  }
+}
+
+void resetAllRules() {
+  //Clear all rules
+  for (int8_t r = 0; r < RELAY_RULES; r++)
+  {
+    rule_outcome[r] = false;
   }
 }
 
@@ -953,23 +1029,18 @@ void setup()
   //we use this as a simple method to avoid cross site scripting attacks
   DIYBMSServer::generateUUID();
 
-  numberOfModules[0] = 0;
-  numberOfModules[1] = 0;
-  numberOfModules[2] = 0;
-  numberOfModules[3] = 0;
-
   //Pre configure the array
-  for (size_t i = 0; i < maximum_cell_modules; i++)
+  for (size_t bank = 0; bank < maximum_bank_of_modules; bank++)
   {
-    cmi[0][i].voltagemVMax = 0;
-    cmi[0][i].voltagemVMin = 6000;
-    cmi[1][i].voltagemVMax = 0;
-    cmi[1][i].voltagemVMin = 6000;
-    cmi[2][i].voltagemVMax = 0;
-    cmi[2][i].voltagemVMin = 6000;
-    cmi[3][i].voltagemVMax = 0;
-    cmi[3][i].voltagemVMin = 6000;
+    numberOfModules[bank] = 0;
+    for (size_t i = 0; i < maximum_cell_modules; i++)
+    {
+      cmi[bank][i].voltagemVMax = 0;
+      cmi[bank][i].voltagemVMin = 6000;
+    }
   }
+
+  resetAllRules();
 
   SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1); // Serial for comms to modules
 
