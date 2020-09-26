@@ -275,21 +275,22 @@
     <h1>Controller Settings</h1>
     <div class="region">
         <h2>Rules</h2>
-        <p>DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules below
-            allow you to configure the relays for your situation.</p>
-        <p>Rules are processed in REVERSE order (bottom up). Control the relays using the options. A value of "X" means
-            don't
-            care/leave at previous setting.</p>
+        <p>DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules allow you to configure the relays for your situation.</p>
+        <p>Rules are processed from lowest priorty to highest (bottom up). Control the relays using the options. A value of "X" means
+            don't care/leave at value defined by lower priority rules.</p>
         <p>Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will only disable
             when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing on/off
             rapidly.</p>
         <p>'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of minutes past
-            midnight has been reached, for instance setting trigger to 495 and reset to 555 would switch on at 8:15am
+            midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch on at 8:15am
             and off at 9:15am. This only
             works if connected to internet for regular time updates. Minutes since midnight now is: <span
                 id='minutesnow'></span></p>
         <p>Emergency stop is triggered by connector J1, once triggered controller needs to be reset to disable.</p>
         <div class="error" id='PCF8574'>PCF8574 is NOT connected/fitted, relay control not possible!</div>
+        </div>
+        <div class="region">
+
         <form id="rulesForm" method="POST" action="saverules.json" autocomplete="off">
             <div class="settings">
                 <table>
@@ -641,9 +642,10 @@
 
                         //Loop through each rule updating the page
                         var i = 1;
-                        var allrules = $(".settings .rule");
+                        var allrules = $(".settings table tbody tr td label");
                         $.each(data.rules, function (index, value) {
                             $("#rule" + (index + 1) + "value").val(value.value);
+                            $("#rule" + (index + 1) + "hysteresis").val(value.hysteresis);
 
                             //Highlight rules which are active
                             if (value.triggered) {

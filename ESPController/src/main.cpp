@@ -774,6 +774,9 @@ void LoadConfiguration()
 
   SERIAL_DEBUG.println("Apply default config");
 
+  //Zero all the bytes
+  memset(&mysettings, 0,sizeof(mysettings));
+
   mysettings.totalNumberOfBanks = 1;
   mysettings.combinationParallel = true;
 
@@ -787,6 +790,7 @@ void LoadConfiguration()
   strcpy(mysettings.mqtt_username, "emonpi");
   strcpy(mysettings.mqtt_password, "emonpimqtt2016");
 
+  mysettings.influxdb_enabled=false;
   strcpy(mysettings.influxdb_host, "myinfluxserver");
   strcpy(mysettings.influxdb_database, "database");
   strcpy(mysettings.influxdb_user, "user");
@@ -821,9 +825,11 @@ void LoadConfiguration()
   mysettings.rulevalue[RULE_Timer1] = 60 * 8;  //8am
   mysettings.rulevalue[RULE_Timer2] = 60 * 17; //5pm
 
-  //Set all relays to don't care
   for (size_t i = 0; i < RELAY_RULES; i++)
   {
+    mysettings.rulehysteresis[i]=mysettings.rulevalue[i];
+
+    //Set all relays to don't care
     for (size_t x = 0; x < RELAY_TOTAL; x++)
     {
       mysettings.rulerelaystate[i][x] = RELAY_X;
@@ -831,6 +837,11 @@ void LoadConfiguration()
       mysettings.rulerelaystate[i][x] = RELAY_X;
     }
   }
+
+  for (size_t x = 0; x < RELAY_TOTAL; x++)
+  {
+    mysettings.relaytype[x]=RELAY_STANDARD;
+  }  
 }
 
 void ConfigureI2C()
