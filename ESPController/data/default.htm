@@ -654,6 +654,8 @@
                                 $(allrules[index]).removeClass("triggered")
                             }
 
+                            $(allrules[index]).removeClass("disablerule");
+
                             $.each(value.relays, function (index2, value2) {
                                 var relay_value = "X";
                                 if (value2 === true) { relay_value = "On"; }
@@ -663,6 +665,13 @@
 
                             });
                         });
+
+                        if (data.ControlState!=0xff) {
+                            //Controller is not in running state yet, so some rules are disabled
+                            $.each([2,3,4,5,6,7], function (index, value) {
+                                $(allrules[value]).addClass("disablerule");
+                            });
+                        }
 
                         $("#rulesForm").show();
                     }).fail(function () { }

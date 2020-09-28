@@ -587,6 +587,8 @@ void DIYBMSServer::rules(AsyncWebServerRequest *request)
 #endif
 
   root["PCF8574"] = PCF8574Enabled;
+  root["ControlState"] = ControlState;
+  
 
   JsonArray defaultArray = root.createNestedArray("relaydefault");
   for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)

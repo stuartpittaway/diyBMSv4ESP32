@@ -135,6 +135,8 @@ Ticker myTimerSwitchPulsedRelay;
 
 uint16_t sequence = 0;
 
+ControllerState ControlState;
+
 AsyncMqttClient mqttClient;
 
 void dumpPacketToDebug(packet *buffer)
@@ -153,6 +155,17 @@ void dumpPacketToDebug(packet *buffer)
   SERIAL_DEBUG.print(" =");
   SERIAL_DEBUG.print(buffer->crc, HEX);
 }
+
+void SetControllerState(ControllerState newState) {
+  if (ControlState!=newState) {
+    ControlState=newState;
+
+    SERIAL_DEBUG.println("");
+    SERIAL_DEBUG.print("** Controller changed to state = ");
+    SERIAL_DEBUG.println(newState, HEX);
+  }
+}
+
 
 uint16_t minutesSinceMidnight()
 {
@@ -268,9 +281,13 @@ void timerTransmitCallback()
   }
 }
 
+
+
+//Runs the rules and populates rule_outcome array with true/false for each rule
+//Rules based on module parameters/readings like voltage and temperature
+//are only processed once every module has returned at least 1 reading/communication
 void ProcessRules()
 {
-  //Runs the rules and populates rule_outcome array with true/false for each rule
 
   //Array to hold the total voltage of each bank/pack (up to 4)
   uint32_t packvoltage[maximum_bank_of_modules];
@@ -290,6 +307,11 @@ void ProcessRules()
   //Communications error...
   rule_outcome[RULE_CommunicationsError] = receiveProc.HasCommsTimedOut();
 
+  //Timer 1 and Timer 2
+  uint16_t mins = minutesSinceMidnight();
+  rule_outcome[RULE_Timer1] = (mins >= mysettings.rulevalue[RULE_Timer1] && mins <= mysettings.rulehysteresis[RULE_Timer1]);
+  rule_outcome[RULE_Timer2] = (mins >= mysettings.rulevalue[RULE_Timer2] && mins <= mysettings.rulehysteresis[RULE_Timer2]);
+
   uint16_t highestCellVoltage = 0;
   uint16_t lowestCellVoltage = 0xFFFF;
 
@@ -297,14 +319,24 @@ void ProcessRules()
   int8_t lowestExternalTemp = 127;
   bool moduleHasExternalTempSensor = false;
 
+  int8_t zeroVoltageModuleCount=0;
+  int8_t CountOfBanksWithNoModules=0;
   //Loop through banks and cells, looking at individual voltages and temperatures
   //and sum up pack voltages.
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
   {
+
+    //Count number of banks which have no modules
+    if (numberOfModules[bank]==0) { CountOfBanksWithNoModules++;}
+
     for (int8_t i = 0; i < numberOfModules[bank]; i++)
     {
       packvoltage[bank] += cmi[bank][i].voltagemV;
       serialvoltage += cmi[bank][i].voltagemV;
+
+      //If the voltage of the module is zero, we probably haven't requested it yet (which happens during power up)
+      //so keep count so we don't accidentally trigger rules.
+      if (cmi[bank][i].voltagemV==0) { zeroVoltageModuleCount++; }
 
       if (cmi[bank][i].voltagemV > highestCellVoltage)
       {
@@ -333,6 +365,30 @@ void ProcessRules()
       }
     }
   }
+
+  if (ControlState==ControllerState::Stabilizing) {
+    //At least 1 module is zero volt
+    if (zeroVoltageModuleCount>0 || CountOfBanksWithNoModules>0) {
+      rule_outcome[RULE_Individualcellovervoltage] = false;
+      rule_outcome[RULE_Individualcellundervoltage] = false;
+      rule_outcome[RULE_IndividualcellovertemperatureExternal] = false;
+      rule_outcome[RULE_IndividualcellundertemperatureExternal] = false;
+
+      //Abort processing any more rules until controller is stable/running state
+      return;
+    }
+
+    //Every module has been read and they all returned a voltage
+    //move to running state
+    SetControllerState(ControllerState::Running);
+  }
+
+  if (ControlState==ControllerState::Running && CountOfBanksWithNoModules>0) { 
+    //TODO: Add new rule to check for this issue.
+    SERIAL_DEBUG.println("ZERO VOLT MODULE READING - ERROR!");
+  }
+
+  //** Only rules which are based on temperature or voltage should go below this point.... **
 
   //Combine the voltages if we need to, work out the highest and lowest pack voltages
   if (mysettings.combinationParallel)
@@ -454,10 +510,6 @@ void ProcessRules()
     rule_outcome[RULE_PackUnderVoltage] = false;
   }
 
-  //Timer 1 and Timer 2
-  uint16_t mins = minutesSinceMidnight();
-  rule_outcome[RULE_Timer1] = (mins >= mysettings.rulevalue[RULE_Timer1] && mins <= mysettings.rulehysteresis[RULE_Timer1]);
-  rule_outcome[RULE_Timer2] = (mins >= mysettings.rulevalue[RULE_Timer2] && mins <= mysettings.rulehysteresis[RULE_Timer2]);
 }
 
 void timerSwitchPulsedRelay()
@@ -612,12 +664,11 @@ void connectToWifi()
   SERIAL_DEBUG.println("Connecting to Wi-Fi...");
   WiFi.mode(WIFI_STA);
 #if defined(ESP8266)
-  wifi_station_set_hostname("diyBMS_ESP8266");
-  //WiFi.hostname("diyBMS_ESP8266");
+  wifi_station_set_hostname("diyBMSESP8266");
+  WiFi.hostname("diyBMSESP8266");
 #endif
 #if defined(ESP32)
-  wifi_station_set_hostname("diyBMS_ESP32");
-  //WiFi.setHostname("diyBMS_ESP32");
+  WiFi.setHostname("diyBMSESP32");
 #endif
   WiFi.begin(DIYBMSSoftAP::WifiSSID(), DIYBMSSoftAP::WifiPassword());
 }
@@ -1014,9 +1065,12 @@ void resetAllRules() {
   }
 }
 
+
 void setup()
 {
   WiFi.mode(WIFI_OFF);
+
+  SetControllerState(ControllerState::PowerUp);
 
 #if defined(ESP32)
   btStop();
@@ -1048,11 +1102,14 @@ void setup()
   DIYBMSServer::generateUUID();
 
   //Pre configure the array
+  memset(&cmi, 0,sizeof(cmi));
+
   for (size_t bank = 0; bank < maximum_bank_of_modules; bank++)
   {
     numberOfModules[bank] = 0;
     for (size_t i = 0; i < maximum_cell_modules; i++)
     {
+      cmi[bank][i].voltagemV=0;
       cmi[bank][i].voltagemVMax = 0;
       cmi[bank][i].voltagemVMin = 6000;
     }
@@ -1142,7 +1199,7 @@ void setup()
   //Ensure we service the cell modules every 4 seconds
   myTimer.attach(4, timerEnqueueCallback);
 
-  //Process rules every 5 seconds (this prevents the relays from clattering on and off)
+  //Process rules every 5 seconds
   myTimerRelay.attach(5, timerProcessRules);
 
   //We process the transmit queue every 0.5 seconds (this needs to be lower delay than the queue fills)
@@ -1150,6 +1207,9 @@ void setup()
 
   //This is my 10 second lazy timer
   myLazyTimer.attach(10, timerLazyCallback);
+
+  //We have just started...
+  SetControllerState(ControllerState::Stabilizing);
 }
 
 void loop()

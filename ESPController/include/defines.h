@@ -170,6 +170,17 @@ struct CellModuleInfo
   uint16_t PWMValue;
 };
 
+
+// This enum holds the states the controller goes through whilst
+// it stabilizes and moves into running state.
+enum ControllerState : uint8_t
+{
+  PowerUp = 1,
+  Stabilizing = 2,
+  Running = 255,
+};
+
+
 //This holds all the cell information in a large array 2D array (4x16)
 extern CellModuleInfo cmi[maximum_bank_of_modules][maximum_cell_modules];
 extern uint8_t numberOfModules[maximum_bank_of_modules];

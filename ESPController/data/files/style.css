@@ -85,6 +85,7 @@ a:visited {color:#e8e8e8;font-weight:bold;}
 .ct-series-a .ct-bar {stroke:#525252;}
 #modulesTable .selected {background-color:#414141;}
 .triggered {background-color:rgb(68, 145, 59);}
+.disablerule {text-decoration: line-through; background-color: #525252;}
 .page .region {background-color:#525252;}
 button {color:white;background-color:#1e90ff;}
 button:hover {border:solid 1px white;}
