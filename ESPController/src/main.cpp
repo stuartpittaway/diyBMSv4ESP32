@@ -863,20 +863,24 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
   }
 }
 
+//Send a few MQTT packets and keep track so we send the next batch
+//on following calls
+uint8_t mqttStartBank=0;
+uint8_t mqttStartModule=0;
 void sendMqttPacket()
 {
   if (!mysettings.mqtt_enabled && !mqttClient.connected())
     return;
 
-  SERIAL_DEBUG.println("Sending MQTT");
+  //SERIAL_DEBUG.println("Sending MQTT");
 
   char topic[80];
   char jsonbuffer[100];
-  //char value[20];
-  //uint16_t reply;
 
-  for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++) {
-    for (uint8_t i = 0; i < numberOfModules[bank]; i++) {
+  uint8_t counter=0;
+  for (uint8_t bank = mqttStartBank; bank < mysettings.totalNumberOfBanks; bank++) {
+
+    for (uint8_t i = mqttStartModule; i < numberOfModules[bank]; i++) {
 
       StaticJsonDocument<100> doc;
       doc["voltage"] = (float)cmi[bank][i].voltagemV/1000.0;
@@ -888,15 +892,38 @@ void sendMqttPacket()
       sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, i);
       mqttClient.publish(topic, 0, false, jsonbuffer);
       SERIAL_DEBUG.println(topic);
-      //SERIAL_DEBUG.print(" ");SERIAL_DEBUG.print(jsonbuffer);SERIAL_DEBUG.print(" ");SERIAL_DEBUG.println(reply);
+
+      counter++;
+
+      //After transmitting this many packets over MQTT, store our current state
+      //and exit the function.
+      if (counter==4) {
+        mqttStartModule=i+1;
+        mqttStartBank=bank;
+
+        if (mqttStartModule>numberOfModules[bank]-1) {
+          mqttStartModule=0;
+          mqttStartBank++;
+        }
+
+        if (mqttStartBank>mysettings.totalNumberOfBanks-1) {
+          mqttStartBank=0;
+        }
+        
+        return;
+      }
     }
   }
+
+  //Completed the loop, start at zero
+  mqttStartModule=0;
+  mqttStartBank=0;
 }
 
 void onMqttConnect(bool sessionPresent)
 {
   SERIAL_DEBUG.println("Connected to MQTT.");
-  myTimerSendMqttPacket.attach(30, sendMqttPacket);
+  myTimerSendMqttPacket.attach(5, sendMqttPacket);
 }
 
 void LoadConfiguration()
