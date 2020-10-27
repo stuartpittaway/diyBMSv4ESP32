@@ -993,8 +993,6 @@ void LoadConfiguration()
     for (size_t x = 0; x < RELAY_TOTAL; x++)
     {
       mysettings.rulerelaystate[i][x] = RELAY_X;
-      mysettings.rulerelaystate[i][x] = RELAY_X;
-      mysettings.rulerelaystate[i][x] = RELAY_X;
     }
   }
 
