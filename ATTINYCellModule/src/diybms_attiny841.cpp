@@ -55,10 +55,10 @@ void DiyBMSATTiny841::SetTimer2Value(uint16_t value) {
 }
 
 void DiyBMSATTiny841::StopTimer2() {
+  TCCR2A = 0; //Normal port operation, OCnA/OCnB disconnected
+  TCCR2B = 0; //Normal port operation, OCnA/OCnB disconnected
   TOCPMCOE = 0;
-  TCCR2B = 0;
-  OCR2B = 0;
-  //TIMSK2 = 0;
+  SetTimer2Value(0);
 }
 
 //Start TIMER2 with zero value
@@ -67,12 +67,19 @@ void DiyBMSATTiny841::StartTimer2() {
   //Before this is called, the DDR register has already been set
 
   //Return if its already enabled
-  if ((TOCPMSA0 & (1 << TOCC2S1))>0) return;
+  //if ((TOCPMSA0 & (1 << TOCC2S1))>0) return;
+  
+  //PA3 (pin 10) is used for PWM output signal
+  // PA3/10/2	TOCC2	 OC2B
 
+  //TOCPMSA1 and TOCPMSA0 – Timer/Counter Output Compare Pin Mux Selection Registers
   //Enable OC2B for TOCC2
   TOCPMSA0 = (1 << TOCC2S1);
+  TOCPMSA1 = 0;
 
+  // TOCPMSA1 and TOCPMSA0 – Timer/Counter Output Compare Pin Mux Selection Registers
   // Timer/Counter Output Compare Pin Mux Channel Output Enable
+  // Enable TOCC2 to be output
   TOCPMCOE = (1 << TOCC2OE);
 
   // Fast PWM, mode 14, non inverting, presc 1:8

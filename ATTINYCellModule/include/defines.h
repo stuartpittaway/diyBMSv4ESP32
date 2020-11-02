@@ -14,6 +14,8 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #ifndef DIYBMS_DEFINES_H // include guard
 #define DIYBMS_DEFINES_H
 
+//Incremented when major revisions of code are made and new features
+#define MODULE_FIRMWARE_VERSION 1
 
 // ONLY ENABLE ONE OF THE BELOW....
 //#define DIYBMSMODULEVERSION 420
@@ -61,6 +63,7 @@ enum COMMAND: uint8_t
     ReadSettings=B00000101,
     WriteSettings=B00000110,
     ReadBalancePowerPWM=B00000111
+    
 
     // 0000 0000  = set bank identity
     // 0000 0001  = read voltage and status
@@ -76,7 +79,7 @@ enum COMMAND: uint8_t
 //Default values
 struct CellModuleConfig {
   uint8_t mybank;
-  uint8_t BypassOverTempShutdown;
+  uint8_t BypassTemperatureSetPoint;
   uint16_t BypassThresholdmV;
 
   // Resistance of bypass load

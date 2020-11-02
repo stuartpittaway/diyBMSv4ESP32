@@ -62,9 +62,6 @@ DiyBMSATTiny841 hardware;
 PacketProcessor PP(&hardware, &myConfig);
 
 volatile bool wdt_triggered = false;
-uint16_t bypassCountDown = 0;
-uint8_t bypassHasJustFinished = 0;
-bool pwmrunning = false;
 
 void DefaultConfig()
 {
@@ -91,10 +88,10 @@ void DefaultConfig()
 
 #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
   //Keep temperature low for modules with R19 and R20 not swapped
-  myConfig.BypassOverTempShutdown = 45;
+  myConfig.BypassTemperatureSetPoint = 45;
 #else
-  //Stop running bypass if temperature over 70 degrees C
-  myConfig.BypassOverTempShutdown = 70;
+  //Stop running bypass if temperature over 65 degrees C
+  myConfig.BypassTemperatureSetPoint = 65;
 #endif
 
   //Start bypass at 4.1V
@@ -182,6 +179,26 @@ ISR(USART0_START_vect)
 //Settings for V4.00 boards with 2R2 resistors = (4.0, 0.5, 0.2, 6, 8, false);
 FastPID myPID(4.0, 0.5, 0.2, 6, 8, false);
 
+void ValidateConfiguration() {
+  //My Bank should never be over 3
+  if (myConfig.mybank>3) {
+    myConfig.mybank=0;
+  }
+
+  if (myConfig.Calibration<1.9) {
+    myConfig.Calibration=2.21000;
+  }
+
+  #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
+    //Keep temperature low for modules with R19 and R20 not swapped
+    if (myConfig.BypassOverTempShutdown > 45)
+    {
+      myConfig.BypassOverTempShutdown = 45;
+    }
+  #endif
+
+}
+
 void setup()
 {
   //Must be first line of code
@@ -203,17 +220,13 @@ void setup()
   if (!Settings::ReadConfigFromEEPROM((uint8_t *)&myConfig, sizeof(myConfig), EEPROM_CONFIG_ADDRESS))
   {
     DefaultConfig();
-    //Save settings
-    Settings::WriteConfigToEEPROM((uint8_t *)&myConfig, sizeof(myConfig), EEPROM_CONFIG_ADDRESS);
+    //No need to save here as the default config will load every time if the CRC is wrong
+    //Settings::WriteConfigToEEPROM((uint8_t *)&myConfig, sizeof(myConfig), EEPROM_CONFIG_ADDRESS);
   }
 
-#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
-  //Keep temperature low for modules with R19 and R20 not swapped
-  if (myConfig.BypassOverTempShutdown > 45)
-  {
-    myConfig.BypassOverTempShutdown = 45;
-  }
-#endif
+
+  ValidateConfiguration();
+
 
   hardware.double_tap_green_led();
 
@@ -231,11 +244,24 @@ void setup()
   myPacketSerial.setPacketHandler(&onPacketReceived);
 }
 
+void StopBalance() {
+    PP.WeAreInBypass=false;
+    PP.bypassCountDown=0;
+    PP.bypassHasJustFinished=0;
+    PP.pwmrunning=false;
+    PP.PWMValue=0;    
+    PP.SettingsHaveChanged=false;
+
+    hardware.StopTimer2();
+    hardware.DumpLoadOff();
+}
+
 void loop()
 {
   //This loop runs around 3 times per second when the module is in bypass
-
   wdt_reset();
+
+  //if (bypassHasJustFinished>0)  {    hardware.BlueLedOn();  }else {    hardware.BlueLedOff();  }
 
   //if (hztiming) {  hardware.SparePinOn();} else {  hardware.SparePinOff();}hztiming=!hztiming;
 
@@ -250,8 +276,13 @@ void loop()
     }
   }
 
+  if (PP.SettingsHaveChanged) {
+    //The configuration has just been modified so stop balancing if we are and reset our status
+    StopBalance();
+  }
+
   //#ifndef DIYBMS_DEBUG
-  if (!PP.WeAreInBypass && bypassHasJustFinished == 0)
+  if (!PP.WeAreInBypass && PP.bypassHasJustFinished == 0)
   {
     //We don't sleep if we are in bypass mode or just after completing bypass
     hardware.EnableStartFrameDetection();
@@ -272,11 +303,23 @@ void loop()
     //Flash green LED twice after a watchdog wake up
     hardware.double_tap_green_led();
 #endif
+
+    //Setup IO ports
+    hardware.ConfigurePorts();
+
+    //More power saving changes
+    hardware.EnableSerial0();
+
+    //If we have just woken up, we shouldn't be in balance
+    //safety check that we are not
+    StopBalance();
+
+
   }
 
   //We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass
   //this is also triggered by the watchdog should comms fail or the module is running standalone
-  //Probably over kill to do it this frequently
+
   hardware.ReferenceVoltageOn();
 
   //allow reference voltage to stabalize
@@ -290,9 +333,20 @@ void loop()
 
   hardware.ReferenceVoltageOff();
 
-  if (PP.BypassCheck())
+  uint8_t temp = PP.InternalTemperature() & 0xFF;
+
+  if (temp>DIYBMS_MODULE_SafetyTemperatureCutoff) {
+    //Force shut down if temperature is too high
+    //although this does run the risk that the voltage on the cell will go high
+    //but the BMS controller should shut off the charger in this situation
+    StopBalance();
+  }
+
+
+  //Only enter bypass if the board temperature is below safety
+  if (PP.BypassCheck() && temp<DIYBMS_MODULE_SafetyTemperatureCutoff)
   {
-    //Our cell voltage is OVER the setpoint limit, start draining cell using load bypass resistor
+    //Our cell voltage is OVER the voltage setpoint limit, start draining cell using bypass resistor
 
     if (!PP.WeAreInBypass)
     {
@@ -301,62 +355,55 @@ void loop()
 
       //This controls how many cycles of loop() we make before re-checking the situation
       //about every 30 seconds
-      bypassCountDown = 200;
+      PP.bypassCountDown = 200;
+      PP.bypassHasJustFinished=0;
+      
+      //Reset PID to defaults
+      myPID.clear();
     }
   }
 
-  if (bypassCountDown > 0)
+  if (PP.bypassCountDown > 0)
   {
-
-    uint8_t exttemp = PP.InternalTemperature() & 0xFF;
-
-    if (exttemp < (myConfig.BypassOverTempShutdown - 10))
+    if (temp < (myConfig.BypassTemperatureSetPoint - 10))
     {
       //Full power if we are nowhere near the setpoint (more than 10 degrees C away)
-      hardware.DumpLoadOn();
       hardware.StopTimer2();
+      hardware.DumpLoadOn();
       PP.PWMValue = 100;
-      pwmrunning = false;
+      PP.pwmrunning = false;
     }
     else
     {
-      if (!pwmrunning)
+      if (!PP.pwmrunning)
       {
         //We have approached the set point, enable PWM
         hardware.DumpLoadOff();
         //Start timer2 with zero value
         hardware.StartTimer2();
-        pwmrunning = true;
+        PP.pwmrunning = true;
         //myPID.clear();
       }
 
       //Compare the real temperature against max setpoint, we want the PID to keep at this temperature
-      PP.PWMValue = myPID.step(myConfig.BypassOverTempShutdown, exttemp);
+      PP.PWMValue = myPID.step(myConfig.BypassTemperatureSetPoint, temp);
 
       //Scale PWM up to 0-10000
       hardware.SetTimer2Value(PP.PWMValue * 100);
     }
 
-    bypassCountDown--;
+    PP.bypassCountDown--;
+    
 
-    if (bypassCountDown == 0)
+    if (PP.bypassCountDown == 0)
     {
       //Switch everything off for this cycle
-      pwmrunning = false;
-
-      PP.WeAreInBypass = false;
-
-      //myPID.clear();
-      hardware.StopTimer2();
-
-      //switch off
-      hardware.DumpLoadOff();
-
+      StopBalance();
       //On the next iteration of loop, don't sleep so we are forced to take another
       //cell voltage reading without the bypass being enabled, and we can then
-      //evaludate if we need to stay in bypass mode, we do this a few times
+      //evaluate if we need to stay in bypass mode, we do this a few times
       //as the cell has a tendancy to float back up in voltage once load resistor is removed
-      bypassHasJustFinished = 200;
+      PP.bypassHasJustFinished = 200;
     }
   }
 
@@ -382,8 +429,6 @@ void loop()
     }
   }
 
-  if (bypassHasJustFinished > 0)
-  {
-    bypassHasJustFinished--;
-  }
+  if (PP.bypassHasJustFinished > 0)   {     PP.bypassHasJustFinished--;  }
+
 }
