@@ -655,6 +655,10 @@ void DIYBMSServer::rules(AsyncWebServerRequest *request)
   request->send(response);
 }
 
+#ifndef GIT_VERSION
+#error GIT_VERSION not defined
+#endif
+
 void DIYBMSServer::settings(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response =
@@ -664,6 +668,9 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   JsonObject root = doc.to<JsonObject>();
 
   JsonObject settings = root.createNestedObject("settings");
+
+  settings["Version"] = String(GIT_VERSION);
+
   settings["totalnumberofbanks"] = mysettings.totalNumberOfBanks;
   settings["combinationparallel"] = mysettings.combinationParallel;
 

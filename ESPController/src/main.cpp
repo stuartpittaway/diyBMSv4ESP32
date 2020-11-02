@@ -37,6 +37,11 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 
 #include <Arduino.h>
 
+#ifndef GIT_VERSION
+#error GIT_VERSION not defined
+#endif
+
+
 #define PACKET_LOGGING
 //#define RULES_LOGGING
 

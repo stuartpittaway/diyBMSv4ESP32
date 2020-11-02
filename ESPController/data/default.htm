@@ -85,8 +85,9 @@
                 target="_blank">https://creativecommons.org/licenses/by-nc-sa/2.0/uk/</a>
         </div>
         <div class="region">
-            <h2>Platform</h2>
+            <h2>Platform &amp; Version</h2>
             <p>%PLATFORM%</p>
+            <p id="version"></p>
         </div>
     </div>
     <div class="page" id="modulesPage">
@@ -586,6 +587,8 @@
                 $.getJSON("settings.json",
                     function (data) {
 
+                        $("#version").text(data.settings.Version);
+
                         $("#NTPServer").val(data.settings.NTPServerName);
                         $("#NTPZoneHour").val(data.settings.TimeZone);
                         $("#NTPZoneMin").val(data.settings.MinutesTimeZone);
@@ -783,6 +786,7 @@
             queryBMS();
         });
     </script>
+
 </body>
 
 </html>
