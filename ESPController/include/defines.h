@@ -40,9 +40,8 @@
 #define RULE_IndividualcellundertemperatureExternal 5
 #define RULE_PackOverVoltage 6
 #define RULE_PackUnderVoltage 7
-
-#define RULE_Timer1 8
-#define RULE_Timer2 9
+#define RULE_Timer2 8
+#define RULE_Timer1 9
 
 #define GREEN_LED_ON digitalWrite(GREEN_LED, HIGH)
 #define GREEN_LED_OFF digitalWrite(GREEN_LED, LOW)
@@ -68,7 +67,8 @@ struct diybms_eeprom_settings
   bool combinationParallel;
   uint8_t totalNumberOfBanks;
 
-  uint16_t rulevalue[RELAY_RULES];
+  uint32_t rulevalue[RELAY_RULES];
+  uint32_t rulehysteresis[RELAY_RULES]; 
 
   //Use a bit pattern to indicate the relay states
   uint8_t rulerelaystate[RELAY_RULES][RELAY_TOTAL];
@@ -169,6 +169,17 @@ struct CellModuleInfo
   //Value of PWM timer for load shedding
   uint16_t PWMValue;
 };
+
+
+// This enum holds the states the controller goes through whilst
+// it stabilizes and moves into running state.
+enum ControllerState : uint8_t
+{
+  PowerUp = 1,
+  Stabilizing = 2,
+  Running = 255,
+};
+
 
 //This holds all the cell information in a large array 2D array (4x16)
 extern CellModuleInfo cmi[maximum_bank_of_modules][maximum_cell_modules];

@@ -12,13 +12,13 @@ p {margin-block-start: 1em; margin-block-end:0;}
 .info .stat {display:block;border:solid 2px gray;padding:2px;margin:2px;float:left;min-width:125px;}
 .info .stat .x {display:block;width:100%;text-align:right;}
 .info .stat .t {font-size:10pt;}
-.info .stat .v {font-size:22pt;font-family:'Inconsolata',monospace;;font-weight:bold;}
+.info .stat .v {font-size:22pt;font-family: 'Fira Code', monospace;;font-weight:bold;}
 .graphs {height:768px;width:100%;}
 .ct-series-a .ct-bar {stroke-width:25px;}
 button {font-family:Arial,Helvetica,sans-serif;border:solid 1px transparent;text-align:center;text-decoration:none;display:inline-block;font-size:14px;min-width:50pt;padding:6px;margin:1px;}
 form > div > div {padding-bottom:4px;padding-top:4px;}
 form label {width:220px;display:inline-block;text-align:right;font-size:smaller;}
-form input {width:100px;display:inline-block;padding-left:10px;padding-right:10px;margin-left:10px;font-family:'Inconsolata',monospace;}
+form input {width:100px;display:inline-block;padding-left:5px;padding-right:5px;margin-left:5px;font-family: 'Fira Code', monospace;}
 form input[type='input'] {width:225px;}
 form input[type='submit'] {font-family:Arial,Helvetica,sans-serif;border:none;text-align:center;text-decoration:none;display:inline-block;font-size:14px;width:150pt;padding:10px;}
 .error {padding:10px;display:none; width:100%;}
@@ -26,7 +26,7 @@ form input[type='submit'] {font-family:Arial,Helvetica,sans-serif;border:none;te
 .page {clear:both; width:100%; display:none;margin:5px;}
 .page .region {float:left;padding:10px;margin-right:10px;width:45%;}
 #modulesTable span {display:inline-block;}
-#modulesTable .rows span {min-width:70px;font-family:'Inconsolata',monospace;text-align:right;}
+#modulesTable .rows span {min-width:70px;font-family: 'Fira Code', monospace;text-align:right;}
 #modulesTable .rows button {margin-left:10px;}
 #modulesTable .th span {text-align:right;min-width:70px}
 #loading {width:100px;position:absolute;height:100px;margin-left: auto;margin-right: auto;padding: 0;top:50%;left:50%;}
@@ -85,8 +85,15 @@ a:visited {color:#e8e8e8;font-weight:bold;}
 .ct-series-a .ct-bar {stroke:#525252;}
 #modulesTable .selected {background-color:#414141;}
 .triggered {background-color:rgb(68, 145, 59);}
+.disablerule {text-decoration: line-through; background-color: #525252;}
 .page .region {background-color:#525252;}
 button {color:white;background-color:#1e90ff;}
 button:hover {border:solid 1px white;}
 button:focus {color:#1e90ff;background-color:white;}
 form input[type='submit'] {color:white;background-color:#1e90ff;}
+
+.hidden {visibility: hidden;}
+.rule input { width:80px; }
+th {font-family:Arial,Helvetica,sans-serif;text-align:center;font-size:14px;}
+.relayset select { min-width:50px; }
+.settings label { min-width:285px;width:auto;}
