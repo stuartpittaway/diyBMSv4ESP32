@@ -191,9 +191,9 @@ void ValidateConfiguration() {
 
   #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
     //Keep temperature low for modules with R19 and R20 not swapped
-    if (myConfig.BypassOverTempShutdown > 45)
+    if (myConfig.BypassTemperatureSetPoint > 45)
     {
-      myConfig.BypassOverTempShutdown = 45;
+      myConfig.BypassTemperatureSetPoint = 45;
     }
   #endif
 
