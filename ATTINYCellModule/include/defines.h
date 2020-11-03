@@ -17,19 +17,6 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 //Incremented when major revisions of code are made and new features
 #define MODULE_FIRMWARE_VERSION 1
 
-// ONLY ENABLE ONE OF THE BELOW....
-//#define DIYBMSMODULEVERSION 420
-//#define DIYBMSMODULEVERSION 410
-//#define DIYBMSMODULEVERSION 420
-//#define DIYBMSMODULEVERSION 421
-
-//#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION == 420
-// IF YOU HAVE VERSION 4.20 AND HAVE SWAPPED R19 and R20 OVER 
-// (Thermistor is now in middle of resistor array) THEN ENABLE THIS TO FIX THE TEMPERATURE READINGS
-//#define SWAPR19R20
-//#endif
-
-
 #if (!defined(DIYBMSMODULEVERSION))
 #error You need to enable one of the DIYBMSMODULEVERSION define statements
 #endif
@@ -55,7 +42,7 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 enum COMMAND: uint8_t
 {
-    SetBankIdentity=B00000000,
+    //SetBankIdentity=B00000000,
     ReadVoltageAndStatus=B00000001,
     Identify=B00000010,
     ReadTemperature=B00000011,
@@ -63,9 +50,8 @@ enum COMMAND: uint8_t
     ReadSettings=B00000101,
     WriteSettings=B00000110,
     ReadBalancePowerPWM=B00000111
-    
-
-    // 0000 0000  = set bank identity
+   
+    // 0000 0000  = set bank identity [obsolete]
     // 0000 0001  = read voltage and status
     // 0000 0010  = identify module (flash leds)
     // 0000 0011  = Read temperature

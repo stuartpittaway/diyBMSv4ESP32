@@ -226,6 +226,8 @@ bool PacketProcessor::processPacket()
   switch (buffer.command & 0x0F)
   {
 
+/*
+OBSOLETE
   case COMMAND::SetBankIdentity:
   {
     //Set this modules bank address and store in EEPROM
@@ -238,6 +240,7 @@ bool PacketProcessor::processPacket()
     buffer.moduledata[mymoduleaddress] = 0xFFFF;
     return true;
   }
+*/
 
   case COMMAND::ReadVoltageAndStatus:
   {
@@ -278,7 +281,7 @@ bool PacketProcessor::processPacket()
 
   case COMMAND::ReadTemperature:
   {
-    //Read the last 2 temperature values recorded by the ADC (both internal and external)
+    //Return the last known temperature values recorded by the ADC (both internal and external)
     buffer.moduledata[mymoduleaddress] = TemperatureMeasurement();
     return true;
   }
