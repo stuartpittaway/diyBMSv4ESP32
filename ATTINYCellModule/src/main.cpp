@@ -84,7 +84,7 @@ void DefaultConfig()
   myConfig.Calibration = 2.21000;
 
   //2mV per ADC resolution
-  myConfig.mVPerADC = 2.0; //2048.0/1024.0;
+  //myConfig.mVPerADC = 2.0; //2048.0/1024.0;
 
 #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
   //Keep temperature low for modules with R19 and R20 not swapped

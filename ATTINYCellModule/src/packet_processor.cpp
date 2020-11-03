@@ -204,7 +204,7 @@ bool PacketProcessor::onPacketReceived(const uint8_t *receivebuffer, size_t len)
 uint16_t PacketProcessor::CellVoltage()
 {
   //TODO: Get rid of the need for float variables?
-  float v = ((float)raw_adc_voltage * _config->mVPerADC) * _config->Calibration;
+  float v = ((float)raw_adc_voltage * (float)MV_PER_ADC) * _config->Calibration;
 
   return (uint16_t)v;
 }
@@ -314,7 +314,7 @@ OBSOLETE
     buffer.moduledata[2] = myFloat.word[0];
     buffer.moduledata[3] = myFloat.word[1];
 
-    myFloat.number = _config->mVPerADC;
+    myFloat.number = (float)MV_PER_ADC;
     buffer.moduledata[4] = myFloat.word[0];
     buffer.moduledata[5] = myFloat.word[1];
 
@@ -342,18 +342,17 @@ OBSOLETE
 
     myFloat.word[0] = buffer.moduledata[2];
     myFloat.word[1] = buffer.moduledata[3];
-
     if (myFloat.number < 0xFFFF)
     {
       _config->Calibration = myFloat.number;
     }
 
-    myFloat.word[0] = buffer.moduledata[4];
-    myFloat.word[1] = buffer.moduledata[5];
-    if (myFloat.number < 0xFFFF)
-    {
-      _config->mVPerADC = myFloat.number;
-    }
+    //myFloat.word[0] = buffer.moduledata[4];
+    //myFloat.word[1] = buffer.moduledata[5];
+    //if (myFloat.number < 0xFFFF)
+    //{
+    //  _config->mVPerADC = (float)MV_PER_ADC;
+    //}
 
     if (buffer.moduledata[6] != 0xFF)
     {
