@@ -27,8 +27,7 @@ class PacketRequestGenerator {
      ~PacketRequestGenerator() {}
      void sendGetSettingsRequest(uint8_t b,uint8_t m);
      void sendIdentifyModuleRequest(uint8_t b,uint8_t m);
-     void sendSaveSetting(uint8_t b,uint8_t m,uint16_t BypassThresholdmV,uint8_t BypassOverTempShutdown,float LoadResistance,float Calibration,float mVPerADC,uint16_t Internal_BCoefficient,uint16_t External_BCoefficient);
-
+     void sendSaveSetting(uint8_t b, uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration);
      void sendSaveGlobalSetting(uint8_t numberOfBanks,uint16_t BypassThresholdmV,uint8_t BypassOverTempShutdown);
      void sendReadBadPacketCounter(uint8_t b);
 

@@ -49,7 +49,7 @@ void PacketRequestGenerator::sendSaveGlobalSetting(uint8_t totalNumberOfBanks, u
 
   clearSettingsForAllModules();
 }
-void PacketRequestGenerator::sendSaveSetting(uint8_t b, uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float LoadResistance, float Calibration, float mVPerADC, uint16_t Internal_BCoefficient, uint16_t External_BCoefficient)
+void PacketRequestGenerator::sendSaveSetting(uint8_t b, uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration)
 {
   setPacketAddress(false, b, m);
   //Command - WriteSettings
@@ -67,9 +67,9 @@ void PacketRequestGenerator::sendSaveSetting(uint8_t b, uint8_t m, uint16_t Bypa
 
   FLOATUNION_t myFloat;
 
-  myFloat.number = LoadResistance;
-  _packetbuffer.moduledata[0] = myFloat.word[0];
-  _packetbuffer.moduledata[1] = myFloat.word[1];
+  //myFloat.number = LoadResistance;
+  //_packetbuffer.moduledata[0] = myFloat.word[0];
+  //_packetbuffer.moduledata[1] = myFloat.word[1];
 
   // Arduino float(4 byte)
   myFloat.number = Calibration;
@@ -77,14 +77,14 @@ void PacketRequestGenerator::sendSaveSetting(uint8_t b, uint8_t m, uint16_t Bypa
   _packetbuffer.moduledata[3] = myFloat.word[1];
 
   // Arduino float(4 byte)
-  myFloat.number = mVPerADC;
-  _packetbuffer.moduledata[4] = myFloat.word[0];
-  _packetbuffer.moduledata[5] = myFloat.word[1];
+  //myFloat.number = mVPerADC;
+  //_packetbuffer.moduledata[4] = myFloat.word[0];
+  //_packetbuffer.moduledata[5] = myFloat.word[1];
 
   _packetbuffer.moduledata[6] = BypassOverTempShutdown;
   _packetbuffer.moduledata[7] = BypassThresholdmV;
-  _packetbuffer.moduledata[8] = Internal_BCoefficient;
-  _packetbuffer.moduledata[9] = External_BCoefficient;
+  //_packetbuffer.moduledata[8] = Internal_BCoefficient;
+  //_packetbuffer.moduledata[9] = External_BCoefficient;
 
   pushPacketToQueue();
 }

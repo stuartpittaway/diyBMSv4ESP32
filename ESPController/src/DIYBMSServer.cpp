@@ -446,15 +446,15 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
       uint16_t BypassThresholdmV = 0xFFFF;
 
       // Resistance of bypass load
-      float LoadResistance = 0xFFFF;
+      //float LoadResistance = 0xFFFF;
       //Voltage Calibration
       float Calibration = 0xFFFF;
       //Reference voltage (millivolt) normally 2.00mV
-      float mVPerADC = 0xFFFF;
+      //float mVPerADC = 0xFFFF;
       //Internal Thermistor settings
-      uint16_t Internal_BCoefficient = 0xFFFF;
+      //uint16_t Internal_BCoefficient = 0xFFFF;
       //External Thermistor settings
-      uint16_t External_BCoefficient = 0xFFFF;
+      //uint16_t External_BCoefficient = 0xFFFF;
 
       if (request->hasParam("BypassOverTempShutdown", true))
       {
@@ -467,37 +467,13 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
         AsyncWebParameter *p1 = request->getParam("BypassThresholdmV", true);
         BypassThresholdmV = p1->value().toInt();
       }
-      if (request->hasParam("IntBCoef", true))
-      {
-        AsyncWebParameter *p1 = request->getParam("IntBCoef", true);
-        Internal_BCoefficient = p1->value().toInt();
-      }
-
-      if (request->hasParam("ExtBCoef", true))
-      {
-        AsyncWebParameter *p1 = request->getParam("ExtBCoef", true);
-        External_BCoefficient = p1->value().toInt();
-      }
-
       if (request->hasParam("Calib", true))
       {
         AsyncWebParameter *p1 = request->getParam("Calib", true);
         Calibration = p1->value().toFloat();
       }
 
-      if (request->hasParam("LoadRes", true))
-      {
-        AsyncWebParameter *p1 = request->getParam("LoadRes", true);
-        LoadResistance = p1->value().toFloat();
-      }
-
-      if (request->hasParam("mVPerADC", true))
-      {
-        AsyncWebParameter *p1 = request->getParam("mVPerADC", true);
-        mVPerADC = p1->value().toFloat();
-      }
-
-      prg.sendSaveSetting(b, m, BypassThresholdmV, BypassOverTempShutdown, LoadResistance, Calibration, mVPerADC, Internal_BCoefficient, External_BCoefficient);
+      prg.sendSaveSetting(b, m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
 
       if (request->hasParam("movetobank", true))
       {
