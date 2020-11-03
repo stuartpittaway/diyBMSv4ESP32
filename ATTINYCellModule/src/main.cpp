@@ -66,17 +66,6 @@ volatile bool wdt_triggered = false;
 void DefaultConfig()
 {
 
-  // Value of the resistor for load shedding
-
-#if (defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION == 410)
-  myConfig.LoadResistance = 4.00;
-#elif defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION >= 421)
-  myConfig.LoadResistance = 4.96;
-#else
-  //For v4.00
-  myConfig.LoadResistance = 4.40;
-#endif
-
   //Default bank zero
   myConfig.mybank = 0;
 
@@ -97,16 +86,17 @@ void DefaultConfig()
   //Start bypass at 4.1V
   myConfig.BypassThresholdmV = 4100;
 
-#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 430 || DIYBMSMODULEVERSION == 420 || DIYBMSMODULEVERSION == 421)
+
+//#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 430 || DIYBMSMODULEVERSION == 420 || DIYBMSMODULEVERSION == 421)
   //Murata Electronics NCP18WB473J03RB = 47K ±5% 4050K ±2% 100mW 0603 NTC Thermistors RoHS
-  myConfig.Internal_BCoefficient = 4050;
-#else
+  //myConfig.Internal_BCoefficient = 4050;
+//#else
   //4150 = B constant (25-50℃)
-  myConfig.Internal_BCoefficient = 4150;
-#endif
+  //myConfig.Internal_BCoefficient = 4150;
+//#endif
 
   //4150 = B constant (25-50℃)
-  myConfig.External_BCoefficient = 4150;
+  //myConfig.External_BCoefficient = 4150;
 
   // Resistance @ 25℃ = 47k, B Constant 4150, 0.20mA max current
   //Using https://www.thinksrs.com/downloads/programs/therm%20calc/ntccalibrator/ntccalculator.html

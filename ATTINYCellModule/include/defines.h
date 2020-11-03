@@ -69,15 +69,15 @@ struct CellModuleConfig {
   uint16_t BypassThresholdmV;
 
   // Resistance of bypass load
-  float LoadResistance;
+  //float LoadResistance;
   //Voltage Calibration
   float Calibration;
   //Reference voltage (millivolt) normally 2.00mV
   //float mVPerADC;
   //Internal Thermistor settings
-  uint16_t Internal_BCoefficient;
+  //uint16_t Internal_BCoefficient;
   //External Thermistor settings
-  uint16_t External_BCoefficient;
+  //uint16_t External_BCoefficient;
 } __attribute__((packed));
 
 

@@ -44,7 +44,7 @@ bool PacketProcessor::BypassOverheatCheck()
 // uses basic B Coefficient Steinhart calculaton to give rough approximation in temperature
 int16_t PacketProcessor::InternalTemperature()
 {
-  return Steinhart::ThermistorToCelcius(_config->Internal_BCoefficient, onboard_temperature);
+  return Steinhart::ThermistorToCelcius(INT_BCOEFFICIENT, onboard_temperature);
 }
 
 //Returns TRUE if the cell voltage is greater than the required setting
@@ -306,7 +306,7 @@ OBSOLETE
     //Report settings/configuration
 
     FLOATUNION_t myFloat;
-    myFloat.number = _config->LoadResistance;
+    myFloat.number = (float)LOAD_RESISTANCE;
     buffer.moduledata[0] = myFloat.word[0];
     buffer.moduledata[1] = myFloat.word[1];
 
@@ -320,8 +320,8 @@ OBSOLETE
 
     buffer.moduledata[6] = _config->BypassTemperatureSetPoint;
     buffer.moduledata[7] = _config->BypassThresholdmV;
-    buffer.moduledata[8] = _config->Internal_BCoefficient;
-    buffer.moduledata[9] = _config->External_BCoefficient;
+    buffer.moduledata[8] = INT_BCOEFFICIENT;
+    buffer.moduledata[9] = EXT_BCOEFFICIENT;
     buffer.moduledata[10] = DIYBMSMODULEVERSION;
 
     //Version of firmware.
@@ -335,10 +335,10 @@ OBSOLETE
 
     myFloat.word[0] = buffer.moduledata[0];
     myFloat.word[1] = buffer.moduledata[1];
-    if (myFloat.number < 0xFFFF)
-    {
-      _config->LoadResistance = myFloat.number;
-    }
+    //if (myFloat.number < 0xFFFF)
+    //{
+//      _config->LoadResistance = myFloat.number;
+    //}
 
     myFloat.word[0] = buffer.moduledata[2];
     myFloat.word[1] = buffer.moduledata[3];
@@ -371,15 +371,15 @@ OBSOLETE
     {
       _config->BypassThresholdmV = buffer.moduledata[7];
     }
-    if (buffer.moduledata[8] != 0xFFFF)
-    {
-      _config->Internal_BCoefficient = buffer.moduledata[8];
-    }
+    //if (buffer.moduledata[8] != 0xFFFF)
+    //{
+//      _config->Internal_BCoefficient = buffer.moduledata[8];
+    //}
 
-    if (buffer.moduledata[9] != 0xFFFF)
-    {
-      _config->External_BCoefficient = buffer.moduledata[9];
-    }
+    //if (buffer.moduledata[9] != 0xFFFF)
+    //{
+//      _config->External_BCoefficient = buffer.moduledata[9];
+    //}
 
     //Save settings
     Settings::WriteConfigToEEPROM((uint8_t *)_config, sizeof(CellModuleConfig), EEPROM_CONFIG_ADDRESS);
@@ -395,6 +395,6 @@ OBSOLETE
 
 uint16_t PacketProcessor::TemperatureMeasurement()
 {
-  return (Steinhart::TemperatureToByte(Steinhart::ThermistorToCelcius(_config->Internal_BCoefficient, onboard_temperature)) << 8) +
-         Steinhart::TemperatureToByte(Steinhart::ThermistorToCelcius(_config->External_BCoefficient, external_temperature));
+  return (Steinhart::TemperatureToByte(Steinhart::ThermistorToCelcius(INT_BCOEFFICIENT, onboard_temperature)) << 8) +
+         Steinhart::TemperatureToByte(Steinhart::ThermistorToCelcius(EXT_BCOEFFICIENT, external_temperature));
 }
