@@ -59,7 +59,7 @@ bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
         totalNotProcessedErrors++;
         //Invalidate the whole bank if a module didn't process the request - something is a miss
         //or we have just configured a module to another bank
-        numberOfModules[0]=0;
+        //numberOfModules[0]=0;
       }
 
   } else {
@@ -103,7 +103,7 @@ void PacketReceiveProcessor::ProcessReplyBadPacketCount() {
   // Called when a decoded packet has arrived in buffer for command
   ProcessReplyAddressByte();
   for (size_t i = 0; i < maximum_cell_modules; i++) {
-    cmi[0][i].badPacketCount = _packetbuffer.moduledata[i];
+    cmi[i].badPacketCount = _packetbuffer.moduledata[i];
   }
 }
 
@@ -113,8 +113,8 @@ void PacketReceiveProcessor::ProcessReplyTemperature() {
   ProcessReplyAddressByte();
   // 40 offset for below zero temps
   for (size_t i = 0; i < maximum_cell_modules; i++) {
-    cmi[0][i].internalTemp = ((_packetbuffer.moduledata[i] & 0xFF00) >> 8) - 40;
-    cmi[0][i].externalTemp = (_packetbuffer.moduledata[i] & 0x00FF) - 40;
+    cmi[i].internalTemp = ((_packetbuffer.moduledata[i] & 0xFF00) >> 8) - 40;
+    cmi[i].externalTemp = (_packetbuffer.moduledata[i] & 0x00FF) - 40;
   }
 }
 
@@ -122,12 +122,8 @@ void PacketReceiveProcessor::ProcessReplyBalancePower() {
   // Called when a decoded packet has arrived in _packetbuffer for command 1
   ProcessReplyAddressByte();
 
-  uint8_t b = 0;
-
-  //SERIAL_DEBUG.print("Bank=");  SERIAL_DEBUG.println(b);
-
   for (uint8_t i = 0; i < maximum_cell_modules; i++) {
-    cmi[b][i].PWMValue = _packetbuffer.moduledata[i];
+    cmi[i].PWMValue = _packetbuffer.moduledata[i];
   }
 }
 
@@ -136,37 +132,32 @@ void PacketReceiveProcessor::ProcessReplyVoltage() {
   // Called when a decoded packet has arrived in _packetbuffer for command 1
   ProcessReplyAddressByte();
 
-  uint8_t b = 0;
-
-  //SERIAL_DEBUG.print("Bank=");  SERIAL_DEBUG.println(b);
-
   for (uint8_t i = 0; i < maximum_cell_modules; i++) {
     // 3 top bits remaining
     // X = In bypass
     // Y = Bypass over temperature
     // Z = Not used
 
-    cmi[b][i].voltagemV = _packetbuffer.moduledata[i] & 0x1FFF;
-    cmi[b][i].inBypass = (_packetbuffer.moduledata[i] & 0x8000) > 0;
-    cmi[b][i].bypassOverTemp = (_packetbuffer.moduledata[i] & 0x4000) > 0;
+    cmi[i].voltagemV = _packetbuffer.moduledata[i] & 0x1FFF;
+    cmi[i].inBypass = (_packetbuffer.moduledata[i] & 0x8000) > 0;
+    cmi[i].bypassOverTemp = (_packetbuffer.moduledata[i] & 0x4000) > 0;
 
-    if (cmi[b][i].voltagemV > cmi[b][i].voltagemVMax) {
-      cmi[b][i].voltagemVMax = cmi[b][i].voltagemV;
+    if (cmi[i].voltagemV > cmi[i].voltagemVMax) {
+      cmi[i].voltagemVMax = cmi[i].voltagemV;
     }
 
-    if (cmi[b][i].voltagemV < cmi[b][i].voltagemVMin) {
-      cmi[b][i].voltagemVMin = cmi[b][i].voltagemV;
+    if (cmi[i].voltagemV < cmi[i].voltagemVMin) {
+      cmi[i].voltagemVMin = cmi[i].voltagemV;
     }
   }
 }
 
 void PacketReceiveProcessor::ProcessReplySettings() {
-  uint8_t b = 0;
-  //Need to use the raw version here
+
   uint8_t m = ReplyLastAddress();
 
   // TODO Validate b and m here to prevent array overflow
-  cmi[b][m].settingsCached = true;
+  cmi[m].settingsCached = true;
 
   FLOATUNION_t myFloat;
 
@@ -174,24 +165,24 @@ void PacketReceiveProcessor::ProcessReplySettings() {
   myFloat.word[1] = _packetbuffer.moduledata[1];
 
   // Arduino float (4 byte)
-  cmi[b][m].LoadResistance = myFloat.number;
+  cmi[m].LoadResistance = myFloat.number;
   // Arduino float(4 byte)
   myFloat.word[0] = _packetbuffer.moduledata[2];
   myFloat.word[1] = _packetbuffer.moduledata[3];
-  cmi[b][m].Calibration = myFloat.number;
+  cmi[m].Calibration = myFloat.number;
 
   // Arduino float(4 byte)
   myFloat.word[0] = _packetbuffer.moduledata[4];
   myFloat.word[1] = _packetbuffer.moduledata[5];
-  cmi[b][m].mVPerADC = myFloat.number;
+  cmi[m].mVPerADC = myFloat.number;
   // uint8_t
-  cmi[b][m].BypassOverTempShutdown = _packetbuffer.moduledata[6] & 0x00FF;
+  cmi[m].BypassOverTempShutdown = _packetbuffer.moduledata[6] & 0x00FF;
   // uint16_t
-  cmi[b][m].BypassThresholdmV = _packetbuffer.moduledata[7];
+  cmi[m].BypassThresholdmV = _packetbuffer.moduledata[7];
   // uint16_t
-  cmi[b][m].Internal_BCoefficient = _packetbuffer.moduledata[8];
+  cmi[m].Internal_BCoefficient = _packetbuffer.moduledata[8];
   // uint16_t
-  cmi[b][m].External_BCoefficient = _packetbuffer.moduledata[9];
+  cmi[m].External_BCoefficient = _packetbuffer.moduledata[9];
   // uint16_t
-  cmi[b][m].BoardVersionNumber = _packetbuffer.moduledata[10];
+  cmi[m].BoardVersionNumber = _packetbuffer.moduledata[10];
 }

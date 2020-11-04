@@ -5,7 +5,9 @@
 
 //Maximum of 16 cell modules (dont change this!)
 #define maximum_cell_modules 16
-#define maximum_bank_of_modules 4
+
+#define maximum_controller_cell_modules 64
+#define maximum_banks 4
 
 #define COMMS_BAUD_RATE 2400
 
@@ -183,8 +185,7 @@ enum ControllerState : uint8_t
 };
 
 
-//This holds all the cell information in a large array 2D array (4x16)
-extern CellModuleInfo cmi[maximum_bank_of_modules][maximum_cell_modules];
-extern uint8_t numberOfModules[maximum_bank_of_modules];
+//This holds all the cell information in a large array array (64)
+extern CellModuleInfo cmi[maximum_controller_cell_modules];
 
 #endif

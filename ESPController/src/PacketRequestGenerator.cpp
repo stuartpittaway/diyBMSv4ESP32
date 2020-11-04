@@ -5,10 +5,7 @@ void PacketRequestGenerator::clearSettingsForAllModules()
   // Force refresh of settings
   for (size_t i = 0; i < maximum_cell_modules; i++)
   {
-    cmi[0][i].settingsCached = false;
-    cmi[1][i].settingsCached = false;
-    cmi[2][i].settingsCached = false;
-    cmi[3][i].settingsCached = false;
+    cmi[i].settingsCached = false;
   }
 }
 
@@ -48,7 +45,7 @@ void PacketRequestGenerator::sendSaveSetting(uint8_t b, uint8_t m, uint16_t Bypa
   }
 
   // Force refresh of settings
-  cmi[b][m].settingsCached = false;
+  cmi[m].settingsCached = false;
 
   FLOATUNION_t myFloat;
 

@@ -430,12 +430,10 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
   {
 
     AsyncWebParameter *module = request->getParam("m", true);
-    AsyncWebParameter *bank = request->getParam("b", true);
 
-    int b = bank->value().toInt();
     int m = module->value().toInt();
 
-    if ((b > 3) || (m + 1 > numberOfModules[b]))
+    if (m>maximum_cell_modules)
     {
       request->send(500, "text/plain", "Wrong parameters");
     }
@@ -473,24 +471,8 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
         Calibration = p1->value().toFloat();
       }
 
-      prg.sendSaveSetting(b, m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
+      prg.sendSaveSetting(0, m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
 
-      if (request->hasParam("movetobank", true))
-      {
-        AsyncWebParameter *p1 = request->getParam("movetobank", true);
-        int movetobank = p1->value().toInt();
-
-        if (b != movetobank)
-        {
-          //Requested to move this module to another bank
-          //prg.sendMoveToBank(b, m, movetobank);
-
-          clearModuleValues(b, m);
-          //Take 1 off and add 1 on...
-          numberOfModules[b]--;
-          numberOfModules[movetobank]++;
-        }
-      }
 
       SendSuccess(request);
     }
@@ -503,13 +485,13 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
 
 void DIYBMSServer::clearModuleValues(uint8_t bank, uint8_t module)
 {
-  cmi[bank][module].voltagemV = 0;
-  cmi[bank][module].voltagemVMin = 6000;
-  cmi[bank][module].voltagemVMax = 0;
-  cmi[bank][module].inBypass = false;
-  cmi[bank][module].bypassOverTemp = false;
-  cmi[bank][module].internalTemp = -40;
-  cmi[bank][module].externalTemp = -40;
+  cmi[module].voltagemV = 0;
+  cmi[module].voltagemVMin = 6000;
+  cmi[module].voltagemVMax = 0;
+  cmi[module].inBypass = false;
+  cmi[module].bypassOverTemp = false;
+  cmi[module].internalTemp = -40;
+  cmi[module].externalTemp = -40;
 }
 
 void DIYBMSServer::identifyModule(AsyncWebServerRequest *request)
@@ -517,18 +499,16 @@ void DIYBMSServer::identifyModule(AsyncWebServerRequest *request)
   if (request->hasParam("m") && request->hasParam("b"))
   {
     AsyncWebParameter *module = request->getParam("m");
-    AsyncWebParameter *bank = request->getParam("b");
 
-    int b = bank->value().toInt();
     int m = module->value().toInt();
 
-    if ((b > 3) || (m + 1 > numberOfModules[b]))
+    if (m>maximum_cell_modules)
     {
       request->send(500, "text/plain", "Wrong parameters");
     }
     else
     {
-      prg.sendIdentifyModuleRequest(b, m);
+      prg.sendIdentifyModuleRequest(0, m);
       SendSuccess(request);
     }
   }
@@ -706,20 +686,20 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
   if (request->hasParam("m", false) && request->hasParam("b", false))
   {
     AsyncWebParameter *module = request->getParam("m", false);
-    AsyncWebParameter *bank = request->getParam("b", false);
+    //AsyncWebParameter *bank = request->getParam("b", false);
 
-    int b = bank->value().toInt();
+    //int b = bank->value().toInt();
     int m = module->value().toInt();
 
-    if ((b > 3) || (m + 1 > numberOfModules[b]))
+    if (m + 1 > maximum_cell_modules)
     {
       request->send(500, "text/plain", "Wrong parameters");
     }
     else
     {
-      if (cmi[b][m].settingsCached == false)
+      if (cmi[m].settingsCached == false)
       {
-        prg.sendGetSettingsRequest(b, m);
+        prg.sendGetSettingsRequest(0, m);
       }
 
       AsyncResponseStream *response =
@@ -729,21 +709,21 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
       JsonObject root = doc.to<JsonObject>();
       JsonObject settings = root.createNestedObject("settings");
 
-      settings["bank"] = b;
+      settings["bank"] = 0;
       settings["module"] = m;
-      settings["ver"] = cmi[b][m].BoardVersionNumber;
+      settings["ver"] = cmi[m].BoardVersionNumber;
 
-      settings["Cached"] = cmi[b][m].settingsCached;
+      settings["Cached"] = cmi[m].settingsCached;
       // settings["Requested"] = cmi[b][m].settingsRequested;
 
-      settings["BypassOverTempShutdown"] = cmi[b][m].BypassOverTempShutdown;
-      settings["BypassThresholdmV"] = cmi[b][m].BypassThresholdmV;
+      settings["BypassOverTempShutdown"] = cmi[m].BypassOverTempShutdown;
+      settings["BypassThresholdmV"] = cmi[m].BypassThresholdmV;
 
-      settings["LoadRes"] = cmi[b][m].LoadResistance;
-      settings["Calib"] = cmi[b][m].Calibration;
-      settings["mVPerADC"] = cmi[b][m].mVPerADC;
-      settings["IntBCoef"] = cmi[b][m].Internal_BCoefficient;
-      settings["ExtBCoef"] = cmi[b][m].External_BCoefficient;
+      settings["LoadRes"]  = cmi[m].LoadResistance;
+      settings["Calib"]    = cmi[m].Calibration;
+      settings["mVPerADC"] = cmi[m].mVPerADC;
+      settings["IntBCoef"] = cmi[m].Internal_BCoefficient;
+      settings["ExtBCoef"] = cmi[m].External_BCoefficient;
 
       serializeJson(doc, *response);
       request->send(response);
@@ -768,7 +748,7 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request)
   AsyncResponseStream *response =
       request->beginResponseStream("application/json");
 
-  //Allocate buffer large enough for 4 banks of 16 modules
+  //Allocate buffer large enough for 64 modules
   DynamicJsonDocument doc(10240);
 
   JsonObject root = doc.to<JsonObject>();
@@ -789,23 +769,20 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request)
 
   JsonArray bankArray = root.createNestedArray("bank");
 
-  for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
-  {
-    JsonArray data = bankArray.createNestedArray();
+  JsonArray data = bankArray.createNestedArray();
 
-    for (uint8_t i = 0; i < numberOfModules[bank]; i++)
-    {
-      JsonObject cell = data.createNestedObject();
-      cell["v"] = cmi[bank][i].voltagemV;
-      cell["minv"] = cmi[bank][i].voltagemVMin;
-      cell["maxv"] = cmi[bank][i].voltagemVMax;
-      cell["bypass"] = cmi[bank][i].inBypass;
-      cell["bypasshot"] = cmi[bank][i].bypassOverTemp;
-      cell["int"] = cmi[bank][i].internalTemp;
-      cell["ext"] = cmi[bank][i].externalTemp;
-      cell["badpkt"] = cmi[bank][i].badPacketCount;
-      cell["pwm"] = cmi[bank][i].inBypass ? cmi[bank][i].PWMValue : 0;
-    }
+  for (uint8_t i = 0; i < maximum_cell_modules; i++)
+  {
+    JsonObject cell = data.createNestedObject();
+    cell["v"] = cmi[i].voltagemV;
+    cell["minv"] = cmi[i].voltagemVMin;
+    cell["maxv"] = cmi[i].voltagemVMax;
+    cell["bypass"] = cmi[i].inBypass;
+    cell["bypasshot"] = cmi[i].bypassOverTemp;
+    cell["int"] = cmi[i].internalTemp;
+    cell["ext"] = cmi[i].externalTemp;
+    cell["badpkt"] = cmi[i].badPacketCount;
+    cell["pwm"] = cmi[i].inBypass ? cmi[i].PWMValue : 0;
   }
   serializeJson(doc, *response);
   request->send(response);

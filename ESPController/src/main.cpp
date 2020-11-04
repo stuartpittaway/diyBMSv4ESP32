@@ -101,8 +101,7 @@ void ICACHE_RAM_ATTR PCFInterrupt()
 
 //This large array holds all the information about the modules
 //up to 4x16
-CellModuleInfo cmi[maximum_bank_of_modules][maximum_cell_modules];
-uint8_t numberOfModules[maximum_bank_of_modules];
+CellModuleInfo cmi[maximum_controller_cell_modules];
 
 #include "crc16.h"
 
@@ -297,10 +296,10 @@ void timerTransmitCallback()
 //are only processed once every module has returned at least 1 reading/communication
 void ProcessRules()
 {
-
+/*
   //Array to hold the total voltage of each bank/pack (up to 4)
-  uint32_t packvoltage[maximum_bank_of_modules];
-  for (int8_t r = 0; r < maximum_bank_of_modules; r++)
+  uint32_t packvoltage[maximum_banks];
+  for (int8_t r = 0; r < maximum_banks; r++)
   {
     packvoltage[r] = 0;
   }
@@ -340,36 +339,36 @@ void ProcessRules()
 
     for (int8_t i = 0; i < numberOfModules[bank]; i++)
     {
-      packvoltage[bank] += cmi[bank][i].voltagemV;
-      serialvoltage += cmi[bank][i].voltagemV;
+      packvoltage[bank] += cmi[i].voltagemV;
+      serialvoltage += cmi[i].voltagemV;
 
       //If the voltage of the module is zero, we probably haven't requested it yet (which happens during power up)
       //so keep count so we don't accidentally trigger rules.
-      if (cmi[bank][i].voltagemV==0) { zeroVoltageModuleCount++; }
+      if (cmi[i].voltagemV==0) { zeroVoltageModuleCount++; }
 
-      if (cmi[bank][i].voltagemV > highestCellVoltage)
+      if (cmi[i].voltagemV > highestCellVoltage)
       {
-        highestCellVoltage = cmi[bank][i].voltagemV;
+        highestCellVoltage = cmi[i].voltagemV;
       }
 
-      if (cmi[bank][i].voltagemV < lowestCellVoltage)
+      if (cmi[i].voltagemV < lowestCellVoltage)
       {
-        lowestCellVoltage = cmi[bank][i].voltagemV;
+        lowestCellVoltage = cmi[i].voltagemV;
       }
 
-      if (cmi[bank][i].externalTemp != -40)
+      if (cmi[i].externalTemp != -40)
       {
         //Record that we do have an external temperature sensor on one of the modules
         moduleHasExternalTempSensor = true;
 
-        if (cmi[bank][i].externalTemp > highestExternalTemp)
+        if (cmi[i].externalTemp > highestExternalTemp)
         {
-          highestExternalTemp = cmi[bank][i].externalTemp;
+          highestExternalTemp = cmi[i].externalTemp;
         }
 
-        if (cmi[bank][i].externalTemp < lowestExternalTemp)
+        if (cmi[i].externalTemp < lowestExternalTemp)
         {
-          lowestExternalTemp = cmi[bank][i].externalTemp;
+          lowestExternalTemp = cmi[i].externalTemp;
         }
       }
     }
@@ -439,6 +438,7 @@ void ProcessRules()
   SERIAL_DEBUG.print(lowestExternalTemp);
   SERIAL_DEBUG.println("");
 */
+/*
   if (highestCellVoltage > mysettings.rulevalue[RULE_Individualcellovervoltage] && rule_outcome[RULE_Individualcellovervoltage] == false)
   {
     //Rule Individual cell over voltage - TRIGGERED
@@ -518,6 +518,8 @@ void ProcessRules()
     //Rule - Pack under voltage (mV) - HYSTERESIS RESET
     rule_outcome[RULE_PackUnderVoltage] = false;
   }
+
+*/
 
 }
 
@@ -639,20 +641,18 @@ uint8_t counter = 0;
 
 void timerEnqueueCallback()
 {
-
   //this is called regularly on a timer, it determines what request to make to the modules (via the request queue)
   for (uint8_t b = 0; b < mysettings.totalNumberOfBanks; b++)
   {
-
     prg.sendCellVoltageRequest(b);
     prg.sendCellTemperatureRequest(b);
 
     //If any module is in bypass then request PWM reading for whole bank
-    for (uint8_t m = 0; m < numberOfModules[b]; m++)
+    for (uint8_t m = 0; m < maximum_cell_modules; m++)
     {
-      if (cmi[b][m].inBypass)
+      if (cmi[m].inBypass)
       {
-        prg.sendReadBalancePowerRequest(b);
+        prg.sendReadBalancePowerRequest(0);
         break;
       }
     }
@@ -740,11 +740,11 @@ void setupInfluxClient()
     for (uint8_t bank = 0; bank < 4; bank++)
     {
       //TODO: We should send a request per bank not just a single POST as we are likely to exceed capabilities of ESP
-      for (uint8_t i = 0; i < numberOfModules[bank]; i++)
+      for (uint8_t i = 0; i < maximum_cell_modules; i++)
       {
-
         //Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v1.7/write_protocols/line_protocol_tutorial/
-        poststring = poststring + "cells," + "cell=" + String(bank + 1) + "_" + String(i + 1) + " v=" + String((float)cmi[bank][i].voltagemV / 1000.0, 3) + ",i=" + String(cmi[bank][i].internalTemp) + "i" + ",e=" + String(cmi[bank][i].externalTemp) + "i" + ",b=" + (cmi[bank][i].inBypass ? String("true") : String("false")) + "\n";
+        poststring = poststring + "cells," + "cell=" + String(bank + 1) + "_" + String(i + 1) + " v=" + String((float)cmi[i].voltagemV / 1000.0, 3) 
+        + ",i=" + String(cmi[i].internalTemp) + "i" + ",e=" + String(cmi[i].externalTemp) + "i" + ",b=" + (cmi[i].inBypass ? String("true") : String("false")) + "\n";
       }
     }
 
@@ -760,7 +760,7 @@ void setupInfluxClient()
     client->write(header.c_str());
     client->write(poststring.c_str());
   },
-                     NULL);
+    NULL);
 }
 
 void SendInfluxdbPacket()
@@ -889,13 +889,13 @@ void sendMqttPacket()
   uint8_t counter=0;
   for (uint8_t bank = mqttStartBank; bank < mysettings.totalNumberOfBanks; bank++) {
 
-    for (uint8_t i = mqttStartModule; i < numberOfModules[bank]; i++) {
+    for (uint8_t i = mqttStartModule; i < maximum_cell_modules; i++) {
 
       StaticJsonDocument<100> doc;
-      doc["voltage"] = (float)cmi[bank][i].voltagemV/1000.0;
-      doc["inttemp"] = cmi[bank][i].internalTemp;
-      doc["exttemp"] = cmi[bank][i].externalTemp;
-      doc["bypass"] = cmi[bank][i].inBypass ? 1:0;
+      doc["voltage"] = (float)cmi[i].voltagemV/1000.0;
+      doc["inttemp"] = cmi[i].internalTemp;
+      doc["exttemp"] = cmi[i].externalTemp;
+      doc["bypass"] = cmi[i].inBypass ? 1:0;
       serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
 
       sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, i);
@@ -910,7 +910,7 @@ void sendMqttPacket()
         mqttStartModule=i+1;
         mqttStartBank=bank;
 
-        if (mqttStartModule>numberOfModules[bank]-1) {
+        if (mqttStartModule>maximum_cell_modules-1) {
           mqttStartModule=0;
           mqttStartBank++;
         }
@@ -1074,19 +1074,16 @@ void ConfigureI2C()
 void timerLazyCallback()
 {
 //Find the first module that doesn't have settings cached and request them
-  for (uint8_t bank = 0; bank < 4; bank++)
+  for (uint8_t module = 0; module < maximum_cell_modules; module++)
   {
-    for (uint8_t module = 0; module < numberOfModules[bank]; module++)
-    {
-      if (!cmi[bank][module].settingsCached)
-      {      
-        prg.sendGetSettingsRequest(bank, module);
+    if (!cmi[module].settingsCached)
+    {      
+      prg.sendGetSettingsRequest(0, module);
 
-        if (prg.QueueLength()>8) {
-          //We really should exit here to avoid flooding the queue
-          return;
-        }       
-      }
+      if (prg.QueueLength()>8) {
+        //We really should exit here to avoid flooding the queue
+        return;
+      }       
     }
   }
 }
@@ -1138,15 +1135,11 @@ void setup()
   //Pre configure the array
   memset(&cmi, 0,sizeof(cmi));
 
-  for (size_t bank = 0; bank < maximum_bank_of_modules; bank++)
+  for (size_t i = 0; i < maximum_cell_modules; i++)
   {
-    numberOfModules[bank] = 0;
-    for (size_t i = 0; i < maximum_cell_modules; i++)
-    {
-      cmi[bank][i].voltagemV=0;
-      cmi[bank][i].voltagemVMax = 0;
-      cmi[bank][i].voltagemVMin = 6000;
-    }
+    cmi[i].voltagemV=0;
+    cmi[i].voltagemVMax = 0;
+    cmi[i].voltagemVMin = 6000;
   }
 
   resetAllRules();
