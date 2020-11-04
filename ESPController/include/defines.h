@@ -106,7 +106,7 @@ typedef union {
 
 enum COMMAND : uint8_t
 {
-  SetBankIdentity = B00000000,
+  //SetBankIdentity = B00000000,
   ReadVoltageAndStatus = B00000001,
   Identify = B00000010,
   ReadTemperature = B00000011,
@@ -126,10 +126,12 @@ enum COMMAND : uint8_t
 };
 
 //NOTE THIS MUST BE EVEN IN SIZE (BYTES) ESP8266 IS 32 BIT AND WILL ALIGN AS SUCH!
-struct packet
+struct PacketStruct
 {
-  uint8_t address;
+  uint8_t start_address;
+  uint8_t end_address;
   uint8_t command;
+  uint8_t hops;
   uint16_t sequence;
   uint16_t moduledata[maximum_cell_modules];
   uint16_t crc;

@@ -18,16 +18,21 @@
 
 #define maximum_cell_modules 16
 
+//NOTE THIS MUST BE EVEN IN SIZE (BYTES) ESP8266 IS 32 BIT AND WILL ALIGN AS SUCH!
 struct PacketStruct
 {
-  uint8_t address;
+  uint8_t start_address;
+  uint8_t end_address;
   uint8_t command;
+  uint8_t hops;
   uint16_t sequence;
   uint16_t moduledata[maximum_cell_modules];
   uint16_t crc;
 } __attribute__((packed));
 
-typedef union {
+
+typedef union
+{
   float number;
   uint8_t bytes[4];
   uint16_t word[2];
@@ -40,14 +45,14 @@ public:
   {
     _hardware = hardware;
     _config = config;
-    SettingsHaveChanged=false;
-    WeAreInBypass=false;
+    SettingsHaveChanged = false;
+    WeAreInBypass = false;
     bypassCountDown = 0;
     bypassHasJustFinished = 0;
     pwmrunning = false;
   }
   ~PacketProcessor() {}
-  
+
   bool onPacketReceived(const uint8_t *receivebuffer, size_t len);
   byte *GetBufferPointer();
   int GetBufferSize();
@@ -80,8 +85,9 @@ public:
   uint8_t bypassHasJustFinished;
   bool pwmrunning;
 
-  bool IsBypassActive() {
-    return WeAreInBypass || bypassHasJustFinished>0 || pwmrunning;
+  bool IsBypassActive()
+  {
+    return WeAreInBypass || bypassHasJustFinished > 0 || pwmrunning;
   }
 
 private:
@@ -91,15 +97,13 @@ private:
   PacketStruct buffer;
 
   bool processPacket();
-  void incrementPacketAddress();
-  bool isPacketForMe();
-  //uint8_t TemperatureToByte(float TempInCelcius);
 
+  volatile bool ModuleAddressAssignedFlag = false;
   volatile uint8_t adcmode = 0;
   volatile uint16_t raw_adc_voltage;
   volatile uint16_t onboard_temperature;
   volatile uint16_t external_temperature;
-  volatile uint8_t mymoduleaddress = 0xFF;
+  volatile uint8_t mymoduleaddress = 0;
   volatile uint16_t badpackets = 0;
   volatile uint16_t watchdog_counter = 0;
 };

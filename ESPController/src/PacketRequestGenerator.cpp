@@ -12,28 +12,13 @@ void PacketRequestGenerator::clearSettingsForAllModules()
   }
 }
 
-void PacketRequestGenerator::sendMoveToBank(uint8_t b, uint8_t m, uint8_t movetobank)
-{
-  setPacketAddress(false, b, m);
-
-  //Command - SetBankIdentity
-  _packetbuffer.command = COMMAND::SetBankIdentity;
-
-  clearmoduledata();
-
-  _packetbuffer.moduledata[m] = movetobank & 0x03;
-
-  pushPacketToQueue();
-
-  clearSettingsForAllModules();
-}
 
 void PacketRequestGenerator::sendSaveGlobalSetting(uint8_t totalNumberOfBanks, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
 {
   for (uint8_t bank = 0; bank < totalNumberOfBanks; bank++)
   {
     //Ask all modules to set bypass and temperature value
-    setPacketAddress(true, bank, 0);
+    setPacketAddress(true, 0);
     //Command - WriteSettings
     _packetbuffer.command = COMMAND::WriteSettings;
 
@@ -51,7 +36,7 @@ void PacketRequestGenerator::sendSaveGlobalSetting(uint8_t totalNumberOfBanks, u
 }
 void PacketRequestGenerator::sendSaveSetting(uint8_t b, uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration)
 {
-  setPacketAddress(false, b, m);
+  setPacketAddress(false, m);
   //Command - WriteSettings
   _packetbuffer.command = COMMAND::WriteSettings;
 
@@ -92,7 +77,7 @@ void PacketRequestGenerator::sendSaveSetting(uint8_t b, uint8_t m, uint16_t Bypa
 void PacketRequestGenerator::sendReadBadPacketCounter(uint8_t b)
 {
   //Read bad packet count (broadcast) to bank
-  setPacketAddress(true, b, 0);
+  setPacketAddress(true, 0);
 
   _packetbuffer.command = COMMAND::ReadBadPacketCounter;
 
@@ -105,7 +90,7 @@ void PacketRequestGenerator::sendReadBadPacketCounter(uint8_t b)
 void PacketRequestGenerator::sendCellVoltageRequest(uint8_t b)
 {
   //Read voltage (broadcast) to bank
-  setPacketAddress(true, b, 0);
+  setPacketAddress(true, 0);
 
   //Command 1 - read voltage
   _packetbuffer.command = COMMAND::ReadVoltageAndStatus;
@@ -119,7 +104,7 @@ void PacketRequestGenerator::sendCellVoltageRequest(uint8_t b)
 void PacketRequestGenerator::sendIdentifyModuleRequest(uint8_t b, uint8_t m)
 {
   //Read settings from single module
-  setPacketAddress(false, b, m);
+  setPacketAddress(false, m);
 
   //Command 3 - identify
   _packetbuffer.command = COMMAND::Identify;
@@ -134,7 +119,7 @@ void PacketRequestGenerator::sendGetSettingsRequest(uint8_t b, uint8_t m)
   //SERIAL_DEBUG.println("sendGetSettingsRequest");
 
   //Read settings from single module
-  setPacketAddress(false, b, m);
+  setPacketAddress(false, m);
   //Command 5 - read settings
   _packetbuffer.command = COMMAND::ReadSettings;
 
@@ -146,7 +131,7 @@ void PacketRequestGenerator::sendGetSettingsRequest(uint8_t b, uint8_t m)
 void PacketRequestGenerator::sendCellTemperatureRequest(uint8_t b)
 {
   //Read voltage (broadcast) to bank
-  setPacketAddress(true, b, 0);
+  setPacketAddress(true, 0);
   //Command 3 - read temperatures
   _packetbuffer.command = COMMAND::ReadTemperature;
   clearmoduledata();
@@ -156,7 +141,7 @@ void PacketRequestGenerator::sendCellTemperatureRequest(uint8_t b)
 void PacketRequestGenerator::sendReadBalancePowerRequest(uint8_t b)
 {
   //Read PWM value
-  setPacketAddress(true, b, 0);
+  setPacketAddress(true, 0);
   //Command 7 - read PWM
   _packetbuffer.command = COMMAND::ReadBalancePowerPWM;
   clearmoduledata();
@@ -173,16 +158,17 @@ uint16_t PacketRequestGenerator::QueueLength() {
   return _requestq->getRemainingCount();
 }
 
-void PacketRequestGenerator::setPacketAddress(bool broadcast, uint8_t bank, uint8_t module)
+void PacketRequestGenerator::setPacketAddress(bool broadcast, uint8_t module)
 {
   if (broadcast)
   {
-    //12 is a debug value to pretend we have more modules than really exist
-    _packetbuffer.address = (B10000000 | ((bank & B00000011) << 4)); // + (12 & B00001111) ;
+    _packetbuffer.start_address=0;
+    _packetbuffer.end_address=0xFF;
   }
   else
   {
-    _packetbuffer.address = ((bank & B00000011) << 4) + (module & B00001111);
+    _packetbuffer.start_address = module;
+    _packetbuffer.end_address=module;
   }
 }
 

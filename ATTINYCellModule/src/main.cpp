@@ -67,7 +67,7 @@ void DefaultConfig()
 {
 
   //Default bank zero
-  myConfig.mybank = 0;
+  //myConfig.mybank = 0;
 
   //About 2.2100 seems about right
   myConfig.Calibration = 2.21000;
@@ -170,14 +170,15 @@ ISR(USART0_START_vect)
 FastPID myPID(4.0, 0.5, 0.2, 6, 8, false);
 
 void ValidateConfiguration() {
-  //My Bank should never be over 3
-  if (myConfig.mybank>3) {
-    myConfig.mybank=0;
-  }
-
   if (myConfig.Calibration<1.9) {
     myConfig.Calibration=2.21000;
   }
+
+  if (myConfig.BypassTemperatureSetPoint > DIYBMS_MODULE_SafetyTemperatureCutoff)
+  {
+    myConfig.BypassTemperatureSetPoint = 55;
+  }
+
 
   #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
     //Keep temperature low for modules with R19 and R20 not swapped
@@ -186,7 +187,6 @@ void ValidateConfiguration() {
       myConfig.BypassTemperatureSetPoint = 45;
     }
   #endif
-
 }
 
 void setup()

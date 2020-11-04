@@ -33,7 +33,6 @@ class PacketRequestGenerator {
 
      void sendCellVoltageRequest(uint8_t b);
      void sendCellTemperatureRequest(uint8_t b);
-     void sendMoveToBank(uint8_t b,uint8_t m,uint8_t movetobank);
      void sendReadBalancePowerRequest(uint8_t b);
 
      uint32_t packetsGenerated = 0;
@@ -41,9 +40,9 @@ class PacketRequestGenerator {
 
   private:
     Queue* _requestq;
-    packet _packetbuffer;
+    PacketStruct _packetbuffer;
     void pushPacketToQueue();
-    void setPacketAddress(bool broadcast,uint8_t bank,uint8_t module);
+    void setPacketAddress(bool broadcast,uint8_t module);
     void clearmoduledata();
     void clearSettingsForAllModules();
 };

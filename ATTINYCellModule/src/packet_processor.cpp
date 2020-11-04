@@ -26,12 +26,6 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 #include "packet_processor.h"
 
-// Increases the incoming packets address before sending to the next module
-void PacketProcessor::incrementPacketAddress()
-{
-  //See Issue #11 prevent address 16 rolling over and increasing bank address
-  buffer.address = (buffer.address & 0xF0) + (((buffer.address & 0x0F) + 1) & 0x0F);
-}
 
 //Returns TRUE if the internal thermistor is hotter than the required setting (or over max limit)
 bool PacketProcessor::BypassOverheatCheck()
@@ -51,33 +45,6 @@ int16_t PacketProcessor::InternalTemperature()
 bool PacketProcessor::BypassCheck()
 {
   return (CellVoltage() > _config->BypassThresholdmV);
-}
-
-//Determines if a received packet of instruction is for this module
-//based on broadcast flag, bank id and module address
-bool PacketProcessor::isPacketForMe()
-{
-  //Modules can be grouped together in banks - only allow processing of packets in the correct bank
-  if (((buffer.address & 0x30) >> 4) != _config->mybank)
-    return false;
-
-  //Broadcast for my bank?
-  if ((buffer.address & 0x80) == 0x80)
-  {
-    //If we receive a broadcast message whatever address is received is my unique module address
-    //so store it for later use
-    mymoduleaddress = buffer.address & 0x0F;
-
-    //Ensure the next module has a higher address
-    incrementPacketAddress();
-    return true;
-  }
-
-  //Is this packet addressed directly to me?
-  if ((buffer.address & 0x0F) == mymoduleaddress && mymoduleaddress != 0xFF)
-    return true;
-
-  return false;
 }
 
 //Records an ADC reading after the interrupt has finished
@@ -169,25 +136,33 @@ bool PacketProcessor::onPacketReceived(const uint8_t *receivebuffer, size_t len)
 
     if (validateCRC == buffer.crc)
     {
+
+      //TODO: We can probably get rid of mymoduleaddress
+      mymoduleaddress=buffer.hops;
+
+      bool isPacketForMe=(buffer.start_address>=mymoduleaddress && buffer.start_address<=mymoduleaddress);
+
+      //Increment the hops no matter what (on valid CRC)
+      buffer.hops++;
+
+      bool commandProcessed=false;
       //It's a good packet
-      if (isPacketForMe())
+      if (isPacketForMe)
       {
-        if (processPacket())
+        commandProcessed=processPacket();
+
+        if (commandProcessed)
         {
-
-          //Set flag to indicate we processed packet
+          //Set flag to indicate we processed packet (other modules may also do this)
           buffer.command = buffer.command | B10000000;
-
-          //Calculate new checksum over whole buffer
-          buffer.crc = CRC16::CalculateArray((unsigned char *)&buffer, sizeof(buffer) - 2);
-
-          //Return true if we processed the packet
-          return true;
         }
       }
 
+      //Calculate new checksum over whole buffer (as hops as increased)
+      buffer.crc = CRC16::CalculateArray((unsigned char *)&buffer, sizeof(buffer) - 2);
+
       //Return false the packet was not for me (but still a valid packet)...
-      return false;
+      return commandProcessed;
     }
   }
 

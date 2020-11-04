@@ -113,7 +113,7 @@ uint8_t numberOfModules[maximum_bank_of_modules];
 #include "PacketReceiveProcessor.h"
 
 // Instantiate queue to hold packets ready for transmission
-Queue requestQueue(sizeof(packet), 16, FIFO);
+Queue requestQueue(sizeof(PacketStruct), 16, FIFO);
 
 PacketRequestGenerator prg = PacketRequestGenerator(&requestQueue);
 
@@ -144,9 +144,13 @@ ControllerState ControlState;
 
 AsyncMqttClient mqttClient;
 
-void dumpPacketToDebug(packet *buffer)
+void dumpPacketToDebug(PacketStruct *buffer)
 {
-  SERIAL_DEBUG.print(buffer->address, HEX);
+  SERIAL_DEBUG.print(buffer->start_address, HEX);
+  SERIAL_DEBUG.print('-');
+  SERIAL_DEBUG.print(buffer->end_address, HEX);
+  SERIAL_DEBUG.print('/');
+  SERIAL_DEBUG.print(buffer->hops, HEX);
   SERIAL_DEBUG.print('/');
   SERIAL_DEBUG.print(buffer->command, HEX);
   SERIAL_DEBUG.print('/');
@@ -226,13 +230,13 @@ void onPacketReceived(const uint8_t *receivebuffer, size_t len)
   //due to the way the modules operate
     GREEN_LED_ON;
 
-  if (len == sizeof(packet))
+  if (len == sizeof(PacketStruct))
   {
 
 #if defined(PACKET_LOGGING)
     // Process decoded incoming packet
     SERIAL_DEBUG.print("R:");
-    dumpPacketToDebug((packet *)receivebuffer);
+    dumpPacketToDebug((PacketStruct *)receivebuffer);
 #endif
 
     if (!receiveProc.ProcessReply(receivebuffer, sequence))
@@ -254,7 +258,7 @@ void timerTransmitCallback()
   // items are added into the queue
   if (!requestQueue.isEmpty())
   {
-    packet transmitBuffer;
+    PacketStruct transmitBuffer;
 
 
     //Wake up the connected cell module from sleep
@@ -264,7 +268,7 @@ void timerTransmitCallback()
     requestQueue.pop(&transmitBuffer);
     sequence++;
     transmitBuffer.sequence = sequence;
-    transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(packet) - 2);
+    transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
     myPacketSerial.send((byte *)&transmitBuffer, sizeof(transmitBuffer));
 
     //Grab the time we sent this packet to time how long packets take to move

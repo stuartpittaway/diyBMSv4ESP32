@@ -64,7 +64,7 @@ enum COMMAND: uint8_t
 
 //Default values
 struct CellModuleConfig {
-  uint8_t mybank;
+  //uint8_t mybank;
   uint8_t BypassTemperatureSetPoint;
   uint16_t BypassThresholdmV;
 

@@ -483,7 +483,7 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
         if (b != movetobank)
         {
           //Requested to move this module to another bank
-          prg.sendMoveToBank(b, m, movetobank);
+          //prg.sendMoveToBank(b, m, movetobank);
 
           clearModuleValues(b, m);
           //Take 1 off and add 1 on...
