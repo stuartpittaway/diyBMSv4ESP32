@@ -30,17 +30,12 @@
     <div id='commserr' class='error'>The controller is having difficulty communicating with the cell monitoring modules.
     </div>
     <div id='iperror' class='error'>Cannot communicate with the controller for status updates.</div>
+    <div id='missingmodules' class='error'>Controller found <span id='missingmodule1'></span> modules, but is configured for <span id='missingmodule2'></span>.</div>   
     <div id='saveerror' class='error'>Failed to save settings.</div>
     <div id='savesuccess' class='success'>Settings saved</div>
     <div id="info" class="info">
-        <div id="voltage1" class="stat"><span class="x t">Voltage 0:</span><span class="x v"></span></div>
-        <div id="voltage2" class="stat"><span class="x t">Voltage 1:</span><span class="x v"></span></div>
-        <div id="voltage3" class="stat"><span class="x t">Voltage 2:</span><span class="x v"></span></div>
-        <div id="voltage4" class="stat"><span class="x t">Voltage 3:</span><span class="x v"></span></div>
-        <div id="range1" class="stat"><span class="x t">Range 0:</span><span class="x v"></span></div>
-        <div id="range2" class="stat"><span class="x t">Range 1:</span><span class="x v"></span></div>
-        <div id="range3" class="stat"><span class="x t">Range 2:</span><span class="x v"></span></div>
-        <div id="range4" class="stat"><span class="x t">Range 3:</span><span class="x v"></span></div>
+        <span id="voltages"></span>
+        <span id="ranges"></span>
         <div id="current" class="stat"><span class="x t">Current:</span><span class="x v"></span></div>
         <div id="badcrc" class="stat"><span class="x t">CRC Errors:</span><span class="x v"></span></div>
         <div id="ignored" class="stat"><span class="x t">Ignored request errors:</span><span class="x v"></span></div>
@@ -496,6 +491,8 @@
         var g1 = null;
         var g2 = null;
         var g3 = null;
+
+        const MAXIMUM_NUMBER_OF_BANKS = 16;
     </script>
 
     <script src="/files/echarts.min.js" integrity="sha256-eKrx6Ly6b0Rscx/PSm52rJsvK76RJyv18Toswq+OLSs=" crossorigin="anonymous" defer></script>
@@ -517,8 +514,10 @@
             for (var n = 1; n <= 64; n++) {
                $("#totalSeriesModules").append('<option>'+n+'</option>')
             }
-            for (var n = 1; n <= 16; n++) {
+            for (var n = 1; n <= MAXIMUM_NUMBER_OF_BANKS; n++) {
                $("#totalBanks").append('<option>'+n+'</option>')
+               $("#voltages").append('<div id="voltage'+n+'" class="stat"><span class="x t">Voltage '+n+':</span><span class="x v"></span></div>');
+               $("#ranges").append('<div id="range'+n+'" class="stat"><span class="x t">Range '+n+':</span><span class="x v"></span></div>');
             }
 
             $('#CalculateCalibration').click(function () {

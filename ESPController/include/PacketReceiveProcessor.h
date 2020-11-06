@@ -13,11 +13,13 @@ class PacketReceiveProcessor {
      ~PacketReceiveProcessor() {}
      bool ProcessReply(const uint8_t* receivebuffer, uint16_t sequenceToExpect);
      bool HasCommsTimedOut();
-     //uint16_t totalMissedPacketCount=0;
+     
      uint16_t totalCRCErrors=0;
      uint16_t totalNotProcessedErrors=0;
 
      uint32_t packetsReceived = 0;
+
+     uint8_t totalModulesFound=0;
 
      //Timer for "read voltage" packets (default to 1 minute at startup)
      uint32_t packetTimerMillisecond = 60*1000;

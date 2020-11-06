@@ -25,6 +25,8 @@ bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
       //Its a valid packet...
       packetLastReceivedMillisecond=millis();
 
+      totalModulesFound=_packetbuffer.hops;
+
       if (ReplyWasProcessedByAModule()) {
         switch (ReplyForCommand()) {
           //case COMMAND::SetBankIdentity:

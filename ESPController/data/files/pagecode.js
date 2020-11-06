@@ -64,12 +64,18 @@ function queryBMS() {
 
         var badpktcount = [];
 
-        var voltage = [0.0, 0.0, 0.0, 0.0];
+        var voltage = [];
         //Not currently supported
-        var current = [0.0, 0.0, 0.0, 0.0];
+        var current = [];
+        var bankmin = [];
+        var bankmax = [];
 
-        var bankmin = [5000, 5000, 5000, 5000];
-        var bankmax = [0.0, 0.0, 0.0, 0.0];
+        for (var bankNumber = 0; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
+            voltage.push(0.0);
+            current.push(0.0);
+            bankmin.push(5000);
+            bankmax.push(0);
+        }
 
         var minVoltage = 2.5;
         var maxVoltage = 4.5;
@@ -101,26 +107,32 @@ function queryBMS() {
 
                 pwm.push({ value: value.pwm == 0 ? null : value.pwm });
 
-                var bIndex = jsondata.parallel ? bankNumber : 0;
-                voltage[bIndex] += v;
-                if (value.v < bankmin[bIndex]) { bankmin[bIndex] = value.v; }
-                if (value.v > bankmax[bIndex]) { bankmax[bIndex] = value.v; }
+                voltage[bankNumber] += v;
+                if (value.v < bankmin[bankNumber]) { bankmin[bankNumber] = value.v; }
+                if (value.v > bankmax[bankNumber]) { bankmax[bankNumber] = value.v; }
             });
         }
-
 
         //Scale down for low voltages
         if (minVoltage < 2.5) { minVoltage = 0; }
 
+        if (jsondata.monitor.modulesfnd == jsondata.banks*jsondata.seriesmodules)
+        { $("#missingmodules").hide(); } 
+        else { 
+            $("#missingmodules").show(); 
+            $("#missingmodule1").html(jsondata.monitor.modulesfnd);
+            $("#missingmodule2").html(jsondata.banks*jsondata.seriesmodules);
+        }
+
+        
         //Ignore and hide any errors which are zero
         if (jsondata.monitor.badcrc == 0) { $("#badcrc").hide(); } else { $("#badcrc .v").html(jsondata.monitor.badcrc); $("#badcrc").show(); }
         if (jsondata.monitor.ignored == 0) { $("#ignored").hide(); } else { $("#ignored .v").html(jsondata.monitor.ignored); $("#ignored").show(); }
-
         if (jsondata.monitor.sent == 0) { $("#sent").hide(); } else { $("#sent .v").html(jsondata.monitor.sent); $("#sent").show(); }
         if (jsondata.monitor.received == 0) { $("#received").hide(); } else { $("#received .v").html(jsondata.monitor.received); $("#received").show(); }
         if (jsondata.monitor.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.monitor.roundtrip); $("#roundtrip").show(); }
 
-        for (var bankNumber = 0; bankNumber < 4; bankNumber++) {
+        for (var bankNumber = 0; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
             if (voltage[bankNumber] > 0) {
                 $("#voltage" + (bankNumber + 1) + " .v").html(voltage[bankNumber].toFixed(2) + "V");
                 var range = bankmax[bankNumber] - bankmin[bankNumber];
@@ -141,7 +153,7 @@ function queryBMS() {
         if (jsondata.monitor.commserr == true) {
             $("#commserr").show();
         } else {
-            $("#commserr").fadeOut();
+            $("#commserr").hide();
         }
 
         $("#info").show();
@@ -170,8 +182,6 @@ function queryBMS() {
 
             $.each(cells, function (index, value) {
                 var columns = $(rows[index]).find("span");
-
-                //$(columns[0]).html(value);
                 $(columns[2]).html(voltages[index].value.toFixed(3));
                 $(columns[3]).html(voltagesmin[index].toFixed(3));
                 $(columns[4]).html(voltagesmax[index].toFixed(3));

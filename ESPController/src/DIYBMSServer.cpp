@@ -763,26 +763,31 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request)
 
   monitor["sent"] = prg.packetsGenerated;
   monitor["received"] = receiveProc.packetsReceived;
+  monitor["modulesfnd"] = receiveProc.totalModulesFound;
   monitor["badcrc"] = receiveProc.totalCRCErrors;
   monitor["ignored"] = receiveProc.totalNotProcessedErrors;
   monitor["roundtrip"] = receiveProc.packetTimerMillisecond;
 
   JsonArray bankArray = root.createNestedArray("bank");
 
-  JsonArray data = bankArray.createNestedArray();
-
-  for (uint8_t i = 0; i < maximum_cell_modules; i++)
+  uint8_t i=0;
+  for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
   {
-    JsonObject cell = data.createNestedObject();
-    cell["v"] = cmi[i].voltagemV;
-    cell["minv"] = cmi[i].voltagemVMin;
-    cell["maxv"] = cmi[i].voltagemVMax;
-    cell["bypass"] = cmi[i].inBypass;
-    cell["bypasshot"] = cmi[i].bypassOverTemp;
-    cell["int"] = cmi[i].internalTemp;
-    cell["ext"] = cmi[i].externalTemp;
-    cell["badpkt"] = cmi[i].badPacketCount;
-    cell["pwm"] = cmi[i].inBypass ? cmi[i].PWMValue : 0;
+      JsonArray data = bankArray.createNestedArray();
+      for (uint8_t thisBank = 0; thisBank < mysettings.totalNumberOfSeriesModules; thisBank++)
+      {
+        JsonObject cell = data.createNestedObject();
+        cell["v"] = cmi[i].voltagemV;
+        cell["minv"] = cmi[i].voltagemVMin;
+        cell["maxv"] = cmi[i].voltagemVMax;
+        cell["bypass"] = cmi[i].inBypass;
+        cell["bypasshot"] = cmi[i].bypassOverTemp;
+        cell["int"] = cmi[i].internalTemp;
+        cell["ext"] = cmi[i].externalTemp;
+        cell["badpkt"] = cmi[i].badPacketCount;
+        cell["pwm"] = cmi[i].inBypass ? cmi[i].PWMValue : 0;
+        i++;
+      }
   }
   serializeJson(doc, *response);
   request->send(response);
