@@ -112,7 +112,7 @@ CellModuleInfo cmi[maximum_controller_cell_modules];
 #include "PacketReceiveProcessor.h"
 
 // Instantiate queue to hold packets ready for transmission
-cppQueue requestQueue(sizeof(packet), 16, FIFO);
+cppQueue requestQueue(sizeof(PacketStruct), 16, FIFO);
 
 PacketRequestGenerator prg = PacketRequestGenerator(&requestQueue);
 
