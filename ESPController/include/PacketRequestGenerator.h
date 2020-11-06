@@ -23,7 +23,7 @@
 
 class PacketRequestGenerator {
    public:
-     PacketRequestGenerator(Queue* requestQ) {_requestq=requestQ;}
+     PacketRequestGenerator(cppQueue* requestQ) {_requestq=requestQ;}
      ~PacketRequestGenerator() {}
      void sendGetSettingsRequest(uint8_t b,uint8_t m);
      void sendIdentifyModuleRequest(uint8_t b,uint8_t m);
@@ -41,7 +41,7 @@ class PacketRequestGenerator {
      uint16_t QueueLength();
 
   private:
-    Queue* _requestq;
+    cppQueue* _requestq;
     packet _packetbuffer;
     void pushPacketToQueue();
     void setPacketAddress(bool broadcast,uint8_t bank,uint8_t module);

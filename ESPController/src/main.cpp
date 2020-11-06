@@ -113,7 +113,7 @@ uint8_t numberOfModules[maximum_bank_of_modules];
 #include "PacketReceiveProcessor.h"
 
 // Instantiate queue to hold packets ready for transmission
-Queue requestQueue(sizeof(packet), 16, FIFO);
+cppQueue requestQueue(sizeof(packet), 16, FIFO);
 
 PacketRequestGenerator prg = PacketRequestGenerator(&requestQueue);
 
