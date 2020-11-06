@@ -10,10 +10,10 @@ void PacketRequestGenerator::clearSettingsForAllModules()
 }
 
 
-void PacketRequestGenerator::sendSaveGlobalSetting(uint8_t totalNumberOfBanks, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
+void PacketRequestGenerator::sendSaveGlobalSetting( uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
 {
-  for (uint8_t bank = 0; bank < totalNumberOfBanks; bank++)
-  {
+  //for (uint8_t bank = 0; bank < totalNumberOfBanks; bank++)
+  //{
     //Ask all modules to set bypass and temperature value
     setPacketAddress(true, 0);
     //Command - WriteSettings
@@ -27,7 +27,7 @@ void PacketRequestGenerator::sendSaveGlobalSetting(uint8_t totalNumberOfBanks, u
     _packetbuffer.moduledata[6] = BypassOverTempShutdown;
     _packetbuffer.moduledata[7] = BypassThresholdmV;
     pushPacketToQueue();
-  }
+  //}
 
   clearSettingsForAllModules();
 }

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -151,15 +150,7 @@
                             <label for="mVPerADC">mV per ADC reading</label>
                             <input id="mVPerADC" name="mVPerADC" type="number"  value="" readonly="">
                         </div>
-                        <div>
-                            <label for="movetobank">Move to bank</label>
-                            <select id="movetobank" name="movetobank">
-                                <option>0</option>
-                                <option>1</option>
-                                <option>2</option>
-                                <option>3</option>
-                            </select>
-                        </div>
+                        
                         <input type="submit" value="Save settings" />
                     </div>
                 </form>
@@ -429,30 +420,23 @@
     <div class="page" id="settingsPage">
         <h1>Controller Settings</h1>
         <div class="region">
-            <h2>Banks</h2>
-            <p>DIYBMS supports up to 16 modules in a single bank. Up to 4 seperate banks can be configured. Only enable
-                a bank if you need this advanced functionality as it slows down processing and can cause errors.</p>
-            <p>Combination type: Use Parallel when you have multiple banks up to 16S, or Serial if you want a single
-                bank with up to 64S.</p>
+            <h2>Modules &amp; Banks</h2>
+            <p>DIYBMS supports up to 64 modules in total. These modules can be split into banks to support parallel configurations.</p>
+            <p>Example: You have 16 cells configured as 8S2P (8 in series and 2 in parallel), so use values of 8 series and 2 banks.</p>
             <form id="banksForm" method="POST" action="savebankconfig.json" autocomplete="off">
                 <div class="settings">
                     <div>
-                        <label for="totalBanks">Total number of banks</label>
-                        <select name="totalBanks" id="totalBanks">
-                            <option>1</option>
-                            <option>2</option>
-                            <option>3</option>
-                            <option>4</option>
+                        <label for="totalSeriesModules">Number of series cells (eg. 8S)</label>
+                        <select name="totalSeriesModules" id="totalSeriesModules">
                         </select>
                     </div>
+
                     <div>
-                        <label for="combitype">Bank combination type</label>
-                        <select name="combitype" id="combitype">
-                            <option>Parallel</option>
-                            <option>Serial</option>
+                        <label for="totalBanks">Number of parallel banks (eg. 2P)</label>
+                        <select name="totalBanks" id="totalBanks">
                         </select>
-                    </div>
-                    <input type="submit" value="Save bank settings" />
+                    </div>                   
+                    <input type="submit" value="Save module &amp; bank settings" />
                 </div>
             </form>
         </div>
@@ -530,6 +514,13 @@
             }
             );
 
+            for (var n = 1; n <= 64; n++) {
+               $("#totalSeriesModules").append('<option>'+n+'</option>')
+            }
+            for (var n = 1; n <= 16; n++) {
+               $("#totalBanks").append('<option>'+n+'</option>')
+            }
+
             $('#CalculateCalibration').click(function () {
                 var currentReading = parseFloat($("#modulesRows > div.selected > span:nth-child(3)").text());
                 var currentCalib = parseFloat($("#Calib").val());
@@ -591,13 +582,10 @@
                         var d = new Date(1000 * data.settings.now);
                         $("#timenow").html(d.toJSON());
 
+                        
+                        $("#totalSeriesModules").val(data.settings.totalseriesmodules);
                         $("#totalBanks").val(data.settings.totalnumberofbanks);
 
-                        if (data.settings.combinationparallel) {
-                            $("#combitype").val("Parallel");
-                        } else {
-                            $("#combitype").val("Serial");
-                        }
                         $("#banksForm").show();
                     }).fail(function () { }
                     );
@@ -739,11 +727,6 @@
                     success: function (data) {
                         $('#settingConfig').hide();
                         $("#savesuccess").show().delay(2000).fadeOut(500);
-
-                        if ($("#b").val() !== $("#movetobank").val()) {
-                            //Remove existing table as we have moved banks
-                            $("#modulesRows").find("div").remove();
-                        }
                     },
                     error: function (data) {
                         $("#saveerror").show().delay(2000).fadeOut(500);

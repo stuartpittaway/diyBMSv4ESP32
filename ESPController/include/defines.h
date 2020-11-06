@@ -66,8 +66,8 @@
 
 struct diybms_eeprom_settings
 {
-  bool combinationParallel;
   uint8_t totalNumberOfBanks;
+  uint8_t totalNumberOfSeriesModules;
 
   uint32_t rulevalue[RELAY_RULES];
   uint32_t rulehysteresis[RELAY_RULES]; 

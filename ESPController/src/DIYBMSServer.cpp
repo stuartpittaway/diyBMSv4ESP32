@@ -318,16 +318,16 @@ void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
   if (!validateXSS(request))
     return;
 
+  if (request->hasParam("totalSeriesModules", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("totalSeriesModules", true);
+    mysettings.totalNumberOfSeriesModules = p1->value().toInt();
+  }
+
   if (request->hasParam("totalBanks", true))
   {
     AsyncWebParameter *p1 = request->getParam("totalBanks", true);
     mysettings.totalNumberOfBanks = p1->value().toInt();
-  }
-
-  if (request->hasParam("combitype", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("combitype", true);
-    mysettings.combinationParallel = p1->value().equals("Parallel") ? true : false;
   }
 
   Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
@@ -405,7 +405,7 @@ void DIYBMSServer::saveGlobalSetting(AsyncWebServerRequest *request)
     AsyncWebParameter *p2 = request->getParam("BypassThresholdmV", true);
     uint16_t BypassThresholdmV = p2->value().toInt();
 
-    prg.sendSaveGlobalSetting(mysettings.totalNumberOfBanks, BypassThresholdmV, BypassOverTempShutdown);
+    prg.sendSaveGlobalSetting(BypassThresholdmV, BypassOverTempShutdown);
 
     //Just returns NULL
     SendSuccess(request);
@@ -628,7 +628,7 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   settings["Version"] = String(GIT_VERSION);
 
   settings["totalnumberofbanks"] = mysettings.totalNumberOfBanks;
-  settings["combinationparallel"] = mysettings.combinationParallel;
+  settings["totalseriesmodules"] = mysettings.totalNumberOfSeriesModules;
 
   settings["NTPServerName"] = mysettings.ntpServer;
   settings["TimeZone"] = mysettings.timeZone;
@@ -753,8 +753,8 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request)
 
   JsonObject root = doc.to<JsonObject>();
 
-  root["parallel"] = mysettings.combinationParallel;
   root["banks"] = mysettings.totalNumberOfBanks;
+  root["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
 
   JsonObject monitor = root.createNestedObject("monitor");
 

@@ -396,7 +396,7 @@ void ProcessRules()
     SERIAL_DEBUG.println("ZERO VOLT MODULE READING - ERROR!");
   }
 
-  //** Only rules which are based on temperature or voltage should go below this point.... **
+  // Only rules which are based on temperature or voltage should go below this point.... 
 
   //Combine the voltages if we need to, work out the highest and lowest pack voltages
   if (mysettings.combinationParallel)
@@ -947,7 +947,7 @@ void LoadConfiguration()
   memset(&mysettings, 0,sizeof(mysettings));
 
   mysettings.totalNumberOfBanks = 1;
-  mysettings.combinationParallel = true;
+  mysettings.totalNumberOfSeriesModules=1;
 
   //EEPROM settings are invalid so default configuration
   mysettings.mqtt_enabled = false;
