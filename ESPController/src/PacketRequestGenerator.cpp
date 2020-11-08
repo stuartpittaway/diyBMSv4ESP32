@@ -3,7 +3,7 @@
 void PacketRequestGenerator::clearSettingsForAllModules()
 {
   // Force refresh of settings
-  for (size_t i = 0; i < maximum_cell_modules; i++)
+  for (size_t i = 0; i < maximum_controller_cell_modules; i++)
   {
     cmi[i].settingsCached = false;
   }
@@ -12,22 +12,16 @@ void PacketRequestGenerator::clearSettingsForAllModules()
 
 void PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
 {
-  //for (uint8_t bank = 0; bank < totalNumberOfBanks; bank++)
-  //{
-    //Ask all modules to set bypass and temperature value
-    setPacketAddressBroadcast();
-    //Command - WriteSettings
-    _packetbuffer.command = COMMAND::WriteSettings;
+  //Ask all modules to set bypass and temperature value
+  setPacketAddressBroadcast();
+  //Command - WriteSettings
+  _packetbuffer.command = COMMAND::WriteSettings;
 
-    //Fill packet with 0xFFFF values - module ignores settings with this value
-    for (uint8_t a = 0; a < maximum_cell_modules; a++)
-    {
-      _packetbuffer.moduledata[a] = 0xFFFF;
-    }
-    _packetbuffer.moduledata[6] = BypassOverTempShutdown;
-    _packetbuffer.moduledata[7] = BypassThresholdmV;
-    pushPacketToQueue();
-  //}
+  //Fill packet with 0xFFFF values - module ignores settings with this value
+  setmoduledataFFFF();
+  _packetbuffer.moduledata[6] = BypassOverTempShutdown;
+  _packetbuffer.moduledata[7] = BypassThresholdmV;
+  pushPacketToQueue();
 
   clearSettingsForAllModules();
 }
@@ -37,12 +31,8 @@ void PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThreshold
   //Command - WriteSettings
   _packetbuffer.command = COMMAND::WriteSettings;
 
-  //Fill packet with 0xFFFF values - module ignores settings
-  //with this value
-  for (int a = 0; a < maximum_cell_modules; a++)
-  {
-    _packetbuffer.moduledata[a] = 0xFFFF;
-  }
+  //Fill packet with 0xFFFF values - module ignores settings with this value
+  setmoduledataFFFF();
 
   // Force refresh of settings
   cmi[m].settingsCached = false;
@@ -75,12 +65,9 @@ void PacketRequestGenerator::sendReadBadPacketCounter(uint8_t startmodule,uint8_
 {
   //Read bad packet count (broadcast) to bank
   setPacketAddressModuleRange(startmodule,endmodule);
-
   _packetbuffer.command = COMMAND::ReadBadPacketCounter;
-
   //AVR MCUs are little endian (least significant byte first in memory)
   clearmoduledata();
-
   pushPacketToQueue();
 }
 
@@ -88,13 +75,10 @@ void PacketRequestGenerator::sendCellVoltageRequest(uint8_t startmodule,uint8_t 
 {
   //Read voltage
   setPacketAddressModuleRange(startmodule,endmodule);
-
   //Command 1 - read voltage
   _packetbuffer.command = COMMAND::ReadVoltageAndStatus;
-
   //AVR MCUs are little endian (least significant byte first in memory)
   clearmoduledata();
-
   pushPacketToQueue();
 }
 
@@ -168,14 +152,23 @@ void PacketRequestGenerator::setPacketAddressModuleRange(uint8_t startmodule,uin
 
 void PacketRequestGenerator::setPacketAddressBroadcast()
 {
-  setPacketAddressModuleRange(0,0xff);
+  setPacketAddressModuleRange(0,maximum_controller_cell_modules);
 }
 
 void PacketRequestGenerator::clearmoduledata()
 {
   //todo replace with memset/memclr
-  for (int a = 0; a < maximum_cell_modules; a++)
+  for (int a = 0; a < maximum_cell_modules_per_packet; a++)
   {
     _packetbuffer.moduledata[a] = 0;
+  }
+}
+
+//Fill packet with 0xFFFF values - module ignores settings with this value
+void PacketRequestGenerator::setmoduledataFFFF()
+{  
+  for (int a = 0; a < maximum_cell_modules_per_packet; a++)
+  {
+    _packetbuffer.moduledata[a] = 0xFFFF;
   }
 }

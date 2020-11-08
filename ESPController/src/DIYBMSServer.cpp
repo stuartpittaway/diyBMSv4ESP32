@@ -433,7 +433,7 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
 
     int m = module->value().toInt();
 
-    if (m>maximum_cell_modules)
+    if (m>maximum_controller_cell_modules)
     {
       request->send(500, "text/plain", "Wrong parameters");
     }
@@ -482,8 +482,8 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
     request->send(500, "text/plain", "Missing parameters");
   }
 }
-
-void DIYBMSServer::clearModuleValues(uint8_t bank, uint8_t module)
+/*
+void DIYBMSServer::clearModuleValues(uint8_t module)
 {
   cmi[module].voltagemV = 0;
   cmi[module].voltagemVMin = 6000;
@@ -493,7 +493,7 @@ void DIYBMSServer::clearModuleValues(uint8_t bank, uint8_t module)
   cmi[module].internalTemp = -40;
   cmi[module].externalTemp = -40;
 }
-
+*/
 
 void DIYBMSServer::rules(AsyncWebServerRequest *request)
 {

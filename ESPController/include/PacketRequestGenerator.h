@@ -47,6 +47,7 @@ class PacketRequestGenerator {
     void setPacketAddressModuleRange(uint8_t startmodule,uint8_t endmodule);
     void setPacketAddressBroadcast();
     void clearmoduledata();
+    void setmoduledataFFFF();
     void clearSettingsForAllModules();
 };
 

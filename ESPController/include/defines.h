@@ -4,11 +4,17 @@
 #define DIYBMS_DEFINES_H_
 
 //Maximum of 16 cell modules (dont change this!)
-#define maximum_cell_modules 16
+//number of cells to process in a single packet of data
+#define maximum_cell_modules_per_packet 16
 
-#define maximum_controller_cell_modules 64
-#define maximum_banks 4
+//Total number of cells a single controler can handle (memory limitation)
+#define maximum_controller_cell_modules 128
 
+//Maximum number of banks allowed
+//This also needs changing in default.htm (MAXIMUM_NUMBER_OF_BANKS)
+#define maximum_number_of_banks 16
+
+//Version 4.XX of DIYBMS modules operate at 2400 baud
 #define COMMS_BAUD_RATE 2400
 
 #if defined(ESP8266)
@@ -135,7 +141,7 @@ struct PacketStruct
   uint8_t command;
   uint8_t hops;
   uint16_t sequence;
-  uint16_t moduledata[maximum_cell_modules];
+  uint16_t moduledata[maximum_cell_modules_per_packet];
   uint16_t crc;
 } __attribute__((packed));
 

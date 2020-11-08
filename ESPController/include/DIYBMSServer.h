@@ -44,7 +44,7 @@ class DIYBMSServer {
       static bool validateXSS(AsyncWebServerRequest *request);
       static void SendSuccess(AsyncWebServerRequest *request);
       static void settings(AsyncWebServerRequest *request);
-      static void clearModuleValues(uint8_t bank, uint8_t module);
+      //static void clearModuleValues(uint8_t module);
       static void resetCounters(AsyncWebServerRequest *request);
       static void handleRestartController(AsyncWebServerRequest *request);
 

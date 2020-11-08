@@ -160,7 +160,7 @@ void dumpPacketToDebug(PacketStruct *buffer)
   SERIAL_DEBUG.print('/');
   SERIAL_DEBUG.print(buffer->sequence, HEX);
   SERIAL_DEBUG.print('=');
-  for (size_t i = 0; i < maximum_cell_modules; i++)
+  for (size_t i = 0; i < maximum_cell_modules_per_packet; i++)
   {
     SERIAL_DEBUG.print(buffer->moduledata[i], HEX);
     SERIAL_DEBUG.print(" ");
@@ -651,10 +651,10 @@ void timerEnqueueCallback()
 
   uint8_t max=mysettings.totalNumberOfBanks*mysettings.totalNumberOfSeriesModules;
   uint8_t startmodule=0;
-  //uint8_t endmodule=maximum_cell_modules;
+  //uint8_t endmodule=maximum_cell_modules_per_packet;
   while (b < max)
   {    
-    uint8_t endmodule=(startmodule+maximum_cell_modules)-1;
+    uint8_t endmodule=(startmodule+maximum_cell_modules_per_packet)-1;
 
     //Limit to number of modules we have configured
     if (endmodule>max) { endmodule= max-1;}
@@ -663,7 +663,7 @@ void timerEnqueueCallback()
     prg.sendCellTemperatureRequest(startmodule,endmodule);
 
     //If any module is in bypass then request PWM reading for whole bank
-    for (uint8_t m = 0; m < maximum_cell_modules; m++)
+    for (uint8_t m = 0; m < maximum_cell_modules_per_packet; m++)
     {
       if (cmi[m].inBypass)
       {
@@ -679,7 +679,7 @@ void timerEnqueueCallback()
     }
 
     startmodule=endmodule+1;
-    b+=maximum_cell_modules;
+    b+=maximum_cell_modules_per_packet;
   }
 
   //It's an unsigned byte, let it overflow to reset
@@ -758,7 +758,7 @@ void setupInfluxClient()
     for (uint8_t bank = 0; bank < 4; bank++)
     {
       //TODO: We should send a request per bank not just a single POST as we are likely to exceed capabilities of ESP
-      for (uint8_t i = 0; i < maximum_cell_modules; i++)
+      for (uint8_t i = 0; i < maximum_cell_modules_per_packet; i++)
       {
         //Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v1.7/write_protocols/line_protocol_tutorial/
         poststring = poststring + "cells," + "cell=" + String(bank + 1) + "_" + String(i + 1) + " v=" + String((float)cmi[i].voltagemV / 1000.0, 3) 
@@ -890,10 +890,8 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
   }
 }
 
-//Send a few MQTT packets and keep track so we send the next batch
-//on following calls
-uint8_t mqttStartBank=0;
-uint8_t mqttStartModule=0;
+//Send a few MQTT packets and keep track so we send the next batch on following calls
+uint8_t mqttStartModule = 0;
 void sendMqttPacket()
 {
   if (!mysettings.mqtt_enabled && !mqttClient.connected())
@@ -904,47 +902,47 @@ void sendMqttPacket()
   char topic[80];
   char jsonbuffer[100];
 
-  uint8_t counter=0;
-  for (uint8_t bank = mqttStartBank; bank < mysettings.totalNumberOfBanks; bank++) {
+  uint8_t counter = 0;
 
-    for (uint8_t i = mqttStartModule; i < maximum_cell_modules; i++) {
+  for (uint8_t i = mqttStartModule; i < mysettings.totalNumberOfSeriesModules*mysettings.totalNumberOfBanks; i++)
+  {
 
-      StaticJsonDocument<100> doc;
-      doc["voltage"] = (float)cmi[i].voltagemV/1000.0;
-      doc["inttemp"] = cmi[i].internalTemp;
-      doc["exttemp"] = cmi[i].externalTemp;
-      doc["bypass"] = cmi[i].inBypass ? 1:0;
-      serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+    uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
+    uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
 
-      sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, i);
-      mqttClient.publish(topic, 0, false, jsonbuffer);
-      SERIAL_DEBUG.println(topic);
+    StaticJsonDocument<100> doc;
+    doc["voltage"] = (float)cmi[i].voltagemV / 1000.0;
+    doc["inttemp"] = cmi[i].internalTemp;
+    doc["exttemp"] = cmi[i].externalTemp;
+    doc["bypass"] = cmi[i].inBypass ? 1 : 0;
+    serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
 
-      counter++;
+    sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, module);
 
-      //After transmitting this many packets over MQTT, store our current state
-      //and exit the function.
-      if (counter==4) {
-        mqttStartModule=i+1;
-        mqttStartBank=bank;
+    SERIAL_DEBUG.print("Sending MQTT - ");
+    SERIAL_DEBUG.println(topic);
+    
+    mqttClient.publish(topic, 0, false, jsonbuffer);
+    SERIAL_DEBUG.println(topic);
 
-        if (mqttStartModule>maximum_cell_modules-1) {
-          mqttStartModule=0;
-          mqttStartBank++;
-        }
+    counter++;
 
-        if (mqttStartBank>mysettings.totalNumberOfBanks-1) {
-          mqttStartBank=0;
-        }
-        
-        return;
+    //After transmitting this many packets over MQTT, store our current state and exit the function.
+    if (counter == 4)
+    {
+      mqttStartModule = i + 1;
+
+      if (mqttStartModule > mysettings.totalNumberOfSeriesModules*mysettings.totalNumberOfBanks)
+      {
+        mqttStartModule = 0;
       }
+
+      return;
     }
   }
 
   //Completed the loop, start at zero
-  mqttStartModule=0;
-  mqttStartBank=0;
+  mqttStartModule = 0;
 }
 
 void onMqttConnect(bool sessionPresent)
@@ -1153,7 +1151,7 @@ void setup()
   //Pre configure the array
   memset(&cmi, 0,sizeof(cmi));
 
-  for (size_t i = 0; i < maximum_cell_modules; i++)
+  for (size_t i = 0; i < maximum_controller_cell_modules; i++)
   {
     cmi[i].voltagemV=0;
     cmi[i].voltagemVMax = 0;
@@ -1248,6 +1246,7 @@ void setup()
   myTimerRelay.attach(5, timerProcessRules);
 
   //We process the transmit queue every 0.5 seconds (this needs to be lower delay than the queue fills)
+  //and slower than it takes a single module to process a command (about 250ms)
   myTransmitTimer.attach(0.5, timerTransmitCallback);
 
   //This is my 10 second lazy timer
