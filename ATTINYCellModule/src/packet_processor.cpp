@@ -200,22 +200,6 @@ bool PacketProcessor::processPacket()
   switch (buffer.command & 0x0F)
   {
 
-/*
-OBSOLETE
-  case COMMAND::SetBankIdentity:
-  {
-    //Set this modules bank address and store in EEPROM
-    _config->mybank = buffer.moduledata[mymoduleaddress] & 0x3;
-
-    //Save settings
-    Settings::WriteConfigToEEPROM((uint8_t *)_config, sizeof(CellModuleConfig), EEPROM_CONFIG_ADDRESS);
-
-    //Indicate we processed this packet
-    buffer.moduledata[mymoduleaddress] = 0xFFFF;
-    return true;
-  }
-*/
-
   case COMMAND::ReadVoltageAndStatus:
   {
     //Read voltage of VCC
@@ -245,10 +229,7 @@ OBSOLETE
   case COMMAND::Identify:
   {
     //identify module
-    //Indicate that we received and did something
-    buffer.moduledata[mymoduleaddress] = 0xFFFF;
-
-    //For the next 10 receied packets - keep the LEDs lit up
+    //For the next 10 received packets - keep the LEDs lit up
     identifyModule = 10;
     return true;
   }

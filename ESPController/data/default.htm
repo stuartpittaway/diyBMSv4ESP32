@@ -502,14 +502,10 @@
         var g1 = null;
         var g2 = null;
         var g3 = null;
-
         const MAXIMUM_NUMBER_OF_BANKS = 16;
-
         const MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET = 16;
     </script>
-
     <script src="/files/echarts.min.js" integrity="sha256-eKrx6Ly6b0Rscx/PSm52rJsvK76RJyv18Toswq+OLSs=" crossorigin="anonymous" defer></script>
-
     <script src="/files/pagecode.js" crossorigin="anonymous"></script>
     <script type="text/javascript">
         $(function () {
@@ -583,7 +579,6 @@
 
                 $.getJSON("settings.json",
                     function (data) {
-
                         $("#platformversion").text(data.settings.Version);
 
                         $("#NTPServer").val(data.settings.NTPServerName);
@@ -593,7 +588,6 @@
 
                         var d = new Date(1000 * data.settings.now);
                         $("#timenow").html(d.toJSON());
-
                         
                         $("#totalSeriesModules").val(data.settings.totalseriesmodules);
                         $("#totalBanks").val(data.settings.totalnumberofbanks);

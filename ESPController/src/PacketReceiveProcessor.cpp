@@ -81,7 +81,7 @@ bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
 void PacketReceiveProcessor::ProcessReplyBadPacketCount() {
   // Called when a decoded packet has arrived in buffer for command
   uint8_t q=0;
-  for (uint8_t  i = _packetbuffer.start_address; i < _packetbuffer.end_address; i++) {
+  for (uint8_t  i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++) {
     cmi[i].badPacketCount = _packetbuffer.moduledata[q];
     q++;
   }
@@ -92,7 +92,7 @@ void PacketReceiveProcessor::ProcessReplyTemperature() {
 
   // 40 offset for below zero temps
   uint8_t q=0;
-  for (uint8_t  i = _packetbuffer.start_address; i < _packetbuffer.end_address; i++) {
+  for (uint8_t  i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++) {
     cmi[i].internalTemp = ((_packetbuffer.moduledata[q] & 0xFF00) >> 8) - 40;
     cmi[i].externalTemp = (_packetbuffer.moduledata[q] & 0x00FF) - 40;
     q++;
@@ -102,7 +102,7 @@ void PacketReceiveProcessor::ProcessReplyTemperature() {
 void PacketReceiveProcessor::ProcessReplyBalancePower() {
   // Called when a decoded packet has arrived in _packetbuffer for command 1
   uint8_t q=0;
-  for (uint8_t  i = _packetbuffer.start_address; i < _packetbuffer.end_address; i++) {
+  for (uint8_t  i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++) {
     cmi[i].PWMValue = _packetbuffer.moduledata[q];
     q++;
   }
@@ -114,8 +114,7 @@ void PacketReceiveProcessor::ProcessReplyVoltage() {
 
   if (_packetbuffer.end_address<_packetbuffer.start_address) return;
 
-
-  for (uint8_t i = 0; i < _packetbuffer.end_address-_packetbuffer.start_address; i++) {
+  for (uint8_t i = 0; i <= _packetbuffer.end_address-_packetbuffer.start_address; i++) {
     
     CellModuleInfo* cellptr=&cmi[_packetbuffer.start_address+i];
 

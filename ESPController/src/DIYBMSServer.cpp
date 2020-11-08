@@ -711,16 +711,13 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
     uint8_t m=c - (b*mysettings.totalNumberOfSeriesModules);
     settings["bank"] = b;
     settings["module"] = m;
-
-    settings["id"] = c;
-    
+    settings["id"] = c;  
     settings["ver"] = cmi[c].BoardVersionNumber;
-
     settings["Cached"] = cmi[c].settingsCached;
+
     if (cmi[c].settingsCached) {
       settings["BypassOverTempShutdown"] = cmi[c].BypassOverTempShutdown;
       settings["BypassThresholdmV"] = cmi[c].BypassThresholdmV;
-
       settings["LoadRes"]  = cmi[c].LoadResistance;
       settings["Calib"]    = cmi[c].Calibration;
       settings["mVPerADC"] = cmi[c].mVPerADC;

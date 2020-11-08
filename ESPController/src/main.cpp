@@ -654,10 +654,10 @@ void timerEnqueueCallback()
   //uint8_t endmodule=maximum_cell_modules;
   while (b < max)
   {    
-    uint8_t endmodule=startmodule+maximum_cell_modules;
+    uint8_t endmodule=(startmodule+maximum_cell_modules)-1;
 
     //Limit to number of modules we have configured
-    if (endmodule>max) { endmodule= max;}
+    if (endmodule>max) { endmodule= max-1;}
 
     prg.sendCellVoltageRequest(startmodule,endmodule);
     prg.sendCellTemperatureRequest(startmodule,endmodule);
