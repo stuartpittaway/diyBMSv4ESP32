@@ -153,11 +153,14 @@ function queryBMS() {
 
         switch(jsondata.errorcode) {
         case INTERNALERRORCODE.NoError:
-            $(".error").hide();
+            $(".error").hide();            
+            $("#homePage").css({ opacity: 1.0 });
         break;
 
         case INTERNALERRORCODE.CommunicationsError:
             $("#commserr").show();
+            //Dim the main home page graph
+            $("#homePage").css({ opacity: 0.1 });
         break;
 
         case INTERNALERRORCODE.ModuleCountMismatch:
@@ -527,6 +530,8 @@ function queryBMS() {
         //Try again in a few seconds (2 seconds if errored)
         setTimeout(queryBMS, 2000);
         $("#loading").hide();
+        //Dim the main home page graph
+        $("#homePage").css({ opacity: 0.1 });
     });
 }
 

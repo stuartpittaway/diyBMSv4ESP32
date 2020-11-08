@@ -755,32 +755,31 @@ void DIYBMSServer::handleRestartController(AsyncWebServerRequest *request)
 
 void DIYBMSServer::monitor(AsyncWebServerRequest *request)
 {
+  
   AsyncResponseStream *response = request->beginResponseStream("application/json");
 
-  //Allocate buffer large enough for 128 modules
-  DynamicJsonDocument doc(10240);
+  //Allocate buffer large enough for 64 modules
+  const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_ARRAY_SIZE(16) + JSON_ARRAY_SIZE(48) + 65*JSON_OBJECT_SIZE(10);
+  DynamicJsonDocument doc(capacity);
 
-  JsonObject root = doc.to<JsonObject>();
+  //JsonObject root = doc.to<JsonObject>();
 
-  root["banks"] = mysettings.totalNumberOfBanks;
-  root["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
-
-  //JsonObject monitor = root.createNestedObject("monitor");
+  doc["banks"] = mysettings.totalNumberOfBanks;
+  doc["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
 
   // Set error flag if we have attempted to send 2*number of banks without a reply
-  root["errorcode"] = rules.ErrorCode;
-  //monitor["commserr"] = receiveProc.HasCommsTimedOut();
+  doc["errorcode"] = rules.ErrorCode;
 
-  root["sent"] = prg.packetsGenerated;
-  root["received"] = receiveProc.packetsReceived;
-  root["modulesfnd"] = receiveProc.totalModulesFound;
-  root["badcrc"] = receiveProc.totalCRCErrors;
-  root["ignored"] = receiveProc.totalNotProcessedErrors;
-  root["roundtrip"] = receiveProc.packetTimerMillisecond;
+  doc["sent"] = prg.packetsGenerated;
+  doc["received"] = receiveProc.packetsReceived;
+  doc["modulesfnd"] = receiveProc.totalModulesFound;
+  doc["badcrc"] = receiveProc.totalCRCErrors;
+  doc["ignored"] = receiveProc.totalNotProcessedErrors;
+  doc["roundtrip"] = receiveProc.packetTimerMillisecond;
 
   //if (rules.ErrorCode == 3)
   //{
-    JsonArray bankArray = root.createNestedArray("bank");
+    JsonArray bankArray = doc.createNestedArray("bank");
 
     uint8_t i = 0;
     for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
@@ -805,6 +804,9 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request)
   //}
   serializeJson(doc, *response);
   request->send(response);
+
+    SERIAL_DEBUG.println(ESP.getFreeHeap());
+
 }
 
 String DIYBMSServer::TemplateProcessor(const String &var)
