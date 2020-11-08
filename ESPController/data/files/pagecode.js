@@ -17,9 +17,12 @@ function configureModule(button, cellid, attempts) {
             $('#c').val(data.settings.id);
 
             if (data.settings.Cached == true) {
-                $("#settingConfig h2").html("Settings for module bank:" + bank + " module:" + module);
+                //var bank=  Math.floor(data.settings.id / MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET);
+                //var module= data.settings.id - (b* MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET);
+                $("#settingConfig h2").html("Settings for module bank:" + data.settings.bank + " module:" + data.settings.module);
 
                 //Populate settings div
+                $('#ModuleId').val(data.settings.id);
                 $('#Version').val(data.settings.ver);
                 $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);
                 $('#BypassThresholdmV').val(data.settings.BypassThresholdmV);

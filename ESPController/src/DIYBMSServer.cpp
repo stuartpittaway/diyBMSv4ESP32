@@ -471,7 +471,7 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
         Calibration = p1->value().toFloat();
       }
 
-      prg.sendSaveSetting(0, m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
+      prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
 
 
       SendSuccess(request);
@@ -707,10 +707,10 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
     JsonObject root = doc.to<JsonObject>();
     JsonObject settings = root.createNestedObject("settings");
 
-    //uint8_t b=c / mysettings.totalNumberOfBanks;
-    //uint8_t m=c - (b*mysettings.totalNumberOfBanks) ;
-    //settings["bank"] = b;
-    //settings["module"] = m;
+    uint8_t b=c / mysettings.totalNumberOfSeriesModules;
+    uint8_t m=c - (b*mysettings.totalNumberOfSeriesModules);
+    settings["bank"] = b;
+    settings["module"] = m;
 
     settings["id"] = c;
     

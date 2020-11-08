@@ -87,7 +87,7 @@
         <div class="region">
             <h2>Platform &amp; Version</h2>
             <p>%PLATFORM%</p>
-            <p id="version"></p>
+            <p id="platformversion"></p>
         </div>
     </div>
     <div class="page" id="modulesPage">
@@ -116,9 +116,13 @@
                         <input name="m" id="m" type="hidden" value="">
                         <input name="c" id="c" type="hidden" value="">
                         <div>
+                            <label for="ModuleId">Module Id</label>
+                            <input type="number" name="ModuleId" id="ModuleId" value="" readonly="">
+                        </div>
+                        <div>
                             <label for="Version">Module version</label>
                             <input type="number" name="Version" id="Version" value="" readonly="">
-                        </div>
+                        </div>                        
                         <div>
                             <label for="BypassOverTempShutdown">Bypass over temperature</label>
                             <input type="number" min="20" max="90" step="1" name="BypassOverTempShutdown"
@@ -500,6 +504,8 @@
         var g3 = null;
 
         const MAXIMUM_NUMBER_OF_BANKS = 16;
+
+        const MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET = 16;
     </script>
 
     <script src="/files/echarts.min.js" integrity="sha256-eKrx6Ly6b0Rscx/PSm52rJsvK76RJyv18Toswq+OLSs=" crossorigin="anonymous" defer></script>
@@ -518,7 +524,7 @@
             }
             );
 
-            for (var n = 1; n <= 64; n++) {
+            for (var n = 1; n <= 32; n++) {
                $("#totalSeriesModules").append('<option>'+n+'</option>')
             }
             for (var n = 1; n <= MAXIMUM_NUMBER_OF_BANKS; n++) {
@@ -578,7 +584,7 @@
                 $.getJSON("settings.json",
                     function (data) {
 
-                        $("#version").text(data.settings.Version);
+                        $("#platformversion").text(data.settings.Version);
 
                         $("#NTPServer").val(data.settings.NTPServerName);
                         $("#NTPZoneHour").val(data.settings.TimeZone);
