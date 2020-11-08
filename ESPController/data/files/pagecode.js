@@ -13,7 +13,6 @@ function identifyModule(button, cellid) {
 }
 
 function configureModule(button, cellid, attempts) {
-
     $('#loading').show();
 
     //Select correct row in table
@@ -40,10 +39,8 @@ function configureModule(button, cellid, attempts) {
                 $('#IntBCoef').val(data.settings.IntBCoef);
                 $('#LoadRes').val(data.settings.LoadRes.toFixed(2));
                 $('#mVPerADC').val(data.settings.mVPerADC.toFixed(2));
-                $('#movetobank').val(data.settings.bank);
 
                 $("#settingConfig").show();
-                //$('#settingsForm').show();
                 $('#loading').hide();
             } else {
                 //Data not ready yet, we will have to try again soon
@@ -94,7 +91,7 @@ function queryBMS() {
         for (var bankNumber = 0; bankNumber < jsondata.banks; bankNumber++) {
             //Need to cater for banks of cells
             $.each(jsondata.bank[bankNumber], function (index, value) {
-                var color = value.bypass ? "#B44247" : null;
+                var color = value.b ? "#B44247" : null;
 
                 var v = (parseFloat(value.v) / 1000.0);
 
@@ -103,15 +100,15 @@ function queryBMS() {
                 if (v < minVoltage) { minVoltage = v; }
 
                 voltages.push({ value: v, itemStyle: { color: color } });
-                voltagesmin.push((parseFloat(value.minv) / 1000.0));
-                voltagesmax.push((parseFloat(value.maxv) / 1000.0));
+                voltagesmin.push((parseFloat(value.mv) / 1000.0));
+                voltagesmax.push((parseFloat(value.xv) / 1000.0));
 
                 bank.push(bankNumber);
                 cells.push(index);
                 badpktcount.push(value.badpkt);
                 labels.push(bankNumber + "/" + index);
 
-                color = value.bypasshot ? "#B44247" : null;
+                color = value.bhot ? "#B44247" : null;
                 tempint.push({ value: value.int, itemStyle: { color: color } });
                 tempext.push({ value: (value.ext == -40 ? 0 : value.ext) });
 
@@ -127,13 +124,14 @@ function queryBMS() {
         if (minVoltage < 2.5) { minVoltage = 0; }
 
 
-        
-        //Ignore and hide any errors which are zero
-        if (jsondata.monitor.badcrc == 0) { $("#badcrc").hide(); } else { $("#badcrc .v").html(jsondata.monitor.badcrc); $("#badcrc").show(); }
-        if (jsondata.monitor.ignored == 0) { $("#ignored").hide(); } else { $("#ignored .v").html(jsondata.monitor.ignored); $("#ignored").show(); }
-        if (jsondata.monitor.sent == 0) { $("#sent").hide(); } else { $("#sent .v").html(jsondata.monitor.sent); $("#sent").show(); }
-        if (jsondata.monitor.received == 0) { $("#received").hide(); } else { $("#received .v").html(jsondata.monitor.received); $("#received").show(); }
-        if (jsondata.monitor.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.monitor.roundtrip); $("#roundtrip").show(); }
+        if (jsondata) {
+            //Ignore and hide any errors which are zero
+            if (jsondata.badcrc == 0) { $("#badcrc").hide(); } else { $("#badcrc .v").html(jsondata.badcrc); $("#badcrc").show(); }
+            if (jsondata.ignored == 0) { $("#ignored").hide(); } else { $("#ignored .v").html(jsondata.ignored); $("#ignored").show(); }
+            if (jsondata.sent == 0) { $("#sent").hide(); } else { $("#sent .v").html(jsondata.sent); $("#sent").show(); }
+            if (jsondata.received == 0) { $("#received").hide(); } else { $("#received .v").html(jsondata.received); $("#received").show(); }
+            if (jsondata.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.roundtrip); $("#roundtrip").show(); }
+        }
 
         for (var bankNumber = 0; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
             if (voltage[bankNumber] > 0) {
@@ -153,7 +151,7 @@ function queryBMS() {
         $("#current").hide();
         $("#current .v").html(current[0].toFixed(2));
 
-        switch(jsondata.monitor.errorcode) {
+        switch(jsondata.errorcode) {
         case INTERNALERRORCODE.NoError:
             $(".error").hide();
         break;
@@ -164,7 +162,7 @@ function queryBMS() {
 
         case INTERNALERRORCODE.ModuleCountMismatch:
             $("#missingmodules").show();
-            $("#missingmodule1").html(jsondata.monitor.modulesfnd);
+            $("#missingmodule1").html(jsondata.modulesfnd);
             $("#missingmodule2").html(jsondata.banks*jsondata.seriesmodules);
         break;
 
@@ -172,7 +170,6 @@ function queryBMS() {
             $("#toomanymodules").show();
         break;
         }
-
 
         $("#info").show();
         $("#iperror").hide();

@@ -23,8 +23,11 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 * No additional restrictions — You may not apply legal terms or technological measures that legally restrict others from doing anything the license permits.
 */
 
+
 #include "DIYBMSServer.h"
-#include "ArduinoJson.h"
+#include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>
+
 #include "defines.h"
 
 #if defined(ESP8266)
@@ -119,6 +122,11 @@ void DIYBMSServer::SendSuccess(AsyncWebServerRequest *request)
   doc["success"] = true;
   serializeJson(doc, *response);
   request->send(response);
+}
+
+void DIYBMSServer::SendFailure(AsyncWebServerRequest *request)
+{
+  request->send(500, "text/plain", "Failed");
 }
 
 void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
@@ -262,7 +270,6 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
       }
     }
 
-
     //Reset state of rules after updating the new values
     for (int8_t r = 0; r < RELAY_RULES; r++)
     {
@@ -318,22 +325,32 @@ void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
   if (!validateXSS(request))
     return;
 
+  uint8_t totalSeriesModules = 1;
+  uint8_t totalBanks = 1;
+
   if (request->hasParam("totalSeriesModules", true))
   {
     AsyncWebParameter *p1 = request->getParam("totalSeriesModules", true);
-    mysettings.totalNumberOfSeriesModules = p1->value().toInt();
+    totalSeriesModules = p1->value().toInt();
   }
 
   if (request->hasParam("totalBanks", true))
   {
     AsyncWebParameter *p1 = request->getParam("totalBanks", true);
-    mysettings.totalNumberOfBanks = p1->value().toInt();
+    totalBanks = p1->value().toInt();
   }
 
-  Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
-
-  //ConfigHasChanged = REBOOT_COUNT_DOWN;
-  SendSuccess(request);
+  if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
+  {
+    mysettings.totalNumberOfSeriesModules = totalSeriesModules;
+    mysettings.totalNumberOfBanks = totalBanks;
+    Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
+    SendSuccess(request);
+  }
+  else
+  {
+    SendFailure(request);
+  }
 }
 
 void DIYBMSServer::saveMQTTSetting(AsyncWebServerRequest *request)
@@ -433,7 +450,7 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
 
     int m = module->value().toInt();
 
-    if (m>maximum_controller_cell_modules)
+    if (m > maximum_controller_cell_modules)
     {
       request->send(500, "text/plain", "Wrong parameters");
     }
@@ -472,7 +489,6 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
       }
 
       prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
-
 
       SendSuccess(request);
     }
@@ -521,7 +537,6 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
 
   root["PCF8574"] = PCF8574Enabled;
   root["ControlState"] = ControlState;
-  
 
   JsonArray defaultArray = root.createNestedArray("relaydefault");
   for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
@@ -658,7 +673,6 @@ void DIYBMSServer::integration(AsyncWebServerRequest *request)
   request->send(response);
 }
 
-
 void DIYBMSServer::identifyModule(AsyncWebServerRequest *request)
 {
   if (request->hasParam("c", false))
@@ -666,7 +680,7 @@ void DIYBMSServer::identifyModule(AsyncWebServerRequest *request)
     AsyncWebParameter *cellid = request->getParam("c", false);
     uint8_t c = cellid->value().toInt();
 
-    if (c > mysettings.totalNumberOfBanks*mysettings.totalNumberOfSeriesModules)
+    if (c > mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules)
     {
       request->send(500, "text/plain", "Wrong parameter bank");
       return;
@@ -690,7 +704,7 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
     AsyncWebParameter *cellid = request->getParam("c", false);
     uint8_t c = cellid->value().toInt();
 
-    if (c > mysettings.totalNumberOfBanks*mysettings.totalNumberOfSeriesModules)
+    if (c > mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules)
     {
       request->send(500, "text/plain", "Wrong parameter bank");
       return;
@@ -707,19 +721,20 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
     JsonObject root = doc.to<JsonObject>();
     JsonObject settings = root.createNestedObject("settings");
 
-    uint8_t b=c / mysettings.totalNumberOfSeriesModules;
-    uint8_t m=c - (b*mysettings.totalNumberOfSeriesModules);
+    uint8_t b = c / mysettings.totalNumberOfSeriesModules;
+    uint8_t m = c - (b * mysettings.totalNumberOfSeriesModules);
     settings["bank"] = b;
     settings["module"] = m;
-    settings["id"] = c;  
+    settings["id"] = c;
     settings["ver"] = cmi[c].BoardVersionNumber;
     settings["Cached"] = cmi[c].settingsCached;
 
-    if (cmi[c].settingsCached) {
+    if (cmi[c].settingsCached)
+    {
       settings["BypassOverTempShutdown"] = cmi[c].BypassOverTempShutdown;
       settings["BypassThresholdmV"] = cmi[c].BypassThresholdmV;
-      settings["LoadRes"]  = cmi[c].LoadResistance;
-      settings["Calib"]    = cmi[c].Calibration;
+      settings["LoadRes"] = cmi[c].LoadResistance;
+      settings["Calib"] = cmi[c].Calibration;
       settings["mVPerADC"] = cmi[c].mVPerADC;
       settings["IntBCoef"] = cmi[c].Internal_BCoefficient;
       settings["ExtBCoef"] = cmi[c].External_BCoefficient;
@@ -740,10 +755,9 @@ void DIYBMSServer::handleRestartController(AsyncWebServerRequest *request)
 
 void DIYBMSServer::monitor(AsyncWebServerRequest *request)
 {
-  AsyncResponseStream *response =
-      request->beginResponseStream("application/json");
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
 
-  //Allocate buffer large enough for 64 modules
+  //Allocate buffer large enough for 128 modules
   DynamicJsonDocument doc(10240);
 
   JsonObject root = doc.to<JsonObject>();
@@ -751,41 +765,44 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request)
   root["banks"] = mysettings.totalNumberOfBanks;
   root["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
 
-  JsonObject monitor = root.createNestedObject("monitor");
+  //JsonObject monitor = root.createNestedObject("monitor");
 
   // Set error flag if we have attempted to send 2*number of banks without a reply
-  monitor["errorcode"] = rules.ErrorCode;
+  root["errorcode"] = rules.ErrorCode;
   //monitor["commserr"] = receiveProc.HasCommsTimedOut();
 
-  monitor["sent"] = prg.packetsGenerated;
-  monitor["received"] = receiveProc.packetsReceived;
-  monitor["modulesfnd"] = receiveProc.totalModulesFound;
-  monitor["badcrc"] = receiveProc.totalCRCErrors;
-  monitor["ignored"] = receiveProc.totalNotProcessedErrors;
-  monitor["roundtrip"] = receiveProc.packetTimerMillisecond;
+  root["sent"] = prg.packetsGenerated;
+  root["received"] = receiveProc.packetsReceived;
+  root["modulesfnd"] = receiveProc.totalModulesFound;
+  root["badcrc"] = receiveProc.totalCRCErrors;
+  root["ignored"] = receiveProc.totalNotProcessedErrors;
+  root["roundtrip"] = receiveProc.packetTimerMillisecond;
 
-  JsonArray bankArray = root.createNestedArray("bank");
+  //if (rules.ErrorCode == 3)
+  //{
+    JsonArray bankArray = root.createNestedArray("bank");
 
-  uint8_t i=0;
-  for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
-  {
+    uint8_t i = 0;
+    for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
+    {
       JsonArray data = bankArray.createNestedArray();
       for (uint8_t thisBank = 0; thisBank < mysettings.totalNumberOfSeriesModules; thisBank++)
       {
         JsonObject cell = data.createNestedObject();
         cell["id"] = i;
         cell["v"] = cmi[i].voltagemV;
-        cell["minv"] = cmi[i].voltagemVMin;
-        cell["maxv"] = cmi[i].voltagemVMax;
-        cell["bypass"] = cmi[i].inBypass;
-        cell["bypasshot"] = cmi[i].bypassOverTemp;
+        cell["mv"] = cmi[i].voltagemVMin;
+        cell["xv"] = cmi[i].voltagemVMax;
+        cell["b"] = cmi[i].inBypass;
+        cell["bhot"] = cmi[i].bypassOverTemp;
         cell["int"] = cmi[i].internalTemp;
         cell["ext"] = cmi[i].externalTemp;
         cell["badpkt"] = cmi[i].badPacketCount;
         cell["pwm"] = cmi[i].inBypass ? cmi[i].PWMValue : 0;
         i++;
       }
-  }
+    }
+  //}
   serializeJson(doc, *response);
   request->send(response);
 }

@@ -46,6 +46,7 @@ class DIYBMSServer {
       static String TemplateProcessor(const String& var);
       static bool validateXSS(AsyncWebServerRequest *request);
       static void SendSuccess(AsyncWebServerRequest *request);
+      static void SendFailure(AsyncWebServerRequest *request);
       static void settings(AsyncWebServerRequest *request);
       //static void clearModuleValues(uint8_t module);
       static void resetCounters(AsyncWebServerRequest *request);
