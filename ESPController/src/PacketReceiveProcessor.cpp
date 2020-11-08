@@ -11,9 +11,9 @@ bool PacketReceiveProcessor::HasCommsTimedOut() {
 
 bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
                                           uint16_t sequenceToExpect) {
-
-
   packetsReceived++;
+
+//TODO: VALIDATE REPLY START/END RANGES ARE VALID TO AVOID MEMORY BUFFER OVERRUNS
 
   // Copy to our buffer (probably dont need to do this)
   memcpy(&_packetbuffer, receivebuffer, sizeof(_packetbuffer));
@@ -27,7 +27,10 @@ bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
 
       totalModulesFound=_packetbuffer.hops;
 
-      if (ReplyWasProcessedByAModule()) {
+      if (ReplyWasProcessedByAModule()  ) {
+
+        
+
         switch (ReplyForCommand()) {
           //case COMMAND::SetBankIdentity:
             //break;  // Ignore reply
@@ -73,90 +76,71 @@ bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
   return false;
 }
 
-uint8_t PacketReceiveProcessor::ReplyLastAddress() {
-  return _packetbuffer.start_address;
-}
-
-void PacketReceiveProcessor::ProcessReplyAddressByte() {
-  // Only set if it was a reply from a broadcast message
-/*
-  if (broadcast > 0) {
-    if (numberOfModules[ReplyFromBank()] != ReplyLastAddress()) {
-
-      //SERIAL_DEBUG.println("Reset bank values");
-
-      numberOfModules[ReplyFromBank()] = ReplyLastAddress();
-
-      // if we have a different number of modules in this bank
-      // we should clear all the cached config flags from the modules
-      // as they have probably moved address
-      for (size_t i = 0; i < maximum_cell_modules; i++) {
-        cmi[ReplyFromBank()][i].settingsCached = false;
-        cmi[ReplyFromBank()][i].voltagemVMin = 6000;
-        cmi[ReplyFromBank()][i].voltagemVMax = 0;
-      }
-    }
-  }
-*/  
-}
 
 
 void PacketReceiveProcessor::ProcessReplyBadPacketCount() {
   // Called when a decoded packet has arrived in buffer for command
-  ProcessReplyAddressByte();
-  for (size_t i = 0; i < maximum_cell_modules; i++) {
-    cmi[i].badPacketCount = _packetbuffer.moduledata[i];
+  uint8_t q=0;
+  for (uint8_t  i = _packetbuffer.start_address; i < _packetbuffer.end_address; i++) {
+    cmi[i].badPacketCount = _packetbuffer.moduledata[q];
+    q++;
   }
 }
 
 void PacketReceiveProcessor::ProcessReplyTemperature() {
   // Called when a decoded packet has arrived in buffer for command 3
 
-  ProcessReplyAddressByte();
   // 40 offset for below zero temps
-  for (size_t i = 0; i < maximum_cell_modules; i++) {
-    cmi[i].internalTemp = ((_packetbuffer.moduledata[i] & 0xFF00) >> 8) - 40;
-    cmi[i].externalTemp = (_packetbuffer.moduledata[i] & 0x00FF) - 40;
+  uint8_t q=0;
+  for (uint8_t  i = _packetbuffer.start_address; i < _packetbuffer.end_address; i++) {
+    cmi[i].internalTemp = ((_packetbuffer.moduledata[q] & 0xFF00) >> 8) - 40;
+    cmi[i].externalTemp = (_packetbuffer.moduledata[q] & 0x00FF) - 40;
+    q++;
   }
 }
 
 void PacketReceiveProcessor::ProcessReplyBalancePower() {
   // Called when a decoded packet has arrived in _packetbuffer for command 1
-  ProcessReplyAddressByte();
-
-  for (uint8_t i = 0; i < maximum_cell_modules; i++) {
-    cmi[i].PWMValue = _packetbuffer.moduledata[i];
+  uint8_t q=0;
+  for (uint8_t  i = _packetbuffer.start_address; i < _packetbuffer.end_address; i++) {
+    cmi[i].PWMValue = _packetbuffer.moduledata[q];
+    q++;
   }
 }
 
 
 void PacketReceiveProcessor::ProcessReplyVoltage() {
   // Called when a decoded packet has arrived in _packetbuffer for command 1
-  ProcessReplyAddressByte();
 
-  for (uint8_t i = 0; i < maximum_cell_modules; i++) {
+  if (_packetbuffer.end_address<_packetbuffer.start_address) return;
+
+
+  for (uint8_t i = 0; i < _packetbuffer.end_address-_packetbuffer.start_address; i++) {
+    
+    CellModuleInfo* cellptr=&cmi[_packetbuffer.start_address+i];
+
     // 3 top bits remaining
     // X = In bypass
     // Y = Bypass over temperature
     // Z = Not used
 
-    cmi[i].voltagemV = _packetbuffer.moduledata[i] & 0x1FFF;
-    cmi[i].inBypass = (_packetbuffer.moduledata[i] & 0x8000) > 0;
-    cmi[i].bypassOverTemp = (_packetbuffer.moduledata[i] & 0x4000) > 0;
+    cellptr->voltagemV = _packetbuffer.moduledata[i] & 0x1FFF;
+    cellptr->inBypass = (_packetbuffer.moduledata[i] & 0x8000) > 0;
+    cellptr->bypassOverTemp = (_packetbuffer.moduledata[i] & 0x4000) > 0;
 
-    if (cmi[i].voltagemV > cmi[i].voltagemVMax) {
-      cmi[i].voltagemVMax = cmi[i].voltagemV;
+    if (cellptr->voltagemV > cellptr->voltagemVMax) {
+      cellptr->voltagemVMax = cellptr->voltagemV;
     }
 
-    if (cmi[i].voltagemV < cmi[i].voltagemVMin) {
-      cmi[i].voltagemVMin = cmi[i].voltagemV;
+    if (cellptr->voltagemV < cellptr->voltagemVMin) {
+      cellptr->voltagemVMin = cellptr->voltagemV;
     }
   }
 }
 
 void PacketReceiveProcessor::ProcessReplySettings() {
 
-  uint8_t m = ReplyLastAddress();
+  uint8_t m = _packetbuffer.start_address;
 
   // TODO Validate b and m here to prevent array overflow
   cmi[m].settingsCached = true;

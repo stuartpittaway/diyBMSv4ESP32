@@ -13,5 +13,9 @@
 			"path": "ATTINYCellModule"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"random": "cpp"
+		}
+	}
 }

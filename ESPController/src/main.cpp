@@ -152,6 +152,11 @@ void dumpPacketToDebug(PacketStruct *buffer)
   SERIAL_DEBUG.print(buffer->hops, HEX);
   SERIAL_DEBUG.print('/');
   SERIAL_DEBUG.print(buffer->command, HEX);
+
+  if (buffer->command==ReadVoltageAndStatus) { SERIAL_DEBUG.print(" ReadVoltageStatus "); }
+  if (buffer->command==ReadTemperature) { SERIAL_DEBUG.print(" ReadTemperature "); }
+  if (buffer->command==ReadSettings) { SERIAL_DEBUG.print(" ReadSettings "); }
+
   SERIAL_DEBUG.print('/');
   SERIAL_DEBUG.print(buffer->sequence, HEX);
   SERIAL_DEBUG.print('=');
@@ -642,17 +647,27 @@ uint8_t counter = 0;
 void timerEnqueueCallback()
 {
   //this is called regularly on a timer, it determines what request to make to the modules (via the request queue)
-  for (uint8_t b = 0; b < mysettings.totalNumberOfBanks; b++)
-  {
-    prg.sendCellVoltageRequest(b);
-    prg.sendCellTemperatureRequest(b);
+  uint8_t b = 0;
+
+  uint8_t max=mysettings.totalNumberOfBanks*mysettings.totalNumberOfSeriesModules;
+  uint8_t startmodule=0;
+  //uint8_t endmodule=maximum_cell_modules;
+  while (b < max)
+  {    
+    uint8_t endmodule=startmodule+maximum_cell_modules;
+
+    //Limit to number of modules we have configured
+    if (endmodule>max) { endmodule= max;}
+
+    prg.sendCellVoltageRequest(startmodule,endmodule);
+    prg.sendCellTemperatureRequest(startmodule,endmodule);
 
     //If any module is in bypass then request PWM reading for whole bank
     for (uint8_t m = 0; m < maximum_cell_modules; m++)
     {
       if (cmi[m].inBypass)
       {
-        prg.sendReadBalancePowerRequest(0);
+        prg.sendReadBalancePowerRequest(startmodule,endmodule);
         break;
       }
     }
@@ -660,8 +675,11 @@ void timerEnqueueCallback()
     //Every 50 loops also ask for bad packet count (saves battery power if we dont ask for this all the time)
     if (counter % 50 == 0)
     {
-      prg.sendReadBadPacketCounter(b);
+      prg.sendReadBadPacketCounter(startmodule,endmodule);
     }
+
+    startmodule=endmodule+1;
+    b+=maximum_cell_modules;
   }
 
   //It's an unsigned byte, let it overflow to reset
@@ -1074,11 +1092,11 @@ void ConfigureI2C()
 void timerLazyCallback()
 {
 //Find the first module that doesn't have settings cached and request them
-  for (uint8_t module = 0; module < maximum_cell_modules; module++)
+  for (uint8_t module = 0; module < (mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules); module++)
   {
     if (!cmi[module].settingsCached)
     {      
-      prg.sendGetSettingsRequest(0, module);
+      prg.sendGetSettingsRequest(module);
 
       if (prg.QueueLength()>8) {
         //We really should exit here to avoid flooding the queue

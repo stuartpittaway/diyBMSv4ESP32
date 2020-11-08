@@ -1,9 +1,9 @@
-function identifyModule(button, bank, module) {
+function identifyModule(button, cellid) {
     //Populate settings div
-    $.getJSON("identifyModule.json", { b: bank, m: module }, function (data) { }).fail(function () { $("#iperror").show(); });
+    $.getJSON("identifyModule.json", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
 
-function configureModule(button, bank, module, attempts) {
+function configureModule(button, cellid, attempts) {
 
     $('#loading').show();
 
@@ -11,11 +11,10 @@ function configureModule(button, bank, module, attempts) {
     $(button).parent().parent().parent().find(".selected").removeClass("selected");
     $(button).parent().parent().addClass("selected");
 
-    $.getJSON("modules.json", { b: bank, m: module },
+    $.getJSON("modules.json", { c: cellid },
         function (data) {
             var div = $("#settingConfig .settings");
-            $('#b').val(data.settings.bank);
-            $('#m').val(data.settings.module);
+            $('#c').val(data.settings.id);
 
             if (data.settings.Cached == true) {
                 $("#settingConfig h2").html("Settings for module bank:" + bank + " module:" + module);
@@ -173,8 +172,8 @@ function queryBMS() {
                         + bank[index]
                         + "</span><span>" + value + "</span><span></span><span class='hide'></span><span class='hide'></span>"
                         + "<span class='hide'></span><span class='hide'></span><span class='hide'></span><span class='hide'></span>"
-                        + "<span><button type='button' onclick='return identifyModule(this," + bank[index] + "," + value + ");'>Identify</button></span>"
-                        + "<span><button type='button' onclick='return configureModule(this," + bank[index] + "," + value + ",5);'>Configure</button></span></div>")
+                        + "<span><button type='button' onclick='return identifyModule(this," + index + ");'>Identify</button></span>"
+                        + "<span><button type='button' onclick='return configureModule(this," + index + ",5);'>Configure</button></span></div>")
                 });
             }
 
@@ -518,4 +517,5 @@ function queryBMS() {
 }
 
 $(window).on('resize', function () { if (g1 != null && g1 != undefined && $('#homePage').is(':visible')) { g1.resize(); } });
+
 

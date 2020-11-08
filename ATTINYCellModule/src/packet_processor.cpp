@@ -139,7 +139,7 @@ bool PacketProcessor::onPacketReceived(const uint8_t *receivebuffer, size_t len)
       //TODO: We can probably get rid of mymoduleaddress
       mymoduleaddress=buffer.hops;
 
-      bool isPacketForMe=(buffer.start_address<=mymoduleaddress && buffer.end_address>=mymoduleaddress && buffer.start_address<buffer.end_address);
+      bool isPacketForMe=buffer.start_address<=mymoduleaddress && buffer.end_address>=mymoduleaddress;
 
       //Increment the hops no matter what (on valid CRC)
       buffer.hops++;
@@ -153,10 +153,7 @@ bool PacketProcessor::onPacketReceived(const uint8_t *receivebuffer, size_t len)
         if (commandProcessed)
         {
           //Set flag to indicate we processed packet (other modules may also do this)
-          buffer.command = buffer.command | B10000000;
-          
-          //Keep track of what module last processed this good command
-          buffer.start_address++;
+          buffer.command = buffer.command | B10000000;         
         }
       }
 

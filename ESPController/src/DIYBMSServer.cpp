@@ -494,29 +494,6 @@ void DIYBMSServer::clearModuleValues(uint8_t bank, uint8_t module)
   cmi[module].externalTemp = -40;
 }
 
-void DIYBMSServer::identifyModule(AsyncWebServerRequest *request)
-{
-  if (request->hasParam("m") && request->hasParam("b"))
-  {
-    AsyncWebParameter *module = request->getParam("m");
-
-    int m = module->value().toInt();
-
-    if (m>maximum_cell_modules)
-    {
-      request->send(500, "text/plain", "Wrong parameters");
-    }
-    else
-    {
-      prg.sendIdentifyModuleRequest(0, m);
-      SendSuccess(request);
-    }
-  }
-  else
-  {
-    request->send(500, "text/plain", "Missing parameters");
-  }
-}
 
 void DIYBMSServer::rules(AsyncWebServerRequest *request)
 {
@@ -681,57 +658,78 @@ void DIYBMSServer::integration(AsyncWebServerRequest *request)
   request->send(response);
 }
 
-void DIYBMSServer::modules(AsyncWebServerRequest *request)
+
+void DIYBMSServer::identifyModule(AsyncWebServerRequest *request)
 {
-  if (request->hasParam("m", false) && request->hasParam("b", false))
+  if (request->hasParam("c", false))
   {
-    AsyncWebParameter *module = request->getParam("m", false);
-    //AsyncWebParameter *bank = request->getParam("b", false);
+    AsyncWebParameter *cellid = request->getParam("c", false);
+    uint8_t c = cellid->value().toInt();
 
-    //int b = bank->value().toInt();
-    int m = module->value().toInt();
-
-    if (m + 1 > maximum_cell_modules)
+    if (c > mysettings.totalNumberOfBanks*mysettings.totalNumberOfSeriesModules)
     {
-      request->send(500, "text/plain", "Wrong parameters");
+      request->send(500, "text/plain", "Wrong parameter bank");
+      return;
     }
     else
     {
-      if (cmi[m].settingsCached == false)
-      {
-        prg.sendGetSettingsRequest(0, m);
-      }
-
-      AsyncResponseStream *response =
-          request->beginResponseStream("application/json");
-
-      DynamicJsonDocument doc(2048);
-      JsonObject root = doc.to<JsonObject>();
-      JsonObject settings = root.createNestedObject("settings");
-
-      settings["bank"] = 0;
-      settings["module"] = m;
-      settings["ver"] = cmi[m].BoardVersionNumber;
-
-      settings["Cached"] = cmi[m].settingsCached;
-      // settings["Requested"] = cmi[b][m].settingsRequested;
-
-      settings["BypassOverTempShutdown"] = cmi[m].BypassOverTempShutdown;
-      settings["BypassThresholdmV"] = cmi[m].BypassThresholdmV;
-
-      settings["LoadRes"]  = cmi[m].LoadResistance;
-      settings["Calib"]    = cmi[m].Calibration;
-      settings["mVPerADC"] = cmi[m].mVPerADC;
-      settings["IntBCoef"] = cmi[m].Internal_BCoefficient;
-      settings["ExtBCoef"] = cmi[m].External_BCoefficient;
-
-      serializeJson(doc, *response);
-      request->send(response);
+      prg.sendIdentifyModuleRequest(c);
+      SendSuccess(request);
     }
   }
   else
   {
     request->send(500, "text/plain", "Missing parameters");
+  }
+}
+
+void DIYBMSServer::modules(AsyncWebServerRequest *request)
+{
+  if (request->hasParam("c", false))
+  {
+    AsyncWebParameter *cellid = request->getParam("c", false);
+    uint8_t c = cellid->value().toInt();
+
+    if (c > mysettings.totalNumberOfBanks*mysettings.totalNumberOfSeriesModules)
+    {
+      request->send(500, "text/plain", "Wrong parameter bank");
+      return;
+    }
+
+    if (cmi[c].settingsCached == false)
+    {
+      prg.sendGetSettingsRequest(c);
+    }
+
+    AsyncResponseStream *response = request->beginResponseStream("application/json");
+
+    DynamicJsonDocument doc(2048);
+    JsonObject root = doc.to<JsonObject>();
+    JsonObject settings = root.createNestedObject("settings");
+
+    //uint8_t b=c / mysettings.totalNumberOfBanks;
+    //uint8_t m=c - (b*mysettings.totalNumberOfBanks) ;
+    //settings["bank"] = b;
+    //settings["module"] = m;
+
+    settings["id"] = c;
+    
+    settings["ver"] = cmi[c].BoardVersionNumber;
+
+    settings["Cached"] = cmi[c].settingsCached;
+    if (cmi[c].settingsCached) {
+      settings["BypassOverTempShutdown"] = cmi[c].BypassOverTempShutdown;
+      settings["BypassThresholdmV"] = cmi[c].BypassThresholdmV;
+
+      settings["LoadRes"]  = cmi[c].LoadResistance;
+      settings["Calib"]    = cmi[c].Calibration;
+      settings["mVPerADC"] = cmi[c].mVPerADC;
+      settings["IntBCoef"] = cmi[c].Internal_BCoefficient;
+      settings["ExtBCoef"] = cmi[c].External_BCoefficient;
+    }
+
+    serializeJson(doc, *response);
+    request->send(response);
   }
 }
 
@@ -777,6 +775,7 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request)
       for (uint8_t thisBank = 0; thisBank < mysettings.totalNumberOfSeriesModules; thisBank++)
       {
         JsonObject cell = data.createNestedObject();
+        cell["id"] = i;
         cell["v"] = cmi[i].voltagemV;
         cell["minv"] = cmi[i].voltagemVMin;
         cell["maxv"] = cmi[i].voltagemVMax;
