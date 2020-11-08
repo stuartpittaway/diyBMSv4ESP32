@@ -755,21 +755,19 @@ void setupInfluxClient()
 
     String poststring;
 
-    for (uint8_t bank = 0; bank < 4; bank++)
+    for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
     {
       //TODO: We should send a request per bank not just a single POST as we are likely to exceed capabilities of ESP
-      for (uint8_t i = 0; i < maximum_cell_modules_per_packet; i++)
+      for (uint8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
       {
         //Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v1.7/write_protocols/line_protocol_tutorial/
-        poststring = poststring + "cells," + "cell=" + String(bank + 1) + "_" + String(i + 1) + " v=" + String((float)cmi[i].voltagemV / 1000.0, 3) 
+        poststring = poststring + "cells," + "cell=" + String(bank) + "_" + String(i) + " v=" + String((float)cmi[i].voltagemV / 1000.0, 3) 
         + ",i=" + String(cmi[i].internalTemp) + "i" + ",e=" + String(cmi[i].externalTemp) + "i" + ",b=" + (cmi[i].inBypass ? String("true") : String("false")) + "\n";
       }
     }
 
     //TODO: Need to URLEncode these values
-    //+ String(mysettings.influxdb_host) + ":" + String(mysettings.influxdb_httpPort)
     String url = "/write?db=" + String(mysettings.influxdb_database) + "&u=" + String(mysettings.influxdb_user) + "&p=" + String(mysettings.influxdb_password);
-
     String header = "POST " + url + " HTTP/1.1\r\n" + "Host: " + String(mysettings.influxdb_host) + "\r\n" + "Connection: close\r\n" + "Content-Length: " + poststring.length() + "\r\n" + "Content-Type: text/plain\r\n" + "\r\n";
 
     //SERIAL_DEBUG.println(header.c_str());
@@ -866,16 +864,12 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
 #endif
   SERIAL_DEBUG.println("Disconnected from Wi-Fi.");
-
   // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
   mqttReconnectTimer.detach();
   myTimerSendMqttPacket.detach();
   myTimerSendInfluxdbPacket.detach();
 
   wifiReconnectTimer.once(2, connectToWifi);
-
-  //DIYBMSServer::StopServer(&server);
-  //server_running=false;
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
@@ -919,16 +913,17 @@ void sendMqttPacket()
 
     sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, module);
 
-    SERIAL_DEBUG.print("Sending MQTT - ");
-    SERIAL_DEBUG.println(topic);
+    //SERIAL_DEBUG.print("Sending MQTT - ");
+    //SERIAL_DEBUG.println(topic);
     
     mqttClient.publish(topic, 0, false, jsonbuffer);
-    SERIAL_DEBUG.println(topic);
+    //SERIAL_DEBUG.println(topic);
 
     counter++;
 
     //After transmitting this many packets over MQTT, store our current state and exit the function.
-    if (counter == 4)
+    //this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
+    if (counter == 6)
     {
       mqttStartModule = i + 1;
 
