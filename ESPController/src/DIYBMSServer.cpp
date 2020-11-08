@@ -266,7 +266,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
     //Reset state of rules after updating the new values
     for (int8_t r = 0; r < RELAY_RULES; r++)
     {
-      rule_outcome[r] = false;
+      rules.rule_outcome[r] = false;
     }
   }
 
@@ -495,7 +495,7 @@ void DIYBMSServer::clearModuleValues(uint8_t module)
 }
 */
 
-void DIYBMSServer::rules(AsyncWebServerRequest *request)
+void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response =
       request->beginResponseStream("application/json");
@@ -564,7 +564,7 @@ void DIYBMSServer::rules(AsyncWebServerRequest *request)
     JsonObject rule = bankArray.createNestedObject();
     rule["value"] = mysettings.rulevalue[r];
     rule["hysteresis"] = mysettings.rulehysteresis[r];
-    rule["triggered"] = rule_outcome[r];
+    rule["triggered"] = rules.rule_outcome[r];
     JsonArray data = rule.createNestedArray("relays");
 
     for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
@@ -754,7 +754,8 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request)
   JsonObject monitor = root.createNestedObject("monitor");
 
   // Set error flag if we have attempted to send 2*number of banks without a reply
-  monitor["commserr"] = receiveProc.HasCommsTimedOut();
+  monitor["errorcode"] = rules.ErrorCode;
+  //monitor["commserr"] = receiveProc.HasCommsTimedOut();
 
   monitor["sent"] = prg.packetsGenerated;
   monitor["received"] = receiveProc.packetsReceived;
@@ -830,7 +831,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
   _myserver->on("/modules.json", HTTP_GET, DIYBMSServer::modules);
   _myserver->on("/identifyModule.json", HTTP_GET, DIYBMSServer::identifyModule);
   _myserver->on("/settings.json", HTTP_GET, DIYBMSServer::settings);
-  _myserver->on("/rules.json", HTTP_GET, DIYBMSServer::rules);
+  _myserver->on("/rules.json", HTTP_GET, DIYBMSServer::GetRules);
 
   //POST method endpoints
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);

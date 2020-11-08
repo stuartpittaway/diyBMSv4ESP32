@@ -1,3 +1,12 @@
+const INTERNALERRORCODE =
+{
+    NoError:0,
+    CommunicationsError:1,
+    ModuleCountMismatch:2,
+    TooManyModules:3
+};
+Object.freeze(INTERNALERRORCODE);
+
 function identifyModule(button, cellid) {
     //Populate settings div
     $.getJSON("identifyModule.json", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
@@ -97,7 +106,6 @@ function queryBMS() {
                 voltagesmin.push((parseFloat(value.minv) / 1000.0));
                 voltagesmax.push((parseFloat(value.maxv) / 1000.0));
 
-                //TODO: This looks incorrect needs to take into account bank/cell configs
                 bank.push(bankNumber);
                 cells.push(index);
                 badpktcount.push(value.badpkt);
@@ -118,13 +126,6 @@ function queryBMS() {
         //Scale down for low voltages
         if (minVoltage < 2.5) { minVoltage = 0; }
 
-        if (jsondata.monitor.modulesfnd == jsondata.banks*jsondata.seriesmodules)
-        { $("#missingmodules").hide(); } 
-        else { 
-            $("#missingmodules").show(); 
-            $("#missingmodule1").html(jsondata.monitor.modulesfnd);
-            $("#missingmodule2").html(jsondata.banks*jsondata.seriesmodules);
-        }
 
         
         //Ignore and hide any errors which are zero
@@ -152,11 +153,26 @@ function queryBMS() {
         $("#current").hide();
         $("#current .v").html(current[0].toFixed(2));
 
-        if (jsondata.monitor.commserr == true) {
+        switch(jsondata.monitor.errorcode) {
+        case INTERNALERRORCODE.NoError:
+            $(".error").hide();
+        break;
+
+        case INTERNALERRORCODE.CommunicationsError:
             $("#commserr").show();
-        } else {
-            $("#commserr").hide();
+        break;
+
+        case INTERNALERRORCODE.ModuleCountMismatch:
+            $("#missingmodules").show();
+            $("#missingmodule1").html(jsondata.monitor.modulesfnd);
+            $("#missingmodule2").html(jsondata.banks*jsondata.seriesmodules);
+        break;
+
+        case INTERNALERRORCODE.TooManyModules:
+            $("#toomanymodules").show();
+        break;
         }
+
 
         $("#info").show();
         $("#iperror").hide();
@@ -196,8 +212,6 @@ function queryBMS() {
 
 
         if ($('#homePage').is(':visible')) {
-
-
             if (g1 == null) {
                 // based on prepared DOM, initialize echarts instance
                 g1 = echarts.init(document.getElementById('graph1'));

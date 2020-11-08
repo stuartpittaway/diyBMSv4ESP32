@@ -3,6 +3,8 @@
 #define DIYBMSServer_H_
 
 #include <Arduino.h>
+
+
 #if defined(ESP8266)
 //https://github.com/esp8266/Arduino
 #include <ESP8266WiFi.h>          
@@ -16,6 +18,7 @@
 
 #include <EEPROM.h>
 
+#include "Rules.h"
 #include "settings.h"
 #include "ArduinoJson.h"
 #include "PacketRequestGenerator.h"
@@ -39,7 +42,7 @@ class DIYBMSServer {
       static void modules(AsyncWebServerRequest *request);
       static void integration(AsyncWebServerRequest *request);
       static void identifyModule(AsyncWebServerRequest *request);
-      static void rules(AsyncWebServerRequest *request);
+      static void GetRules(AsyncWebServerRequest *request);
       static String TemplateProcessor(const String& var);
       static bool validateXSS(AsyncWebServerRequest *request);
       static void SendSuccess(AsyncWebServerRequest *request);
@@ -64,7 +67,7 @@ extern PacketRequestGenerator prg;
 extern PacketReceiveProcessor receiveProc;
 extern diybms_eeprom_settings mysettings;
 extern uint16_t ConfigHasChanged;
-extern bool rule_outcome[RELAY_RULES];
+extern Rules rules;
 extern bool PCF8574Enabled;
 extern ControllerState ControlState;
 #endif

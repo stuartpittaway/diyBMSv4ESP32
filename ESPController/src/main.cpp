@@ -18,7 +18,6 @@ Delete the file <project folder>\diyBMSv4\ESPController\.pio\libdeps\esp8266_d1m
 The Time.h file in this library conflicts with the time.h file in the ESP core platform code
 
 See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
-
 */
 /*
    ESP8266 PINS
@@ -41,22 +40,24 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #error GIT_VERSION not defined
 #endif
 
-
 #define PACKET_LOGGING
 //#define RULES_LOGGING
 
+//Libraries just for ESP8266
 #if defined(ESP8266)
 #include <TimeLib.h>
 #include <ESP8266WiFi.h>
 #include <NtpClientLib.h>
 #endif
 
+//Libraries just for ESP32
 #if defined(ESP32)
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include "time.h"
 #endif
 
+//Shared libraries across processors
 #include <Ticker.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
@@ -66,17 +67,17 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #include <Wire.h>
 
 #include "defines.h"
+#include "Rules.h"
 
 bool PCF8574Enabled;
 volatile bool emergencyStop = false;
-bool rule_outcome[RELAY_RULES];
 
-uint16_t ConfigHasChanged = 0;
+Rules rules;
+
 diybms_eeprom_settings mysettings;
+uint16_t ConfigHasChanged = 0;
 
 bool server_running = false;
-//bool wifiFirstConnected = false;
-uint8_t packetType = 0;
 uint8_t previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
 
@@ -153,9 +154,18 @@ void dumpPacketToDebug(PacketStruct *buffer)
   SERIAL_DEBUG.print('/');
   SERIAL_DEBUG.print(buffer->command, HEX);
 
-  if (buffer->command==ReadVoltageAndStatus) { SERIAL_DEBUG.print(" ReadVoltageStatus "); }
-  if (buffer->command==ReadTemperature) { SERIAL_DEBUG.print(" ReadTemperature "); }
-  if (buffer->command==ReadSettings) { SERIAL_DEBUG.print(" ReadSettings "); }
+  if (buffer->command == ReadVoltageAndStatus)
+  {
+    SERIAL_DEBUG.print(" ReadVoltageStatus ");
+  }
+  if (buffer->command == ReadTemperature)
+  {
+    SERIAL_DEBUG.print(" ReadTemperature ");
+  }
+  if (buffer->command == ReadSettings)
+  {
+    SERIAL_DEBUG.print(" ReadSettings ");
+  }
 
   SERIAL_DEBUG.print('/');
   SERIAL_DEBUG.print(buffer->sequence, HEX);
@@ -169,16 +179,17 @@ void dumpPacketToDebug(PacketStruct *buffer)
   SERIAL_DEBUG.print(buffer->crc, HEX);
 }
 
-void SetControllerState(ControllerState newState) {
-  if (ControlState!=newState) {
-    ControlState=newState;
+void SetControllerState(ControllerState newState)
+{
+  if (ControlState != newState)
+  {
+    ControlState = newState;
 
     SERIAL_DEBUG.println("");
     SERIAL_DEBUG.print("** Controller changed to state = ");
     SERIAL_DEBUG.println(newState, HEX);
   }
 }
-
 
 uint16_t minutesSinceMidnight()
 {
@@ -232,7 +243,7 @@ void onPacketReceived(const uint8_t *receivebuffer, size_t len)
 {
   //Note that this function gets called frequently with zero length packets
   //due to the way the modules operate
-    GREEN_LED_ON;
+  GREEN_LED_ON;
 
   if (len == sizeof(PacketStruct))
   {
@@ -253,7 +264,7 @@ void onPacketReceived(const uint8_t *receivebuffer, size_t len)
 #endif
   }
 
-    GREEN_LED_OFF;
+  GREEN_LED_OFF;
 }
 
 void timerTransmitCallback()
@@ -263,7 +274,6 @@ void timerTransmitCallback()
   if (!requestQueue.isEmpty())
   {
     PacketStruct transmitBuffer;
-
 
     //Wake up the connected cell module from sleep
     SERIAL_DATA.write(framingmarker);
@@ -290,242 +300,64 @@ void timerTransmitCallback()
     SERIAL_DEBUG.print("/Q:");
     SERIAL_DEBUG.println(requestQueue.getCount());
 #endif
-
   }
 }
-
-
 
 //Runs the rules and populates rule_outcome array with true/false for each rule
 //Rules based on module parameters/readings like voltage and temperature
 //are only processed once every module has returned at least 1 reading/communication
 void ProcessRules()
 {
-/*
-  //Array to hold the total voltage of each bank/pack (up to 4)
-  uint32_t packvoltage[maximum_banks];
-  for (int8_t r = 0; r < maximum_banks; r++)
+  rules.ClearValues();
+
+  uint16_t totalConfiguredModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
+  if (totalConfiguredModules > maximum_controller_cell_modules)
   {
-    packvoltage[r] = 0;
+    //System is configured with more than 128 modules - critical error abort!
+    rules.SetError(InternalErrorCode::TooManyModules);
+    return;
   }
 
-  //Total voltage of all cells (ignoring banks)
-  uint32_t serialvoltage = 0;
-  uint32_t highestPackVoltage = 0;
-  uint32_t lowestPackVoltage = 0xFFFFFFFF;
+  if (receiveProc.totalModulesFound != totalConfiguredModules)
+  {
+    //Found more or less modules than configured for
+    rules.SetError(InternalErrorCode::ModuleCountMismatch);
+    return;
+  }
 
-  //Emergency stop signal...
-  rule_outcome[RULE_EmergencyStop] = emergencyStop;
-
-  //Communications error...
-  rule_outcome[RULE_CommunicationsError] = receiveProc.HasCommsTimedOut();
-
-  //Timer 1 and Timer 2
-  uint16_t mins = minutesSinceMidnight();
-  rule_outcome[RULE_Timer1] = (mins >= mysettings.rulevalue[RULE_Timer1] && mins <= mysettings.rulehysteresis[RULE_Timer1]);
-  rule_outcome[RULE_Timer2] = (mins >= mysettings.rulevalue[RULE_Timer2] && mins <= mysettings.rulehysteresis[RULE_Timer2]);
-
-  uint16_t highestCellVoltage = 0;
-  uint16_t lowestCellVoltage = 0xFFFF;
-
-  int8_t highestExternalTemp = -127;
-  int8_t lowestExternalTemp = 127;
-  bool moduleHasExternalTempSensor = false;
-
-  int8_t zeroVoltageModuleCount=0;
-  int8_t CountOfBanksWithNoModules=0;
-  //Loop through banks and cells, looking at individual voltages and temperatures
-  //and sum up pack voltages.
+  uint8_t cellid = 0;
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
   {
-
-    //Count number of banks which have no modules
-    if (numberOfModules[bank]==0) { CountOfBanksWithNoModules++;}
-
-    for (int8_t i = 0; i < numberOfModules[bank]; i++)
+    for (int8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
     {
-      packvoltage[bank] += cmi[i].voltagemV;
-      serialvoltage += cmi[i].voltagemV;
+      rules.ProcessCell(bank, &cmi[cellid]);
+      cellid++;
+    }
+    rules.ProcessBank(bank);
+  }
 
-      //If the voltage of the module is zero, we probably haven't requested it yet (which happens during power up)
-      //so keep count so we don't accidentally trigger rules.
-      if (cmi[i].voltagemV==0) { zeroVoltageModuleCount++; }
+  rules.RunRules(
+      mysettings.rulevalue,
+      mysettings.rulehysteresis,
+      emergencyStop,
+      receiveProc.HasCommsTimedOut(),
+      minutesSinceMidnight());
 
-      if (cmi[i].voltagemV > highestCellVoltage)
-      {
-        highestCellVoltage = cmi[i].voltagemV;
-      }
-
-      if (cmi[i].voltagemV < lowestCellVoltage)
-      {
-        lowestCellVoltage = cmi[i].voltagemV;
-      }
-
-      if (cmi[i].externalTemp != -40)
-      {
-        //Record that we do have an external temperature sensor on one of the modules
-        moduleHasExternalTempSensor = true;
-
-        if (cmi[i].externalTemp > highestExternalTemp)
-        {
-          highestExternalTemp = cmi[i].externalTemp;
-        }
-
-        if (cmi[i].externalTemp < lowestExternalTemp)
-        {
-          lowestExternalTemp = cmi[i].externalTemp;
-        }
-      }
+  if (ControlState == ControllerState::Stabilizing)
+  {
+    //Check for zero volt modules - not a problem whilst we are in stabilizing start up mode
+    if (rules.zeroVoltageModuleCount == 0)
+    {
+      //Every module has been read and they all returned a voltage move to running state
+      SetControllerState(ControllerState::Running);
     }
   }
 
-  if (ControlState==ControllerState::Stabilizing) {
-    //At least 1 module is zero volt
-    if (zeroVoltageModuleCount>0 || CountOfBanksWithNoModules>0) {
-      rule_outcome[RULE_Individualcellovervoltage] = false;
-      rule_outcome[RULE_Individualcellundervoltage] = false;
-      rule_outcome[RULE_IndividualcellovertemperatureExternal] = false;
-      rule_outcome[RULE_IndividualcellundertemperatureExternal] = false;
-
-      //Abort processing any more rules until controller is stable/running state
-      return;
-    }
-
-    //Every module has been read and they all returned a voltage
-    //move to running state
-    SetControllerState(ControllerState::Running);
-  }
-
-  if (ControlState==ControllerState::Running && CountOfBanksWithNoModules>0) { 
+  if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
+  {
     //TODO: Add new rule to check for this issue.
     SERIAL_DEBUG.println("ZERO VOLT MODULE READING - ERROR!");
   }
-
-  // Only rules which are based on temperature or voltage should go below this point.... 
-
-  //Combine the voltages if we need to, work out the highest and lowest pack voltages
-  if (mysettings.combinationParallel)
-  {
-    //We have multiple banks which should be evaluated individually
-    for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
-    {
-      if (packvoltage[bank] > highestPackVoltage)
-      {
-        highestPackVoltage = packvoltage[bank];
-      }
-      if (packvoltage[bank] < lowestPackVoltage)
-      {
-        lowestPackVoltage = packvoltage[bank];
-      }
-    }
-  }
-  else
-  {
-    //Just one big pack, so highest and lowest are the same
-    highestPackVoltage = serialvoltage;
-    lowestPackVoltage = serialvoltage;
-  }
-
-/*
-  SERIAL_DEBUG.print("Rule Values: lowP=");
-  SERIAL_DEBUG.print(lowestPackVoltage);
-  SERIAL_DEBUG.print(" highP=");
-  SERIAL_DEBUG.print(highestPackVoltage);
-
-  SERIAL_DEBUG.print(" / lowC=");
-  SERIAL_DEBUG.print(lowestCellVoltage);
-  SERIAL_DEBUG.print(" highC=");
-  SERIAL_DEBUG.print(highestCellVoltage);
-
-  SERIAL_DEBUG.print(" / highTE=");
-  SERIAL_DEBUG.print(highestExternalTemp);
-  SERIAL_DEBUG.print(" lowTE=");
-  SERIAL_DEBUG.print(lowestExternalTemp);
-  SERIAL_DEBUG.println("");
-*/
-/*
-  if (highestCellVoltage > mysettings.rulevalue[RULE_Individualcellovervoltage] && rule_outcome[RULE_Individualcellovervoltage] == false)
-  {
-    //Rule Individual cell over voltage - TRIGGERED
-    rule_outcome[RULE_Individualcellovervoltage] = true;
-  }
-  else if (highestCellVoltage < mysettings.rulehysteresis[RULE_Individualcellovervoltage] && rule_outcome[RULE_Individualcellovervoltage] == true)
-  {
-    //Rule Individual cell over voltage - HYSTERESIS RESET
-    rule_outcome[RULE_Individualcellovervoltage] = false;
-  }
-
-  if (lowestCellVoltage < mysettings.rulevalue[RULE_Individualcellundervoltage] && rule_outcome[RULE_Individualcellundervoltage] == false)
-  {
-    //Rule Individual cell under voltage (mV) - TRIGGERED
-    rule_outcome[RULE_Individualcellundervoltage] = true;
-  }
-  else if (lowestCellVoltage > mysettings.rulehysteresis[RULE_Individualcellundervoltage] && rule_outcome[RULE_Individualcellundervoltage] == true)
-  {
-    //Rule Individual cell under voltage (mV) - HYSTERESIS RESET
-    rule_outcome[RULE_Individualcellundervoltage] = false;
-  }
-
-  //These rules only fire if external temp sensor actually exists
-  if (moduleHasExternalTempSensor)
-  {
-    //Doesn't cater for negative temperatures on rule (int8 vs uint32)
-    if (((uint8_t)highestExternalTemp > mysettings.rulevalue[RULE_IndividualcellovertemperatureExternal]) && rule_outcome[RULE_IndividualcellovertemperatureExternal] == false)
-    {
-      //Rule Individual cell over temperature (external probe)
-      rule_outcome[RULE_IndividualcellovertemperatureExternal] = true;
-    }
-    else if (((uint8_t)highestExternalTemp < mysettings.rulehysteresis[RULE_IndividualcellovertemperatureExternal]) && rule_outcome[RULE_IndividualcellovertemperatureExternal] == true)
-    {
-      //Rule Individual cell over temperature (external probe) - HYSTERESIS RESET
-      rule_outcome[RULE_IndividualcellovertemperatureExternal] = false;
-    }
-
-    //Doesn't cater for negative temperatures on rule (int8 vs uint32)
-    if (((uint8_t)lowestExternalTemp < mysettings.rulevalue[RULE_IndividualcellundertemperatureExternal]) && rule_outcome[RULE_IndividualcellundertemperatureExternal] == false)
-    {
-      //Rule Individual cell UNDER temperature (external probe)
-      rule_outcome[RULE_IndividualcellundertemperatureExternal] = true;
-    }
-    else if (((uint8_t)lowestExternalTemp > mysettings.rulehysteresis[RULE_IndividualcellundertemperatureExternal]) && rule_outcome[RULE_IndividualcellundertemperatureExternal] == true)
-    {
-      //Rule Individual cell UNDER temperature (external probe) - HYSTERESIS RESET
-      rule_outcome[RULE_IndividualcellundertemperatureExternal] = false;
-    }
-  }
-  else
-  {
-    rule_outcome[RULE_IndividualcellovertemperatureExternal] = false;
-    rule_outcome[RULE_IndividualcellundertemperatureExternal] = false;
-  }
-
-  
-
-  //Test pack voltages
-  if (highestPackVoltage > mysettings.rulevalue[RULE_PackOverVoltage] && rule_outcome[RULE_PackOverVoltage] == false)
-  {
-    //Rule - Pack over voltage (mV)
-    rule_outcome[RULE_PackOverVoltage] = true;
-  }
-  else if (highestPackVoltage < mysettings.rulehysteresis[RULE_PackOverVoltage] && rule_outcome[RULE_PackOverVoltage] == true)
-  {
-    //Rule - Pack over voltage (mV) - HYSTERESIS RESET
-    rule_outcome[RULE_PackOverVoltage] = false;
-  }
-
-  if (lowestPackVoltage < mysettings.rulevalue[RULE_PackUnderVoltage] && rule_outcome[RULE_PackUnderVoltage] == false)
-  {
-    //Rule - Pack under voltage (mV)
-    rule_outcome[RULE_PackUnderVoltage] = true;
-  }
-  else if (lowestPackVoltage > mysettings.rulehysteresis[RULE_PackUnderVoltage] && rule_outcome[RULE_PackUnderVoltage] == true)
-  {
-    //Rule - Pack under voltage (mV) - HYSTERESIS RESET
-    rule_outcome[RULE_PackUnderVoltage] = false;
-  }
-
-*/
-
 }
 
 void timerSwitchPulsedRelay()
@@ -562,7 +394,7 @@ void timerProcessRules()
   SERIAL_DEBUG.print("Rules:");
   for (int8_t r = 0; r < RELAY_RULES; r++)
   {
-    SERIAL_DEBUG.print(rule_outcome[r]);
+    SERIAL_DEBUG.print(rules.rule_outcome[r]);
   }
   SERIAL_DEBUG.print("=");
 #endif
@@ -578,7 +410,7 @@ void timerProcessRules()
   //Test the rules (in reverse order)
   for (int8_t n = RELAY_RULES - 1; n >= 0; n--)
   {
-    if (rule_outcome[n] == true)
+    if (rules.rule_outcome[n] == true)
     {
 
       for (int8_t y = 0; y < RELAY_TOTAL; y++)
@@ -649,25 +481,28 @@ void timerEnqueueCallback()
   //this is called regularly on a timer, it determines what request to make to the modules (via the request queue)
   uint8_t b = 0;
 
-  uint8_t max=mysettings.totalNumberOfBanks*mysettings.totalNumberOfSeriesModules;
-  uint8_t startmodule=0;
+  uint8_t max = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
+  uint8_t startmodule = 0;
   //uint8_t endmodule=maximum_cell_modules_per_packet;
   while (b < max)
-  {    
-    uint8_t endmodule=(startmodule+maximum_cell_modules_per_packet)-1;
+  {
+    uint8_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
 
     //Limit to number of modules we have configured
-    if (endmodule>max) { endmodule= max-1;}
+    if (endmodule > max)
+    {
+      endmodule = max - 1;
+    }
 
-    prg.sendCellVoltageRequest(startmodule,endmodule);
-    prg.sendCellTemperatureRequest(startmodule,endmodule);
+    prg.sendCellVoltageRequest(startmodule, endmodule);
+    prg.sendCellTemperatureRequest(startmodule, endmodule);
 
     //If any module is in bypass then request PWM reading for whole bank
     for (uint8_t m = 0; m < maximum_cell_modules_per_packet; m++)
     {
       if (cmi[m].inBypass)
       {
-        prg.sendReadBalancePowerRequest(startmodule,endmodule);
+        prg.sendReadBalancePowerRequest(startmodule, endmodule);
         break;
       }
     }
@@ -675,11 +510,11 @@ void timerEnqueueCallback()
     //Every 50 loops also ask for bad packet count (saves battery power if we dont ask for this all the time)
     if (counter % 50 == 0)
     {
-      prg.sendReadBadPacketCounter(startmodule,endmodule);
+      prg.sendReadBadPacketCounter(startmodule, endmodule);
     }
 
-    startmodule=endmodule+1;
-    b+=maximum_cell_modules_per_packet;
+    startmodule = endmodule + 1;
+    b += maximum_cell_modules_per_packet;
   }
 
   //It's an unsigned byte, let it overflow to reset
@@ -761,8 +596,7 @@ void setupInfluxClient()
       for (uint8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
       {
         //Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v1.7/write_protocols/line_protocol_tutorial/
-        poststring = poststring + "cells," + "cell=" + String(bank) + "_" + String(i) + " v=" + String((float)cmi[i].voltagemV / 1000.0, 3) 
-        + ",i=" + String(cmi[i].internalTemp) + "i" + ",e=" + String(cmi[i].externalTemp) + "i" + ",b=" + (cmi[i].inBypass ? String("true") : String("false")) + "\n";
+        poststring = poststring + "cells," + "cell=" + String(bank) + "_" + String(i) + " v=" + String((float)cmi[i].voltagemV / 1000.0, 3) + ",i=" + String(cmi[i].internalTemp) + "i" + ",e=" + String(cmi[i].externalTemp) + "i" + ",b=" + (cmi[i].inBypass ? String("true") : String("false")) + "\n";
       }
     }
 
@@ -776,7 +610,7 @@ void setupInfluxClient()
     client->write(header.c_str());
     client->write(poststring.c_str());
   },
-    NULL);
+                     NULL);
 }
 
 void SendInfluxdbPacket()
@@ -898,7 +732,7 @@ void sendMqttPacket()
 
   uint8_t counter = 0;
 
-  for (uint8_t i = mqttStartModule; i < mysettings.totalNumberOfSeriesModules*mysettings.totalNumberOfBanks; i++)
+  for (uint8_t i = mqttStartModule; i < mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks; i++)
   {
 
     uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
@@ -915,7 +749,7 @@ void sendMqttPacket()
 
     //SERIAL_DEBUG.print("Sending MQTT - ");
     //SERIAL_DEBUG.println(topic);
-    
+
     mqttClient.publish(topic, 0, false, jsonbuffer);
     //SERIAL_DEBUG.println(topic);
 
@@ -927,7 +761,7 @@ void sendMqttPacket()
     {
       mqttStartModule = i + 1;
 
-      if (mqttStartModule > mysettings.totalNumberOfSeriesModules*mysettings.totalNumberOfBanks)
+      if (mqttStartModule > mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks)
       {
         mqttStartModule = 0;
       }
@@ -955,22 +789,22 @@ void LoadConfiguration()
   SERIAL_DEBUG.println("Apply default config");
 
   //Zero all the bytes
-  memset(&mysettings, 0,sizeof(mysettings));
+  memset(&mysettings, 0, sizeof(mysettings));
 
   mysettings.totalNumberOfBanks = 1;
-  mysettings.totalNumberOfSeriesModules=1;
+  mysettings.totalNumberOfSeriesModules = 1;
 
   //EEPROM settings are invalid so default configuration
   mysettings.mqtt_enabled = false;
   mysettings.mqtt_port = 1883;
 
   //Default to EMONPI default MQTT settings
-  strcpy(mysettings.mqtt_topic,"diybms");
+  strcpy(mysettings.mqtt_topic, "diybms");
   strcpy(mysettings.mqtt_server, "192.168.0.26");
   strcpy(mysettings.mqtt_username, "emonpi");
   strcpy(mysettings.mqtt_password, "emonpimqtt2016");
 
-  mysettings.influxdb_enabled=false;
+  mysettings.influxdb_enabled = false;
   strcpy(mysettings.influxdb_host, "myinfluxserver");
   strcpy(mysettings.influxdb_database, "database");
   strcpy(mysettings.influxdb_user, "user");
@@ -988,8 +822,8 @@ void LoadConfiguration()
 
   //1. Emergency stop
   mysettings.rulevalue[RULE_EmergencyStop] = 0;
-  //2. Communications error
-  mysettings.rulevalue[RULE_CommunicationsError] = 0;
+  //2. Internal BMS error (communication issues, fault readings from modules etc)
+  mysettings.rulevalue[RULE_BMSError] = 0;
   //3. Individual cell over voltage
   mysettings.rulevalue[RULE_Individualcellovervoltage] = 4150;
   //4. Individual cell under voltage
@@ -1007,7 +841,7 @@ void LoadConfiguration()
 
   for (size_t i = 0; i < RELAY_RULES; i++)
   {
-    mysettings.rulehysteresis[i]=mysettings.rulevalue[i];
+    mysettings.rulehysteresis[i] = mysettings.rulevalue[i];
 
     //Set all relays to don't care
     for (size_t x = 0; x < RELAY_TOTAL; x++)
@@ -1018,8 +852,8 @@ void LoadConfiguration()
 
   for (size_t x = 0; x < RELAY_TOTAL; x++)
   {
-    mysettings.relaytype[x]=RELAY_STANDARD;
-  }  
+    mysettings.relaytype[x] = RELAY_STANDARD;
+  }
 }
 
 void ConfigureI2C()
@@ -1084,29 +918,30 @@ void ConfigureI2C()
 //Lazy load the config data - Every 10 seconds see if there is a module we don't have configuration data for, if so request it
 void timerLazyCallback()
 {
-//Find the first module that doesn't have settings cached and request them
+  //Find the first module that doesn't have settings cached and request them
   for (uint8_t module = 0; module < (mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules); module++)
   {
     if (!cmi[module].settingsCached)
-    {      
+    {
       prg.sendGetSettingsRequest(module);
 
-      if (prg.QueueLength()>8) {
+      if (prg.QueueLength() > 8)
+      {
         //We really should exit here to avoid flooding the queue
         return;
-      }       
+      }
     }
   }
 }
 
-void resetAllRules() {
+void resetAllRules()
+{
   //Clear all rules
   for (int8_t r = 0; r < RELAY_RULES; r++)
   {
-    rule_outcome[r] = false;
+    rules.rule_outcome[r] = false;
   }
 }
-
 
 void setup()
 {
@@ -1144,11 +979,11 @@ void setup()
   DIYBMSServer::generateUUID();
 
   //Pre configure the array
-  memset(&cmi, 0,sizeof(cmi));
+  memset(&cmi, 0, sizeof(cmi));
 
   for (size_t i = 0; i < maximum_controller_cell_modules; i++)
   {
-    cmi[i].voltagemV=0;
+    cmi[i].voltagemV = 0;
     cmi[i].voltagemVMax = 0;
     cmi[i].voltagemVMin = 6000;
   }
