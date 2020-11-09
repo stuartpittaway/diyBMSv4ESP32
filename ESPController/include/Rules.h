@@ -53,7 +53,6 @@ public:
         uint32_t *value,
         uint32_t *hysteresisvalue,
         bool emergencyStop, 
-        bool commsTimedOut, 
         uint16_t mins);
 };
 

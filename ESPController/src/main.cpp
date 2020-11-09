@@ -309,6 +309,7 @@ void timerTransmitCallback()
 void ProcessRules()
 {
   rules.ClearValues();
+  rules.SetError(InternalErrorCode::NoError);
 
   uint16_t totalConfiguredModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
   if (totalConfiguredModules > maximum_controller_cell_modules)
@@ -323,6 +324,11 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::ModuleCountMismatch);
   }
 
+  //Communications error...
+  if (receiveProc.HasCommsTimedOut()) {
+      rules.SetError(InternalErrorCode::CommunicationsError);
+  }
+
   uint8_t cellid = 0;
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
   {
@@ -334,11 +340,11 @@ void ProcessRules()
     rules.ProcessBank(bank);
   }
 
+
   rules.RunRules(
       mysettings.rulevalue,
       mysettings.rulehysteresis,
       emergencyStop,
-      receiveProc.HasCommsTimedOut(),
       minutesSinceMidnight());
 
   if (ControlState == ControllerState::Stabilizing)

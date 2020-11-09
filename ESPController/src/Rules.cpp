@@ -70,7 +70,7 @@ void Rules::ProcessCell(uint8_t bank, CellModuleInfo *c)
 }
 
 uint16_t Rules::VoltageRangeInBank(uint8_t bank) {
-    return highestvoltageinpack[bank] -lowestvoltageinpack[bank];
+    return highestvoltageinpack[bank] - lowestvoltageinpack[bank];
 }
 
 void Rules::ProcessBank(uint8_t bank)
@@ -99,18 +99,11 @@ void Rules::RunRules(
     uint32_t *value,
     uint32_t *hysteresisvalue,
     bool emergencyStop, 
-    bool commsTimedOut, 
     uint16_t mins)
 {
     //Emergency stop signal...
     rule_outcome[RULE_EmergencyStop] = emergencyStop;
 
-    //Communications error...
-    if (commsTimedOut) {
-        SetError(InternalErrorCode::CommunicationsError);
-    } else {
-        SetError(InternalErrorCode::NoError);
-    }
 
     //Timer 1 and Timer 2
     rule_outcome[RULE_Timer1] = (mins >= value[RULE_Timer1] && mins <= hysteresisvalue[RULE_Timer1]);
