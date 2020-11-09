@@ -345,6 +345,7 @@ void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
     mysettings.totalNumberOfSeriesModules = totalSeriesModules;
     mysettings.totalNumberOfBanks = totalBanks;
     Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
+
     SendSuccess(request);
   }
   else
@@ -490,6 +491,8 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
 
       prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
 
+      clearModuleValues(m);
+
       SendSuccess(request);
     }
   }
@@ -498,9 +501,10 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
     request->send(500, "text/plain", "Missing parameters");
   }
 }
-/*
+
 void DIYBMSServer::clearModuleValues(uint8_t module)
 {
+  cmi[module].valid=false;
   cmi[module].voltagemV = 0;
   cmi[module].voltagemVMin = 6000;
   cmi[module].voltagemVMax = 0;
@@ -509,7 +513,7 @@ void DIYBMSServer::clearModuleValues(uint8_t module)
   cmi[module].internalTemp = -40;
   cmi[module].externalTemp = -40;
 }
-*/
+
 
 void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
 {
@@ -781,19 +785,33 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
   for (uint8_t i = 0; i < mysettings.totalNumberOfBanks*mysettings.totalNumberOfSeriesModules; i++)
   {
-    voltages.add(cmi[i].voltagemV);
-    minvoltages.add(cmi[i].voltagemVMin);
-    maxvoltages.add(cmi[i].voltagemVMax);
+    if (cmi[i].valid) {
+      voltages.add(cmi[i].voltagemV);
+      minvoltages.add(cmi[i].voltagemVMin);
+      maxvoltages.add(cmi[i].voltagemVMax);
 
-    if (cmi[i].internalTemp!=-40){  inttemp.add(cmi[i].internalTemp);} else { inttemp.add((char*)0);}
-    
-    if (cmi[i].externalTemp !=-40){exttemp.add( cmi[i].externalTemp ); } else { exttemp.add((char*)0);}
-    
-    badpacket.add(cmi[i].badPacketCount);
-    bypasspwm.add(cmi[i].inBypass ? cmi[i].PWMValue : 0);
-    //Convert boolean to 1 or 0 to save bandwidth (every byte counts on this request)
-    bypass.add(cmi[i].inBypass ? 1:0);
-    bypasshot.add(cmi[i].bypassOverTemp ? 1:0);
+      if (cmi[i].internalTemp!=-40){  inttemp.add(cmi[i].internalTemp);} else { inttemp.add((char*)0);}
+      
+      if (cmi[i].externalTemp !=-40){exttemp.add( cmi[i].externalTemp ); } else { exttemp.add((char*)0);}
+      
+      badpacket.add(cmi[i].badPacketCount);
+      bypasspwm.add(cmi[i].inBypass ? cmi[i].PWMValue : 0);
+      //Convert boolean to 1 or 0 to save bandwidth (every byte counts on this request)
+      bypass.add(cmi[i].inBypass ? 1:0);
+      bypasshot.add(cmi[i].bypassOverTemp ? 1:0);
+    } else {
+      //Module is not yet valid so return null values...
+      voltages.add((char*)0);
+      minvoltages.add((char*)0);
+      maxvoltages.add((char*)0);
+      inttemp.add((char*)0);      
+      exttemp.add((char*)0);     
+      badpacket.add(0);
+      bypasspwm.add(0);
+      //Convert boolean to 1 or 0 to save bandwidth (every byte counts on this request)
+      bypass.add(0);
+      bypasshot.add(0);
+    }
   }
 
   JsonArray bankvoltage = doc.createNestedArray("bankv");
@@ -808,61 +826,12 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   JsonArray current = doc.createNestedArray("current");
   //current.add(10000);
   //NULL
-  current.add((char*)0);
-  
+  current.add((char*)0); 
 
   serializeJson(doc, *response);
   request->send(response);
 }
 
-/*
-void DIYBMSServer::monitor(AsyncWebServerRequest *request)
-{ 
-  AsyncResponseStream *response = request->beginResponseStream("application/json");
-
-  DynamicJsonDocument doc(10000);
-
-  doc["banks"] = mysettings.totalNumberOfBanks;
-  doc["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
-  doc["errorcode"] = rules.ErrorCode;
-  doc["sent"] = prg.packetsGenerated;
-  doc["received"] = receiveProc.packetsReceived;
-  doc["modulesfnd"] = receiveProc.totalModulesFound;
-  doc["badcrc"] = receiveProc.totalCRCErrors;
-  doc["ignored"] = receiveProc.totalNotProcessedErrors;
-  doc["roundtrip"] = receiveProc.packetTimerMillisecond;
-
-  //if (rules.ErrorCode == 3)
-  //{
-    JsonArray bankArray = doc.createNestedArray("bank");
-
-    uint8_t i = 0;
-    for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
-    {
-      JsonArray data = bankArray.createNestedArray();
-      for (uint8_t thisBank = 0; thisBank < mysettings.totalNumberOfSeriesModules; thisBank++)
-      {
-        JsonObject cell = data.createNestedObject();
-        cell["id"] = i;
-        cell["v"] = cmi[i].voltagemV;
-        cell["mv"] = cmi[i].voltagemVMin;
-        cell["xv"] = cmi[i].voltagemVMax;
-        cell["b"] = cmi[i].inBypass;
-        cell["bhot"] = cmi[i].bypassOverTemp;
-        cell["int"] = cmi[i].internalTemp;
-        cell["ext"] = cmi[i].externalTemp;
-        cell["badpkt"] = cmi[i].badPacketCount;
-        cell["pwm"] = cmi[i].inBypass ? cmi[i].PWMValue : 0;
-        i++;
-      }
-    }
-  //}
-  serializeJson(doc, *response);
-  request->send(response);
-
-//    SERIAL_DEBUG.println(ESP.getFreeHeap());
-}
-*/
 
 String DIYBMSServer::TemplateProcessor(const String &var)
 {
@@ -884,7 +853,6 @@ String DIYBMSServer::TemplateProcessor(const String &var)
 
 void DIYBMSServer::StartServer(AsyncWebServer *webserver)
 {
-
   _myserver = webserver;
 
   String cookieValue = "DIYBMS_XSS=";

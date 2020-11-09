@@ -122,7 +122,7 @@ void PacketReceiveProcessor::ProcessReplyVoltage() {
     // X = In bypass
     // Y = Bypass over temperature
     // Z = Not used
-
+    
     cellptr->voltagemV = _packetbuffer.moduledata[i] & 0x1FFF;
     cellptr->inBypass = (_packetbuffer.moduledata[i] & 0x8000) > 0;
     cellptr->bypassOverTemp = (_packetbuffer.moduledata[i] & 0x4000) > 0;
@@ -133,6 +133,10 @@ void PacketReceiveProcessor::ProcessReplyVoltage() {
 
     if (cellptr->voltagemV < cellptr->voltagemVMin) {
       cellptr->voltagemVMin = cellptr->voltagemV;
+    }
+
+    if (cellptr->voltagemV>0) {
+          cellptr->valid=true;
     }
   }
 }

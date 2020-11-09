@@ -3,7 +3,10 @@ const INTERNALERRORCODE =
     NoError: 0,
     CommunicationsError: 1,
     ModuleCountMismatch: 2,
-    TooManyModules: 3
+    TooManyModules: 3,
+    WaitingForModulesToReply:4,
+    ZeroVoltModule:5
+
 };
 Object.freeze(INTERNALERRORCODE);
 
@@ -154,6 +157,7 @@ function queryBMS() {
             }
         }
 
+
         switch (jsondata.errorcode) {
             case INTERNALERRORCODE.NoError:
                 $(".error").hide();
@@ -175,6 +179,16 @@ function queryBMS() {
             case INTERNALERRORCODE.TooManyModules:
                 $("#toomanymodules").show();
                 break;
+
+            case INTERNALERRORCODE.TooManyModules:
+                $("#genericerrcode").html(jsondata.errorcode);
+                $("#genericerror").show();
+            break;
+            case INTERNALERRORCODE.ZeroVoltModule:
+                $("#genericerrcode").html(jsondata.errorcode);
+                $("#genericerror").show();
+            break;
+            
         }
 
         $("#info").show();

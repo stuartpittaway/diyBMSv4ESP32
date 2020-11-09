@@ -17,12 +17,18 @@ void Rules::ClearValues()
     highestExternalTemp = -127;
     lowestExternalTemp = 127;
     zeroVoltageModuleCount = 0;
+    invalidModuleCount =0;
     moduleHasExternalTempSensor = false;
 }
 
 //Looking at individual voltages and temperatures and sum up pack voltages.
 void Rules::ProcessCell(uint8_t bank, CellModuleInfo *c)
 {
+    if (c->valid==false) {
+        invalidModuleCount++;
+        return;
+    }
+    
     packvoltage[bank] += c->voltagemV;
 
     //If the voltage of the module is zero, we probably haven't requested it yet (which happens during power up)

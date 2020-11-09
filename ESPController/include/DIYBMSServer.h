@@ -32,6 +32,7 @@ class DIYBMSServer {
    public:
       static void StartServer(AsyncWebServer  *webserver);
       static void generateUUID();
+      static void clearModuleValues(uint8_t module);
 
   private:
       static AsyncWebServer * _myserver;
@@ -49,7 +50,6 @@ class DIYBMSServer {
       static void SendSuccess(AsyncWebServerRequest *request);
       static void SendFailure(AsyncWebServerRequest *request);
       static void settings(AsyncWebServerRequest *request);
-      //static void clearModuleValues(uint8_t module);
       static void resetCounters(AsyncWebServerRequest *request);
       static void handleRestartController(AsyncWebServerRequest *request);
 

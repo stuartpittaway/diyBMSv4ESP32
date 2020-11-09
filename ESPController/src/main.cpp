@@ -324,10 +324,22 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::ModuleCountMismatch);
   }
 
+  if (rules.invalidModuleCount>0)
+  {
+    //Some modules are not yet valid
+    rules.SetError(InternalErrorCode::WaitingForModulesToReply);
+  }
+
   //Communications error...
   if (receiveProc.HasCommsTimedOut()) {
       rules.SetError(InternalErrorCode::CommunicationsError);
   }
+
+    if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
+  {
+    rules.SetError(InternalErrorCode::ZeroVoltModule);
+  }
+
 
   uint8_t cellid = 0;
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
@@ -350,18 +362,13 @@ void ProcessRules()
   if (ControlState == ControllerState::Stabilizing)
   {
     //Check for zero volt modules - not a problem whilst we are in stabilizing start up mode
-    if (rules.zeroVoltageModuleCount == 0)
+    if (rules.zeroVoltageModuleCount == 0 && rules.invalidModuleCount==0)
     {
       //Every module has been read and they all returned a voltage move to running state
       SetControllerState(ControllerState::Running);
     }
   }
 
-  if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
-  {
-    //TODO: Add new rule to check for this issue.
-    SERIAL_DEBUG.println("ZERO VOLT MODULE READING - ERROR!");
-  }
 }
 
 void timerSwitchPulsedRelay()
@@ -987,9 +994,7 @@ void setup()
 
   for (size_t i = 0; i < maximum_controller_cell_modules; i++)
   {
-    cmi[i].voltagemV = 0;
-    cmi[i].voltagemVMax = 0;
-    cmi[i].voltagemVMin = 6000;
+    DIYBMSServer::clearModuleValues(i);
   }
 
   resetAllRules();

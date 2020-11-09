@@ -20,7 +20,9 @@ enum InternalErrorCode : uint8_t
     NoError=0,
     CommunicationsError=1,
     ModuleCountMismatch=2,
-    TooManyModules=3
+    TooManyModules=3,
+    WaitingForModulesToReply=4,
+    ZeroVoltModule=5
 };
 
 class Rules
@@ -43,6 +45,7 @@ public:
     int8_t lowestExternalTemp;
     InternalErrorCode ErrorCode;
     bool moduleHasExternalTempSensor;
+    uint8_t invalidModuleCount;
 
     void ClearValues();
     void ProcessCell(uint8_t bank, CellModuleInfo *c);
