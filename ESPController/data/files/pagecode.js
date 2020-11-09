@@ -72,18 +72,8 @@ function queryBMS() {
 
         var badpktcount = [];
 
-        var voltage = [];
-        //Not currently supported
-        var current = [];
-        var bankmin = [];
-        var bankmax = [];
-
-        for (var bankNumber = 0; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
-            voltage.push(0.0);
-            current.push(0.0);
-            bankmin.push(500000);
-            bankmax.push(0);
-        }
+        //var voltage = [];
+        //var range = [];
 
         var minVoltage = 2.5;
         var maxVoltage = 4.5;
@@ -102,11 +92,6 @@ function queryBMS() {
             if (v > maxVoltage) { maxVoltage = v; }
             if (v < minVoltage) { minVoltage = v; }
 
-            voltage[bankNumber] += v;
-            if (jsondata.voltages[i] < bankmin[bankNumber]) { bankmin[bankNumber] = jsondata.voltages[i]; }
-            if (jsondata.voltages[i] > bankmax[bankNumber]) { bankmax[bankNumber] = jsondata.voltages[i]; }
-
-
             voltagesmin.push((parseFloat(jsondata.minvoltages[i]) / 1000.0));
             voltagesmax.push((parseFloat(jsondata.maxvoltages[i]) / 1000.0));
 
@@ -124,13 +109,9 @@ function queryBMS() {
             color = jsondata.bypasshot[i]==1 ? "#B44247" : null;
             tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
             tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]) });
-
             pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : jsondata.bypasspwm[i] });
-
         }
 
-        //});
-        //}
 
         //Scale down for low voltages
         if (minVoltage < 2.5) { minVoltage = 0; }
@@ -145,23 +126,33 @@ function queryBMS() {
             if (jsondata.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.roundtrip); $("#roundtrip").show(); }
         }
 
-        for (var bankNumber = 0; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
-            if (voltage[bankNumber] > 0) {
-                $("#voltage" + (bankNumber + 1) + " .v").html(voltage[bankNumber].toFixed(2) + "V");
-                var range = bankmax[bankNumber] - bankmin[bankNumber];
-                $("#range" + (bankNumber + 1) + " .v").html(range + "mV");
 
-                $("#voltage" + (bankNumber + 1)).show();
-                $("#range" + (bankNumber + 1)).show();
-            } else {
+        for (var bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
+            //if (jsondata.bankv[bankNumber] > 0) {
+            $("#voltage" + (bankNumber + 1) + " .v").html(
+            (parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2)
+            + "V");
+            $("#range" + (bankNumber + 1) + " .v").html(jsondata.voltrange[bankNumber] + "mV");
+
+            $("#voltage" + (bankNumber + 1)).show();
+            $("#range" + (bankNumber + 1)).show();
+            //}
+        }
+
+        for (var bankNumber = jsondata.bankv.length; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
                 $("#voltage" + (bankNumber + 1)).hide();
                 $("#range" + (bankNumber + 1)).hide();
-            }
         }
 
         //Not currently supported
-        $("#current").hide();
-        $("#current .v").html(current[0].toFixed(2));
+        if (jsondata.current) {
+            if (jsondata.current[0]==null) {
+                $("#current").hide();
+            } else {
+                $("#current .v").html((parseFloat(jsondata.current[0]) / 1000.0).toFixed(2));
+                $("#current").show();
+            }
+        }
 
         switch (jsondata.errorcode) {
             case INTERNALERRORCODE.NoError:
@@ -225,6 +216,11 @@ function queryBMS() {
 
         if ($('#homePage').is(':visible')) {
             if (g1 == null) {
+
+                if (!echarts) {
+                    alert('Graph library has not loaded correctly, please refresh the page.')
+                }
+
                 // based on prepared DOM, initialize echarts instance
                 g1 = echarts.init(document.getElementById('graph1'));
 

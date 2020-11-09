@@ -29,6 +29,10 @@ class Rules
 public:
     bool rule_outcome[RELAY_RULES];
     uint32_t packvoltage[maximum_number_of_banks];
+
+    uint16_t lowestvoltageinpack[maximum_number_of_banks];
+    uint16_t highestvoltageinpack[maximum_number_of_banks];
+
     uint8_t zeroVoltageModuleCount;
 
     uint32_t highestPackVoltage;
@@ -44,6 +48,7 @@ public:
     void ProcessCell(uint8_t bank, CellModuleInfo *c);
     void ProcessBank(uint8_t bank);
     void SetError(InternalErrorCode err);
+    uint16_t VoltageRangeInBank(uint8_t bank);
     void RunRules(
         uint32_t *value,
         uint32_t *hysteresisvalue,

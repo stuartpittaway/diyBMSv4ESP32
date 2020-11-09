@@ -6,6 +6,8 @@ void Rules::ClearValues()
     for (uint8_t r = 0; r < maximum_number_of_banks; r++)
     {
         packvoltage[r] = 0;
+        lowestvoltageinpack[r]=0xFFFF;
+        highestvoltageinpack[r]=0;
     }
 
     highestPackVoltage = 0;
@@ -29,6 +31,16 @@ void Rules::ProcessCell(uint8_t bank, CellModuleInfo *c)
     {
         zeroVoltageModuleCount++;
     }
+
+    if (c->voltagemV > highestvoltageinpack[bank])
+    {
+        highestvoltageinpack[bank] = c->voltagemV;
+    }
+    if (c->voltagemV < lowestvoltageinpack[bank])
+    {
+        lowestvoltageinpack[bank] = c->voltagemV;
+    }
+
 
     if (c->voltagemV > highestCellVoltage)
     {
@@ -55,6 +67,10 @@ void Rules::ProcessCell(uint8_t bank, CellModuleInfo *c)
             lowestExternalTemp = c->externalTemp;
         }
     }
+}
+
+uint16_t Rules::VoltageRangeInBank(uint8_t bank) {
+    return highestvoltageinpack[bank] -lowestvoltageinpack[bank];
 }
 
 void Rules::ProcessBank(uint8_t bank)

@@ -784,14 +784,32 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     voltages.add(cmi[i].voltagemV);
     minvoltages.add(cmi[i].voltagemVMin);
     maxvoltages.add(cmi[i].voltagemVMax);
-    inttemp.add(cmi[i].internalTemp);
-    exttemp.add(cmi[i].externalTemp);
+
+    if (cmi[i].internalTemp!=-40){  inttemp.add(cmi[i].internalTemp);} else { inttemp.add((char*)0);}
+    
+    if (cmi[i].externalTemp !=-40){exttemp.add( cmi[i].externalTemp ); } else { exttemp.add((char*)0);}
+    
     badpacket.add(cmi[i].badPacketCount);
     bypasspwm.add(cmi[i].inBypass ? cmi[i].PWMValue : 0);
     //Convert boolean to 1 or 0 to save bandwidth (every byte counts on this request)
     bypass.add(cmi[i].inBypass ? 1:0);
     bypasshot.add(cmi[i].bypassOverTemp ? 1:0);
   }
+
+  JsonArray bankvoltage = doc.createNestedArray("bankv");
+  JsonArray voltagerange = doc.createNestedArray("voltrange");
+  for (uint8_t b = 0; b < mysettings.totalNumberOfBanks; b++)
+  {
+    bankvoltage.add(rules.packvoltage[b]);
+    voltagerange.add(rules.VoltageRangeInBank(b));      
+  }
+
+  //Current reading in mA
+  JsonArray current = doc.createNestedArray("current");
+  //current.add(10000);
+  //NULL
+  current.add((char*)0);
+  
 
   serializeJson(doc, *response);
   request->send(response);

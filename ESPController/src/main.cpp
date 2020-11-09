@@ -315,14 +315,12 @@ void ProcessRules()
   {
     //System is configured with more than 128 modules - critical error abort!
     rules.SetError(InternalErrorCode::TooManyModules);
-    return;
   }
 
   if (receiveProc.totalModulesFound != totalConfiguredModules)
   {
     //Found more or less modules than configured for
     rules.SetError(InternalErrorCode::ModuleCountMismatch);
-    return;
   }
 
   uint8_t cellid = 0;
