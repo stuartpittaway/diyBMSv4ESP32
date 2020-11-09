@@ -498,7 +498,7 @@ void timerEnqueueCallback()
     prg.sendCellTemperatureRequest(startmodule, endmodule);
 
     //If any module is in bypass then request PWM reading for whole bank
-    for (uint8_t m = 0; m < maximum_cell_modules_per_packet; m++)
+    for (uint8_t m = startmodule; m < endmodule; m++)
     {
       if (cmi[m].inBypass)
       {

@@ -753,23 +753,60 @@ void DIYBMSServer::handleRestartController(AsyncWebServerRequest *request)
   ESP.restart();
 }
 
-void DIYBMSServer::monitor(AsyncWebServerRequest *request)
-{
-  
+void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
+{ 
   AsyncResponseStream *response = request->beginResponseStream("application/json");
 
-  //Allocate buffer large enough for 64 modules
-  const size_t capacity = JSON_ARRAY_SIZE(2) + JSON_ARRAY_SIZE(16) + JSON_ARRAY_SIZE(48) + 65*JSON_OBJECT_SIZE(10);
-  DynamicJsonDocument doc(capacity);
-
-  //JsonObject root = doc.to<JsonObject>();
+  DynamicJsonDocument doc(10000);
 
   doc["banks"] = mysettings.totalNumberOfBanks;
   doc["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
-
-  // Set error flag if we have attempted to send 2*number of banks without a reply
   doc["errorcode"] = rules.ErrorCode;
+  doc["sent"] = prg.packetsGenerated;
+  doc["received"] = receiveProc.packetsReceived;
+  doc["modulesfnd"] = receiveProc.totalModulesFound;
+  doc["badcrc"] = receiveProc.totalCRCErrors;
+  doc["ignored"] = receiveProc.totalNotProcessedErrors;
+  doc["roundtrip"] = receiveProc.packetTimerMillisecond;
 
+  JsonArray voltages = doc.createNestedArray("voltages");
+  JsonArray minvoltages = doc.createNestedArray("minvoltages");
+  JsonArray maxvoltages = doc.createNestedArray("maxvoltages");
+  JsonArray bypass = doc.createNestedArray("bypass");
+  JsonArray bypasshot = doc.createNestedArray("bypasshot");
+  JsonArray inttemp = doc.createNestedArray("inttemp");
+  JsonArray exttemp = doc.createNestedArray("exttemp");
+  JsonArray badpacket = doc.createNestedArray("badpacket");
+  JsonArray bypasspwm = doc.createNestedArray("bypasspwm");
+
+  for (uint8_t i = 0; i < mysettings.totalNumberOfBanks*mysettings.totalNumberOfSeriesModules; i++)
+  {
+    voltages.add(cmi[i].voltagemV);
+    minvoltages.add(cmi[i].voltagemVMin);
+    maxvoltages.add(cmi[i].voltagemVMax);
+    inttemp.add(cmi[i].internalTemp);
+    exttemp.add(cmi[i].externalTemp);
+    badpacket.add(cmi[i].badPacketCount);
+    bypasspwm.add(cmi[i].inBypass ? cmi[i].PWMValue : 0);
+    //Convert boolean to 1 or 0 to save bandwidth (every byte counts on this request)
+    bypass.add(cmi[i].inBypass ? 1:0);
+    bypasshot.add(cmi[i].bypassOverTemp ? 1:0);
+  }
+
+  serializeJson(doc, *response);
+  request->send(response);
+}
+
+/*
+void DIYBMSServer::monitor(AsyncWebServerRequest *request)
+{ 
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+
+  DynamicJsonDocument doc(10000);
+
+  doc["banks"] = mysettings.totalNumberOfBanks;
+  doc["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
+  doc["errorcode"] = rules.ErrorCode;
   doc["sent"] = prg.packetsGenerated;
   doc["received"] = receiveProc.packetsReceived;
   doc["modulesfnd"] = receiveProc.totalModulesFound;
@@ -805,9 +842,9 @@ void DIYBMSServer::monitor(AsyncWebServerRequest *request)
   serializeJson(doc, *response);
   request->send(response);
 
-    SERIAL_DEBUG.println(ESP.getFreeHeap());
-
+//    SERIAL_DEBUG.println(ESP.getFreeHeap());
 }
+*/
 
 String DIYBMSServer::TemplateProcessor(const String &var)
 {
@@ -845,7 +882,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
   _myserver->serveStatic("/files/", SPIFFS, "/files/").setCacheControl("max-age=600");
 
   //Read endpoints
-  _myserver->on("/monitor.json", HTTP_GET, DIYBMSServer::monitor);
+  //_myserver->on("/monitor.json", HTTP_GET, DIYBMSServer::monitor);
+  _myserver->on("/monitor2.json", HTTP_GET, DIYBMSServer::monitor2);
   _myserver->on("/integration.json", HTTP_GET, DIYBMSServer::integration);
   _myserver->on("/modules.json", HTTP_GET, DIYBMSServer::modules);
   _myserver->on("/identifyModule.json", HTTP_GET, DIYBMSServer::identifyModule);

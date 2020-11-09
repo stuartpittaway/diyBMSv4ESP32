@@ -1,9 +1,9 @@
 const INTERNALERRORCODE =
 {
-    NoError:0,
-    CommunicationsError:1,
-    ModuleCountMismatch:2,
-    TooManyModules:3
+    NoError: 0,
+    CommunicationsError: 1,
+    ModuleCountMismatch: 2,
+    TooManyModules: 3
 };
 Object.freeze(INTERNALERRORCODE);
 
@@ -59,7 +59,7 @@ function configureModule(button, cellid, attempts) {
 
 function queryBMS() {
 
-    $.getJSON("monitor.json", function (jsondata) {
+    $.getJSON("monitor2.json", function (jsondata) {
         var labels = [];
         var cells = [];
         var bank = [];
@@ -81,44 +81,56 @@ function queryBMS() {
         for (var bankNumber = 0; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
             voltage.push(0.0);
             current.push(0.0);
-            bankmin.push(5000);
+            bankmin.push(500000);
             bankmax.push(0);
         }
 
         var minVoltage = 2.5;
         var maxVoltage = 4.5;
 
-        for (var bankNumber = 0; bankNumber < jsondata.banks; bankNumber++) {
-            //Need to cater for banks of cells
-            $.each(jsondata.bank[bankNumber], function (index, value) {
-                var color = value.b ? "#B44247" : null;
+        var bankNumber = 0;
+        var cellsInBank = 0;
+        for (let i = 0; i < jsondata.voltages.length; i++) {
+            labels.push(bankNumber + "/" + i);
 
-                var v = (parseFloat(value.v) / 1000.0);
+            var color = jsondata.bypass[i]==1 ? "#B44247" : null;
 
-                //Auto scale graph is outside of normal bounds
-                if (v > maxVoltage) { maxVoltage = v; }
-                if (v < minVoltage) { minVoltage = v; }
+            var v = (parseFloat(jsondata.voltages[i]) / 1000.0);
+            voltages.push({ value: v, itemStyle: { color: color } });
 
-                voltages.push({ value: v, itemStyle: { color: color } });
-                voltagesmin.push((parseFloat(value.mv) / 1000.0));
-                voltagesmax.push((parseFloat(value.xv) / 1000.0));
+            //Auto scale graph is outside of normal bounds
+            if (v > maxVoltage) { maxVoltage = v; }
+            if (v < minVoltage) { minVoltage = v; }
 
-                bank.push(bankNumber);
-                cells.push(index);
-                badpktcount.push(value.badpkt);
-                labels.push(bankNumber + "/" + index);
+            voltage[bankNumber] += v;
+            if (jsondata.voltages[i] < bankmin[bankNumber]) { bankmin[bankNumber] = jsondata.voltages[i]; }
+            if (jsondata.voltages[i] > bankmax[bankNumber]) { bankmax[bankNumber] = jsondata.voltages[i]; }
 
-                color = value.bhot ? "#B44247" : null;
-                tempint.push({ value: value.int, itemStyle: { color: color } });
-                tempext.push({ value: (value.ext == -40 ? 0 : value.ext) });
 
-                pwm.push({ value: value.pwm == 0 ? null : value.pwm });
+            voltagesmin.push((parseFloat(jsondata.minvoltages[i]) / 1000.0));
+            voltagesmax.push((parseFloat(jsondata.maxvoltages[i]) / 1000.0));
 
-                voltage[bankNumber] += v;
-                if (value.v < bankmin[bankNumber]) { bankmin[bankNumber] = value.v; }
-                if (value.v > bankmax[bankNumber]) { bankmax[bankNumber] = value.v; }
-            });
+            bank.push(bankNumber);
+            cells.push(i);
+
+            badpktcount.push(jsondata.badpacket[i]);
+
+            cellsInBank++;
+            if (cellsInBank == jsondata.seriesmodules) {
+                cellsInBank = 0;
+                bankNumber++;
+            }
+
+            color = jsondata.bypasshot[i]==1 ? "#B44247" : null;
+            tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
+            tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]) });
+
+            pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : jsondata.bypasspwm[i] });
+
         }
+
+        //});
+        //}
 
         //Scale down for low voltages
         if (minVoltage < 2.5) { minVoltage = 0; }
@@ -151,27 +163,27 @@ function queryBMS() {
         $("#current").hide();
         $("#current .v").html(current[0].toFixed(2));
 
-        switch(jsondata.errorcode) {
-        case INTERNALERRORCODE.NoError:
-            $(".error").hide();            
-            $("#homePage").css({ opacity: 1.0 });
-        break;
+        switch (jsondata.errorcode) {
+            case INTERNALERRORCODE.NoError:
+                $(".error").hide();
+                $("#homePage").css({ opacity: 1.0 });
+                break;
 
-        case INTERNALERRORCODE.CommunicationsError:
-            $("#commserr").show();
-            //Dim the main home page graph
-            $("#homePage").css({ opacity: 0.1 });
-        break;
+            case INTERNALERRORCODE.CommunicationsError:
+                $("#commserr").show();
+                //Dim the main home page graph
+                $("#homePage").css({ opacity: 0.1 });
+                break;
 
-        case INTERNALERRORCODE.ModuleCountMismatch:
-            $("#missingmodules").show();
-            $("#missingmodule1").html(jsondata.modulesfnd);
-            $("#missingmodule2").html(jsondata.banks*jsondata.seriesmodules);
-        break;
+            case INTERNALERRORCODE.ModuleCountMismatch:
+                $("#missingmodules").show();
+                $("#missingmodule1").html(jsondata.modulesfnd);
+                $("#missingmodule2").html(jsondata.banks * jsondata.seriesmodules);
+                break;
 
-        case INTERNALERRORCODE.TooManyModules:
-            $("#toomanymodules").show();
-        break;
+            case INTERNALERRORCODE.TooManyModules:
+                $("#toomanymodules").show();
+                break;
         }
 
         $("#info").show();

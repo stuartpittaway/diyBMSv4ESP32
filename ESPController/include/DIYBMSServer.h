@@ -38,7 +38,8 @@ class DIYBMSServer {
       static String UUIDString;
 
       static void handleNotFound(AsyncWebServerRequest *request);
-      static void monitor(AsyncWebServerRequest *request);
+      static void monitor2(AsyncWebServerRequest *request);
+      //static void monitor(AsyncWebServerRequest *request);
       static void modules(AsyncWebServerRequest *request);
       static void integration(AsyncWebServerRequest *request);
       static void identifyModule(AsyncWebServerRequest *request);
