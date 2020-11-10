@@ -83,6 +83,7 @@ function queryBMS() {
 
         var bankNumber = 0;
         var cellsInBank = 0;
+        if (jsondata.voltages) {
         for (let i = 0; i < jsondata.voltages.length; i++) {
             labels.push(bankNumber + "/" + i);
 
@@ -114,6 +115,7 @@ function queryBMS() {
             tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]) });
             pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : jsondata.bypasspwm[i] });
         }
+    }
 
 
         //Scale down for low voltages
@@ -130,6 +132,7 @@ function queryBMS() {
         }
 
 
+        if (jsondata.bankv) {
         for (var bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
             //if (jsondata.bankv[bankNumber] > 0) {
             $("#voltage" + (bankNumber + 1) + " .v").html(
@@ -146,7 +149,7 @@ function queryBMS() {
                 $("#voltage" + (bankNumber + 1)).hide();
                 $("#range" + (bankNumber + 1)).hide();
         }
-
+    }
         //Not currently supported
         if (jsondata.current) {
             if (jsondata.current[0]==null) {
@@ -242,7 +245,7 @@ function queryBMS() {
                 var labelOption2 = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Fira Code' } };
                 var labelOption3 = { normal: { show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Fira Code' } };
                 var labelOption4 = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#807d7d', fontFamily: 'Fira Code' } };
-                var labelOptionBypass = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}%', fontSize: 14, color: '#807d7d', fontFamily: 'Fira Code' } };
+                //var labelOptionBypass = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}%', fontSize: 14, color: '#dbd81a', fontFamily: 'Fira Code' } };
 
                 // specify chart configuration item and data
                 var option = {
@@ -304,22 +307,10 @@ function queryBMS() {
                         max: 100,
                         interval: 10,
                         position: 'right',
-                        axisLabel: {
-                            formatter: '{value}%'
-
-                        },
+                        axisLabel: { formatter: '{value}%' },
                         splitLine: { show: false },
-                        axisLine: {
-
-                            lineStyle: {
-                                type: 'dotted',
-                                color: '#c1bdbd'
-                            }
-                        },
-                        axisTick: {
-                            show: false
-                        }
-
+                        axisLine: { lineStyle: { type: 'dotted', color: '#c1bdbd' } },
+                        axisTick: { show: false }
                     },
                     {
                         id: 2,
@@ -438,20 +429,13 @@ function queryBMS() {
                                     distance: 5,
                                     formatter: '{c}%',
                                     fontSize: 14,
-                                    color: '#807d7d',
+                                    color: '#f0e400',
                                     fontFamily: 'Fira Code'
                                 }
                             },
                             symbolSize: 16,
                             symbol: ['square'],
-                            itemStyle: {
-                                normal: {
-                                    color: "#807d7d",
-                                    lineStyle: {
-                                        color: 'transparent'
-                                    }
-                                }
-                            }
+                            itemStyle: { normal: { color: "#f0e400", lineStyle: { color: 'transparent' } } }
                         }
 
                         //Temperatures

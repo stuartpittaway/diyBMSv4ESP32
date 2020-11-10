@@ -8,7 +8,7 @@
 #define maximum_cell_modules_per_packet 16
 
 //Total number of cells a single controler can handle (memory limitation)
-#define maximum_controller_cell_modules 64
+#define maximum_controller_cell_modules 100
 
 //Maximum number of banks allowed
 //This also needs changing in default.htm (MAXIMUM_NUMBER_OF_BANKS)

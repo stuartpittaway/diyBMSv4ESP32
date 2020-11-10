@@ -22,8 +22,10 @@ enum InternalErrorCode : uint8_t
     ModuleCountMismatch=2,
     TooManyModules=3,
     WaitingForModulesToReply=4,
-    ZeroVoltModule=5
+    ZeroVoltModule=5,
+    ControllerMemoryError=6
 };
+
 
 class Rules
 {
