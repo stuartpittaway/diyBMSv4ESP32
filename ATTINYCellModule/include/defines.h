@@ -42,7 +42,7 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 enum COMMAND: uint8_t
 {
-    //SetBankIdentity=B00000000,
+    ResetBadPacketCounter = B00000000,
     ReadVoltageAndStatus=B00000001,
     Identify=B00000010,
     ReadTemperature=B00000011,

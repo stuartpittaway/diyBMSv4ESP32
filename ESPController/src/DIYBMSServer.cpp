@@ -133,6 +133,15 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
   if (!validateXSS(request))
     return;
 
+  //Ask modules to reset bad packet counters
+  prg.sendBadPacketCounterReset();
+
+  for (uint8_t i = 0; i < maximum_controller_cell_modules; i++)
+  {
+    cmi[i].badPacketCount = 0;
+  }
+
+  //Reset internal counters on CONTROLLER 
   receiveProc.totalCRCErrors = 0;
   receiveProc.totalNotProcessedErrors = 0;
   prg.packetsGenerated = 0;
@@ -507,6 +516,7 @@ void DIYBMSServer::clearModuleValues(uint8_t module)
   cmi[module].voltagemV = 0;
   cmi[module].voltagemVMin = 6000;
   cmi[module].voltagemVMax = 0;
+  cmi[module].badPacketCount = 0;
   cmi[module].inBypass = false;
   cmi[module].bypassOverTemp = false;
   cmi[module].internalTemp = -40;

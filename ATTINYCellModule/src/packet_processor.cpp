@@ -199,6 +199,9 @@ bool PacketProcessor::processPacket()
 {
   switch (buffer.command & 0x0F)
   {
+  case  COMMAND::ResetBadPacketCounter:
+    badpackets=0;
+    return true;
 
   case COMMAND::ReadVoltageAndStatus:
   {

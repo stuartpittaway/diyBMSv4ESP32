@@ -35,6 +35,8 @@ class PacketRequestGenerator {
      void sendCellTemperatureRequest(uint8_t startmodule,uint8_t endmodule);
      void sendReadBalancePowerRequest(uint8_t startmodule,uint8_t endmodule);
 
+     void sendBadPacketCounterReset();
+
      uint32_t packetsGenerated = 0;
      uint16_t QueueLength();
 

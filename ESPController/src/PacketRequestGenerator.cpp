@@ -129,6 +129,15 @@ void PacketRequestGenerator::sendReadBalancePowerRequest(uint8_t startmodule,uin
   pushPacketToQueue();
 }
 
+void PacketRequestGenerator::sendBadPacketCounterReset() 
+{
+  setPacketAddressBroadcast();
+  //Command 0
+  _packetbuffer.command = COMMAND::ResetBadPacketCounter;
+  clearmoduledata();
+  pushPacketToQueue();
+}
+
 void PacketRequestGenerator::pushPacketToQueue()
 {
   _requestq->push(&_packetbuffer);
