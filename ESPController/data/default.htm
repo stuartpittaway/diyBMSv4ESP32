@@ -477,6 +477,51 @@
             </form>
         </div>
 
+        <div class="region">
+            <h2>Display Settings</h2>
+            <form id="displaySettingForm" method="POST" action="savedisplaysetting.json" autocomplete="off">
+                <div class="settings">
+                    <div>
+                        <label for="VoltageHigh">Graph voltage scale (high)</label>
+                        <select name="VoltageHigh" id="VoltageHigh">
+                            <option>4.50</option>
+                            <option>4.25</option>
+                            <option>4.00</option>
+                            <option>3.75</option>
+                            <option>3.50</option>
+                            <option>3.25</option>
+                            <option>3.00</option>
+                            <option>2.75</option>
+                            <option>2.50</option>
+                            <option>2.25</option>
+                            <option>2.00</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="VoltageLow">Graph voltage scale (low)</label>
+                        <select name="VoltageLow" id="VoltageLow">
+                            <option>4.50</option>
+                            <option>4.25</option>
+                            <option>4.00</option>
+                            <option>3.75</option>
+                            <option>3.50</option>
+                            <option>3.25</option>
+                            <option>3.00</option>
+                            <option>2.75</option>
+                            <option>2.50</option>
+                            <option>2.25</option>
+                            <option>1.75</option>
+                            <option>1.50</option>
+                            <option>1.25</option>
+                            <option>1.00</option>
+                            <option>0.50</option>
+                            <option>0.00</option>
+                        </select>
+                    </div>
+                    <input type="submit" value="Save display settings" />
+                </div>
+            </form>
+        </div>
 
         <div class="region">
             <h2>Reset Error Counts</h2>
@@ -504,6 +549,9 @@
         var g3 = null;
         const MAXIMUM_NUMBER_OF_BANKS = 16;
         const MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET = 16;
+
+        var DEFAULT_GRAPH_MAX_VOLTAGE = %graph_voltagehigh%;
+        var DEFAULT_GRAPH_MIN_VOLTAGE = %graph_voltagelow%;
     </script>
     <script src="/files/echarts.min.js" integrity="sha256-eKrx6Ly6b0Rscx/PSm52rJsvK76RJyv18Toswq+OLSs=" crossorigin="anonymous" defer></script>
     <script src="/files/pagecode.js" crossorigin="anonymous"></script>
@@ -575,6 +623,9 @@
 
                 $("#banksForm").hide();
                 $("#settingsPage").show();
+
+                $("#VoltageHigh").val(DEFAULT_GRAPH_MAX_VOLTAGE.toFixed(2));
+                $("#VoltageLow").val(DEFAULT_GRAPH_MIN_VOLTAGE.toFixed(2));
 
                 $.getJSON("settings.json",
                     function (data) {
@@ -738,6 +789,26 @@
                     },
                 });
             });
+
+            
+            $("#displaySettingForm").unbind('submit').submit(function (e) {
+                e.preventDefault();
+
+                $.ajax({
+                    type: $(this).attr('method'),
+                    url: $(this).attr('action'),
+                    data: $(this).serialize(),
+                    success: function (data) {                       
+                        DEFAULT_GRAPH_MAX_VOLTAGE=parseFloat($("#VoltageHigh").val());
+                        DEFAULT_GRAPH_MIN_VOLTAGE=parseFloat($("#VoltageLow").val());
+                        $("#savesuccess").show().delay(2000).fadeOut(500);
+                    },
+                    error: function (data) {
+                        $("#saveerror").show().delay(2000).fadeOut(500);
+                    },
+                });
+            });
+
 
             $("#mqttEnabled").change(function () {
                 if ($(this).is(":checked")) {

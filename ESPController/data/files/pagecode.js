@@ -78,8 +78,8 @@ function queryBMS() {
         //var voltage = [];
         //var range = [];
 
-        var minVoltage = 2.5;
-        var maxVoltage = 4.5;
+        var minVoltage = DEFAULT_GRAPH_MIN_VOLTAGE;
+        var maxVoltage = DEFAULT_GRAPH_MAX_VOLTAGE;
 
         var bankNumber = 0;
         var cellsInBank = 0;

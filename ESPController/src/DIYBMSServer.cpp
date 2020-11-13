@@ -149,6 +149,32 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
   SendSuccess(request);
 }
 
+void DIYBMSServer::saveDisplaySetting(AsyncWebServerRequest *request) {
+  if (!validateXSS(request))
+    return;
+
+  if (request->hasParam("VoltageHigh", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("VoltageHigh", true);
+    mysettings.graph_voltagehigh = p1->value().toFloat();
+  }
+
+  if (request->hasParam("VoltageLow", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("VoltageLow", true);
+    mysettings.graph_voltagelow = p1->value().toFloat();
+  }
+
+  //Validate high is greater than low
+  if (mysettings.graph_voltagelow > mysettings.graph_voltagehigh) {
+    mysettings.graph_voltagelow=0;
+  }
+
+  Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
+
+  SendSuccess(request);
+}
+
 void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
 {
   if (!validateXSS(request))
@@ -909,6 +935,16 @@ String DIYBMSServer::TemplateProcessor(const String &var)
     return String("ESP32");
 #endif
 
+//  const DEFAULT_GRAPH_MAX_VOLTAGE = %graph_voltagehigh%;
+//  const DEFAULT_GRAPH_MIN_VOLTAGE = %graph_voltagelow%;
+
+  if (var == "graph_voltagehigh")
+    return String(mysettings.graph_voltagehigh);
+
+  if (var == "graph_voltagelow")
+    return String(mysettings.graph_voltagelow);
+
+
   return String();
 }
 
@@ -945,9 +981,11 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
   _myserver->on("/savebankconfig.json", HTTP_POST, DIYBMSServer::saveBankConfiguration);
   _myserver->on("/saverules.json", HTTP_POST, DIYBMSServer::saveRuleConfiguration);
   _myserver->on("/saventp.json", HTTP_POST, DIYBMSServer::saveNTP);
+  _myserver->on("/savedisplaysetting.json", HTTP_POST, DIYBMSServer::saveDisplaySetting);
 
   _myserver->on("/resetcounters.json", HTTP_POST, DIYBMSServer::resetCounters);
   _myserver->on("/restartcontroller.json", HTTP_POST, DIYBMSServer::handleRestartController);
+
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();

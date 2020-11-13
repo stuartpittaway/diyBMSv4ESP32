@@ -74,6 +74,9 @@ struct diybms_eeprom_settings
   //Default starting state for relay types
   uint8_t relaytype[RELAY_TOTAL];
 
+  float graph_voltagehigh;
+  float graph_voltagelow;
+
   int8_t timeZone;        // = 0;
   int8_t minutesTimeZone; // = 0;
   bool daylight;          //=false;

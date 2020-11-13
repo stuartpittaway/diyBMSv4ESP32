@@ -812,6 +812,9 @@ void LoadConfiguration()
   mysettings.mqtt_enabled = false;
   mysettings.mqtt_port = 1883;
 
+  mysettings.graph_voltagehigh=4.5;
+  mysettings.graph_voltagelow=2.75;
+
   //Default to EMONPI default MQTT settings
   strcpy(mysettings.mqtt_topic, "diybms");
   strcpy(mysettings.mqtt_server, "192.168.0.26");

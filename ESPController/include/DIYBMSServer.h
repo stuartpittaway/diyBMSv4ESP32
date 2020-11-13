@@ -61,6 +61,8 @@ class DIYBMSServer {
       static void saveRuleConfiguration(AsyncWebServerRequest *request);
       static void saveNTP(AsyncWebServerRequest *request);
 
+      static void saveDisplaySetting(AsyncWebServerRequest *request);
+
       static String uuidToString(uint8_t* uuidLocation);
 };
 
