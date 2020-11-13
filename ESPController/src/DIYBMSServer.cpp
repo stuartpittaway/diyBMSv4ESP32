@@ -452,12 +452,14 @@ void DIYBMSServer::saveGlobalSetting(AsyncWebServerRequest *request)
   {
 
     AsyncWebParameter *p1 = request->getParam("BypassOverTempShutdown", true);
-    uint8_t BypassOverTempShutdown = p1->value().toInt();
+    mysettings.BypassOverTempShutdown = p1->value().toInt();
 
     AsyncWebParameter *p2 = request->getParam("BypassThresholdmV", true);
-    uint16_t BypassThresholdmV = p2->value().toInt();
+    mysettings.BypassThresholdmV = p2->value().toInt();
 
-    prg.sendSaveGlobalSetting(BypassThresholdmV, BypassOverTempShutdown);
+    Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
+
+    prg.sendSaveGlobalSetting(mysettings.BypassThresholdmV, mysettings.BypassOverTempShutdown);
 
     //Just returns NULL
     SendSuccess(request);
@@ -641,6 +643,7 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   request->send(response);
 }
 
+
 #ifndef GIT_VERSION
 #error GIT_VERSION not defined
 #endif
@@ -659,6 +662,9 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
 
   settings["totalnumberofbanks"] = mysettings.totalNumberOfBanks;
   settings["totalseriesmodules"] = mysettings.totalNumberOfSeriesModules;
+
+  settings["bypassthreshold"] = mysettings.BypassThresholdmV;
+  settings["bypassovertemp"] = mysettings.BypassOverTempShutdown;
 
   settings["NTPServerName"] = mysettings.ntpServer;
   settings["TimeZone"] = mysettings.timeZone;
@@ -972,6 +978,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
   _myserver->on("/identifyModule.json", HTTP_GET, DIYBMSServer::identifyModule);
   _myserver->on("/settings.json", HTTP_GET, DIYBMSServer::settings);
   _myserver->on("/rules.json", HTTP_GET, DIYBMSServer::GetRules);
+  
 
   //POST method endpoints
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);

@@ -42,6 +42,7 @@ class DIYBMSServer {
       static void monitor2(AsyncWebServerRequest *request);
       //static void monitor(AsyncWebServerRequest *request);
       static void modules(AsyncWebServerRequest *request);
+      
       static void integration(AsyncWebServerRequest *request);
       static void identifyModule(AsyncWebServerRequest *request);
       static void GetRules(AsyncWebServerRequest *request);

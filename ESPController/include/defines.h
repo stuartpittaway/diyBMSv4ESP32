@@ -77,6 +77,10 @@ struct diybms_eeprom_settings
   float graph_voltagehigh;
   float graph_voltagelow;
 
+  uint8_t BypassOverTempShutdown;
+  uint16_t BypassThresholdmV;
+
+
   int8_t timeZone;        // = 0;
   int8_t minutesTimeZone; // = 0;
   bool daylight;          //=false;

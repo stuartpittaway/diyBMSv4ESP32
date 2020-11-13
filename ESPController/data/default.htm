@@ -612,7 +612,15 @@
                 $("#modulesRows").find("div").remove();
 
                 $("#settingConfig").hide();
-                $("#modulesPage").show();
+
+                $.getJSON("settings.json",
+                    function (data) {
+                        $("#g1").val(data.settings.bypassovertemp);                       
+                        $("#g2").val(data.settings.bypassthreshold);
+
+                        $("#modulesPage").show();
+                    }).fail(function () { }
+                );
                 return true;
             });
 
