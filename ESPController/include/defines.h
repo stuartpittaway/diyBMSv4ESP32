@@ -136,16 +136,15 @@ struct PacketStruct
 
 struct CellModuleInfo
 {
-  //TODO: These boolean values could be moved into bit's of a byte to save RAM
-
   //Used as part of the enquiry functions
-  bool settingsCached;
+  bool settingsCached:1;
   //Set to true once the module has replied with data
-  bool valid;
+  bool valid:1;
   //Bypass is active
-  bool inBypass;
+  bool inBypass:1;
   //Bypass active and temperature over set point
-  bool bypassOverTemp;
+  bool bypassOverTemp:1;
+
 
   uint16_t voltagemV;
   uint16_t voltagemVMin;

@@ -746,23 +746,26 @@ void sendMqttPacket()
   for (uint8_t i = mqttStartModule; i < mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks; i++)
   {
 
-    uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
-    uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
+    //Only send valid module data 
+    if (cmi[i].valid) {
+      uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
+      uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
 
-    StaticJsonDocument<100> doc;
-    doc["voltage"] = (float)cmi[i].voltagemV / 1000.0;
-    doc["inttemp"] = cmi[i].internalTemp;
-    doc["exttemp"] = cmi[i].externalTemp;
-    doc["bypass"] = cmi[i].inBypass ? 1 : 0;
-    serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+      StaticJsonDocument<100> doc;
+      doc["voltage"] = (float)cmi[i].voltagemV / 1000.0;
+      doc["inttemp"] = cmi[i].internalTemp;
+      doc["exttemp"] = cmi[i].externalTemp;
+      doc["bypass"] = cmi[i].inBypass ? 1 : 0;
+      serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
 
-    sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, module);
+      sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, module);
 
-    //SERIAL_DEBUG.print("Sending MQTT - ");
-    //SERIAL_DEBUG.println(topic);
+      //SERIAL_DEBUG.print("Sending MQTT - ");
+      //SERIAL_DEBUG.println(topic);
 
-    mqttClient.publish(topic, 0, false, jsonbuffer);
-    //SERIAL_DEBUG.println(topic);
+      mqttClient.publish(topic, 0, false, jsonbuffer);
+      //SERIAL_DEBUG.println(topic);
+    }
 
     counter++;
 
@@ -932,7 +935,7 @@ void timerLazyCallback()
   //Find the first module that doesn't have settings cached and request them
   for (uint8_t module = 0; module < (mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules); module++)
   {
-    if (!cmi[module].settingsCached)
+    if (cmi[module].valid && !cmi[module].settingsCached)
     {
       prg.sendGetSettingsRequest(module);
 
