@@ -1,7 +1,7 @@
 const INTERNALWARNINGCODE = {
     NoWarning: 0,
     ModuleInconsistantBypassVoltage: 1,
-    ModuleInconsistantBypassTemperature:2
+    ModuleInconsistantBypassTemperature: 2
 }
 
 const INTERNALERRORCODE =
@@ -174,7 +174,9 @@ function queryBMS() {
             case INTERNALWARNINGCODE.ModuleInconsistantBypassVoltage:
                 $("#warning1").show();
                 break;
-                
+            case INTERNALWARNINGCODE.ModuleInconsistantBypassTemperature:
+                $("#warning2").show();
+                break;
             default:
                 $("#genericwarning").show();
                 $("#genericwarningcode").html(jsondata.warningcode);
