@@ -310,11 +310,14 @@ void ProcessRules()
 {
   rules.ClearValues();
   rules.SetError(InternalErrorCode::NoError);
+  rules.SetWarning(InternalWarningCode::NoWarning);
+
+  
 
   uint16_t totalConfiguredModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
   if (totalConfiguredModules > maximum_controller_cell_modules)
   {
-    //System is configured with more than 128 modules - critical error abort!
+    //System is configured with more than maximum modules - abort!
     rules.SetError(InternalErrorCode::TooManyModules);
   }
 
@@ -347,6 +350,19 @@ void ProcessRules()
     for (int8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
     {
       rules.ProcessCell(bank, &cmi[cellid]);
+
+      if (cmi[cellid].valid && rules.WarningCode==InternalWarningCode::NoWarning) {
+
+        if (cmi[cellid].BypassThresholdmV!=mysettings.BypassThresholdmV) {
+          rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassVoltage);
+        }
+
+        if (cmi[cellid].BypassOverTempShutdown!=mysettings.BypassOverTempShutdown) {
+          rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassTemperature);
+        }
+
+      }
+
       cellid++;
     }
     rules.ProcessBank(bank);

@@ -92,6 +92,14 @@ void Rules::ProcessBank(uint8_t bank)
     }
 }
 
+void Rules::SetWarning(InternalWarningCode warncode) {
+    if (WarningCode!=warncode) {
+        WarningCode=warncode;
+        SERIAL_DEBUG.print("Warning State="); SERIAL_DEBUG.println(WarningCode);
+    }
+}
+
+
 void Rules::SetError(InternalErrorCode err) {
     if (ErrorCode!=err) {
         ErrorCode=err;

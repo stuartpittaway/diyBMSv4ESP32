@@ -812,6 +812,7 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     doc2["banks"] = mysettings.totalNumberOfBanks;
     doc2["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
     doc2["errorcode"] = InternalErrorCode::ControllerMemoryError;
+    doc2["warningcode"] = rules.WarningCode;
     doc2["sent"] = prg.packetsGenerated;
     doc2["received"] = receiveProc.packetsReceived;
     doc2["modulesfnd"] = receiveProc.totalModulesFound;
@@ -829,6 +830,7 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     doc["banks"] = mysettings.totalNumberOfBanks;
     doc["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
     doc["errorcode"] = rules.ErrorCode;
+    doc["warningcode"] = rules.WarningCode;
     doc["sent"] = prg.packetsGenerated;
     doc["received"] = receiveProc.packetsReceived;
     doc["modulesfnd"] = receiveProc.totalModulesFound;

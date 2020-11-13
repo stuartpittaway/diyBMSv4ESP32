@@ -32,8 +32,11 @@
     <div id='missingmodules' class='error'>Controller found <span id='missingmodule1'></span> modules, but is configured for <span id='missingmodule2'></span>.</div>
     <div id='toomanymodules' class='error'>Controller is configured to use more modules than it can cope with.</div>
     <div id='genericerror' class='error'>Controller error <span id="genericerrcode"></span></div>    
+    <div id='graphlibrary' class='error'>Graph library has failed to load correctly, please refresh page.</span></div>    
     <div id='saveerror' class='error'>Failed to save settings.</div>
     <div id='savesuccess' class='success'>Settings saved</div>
+    <div id='genericwarning' class='warning'>Controller warning <span id="genericwarningcode"></span></div>
+    <div id='warning1' class='warning'>Warning one or more modules are not configured with the same bypass voltage setting</span></div>
     <div id="info" class="info">
         <span id="voltages"></span>
         <span id="ranges"></span>
@@ -597,7 +600,15 @@
                 $(".header-right a").removeClass("active");
                 $(this).addClass("active");
                 $(".page").hide();
-                $("#aboutPage").show();
+
+                $.getJSON("settings.json",
+                    function (data) {
+                        $("#platformversion").text(data.settings.Version);
+
+                        $("#aboutPage").show();
+                    }).fail(function () { }
+                );
+                
                 return true;
             });
 
@@ -637,7 +648,6 @@
 
                 $.getJSON("settings.json",
                     function (data) {
-                        $("#platformversion").text(data.settings.Version);
 
                         $("#NTPServer").val(data.settings.NTPServerName);
                         $("#NTPZoneHour").val(data.settings.TimeZone);

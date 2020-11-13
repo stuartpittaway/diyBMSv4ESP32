@@ -15,6 +15,13 @@
 #define RULE_Timer2 8
 #define RULE_Timer1 9
 
+enum InternalWarningCode: uint8_t
+{
+     NoWarning=0,
+    ModuleInconsistantBypassVoltage=1,
+    ModuleInconsistantBypassTemperature=2
+};
+
 enum InternalErrorCode : uint8_t
 {
     NoError=0,
@@ -46,12 +53,14 @@ public:
     int8_t highestExternalTemp;
     int8_t lowestExternalTemp;
     InternalErrorCode ErrorCode;
+    InternalWarningCode WarningCode;
     bool moduleHasExternalTempSensor;
     uint8_t invalidModuleCount;
 
     void ClearValues();
     void ProcessCell(uint8_t bank, CellModuleInfo *c);
     void ProcessBank(uint8_t bank);
+    void SetWarning(InternalWarningCode warncode);
     void SetError(InternalErrorCode err);
     uint16_t VoltageRangeInBank(uint8_t bank);
     void RunRules(

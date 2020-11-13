@@ -23,6 +23,7 @@ form input[type='input'] {width:225px;}
 form input[type='submit'] {font-family:Arial,Helvetica,sans-serif;border:none;text-align:center;text-decoration:none;display:inline-block;font-size:14px;width:150pt;padding:10px;}
 .error {padding:10px;display:none; width:100%;}
 .success {padding:10px;display:none; width:100%;}
+.warning {padding:10px;display:none; width:100%;}
 .page {clear:both; width:100%; display:none;margin:5px;}
 .page .region {float:left;padding:10px;margin-right:10px;width:45%;}
 #modulesTable span {display:inline-block;}
@@ -61,6 +62,7 @@ body{background-color: white;}
 .ct-series-a .ct-bar {stroke:blue;}
 form input[type='submit'] {color:white;background-color:#1e90ff;}
 .error {color:#D8000C;background-color:#FFBABA;}
+.warning {color:#000000;background-color:#ff9933;}
 .success {color:#000000;background-color:#49BE3B;}
 #modulesTable .selected {background-color:#d3f9fa;}
 .triggered {background-color:#FFBABA;}
@@ -75,7 +77,8 @@ a {color:#e8e8e8;font-weight:bold;}
 a:visited {color:#e8e8e8;font-weight:bold;}
 .header{background-color:#414141}
 .error {color:#414141;background-color:#ca3e47;}
-.success {color:#414141;background-color:rgb(68, 145, 59);}
+.success {color:#414141;background-color:#44913b;}
+.warning {color:#414141;background-color:#dc7b1a;}
 .header a{color:#c1bdbd;}
 .header a:hover{background-color:#c1bdbd;color:#414141}
 .header a.active{background-color:#525252;color:#c1bdbd}

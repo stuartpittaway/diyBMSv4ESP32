@@ -1,11 +1,17 @@
+const INTERNALWARNINGCODE = {
+    NoWarning: 0,
+    ModuleInconsistantBypassVoltage: 1,
+    ModuleInconsistantBypassTemperature:2
+}
+
 const INTERNALERRORCODE =
 {
     NoError: 0,
     CommunicationsError: 1,
     ModuleCountMismatch: 2,
     TooManyModules: 3,
-    WaitingForModulesToReply:4,
-    ZeroVoltModule:5
+    WaitingForModulesToReply: 4,
+    ZeroVoltModule: 5
 
 };
 Object.freeze(INTERNALERRORCODE);
@@ -84,38 +90,38 @@ function queryBMS() {
         var bankNumber = 0;
         var cellsInBank = 0;
         if (jsondata.voltages) {
-        for (let i = 0; i < jsondata.voltages.length; i++) {
-            labels.push(bankNumber + "/" + i);
+            for (let i = 0; i < jsondata.voltages.length; i++) {
+                labels.push(bankNumber + "/" + i);
 
-            var color = jsondata.bypass[i]==1 ? "#B44247" : null;
+                var color = jsondata.bypass[i] == 1 ? "#B44247" : null;
 
-            var v = (parseFloat(jsondata.voltages[i]) / 1000.0);
-            voltages.push({ value: v, itemStyle: { color: color } });
+                var v = (parseFloat(jsondata.voltages[i]) / 1000.0);
+                voltages.push({ value: v, itemStyle: { color: color } });
 
-            //Auto scale graph is outside of normal bounds
-            if (v > maxVoltage) { maxVoltage = v; }
-            if (v < minVoltage) { minVoltage = v; }
+                //Auto scale graph is outside of normal bounds
+                if (v > maxVoltage) { maxVoltage = v; }
+                if (v < minVoltage) { minVoltage = v; }
 
-            voltagesmin.push((parseFloat(jsondata.minvoltages[i]) / 1000.0));
-            voltagesmax.push((parseFloat(jsondata.maxvoltages[i]) / 1000.0));
+                voltagesmin.push((parseFloat(jsondata.minvoltages[i]) / 1000.0));
+                voltagesmax.push((parseFloat(jsondata.maxvoltages[i]) / 1000.0));
 
-            bank.push(bankNumber);
-            cells.push(i);
+                bank.push(bankNumber);
+                cells.push(i);
 
-            badpktcount.push(jsondata.badpacket[i]);
+                badpktcount.push(jsondata.badpacket[i]);
 
-            cellsInBank++;
-            if (cellsInBank == jsondata.seriesmodules) {
-                cellsInBank = 0;
-                bankNumber++;
+                cellsInBank++;
+                if (cellsInBank == jsondata.seriesmodules) {
+                    cellsInBank = 0;
+                    bankNumber++;
+                }
+
+                color = jsondata.bypasshot[i] == 1 ? "#B44247" : null;
+                tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
+                tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]) });
+                pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : jsondata.bypasspwm[i] });
             }
-
-            color = jsondata.bypasshot[i]==1 ? "#B44247" : null;
-            tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
-            tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]) });
-            pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : jsondata.bypasspwm[i] });
         }
-    }
 
 
         //Scale down for low voltages
@@ -133,31 +139,46 @@ function queryBMS() {
 
 
         if (jsondata.bankv) {
-        for (var bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
-            //if (jsondata.bankv[bankNumber] > 0) {
-            $("#voltage" + (bankNumber + 1) + " .v").html(
-            (parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2)
-            + "V");
-            $("#range" + (bankNumber + 1) + " .v").html(jsondata.voltrange[bankNumber] + "mV");
+            for (var bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
+                //if (jsondata.bankv[bankNumber] > 0) {
+                $("#voltage" + (bankNumber + 1) + " .v").html(
+                    (parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2)
+                    + "V");
+                $("#range" + (bankNumber + 1) + " .v").html(jsondata.voltrange[bankNumber] + "mV");
 
-            $("#voltage" + (bankNumber + 1)).show();
-            $("#range" + (bankNumber + 1)).show();
-            //}
-        }
+                $("#voltage" + (bankNumber + 1)).show();
+                $("#range" + (bankNumber + 1)).show();
+                //}
+            }
 
-        for (var bankNumber = jsondata.bankv.length; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
+            for (var bankNumber = jsondata.bankv.length; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
                 $("#voltage" + (bankNumber + 1)).hide();
                 $("#range" + (bankNumber + 1)).hide();
+            }
         }
-    }
         //Not currently supported
         if (jsondata.current) {
-            if (jsondata.current[0]==null) {
+            if (jsondata.current[0] == null) {
                 $("#current").hide();
             } else {
                 $("#current .v").html((parseFloat(jsondata.current[0]) / 1000.0).toFixed(2));
                 $("#current").show();
             }
+        }
+
+
+        switch (jsondata.warningcode) {
+            case INTERNALWARNINGCODE.NoWarning:
+                $(".warning").hide();
+                break;
+            case INTERNALWARNINGCODE.ModuleInconsistantBypassVoltage:
+                $("#warning1").show();
+                break;
+                
+            default:
+                $("#genericwarning").show();
+                $("#genericwarningcode").html(jsondata.warningcode);
+                break;
         }
 
 
@@ -186,12 +207,12 @@ function queryBMS() {
             case INTERNALERRORCODE.TooManyModules:
                 $("#genericerrcode").html(jsondata.errorcode);
                 $("#genericerror").show();
-            break;
+                break;
+
             case INTERNALERRORCODE.ZeroVoltModule:
                 $("#genericerrcode").html(jsondata.errorcode);
                 $("#genericerror").show();
-            break;
-            
+                break;
         }
 
         $("#info").show();
@@ -232,14 +253,16 @@ function queryBMS() {
 
 
         if ($('#homePage').is(':visible')) {
-            if (g1 == null) {
+            if (window.g1 == null) {
 
-                if (!echarts) {
-                    alert('Graph library has not loaded correctly, please refresh the page.')
+                try {
+                    // based on prepared DOM, initialize echarts instance
+                    window.g1 = echarts.init(document.getElementById('graph1'));
+                }
+                catch (err) {
+                    $("#graphlibrary").show();
                 }
 
-                // based on prepared DOM, initialize echarts instance
-                g1 = echarts.init(document.getElementById('graph1'));
 
                 var labelOption = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Fira Code' } };
                 var labelOption2 = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Fira Code' } };
