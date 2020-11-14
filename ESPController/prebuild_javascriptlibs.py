@@ -8,7 +8,7 @@ import gzip
 
 Import("env")
 
-folder = "."+os.path.sep+'data'+os.path.sep+'files'+os.path.sep
+folder = "."+os.path.sep+'data_src'
 
 url = 'https://code.jquery.com/jquery-3.5.1.min.js'
 r = requests.get(url, allow_redirects=True)
