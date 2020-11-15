@@ -34,13 +34,15 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
    https://www.hackster.io/Aritro/getting-started-with-esp-nodemcu-using-arduinoide-aa7267
 */
 
+// PacketSerial library takes 1691ms round trip with 8 modules, 212ms per module @ 2400baud
+
 #include <Arduino.h>
 
 #ifndef GIT_VERSION
 #error GIT_VERSION not defined
 #endif
 
-#define PACKET_LOGGING
+//#define PACKET_LOGGING
 //#define RULES_LOGGING
 
 //Libraries just for ESP8266
@@ -61,7 +63,8 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #include <Ticker.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
-#include <PacketSerial.h>
+//#include <PacketSerial.h>
+#include "SerialEncoder.h"
 #include <cppQueue.h>
 #include <pcf8574_esp.h>
 #include <Wire.h>
@@ -119,9 +122,12 @@ PacketRequestGenerator prg = PacketRequestGenerator(&requestQueue);
 
 PacketReceiveProcessor receiveProc = PacketReceiveProcessor();
 
-#define framingmarker (uint8_t)0x00
+//#define framingmarker (uint8_t)B10101010
 
-PacketSerial_<COBS, framingmarker, 128> myPacketSerial;
+// Memory to hold in and out serial buffer
+uint8_t SerialPacketReceiveBuffer[2*sizeof(PacketStruct)];
+
+SerialEncoder myPacketSerial;
 
 #if defined(ESP8266)
 WiFiEventHandler wifiConnectHandler;
@@ -239,22 +245,21 @@ void processSyncEvent(NTPSyncEvent_t ntpEvent)
 }
 #endif
 
-void onPacketReceived(const uint8_t *receivebuffer, size_t len)
+void onPacketReceived()
 {
   //Note that this function gets called frequently with zero length packets
   //due to the way the modules operate
   GREEN_LED_ON;
 
-  if (len == sizeof(PacketStruct))
-  {
+  //if (len == sizeof(PacketStruct))  {
 
 #if defined(PACKET_LOGGING)
     // Process decoded incoming packet
     SERIAL_DEBUG.print("R:");
-    dumpPacketToDebug((PacketStruct *)receivebuffer);
+    dumpPacketToDebug((PacketStruct *)SerialPacketReceiveBuffer);
 #endif
 
-    if (!receiveProc.ProcessReply(receivebuffer, sequence))
+    if (!receiveProc.ProcessReply((PacketStruct *)SerialPacketReceiveBuffer))
     {
       SERIAL_DEBUG.print("**FAIL PROCESS REPLY**");
     }
@@ -262,7 +267,7 @@ void onPacketReceived(const uint8_t *receivebuffer, size_t len)
     SERIAL_DEBUG.println("");
     //SERIAL_DEBUG.print("Timing:");SERIAL_DEBUG.print(receiveProc.packetTimerMillisecond);SERIAL_DEBUG.println("ms");
 #endif
-  }
+  //}
 
   GREEN_LED_OFF;
 }
@@ -276,14 +281,15 @@ void timerTransmitCallback()
     PacketStruct transmitBuffer;
 
     //Wake up the connected cell module from sleep
-    SERIAL_DATA.write(framingmarker);
+    //SERIAL_DATA.write(framingmarker);
+    myPacketSerial.sendStartFrame();
     delay(3);
 
     requestQueue.pop(&transmitBuffer);
     sequence++;
     transmitBuffer.sequence = sequence;
     transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
-    myPacketSerial.send((byte *)&transmitBuffer, sizeof(transmitBuffer));
+    myPacketSerial.send((byte *)&transmitBuffer);//, sizeof(transmitBuffer));
 
     //Grab the time we sent this packet to time how long packets take to move
     //through the modules.  We only time the COMMAND::ReadVoltageAndStatus packets
@@ -1041,8 +1047,10 @@ void setup()
   SERIAL_DATA.swap();
 #endif
 
-  myPacketSerial.setStream(&SERIAL_DATA); // start serial for output
-  myPacketSerial.setPacketHandler(&onPacketReceived);
+
+  myPacketSerial.begin(&SERIAL_DATA,&onPacketReceived,sizeof(PacketStruct),SerialPacketReceiveBuffer,sizeof(SerialPacketReceiveBuffer));
+  //myPacketSerial.setStream(&SERIAL_DATA); // start serial for output
+  //myPacketSerial.setPacketHandler(&onPacketReceived);
 
   //Debug serial output
   SERIAL_DEBUG.begin(115200, SERIAL_8N1);

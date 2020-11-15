@@ -11,7 +11,7 @@ class PacketReceiveProcessor {
    public:
      PacketReceiveProcessor() {}
      ~PacketReceiveProcessor() {}
-     bool ProcessReply(const uint8_t* receivebuffer, uint16_t sequenceToExpect);
+     bool ProcessReply(PacketStruct * receivebuffer);
      bool HasCommsTimedOut();
      
      uint16_t totalCRCErrors=0;

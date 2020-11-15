@@ -26,7 +26,6 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 #include "packet_processor.h"
 
-
 //Returns TRUE if the internal thermistor is hotter than the required setting (or over max limit)
 bool PacketProcessor::BypassOverheatCheck()
 {
@@ -109,65 +108,54 @@ void PacketProcessor::TakeAnAnalogueReading(uint8_t mode)
   _hardware->BeginADCReading();
 }
 
-//Returns the memory address of the internal buffer
-byte *PacketProcessor::GetBufferPointer()
-{
-  return (byte *)&buffer;
-}
-
-//Returns the byte size of the internal buffer
-int PacketProcessor::GetBufferSize()
-{
-  return sizeof(buffer);
-}
-
 //Run when a new packet is received over serial
-bool PacketProcessor::onPacketReceived(const uint8_t *receivebuffer, size_t len)
+bool PacketProcessor::onPacketReceived(PacketStruct *receivebuffer)
 {
   // Process your decoded incoming packet here.
-  if (len == sizeof(buffer))
+  //if (len == sizeof(buffer))
+  //{
+
+  //Copy to our buffer (probably a better way to share memory than this)
+  //memcpy(&buffer, re1ceivebuffer, sizeof(PacketStruct));
+
+  //Calculate the CRC and compare to received
+  uint16_t validateCRC = CRC16::CalculateArray((unsigned char *)receivebuffer, sizeof(PacketStruct) - 2);
+
+  if (validateCRC == receivebuffer->crc)
   {
+    //TODO: We can probably get rid of mymoduleaddress
+    mymoduleaddress = receivebuffer->hops;
 
-    //Copy to our buffer (probably a better way to share memory than this)
-    memcpy(&buffer, receivebuffer, sizeof(buffer));
+    bool isPacketForMe = receivebuffer->start_address <= mymoduleaddress && receivebuffer->end_address >= mymoduleaddress;
 
-    //Calculate the CRC and compare to received
-    uint16_t validateCRC = CRC16::CalculateArray((unsigned char *)&buffer, sizeof(buffer) - 2);
+    //Increment the hops no matter what (on valid CRC)
+    receivebuffer->hops++;
 
-    if (validateCRC == buffer.crc)
+    bool commandProcessed = false;
+    //It's a good packet
+    if (isPacketForMe)
     {
-      //TODO: We can probably get rid of mymoduleaddress
-      mymoduleaddress=buffer.hops;
+      commandProcessed = processPacket(receivebuffer);
 
-      bool isPacketForMe=buffer.start_address<=mymoduleaddress && buffer.end_address>=mymoduleaddress;
-
-      //Increment the hops no matter what (on valid CRC)
-      buffer.hops++;
-
-      bool commandProcessed=false;
-      //It's a good packet
-      if (isPacketForMe)
+      if (commandProcessed)
       {
-        commandProcessed=processPacket();
-
-        if (commandProcessed)
-        {
-          //Set flag to indicate we processed packet (other modules may also do this)
-          buffer.command = buffer.command | B10000000;         
-        }
+        //Set flag to indicate we processed packet (other modules may also do this)
+        receivebuffer->command = receivebuffer->command | B10000000;
       }
-
-      //Calculate new checksum over whole buffer (as hops as increased)
-      buffer.crc = CRC16::CalculateArray((unsigned char *)&buffer, sizeof(buffer) - 2);
-
-      //Return false the packet was not for me (but still a valid packet)...
-      return commandProcessed;
     }
+
+    //Calculate new checksum over whole buffer (as hops as increased)
+    receivebuffer->crc = CRC16::CalculateArray((unsigned char *)receivebuffer, sizeof(PacketStruct) - 2);
+
+    //Return false the packet was not for me (but still a valid packet)...
+    return commandProcessed;
+    //}
   }
 
   //Clear the packet buffer on an invalid packet so the previous packet
   //is not re-transmitted issue #22
-  memset(&buffer, 0, sizeof(buffer));
+  //memset(&buffer, 0, sizeof(buffer));
+  receivebuffer->crc =0;
 
   //We need to do something here, the packet received was not correct
   badpackets++;
@@ -195,19 +183,19 @@ uint16_t PacketProcessor::RawADCValue()
 // X    = 1 bit indicate if packet processed
 // R    = 3 bits reserved not used
 // C    = 4 bits command (16 possible commands)
-bool PacketProcessor::processPacket()
+bool PacketProcessor::processPacket(PacketStruct *buffer)
 {
-  switch (buffer.command & 0x0F)
+  switch (buffer->command & 0x0F)
   {
-  case  COMMAND::ResetBadPacketCounter:
-    badpackets=0;
+  case COMMAND::ResetBadPacketCounter:
+    badpackets = 0;
     return true;
 
   case COMMAND::ReadVoltageAndStatus:
   {
     //Read voltage of VCC
     //Maximum voltage 8191mV
-    buffer.moduledata[mymoduleaddress] = CellVoltage() & 0x1FFF;
+    buffer->moduledata[mymoduleaddress] = CellVoltage() & 0x1FFF;
 
     //3 top bits
     //X = In bypass
@@ -217,13 +205,13 @@ bool PacketProcessor::processPacket()
     if (BypassOverheatCheck())
     {
       //Set bit
-      buffer.moduledata[mymoduleaddress] = buffer.moduledata[mymoduleaddress] | 0x4000;
+      buffer->moduledata[mymoduleaddress] = buffer->moduledata[mymoduleaddress] | 0x4000;
     }
 
     if (IsBypassActive())
     {
       //Set bit
-      buffer.moduledata[mymoduleaddress] = buffer.moduledata[mymoduleaddress] | 0x8000;
+      buffer->moduledata[mymoduleaddress] = buffer->moduledata[mymoduleaddress] | 0x8000;
     }
 
     return true;
@@ -240,7 +228,7 @@ bool PacketProcessor::processPacket()
   case COMMAND::ReadTemperature:
   {
     //Return the last known temperature values recorded by the ADC (both internal and external)
-    buffer.moduledata[mymoduleaddress] = TemperatureMeasurement();
+    buffer->moduledata[mymoduleaddress] = TemperatureMeasurement();
     return true;
   }
 
@@ -248,14 +236,14 @@ bool PacketProcessor::processPacket()
   {
     //Read the last PWM value
     //Use WeAreInBypass instead of IsByPassActive() as the later also includes the "settle" time
-    buffer.moduledata[mymoduleaddress] = WeAreInBypass ? (PWMValue & 0xFF) : 0;
+    buffer->moduledata[mymoduleaddress] = WeAreInBypass ? (PWMValue & 0xFF) : 0;
     return true;
   }
 
   case COMMAND::ReadBadPacketCounter:
   {
     //Report number of bad packets
-    buffer.moduledata[mymoduleaddress] = badpackets;
+    buffer->moduledata[mymoduleaddress] = badpackets;
     return true;
   }
 
@@ -265,25 +253,25 @@ bool PacketProcessor::processPacket()
 
     FLOATUNION_t myFloat;
     myFloat.number = (float)LOAD_RESISTANCE;
-    buffer.moduledata[0] = myFloat.word[0];
-    buffer.moduledata[1] = myFloat.word[1];
+    buffer->moduledata[0] = myFloat.word[0];
+    buffer->moduledata[1] = myFloat.word[1];
 
     myFloat.number = _config->Calibration;
-    buffer.moduledata[2] = myFloat.word[0];
-    buffer.moduledata[3] = myFloat.word[1];
+    buffer->moduledata[2] = myFloat.word[0];
+    buffer->moduledata[3] = myFloat.word[1];
 
     myFloat.number = (float)MV_PER_ADC;
-    buffer.moduledata[4] = myFloat.word[0];
-    buffer.moduledata[5] = myFloat.word[1];
+    buffer->moduledata[4] = myFloat.word[0];
+    buffer->moduledata[5] = myFloat.word[1];
 
-    buffer.moduledata[6] = _config->BypassTemperatureSetPoint;
-    buffer.moduledata[7] = _config->BypassThresholdmV;
-    buffer.moduledata[8] = INT_BCOEFFICIENT;
-    buffer.moduledata[9] = EXT_BCOEFFICIENT;
-    buffer.moduledata[10] = DIYBMSMODULEVERSION;
+    buffer->moduledata[6] = _config->BypassTemperatureSetPoint;
+    buffer->moduledata[7] = _config->BypassThresholdmV;
+    buffer->moduledata[8] = INT_BCOEFFICIENT;
+    buffer->moduledata[9] = EXT_BCOEFFICIENT;
+    buffer->moduledata[10] = DIYBMSMODULEVERSION;
 
     //Version of firmware.
-    buffer.moduledata[15] = MODULE_FIRMWARE_VERSION;
+    buffer->moduledata[15] = MODULE_FIRMWARE_VERSION;
     return true;
   }
 
@@ -291,15 +279,15 @@ bool PacketProcessor::processPacket()
   {
     FLOATUNION_t myFloat;
 
-    myFloat.word[0] = buffer.moduledata[0];
-    myFloat.word[1] = buffer.moduledata[1];
+    myFloat.word[0] = buffer->moduledata[0];
+    myFloat.word[1] = buffer->moduledata[1];
     //if (myFloat.number < 0xFFFF)
     //{
-//      _config->LoadResistance = myFloat.number;
+    //      _config->LoadResistance = myFloat.number;
     //}
 
-    myFloat.word[0] = buffer.moduledata[2];
-    myFloat.word[1] = buffer.moduledata[3];
+    myFloat.word[0] = buffer->moduledata[2];
+    myFloat.word[1] = buffer->moduledata[3];
     if (myFloat.number < 0xFFFF)
     {
       _config->Calibration = myFloat.number;
@@ -312,9 +300,9 @@ bool PacketProcessor::processPacket()
     //  _config->mVPerADC = (float)MV_PER_ADC;
     //}
 
-    if (buffer.moduledata[6] != 0xFF)
+    if (buffer->moduledata[6] != 0xFF)
     {
-      _config->BypassTemperatureSetPoint = buffer.moduledata[6];
+      _config->BypassTemperatureSetPoint = buffer->moduledata[6];
 
 #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
       //Keep temperature low for modules with R19 and R20 not swapped
@@ -325,18 +313,18 @@ bool PacketProcessor::processPacket()
 #endif
     }
 
-    if (buffer.moduledata[7] != 0xFFFF)
+    if (buffer->moduledata[7] != 0xFFFF)
     {
-      _config->BypassThresholdmV = buffer.moduledata[7];
+      _config->BypassThresholdmV = buffer->moduledata[7];
     }
     //if (buffer.moduledata[8] != 0xFFFF)
     //{
-//      _config->Internal_BCoefficient = buffer.moduledata[8];
+    //      _config->Internal_BCoefficient = buffer.moduledata[8];
     //}
 
     //if (buffer.moduledata[9] != 0xFFFF)
     //{
-//      _config->External_BCoefficient = buffer.moduledata[9];
+    //      _config->External_BCoefficient = buffer.moduledata[9];
     //}
 
     //Save settings

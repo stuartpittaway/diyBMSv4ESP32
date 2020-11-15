@@ -53,9 +53,7 @@ public:
   }
   ~PacketProcessor() {}
 
-  bool onPacketReceived(const uint8_t *receivebuffer, size_t len);
-  byte *GetBufferPointer();
-  int GetBufferSize();
+  bool onPacketReceived(PacketStruct *receivebuffer);
 
   void ADCReading(uint16_t value);
   void TakeAnAnalogueReading(uint8_t mode);
@@ -94,9 +92,9 @@ private:
   DiyBMSATTiny841 *_hardware;
   CellModuleConfig *_config;
 
-  PacketStruct buffer;
+  //PacketStruct buffer;
 
-  bool processPacket();
+  bool processPacket(PacketStruct *buffer);
 
   volatile bool ModuleAddressAssignedFlag = false;
   volatile uint8_t adcmode = 0;

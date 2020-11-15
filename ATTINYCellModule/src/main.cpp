@@ -37,22 +37,21 @@ You need to configure the correct DIYBMSMODULEVERSION in defines.h file to build
 
 //An Arduino Library that facilitates packet-based serial communication using COBS or SLIP encoding.
 //https://github.com/bakercp/PacketSerial
-#include <PacketSerial.h>
-
-#define framingmarker (uint8_t)0x00
-
-//Consistant byte stuffing mode
-//Use ZERO for packet header/terminator
-//64 byte buffer
-PacketSerial_<COBS, framingmarker, 64> myPacketSerial;
+//#include <PacketSerial.h>
 
 //Our project code includes
 #include "defines.h"
 #include "settings.h"
 #include <FastPID.h>
 
+#include "SerialEncoder.h"
 #include "diybms_attiny841.h"
 #include "packet_processor.h"
+
+
+uint8_t SerialPacketReceiveBuffer[8+sizeof(PacketStruct)];
+
+SerialEncoder myPacketSerial;
 
 //Default values which get overwritten by EEPROM on power up
 CellModuleConfig myConfig;
@@ -115,14 +114,13 @@ ISR(ADC_vect)
   PP.ADCReading(hardware.ReadADC());
 }
 
-void onPacketReceived(const uint8_t *receivebuffer, size_t len)
+void onPacketReceived()
 {
-
-  if (len > 0)
-  {
+  //if (len > 0)
+  //{
 
     //A data packet has just arrived, process it and forward the results to the next module
-    if (PP.onPacketReceived(receivebuffer, len))
+    if (PP.onPacketReceived((PacketStruct*)SerialPacketReceiveBuffer))
     {
       //Only light green if packet is good
       hardware.GreenLedOn();
@@ -132,13 +130,14 @@ void onPacketReceived(const uint8_t *receivebuffer, size_t len)
 
     //Wake up the connected cell module from sleep, send a framingmarker
     //byte which the receiver will ignore
-    Serial.write(framingmarker);
+    myPacketSerial.sendStartFrame();
+    //Serial.write(framingmarker);
     //Let connected module wake up
     hardware.FlushSerial0();
     //delay(1);
 
     //Send the packet (even if it was invalid so controller can count crc errors)
-    myPacketSerial.send(PP.GetBufferPointer(), PP.GetBufferSize());
+    myPacketSerial.send(SerialPacketReceiveBuffer);
 
     //DEBUG: Are there any known issues with Serial Flush causing a CPU to hang?
     hardware.FlushSerial0();
@@ -149,7 +148,7 @@ void onPacketReceived(const uint8_t *receivebuffer, size_t len)
     //At 2400bits per second, = 300 bytes per second = 1000ms/300bytes/sec= 3ms per byte
 
     hardware.DisableSerial0TX();
-  }
+  //}
 
   hardware.GreenLedOff();
 }
@@ -230,8 +229,10 @@ void setup()
   //Set up data handler
   Serial.begin(COMMS_BAUD_RATE, SERIAL_8N1);
 
-  myPacketSerial.setStream(&Serial);
-  myPacketSerial.setPacketHandler(&onPacketReceived);
+  myPacketSerial.begin(&Serial,&onPacketReceived,sizeof(PacketStruct),SerialPacketReceiveBuffer,sizeof(SerialPacketReceiveBuffer));
+
+  //myPacketSerial.setStream(&Serial);
+  //myPacketSerial.setPacketHandler(&onPacketReceived);
 }
 
 void StopBalance() {

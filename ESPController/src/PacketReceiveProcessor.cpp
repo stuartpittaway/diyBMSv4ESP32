@@ -9,8 +9,7 @@ bool PacketReceiveProcessor::HasCommsTimedOut() {
   return ((millisecondSinceLastPacket> 5*packetTimerMillisecond) && (millisecondSinceLastPacket > 5000));
 }
 
-bool PacketReceiveProcessor::ProcessReply(const uint8_t* receivebuffer,
-                                          uint16_t sequenceToExpect) {
+bool PacketReceiveProcessor::ProcessReply(PacketStruct * receivebuffer) {
   packetsReceived++;
 
 //TODO: VALIDATE REPLY START/END RANGES ARE VALID TO AVOID MEMORY BUFFER OVERRUNS
