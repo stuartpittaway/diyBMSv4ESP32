@@ -18,14 +18,27 @@ public:
 
     void update();
     void send(const uint8_t *buffer);
+    void processByte(uint8_t data);
     void sendStartFrame()
     {
         _stream->write(FrameStart);
     }
 
+/*
+    void debugByte(uint8_t data)
+    {
+        if (data <= 0x0F)
+        {
+            Serial1.write('0');
+        }
+        Serial1.print(data, HEX);
+        Serial1.write(' ');
+    }
+*/
 private:
+//Important that these two bytes don't have an empty high or low 4 bits 0x88 is good, 0x80 is bad
     const uint8_t FrameStart = B10101010;
-    const uint8_t FrameEscape = B10000000;
+    const uint8_t FrameEscape = 0x88;
 
     uint8_t _escapeNextBytes = 0;
     uint8_t _receiveBufferSize = 0;

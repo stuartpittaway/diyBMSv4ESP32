@@ -125,7 +125,7 @@ PacketReceiveProcessor receiveProc = PacketReceiveProcessor();
 //#define framingmarker (uint8_t)B10101010
 
 // Memory to hold in and out serial buffer
-uint8_t SerialPacketReceiveBuffer[2*sizeof(PacketStruct)];
+uint8_t SerialPacketReceiveBuffer[2 * sizeof(PacketStruct)];
 
 SerialEncoder myPacketSerial;
 
@@ -254,18 +254,18 @@ void onPacketReceived()
   //if (len == sizeof(PacketStruct))  {
 
 #if defined(PACKET_LOGGING)
-    // Process decoded incoming packet
-    SERIAL_DEBUG.print("R:");
-    dumpPacketToDebug((PacketStruct *)SerialPacketReceiveBuffer);
+  // Process decoded incoming packet
+  SERIAL_DEBUG.print("R:");
+  dumpPacketToDebug((PacketStruct *)SerialPacketReceiveBuffer);
 #endif
 
-    if (!receiveProc.ProcessReply((PacketStruct *)SerialPacketReceiveBuffer))
-    {
-      SERIAL_DEBUG.print("**FAIL PROCESS REPLY**");
-    }
+  if (!receiveProc.ProcessReply((PacketStruct *)SerialPacketReceiveBuffer))
+  {
+    SERIAL_DEBUG.print("**FAIL PROCESS REPLY**");
+  }
 #if defined(PACKET_LOGGING)
-    SERIAL_DEBUG.println("");
-    //SERIAL_DEBUG.print("Timing:");SERIAL_DEBUG.print(receiveProc.packetTimerMillisecond);SERIAL_DEBUG.println("ms");
+  SERIAL_DEBUG.println("");
+  //SERIAL_DEBUG.print("Timing:");SERIAL_DEBUG.print(receiveProc.packetTimerMillisecond);SERIAL_DEBUG.println("ms");
 #endif
   //}
 
@@ -288,8 +288,12 @@ void timerTransmitCallback()
     requestQueue.pop(&transmitBuffer);
     sequence++;
     transmitBuffer.sequence = sequence;
+
+transmitBuffer.moduledata[6]=B10101010;
+transmitBuffer.moduledata[7]=0x88;
+
     transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
-    myPacketSerial.send((byte *)&transmitBuffer);//, sizeof(transmitBuffer));
+    myPacketSerial.send((byte *)&transmitBuffer); //, sizeof(transmitBuffer));
 
     //Grab the time we sent this packet to time how long packets take to move
     //through the modules.  We only time the COMMAND::ReadVoltageAndStatus packets
@@ -318,8 +322,6 @@ void ProcessRules()
   rules.SetError(InternalErrorCode::NoError);
   rules.SetWarning(InternalWarningCode::NoWarning);
 
-  
-
   uint16_t totalConfiguredModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
   if (totalConfiguredModules > maximum_controller_cell_modules)
   {
@@ -333,22 +335,22 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::ModuleCountMismatch);
   }
 
-  if (rules.invalidModuleCount>0)
+  if (rules.invalidModuleCount > 0)
   {
     //Some modules are not yet valid
     rules.SetError(InternalErrorCode::WaitingForModulesToReply);
   }
 
   //Communications error...
-  if (receiveProc.HasCommsTimedOut()) {
-      rules.SetError(InternalErrorCode::CommunicationsError);
+  if (receiveProc.HasCommsTimedOut())
+  {
+    rules.SetError(InternalErrorCode::CommunicationsError);
   }
 
-    if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
+  if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
   {
     rules.SetError(InternalErrorCode::ZeroVoltModule);
   }
-
 
   uint8_t cellid = 0;
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
@@ -357,23 +359,24 @@ void ProcessRules()
     {
       rules.ProcessCell(bank, &cmi[cellid]);
 
-      if (cmi[cellid].valid && rules.WarningCode==InternalWarningCode::NoWarning) {
+      if (cmi[cellid].valid && rules.WarningCode == InternalWarningCode::NoWarning)
+      {
 
-        if (cmi[cellid].BypassThresholdmV!=mysettings.BypassThresholdmV) {
+        if (cmi[cellid].BypassThresholdmV != mysettings.BypassThresholdmV)
+        {
           rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassVoltage);
         }
 
-        if (cmi[cellid].BypassOverTempShutdown!=mysettings.BypassOverTempShutdown) {
+        if (cmi[cellid].BypassOverTempShutdown != mysettings.BypassOverTempShutdown)
+        {
           rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassTemperature);
         }
-
       }
 
       cellid++;
     }
     rules.ProcessBank(bank);
   }
-
 
   rules.RunRules(
       mysettings.rulevalue,
@@ -384,13 +387,12 @@ void ProcessRules()
   if (ControlState == ControllerState::Stabilizing)
   {
     //Check for zero volt modules - not a problem whilst we are in stabilizing start up mode
-    if (rules.zeroVoltageModuleCount == 0 && rules.invalidModuleCount==0)
+    if (rules.zeroVoltageModuleCount == 0 && rules.invalidModuleCount == 0)
     {
       //Every module has been read and they all returned a voltage move to running state
       SetControllerState(ControllerState::Running);
     }
   }
-
 }
 
 void timerSwitchPulsedRelay()
@@ -768,8 +770,9 @@ void sendMqttPacket()
   for (uint8_t i = mqttStartModule; i < mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks; i++)
   {
 
-    //Only send valid module data 
-    if (cmi[i].valid) {
+    //Only send valid module data
+    if (cmi[i].valid)
+    {
       uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
       uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
 
@@ -831,12 +834,12 @@ void LoadConfiguration()
   mysettings.totalNumberOfBanks = 1;
   mysettings.totalNumberOfSeriesModules = 1;
 
-  mysettings.BypassOverTempShutdown=65;
+  mysettings.BypassOverTempShutdown = 65;
   //4.10V bypass
-  mysettings.BypassThresholdmV=4100;
+  mysettings.BypassThresholdmV = 4100;
 
-  mysettings.graph_voltagehigh=4.5;
-  mysettings.graph_voltagelow=2.75;
+  mysettings.graph_voltagehigh = 4.5;
+  mysettings.graph_voltagelow = 2.75;
 
   //EEPROM settings are invalid so default configuration
   mysettings.mqtt_enabled = false;
@@ -1035,7 +1038,7 @@ void setup()
   resetAllRules();
 
 #if defined(ESP32)
-//Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
+  //Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
   SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1, 2, 32); // Serial for comms to modules
 #endif
 
@@ -1047,15 +1050,42 @@ void setup()
   SERIAL_DATA.swap();
 #endif
 
-
-  myPacketSerial.begin(&SERIAL_DATA,&onPacketReceived,sizeof(PacketStruct),SerialPacketReceiveBuffer,sizeof(SerialPacketReceiveBuffer));
+  myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
   //myPacketSerial.setStream(&SERIAL_DATA); // start serial for output
   //myPacketSerial.setPacketHandler(&onPacketReceived);
 
   //Debug serial output
   SERIAL_DEBUG.begin(115200, SERIAL_8N1);
   SERIAL_DEBUG.setDebugOutput(true);
+/*
+  myPacketSerial.processByte(0xAA);
+  myPacketSerial.processByte(0x00);
+  myPacketSerial.processByte(0x00);
+  myPacketSerial.processByte(0x81);
+  myPacketSerial.processByte(0x01);
 
+  myPacketSerial.processByte(0x80);
+  myPacketSerial.processByte(0xA0);
+  myPacketSerial.processByte(0x0A);
+
+  myPacketSerial.processByte(0x01);
+  myPacketSerial.processByte(0x01F);
+  myPacketSerial.processByte(0x0D);
+
+  SERIAL_DEBUG.println();
+  SERIAL_DEBUG.println();
+  SERIAL_DEBUG.println();
+  for (size_t i = 0; i < 20; i++)
+  {
+    myPacketSerial.debugByte(SerialPacketReceiveBuffer[i]);
+  }
+  SERIAL_DEBUG.println();
+
+  while (1 == 1)
+  {
+    yield();
+  }
+*/
   // initialize SPIFFS
   if (!SPIFFS.begin())
   {
