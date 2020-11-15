@@ -141,7 +141,7 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
     cmi[i].badPacketCount = 0;
   }
 
-  //Reset internal counters on CONTROLLER 
+  //Reset internal counters on CONTROLLER
   receiveProc.totalCRCErrors = 0;
   receiveProc.totalNotProcessedErrors = 0;
   prg.packetsGenerated = 0;
@@ -149,7 +149,8 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
   SendSuccess(request);
 }
 
-void DIYBMSServer::saveDisplaySetting(AsyncWebServerRequest *request) {
+void DIYBMSServer::saveDisplaySetting(AsyncWebServerRequest *request)
+{
   if (!validateXSS(request))
     return;
 
@@ -166,8 +167,9 @@ void DIYBMSServer::saveDisplaySetting(AsyncWebServerRequest *request) {
   }
 
   //Validate high is greater than low
-  if (mysettings.graph_voltagelow > mysettings.graph_voltagehigh) {
-    mysettings.graph_voltagelow=0;
+  if (mysettings.graph_voltagelow > mysettings.graph_voltagehigh)
+  {
+    mysettings.graph_voltagelow = 0;
   }
 
   Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
@@ -461,6 +463,17 @@ void DIYBMSServer::saveGlobalSetting(AsyncWebServerRequest *request)
 
     prg.sendSaveGlobalSetting(mysettings.BypassThresholdmV, mysettings.BypassOverTempShutdown);
 
+    uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
+
+    for (uint8_t i = 0; i < totalModules; i++)
+    {
+      if (cmi[i].valid)
+      {
+        cmi[i].BypassThresholdmV = mysettings.BypassThresholdmV;
+        cmi[i].BypassOverTempShutdown = mysettings.BypassOverTempShutdown;
+      }
+    }
+
     //Just returns NULL
     SendSuccess(request);
   }
@@ -642,7 +655,6 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   serializeJson(doc, *response);
   request->send(response);
 }
-
 
 #ifndef GIT_VERSION
 #error GIT_VERSION not defined
@@ -841,7 +853,7 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     //doc["FreeHeap"]=ESP.getFreeHeap();
     //doc["FreeBlockSize"]=ESP.getMaxFreeBlockSize();
 
-    uint8_t totalModules=mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
+    uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
 
     JsonArray voltages = doc.createNestedArray("voltages");
 
@@ -861,11 +873,12 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
       {
         voltages.add(cmi[i].voltagemV);
 
-        if (totalModules<=64) {
-            //To preserve memory, only return these parameters when there are less than =64 modules
-            minvoltages.add(cmi[i].voltagemVMin);
-            maxvoltages.add(cmi[i].voltagemVMax);
-            badpacket.add(cmi[i].badPacketCount);
+        if (totalModules <= 64)
+        {
+          //To preserve memory, only return these parameters when there are less than =64 modules
+          minvoltages.add(cmi[i].voltagemVMin);
+          maxvoltages.add(cmi[i].voltagemVMax);
+          badpacket.add(cmi[i].badPacketCount);
         }
 
         if (cmi[i].internalTemp != -40)
@@ -895,7 +908,8 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
       {
         //Module is not yet valid so return null values...
         voltages.add((char *)0);
-        if (totalModules<=64) {
+        if (totalModules <= 64)
+        {
           minvoltages.add((char *)0);
           maxvoltages.add((char *)0);
           badpacket.add(0);
@@ -943,15 +957,14 @@ String DIYBMSServer::TemplateProcessor(const String &var)
     return String("ESP32");
 #endif
 
-//  const DEFAULT_GRAPH_MAX_VOLTAGE = %graph_voltagehigh%;
-//  const DEFAULT_GRAPH_MIN_VOLTAGE = %graph_voltagelow%;
+  //  const DEFAULT_GRAPH_MAX_VOLTAGE = %graph_voltagehigh%;
+  //  const DEFAULT_GRAPH_MIN_VOLTAGE = %graph_voltagelow%;
 
   if (var == "graph_voltagehigh")
     return String(mysettings.graph_voltagehigh);
 
   if (var == "graph_voltagelow")
     return String(mysettings.graph_voltagelow);
-
 
   return String();
 }
@@ -980,7 +993,6 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
   _myserver->on("/identifyModule.json", HTTP_GET, DIYBMSServer::identifyModule);
   _myserver->on("/settings.json", HTTP_GET, DIYBMSServer::settings);
   _myserver->on("/rules.json", HTTP_GET, DIYBMSServer::GetRules);
-  
 
   //POST method endpoints
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);
@@ -994,7 +1006,6 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
 
   _myserver->on("/resetcounters.json", HTTP_POST, DIYBMSServer::resetCounters);
   _myserver->on("/restartcontroller.json", HTTP_POST, DIYBMSServer::handleRestartController);
-
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();

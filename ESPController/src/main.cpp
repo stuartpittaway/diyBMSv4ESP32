@@ -999,8 +999,10 @@ void setup()
 
   //Serial is used for communication to modules, SERIAL_DEBUG is for debug output
   pinMode(GREEN_LED, OUTPUT);
+#if defined(ESP8266)
   //D3 is used to reset access point WIFI details on boot up
   pinMode(RESET_WIFI_PIN, INPUT_PULLUP);
+#endif
   //D5 is interrupt pin from PCF8574
   pinMode(PFC_INTERRUPT_PIN, INPUT_PULLUP);
 
@@ -1026,9 +1028,13 @@ void setup()
 
   resetAllRules();
 
-  SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1); // Serial for comms to modules
+#if defined(ESP32)
+//Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
+  SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1, 2, 32); // Serial for comms to modules
+#endif
 
 #if defined(ESP8266)
+  SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1); // Serial for comms to modules
   //Use alternative GPIO pins of D7/D8
   //D7 = GPIO13 = RECEIVE SERIAL
   //D8 = GPIO15 = TRANSMIT SERIAL
