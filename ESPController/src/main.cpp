@@ -289,11 +289,12 @@ void timerTransmitCallback()
     sequence++;
     transmitBuffer.sequence = sequence;
 
-transmitBuffer.moduledata[6]=B10101010;
-transmitBuffer.moduledata[7]=0x88;
+    //TODO: REMOVE THIS DEBUG!
+    //transmitBuffer.moduledata[6]=0xAA;
+    //transmitBuffer.moduledata[7]=0x88;
 
     transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
-    myPacketSerial.send((byte *)&transmitBuffer); //, sizeof(transmitBuffer));
+    myPacketSerial.sendBuffer((byte *)&transmitBuffer); //, sizeof(transmitBuffer));
 
     //Grab the time we sent this packet to time how long packets take to move
     //through the modules.  We only time the COMMAND::ReadVoltageAndStatus packets
@@ -359,17 +360,15 @@ void ProcessRules()
     {
       rules.ProcessCell(bank, &cmi[cellid]);
 
-      if (cmi[cellid].valid && rules.WarningCode == InternalWarningCode::NoWarning)
+      if (cmi[cellid].valid && cmi[cellid].settingsCached && rules.WarningCode == InternalWarningCode::NoWarning)
       {
-
-        if (cmi[cellid].BypassThresholdmV != mysettings.BypassThresholdmV)
-        {
-          rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassVoltage);
-        }
-
         if (cmi[cellid].BypassOverTempShutdown != mysettings.BypassOverTempShutdown)
         {
           rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassTemperature);
+        }
+        else if (cmi[cellid].BypassThresholdmV != mysettings.BypassThresholdmV)
+        {
+          rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassVoltage);
         }
       }
 
@@ -1057,7 +1056,7 @@ void setup()
   //Debug serial output
   SERIAL_DEBUG.begin(115200, SERIAL_8N1);
   SERIAL_DEBUG.setDebugOutput(true);
-/*
+  /*
   myPacketSerial.processByte(0xAA);
   myPacketSerial.processByte(0x00);
   myPacketSerial.processByte(0x00);
@@ -1173,7 +1172,7 @@ void loop()
   // Call update to receive, decode and process incoming packets.
   if (SERIAL_DATA.available())
   {
-    myPacketSerial.update();
+    myPacketSerial.checkInputStream();
   }
 
   if (ConfigHasChanged > 0)

@@ -130,14 +130,14 @@ void onPacketReceived()
 
     //Wake up the connected cell module from sleep, send a framingmarker
     //byte which the receiver will ignore
-    myPacketSerial.sendStartFrame();
-    //Serial.write(framingmarker);
+    //myPacketSerial.sendStartFrame();
+    Serial.write((uint8_t)0x00);
     //Let connected module wake up
     hardware.FlushSerial0();
     //delay(1);
 
     //Send the packet (even if it was invalid so controller can count crc errors)
-    myPacketSerial.send(SerialPacketReceiveBuffer);
+    myPacketSerial.sendBuffer(SerialPacketReceiveBuffer);
 
     //DEBUG: Are there any known issues with Serial Flush causing a CPU to hang?
     hardware.FlushSerial0();
@@ -416,7 +416,7 @@ void loop()
       delay(10);
 
       // Call update to receive, decode and process incoming packets.
-      myPacketSerial.update();
+      myPacketSerial.checkInputStream();
     }
   }
 

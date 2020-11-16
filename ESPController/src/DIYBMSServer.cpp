@@ -142,10 +142,10 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
   }
 
   //Reset internal counters on CONTROLLER
-  receiveProc.totalCRCErrors = 0;
-  receiveProc.totalNotProcessedErrors = 0;
+  receiveProc.ResetCounters();
+
   prg.packetsGenerated = 0;
-  receiveProc.packetsReceived = 0;
+
   SendSuccess(request);
 }
 
@@ -831,6 +831,7 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     doc2["badcrc"] = receiveProc.totalCRCErrors;
     doc2["ignored"] = receiveProc.totalNotProcessedErrors;
     doc2["roundtrip"] = receiveProc.packetTimerMillisecond;
+    doc2["oos"] = receiveProc.totalOutofSequenceErrors;
 
     serializeJson(doc2, *response);
     request->send(response);
@@ -849,6 +850,7 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     doc["badcrc"] = receiveProc.totalCRCErrors;
     doc["ignored"] = receiveProc.totalNotProcessedErrors;
     doc["roundtrip"] = receiveProc.packetTimerMillisecond;
+    doc["oos"] = receiveProc.totalOutofSequenceErrors;
 
     //doc["FreeHeap"]=ESP.getFreeHeap();
     //doc["FreeBlockSize"]=ESP.getMaxFreeBlockSize();

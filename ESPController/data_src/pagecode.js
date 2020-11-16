@@ -136,6 +136,8 @@ function queryBMS() {
             if (jsondata.sent == 0) { $("#sent").hide(); } else { $("#sent .v").html(jsondata.sent); $("#sent").show(); }
             if (jsondata.received == 0) { $("#received").hide(); } else { $("#received .v").html(jsondata.received); $("#received").show(); }
             if (jsondata.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.roundtrip); $("#roundtrip").show(); }
+
+            if (jsondata.oos == 0) { $("#oos").hide(); } else { $("#oos .v").html(jsondata.oos); $("#oos").show(); }
         }
 
 

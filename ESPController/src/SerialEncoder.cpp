@@ -2,26 +2,27 @@
 
 void SerialEncoder::processByte(uint8_t data)
 {
-    //debugByte(data);
+    debugByte(data);
 
     if (data == FrameStart)
     {
-        //Serial1.print(" FrameStart ");
+        Serial1.print("[FS] ");
         //Its a new frame so start at begining of buffer
-        _receiveBufferIndex = 0;
-        _escapeNextByte = false;
-        _startByteReceived=true;
+        reset();
+        _startByteReceived = true;
         return;
     }
 
-    if (!_startByteReceived) {
+    if (!_startByteReceived)
+    {
         //Ignore all bytes until the start frame is detected
+        Serial1.println("[ignored]");
         return;
     }
 
     if (data == FrameEscape)
     {
-        //Serial1.print("_");
+        Serial1.print("[FE] ");
         //Escape the next byte, and ignore this byte
         _escapeNextByte = true;
         return;
@@ -29,49 +30,39 @@ void SerialEncoder::processByte(uint8_t data)
 
     if (_escapeNextByte)
     {
-        //Serial1.print("_");
+        Serial1.print("_");
         //Add the BIT back on to the encoded data
         data = (data | FrameMaskInvert);
-
-        //Serial1.print("[");        debugByte(data);        Serial1.print("]");
-
-        _escapeNextByte=false;
+        Serial1.print("[");        debugByte(data);        Serial1.print("]");
     }
 
-    if (!_escapeNextByte)
-    {
-        //Simple raw byte
-        _receiveBufferPtr[_receiveBufferIndex] = data;
-        _receiveBufferIndex++;
-    }
+    //Simple raw byte
+    _receiveBufferPtr[_receiveBufferIndex] = data;
+    _receiveBufferIndex++;
+    _escapeNextByte = false;
 
     //Now check if we have received the whole packet?
     if (_receiveBufferIndex == _packetSizeBytes)
     {
         //We have received an entire packet, so callback
+        Serial1.println("[callback]");
         _onPacketReceivedFunction();
-        _receiveBufferIndex = 0;
-        _escapeNextByte = false;
-        _startByteReceived=false;
+        reset();
         return;
     }
-    
-    
+
     if (_receiveBufferIndex == _receiveBufferSize)
     {
         //About to over flow, so abort data packet, and reset
-        _receiveBufferIndex = 0;
-        _escapeNextByte=false;
-        _startByteReceived=false;
+        reset();
+        Serial1.println("[overflow]");
     }
 }
 
 // Checks stream for new bytes to arrive and processes them as needed
-void SerialEncoder::update()
+void SerialEncoder::checkInputStream()
 {
-    if (_stream == nullptr)
-        return;
-    if (_receiveBufferPtr == nullptr)
+    if (_stream == nullptr || _receiveBufferPtr == nullptr)
         return;
 
     while (_stream->available() > 0)
@@ -81,9 +72,8 @@ void SerialEncoder::update()
 }
 
 // Sends a buffer (fixed length)
-void SerialEncoder::send(const uint8_t *buffer)
+void SerialEncoder::sendBuffer(const uint8_t *buffer)
 {
-
     //Serial1.println();    Serial1.print("Send:");
 
     if (_stream == nullptr || buffer == nullptr)
