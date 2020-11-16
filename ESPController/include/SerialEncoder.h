@@ -24,7 +24,7 @@ public:
         sendByte(FrameStart);
     }
 
-    
+/*    
     void debugByte(uint8_t data)
     {
         if (data <= 0x0F)
@@ -34,7 +34,7 @@ public:
         Serial1.print(data, HEX);
         Serial1.write(' ');
     }
-
+*/
 
 private:
     //Important that these two bytes have the HIGHEST bit set, as this is cleared and added back in as part of the encoding

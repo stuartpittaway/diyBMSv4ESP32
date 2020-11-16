@@ -2,11 +2,11 @@
 
 void SerialEncoder::processByte(uint8_t data)
 {
-    debugByte(data);
+    //debugByte(data);
 
     if (data == FrameStart)
     {
-        Serial1.print("[FS] ");
+        //Serial1.print("[FS] ");
         //Its a new frame so start at begining of buffer
         reset();
         _startByteReceived = true;
@@ -16,13 +16,13 @@ void SerialEncoder::processByte(uint8_t data)
     if (!_startByteReceived)
     {
         //Ignore all bytes until the start frame is detected
-        Serial1.println("[ignored]");
+        //Serial1.println("[ignored]");
         return;
     }
 
     if (data == FrameEscape)
     {
-        Serial1.print("[FE] ");
+        //Serial1.print("[FE] ");
         //Escape the next byte, and ignore this byte
         _escapeNextByte = true;
         return;
@@ -30,10 +30,10 @@ void SerialEncoder::processByte(uint8_t data)
 
     if (_escapeNextByte)
     {
-        Serial1.print("_");
+        //Serial1.print("_");
         //Add the BIT back on to the encoded data
         data = (data | FrameMaskInvert);
-        Serial1.print("[");        debugByte(data);        Serial1.print("]");
+        //Serial1.print("[");        debugByte(data);        Serial1.print("]");
     }
 
     //Simple raw byte
@@ -45,7 +45,7 @@ void SerialEncoder::processByte(uint8_t data)
     if (_receiveBufferIndex == _packetSizeBytes)
     {
         //We have received an entire packet, so callback
-        Serial1.println("[callback]");
+        //Serial1.println("[callback]");
         _onPacketReceivedFunction();
         reset();
         return;
@@ -55,7 +55,7 @@ void SerialEncoder::processByte(uint8_t data)
     {
         //About to over flow, so abort data packet, and reset
         reset();
-        Serial1.println("[overflow]");
+        //Serial1.println("[overflow]");
     }
 }
 
