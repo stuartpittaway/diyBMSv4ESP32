@@ -19,9 +19,14 @@ public:
     void update();
     void send(const uint8_t *buffer);
     void processByte(uint8_t data);
+
+    void sendByte(uint8_t data) {
+        //debugByte(data);
+        _stream->write(data);
+    }
     void sendStartFrame()
     {
-        _stream->write(FrameStart);
+        sendByte(FrameStart);
     }
 
 /*
@@ -35,17 +40,31 @@ public:
         Serial1.write(' ');
     }
 */
-private:
-//Important that these two bytes don't have an empty high or low 4 bits 0x88 is good, 0x80 is bad
-    const uint8_t FrameStart = B10101010;
-    const uint8_t FrameEscape = 0x88;
 
-    uint8_t _escapeNextBytes = 0;
+private:
+//Important that these two bytes have the HIGHEST bit set, as this is cleared and added back in as part of the encoding
+    const uint8_t FrameStart = B10101010;
+    const uint8_t FrameEscape = B10001000;
+    const uint8_t FrameMask = B01111111;
+    const uint8_t FrameMaskInvert = B10000000;
+
+    //Is the next received byte to be treated as encoded
+    bool _escapeNextByte = false;
+    //TRUE when we receive a valid start frame byte
+    bool _startByteReceived=false;
+
+    //Total size of the receive buffer
     uint8_t _receiveBufferSize = 0;
+    //Pointer to start of receive buffer (byte array)
     uint8_t *_receiveBufferPtr = nullptr;
+    //Index into receive buffer of current position
     uint8_t _receiveBufferIndex = 0;
 
+    //Send/Receive stream
     Stream *_stream = nullptr;
+    //Size of a valid fixed length packet of data
     uint8_t _packetSizeBytes = 0;
+
+    //Call back function after _packetSizeBytes have been received
     PacketHandlerFunction _onPacketReceivedFunction = nullptr;
 };

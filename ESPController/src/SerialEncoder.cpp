@@ -2,48 +2,67 @@
 
 void SerialEncoder::processByte(uint8_t data)
 {
+    //debugByte(data);
+
     if (data == FrameStart)
     {
+        //Serial1.print(" FrameStart ");
         //Its a new frame so start at begining of buffer
         _receiveBufferIndex = 0;
-    }
-    else if (data == FrameEscape)
-    {
-        //Escape the next two bytes
-        _escapeNextBytes = 2;
-    }
-    else
-    {
-        if (_escapeNextBytes == 2)
-        {
-            _receiveBufferPtr[_receiveBufferIndex] = data;
-            _escapeNextBytes--;
-        }
-        else if (_escapeNextBytes == 1)
-        {
-            //Or the bytes together
-            _receiveBufferPtr[_receiveBufferIndex] = _receiveBufferPtr[_receiveBufferIndex] | data;
-            _receiveBufferIndex++;
-            _escapeNextBytes--;
-        }
-        else if (_escapeNextBytes == 0)
-        {
-            //Simple raw byte
-            _receiveBufferPtr[_receiveBufferIndex] = data;
-            _receiveBufferIndex++;
-        }
+        _escapeNextByte = false;
+        _startByteReceived=true;
+        return;
     }
 
+    if (!_startByteReceived) {
+        //Ignore all bytes until the start frame is detected
+        return;
+    }
+
+    if (data == FrameEscape)
+    {
+        //Serial1.print("_");
+        //Escape the next byte, and ignore this byte
+        _escapeNextByte = true;
+        return;
+    }
+
+    if (_escapeNextByte)
+    {
+        //Serial1.print("_");
+        //Add the BIT back on to the encoded data
+        data = (data | FrameMaskInvert);
+
+        //Serial1.print("[");        debugByte(data);        Serial1.print("]");
+
+        _escapeNextByte=false;
+    }
+
+    if (!_escapeNextByte)
+    {
+        //Simple raw byte
+        _receiveBufferPtr[_receiveBufferIndex] = data;
+        _receiveBufferIndex++;
+    }
+
+    //Now check if we have received the whole packet?
     if (_receiveBufferIndex == _packetSizeBytes)
     {
         //We have received an entire packet, so callback
         _onPacketReceivedFunction();
         _receiveBufferIndex = 0;
+        _escapeNextByte = false;
+        _startByteReceived=false;
+        return;
     }
-    else if (_receiveBufferIndex == _receiveBufferSize)
+    
+    
+    if (_receiveBufferIndex == _receiveBufferSize)
     {
-        //About to over flow, so reset
+        //About to over flow, so abort data packet, and reset
         _receiveBufferIndex = 0;
+        _escapeNextByte=false;
+        _startByteReceived=false;
     }
 }
 
@@ -57,13 +76,15 @@ void SerialEncoder::update()
 
     while (_stream->available() > 0)
     {
-        processByte(_stream->read());
+        processByte((uint8_t)_stream->read());
     }
 }
 
 // Sends a buffer (fixed length)
 void SerialEncoder::send(const uint8_t *buffer)
 {
+
+    //Serial1.println();    Serial1.print("Send:");
 
     if (_stream == nullptr || buffer == nullptr)
         return;
@@ -72,20 +93,24 @@ void SerialEncoder::send(const uint8_t *buffer)
 
     for (size_t i = 0; i < _packetSizeBytes; i++)
     {
+        //This is the raw byte to send
         uint8_t v = buffer[i];
 
         if (v == FrameStart || v == FrameEscape)
         {
-            //We escape the byte turning 1 byte into 3 bytes :-(
-            _stream->write(FrameEscape);
-            //Turn the byte into two halves so they don't get detected as frame markers
-            _stream->write(v & B11110000);
-            _stream->write(v & B00001111);
+            //We escape the byte turning 1 byte into 2 bytes :-(
+            //Serial1.print("_");
+            sendByte(FrameEscape);
+            //Strip the mask bit out - this clears the highest BIT of the byte
+            //Serial1.print("_");
+            sendByte(v & FrameMask);
         }
         else
         {
             //Send the raw byte unescaped/edited
-            _stream->write(v);
+            sendByte(v);
         }
     }
+
+    //Serial1.println();
 }
