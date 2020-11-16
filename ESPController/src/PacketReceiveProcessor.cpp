@@ -28,6 +28,12 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
     totalModulesFound = _packetbuffer.hops;
 
     if (packetLastReceivedSequence>0 && _packetbuffer.sequence!=packetLastReceivedSequence+1) {
+      SERIAL_DEBUG.println();
+      SERIAL_DEBUG.print("OOS Error, expected=");
+      SERIAL_DEBUG.print(packetLastReceivedSequence);
+      SERIAL_DEBUG.print(", got=");
+      SERIAL_DEBUG.println(_packetbuffer.sequence);
+
       totalOutofSequenceErrors++;
     }
 
