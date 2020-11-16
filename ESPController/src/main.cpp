@@ -43,7 +43,7 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #endif
 
 //#define PACKET_LOGGING_RECEIVE
-#define PACKET_LOGGING_SEND
+//#define PACKET_LOGGING_SEND
 //#define RULES_LOGGING
 
 //Libraries just for ESP8266
@@ -65,7 +65,7 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
 //#include <PacketSerial.h>
-#include "SerialEncoder.h"
+#include <SerialEncoder.h>
 #include <cppQueue.h>
 #include <pcf8574_esp.h>
 #include <Wire.h>
@@ -290,10 +290,6 @@ void timerTransmitCallback()
     sequence++;
     transmitBuffer.sequence = sequence;
 
-    //TODO: REMOVE THIS DEBUG!
-    //transmitBuffer.moduledata[6]=0xAA;
-    //transmitBuffer.moduledata[7]=0x88;
-
     transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
     myPacketSerial.sendBuffer((byte *)&transmitBuffer); //, sizeof(transmitBuffer));
 
@@ -362,15 +358,15 @@ void ProcessRules()
     {
       rules.ProcessCell(bank, &cmi[cellid]);
 
-      if (cmi[cellid].valid && cmi[cellid].settingsCached && rules.WarningCode == InternalWarningCode::NoWarning)
+      if (cmi[cellid].valid && cmi[cellid].settingsCached)
       {
-        if (cmi[cellid].BypassOverTempShutdown != mysettings.BypassOverTempShutdown)
-        {
-          newWarnCode = InternalWarningCode::ModuleInconsistantBypassTemperature;
-        }
-        else if (cmi[cellid].BypassThresholdmV != mysettings.BypassThresholdmV)
+        if (cmi[cellid].BypassThresholdmV != mysettings.BypassThresholdmV)
         {
           newWarnCode = InternalWarningCode::ModuleInconsistantBypassVoltage;
+        }
+        else if (cmi[cellid].BypassOverTempShutdown != mysettings.BypassOverTempShutdown)
+        {
+          newWarnCode = InternalWarningCode::ModuleInconsistantBypassTemperature;
         }
       }
 
@@ -969,16 +965,18 @@ void ConfigureI2C()
 //Lazy load the config data - Every 10 seconds see if there is a module we don't have configuration data for, if so request it
 void timerLazyCallback()
 {
+  uint8_t counter=0;
   //Find the first module that doesn't have settings cached and request them
   for (uint8_t module = 0; module < (mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules); module++)
   {
     if (cmi[module].valid && !cmi[module].settingsCached)
     {
       prg.sendGetSettingsRequest(module);
+      counter++;
 
-      if (requestQueue.getRemainingCount() <8 )
+      if (counter>4)
       {
-        //We really should exit here to avoid flooding the queue, so leave space
+        //Should exit here to avoid flooding the queue, so leave space
         return;
       }
     }
@@ -1162,12 +1160,12 @@ void setup()
   //Process rules every 5 seconds
   myTimerRelay.attach(5, timerProcessRules);
 
-  //We process the transmit queue every 0.5 seconds (this needs to be lower delay than the queue fills)
+  //We process the transmit queue every 0.8 seconds (this needs to be lower delay than the queue fills)
   //and slower than it takes a single module to process a command (about 250ms)
-  myTransmitTimer.attach(0.5, timerTransmitCallback);
+  myTransmitTimer.attach(1, timerTransmitCallback);
 
-  //This is my 10 second lazy timer
-  myLazyTimer.attach(10, timerLazyCallback);
+  //This is my 15 second lazy timer
+  myLazyTimer.attach(15, timerLazyCallback);
 
   //We have just started...
   SetControllerState(ControllerState::Stabilizing);
@@ -1178,10 +1176,8 @@ void loop()
   //ESP_LOGW("LOOP","LOOP");
 
   // Call update to receive, decode and process incoming packets.
-  if (SERIAL_DATA.available())
-  {
-    myPacketSerial.checkInputStream();
-  }
+  myPacketSerial.checkInputStream();
+
 
   if (ConfigHasChanged > 0)
   {
@@ -1190,7 +1186,7 @@ void loop()
     ConfigHasChanged--;
     if (ConfigHasChanged == 0)
     {
-      SERIAL_DEBUG.println("RESTART AFTER CONFIG CHANGE");
+      SERIAL_DEBUG.println(F("RESTART AFTER CONFIG CHANGE"));
       //Stop networking
       if (mqttClient.connected())
       {
@@ -1200,8 +1196,6 @@ void loop()
       ESP.restart();
     }
   }
-
-  //if (emergencyStop) {    SERIAL_DEBUG.println("EMERGENCY STOP");  }
 
 #if defined(ESP8266)
   if (NTPsyncEventTriggered)

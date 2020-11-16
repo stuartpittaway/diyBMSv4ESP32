@@ -7,7 +7,7 @@
 DIYBMS V4.0
 CELL MODULE FOR ATTINY841
 
-(c)2019 Stuart Pittaway
+(c)2019/2020 Stuart Pittaway
 
 COMPILE THIS CODE USING PLATFORM.IO
 
@@ -35,16 +35,12 @@ You need to configure the correct DIYBMSMODULEVERSION in defines.h file to build
 #error Processor speed should be 8 Mhz internal
 #endif
 
-//An Arduino Library that facilitates packet-based serial communication using COBS or SLIP encoding.
-//https://github.com/bakercp/PacketSerial
-//#include <PacketSerial.h>
-
 //Our project code includes
 #include "defines.h"
 #include "settings.h"
 #include <FastPID.h>
 
-#include "SerialEncoder.h"
+#include <SerialEncoder.h>
 #include "diybms_attiny841.h"
 #include "packet_processor.h"
 

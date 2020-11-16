@@ -29,10 +29,10 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
     if (packetLastReceivedSequence>0 && _packetbuffer.sequence!=packetLastReceivedSequence+1) {
       SERIAL_DEBUG.println();
-      SERIAL_DEBUG.print("OOS Error, expected=");
-      SERIAL_DEBUG.print(packetLastReceivedSequence);
+      SERIAL_DEBUG.print(F("OOS Error, expected="));
+      SERIAL_DEBUG.print(packetLastReceivedSequence,HEX);
       SERIAL_DEBUG.print(", got=");
-      SERIAL_DEBUG.println(_packetbuffer.sequence);
+      SERIAL_DEBUG.println(_packetbuffer.sequence,HEX);
 
       totalOutofSequenceErrors++;
     }
