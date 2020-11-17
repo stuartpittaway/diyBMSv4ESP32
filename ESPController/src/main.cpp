@@ -868,23 +868,23 @@ void LoadConfiguration()
   }
 
   //1. Emergency stop
-  mysettings.rulevalue[RULE_EmergencyStop] = 0;
+  mysettings.rulevalue[Rule::EmergencyStop] = 0;
   //2. Internal BMS error (communication issues, fault readings from modules etc)
-  mysettings.rulevalue[RULE_BMSError] = 0;
+  mysettings.rulevalue[Rule::BMSError] = 0;
   //3. Individual cell over voltage
-  mysettings.rulevalue[RULE_Individualcellovervoltage] = 4150;
+  mysettings.rulevalue[Rule::Individualcellovervoltage] = 4150;
   //4. Individual cell under voltage
-  mysettings.rulevalue[RULE_Individualcellundervoltage] = 3000;
+  mysettings.rulevalue[Rule::Individualcellundervoltage] = 3000;
   //5. Individual cell over temperature (external probe)
-  mysettings.rulevalue[RULE_IndividualcellovertemperatureExternal] = 55;
+  mysettings.rulevalue[Rule::IndividualcellovertemperatureExternal] = 55;
   //6. Pack over voltage (mV)
-  mysettings.rulevalue[RULE_IndividualcellundertemperatureExternal] = 5;
+  mysettings.rulevalue[Rule::IndividualcellundertemperatureExternal] = 5;
   //7. Pack under voltage (mV)
-  mysettings.rulevalue[RULE_PackOverVoltage] = 4200 * 8;
+  mysettings.rulevalue[Rule::PackOverVoltage] = 4200 * 8;
   //8. RULE_PackUnderVoltage
-  mysettings.rulevalue[RULE_PackUnderVoltage] = 3000 * 8;
-  mysettings.rulevalue[RULE_Timer1] = 60 * 8;  //8am
-  mysettings.rulevalue[RULE_Timer2] = 60 * 17; //5pm
+  mysettings.rulevalue[Rule::PackUnderVoltage] = 3000 * 8;
+  mysettings.rulevalue[Rule::Timer1] = 60 * 8;  //8am
+  mysettings.rulevalue[Rule::Timer2] = 60 * 17; //5pm
 
   for (size_t i = 0; i < RELAY_RULES; i++)
   {

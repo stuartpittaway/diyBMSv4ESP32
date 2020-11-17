@@ -103,7 +103,7 @@ void Rules::SetWarning(InternalWarningCode warncode) {
 void Rules::SetError(InternalErrorCode err) {
     if (ErrorCode!=err) {
         ErrorCode=err;
-        rule_outcome[RULE_BMSError] =(err!=InternalErrorCode::NoError);
+        rule_outcome[Rule::BMSError] =(err!=InternalErrorCode::NoError);
 
         SERIAL_DEBUG.print("Error State="); SERIAL_DEBUG.println(err);
     }
@@ -116,20 +116,20 @@ void Rules::RunRules(
     uint16_t mins)
 {
     //Emergency stop signal...
-    rule_outcome[RULE_EmergencyStop] = emergencyStop;
+    rule_outcome[Rule::EmergencyStop] = emergencyStop;
 
 
     //Timer 1 and Timer 2
-    rule_outcome[RULE_Timer1] = (mins >= value[RULE_Timer1] && mins <= hysteresisvalue[RULE_Timer1]);
-    rule_outcome[RULE_Timer2] = (mins >= value[RULE_Timer2] && mins <= hysteresisvalue[RULE_Timer2]);
+    rule_outcome[Rule::Timer1] = (mins >= value[Rule::Timer1] && mins <= hysteresisvalue[Rule::Timer1]);
+    rule_outcome[Rule::Timer2] = (mins >= value[Rule::Timer2] && mins <= hysteresisvalue[Rule::Timer2]);
 
     //At least 1 module is zero volt - not a problem whilst we are in stabilizing start up mode
     if (zeroVoltageModuleCount > 0)
     {
-        rule_outcome[RULE_Individualcellovervoltage] = false;
-        rule_outcome[RULE_Individualcellundervoltage] = false;
-        rule_outcome[RULE_IndividualcellovertemperatureExternal] = false;
-        rule_outcome[RULE_IndividualcellundertemperatureExternal] = false;
+        rule_outcome[Rule::Individualcellovervoltage] = false;
+        rule_outcome[Rule::Individualcellundervoltage] = false;
+        rule_outcome[Rule::IndividualcellovertemperatureExternal] = false;
+        rule_outcome[Rule::IndividualcellundertemperatureExternal] = false;
 
         //Abort processing any more rules until controller is stable/running state
         return;
@@ -155,81 +155,81 @@ void Rules::RunRules(
   SERIAL_DEBUG.println("");
 */
 
-    if (highestCellVoltage > value[RULE_Individualcellovervoltage] && rule_outcome[RULE_Individualcellovervoltage] == false)
+    if (highestCellVoltage > value[Rule::Individualcellovervoltage] && rule_outcome[Rule::Individualcellovervoltage] == false)
     {
         //Rule Individual cell over voltage - TRIGGERED
-        rule_outcome[RULE_Individualcellovervoltage] = true;
+        rule_outcome[Rule::Individualcellovervoltage] = true;
     }
-    else if (highestCellVoltage < hysteresisvalue[RULE_Individualcellovervoltage] && rule_outcome[RULE_Individualcellovervoltage] == true)
+    else if (highestCellVoltage < hysteresisvalue[Rule::Individualcellovervoltage] && rule_outcome[Rule::Individualcellovervoltage] == true)
     {
         //Rule Individual cell over voltage - HYSTERESIS RESET
-        rule_outcome[RULE_Individualcellovervoltage] = false;
+        rule_outcome[Rule::Individualcellovervoltage] = false;
     }
 
-    if (lowestCellVoltage < value[RULE_Individualcellundervoltage] && rule_outcome[RULE_Individualcellundervoltage] == false)
+    if (lowestCellVoltage < value[Rule::Individualcellundervoltage] && rule_outcome[Rule::Individualcellundervoltage] == false)
     {
         //Rule Individual cell under voltage (mV) - TRIGGERED
-        rule_outcome[RULE_Individualcellundervoltage] = true;
+        rule_outcome[Rule::Individualcellundervoltage] = true;
     }
-    else if (lowestCellVoltage > hysteresisvalue[RULE_Individualcellundervoltage] && rule_outcome[RULE_Individualcellundervoltage] == true)
+    else if (lowestCellVoltage > hysteresisvalue[Rule::Individualcellundervoltage] && rule_outcome[Rule::Individualcellundervoltage] == true)
     {
         //Rule Individual cell under voltage (mV) - HYSTERESIS RESET
-        rule_outcome[RULE_Individualcellundervoltage] = false;
+        rule_outcome[Rule::Individualcellundervoltage] = false;
     }
 
     //These rules only fire if external temp sensor actually exists
     if (moduleHasExternalTempSensor)
     {
         //Doesn't cater for negative temperatures on rule (int8 vs uint32)
-        if (((uint8_t)highestExternalTemp > value[RULE_IndividualcellovertemperatureExternal]) && rule_outcome[RULE_IndividualcellovertemperatureExternal] == false)
+        if (((uint8_t)highestExternalTemp > value[Rule::IndividualcellovertemperatureExternal]) && rule_outcome[Rule::IndividualcellovertemperatureExternal] == false)
         {
             //Rule Individual cell over temperature (external probe)
-            rule_outcome[RULE_IndividualcellovertemperatureExternal] = true;
+            rule_outcome[Rule::IndividualcellovertemperatureExternal] = true;
         }
-        else if (((uint8_t)highestExternalTemp < hysteresisvalue[RULE_IndividualcellovertemperatureExternal]) && rule_outcome[RULE_IndividualcellovertemperatureExternal] == true)
+        else if (((uint8_t)highestExternalTemp < hysteresisvalue[Rule::IndividualcellovertemperatureExternal]) && rule_outcome[Rule::IndividualcellovertemperatureExternal] == true)
         {
             //Rule Individual cell over temperature (external probe) - HYSTERESIS RESET
-            rule_outcome[RULE_IndividualcellovertemperatureExternal] = false;
+            rule_outcome[Rule::IndividualcellovertemperatureExternal] = false;
         }
 
         //Doesn't cater for negative temperatures on rule (int8 vs uint32)
-        if (((uint8_t)lowestExternalTemp < value[RULE_IndividualcellundertemperatureExternal]) && rule_outcome[RULE_IndividualcellundertemperatureExternal] == false)
+        if (((uint8_t)lowestExternalTemp < value[Rule::IndividualcellundertemperatureExternal]) && rule_outcome[Rule::IndividualcellundertemperatureExternal] == false)
         {
             //Rule Individual cell UNDER temperature (external probe)
-            rule_outcome[RULE_IndividualcellundertemperatureExternal] = true;
+            rule_outcome[Rule::IndividualcellundertemperatureExternal] = true;
         }
-        else if (((uint8_t)lowestExternalTemp > hysteresisvalue[RULE_IndividualcellundertemperatureExternal]) && rule_outcome[RULE_IndividualcellundertemperatureExternal] == true)
+        else if (((uint8_t)lowestExternalTemp > hysteresisvalue[Rule::IndividualcellundertemperatureExternal]) && rule_outcome[Rule::IndividualcellundertemperatureExternal] == true)
         {
             //Rule Individual cell UNDER temperature (external probe) - HYSTERESIS RESET
-            rule_outcome[RULE_IndividualcellundertemperatureExternal] = false;
+            rule_outcome[Rule::IndividualcellundertemperatureExternal] = false;
         }
     }
     else
     {
-        rule_outcome[RULE_IndividualcellovertemperatureExternal] = false;
-        rule_outcome[RULE_IndividualcellundertemperatureExternal] = false;
+        rule_outcome[Rule::IndividualcellovertemperatureExternal] = false;
+        rule_outcome[Rule::IndividualcellundertemperatureExternal] = false;
     }
 
     //While Pack voltages
-    if (highestPackVoltage > value[RULE_PackOverVoltage] && rule_outcome[RULE_PackOverVoltage] == false)
+    if (highestPackVoltage > value[Rule::PackOverVoltage] && rule_outcome[Rule::PackOverVoltage] == false)
     {
         //Rule - Pack over voltage (mV)
-        rule_outcome[RULE_PackOverVoltage] = true;
+        rule_outcome[Rule::PackOverVoltage] = true;
     }
-    else if (highestPackVoltage < hysteresisvalue[RULE_PackOverVoltage] && rule_outcome[RULE_PackOverVoltage] == true)
+    else if (highestPackVoltage < hysteresisvalue[Rule::PackOverVoltage] && rule_outcome[Rule::PackOverVoltage] == true)
     {
         //Rule - Pack over voltage (mV) - HYSTERESIS RESET
-        rule_outcome[RULE_PackOverVoltage] = false;
+        rule_outcome[Rule::PackOverVoltage] = false;
     }
 
-    if (lowestPackVoltage < value[RULE_PackUnderVoltage] && rule_outcome[RULE_PackUnderVoltage] == false)
+    if (lowestPackVoltage < value[Rule::PackUnderVoltage] && rule_outcome[Rule::PackUnderVoltage] == false)
     {
         //Rule - Pack under voltage (mV)
-        rule_outcome[RULE_PackUnderVoltage] = true;
+        rule_outcome[Rule::PackUnderVoltage] = true;
     }
-    else if (lowestPackVoltage > hysteresisvalue[RULE_PackUnderVoltage] && rule_outcome[RULE_PackUnderVoltage] == true)
+    else if (lowestPackVoltage > hysteresisvalue[Rule::PackUnderVoltage] && rule_outcome[Rule::PackUnderVoltage] == true)
     {
         //Rule - Pack under voltage (mV) - HYSTERESIS RESET
-        rule_outcome[RULE_PackUnderVoltage] = false;
+        rule_outcome[Rule::PackUnderVoltage] = false;
     }
 }

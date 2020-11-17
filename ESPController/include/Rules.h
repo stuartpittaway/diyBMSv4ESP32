@@ -1,9 +1,29 @@
 #ifndef Rules_H_
 #define Rules_H_
 
+#pragma once
+
 #include "defines.h"
 
+//ESP8266
+//RAM:   [=====     ]  48.1% (used 39384 bytes from 81920 bytes)
+//Flash: [====      ]  37.3% (used 389644 bytes from 1044464 bytes)
+
 //Needs to match the ordering on the HTML screen
+enum Rule : uint8_t
+{
+    EmergencyStop = 0,
+    BMSError = 1,
+    Individualcellovervoltage = 2,
+    Individualcellundervoltage = 3,
+    IndividualcellovertemperatureExternal = 4,
+    IndividualcellundertemperatureExternal = 5,
+    PackOverVoltage = 6,
+    PackUnderVoltage = 7,
+    Timer2 = 8,
+    Timer1 = 9
+};
+/*
 #define RULE_EmergencyStop 0
 #define RULE_BMSError 1
 #define RULE_Individualcellovervoltage 2
@@ -14,25 +34,24 @@
 #define RULE_PackUnderVoltage 7
 #define RULE_Timer2 8
 #define RULE_Timer1 9
-
-enum InternalWarningCode: uint8_t
+*/
+enum InternalWarningCode : uint8_t
 {
-     NoWarning=0,
-    ModuleInconsistantBypassVoltage=1,
-    ModuleInconsistantBypassTemperature=2
+    NoWarning = 0,
+    ModuleInconsistantBypassVoltage = 1,
+    ModuleInconsistantBypassTemperature = 2
 };
 
 enum InternalErrorCode : uint8_t
 {
-    NoError=0,
-    CommunicationsError=1,
-    ModuleCountMismatch=2,
-    TooManyModules=3,
-    WaitingForModulesToReply=4,
-    ZeroVoltModule=5,
-    ControllerMemoryError=6
+    NoError = 0,
+    CommunicationsError = 1,
+    ModuleCountMismatch = 2,
+    TooManyModules = 3,
+    WaitingForModulesToReply = 4,
+    ZeroVoltModule = 5,
+    ControllerMemoryError = 6
 };
-
 
 class Rules
 {
@@ -66,7 +85,7 @@ public:
     void RunRules(
         uint32_t *value,
         uint32_t *hysteresisvalue,
-        bool emergencyStop, 
+        bool emergencyStop,
         uint16_t mins);
 };
 
