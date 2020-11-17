@@ -1,5 +1,14 @@
 #include "defines.h"
 #include "SoftAP.h"
+#include <FS.h>
+
+#if defined(ESP8266)
+#include <LittleFS.h>
+#endif
+
+#if defined(ESP32)
+#include <SPIFFS.h>
+#endif
 
 wifi_eeprom_settings DIYBMSSoftAP::_config;
 
@@ -88,7 +97,13 @@ void DIYBMSSoftAP::SetupAccessPoint(AsyncWebServer  *webserver) {
     request->redirect("/softap.htm");
   });
 
+#if defined(ESP8266)
+  _myserver->serveStatic("/softap.htm", LittleFS, "/softap/softap.htm").setTemplateProcessor(DIYBMSSoftAP::TemplateProcessor);
+#endif
+#if defined(ESP32)
   _myserver->serveStatic("/softap.htm", SPIFFS, "/softap/softap.htm").setTemplateProcessor(DIYBMSSoftAP::TemplateProcessor);
+#endif
+
   _myserver->on("/save", HTTP_POST, handleSave);
   //_myserver->onNotFound(handleNotFound);
   _myserver->begin();

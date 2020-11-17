@@ -46,17 +46,21 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 //#define PACKET_LOGGING_SEND
 //#define RULES_LOGGING
 
+#include "FS.h"
+
 //Libraries just for ESP8266
 #if defined(ESP8266)
 #include <TimeLib.h>
 #include <ESP8266WiFi.h>
 #include <NtpClientLib.h>
+#include <LittleFS.h>
 #endif
 
 //Libraries just for ESP32
 #if defined(ESP32)
-#include <WiFi.h>
 #include <SPIFFS.h>
+#include <WiFi.h>
+#include <SPI.h>
 #include "time.h"
 #endif
 
@@ -1060,7 +1064,13 @@ void setup()
   //myPacketSerial.setPacketHandler(&onPacketReceived);
 
   //Debug serial output
+#if defined(ESP8266)
   SERIAL_DEBUG.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
+#endif
+#if defined(ESP32)
+  SERIAL_DEBUG.begin(115200, SERIAL_8N1);
+#endif
+
   SERIAL_DEBUG.setDebugOutput(true);
   /*
   myPacketSerial.processByte(0xAA);
@@ -1091,10 +1101,17 @@ void setup()
     yield();
   }
 */
-  // initialize SPIFFS
+
+#if defined(ESP8266)
+  // initialize LittleFS
+  if (!LittleFS.begin())
+#endif
+#if defined(ESP32)
+  // initialize LittleFS
   if (!SPIFFS.begin())
+#endif
   {
-    SERIAL_DEBUG.println(F("An Error has occurred while mounting SPIFFS"));
+    SERIAL_DEBUG.println(F("An Error has occurred while mounting LittleFS"));
   }
 
   LoadConfiguration();

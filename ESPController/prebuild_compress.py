@@ -55,4 +55,6 @@ def prepare_www_files(source, target, env):
 
     print('[/COPY/GZIP DATA FILES]')
     
+env.AddPreAction('$BUILD_DIR/littlefs.bin', prepare_www_files)
+
 env.AddPreAction('$BUILD_DIR/spiffs.bin', prepare_www_files)

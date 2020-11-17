@@ -29,9 +29,12 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 #include "defines.h"
 
+#include "FS.h"
+
 #if defined(ESP8266)
 #include "ESP8266TrueRandom.h"
 #include <TimeLib.h>
+#include <LittleFS.h>
 #endif
 
 #if defined(ESP32)
@@ -984,8 +987,15 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
     request->redirect("/default.htm");
   });
 
+#if defined(ESP8266)
+  _myserver->serveStatic("/default.htm", LittleFS, "/default.htm").setTemplateProcessor(DIYBMSServer::TemplateProcessor);
+  _myserver->serveStatic("/", LittleFS, "/").setCacheControl("max-age=600");
+#endif 
+
+#if defined(ESP32)
   _myserver->serveStatic("/default.htm", SPIFFS, "/default.htm").setTemplateProcessor(DIYBMSServer::TemplateProcessor);
   _myserver->serveStatic("/", SPIFFS, "/").setCacheControl("max-age=600");
+#endif 
 
   //Read endpoints
   //_myserver->on("/monitor.json", HTTP_GET, DIYBMSServer::monitor);
