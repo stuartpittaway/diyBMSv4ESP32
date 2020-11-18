@@ -30,7 +30,7 @@ form input[type='submit'] {font-family:Arial,Helvetica,sans-serif;border:none;te
 #modulesTable .rows span {min-width:70px;font-family: 'Fira Code', monospace;text-align:right;}
 #modulesTable .rows button {margin-left:10px;}
 #modulesTable .th span {text-align:right;min-width:70px}
-#loading {width:100px;position:absolute;height:100px;margin-left: auto;margin-right: auto;padding: 0;top:50%;left:50%;}
+#loading {width:64px;position:absolute;height:64px;margin-left: auto;margin-right: auto;padding: 0;top:50%;left:50%;}
 
 @media screen and (max-width:1024px){
   .page .region {width:98%;}

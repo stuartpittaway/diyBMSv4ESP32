@@ -25,7 +25,8 @@
 			"array": "cpp",
 			"deque": "cpp",
 			"memory": "cpp",
-			"initializer_list": "cpp"
+			"initializer_list": "cpp",
+			"functional": "cpp"
 		}
 	}
 }

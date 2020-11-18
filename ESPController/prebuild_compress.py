@@ -14,7 +14,7 @@ def prepare_www_files(source, target, env):
 
 
     #add filetypes (extensions only) to be gzipped before uploading. Everything else will be copied directly
-    filetypes_to_gzip = ['js','css']
+    filetypes_to_gzip = ['js','css','ico']
     
     print('[COPY/GZIP DATA FILES]')
 
@@ -55,6 +55,7 @@ def prepare_www_files(source, target, env):
 
     print('[/COPY/GZIP DATA FILES]')
     
-env.AddPreAction('$BUILD_DIR/littlefs.bin', prepare_www_files)
+#env.AddPreAction('$BUILD_DIR/littlefs.bin', prepare_www_files)
+#env.AddPreAction('$BUILD_DIR/spiffs.bin', prepare_www_files)
 
-env.AddPreAction('$BUILD_DIR/spiffs.bin', prepare_www_files)
+env.AddPreAction('$BUILD_DIR/src/DIYBMSServer.cpp.o', prepare_www_files)

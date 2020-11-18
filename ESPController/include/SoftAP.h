@@ -1,12 +1,9 @@
 #ifndef SOFTAP_H_
 #define SOFTAP_H_
 
-
-
-
 #include <Arduino.h>
+
 #if defined(ESP8266)
-//https://github.com/esp8266/Arduino
 #include <ESP8266WiFi.h>          
 #include <ESPAsyncTCP.h>
 #else
@@ -14,13 +11,8 @@
 #include <AsyncTCP.h>
 #endif
 
-#if defined(ESP32)
-#include <SPIFFS.h>
-#endif
-
 
 #include <ESPAsyncWebServer.h>
-
 #include <EEPROM.h>
 #include "settings.h"
 

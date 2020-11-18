@@ -4,11 +4,11 @@
 
 #include <Arduino.h>
 
-
 #if defined(ESP8266)
 //https://github.com/esp8266/Arduino
 #include <ESP8266WiFi.h>          
 #include <ESPAsyncTCP.h>
+#include "ESP8266TrueRandom.h"
 #else
 #include <WiFi.h>
 #include <AsyncTCP.h>
@@ -23,10 +23,6 @@
 #include "ArduinoJson.h"
 #include "PacketRequestGenerator.h"
 #include "PacketReceiveProcessor.h"
-
-#if defined(ESP8266)
-#include "ESP8266TrueRandom.h"
-#endif
 
 class DIYBMSServer {
    public:

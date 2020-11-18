@@ -18,7 +18,6 @@ const INTERNALERRORCODE =
 Object.freeze(INTERNALERRORCODE);
 
 function identifyModule(button, cellid) {
-    //Populate settings div
     $.getJSON("identifyModule.json", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
 
@@ -35,8 +34,6 @@ function configureModule(button, cellid, attempts) {
             $('#c').val(data.settings.id);
 
             if (data.settings.Cached == true) {
-                //var bank=  Math.floor(data.settings.id / MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET);
-                //var module= data.settings.id - (b* MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET);
                 $("#settingConfig h2").html("Settings for module bank:" + data.settings.bank + " module:" + data.settings.module);
 
                 //Populate settings div
@@ -68,7 +65,6 @@ function configureModule(button, cellid, attempts) {
 }
 
 function queryBMS() {
-
     $.getJSON("monitor2.json", function (jsondata) {
         var labels = [];
         var cells = [];
@@ -82,14 +78,12 @@ function queryBMS() {
 
         var badpktcount = [];
 
-        //var voltage = [];
-        //var range = [];
-
         var minVoltage = DEFAULT_GRAPH_MIN_VOLTAGE;
         var maxVoltage = DEFAULT_GRAPH_MAX_VOLTAGE;
 
         var bankNumber = 0;
         var cellsInBank = 0;
+
         if (jsondata.voltages) {
             for (let i = 0; i < jsondata.voltages.length; i++) {
                 labels.push(bankNumber + "/" + i);
@@ -124,10 +118,8 @@ function queryBMS() {
             }
         }
 
-
         //Scale down for low voltages
         if (minVoltage < 2.5) { minVoltage = 0; }
-
 
         if (jsondata) {
             //Ignore and hide any errors which are zero
@@ -136,22 +128,15 @@ function queryBMS() {
             if (jsondata.sent == 0) { $("#sent").hide(); } else { $("#sent .v").html(jsondata.sent); $("#sent").show(); }
             if (jsondata.received == 0) { $("#received").hide(); } else { $("#received .v").html(jsondata.received); $("#received").show(); }
             if (jsondata.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.roundtrip); $("#roundtrip").show(); }
-
             if (jsondata.oos == 0) { $("#oos").hide(); } else { $("#oos .v").html(jsondata.oos); $("#oos").show(); }
         }
 
-
         if (jsondata.bankv) {
             for (var bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
-                //if (jsondata.bankv[bankNumber] > 0) {
-                $("#voltage" + (bankNumber + 1) + " .v").html(
-                    (parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2)
-                    + "V");
+                $("#voltage" + (bankNumber + 1) + " .v").html( (parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2) + "V");
                 $("#range" + (bankNumber + 1) + " .v").html(jsondata.voltrange[bankNumber] + "mV");
-
                 $("#voltage" + (bankNumber + 1)).show();
                 $("#range" + (bankNumber + 1)).show();
-                //}
             }
 
             for (var bankNumber = jsondata.bankv.length; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
@@ -159,6 +144,7 @@ function queryBMS() {
                 $("#range" + (bankNumber + 1)).hide();
             }
         }
+
         //Not currently supported
         if (jsondata.current) {
             if (jsondata.current[0] == null) {
@@ -168,7 +154,6 @@ function queryBMS() {
                 $("#current").show();
             }
         }
-
 
         switch (jsondata.warningcode) {
             case INTERNALWARNINGCODE.NoWarning:
@@ -188,7 +173,6 @@ function queryBMS() {
                 $("#genericwarningcode").html(jsondata.warningcode);
                 break;
         }
-
 
         switch (jsondata.errorcode) {
             case INTERNALERRORCODE.NoError:
@@ -262,20 +246,18 @@ function queryBMS() {
 
         if ($('#homePage').is(':visible')) {
             if (window.g1 == null) {
-
                 try {
                     // based on prepared DOM, initialize echarts instance
                     window.g1 = echarts.init(document.getElementById('graph1'));
                 }
                 catch (err) {
-                    $("#graphlibrary").show();
+                    $("#jslibrary").show();
                 }
 
-
-                var labelOption = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Fira Code' } };
-                var labelOption2 = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Fira Code' } };
-                var labelOption3 = { normal: { show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Fira Code' } };
-                var labelOption4 = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#807d7d', fontFamily: 'Fira Code' } };
+                //var labelOption = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Fira Code' } };
+                //var labelOption2 = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Fira Code' } };
+                //var labelOption3 = { normal: { show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Fira Code' } };
+                //var labelOption4 = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#807d7d', fontFamily: 'Fira Code' } };
                 //var labelOptionBypass = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}%', fontSize: 14, color: '#dbd81a', fontFamily: 'Fira Code' } };
 
                 // specify chart configuration item and data
@@ -574,4 +556,296 @@ function queryBMS() {
 
 $(window).on('resize', function () { if (g1 != null && g1 != undefined && $('#homePage').is(':visible')) { g1.resize(); } });
 
+$(function () {
+    $("#loading").show();
 
+    //Populate all the setting rules with relay select lists
+    $.each($(".settings table tbody tr td:empty"), function (index, value) {
+        $.each([1, 2, 3, 4], function (index1, relay) {
+            $(value).append('<select id="rule' + (index + 1) + 'relay' + relay + '" name="rule' + (index + 1) + 'relay' + relay + '"><option>On</option><option>Off</option><option>X</option></select>');
+        });
+    }
+    );
+
+    for (var n = 1; n <= 32; n++) {
+        $("#totalSeriesModules").append('<option>' + n + '</option>')
+    }
+    for (var n = 1; n <= MAXIMUM_NUMBER_OF_BANKS; n++) {
+        $("#totalBanks").append('<option>' + n + '</option>')
+        $("#voltages").append('<div id="voltage' + n + '" class="stat"><span class="x t">Voltage ' + n + ':</span><span class="x v"></span></div>');
+        $("#ranges").append('<div id="range' + n + '" class="stat"><span class="x t">Range ' + n + ':</span><span class="x v"></span></div>');
+    }
+
+    $('#CalculateCalibration').click(function () {
+        var currentReading = parseFloat($("#modulesRows > div.selected > span:nth-child(3)").text());
+        var currentCalib = parseFloat($("#Calib").val());
+        var actualV = parseFloat($("#ActualVoltage").val());
+        var result = (currentCalib / currentReading) * actualV;
+        $("#Calib").val(result.toFixed(4));
+        return true;
+    });
+
+    $("#home").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        $(".page").hide();
+        $("#homePage").show();
+        return true;
+    });
+
+    $("#about").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        $(".page").hide();
+
+        $.getJSON("settings.json",
+            function (data) {
+                $("#platformversion").text(data.settings.Version);
+
+                $("#aboutPage").show();
+            }).fail(function () { }
+            );
+
+        return true;
+    });
+
+    $("#modules").click(function () {
+        $("#loading").show();
+
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        $(".page").hide();
+
+        //Remove existing table
+        $("#modulesRows").find("div").remove();
+
+        $("#settingConfig").hide();
+
+        $.getJSON("settings.json",
+            function (data) {
+                $("#g1").val(data.settings.bypassovertemp);
+                $("#g2").val(data.settings.bypassthreshold);
+
+                $("#modulesPage").show();
+            }).fail(function () { }
+            );
+        return true;
+    });
+
+    $("#settings").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        $(".page").hide();
+
+        $("#banksForm").hide();
+        $("#settingsPage").show();
+
+        $("#VoltageHigh").val(DEFAULT_GRAPH_MAX_VOLTAGE.toFixed(2));
+        $("#VoltageLow").val(DEFAULT_GRAPH_MIN_VOLTAGE.toFixed(2));
+
+        $.getJSON("settings.json",
+            function (data) {
+
+                $("#NTPServer").val(data.settings.NTPServerName);
+                $("#NTPZoneHour").val(data.settings.TimeZone);
+                $("#NTPZoneMin").val(data.settings.MinutesTimeZone);
+                $("#NTPDST").prop("checked", data.settings.DST);
+
+                var d = new Date(1000 * data.settings.now);
+                $("#timenow").html(d.toJSON());
+
+                $("#totalSeriesModules").val(data.settings.totalseriesmodules);
+                $("#totalBanks").val(data.settings.totalnumberofbanks);
+
+                $("#banksForm").show();
+            }).fail(function () { }
+            );
+
+        return true;
+    });
+
+
+    $("#rules").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        $(".page").hide();
+
+        $("#rulesForm").hide();
+        $("#rulesPage").show();
+
+        $.getJSON("rules.json",
+            function (data) {
+                //Rules have loaded
+
+                //Default relay settings
+                $.each(data.relaydefault, function (index2, value2) {
+                    var relay_value = "X";
+                    if (value2 === true) { relay_value = "On"; }
+                    if (value2 === false) { relay_value = "Off"; }
+                    $("#defaultrelay" + (index2 + 1)).val(relay_value);
+                });
+
+                //Default relay settings
+                $.each(data.relaytype, function (index2, value2) {
+                    $("#relaytype" + (index2 + 1)).val(value2);
+                });
+
+                $("#minutesnow").html(data.timenow);
+
+                if (data.PCF8574) {
+                    $("#PCF8574").hide();
+                } else { $("#PCF8574").show(); }
+
+                //Loop through each rule updating the page
+                var i = 1;
+                var allrules = $(".settings table tbody tr td label");
+                $.each(data.rules, function (index, value) {
+                    $("#rule" + (index + 1) + "value").val(value.value);
+                    $("#rule" + (index + 1) + "hysteresis").val(value.hysteresis);
+
+                    //Highlight rules which are active
+                    if (value.triggered) {
+                        $(allrules[index]).addClass("triggered")
+                    } else {
+                        $(allrules[index]).removeClass("triggered")
+                    }
+
+                    $(allrules[index]).removeClass("disablerule");
+
+                    $.each(value.relays, function (index2, value2) {
+                        var relay_value = "X";
+                        if (value2 === true) { relay_value = "On"; }
+                        if (value2 === false) { relay_value = "Off"; }
+
+                        $("#rule" + (index + 1) + "relay" + (index2 + 1)).val(relay_value);
+
+                    });
+                });
+
+                if (data.ControlState != 0xff) {
+                    //Controller is not in running state yet, so some rules are disabled
+                    $.each([2, 3, 4, 5, 6, 7], function (index, value) {
+                        $(allrules[value]).addClass("disablerule");
+                    });
+                }
+
+                $("#rulesForm").show();
+            }).fail(function () { }
+            );
+
+        return true;
+    });
+
+    $("#integration").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        $(".page").hide();
+        $("#integrationPage").show();
+
+        $("#mqttForm").hide();
+        $("#influxForm").hide();
+
+        $.getJSON("integration.json",
+            function (data) {
+
+                $("#mqttEnabled").prop("checked", data.mqtt.enabled);
+                $("#mqttTopic").val(data.mqtt.topic);
+                $("#mqttServer").val(data.mqtt.server);
+                $("#mqttPort").val(data.mqtt.port);
+                $("#mqttUsername").val(data.mqtt.username);
+                $("#mqttPassword").val("");
+
+                $("#influxEnabled").prop("checked", data.influxdb.enabled);
+                $("#influxServer").val(data.influxdb.server);
+                $("#influxPort").val(data.influxdb.port);
+                $("#influxDatabase").val(data.influxdb.database);
+                $("#influxUsername").val(data.influxdb.username);
+                $("#influxPassword").val("");
+
+                $("#mqttForm").show();
+                $("#influxForm").show();
+            }).fail(function () { }
+            );
+
+        return true;
+    });
+
+    $("form").unbind('submit').submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+            type: $(this).attr('method'),
+            url: $(this).attr('action'),
+            data: $(this).serialize(),
+            success: function (data) {
+                $("#savesuccess").show().delay(2000).fadeOut(500);
+            },
+            error: function (data) {
+                $("#saveerror").show().delay(2000).fadeOut(500);
+            },
+        });
+    });
+
+    $("#settingsForm").unbind('submit').submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+            type: $(this).attr('method'),
+            url: $(this).attr('action'),
+            data: $(this).serialize(),
+            success: function (data) {
+                $('#settingConfig').hide();
+                $("#savesuccess").show().delay(2000).fadeOut(500);
+            },
+            error: function (data) {
+                $("#saveerror").show().delay(2000).fadeOut(500);
+            },
+        });
+    });
+
+    $("#displaySettingForm").unbind('submit').submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+            type: $(this).attr('method'),
+            url: $(this).attr('action'),
+            data: $(this).serialize(),
+            success: function (data) {
+                DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat($("#VoltageHigh").val());
+                DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat($("#VoltageLow").val());
+                $("#savesuccess").show().delay(2000).fadeOut(500);
+            },
+            error: function (data) {
+                $("#saveerror").show().delay(2000).fadeOut(500);
+            },
+        });
+    });
+
+    $("#mqttEnabled").change(function () {
+        if ($(this).is(":checked")) {
+            $("#mqttForm").removeAttr("novalidate");
+        } else {
+            $("#mqttForm").attr("novalidate", "");
+        }
+    });
+
+    $("#influxEnabled").change(function () {
+        if ($(this).is(":checked")) {
+            $("#influxForm").removeAttr("novalidate");
+        } else {
+            $("#influxForm").attr("novalidate", "");
+        }
+    });
+
+    $.ajaxSetup({
+        beforeSend: function (xhr, settings) { settings.data += '&xss=' + XSS_KEY; }
+    });
+
+    //$(document).ajaxStart(function(){ }); 
+    //$(document).ajaxStop(function(){ });
+
+    $("#homePage").show();
+
+    //On page ready
+    queryBMS();
+});
