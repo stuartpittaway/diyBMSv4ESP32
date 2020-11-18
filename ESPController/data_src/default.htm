@@ -2,29 +2,25 @@
 <html lang="en">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet"/>
-    <link href="style.css" rel="stylesheet"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet" />
+    <link href="style.css" rel="stylesheet" />
     <script type="text/javascript">
-const MAXIMUM_NUMBER_OF_BANKS = 16;
-const MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET = 16;
+        const MAXIMUM_NUMBER_OF_BANKS = 16;
+        const MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET = 16;
 
-var DEFAULT_GRAPH_MAX_VOLTAGE = %graph_voltagehigh%;
-var DEFAULT_GRAPH_MIN_VOLTAGE = %graph_voltagelow%;
-
-var XSS_KEY = '%XSS_KEY%';</script>
-    <script type="text/javascript" src="jquery.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+        var DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat('%graph_voltagehigh%');
+        var DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat('%graph_voltagelow%');
+        var XSS_KEY = '%XSS_KEY%';
+    </script>
+    <script type="text/javascript" src="jquery.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
+        crossorigin="anonymous"></script>
     <title>DIY BMS CONTROLLER v4</title>
 </head>
-
 <body>
-    <div id="loading">
-        <img src="wait.png" width="64" height="64" alt="Please wait" />
-    </div>
+    <div id="loading"><img src="wait.png" width="64" height="64" alt="Please wait" /></div>
     <div class="header">
-        <div class="logocontainer">
-            <img class="logo" src="logo.png" width="152" height="48" alt="DIYBMS" />
-        </div>
+        <div class="logocontainer"><img class="logo" src="logo.png" width="152" height="48" alt="DIYBMS" /></div>
         <div class="header-right">
             <a id="home" class="active" href="#home">Home</a>
             <a id="modules" href="#modules">Modules</a>
@@ -34,12 +30,13 @@ var XSS_KEY = '%XSS_KEY%';</script>
             <a id="about" href="#about">About</a>
         </div>
     </div>
-    <div id='commserr' class='error'>The controller is having difficulty communicating with the cell monitoring modules.</div>
+    <div id='commserr' class='error'>The controller is having difficulty communicating with the cell monitoring modules.
+    </div>
     <div id='iperror' class='error'>Cannot communicate with the controller for status updates.</div>
     <div id='missingmodules' class='error'>Controller found <span id='missingmodule1'></span> modules, but is configured for <span id='missingmodule2'></span>.</div>
     <div id='toomanymodules' class='error'>Controller is configured to use more modules than it can cope with.</div>
-    <div id='genericerror' class='error'>Controller error <span id="genericerrcode"></span></div>    
-    <div id='jslibrary' class='error'>Javascript library has failed to load correctly, please refresh page.</div>    
+    <div id='genericerror' class='error'>Controller error <span id="genericerrcode"></span></div>
+    <div id='jslibrary' class='error'>Javascript library has failed to load correctly, please refresh page.</div>
     <div id='saveerror' class='error'>Failed to save settings.</div>
     <div id='savesuccess' class='success'>Settings saved</div>
     <div id='genericwarning' class='warning'>Controller warning <span id="genericwarningcode"></span></div>
@@ -53,7 +50,8 @@ var XSS_KEY = '%XSS_KEY%';</script>
         <div id="ignored" class="stat"><span class="x t">Ignored request errors:</span><span class="x v"></span></div>
         <div id="sent" class="stat"><span class="x t">Packets sent:</span><span class="x v"></span></div>
         <div id="received" class="stat"><span class="x t">Packets rec'd:</span><span class="x v"></span></div>
-        <div id="oos" class="stat"><span class="x t" title="Out of sequence error">OOS errors:</span><span class="x v"></span></div>
+        <div id="oos" class="stat"><span class="x t" title="Out of sequence error">OOS errors:</span><span
+                class="x v"></span></div>
         <div id="roundtrip" class="stat"><span class="x t">Roundtrip (ms):</span><span class="x v"></span></div>
     </div>
     <div class="page" id="homePage">
@@ -65,12 +63,13 @@ var XSS_KEY = '%XSS_KEY%';</script>
         <h1>About</h1>
         <div class="region">
             <h2>Source Code</h2>
-            <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer" 
+            <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer"
                 target="_blank">https://github.com/stuartpittaway/diyBMSv4</a>
         </div>
         <div class="region">
             <h2>Videos</h2>
-            <a href="https://www.youtube.com/stuartpittaway"  rel="noreferrer" target="_blank">YouTube videos on installation and
+            <a href="https://www.youtube.com/stuartpittaway" rel="noreferrer" target="_blank">YouTube videos on
+                installation and
                 configuration</a>
         </div>
         <div class="region">
@@ -84,15 +83,18 @@ var XSS_KEY = '%XSS_KEY%';</script>
         </div>
         <div class="region">
             <h2>Patreon</h2>
-            <p>Remember, this product is free for personal use, if you would like to make a regular donation to keep the features and improvements flowing, use the Patreon link below.  Even just a coffee/beer a month makes a difference. Thank you!
-                <a href="https://www.patreon.com/bePatron?u=41013995" target="_blank"><img src="patron.png" width="176" height="34" alt="Patron" /></a>
-            </p>   
-    </div>
+            <p>Remember, this product is free for personal use, if you would like to make a regular donation to keep the
+                features and improvements flowing, use the Patreon link below. Even just a coffee/beer a month makes a
+                difference. Thank you!
+                <a href="https://www.patreon.com/bePatron?u=41013995" target="_blank"><img src="patron.png" width="176"
+                        height="34" alt="Patron" /></a>
+            </p>
+        </div>
         <div class="region">
             <h2>License</h2>
             <p>This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 2.0 UK: England &
                 Wales License.</p>
-            <a href="https://creativecommons.org/licenses/by-nc-sa/2.0/uk/" rel="noreferrer" 
+            <a href="https://creativecommons.org/licenses/by-nc-sa/2.0/uk/" rel="noreferrer"
                 target="_blank">https://creativecommons.org/licenses/by-nc-sa/2.0/uk/</a>
         </div>
         <div class="region">
@@ -132,7 +134,7 @@ var XSS_KEY = '%XSS_KEY%';</script>
                         <div>
                             <label for="Version">Module version</label>
                             <input type="number" name="Version" id="Version" value="" readonly="">
-                        </div>                        
+                        </div>
                         <div>
                             <label for="BypassOverTempShutdown">Bypass over temperature</label>
                             <input type="number" min="20" max="90" step="1" name="BypassOverTempShutdown"
@@ -145,28 +147,32 @@ var XSS_KEY = '%XSS_KEY%';</script>
                         </div>
                         <div>
                             <label for="Calib">Calibration multiplier</label>
-                            <input id="Calib" name="Calib" type="number" min="1" max="5" step="0.0001" value="2.100" required="">
+                            <input id="Calib" name="Calib" type="number" min="1" max="5" step="0.0001" value="2.100"
+                                required="">
                             <label for="ActualVoltage">Calculator - Actual measured voltage</label>
-                            <input id="ActualVoltage" name="ActualVoltage" type="number" min="0" max="5" step="0.001" value="4.2">
+                            <input id="ActualVoltage" name="ActualVoltage" type="number" min="0" max="5" step="0.001"
+                                value="4.2">
                             <button type="button" id="CalculateCalibration">Calculate</button>
                         </div>
                         <div>
                             <label for="ExtBCoef">External temperature BCoef</label>
-                            <input type="number" min="0" max="9999" step="1" id="ExtBCoef" name="ExtBCoef" value="" readonly="">
+                            <input type="number" min="0" max="9999" step="1" id="ExtBCoef" name="ExtBCoef" value=""
+                                readonly="">
                         </div>
                         <div>
                             <label for="IntBCoef">Internal temperature BCoef</label>
-                            <input type="number" min="0" max="9999" step="1" id="IntBCoef" name="IntBCoef" value="" readonly="">
+                            <input type="number" min="0" max="9999" step="1" id="IntBCoef" name="IntBCoef" value=""
+                                readonly="">
                         </div>
                         <div>
                             <label for="LoadRes">Load resistance</label>
-                            <input id="LoadRes" name="LoadRes" type="number"  value="" readonly="">
+                            <input id="LoadRes" name="LoadRes" type="number" value="" readonly="">
                         </div>
                         <div>
                             <label for="mVPerADC">mV per ADC reading</label>
-                            <input id="mVPerADC" name="mVPerADC" type="number"  value="" readonly="">
+                            <input id="mVPerADC" name="mVPerADC" type="number" value="" readonly="">
                         </div>
-                        
+
                         <input type="submit" value="Save settings" />
                     </div>
                 </form>
@@ -195,8 +201,10 @@ var XSS_KEY = '%XSS_KEY%';</script>
 
     <div class="page" id="integrationPage">
         <h1>Integration</h1>
-        <p>For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.</p>
-        <p>After changes are made, the controller will automatically reboot. You will need to refresh the web page to continue.</p>
+        <p>For security, you will need to re-enter the password for the service(s) you want to enable or modify, before
+            you save.</p>
+        <p>After changes are made, the controller will automatically reboot. You will need to refresh the web page to
+            continue.</p>
         <div class="region">
             <h2>MQTT</h2>
             <form id="mqttForm" method="POST" action="savemqtt.json" autocomplete="off">
@@ -271,171 +279,177 @@ var XSS_KEY = '%XSS_KEY%';</script>
             </form>
         </div>
     </div>
-<div class="page" id="rulesPage">
-    <h1>Controller Settings</h1>
-    <div class="region">
-        <h2>Rules</h2>
-        <p>DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules allow you to configure the relays for your situation.</p>
-        <p>Rules are processed from lowest priorty to highest (bottom up). Control the relays using the options. A value of "X" means
-            don't care/leave at value defined by lower priority rules.</p>
-        <p>Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will only disable
-            when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing on/off
-            rapidly.</p>
-        <p>'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of minutes past
-            midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch on at 8:15am
-            and off at 9:15am. This only
-            works if connected to internet for regular time updates. Minutes since midnight now is: <span
-                id='minutesnow'></span></p>
-        <p>Emergency stop is triggered by connector J1, once triggered controller needs to be reset to disable.</p>
-        <div class="error" id='PCF8574'>PCF8574 is NOT connected/fitted, relay control not possible!</div>
+    <div class="page" id="rulesPage">
+        <h1>Controller Settings</h1>
+        <div class="region">
+            <h2>Rules</h2>
+            <p>DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules allow you
+                to configure the relays for your situation.</p>
+            <p>Rules are processed from lowest priorty to highest (bottom up). Control the relays using the options. A
+                value of "X" means
+                don't care/leave at value defined by lower priority rules.</p>
+            <p>Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will only
+                disable
+                when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing
+                on/off
+                rapidly.</p>
+            <p>'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of minutes past
+                midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch
+                on at 8:15am
+                and off at 9:15am. This only
+                works if connected to internet for regular time updates. Minutes since midnight now is: <span
+                    id='minutesnow'></span></p>
+            <p>Emergency stop is triggered by connector J1, once triggered controller needs to be reset to disable.</p>
+            <div class="error" id='PCF8574'>PCF8574 is NOT connected/fitted, relay control not possible!</div>
         </div>
         <div class="region">
 
-        <form id="rulesForm" method="POST" action="saverules.json" autocomplete="off">
-            <div class="settings">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Rule</th>
-                            <th>Trigger value</th>
-                            <th>Reset value</th>
-                            <th>Relay state</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><label for="rule1value">Emergency stop</label></td>
-                            <td><input type="hidden" name="rule1value" id="rule1value" value="0"></td>
-                            <td><input type="hidden" name="rule1hysteresis" id="rule1hysteresis" value="0"></td>
-                            <td class="relayset"></td>
-                        </tr>
-                        <tr>
-                            <td><label for="rule2value">Internal BMS error</label></td>
-                            <td><input type="hidden" name="rule2value" id="rule2value" value="0"></td>
-                            <td><input type="hidden" name="rule2hysteresis" id="rule2hysteresis" value="0"></td>
-                            <td class="relayset"></td>
-                        </tr>
-                        <tr>
-                            <td><label for="rule3value">Individual cell over voltage (mV)</label></td>
-                            <td><input type="number" min="2500" max="4500" step="10" name="rule3value" id="rule3value"
-                                    value="4100" required=""></td>
-                            <td><input type="number" min="2500" max="4500" step="10" name="rule3hysteresis"
-                                    id="rule3hysteresis" value="4100" required=""></td>
-                            <td class="relayset"></td>
-                        </tr>
-                        <tr>
-                            <td><label for="rule4value">Individual cell under voltage (mV)</label></td>
-                            <td><input type="number" min="2500" max="4500" step="10" name="rule4value" id="rule4value"
-                                    value="3000" required=""></td>
-                            <td><input type="number" min="2500" max="4500" step="10" name="rule4hysteresis"
-                                    id="rule4hysteresis" value="3000" required=""></td>
-                            <td class="relayset"></td>
-                        </tr>
-                        <tr>
-                            <td><label for="rule5value">Individual cell over temperature (external) °C</label></td>
-                            <td><input type="number" min="0" max="90" step="1" name="rule5value" id="rule5value"
-                                    value="45" required=""></td>
-                            <td><input type="number" min="0" max="90" step="1" name="rule5hysteresis"
-                                    id="rule5hysteresis" value="45" required=""></td>
-                            <td class="relayset"></td>
-                        </tr>
-                        <tr>
-                            <td><label for="rule6value">Individual cell under temperature (external) °C</label></td>
-                            <td><input type="number" min="0" max="90" step="1" name="rule6value" id="rule6value"
-                                    value="5" required=""></td>
-                            <td><input type="number" min="0" max="90" step="1" name="rule6hysteresis"
-                                    id="rule6hysteresis" value="5" required=""></td>
-                            <td class="relayset"></td>
-                        </tr>
-                        <tr>
-                            <td><label for="rule7value">Pack over voltage (mV)</label></td>
-                            <td><input type="number" min="1000" max="99999999" step="100" name="rule7value"
-                                    id="rule7value" value="16000" required=""></td>
-                            <td><input type="number" min="1000" max="99999999" step="100" name="rule7hysteresis"
-                                    id="rule7hysteresis" value="16000" required=""></td>
-                            <td class="relayset"></td>
-                        </tr>
-                        <tr>
-                            <td><label for="rule8value">Pack under voltage (mV)</label></td>
-                            <td><input type="number" min="1000" max="99999999" step="100" name="rule8value"
-                                    id="rule8value" value="12000" required=""></td>
-                            <td><input type="number" min="1000" max="99999999" step="100" name="rule8hysteresis"
-                                    id="rule8hysteresis" value="12000" required=""></td>
-                            <td class="relayset"></td>
-                        </tr>
-                        <tr>
-                            <td><label for="rule9value">Timer 2</label></td>
-                            <td><input type="number" min="0" max="1440" step="1" name="rule9value" id="rule9value"
-                                    value="0" required=""></td>
-                            <td><input type="number" min="0" max="1440" step="1" name="rule9hysteresis"
-                                    id="rule9hysteresis" value="0" required=""></td>
-                            <td class="relayset"></td>
-                        </tr>
-                        <tr>
-                            <td><label for="rule10value">Timer 1</label></td>
-                            <td><input type="number" min="0" max="1440" step="1" name="rule10value" id="rule10value"
-                                    value="0" required=""></td>
-                            <td><input type="number" min="0" max="1440" step="1" name="rule10hysteresis"
-                                    id="rule10hysteresis" value="0" required=""></td>
-                            <td class="relayset"></td>
-                        </tr>
-                        <tr>
-                            <td><label for="defaultvalue">Relay default</label></td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td class="relayset">
-                                <select id="defaultrelay1" name="defaultrelay1">
-                                    <option>On</option>
-                                    <option>Off</option>
-                                </select>
-                                <select id="defaultrelay2" name="defaultrelay2">
-                                    <option>On</option>
-                                    <option>Off</option>
-                                </select>
-                                <select id="defaultrelay3" name="defaultrelay3">
-                                    <option>On</option>
-                                    <option>Off</option>
-                                </select>
-                                <select id="defaultrelay4" name="defaultrelay4">
-                                    <option>On</option>
-                                    <option>Off</option>
-                                </select></td>
-                        </tr>
-                        <tr>
-                            <td><label for="relaytype">Relay type</label></td>
-                            <td>&nbsp;</td>
-                            <td>&nbsp;</td>
-                            <td class="relayset">
-                                <select id="relaytype1" name="relaytype1">
-                                    <option>Std</option>
-                                    <option>Pulse</option>
-                                </select>
-                                <select id="relaytype2" name="relaytype2">
-                                    <option>Std</option>
-                                    <option>Pulse</option>
-                                </select>
-                                <select id="relaytype3" name="relaytype3">
-                                    <option>Std</option>
-                                    <option>Pulse</option>
-                                </select>
-                                <select id="relaytype4" name="relaytype4">
-                                    <option>Std</option>
-                                    <option>Pulse</option>
-                                </select></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <input type="submit" value="Save rules" />
-        </form>
+            <form id="rulesForm" method="POST" action="saverules.json" autocomplete="off">
+                <div class="settings">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rule</th>
+                                <th>Trigger value</th>
+                                <th>Reset value</th>
+                                <th>Relay state</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><label for="rule1value">Emergency stop</label></td>
+                                <td><input type="hidden" name="rule1value" id="rule1value" value="0"></td>
+                                <td><input type="hidden" name="rule1hysteresis" id="rule1hysteresis" value="0"></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule2value">Internal BMS error</label></td>
+                                <td><input type="hidden" name="rule2value" id="rule2value" value="0"></td>
+                                <td><input type="hidden" name="rule2hysteresis" id="rule2hysteresis" value="0"></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule3value">Individual cell over voltage (mV)</label></td>
+                                <td><input type="number" min="2500" max="4500" step="10" name="rule3value"
+                                        id="rule3value" value="4100" required=""></td>
+                                <td><input type="number" min="2500" max="4500" step="10" name="rule3hysteresis"
+                                        id="rule3hysteresis" value="4100" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule4value">Individual cell under voltage (mV)</label></td>
+                                <td><input type="number" min="2500" max="4500" step="10" name="rule4value"
+                                        id="rule4value" value="3000" required=""></td>
+                                <td><input type="number" min="2500" max="4500" step="10" name="rule4hysteresis"
+                                        id="rule4hysteresis" value="3000" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule5value">Individual cell over temperature (external) °C</label></td>
+                                <td><input type="number" min="0" max="90" step="1" name="rule5value" id="rule5value"
+                                        value="45" required=""></td>
+                                <td><input type="number" min="0" max="90" step="1" name="rule5hysteresis"
+                                        id="rule5hysteresis" value="45" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule6value">Individual cell under temperature (external) °C</label></td>
+                                <td><input type="number" min="0" max="90" step="1" name="rule6value" id="rule6value"
+                                        value="5" required=""></td>
+                                <td><input type="number" min="0" max="90" step="1" name="rule6hysteresis"
+                                        id="rule6hysteresis" value="5" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule7value">Pack over voltage (mV)</label></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule7value"
+                                        id="rule7value" value="16000" required=""></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule7hysteresis"
+                                        id="rule7hysteresis" value="16000" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule8value">Pack under voltage (mV)</label></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule8value"
+                                        id="rule8value" value="12000" required=""></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule8hysteresis"
+                                        id="rule8hysteresis" value="12000" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule9value">Timer 2</label></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule9value" id="rule9value"
+                                        value="0" required=""></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule9hysteresis"
+                                        id="rule9hysteresis" value="0" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule10value">Timer 1</label></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule10value" id="rule10value"
+                                        value="0" required=""></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule10hysteresis"
+                                        id="rule10hysteresis" value="0" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="defaultvalue">Relay default</label></td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td class="relayset">
+                                    <select id="defaultrelay1" name="defaultrelay1">
+                                        <option>On</option>
+                                        <option>Off</option>
+                                    </select>
+                                    <select id="defaultrelay2" name="defaultrelay2">
+                                        <option>On</option>
+                                        <option>Off</option>
+                                    </select>
+                                    <select id="defaultrelay3" name="defaultrelay3">
+                                        <option>On</option>
+                                        <option>Off</option>
+                                    </select>
+                                    <select id="defaultrelay4" name="defaultrelay4">
+                                        <option>On</option>
+                                        <option>Off</option>
+                                    </select></td>
+                            </tr>
+                            <tr>
+                                <td><label for="relaytype">Relay type</label></td>
+                                <td>&nbsp;</td>
+                                <td>&nbsp;</td>
+                                <td class="relayset">
+                                    <select id="relaytype1" name="relaytype1">
+                                        <option>Std</option>
+                                        <option>Pulse</option>
+                                    </select>
+                                    <select id="relaytype2" name="relaytype2">
+                                        <option>Std</option>
+                                        <option>Pulse</option>
+                                    </select>
+                                    <select id="relaytype3" name="relaytype3">
+                                        <option>Std</option>
+                                        <option>Pulse</option>
+                                    </select>
+                                    <select id="relaytype4" name="relaytype4">
+                                        <option>Std</option>
+                                        <option>Pulse</option>
+                                    </select></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <input type="submit" value="Save rules" />
+            </form>
+        </div>
     </div>
-</div>
 
     <div class="page" id="settingsPage">
         <h1>Controller Settings</h1>
         <div class="region">
             <h2>Modules &amp; Banks</h2>
-            <p>DIYBMS supports up to 100 modules in total. These modules can be split into banks to support parallel configurations.</p>
+            <p>DIYBMS supports up to 100 modules in total. These modules can be split into banks to support parallel
+                configurations.</p>
             <p>Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).</p>
             <form id="banksForm" method="POST" action="savebankconfig.json" autocomplete="off">
                 <div class="settings">
@@ -555,19 +569,29 @@ var XSS_KEY = '%XSS_KEY%';</script>
         var g2 = null;
         var g3 = null;
 
-        $(document).ready(function() {
-            $.getScript("echarts.min.js").done(function( script, textStatus ) {
-                $.getScript("pagecode.js").done(function( script, textStatus ) {
-                                    //All done
-            })
-            .fail(function( jqxhr, settings, exception ) {
-                $("#jslibrary").show();
-            });              
-            })
-            .fail(function( jqxhr, settings, exception ) {
-                $("#jslibrary").show();
-            });            
+        jQuery.cachedScript = function (url, options) {
+            options = $.extend(options || {}, {
+                dataType: "script",
+                cache: true,
+                url: url
+            });
+            return jQuery.ajax(options);
+        };
+
+        $(document).ready(function () {
+            $.cachedScript("echarts.min.js").done(function (script, textStatus) {
+                    $.cachedScript("pagecode.js").done(function (script, textStatus) {
+                            //All done
+                        })
+                        .fail(function (jqxhr, settings, exception) {
+                            $("#jslibrary").show();
+                        });
+                })
+                .fail(function (jqxhr, settings, exception) {
+                    $("#jslibrary").show();
+                });
         });
     </script>
 </body>
+
 </html>

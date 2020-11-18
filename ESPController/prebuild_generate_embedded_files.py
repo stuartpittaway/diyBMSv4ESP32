@@ -49,7 +49,7 @@ def prepare_embedded_files(source, target, env):
                     block = source.read(2**16)
                 etag=sha1sum.hexdigest()
 
-            f.write("const char* const etag_{} = \"{}\";\n".format(name,etag))
+            f.write("const char* const etag_{} = \"\\\"{}\\\"\";\n".format(name,etag))
 
             # Generate constant variable to hold size of this file/byte array
             filelength=os.stat(file).st_size

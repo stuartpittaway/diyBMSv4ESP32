@@ -698,6 +698,8 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   }
 #endif
 
+  response->addHeader("Cache-Control", "no-store");
+
   serializeJson(doc, *response);
   request->send(response);
 }
@@ -942,6 +944,8 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     //NULL
     current.add((char *)0);
 
+    response->addHeader("Cache-Control", "no-store");
+
     serializeJson(doc, *response);
     request->send(response);
   }
@@ -999,7 +1003,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
   _myserver->on("/pagecode.js", HTTP_GET,
                 [](AsyncWebServerRequest *request) {
                   //const char *htmlBuildTime = __DATE__ " " __TIME__;
-                  if (request->header("ETag").equals(String(etag_file_pagecode_js_gz)))
+                  if (request->header("If-None-Match").equals(String(etag_file_pagecode_js_gz)))
                   {
                     request->send(304);
                   }
@@ -1007,7 +1011,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
                   {
                     AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_pagecode_js_gz, size_file_pagecode_js_gz);
                     response->addHeader("Content-Encoding", "gzip");
-                    response->addHeader("ETag", "\"" + String(etag_file_pagecode_js_gz) + "\"");
+                    response->addHeader("ETag", String(etag_file_pagecode_js_gz) );
                     response->addHeader("Cache-Control", "no-cache, max-age=86400");
                     request->send(response);
                   }
@@ -1015,7 +1019,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
 
   _myserver->on("/favicon.ico", HTTP_GET,
                 [](AsyncWebServerRequest *request) {
-                  if (request->header("ETag").equals(String(etag_file_favicon_ico_gz)))
+                  if (request->header("If-None-Match").equals(String(etag_file_favicon_ico_gz)))
                   {
                     request->send(304);
                   }
@@ -1023,22 +1027,22 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
                   {
                     AsyncWebServerResponse *response = request->beginResponse_P(200, "image/x-icon", file_favicon_ico_gz, size_file_favicon_ico_gz);
                     response->addHeader("Content-Encoding", "gzip");
-                    response->addHeader("ETag", "\"" + String(etag_file_favicon_ico_gz) + "\"");
-                    response->addHeader("Cache-Control", "no-cache, max-age=86400");
+                    response->addHeader("ETag", String(etag_file_favicon_ico_gz));
+                    response->addHeader("Cache-Control", "public, max-age=86400, immutable");
                     request->send(response);
                   }
                 });
 
   _myserver->on("/logo.png", HTTP_GET,
                 [](AsyncWebServerRequest *request) {
-                  if (request->header("ETag").equals(String(etag_file_logo_png)))
+                  if (request->header("If-None-Match").equals(String(etag_file_logo_png)))
                   {
                     request->send(304);
                   }
                   else
                   {
                     AsyncWebServerResponse *response = request->beginResponse_P(200, "image/png", file_logo_png, size_file_logo_png);
-                    response->addHeader("ETag", "\"" + String(etag_file_logo_png) + "\"");
+                    response->addHeader("ETag", String(etag_file_logo_png) );
                     response->addHeader("Cache-Control", "no-cache, max-age=86400");
                     request->send(response);
                   }
@@ -1046,14 +1050,14 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
 
   _myserver->on("/wait.png", HTTP_GET,
                 [](AsyncWebServerRequest *request) {
-                  if (request->header("ETag").equals(String(etag_file_wait_png)))
+                  if (request->header("If-None-Match").equals(String(etag_file_wait_png)))
                   {
                     request->send(304);
                   }
                   else
                   {
                     AsyncWebServerResponse *response = request->beginResponse_P(200, "image/png", file_wait_png, size_file_wait_png);
-                    response->addHeader("ETag", "\"" + String(etag_file_wait_png) + "\"");
+                    response->addHeader("ETag",  String(etag_file_wait_png));
                     response->addHeader("Cache-Control", "no-cache, max-age=86400");
                     request->send(response);
                   }
@@ -1061,14 +1065,14 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
 
   _myserver->on("/patron.png", HTTP_GET,
                 [](AsyncWebServerRequest *request) {
-                  if (request->header("ETag").equals(String(etag_file_patron_png)))
+                  if (request->header("If-None-Match").equals(String(etag_file_patron_png)))
                   {
                     request->send(304);
                   }
                   else
                   {
                     AsyncWebServerResponse *response = request->beginResponse_P(200, "image/png", file_patron_png, size_file_patron_png);
-                    response->addHeader("ETag", "\"" + String(etag_file_patron_png) + "\"");
+                    response->addHeader("ETag", String(etag_file_patron_png) );
                     response->addHeader("Cache-Control", "no-cache, max-age=86400");
                     request->send(response);
                   }
@@ -1076,7 +1080,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
 
   _myserver->on("/jquery.js", HTTP_GET,
                 [](AsyncWebServerRequest *request) {
-                  if (request->header("ETag").equals(String(etag_file_jquery_js_gz)))
+                  if (request->header("If-None-Match").equals(String(etag_file_jquery_js_gz)))
                   {
                     request->send(304);
                   }
@@ -1084,7 +1088,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
                   {
                     AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_jquery_js_gz, size_file_jquery_js_gz);
                     response->addHeader("Content-Encoding", "gzip");
-                    response->addHeader("ETag", "\"" + String(etag_file_jquery_js_gz) + "\"");
+                    response->addHeader("ETag", String(etag_file_jquery_js_gz) );
                     response->addHeader("Cache-Control", "public, max-age=86400, immutable");
                     request->send(response);
                   }
@@ -1092,7 +1096,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
 
   _myserver->on("/echarts.min.js", HTTP_GET,
                 [](AsyncWebServerRequest *request) {
-                  if (request->header("ETag").equals(String(etag_file_echarts_min_js_gz)))
+                  if (request->header("If-None-Match").equals(String(etag_file_echarts_min_js_gz)))
                   {
                     request->send(304);
                   }
@@ -1100,7 +1104,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
                   {
                     AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_echarts_min_js_gz, size_file_echarts_min_js_gz);
                     response->addHeader("Content-Encoding", "gzip");
-                    response->addHeader("ETag", "\"" + String(etag_file_echarts_min_js_gz) + "\"");
+                    response->addHeader("ETag", String(etag_file_echarts_min_js_gz));
                     response->addHeader("Cache-Control", "public, max-age=86400, immutable");
                     request->send(response);
                   }
@@ -1108,7 +1112,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
 
   _myserver->on("/style.css", HTTP_GET,
                 [](AsyncWebServerRequest *request) {
-                  if (request->header("ETag").equals(String(etag_file_style_css_gz)))
+                  if (request->header("If-None-Match").equals(String(etag_file_style_css_gz)))
                   {
                     request->send(304);
                   }
@@ -1116,8 +1120,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
                   {
                     AsyncWebServerResponse *response = request->beginResponse_P(200, "text/css", file_style_css_gz, size_file_style_css_gz);
                     response->addHeader("Content-Encoding", "gzip");
-                    response->addHeader("ETag", "\"" + String(etag_file_style_css_gz) + "\"");
-                    response->addHeader("Cache-Control", "public, max-age=86400, immutable");
+                    response->addHeader("ETag", String(etag_file_style_css_gz) );
+                    response->addHeader("Cache-Control", "no-cache, max-age=86400");
                     request->send(response);
                   }
                 });
