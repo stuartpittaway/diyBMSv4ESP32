@@ -1,4 +1,6 @@
 """ prebuild_generate_embedded_files for DIYBMS """
+
+
 import datetime
 import subprocess
 import os
@@ -14,9 +16,6 @@ def prepare_embedded_files(source, target, env):
     #to a byte array suitable for embedding into flash to avoid using SPIFF or LITTLEFS
 
     print('prebuild_generate_embedded_files.py')
-    #print(source)
-    #print(target)
-    #print(env)
 
     data_dir = env.get('PROJECTDATA_DIR')
     include_dir = os.path.join(env.get('PROJECT_DIR'), 'include')

@@ -59,3 +59,11 @@ def prepare_www_files(source, target, env):
 #env.AddPreAction('$BUILD_DIR/spiffs.bin', prepare_www_files)
 
 env.AddPreAction('$BUILD_DIR/src/DIYBMSServer.cpp.o', prepare_www_files)
+
+
+
+def block_spiffs(source, target, env):
+    raise Exception("SPIFFs and the 'upload filesystem image' are no longer needed in DIYBMS")
+
+env.AddPreAction('$BUILD_DIR/spiffs.bin', block_spiffs)
+env.AddPreAction('$BUILD_DIR/littlefs.bin', block_spiffs)

@@ -1117,7 +1117,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
                     AsyncWebServerResponse *response = request->beginResponse_P(200, "text/css", file_style_css_gz, size_file_style_css_gz);
                     response->addHeader("Content-Encoding", "gzip");
                     response->addHeader("ETag", "\"" + String(etag_file_style_css_gz) + "\"");
-                    response->addHeader("Cache-Control", "public");
+                    response->addHeader("Cache-Control", "public, max-age=86400, immutable");
                     request->send(response);
                   }
                 });
