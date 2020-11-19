@@ -91,7 +91,9 @@ function queryBMS() {
             for (let i = 0; i < jsondata.voltages.length; i++) {
                 labels.push(bankNumber + "/" + i);
 
-                var color = jsondata.bypass[i] == 1 ? "#B44247" : null;
+                // Make different banks different colours (stripes)
+                var stdcolor = bankNumber % 2 ==0 ? "#55a1ea":"#33628f";
+                var color = jsondata.bypass[i] == 1 ? "#B44247" : stdcolor;
 
                 var v = (parseFloat(jsondata.voltages[i]) / 1000.0);
                 voltages.push({ value: v, itemStyle: { color: color } });
@@ -114,9 +116,10 @@ function queryBMS() {
                     bankNumber++;
                 }
 
-                color = jsondata.bypasshot[i] == 1 ? "#B44247" : null;
+
+                color = jsondata.bypasshot[i] == 1 ? "#B44247" : stdcolor;
                 tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
-                tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]) });
+                tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]), itemStyle:{color: stdcolor} });
                 pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : jsondata.bypasspwm[i] });
             }
         }
