@@ -87,13 +87,36 @@ function queryBMS() {
         var bankNumber = 0;
         var cellsInBank = 0;
 
+        // Need one color for each pack, could make it colourful I suppose :-)
+        const colours=[
+            '#55a1ea','#33628f','#55a1ea','#33628f',
+            '#55a1ea','#33628f','#55a1ea','#33628f',
+            '#55a1ea','#33628f','#55a1ea','#33628f',
+            '#55a1ea','#33628f','#55a1ea','#33628f',
+        ]
+
+        const red='#B44247'
+
+        var markLineData=[];
+
+        markLineData.push(  {name: 'avg', type: 'average', lineStyle: { color:'#ddd', width:2, type:'dotted', opacity:0.3 }, label:{distance:[10,0],position:'start'} });
+        markLineData.push(  {name: 'min', type: 'min', lineStyle: { color:'#ddd',width:2, type:'dotted', opacity:0.3 }, label:{distance:[10,0],position:'start'} });
+        markLineData.push(  {name: 'max', type: 'max', lineStyle: { color:'#ddd',width:2, type:'dotted', opacity:0.3 }, label:{distance:[10,0],position:'start'} });
+
+        var xAxis=0;
+        for (let index = 0; index < jsondata.banks; index++) {            
+            markLineData.push( {name: "Bank "+index, xAxis: xAxis} );
+            xAxis+=jsondata.seriesmodules;
+        }
+
         if (jsondata.voltages) {
             for (let i = 0; i < jsondata.voltages.length; i++) {
                 labels.push(bankNumber + "/" + i);
 
                 // Make different banks different colours (stripes)
-                var stdcolor = bankNumber % 2 ==0 ? "#55a1ea":"#33628f";
-                var color = jsondata.bypass[i] == 1 ? "#B44247" : stdcolor;
+                var stdcolor = colours[bankNumber];
+                // Red
+                var color = jsondata.bypass[i] == 1 ? red : stdcolor;
 
                 var v = (parseFloat(jsondata.voltages[i]) / 1000.0);
                 voltages.push({ value: v, itemStyle: { color: color } });
@@ -117,7 +140,7 @@ function queryBMS() {
                 }
 
 
-                color = jsondata.bypasshot[i] == 1 ? "#B44247" : stdcolor;
+                color = jsondata.bypasshot[i] == 1 ? red : stdcolor;
                 tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
                 tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]), itemStyle:{color: stdcolor} });
                 pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : jsondata.bypasspwm[i] });
@@ -350,10 +373,18 @@ function queryBMS() {
                             yAxisIndex: 0,
                             type: 'bar',
                             data: [],
-                            itemStyle: {
-                                color: '#55a1ea',
-                                barBorderRadius: [8, 8, 0, 0]
+
+
+
+                            
+                            markLine: {
+                                silent: true,
+                                symbol: 'none',
+                                lineStyle: { width:5, type:'dashed', opacity:0.1 },
+                                label: {show: true, distance: [0,0], formatter: '{b}'},
+                                data: markLineData
                             },
+                            itemStyle: {color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
                             label: {
                                 normal: {
                                     show: true,
@@ -527,6 +558,7 @@ function queryBMS() {
 
             if (g1 != null) {
                 g1.setOption({
+                    markLine: {data: markLineData},
                     xAxis: { data: labels },
                     yAxis: [{ gridIndex: 0, min: minVoltage, max: maxVoltage }]
                     , series: [{ name: 'Voltage', data: voltages }
