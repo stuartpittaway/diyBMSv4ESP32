@@ -34,6 +34,9 @@ function configureModule(button, cellid, attempts) {
             $('#c').val(data.settings.id);
 
             if (data.settings.Cached == true) {
+                var currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
+                $("#ActualVoltage").val(currentReading.toFixed(3));
+
                 $("#settingConfig h2").html("Settings for module bank:" + data.settings.bank + " module:" + data.settings.module);
 
                 //Populate settings div
@@ -213,26 +216,26 @@ function queryBMS() {
         if ($('#modulesPage').is(':visible')) {
             var tbody = $("#modulesRows");
 
-            if ($('#modulesRows div').length != cells.length) {
+            if ($('#modulesRows tr').length != cells.length) {
                 $("#settingConfig").hide();
 
                 //Add rows if they dont exist (or incorrect amount)
-                $(tbody).find("div").remove();
+                $(tbody).find("tr").remove();
 
                 $.each(cells, function (index, value) {
-                    $(tbody).append("<div><span>"
+                    $(tbody).append("<tr><td>"
                         + bank[index]
-                        + "</span><span>" + value + "</span><span></span><span class='hide'></span><span class='hide'></span>"
-                        + "<span class='hide'></span><span class='hide'></span><span class='hide'></span><span class='hide'></span>"
-                        + "<span><button type='button' onclick='return identifyModule(this," + index + ");'>Identify</button></span>"
-                        + "<span><button type='button' onclick='return configureModule(this," + index + ",5);'>Configure</button></span></div>")
+                        + "</td><td>" + value + "</td><td></td><td class='hide'></td><td class='hide'></td>"
+                        + "<td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td>"
+                        + "<td><button type='button' onclick='return identifyModule(this," + index + ");'>Identify</button>"
+                        + "<button type='button' onclick='return configureModule(this," + index + ",10);'>Configure</button></td></tr>")
                 });
             }
 
-            var rows = $(tbody).find("div");
+            var rows = $(tbody).find("tr");
 
             $.each(cells, function (index, value) {
-                var columns = $(rows[index]).find("span");
+                var columns = $(rows[index]).find("td");
                 $(columns[2]).html(voltages[index].value.toFixed(3));
                 $(columns[3]).html(voltagesmin[index].toFixed(3));
                 $(columns[4]).html(voltagesmax[index].toFixed(3));
@@ -253,12 +256,6 @@ function queryBMS() {
                 catch (err) {
                     $("#jslibrary").show();
                 }
-
-                //var labelOption = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Fira Code' } };
-                //var labelOption2 = { normal: { show: true, position: 'insideBottom', distance: 15, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Fira Code' } };
-                //var labelOption3 = { normal: { show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Fira Code' } };
-                //var labelOption4 = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#807d7d', fontFamily: 'Fira Code' } };
-                //var labelOptionBypass = { normal: { show: true, position: 'bottom', distance: 5, formatter: '{c}%', fontSize: 14, color: '#dbd81a', fontFamily: 'Fira Code' } };
 
                 // specify chart configuration item and data
                 var option = {
@@ -576,8 +573,10 @@ $(function () {
         $("#ranges").append('<div id="range' + n + '" class="stat"><span class="x t">Range ' + n + ':</span><span class="x v"></span></div>');
     }
 
+    
+
     $('#CalculateCalibration').click(function () {
-        var currentReading = parseFloat($("#modulesRows > div.selected > span:nth-child(3)").text());
+        var currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
         var currentCalib = parseFloat($("#Calib").val());
         var actualV = parseFloat($("#ActualVoltage").val());
         var result = (currentCalib / currentReading) * actualV;
@@ -617,7 +616,7 @@ $(function () {
         $(".page").hide();
 
         //Remove existing table
-        $("#modulesRows").find("div").remove();
+        $("#modulesRows").find("tr").remove();
 
         $("#settingConfig").hide();
 

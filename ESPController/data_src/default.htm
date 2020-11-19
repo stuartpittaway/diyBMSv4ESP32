@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
@@ -17,6 +18,7 @@
         crossorigin="anonymous"></script>
     <title>DIY BMS CONTROLLER v4</title>
 </head>
+
 <body>
     <div id="loading"><img src="wait.png" width="64" height="64" alt="Please wait" /></div>
     <div class="header">
@@ -33,15 +35,18 @@
     <div id='commserr' class='error'>The controller is having difficulty communicating with the cell monitoring modules.
     </div>
     <div id='iperror' class='error'>Cannot communicate with the controller for status updates.</div>
-    <div id='missingmodules' class='error'>Controller found <span id='missingmodule1'></span> modules, but is configured for <span id='missingmodule2'></span>.</div>
+    <div id='missingmodules' class='error'>Controller found <span id='missingmodule1'></span> modules, but is configured
+        for <span id='missingmodule2'></span>.</div>
     <div id='toomanymodules' class='error'>Controller is configured to use more modules than it can cope with.</div>
     <div id='genericerror' class='error'>Controller error <span id="genericerrcode"></span></div>
     <div id='jslibrary' class='error'>Javascript library has failed to load correctly, please refresh page.</div>
     <div id='saveerror' class='error'>Failed to save settings.</div>
     <div id='savesuccess' class='success'>Settings saved</div>
     <div id='genericwarning' class='warning'>Controller warning <span id="genericwarningcode"></span></div>
-    <div id='warning1' class='warning'>Warning: one or more modules are configured with a different bypass voltage value</div>
-    <div id='warning2' class='warning'>Warning: one or more modules are configured with a different bypass temperature value</div>
+    <div id='warning1' class='warning'>Warning: one or more modules are configured with a different bypass voltage value
+    </div>
+    <div id='warning2' class='warning'>Warning: one or more modules are configured with a different bypass temperature
+        value</div>
     <div id="info" class="info">
         <span id="voltages"></span>
         <span id="ranges"></span>
@@ -106,20 +111,25 @@
     <div class="page" id="modulesPage">
         <h1>Modules</h1>
         <div class="region">
-            <div id="modulesTable">
-                <div class="th">
-                    <span>Bank</span>
-                    <span>Module</span>
-                    <span>Voltage</span>
-                    <span class='hide'>V. Min</span>
-                    <span class='hide'>V. Max</span>
-                    <span class='hide'>Temp<br />Int °C</span>
-                    <span class='hide'>Temp<br />Ext °C</span>
-                    <span class='hide'>Bypass PWM</span>
-                    <span class='hide'>Bad packet<br />count</span>
-                </div>
-                <div class="rows" id="modulesRows"></div>
-            </div>
+            <table id="modulesTable">
+                <thead>
+                    <tr>
+                        <th>Bank</th>
+                        <th>Module</th>
+                        <th>Voltage</th>
+                        <th class='hide'>V. Min</th>
+                        <th class='hide'>V. Max</th>
+                        <th class='hide'>Temp<br />Int °C</th>
+                        <th class='hide'>Temp<br />Ext °C</th>
+                        <th class='hide'>Bypass PWM</th>
+                        <th class='hide'>Bad packet<br />count</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody class="rows" id="modulesRows">
+                
+            </tbody>
+            </table>
             <div id="settingConfig">
                 <h2>Settings for module </h2>
                 <form id="settingsForm" method="POST" action="savesetting.json" autocomplete="off">
