@@ -634,8 +634,8 @@ function queryBMS() {
                     series: [{ data: data3d }]
 
                     , grid3D: {
-                        boxWidth: 200,
-                        boxDepth: 80
+                        boxWidth: 20*jsondata.seriesmodules > 200 ? 200:20*jsondata.seriesmodules,
+                        boxDepth: 20*jsondata.banks > 100 ? 100:20*jsondata.banks
                     }
                 }
 
