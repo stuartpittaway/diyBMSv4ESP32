@@ -88,25 +88,25 @@ function queryBMS() {
         var cellsInBank = 0;
 
         // Need one color for each pack, could make it colourful I suppose :-)
-        const colours=[
-            '#55a1ea','#33628f','#55a1ea','#33628f',
-            '#55a1ea','#33628f','#55a1ea','#33628f',
-            '#55a1ea','#33628f','#55a1ea','#33628f',
-            '#55a1ea','#33628f','#55a1ea','#33628f',
+        const colours = [
+            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
+            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
+            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
+            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
         ]
 
-        const red='#B44247'
+        const red = '#B44247'
 
-        var markLineData=[];
+        var markLineData = [];
 
-        markLineData.push(  {name: 'avg', type: 'average', lineStyle: { color:'#ddd', width:2, type:'dotted', opacity:0.3 }, label:{distance:[10,0],position:'start'} });
-        markLineData.push(  {name: 'min', type: 'min', lineStyle: { color:'#ddd',width:2, type:'dotted', opacity:0.3 }, label:{distance:[10,0],position:'start'} });
-        markLineData.push(  {name: 'max', type: 'max', lineStyle: { color:'#ddd',width:2, type:'dotted', opacity:0.3 }, label:{distance:[10,0],position:'start'} });
+        markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
+        markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
+        markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
 
-        var xAxis=0;
-        for (let index = 0; index < jsondata.banks; index++) {            
-            markLineData.push( {name: "Bank "+index, xAxis: xAxis} );
-            xAxis+=jsondata.seriesmodules;
+        var xAxis = 0;
+        for (let index = 0; index < jsondata.banks; index++) {
+            markLineData.push({ name: "Bank " + index, xAxis: xAxis });
+            xAxis += jsondata.seriesmodules;
         }
 
         if (jsondata.voltages) {
@@ -142,7 +142,7 @@ function queryBMS() {
 
                 color = jsondata.bypasshot[i] == 1 ? red : stdcolor;
                 tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
-                tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]), itemStyle:{color: stdcolor} });
+                tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]), itemStyle: { color: stdcolor } });
                 pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : jsondata.bypasspwm[i] });
             }
         }
@@ -162,7 +162,7 @@ function queryBMS() {
 
         if (jsondata.bankv) {
             for (var bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
-                $("#voltage" + (bankNumber + 1) + " .v").html( (parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2) + "V");
+                $("#voltage" + (bankNumber + 1) + " .v").html((parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2) + "V");
                 $("#range" + (bankNumber + 1) + " .v").html(jsondata.voltrange[bankNumber] + "mV");
                 $("#voltage" + (bankNumber + 1)).show();
                 $("#range" + (bankNumber + 1)).show();
@@ -274,14 +274,9 @@ function queryBMS() {
 
 
         if ($('#homePage').is(':visible')) {
-            if (window.g1 == null) {
-                try {
-                    // based on prepared DOM, initialize echarts instance
-                    window.g1 = echarts.init(document.getElementById('graph1'));
-                }
-                catch (err) {
-                    $("#jslibrary").show();
-                }
+            if (window.g1 == null && $('#graph1').css('display') != 'none') {
+                // based on prepared DOM, initialize echarts instance
+                window.g1 = echarts.init(document.getElementById('graph1'))
 
                 // specify chart configuration item and data
                 var option = {
@@ -363,9 +358,7 @@ function queryBMS() {
                         axisLabel: {
                             formatter: '{value}°C'
                         }
-                    }
-                    ]
-                    ,
+                    }],
                     series: [
                         {
                             xAxisIndex: 0,
@@ -374,17 +367,14 @@ function queryBMS() {
                             type: 'bar',
                             data: [],
 
-
-
-                            
                             markLine: {
                                 silent: true,
                                 symbol: 'none',
-                                lineStyle: { width:5, type:'dashed', opacity:0.1 },
-                                label: {show: true, distance: [0,0], formatter: '{b}'},
+                                lineStyle: { width: 5, type: 'dashed', opacity: 0.1 },
+                                label: { show: true, distance: [0, 0], formatter: '{b}' },
                                 data: markLineData
                             },
-                            itemStyle: {color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
+                            itemStyle: { color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
                             label: {
                                 normal: {
                                     show: true,
@@ -399,9 +389,7 @@ function queryBMS() {
                                     fontFamily: 'Fira Code'
                                 }
                             }
-                        }
-
-                        , {
+                        }, {
                             xAxisIndex: 0,
                             name: 'Min V',
                             yAxisIndex: 0,
@@ -553,12 +541,59 @@ function queryBMS() {
 
                 // use configuration item and data specified to show chart
                 g1.setOption(option);
+
+            }
+
+            if (window.g2 == null && $('#graph2').css('display') != 'none') {
+                window.g2 = echarts.init(document.getElementById('graph2'));
+
+                var Option3dBar = {
+                    tooltip: {},
+                    visualMap: { max: 4, inRange: { color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8', '#ffffbf', '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026'] } },
+                    xAxis3D: { type: 'category', data: [], name: 'Cell', nameTextStyle: { color: '#ffffff' } },
+                    yAxis3D: { type: 'category', data: [], name: 'Bank', nameTextStyle: { color: '#ffffff' } },
+                    zAxis3D: { type: 'value', name: 'Voltage', nameTextStyle: { color: '#ffffff' } },
+                    grid3D: {
+                        boxWidth: 200,
+                        boxDepth: 80,
+                        viewControl: {
+                            // projection: 'orthographic'
+                        },
+                        light: {
+                            main: {
+                                intensity: 1.2,
+                                shadow: true
+                            },
+                            ambient: {
+                                intensity: 0.3
+                            }
+                        }
+                    },
+                    series: [{
+                        type: 'bar3D',
+                        data: [],
+                        shading: 'lambert',
+                        label: { textStyle: { fontSize: 16, borderWidth: 1, color: '#ffffff' } },
+
+                        emphasis: {
+                            label: {
+                                textStyle: {
+                                    fontSize: 16,
+                                    color: '#aaa'
+                                }
+                            },
+                            itemStyle: { color: '#fff' }
+                        }
+                    }]
+                };
+
+                g2.setOption(Option3dBar);
             }
 
 
-            if (g1 != null) {
+            if (window.g1 != null && $('#graph1').css('display') != 'none') {
                 g1.setOption({
-                    markLine: {data: markLineData},
+                    markLine: { data: markLineData },
                     xAxis: { data: labels },
                     yAxis: [{ gridIndex: 0, min: minVoltage, max: maxVoltage }]
                     , series: [{ name: 'Voltage', data: voltages }
@@ -569,6 +604,44 @@ function queryBMS() {
                         , { name: 'CellTemperature', data: tempext }]
                 });
             }
+
+
+
+            if (window.g2 != null && $('#graph2').css('display') != 'none') {
+                //Format the data to show as 3D Bar chart
+                var cells3d = [];
+                var banks3d = [];
+
+                for (var seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
+                    cells3d.push({value:'Cell ' + seriesmodules, textStyle: { color: '#ffffff' }});
+                }
+
+                var data3d = [];
+                var cell = 0;
+                for (var bankNumber = 0; bankNumber < jsondata.banks; bankNumber++) {
+                    banks3d.push({value:'Bank ' + bankNumber, textStyle: { color: '#ffffff' }});
+                    //Build up 3d array for cell data
+                    for (var seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
+                        data3d.push({ value: [seriesmodules, bankNumber, voltages[cell].value], itemStyle: voltages[cell].itemStyle });
+                        cell++;
+                    }
+                }
+
+                g2.setOption({
+                    xAxis3D: { data:  cells3d },
+                    yAxis3D: { data: banks3d },
+                    zAxis3D: { min: minVoltage, max: maxVoltage },
+                    series: [{ data: data3d }]
+
+                    , grid3D: {
+                        boxWidth: 200,
+                        boxDepth: 80
+                    }
+                }
+
+                );
+            }
+
         }//end homepage visible
 
         //Call again in a few seconds
@@ -586,7 +659,10 @@ function queryBMS() {
     });
 }
 
-$(window).on('resize', function () { if (g1 != null && g1 != undefined && $('#homePage').is(':visible')) { g1.resize(); } });
+$(window).on('resize', function () { 
+    if (g1 != null && g1 != undefined && $('#homePage').is(':visible')) { g1.resize(); } 
+    if (g2 != null && g2 != undefined && $('#homePage').is(':visible')) { g2.resize(); } 
+});
 
 $(function () {
     $("#loading").show();
@@ -608,7 +684,29 @@ $(function () {
         $("#ranges").append('<div id="range' + n + '" class="stat"><span class="x t">Range ' + n + ':</span><span class="x v"></span></div>');
     }
 
+
     
+    $("#graph1").show();
+    $("#graph2").hide();
+    $("#graphOptions a").click(function (event) {
+        event.preventDefault();
+        if ($(event.target).text() == "2D") {
+            $("#graph1").show();
+            $("#graph2").hide();
+
+            //Hide 3d graph
+            //if (window.g2 != null) {window.g2.clear();            }
+        } else {
+            $("#graph1").hide();
+            $("#graph2").show();
+
+            //Hide 2d graph
+            //if (window.g1 != null) {window.g1.clear();            }
+        }
+        $(window).trigger('resize');
+    });
+
+
 
     $('#CalculateCalibration').click(function () {
         var currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());

@@ -5,7 +5,7 @@ import gzip
 import shutil
 import glob
 
-def prepare_www_files(source, target, env):
+def prepare_www_files():
     #WARNING -  this script will DELETE your 'data' dir and recreate an empty one to copy/gzip files from 'data_src'
     #           so make sure to edit your files in 'data_src' folder as changes madt to files in 'data' woll be LOST
     #           
@@ -55,15 +55,12 @@ def prepare_www_files(source, target, env):
 
     print('[/COPY/GZIP DATA FILES]')
     
-#env.AddPreAction('$BUILD_DIR/littlefs.bin', prepare_www_files)
-#env.AddPreAction('$BUILD_DIR/spiffs.bin', prepare_www_files)
+prepare_www_files()
 
-env.AddPreAction('$BUILD_DIR/src/DIYBMSServer.cpp.o', prepare_www_files)
-
+#env.AddPreAction('$BUILD_DIR/src/DIYBMSServer.cpp.o', prepare_www_files)
 
 
 def block_spiffs(source, target, env):
     raise Exception("SPIFFs and the 'upload filesystem image' are no longer needed in DIYBMS")
-
 env.AddPreAction('$BUILD_DIR/spiffs.bin', block_spiffs)
 env.AddPreAction('$BUILD_DIR/littlefs.bin', block_spiffs)

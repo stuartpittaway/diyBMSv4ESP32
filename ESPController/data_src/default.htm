@@ -58,12 +58,19 @@
         <div id="oos" class="stat"><span class="x t" title="Out of sequence error">OOS errors:</span><span
                 class="x v"></span></div>
         <div id="roundtrip" class="stat"><span class="x t">Roundtrip (ms):</span><span class="x v"></span></div>
+
+        <div id="graphOptions">
+            <a id='view2d' href="">2D</a>
+            <a id='view3d' href="">3D</a>
+        </div>
     </div>
     <div class="page" id="homePage">
         <div class="graphs">
             <div id="graph1" style="width:100%%; height:100%%;"></div>
+            <div id="graph2" style="width:100%%; height:100%%;"></div>
         </div>
     </div>
+
     <div class="page" id="aboutPage">
         <h1>About</h1>
         <div class="region">
@@ -127,8 +134,8 @@
                     </tr>
                 </thead>
                 <tbody class="rows" id="modulesRows">
-                
-            </tbody>
+
+                </tbody>
             </table>
             <div id="settingConfig">
                 <h2>Settings for module </h2>
@@ -589,9 +596,15 @@
         };
 
         $(document).ready(function () {
+
+
             $.cachedScript("echarts.min.js").done(function (script, textStatus) {
-                    $.cachedScript("pagecode.js").done(function (script, textStatus) {
-                            //All done
+                    $.cachedScript("echarts_gl.min.js").done(function (script, textStatus) {
+                            $.cachedScript("pagecode.js").done(function (script, textStatus) {
+                                //All done
+                            }).fail(function (jqxhr, settings, exception) {
+                                $("#jslibrary").show();
+                            });
                         })
                         .fail(function (jqxhr, settings, exception) {
                             $("#jslibrary").show();

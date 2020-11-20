@@ -32,6 +32,8 @@ form input[type='submit'] {font-family:Arial,Helvetica,sans-serif;border:none;te
 #modulesTable thead tr th {text-align:right;}
 #loading {width:64px;position:absolute;height:64px;margin-left: auto;margin-right: auto;padding: 0;top:50%;left:50%;}
 
+#graphOptions {float: right;padding-right: 5px;}
+
 @media screen and (max-width:1024px){
   .page .region {width:98%;}
   .header a {float:none;padding:6px;font-size:14px;line-height:20px;}
