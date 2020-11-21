@@ -678,7 +678,7 @@ $(function () {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }
     for (var n = MAXIMUM_NUMBER_OF_BANKS-1; n>=0; n--) {
-        $("#totalBanks").prepend('<option>' + n+1 + '</option>')
+        $("#totalBanks").prepend('<option>' + (n+1) + '</option>')
         $("#info").prepend('<div id="range' + n + '" class="stat"><span class="x t">Range ' + n + ':</span><span class="x v"></span></div>');
         $("#info").prepend('<div id="voltage' + n + '" class="stat"><span class="x t">Voltage ' + n + ':</span><span class="x v"></span></div>');
 
