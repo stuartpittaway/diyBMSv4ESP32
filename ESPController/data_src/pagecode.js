@@ -162,15 +162,17 @@ function queryBMS() {
 
         if (jsondata.bankv) {
             for (var bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
-                $("#voltage" + (bankNumber + 1) + " .v").html((parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2) + "V");
-                $("#range" + (bankNumber + 1) + " .v").html(jsondata.voltrange[bankNumber] + "mV");
-                $("#voltage" + (bankNumber + 1)).show();
-                $("#range" + (bankNumber + 1)).show();
+                $("#voltage" + bankNumber + " .v").html((parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2) + "V");
+                $("#range" + bankNumber + " .v").html(jsondata.voltrange[bankNumber] + "mV");
+                $("#voltage" + bankNumber).show();
+                $("#range" + bankNumber).show();
+                //$("#bank" + (bankNumber )).show();
             }
 
             for (var bankNumber = jsondata.bankv.length; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
-                $("#voltage" + (bankNumber + 1)).hide();
-                $("#range" + (bankNumber + 1)).hide();
+                //$("#bank" + (bankNumber )).hide();
+                $("#voltage" + bankNumber).hide();
+                $("#range" + bankNumber).hide();
             }
         }
 
@@ -417,8 +419,6 @@ function queryBMS() {
                                 }
                             }
                         }
-
-
                         , {
                             xAxisIndex: 0,
                             name: 'Max V',
@@ -470,7 +470,6 @@ function queryBMS() {
                             itemStyle: { normal: { color: "#f0e400", lineStyle: { color: 'transparent' } } }
                         }
 
-                        //Temperatures
                         , {
                             xAxisIndex: 1,
                             yAxisIndex: 2,
@@ -678,10 +677,13 @@ $(function () {
     for (var n = 1; n <= 32; n++) {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }
-    for (var n = 1; n <= MAXIMUM_NUMBER_OF_BANKS; n++) {
-        $("#totalBanks").append('<option>' + n + '</option>')
-        $("#voltages").append('<div id="voltage' + n + '" class="stat"><span class="x t">Voltage ' + n + ':</span><span class="x v"></span></div>');
-        $("#ranges").append('<div id="range' + n + '" class="stat"><span class="x t">Range ' + n + ':</span><span class="x v"></span></div>');
+    for (var n = MAXIMUM_NUMBER_OF_BANKS-1; n>=0; n--) {
+        $("#totalBanks").prepend('<option>' + n+1 + '</option>')
+        $("#info").prepend('<div id="range' + n + '" class="stat"><span class="x t">Range ' + n + ':</span><span class="x v"></span></div>');
+        $("#info").prepend('<div id="voltage' + n + '" class="stat"><span class="x t">Voltage ' + n + ':</span><span class="x v"></span></div>');
+
+        $("#voltage" + n).hide();
+        $("#range" + n).hide();
     }
 
 
