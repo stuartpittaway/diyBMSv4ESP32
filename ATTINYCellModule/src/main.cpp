@@ -44,8 +44,7 @@ You need to configure the correct DIYBMSMODULEVERSION in defines.h file to build
 #include "diybms_attiny841.h"
 #include "packet_processor.h"
 
-
-uint8_t SerialPacketReceiveBuffer[8+sizeof(PacketStruct)];
+uint8_t SerialPacketReceiveBuffer[8 + sizeof(PacketStruct)];
 
 SerialEncoder myPacketSerial;
 
@@ -81,14 +80,13 @@ void DefaultConfig()
   //Start bypass at 4.1V
   myConfig.BypassThresholdmV = 4100;
 
-
-//#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 430 || DIYBMSMODULEVERSION == 420 || DIYBMSMODULEVERSION == 421)
+  //#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 430 || DIYBMSMODULEVERSION == 420 || DIYBMSMODULEVERSION == 421)
   //Murata Electronics NCP18WB473J03RB = 47K ±5% 4050K ±2% 100mW 0603 NTC Thermistors RoHS
   //myConfig.Internal_BCoefficient = 4050;
-//#else
+  //#else
   //4150 = B constant (25-50℃)
   //myConfig.Internal_BCoefficient = 4150;
-//#endif
+  //#endif
 
   //4150 = B constant (25-50℃)
   //myConfig.External_BCoefficient = 4150;
@@ -115,36 +113,46 @@ void onPacketReceived()
   //if (len > 0)
   //{
 
-    //A data packet has just arrived, process it and forward the results to the next module
-    if (PP.onPacketReceived((PacketStruct*)SerialPacketReceiveBuffer))
-    {
-      //Only light green if packet is good
-      hardware.GreenLedOn();
-    }
+  //A data packet has just arrived, process it and forward the results to the next module
+  if (PP.onPacketReceived((PacketStruct *)SerialPacketReceiveBuffer))
+  {
+    //Only light green if packet is good
+    hardware.GreenLedOn();
+  }
 
-    hardware.EnableSerial0TX();
+  if (PP.pwmrunning)
+  {
+    //Disable the PWM during Serial transmission to avoid CRC errors
+    hardware.DisableTOCPMCOE();
+  }
 
-    //Wake up the connected cell module from sleep, send a framingmarker
-    //byte which the receiver will ignore
-    //myPacketSerial.sendStartFrame();
-    Serial.write((uint8_t)0x00);
-    //Let connected module wake up
-    hardware.FlushSerial0();
-    //delay(1);
+  hardware.EnableSerial0TX();
 
-    //Send the packet (even if it was invalid so controller can count crc errors)
-    myPacketSerial.sendBuffer(SerialPacketReceiveBuffer);
+  //Wake up the connected cell module from sleep, send a framingmarker
+  //byte which the receiver will ignore
+  //myPacketSerial.sendStartFrame();
+  Serial.write((uint8_t)0x00);
+  //Let connected module wake up
+  hardware.FlushSerial0();
+  //delay(1);
 
-    //DEBUG: Are there any known issues with Serial Flush causing a CPU to hang?
-    hardware.FlushSerial0();
+  //Send the packet (fixed length!) (even if it was invalid so controller can count crc errors)
+  myPacketSerial.sendBuffer(SerialPacketReceiveBuffer);
 
-    //Replace flush with a simple delay - we have 35+ bytes to transmit at 2400 baud + COBS encoding
-    //delay(10);
+  //DEBUG: Are there any known issues with Serial Flush causing a CPU to hang?
+  hardware.FlushSerial0();
 
-    //At 2400bits per second, = 300 bytes per second = 1000ms/300bytes/sec= 3ms per byte
+  //Replace flush with a simple delay - we have 35+ bytes to transmit at 2400 baud + COBS encoding
+  //delay(10);
 
-    hardware.DisableSerial0TX();
+  //At 2400bits per second, = 300 bytes per second = 1000ms/300bytes/sec= 3ms per byte
+
+  hardware.DisableSerial0TX();
   //}
+  if (PP.pwmrunning)
+  {
+    hardware.EnableTOCPMCOE();
+  }
 
   hardware.GreenLedOff();
 }
@@ -164,9 +172,11 @@ ISR(USART0_START_vect)
 //Settings for V4.00 boards with 2R2 resistors = (4.0, 0.5, 0.2, 6, 8, false);
 FastPID myPID(4.0, 0.5, 0.2, 6, 8, false);
 
-void ValidateConfiguration() {
-  if (myConfig.Calibration<1.9) {
-    myConfig.Calibration=2.21000;
+void ValidateConfiguration()
+{
+  if (myConfig.Calibration < 1.9)
+  {
+    myConfig.Calibration = 2.21000;
   }
 
   if (myConfig.BypassTemperatureSetPoint > DIYBMS_MODULE_SafetyTemperatureCutoff)
@@ -174,14 +184,13 @@ void ValidateConfiguration() {
     myConfig.BypassTemperatureSetPoint = 55;
   }
 
-
-  #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
-    //Keep temperature low for modules with R19 and R20 not swapped
-    if (myConfig.BypassTemperatureSetPoint > 45)
-    {
-      myConfig.BypassTemperatureSetPoint = 45;
-    }
-  #endif
+#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
+  //Keep temperature low for modules with R19 and R20 not swapped
+  if (myConfig.BypassTemperatureSetPoint > 45)
+  {
+    myConfig.BypassTemperatureSetPoint = 45;
+  }
+#endif
 }
 
 void setup()
@@ -209,9 +218,7 @@ void setup()
     //Settings::WriteConfigToEEPROM((uint8_t *)&myConfig, sizeof(myConfig), EEPROM_CONFIG_ADDRESS);
   }
 
-
   ValidateConfiguration();
-
 
   hardware.double_tap_green_led();
 
@@ -225,22 +232,23 @@ void setup()
   //Set up data handler
   Serial.begin(COMMS_BAUD_RATE, SERIAL_8N1);
 
-  myPacketSerial.begin(&Serial,&onPacketReceived,sizeof(PacketStruct),SerialPacketReceiveBuffer,sizeof(SerialPacketReceiveBuffer));
+  myPacketSerial.begin(&Serial, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
   //myPacketSerial.setStream(&Serial);
   //myPacketSerial.setPacketHandler(&onPacketReceived);
 }
 
-void StopBalance() {
-    PP.WeAreInBypass=false;
-    PP.bypassCountDown=0;
-    PP.bypassHasJustFinished=0;
-    PP.pwmrunning=false;
-    PP.PWMValue=0;    
-    PP.SettingsHaveChanged=false;
+void StopBalance()
+{
+  PP.WeAreInBypass = false;
+  PP.bypassCountDown = 0;
+  PP.bypassHasJustFinished = 0;
+  PP.pwmrunning = false;
+  PP.PWMValue = 0;
+  PP.SettingsHaveChanged = false;
 
-    hardware.StopTimer2();
-    hardware.DumpLoadOff();
+  hardware.StopTimer2();
+  hardware.DumpLoadOff();
 }
 
 void loop()
@@ -263,7 +271,8 @@ void loop()
     }
   }
 
-  if (PP.SettingsHaveChanged) {
+  if (PP.SettingsHaveChanged)
+  {
     //The configuration has just been modified so stop balancing if we are and reset our status
     StopBalance();
   }
@@ -300,8 +309,6 @@ void loop()
     //If we have just woken up, we shouldn't be in balance
     //safety check that we are not
     StopBalance();
-
-
   }
 
   //We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass
@@ -322,16 +329,16 @@ void loop()
 
   uint8_t temp = PP.InternalTemperature() & 0xFF;
 
-  if (temp>DIYBMS_MODULE_SafetyTemperatureCutoff) {
+  if (temp > DIYBMS_MODULE_SafetyTemperatureCutoff)
+  {
     //Force shut down if temperature is too high
     //although this does run the risk that the voltage on the cell will go high
     //but the BMS controller should shut off the charger in this situation
     StopBalance();
   }
 
-
   //Only enter bypass if the board temperature is below safety
-  if (PP.BypassCheck() && temp<DIYBMS_MODULE_SafetyTemperatureCutoff)
+  if (PP.BypassCheck() && temp < DIYBMS_MODULE_SafetyTemperatureCutoff)
   {
     //Our cell voltage is OVER the voltage setpoint limit, start draining cell using bypass resistor
 
@@ -343,8 +350,8 @@ void loop()
       //This controls how many cycles of loop() we make before re-checking the situation
       //about every 30 seconds
       PP.bypassCountDown = 200;
-      PP.bypassHasJustFinished=0;
-      
+      PP.bypassHasJustFinished = 0;
+
       //Reset PID to defaults
       myPID.clear();
     }
@@ -380,7 +387,6 @@ void loop()
     }
 
     PP.bypassCountDown--;
-    
 
     if (PP.bypassCountDown == 0)
     {
@@ -416,6 +422,8 @@ void loop()
     }
   }
 
-  if (PP.bypassHasJustFinished > 0)   {     PP.bypassHasJustFinished--;  }
-
+  if (PP.bypassHasJustFinished > 0)
+  {
+    PP.bypassHasJustFinished--;
+  }
 }

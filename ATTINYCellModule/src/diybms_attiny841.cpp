@@ -57,9 +57,10 @@ void DiyBMSATTiny841::SetTimer2Value(uint16_t value) {
 void DiyBMSATTiny841::StopTimer2() {
   TCCR2A = 0; //Normal port operation, OCnA/OCnB disconnected
   TCCR2B = 0; //Normal port operation, OCnA/OCnB disconnected
-  TOCPMCOE = 0;
+  DisableTOCPMCOE();
   SetTimer2Value(0);
 }
+
 
 //Start TIMER2 with zero value
 void DiyBMSATTiny841::StartTimer2() {
@@ -77,10 +78,7 @@ void DiyBMSATTiny841::StartTimer2() {
   TOCPMSA0 = (1 << TOCC2S1);
   TOCPMSA1 = 0;
 
-  // TOCPMSA1 and TOCPMSA0 – Timer/Counter Output Compare Pin Mux Selection Registers
-  // Timer/Counter Output Compare Pin Mux Channel Output Enable
-  // Enable TOCC2 to be output
-  TOCPMCOE = (1 << TOCC2OE);
+  EnableTOCPMCOE();
 
   // Fast PWM, mode 14, non inverting, presc 1:8
   //COM2b1= Clear OCnA/OCnB on Compare Match (Set output to low level)

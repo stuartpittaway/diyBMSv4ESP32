@@ -15,11 +15,24 @@
 This class wraps the hardware pins of DIYBMS away from the core logic/code
 if you are porting to another chipset, clone this class and modify it.
 */
-class DiyBMSATTiny841 {
+class DiyBMSATTiny841
+{
 public:
-  DiyBMSATTiny841() {}
-  ~DiyBMSATTiny841() {}
-  void ConfigurePorts();
+   DiyBMSATTiny841() {}
+   ~DiyBMSATTiny841() {}
+   void ConfigurePorts();
+
+   void EnableTOCPMCOE()
+   {
+      // TOCPMSA1 and TOCPMSA0 – Timer/Counter Output Compare Pin Mux Selection Registers
+      // Timer/Counter Output Compare Pin Mux Channel Output Enable
+      // Enable TOCC2 to be output
+      TOCPMCOE = (1 << TOCC2OE);
+   }
+   void DisableTOCPMCOE()
+   {
+      TOCPMCOE = 0;
+   }
 
    void GreenLedOn();
    void GreenLedOff();
@@ -50,7 +63,7 @@ public:
 
    void DisableSerial1();
    void EnableSerial1();
-/*
+   /*
    void EnablePinChangeInterrupt();
    void DisablePinChangeInterrupt();
 */
@@ -74,7 +87,7 @@ public:
    void double_tap_green_led();
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
    void double_tap_blue_led();
-#endif   
+#endif
 };
 
 #endif
