@@ -245,10 +245,10 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
     {
       AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
       //Default
-      mysettings.relaytype[i] = RELAY_STANDARD;
+      mysettings.relaytype[i] = RelayType::RELAY_STANDARD;
       if (p1->value().equals("Pulse"))
       {
-        mysettings.relaytype[i] = RELAY_PULSE;
+        mysettings.relaytype[i] = RelayType::RELAY_PULSE;
       }
     }
   }
@@ -262,10 +262,10 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
     {
       AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
       //Default
-      mysettings.rulerelaydefault[i] = RELAY_OFF;
+      mysettings.rulerelaydefault[i] = RelayState::RELAY_OFF;
       if (p1->value().equals("On"))
       {
-        mysettings.rulerelaydefault[i] = RELAY_ON;
+        mysettings.rulerelaydefault[i] = RelayState::RELAY_ON;
       }
     }
   }
@@ -305,7 +305,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
       if (request->hasParam(name, true))
       {
         AsyncWebParameter *p1 = request->getParam(name, true);
-        mysettings.rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RELAY_ON : RELAY_OFF;
+        mysettings.rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RelayState::RELAY_ON : RelayState::RELAY_OFF;
       }
     }
 
@@ -591,8 +591,10 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   }
 #endif
 
-  root["PCF8574"] = PCF8574Enabled;
+  root["OutputsEnabled"] = OutputsEnabled;
+  root["InputsEnabled"] = InputsEnabled;
   root["ControlState"] = ControlState;
+  
 
   JsonArray defaultArray = root.createNestedArray("relaydefault");
   for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)

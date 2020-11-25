@@ -826,9 +826,9 @@ $(function () {
 
                 $("#minutesnow").html(data.timenow);
 
-                if (data.PCF8574) {
-                    $("#PCF8574").hide();
-                } else { $("#PCF8574").show(); }
+                if (data.OutputsEnabled) {
+                    $("#ExternalIO").hide();
+                } else { $("#ExternalIO").show(); }
 
                 //Loop through each rule updating the page
                 var i = 1;

@@ -39,22 +39,27 @@
 #define SERIAL_DEBUG Serial
 #endif
 
-
 #define GREEN_LED_ON digitalWrite(GREEN_LED, HIGH)
 #define GREEN_LED_OFF digitalWrite(GREEN_LED, LOW)
 
 #define EEPROM_SETTINGS_START_ADDRESS 256
 
-#define RELAY_ON 0xFF
-#define RELAY_OFF 0x99
-#define RELAY_X 0x00
+enum RelayState : uint8_t
+{
+  RELAY_ON = 0xFF,
+  RELAY_OFF = 0x99,
+  RELAY_X = 0x00
+};
+
+enum RelayType : uint8_t
+{
+  RELAY_STANDARD = 0x00,
+  RELAY_PULSE = 0x01
+};
 
 #define RELAY_RULES 10
 //Number of relays on board (4)
 #define RELAY_TOTAL 4
-
-#define RELAY_STANDARD 0x00
-#define RELAY_PULSE 0x01
 
 #define SHOW_TIME_PERIOD 5000
 #define NTP_TIMEOUT 1500
@@ -65,21 +70,20 @@ struct diybms_eeprom_settings
   uint8_t totalNumberOfSeriesModules;
 
   uint32_t rulevalue[RELAY_RULES];
-  uint32_t rulehysteresis[RELAY_RULES]; 
+  uint32_t rulehysteresis[RELAY_RULES];
 
   //Use a bit pattern to indicate the relay states
-  uint8_t rulerelaystate[RELAY_RULES][RELAY_TOTAL];
+  RelayState rulerelaystate[RELAY_RULES][RELAY_TOTAL];
   //Default starting state
-  uint8_t rulerelaydefault[RELAY_TOTAL];
+  RelayState rulerelaydefault[RELAY_TOTAL];
   //Default starting state for relay types
-  uint8_t relaytype[RELAY_TOTAL];
+  RelayType relaytype[RELAY_TOTAL];
 
   float graph_voltagehigh;
   float graph_voltagelow;
 
   uint8_t BypassOverTempShutdown;
   uint16_t BypassThresholdmV;
-
 
   int8_t timeZone;        // = 0;
   int8_t minutesTimeZone; // = 0;
@@ -102,7 +106,8 @@ struct diybms_eeprom_settings
   char influxdb_password[32 + 1];
 };
 
-typedef union {
+typedef union
+{
   float number;
   uint8_t bytes[4];
   uint16_t word[2];
@@ -144,14 +149,13 @@ struct PacketStruct
 struct CellModuleInfo
 {
   //Used as part of the enquiry functions
-  bool settingsCached:1;
+  bool settingsCached : 1;
   //Set to true once the module has replied with data
-  bool valid:1;
+  bool valid : 1;
   //Bypass is active
-  bool inBypass:1;
+  bool inBypass : 1;
   //Bypass active and temperature over set point
-  bool bypassOverTemp:1;
-
+  bool bypassOverTemp : 1;
 
   uint16_t voltagemV;
   uint16_t voltagemVMin;
@@ -180,7 +184,6 @@ struct CellModuleInfo
   uint16_t PWMValue;
 };
 
-
 // This enum holds the states the controller goes through whilst
 // it stabilizes and moves into running state.
 enum ControllerState : uint8_t
@@ -190,8 +193,7 @@ enum ControllerState : uint8_t
   Running = 255,
 };
 
-
-//This holds all the cell information in a large array array (64)
+//This holds all the cell information in a large array array
 extern CellModuleInfo cmi[maximum_controller_cell_modules];
 
 #endif

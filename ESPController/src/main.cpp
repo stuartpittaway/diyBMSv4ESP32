@@ -68,16 +68,22 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #include <Ticker.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
-//#include <PacketSerial.h>
 #include <SerialEncoder.h>
 #include <cppQueue.h>
-#include <pcf8574_esp.h>
-#include <Wire.h>
 
 #include "defines.h"
 #include "Rules.h"
 
-bool PCF8574Enabled;
+#if defined(ESP8266)
+#include "HAL_ESP8266.h"
+HAL_ESP8266 hal;
+#endif
+
+#if defined(ESP32)
+#include "HAL_ESP32.h"
+HAL_ESP32 hal;
+#endif
+
 volatile bool emergencyStop = false;
 
 Rules rules;
@@ -86,7 +92,7 @@ diybms_eeprom_settings mysettings;
 uint16_t ConfigHasChanged = 0;
 
 bool server_running = false;
-uint8_t previousRelayState[RELAY_TOTAL];
+RelayState previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
 
 #if defined(ESP8266)
@@ -96,12 +102,11 @@ NTPSyncEvent_t ntpEvent;            // Last triggered event
 
 AsyncWebServer server(80);
 
-//PCF8574P has an i2c address of 0x38 instead of the normal 0x20
-PCF857x pcf8574(0x38, &Wire);
-
-void ICACHE_RAM_ATTR PCFInterrupt()
+void ICACHE_RAM_ATTR ExternalInputInterrupt()
 {
-  if ((pcf8574.read8() & B00010000) == 0)
+  uint8_t inputRegisters = hal.ReadInputRegisters();
+
+  if ((inputRegisters & B00010000) == 0)
   {
     //Emergency Stop (J1) has triggered
     emergencyStop = true;
@@ -152,6 +157,9 @@ Ticker myTimerSwitchPulsedRelay;
 uint16_t sequence = 0;
 
 ControllerState ControlState;
+
+bool OutputsEnabled;
+bool InputsEnabled;
 
 AsyncMqttClient mqttClient;
 
@@ -409,8 +417,7 @@ void timerSwitchPulsedRelay()
       //We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
       //However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
       //to prevent multiple pulses being sent on each rule refresh
-      pcf8574.write(y, previousRelayState[y] == HIGH ? LOW : HIGH);
-
+      hal.SetOutputState(y, previousRelayState[y] == RelayState::RELAY_ON ? RelayState::RELAY_OFF : RelayState::RELAY_ON);
       previousRelayPulse[y] = false;
     }
   }
@@ -425,10 +432,6 @@ void timerProcessRules()
   //Run the rules
   ProcessRules();
 
-  // DO NOTE: When you write LOW to a pin on a PCF8574 it becomes an OUTPUT.
-  // It wouldn't generate an interrupt if you were to connect a button to it that pulls it HIGH when you press the button.
-  // Any pin you wish to use as input must be written HIGH and be pulled LOW to generate an interrupt.
-
 #if defined(RULES_LOGGING)
   SERIAL_DEBUG.print(F("Rules:"));
   for (int8_t r = 0; r < RELAY_RULES; r++)
@@ -438,12 +441,12 @@ void timerProcessRules()
   SERIAL_DEBUG.print("=");
 #endif
 
-  uint8_t relay[RELAY_TOTAL];
+  RelayState relay[RELAY_TOTAL];
 
   //Set defaults based on configuration
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
   {
-    relay[y] = mysettings.rulerelaydefault[y] == RELAY_ON ? LOW : HIGH;
+    relay[y] = mysettings.rulerelaydefault[y] == RELAY_ON ? RELAY_ON : RELAY_OFF;
   }
 
   //Test the rules (in reverse order)
@@ -457,60 +460,49 @@ void timerProcessRules()
         //Dont change relay if its set to ignore/X
         if (mysettings.rulerelaystate[n][y] != RELAY_X)
         {
-          //Logic is inverted on the PCF chip
           if (mysettings.rulerelaystate[n][y] == RELAY_ON)
           {
-            relay[y] = LOW;
+            relay[y] = RELAY_ON;
           }
           else
           {
-            relay[y] = HIGH;
+            relay[y] = RELAY_OFF;
           }
         }
       }
     }
   }
 
-  if (PCF8574Enabled)
+  //Perhaps we should publish the relay settings over MQTT and INFLUX/website?
+  for (int8_t n = 0; n < RELAY_TOTAL; n++)
   {
-    //Perhaps we should publish the relay settings over MQTT and INFLUX/website?
-    for (int8_t n = 0; n < RELAY_TOTAL; n++)
+    if (previousRelayState[n] != relay[n])
     {
-      if (previousRelayState[n] != relay[n])
+      //Would be better here to use the WRITE8 to lower i2c traffic
+#if defined(RULES_LOGGING)
+      SERIAL_DEBUG.print(F("Relay:"));
+      SERIAL_DEBUG.print(n);
+      SERIAL_DEBUG.print("=");
+      SERIAL_DEBUG.print(relay[n]);
+#endif
+      hal.SetOutputState(n, relay[n]);
+
+      previousRelayState[n] = relay[n];
+
+      if (mysettings.relaytype[n] == RELAY_PULSE)
       {
-        //Would be better here to use the WRITE8 to lower i2c traffic
+        //If its a pulsed relay, invert the output quickly via a single shot timer
+        previousRelayPulse[n] = true;
+        myTimerSwitchPulsedRelay.attach(0.1, timerSwitchPulsedRelay);
 #if defined(RULES_LOGGING)
-        SERIAL_DEBUG.print(F("Relay:"));
-        SERIAL_DEBUG.print(n);
-        SERIAL_DEBUG.print("=");
-        SERIAL_DEBUG.print(relay[n]);
+        SERIAL_DEBUG.print("P");
 #endif
-        //Set the relay
-        pcf8574.write(n, relay[n]);
-
-        previousRelayState[n] = relay[n];
-
-        if (mysettings.relaytype[n] == RELAY_PULSE)
-        {
-          //If its a pulsed relay, invert the output quickly via a one time only timer
-          previousRelayPulse[n] = true;
-          myTimerSwitchPulsedRelay.attach(0.1, timerSwitchPulsedRelay);
-#if defined(RULES_LOGGING)
-          SERIAL_DEBUG.print("P");
-#endif
-        }
       }
     }
-#if defined(RULES_LOGGING)
-    SERIAL_DEBUG.println("");
-#endif
   }
-  else
-  {
 #if defined(RULES_LOGGING)
-    SERIAL_DEBUG.println("N/F");
+  SERIAL_DEBUG.println("");
 #endif
-  }
 }
 
 uint8_t counter = 0;
@@ -907,69 +899,10 @@ void LoadConfiguration()
   }
 }
 
-void ConfigureI2C()
-{
-#if defined(ESP8266)
-  //SDA / SCL
-  //I'm sure this should be 4,5 !
-  Wire.begin(5, 4);
-#endif
-
-#if defined(ESP32)
-  //SDA / SCL
-  //ESP32 = I2C0-SDA / I2C0-SCL
-  //I2C Bus 1: uses GPIO 27 (SDA) and GPIO 26 (SCL);
-  //I2C Bus 2: uses GPIO 33 (SDA) and GPIO 32 (SCL);
-  Wire.begin(27, 26);
-#endif
-
-  Wire.setClock(100000L);
-
-  //Make PINs 4-7 INPUTs - the interrupt fires when triggered
-  pcf8574.begin();
-
-  //We test to see if the i2c expander is actually fitted
-  pcf8574.read8();
-
-  //Set relay defaults
-  for (int8_t y = 0; y < RELAY_TOTAL; y++)
-  {
-    previousRelayState[y] = mysettings.rulerelaydefault[y] == RELAY_ON ? LOW : HIGH;
-  }
-
-  if (pcf8574.lastError() == 0)
-  {
-    SERIAL_DEBUG.println(F("Found PCF8574"));
-    pcf8574.write(4, HIGH);
-    pcf8574.write(5, HIGH);
-    pcf8574.write(6, HIGH);
-    pcf8574.write(7, HIGH);
-
-    //Set relay defaults
-    for (int8_t y = 0; y < RELAY_TOTAL; y++)
-    {
-      pcf8574.write(y, previousRelayState[y]);
-    }
-    PCF8574Enabled = true;
-  }
-  else
-  {
-    //Not fitted
-    SERIAL_DEBUG.println(F("PCF8574 not fitted"));
-    PCF8574Enabled = false;
-  }
-
-  //internal pullup-resistor on the interrupt line via ESP8266
-  pcf8574.resetInterruptPin();
-
-  //TODO: Fix this for ESP32 different PIN
-  attachInterrupt(digitalPinToInterrupt(PFC_INTERRUPT_PIN), PCFInterrupt, FALLING);
-}
-
 //Lazy load the config data - Every 10 seconds see if there is a module we don't have configuration data for, if so request it
 void timerLazyCallback()
 {
-  uint8_t counter=0;
+  uint8_t counter = 0;
   //Find the first module that doesn't have settings cached and request them
   for (uint8_t module = 0; module < (mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules); module++)
   {
@@ -978,7 +911,7 @@ void timerLazyCallback()
       prg.sendGetSettingsRequest(module);
       counter++;
 
-      if (counter>4)
+      if (counter > 4)
       {
         //Should exit here to avoid flooding the queue, so leave space
         return;
@@ -1018,8 +951,6 @@ void setup()
   //D3 is used to reset access point WIFI details on boot up
   pinMode(RESET_WIFI_PIN, INPUT_PULLUP);
 #endif
-  //D5 is interrupt pin from PCF8574
-  pinMode(PFC_INTERRUPT_PIN, INPUT_PULLUP);
 
   //Fix for issue 5, delay for 3 seconds on power up with green LED lit so
   //people get chance to jump WIFI reset pin (d3)
@@ -1060,8 +991,6 @@ void setup()
 #endif
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
-  //myPacketSerial.setStream(&SERIAL_DATA); // start serial for output
-  //myPacketSerial.setPacketHandler(&onPacketReceived);
 
   //Debug serial output
 #if defined(ESP8266)
@@ -1072,51 +1001,38 @@ void setup()
 #endif
 
   SERIAL_DEBUG.setDebugOutput(true);
-  /*
-  myPacketSerial.processByte(0xAA);
-  myPacketSerial.processByte(0x00);
-  myPacketSerial.processByte(0x00);
-  myPacketSerial.processByte(0x81);
-  myPacketSerial.processByte(0x01);
-
-  myPacketSerial.processByte(0x80);
-  myPacketSerial.processByte(0xA0);
-  myPacketSerial.processByte(0x0A);
-
-  myPacketSerial.processByte(0x01);
-  myPacketSerial.processByte(0x01F);
-  myPacketSerial.processByte(0x0D);
-
-  SERIAL_DEBUG.println();
-  SERIAL_DEBUG.println();
-  SERIAL_DEBUG.println();
-  for (size_t i = 0; i < 20; i++)
-  {
-    myPacketSerial.debugByte(SerialPacketReceiveBuffer[i]);
-  }
-  SERIAL_DEBUG.println();
-
-  while (1 == 1)
-  {
-    yield();
-  }
-*/
 
 #if defined(ESP8266)
   // initialize LittleFS
   if (!LittleFS.begin())
 #endif
 #if defined(ESP32)
-  // initialize LittleFS
-  if (!SPIFFS.begin())
+    // initialize LittleFS
+    if (!SPIFFS.begin())
 #endif
-  {
-    SERIAL_DEBUG.println(F("An Error has occurred while mounting LittleFS"));
-  }
+    {
+      SERIAL_DEBUG.println(F("An Error has occurred while mounting LittleFS"));
+    }
 
   LoadConfiguration();
 
-  ConfigureI2C();
+  //Set relay defaults
+  for (int8_t y = 0; y < RELAY_TOTAL; y++)
+  {
+    previousRelayState[y] = mysettings.rulerelaydefault[y] == RelayState::RELAY_ON ? RelayState::RELAY_ON : RelayState::RELAY_OFF;
+  }
+
+  hal.ConfigureI2C(ExternalInputInterrupt);
+
+  //Set relay defaults
+
+  for (int8_t y = 0; y < RELAY_TOTAL; y++)
+  {
+    hal.SetOutputState(y, previousRelayState[y]);
+  }
+
+  InputsEnabled = hal.InputsEnabled;
+  OutputsEnabled = hal.OutputsEnabled;
 
   //Temporarly force WIFI settings
   //wifi_eeprom_settings xxxx;
@@ -1177,11 +1093,11 @@ void setup()
   //Process rules every 5 seconds
   myTimerRelay.attach(5, timerProcessRules);
 
-  //We process the transmit queue every 0.8 seconds (this needs to be lower delay than the queue fills)
-  //and slower than it takes a single module to process a command (about 250ms)
+  //We process the transmit queue every 1 seconds (this needs to be lower delay than the queue fills)
+  //and slower than it takes a single module to process a command (about 300ms)
   myTransmitTimer.attach(1, timerTransmitCallback);
 
-  //This is my 15 second lazy timer
+  //This is a lazy timer for low priority tasks
   myLazyTimer.attach(15, timerLazyCallback);
 
   //We have just started...
@@ -1194,7 +1110,6 @@ void loop()
 
   // Call update to receive, decode and process incoming packets.
   myPacketSerial.checkInputStream();
-
 
   if (ConfigHasChanged > 0)
   {
