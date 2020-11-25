@@ -72,7 +72,7 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #include <cppQueue.h>
 
 #include "defines.h"
-#include "Rules.h"
+
 
 #if defined(ESP8266)
 #include "HAL_ESP8266.h"
@@ -83,6 +83,10 @@ HAL_ESP8266 hal;
 #include "HAL_ESP32.h"
 HAL_ESP32 hal;
 #endif
+
+
+#include "Rules.h"
+
 
 volatile bool emergencyStop = false;
 

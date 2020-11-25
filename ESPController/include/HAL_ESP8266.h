@@ -6,8 +6,25 @@ I2C I/O EXPANDER
 */
 #if defined(ESP8266)
 
+
 #include <Arduino.h>
 #include <Wire.h>
+
+
+
+#define RESET_WIFI_PIN D3
+#define PFC_INTERRUPT_PIN D5
+#define GREEN_LED D0
+
+//Debug flags for ntpclientlib
+#define DBG_PORT Serial1
+//#define DEBUG_NTPCLIENT
+
+#define GREEN_LED_ON digitalWrite(GREEN_LED, HIGH)
+#define GREEN_LED_OFF digitalWrite(GREEN_LED, LOW)
+
+
+
 
 #ifndef HAL_ESP8266_H_
 #define HAL_ESP8266_H_

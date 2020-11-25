@@ -81,6 +81,10 @@ a {color:#e8e8e8;font-weight:bold;}
 a:visited {color:#e8e8e8;font-weight:bold;}
 .header{background-color:#414141}
 .error {color:#414141;background-color:#ca3e47;}
+
+
+#ExternalIO {color:#414141;background-color:#ca3e47;}
+
 .success {color:#414141;background-color:#44913b;}
 .warning {color:#414141;background-color:#dc7b1a;}
 .header a{color:#c1bdbd;}

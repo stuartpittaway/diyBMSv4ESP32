@@ -1,5 +1,6 @@
 #include "Rules.h"
 
+
 void Rules::ClearValues()
 {
     //Array to hold the total voltage of each bank/pack (in millivolts)
