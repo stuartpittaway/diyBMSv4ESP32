@@ -20,11 +20,8 @@ I2C I/O EXPANDER
 #define DBG_PORT Serial1
 //#define DEBUG_NTPCLIENT
 
-#define GREEN_LED_ON digitalWrite(GREEN_LED, HIGH)
-#define GREEN_LED_OFF digitalWrite(GREEN_LED, LOW)
-
-
-
+#define GREEN_LED_ON hal.GreenLedOn()
+#define GREEN_LED_OFF hal.GreenLedOff()
 
 #ifndef HAL_ESP8266_H_
 #define HAL_ESP8266_H_
@@ -38,6 +35,15 @@ public:
     uint8_t ReadInputRegisters();
     bool OutputsEnabled = false;
     bool InputsEnabled = false;
+    void ConfigurePins();
+
+void GreenLedOn() {
+    digitalWrite(GREEN_LED, HIGH);
+}
+void GreenLedOff() {
+    digitalWrite(GREEN_LED, LOW);
+}
+
 
 private:
     //Private constructor (static class)

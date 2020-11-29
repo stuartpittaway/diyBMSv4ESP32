@@ -73,6 +73,7 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 
 #include "defines.h"
 
+#include <ArduinoOTA.h>
 
 #if defined(ESP8266)
 #include "HAL_ESP8266.h"
@@ -84,9 +85,7 @@ HAL_ESP8266 hal;
 HAL_ESP32 hal;
 #endif
 
-
 #include "Rules.h"
-
 
 volatile bool emergencyStop = false;
 
@@ -266,9 +265,8 @@ void onPacketReceived()
 {
   //Note that this function gets called frequently with zero length packets
   //due to the way the modules operate
-  GREEN_LED_ON;
+  hal.GreenLedOn();
 
-  //if (len == sizeof(PacketStruct))  {
 
 #if defined(PACKET_LOGGING_RECEIVE)
   // Process decoded incoming packet
@@ -284,9 +282,8 @@ void onPacketReceived()
   SERIAL_DEBUG.println("");
   //SERIAL_DEBUG.print("Timing:");SERIAL_DEBUG.print(receiveProc.packetTimerMillisecond);SERIAL_DEBUG.println("ms");
 #endif
-  //}
 
-  GREEN_LED_OFF;
+  hal.GreenLedOff();
 }
 
 void timerTransmitCallback()
@@ -671,6 +668,46 @@ void startTimerToInfluxdb()
   myTimerSendInfluxdbPacket.attach(30, SendInfluxdbPacket);
 }
 
+void SetupOTA()
+{
+
+  ArduinoOTA.setPort(3232);
+  //ArduinoOTA.setHostname("diybmsesp32");
+  ArduinoOTA.setPassword("1jiOOx12AQgEco4e");
+
+  ArduinoOTA
+      .onStart([]() {
+        String type;
+        if (ArduinoOTA.getCommand() == U_FLASH)
+          type = "sketch";
+        else // U_SPIFFS
+          type = "filesystem";
+
+        // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+        SERIAL_DEBUG.println("Start updating " + type);
+      });
+  ArduinoOTA.onEnd([]() {
+    SERIAL_DEBUG.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    SERIAL_DEBUG.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    SERIAL_DEBUG.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR)
+      SERIAL_DEBUG.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR)
+      SERIAL_DEBUG.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR)
+      SERIAL_DEBUG.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR)
+      SERIAL_DEBUG.println("Receive Failed");
+    else if (error == OTA_END_ERROR)
+      SERIAL_DEBUG.println("End Failed");
+  });
+
+  ArduinoOTA.begin();
+}
 #if defined(ESP8266)
 void onWifiConnect(const WiFiEventStationModeGotIP &event)
 {
@@ -723,6 +760,8 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   {
     startTimerToInfluxdb();
   }
+
+  SetupOTA();
 }
 
 #if defined(ESP8266)
@@ -936,41 +975,50 @@ void resetAllRules()
 void setup()
 {
   WiFi.mode(WIFI_OFF);
-
-  SetControllerState(ControllerState::PowerUp);
-
 #if defined(ESP32)
   btStop();
-#endif
 
-#if defined(ESP32)
   esp_log_level_set("*", ESP_LOG_WARN); // set all components to ERROR level
   //esp_log_level_set("wifi", ESP_LOG_WARN);      // enable WARN logs from WiFi stack
   //esp_log_level_set("dhcpc", ESP_LOG_INFO);     // enable INFO logs from DHCP client
 #endif
 
-  //Serial is used for communication to modules, SERIAL_DEBUG is for debug output
-  pinMode(GREEN_LED, OUTPUT);
+  //Debug serial output
 #if defined(ESP8266)
-  //D3 is used to reset access point WIFI details on boot up
-  pinMode(RESET_WIFI_PIN, INPUT_PULLUP);
+//ESP8266 uses dedicated 2nd serial port, but transmit only
+  SERIAL_DEBUG.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
+  SERIAL_DEBUG.setDebugOutput(true);
 #endif
-
-  //Fix for issue 5, delay for 3 seconds on power up with green LED lit so
-  //people get chance to jump WIFI reset pin (d3)
-  GREEN_LED_ON;
-  delay(3000);
-  //This is normally pulled high, D3 is used to reset WIFI details
-  uint8_t clearAPSettings = digitalRead(RESET_WIFI_PIN);
-  GREEN_LED_OFF;
+#if defined(ESP32)
+  //ESP32 we use the USB serial interface for console/debug messages
+  SERIAL_DEBUG.begin(115200, SERIAL_8N1);
+  SERIAL_DEBUG.setDebugOutput(true);
+#endif
 
   //We generate a unique number which is used in all following JSON requests
   //we use this as a simple method to avoid cross site scripting attacks
   DIYBMSServer::generateUUID();
 
+  SetControllerState(ControllerState::PowerUp);
+
+  hal.ConfigurePins();
+  hal.ConfigureI2C(ExternalInputInterrupt);
+
+#if defined(ESP8266)
+  //Fix for issue 5, delay for 3 seconds on power up with green LED lit so
+  //people get chance to jump WIFI reset pin (d3)
+  hal.GreenLedOn();
+  delay(3000);
+  //This is normally pulled high, D3 is used to reset WIFI details
+  uint8_t clearAPSettings = digitalRead(RESET_WIFI_PIN);
+  hal.GreenLedOff();
+#else
+  //Pretend the button is not pressed
+  uint8_t clearAPSettings=0xFF;
+#endif
+
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
-
   for (size_t i = 0; i < maximum_controller_cell_modules; i++)
   {
     DIYBMSServer::clearModuleValues(i);
@@ -978,8 +1026,8 @@ void setup()
 
   resetAllRules();
 
-  //1KB RAM for receive buffer
-  SERIAL_DATA.setRxBufferSize(1024);
+  //512 bytes RAM for receive buffer
+  SERIAL_DATA.setRxBufferSize(512);
 
 #if defined(ESP32)
   //Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
@@ -996,15 +1044,7 @@ void setup()
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
-  //Debug serial output
-#if defined(ESP8266)
-  SERIAL_DEBUG.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
-#endif
-#if defined(ESP32)
-  SERIAL_DEBUG.begin(115200, SERIAL_8N1);
-#endif
 
-  SERIAL_DEBUG.setDebugOutput(true);
 
 #if defined(ESP8266)
   // initialize LittleFS
@@ -1020,23 +1060,16 @@ void setup()
 
   LoadConfiguration();
 
-  //Set relay defaults
-  for (int8_t y = 0; y < RELAY_TOTAL; y++)
-  {
-    previousRelayState[y] = mysettings.rulerelaydefault[y] == RelayState::RELAY_ON ? RelayState::RELAY_ON : RelayState::RELAY_OFF;
-  }
-
-  hal.ConfigureI2C(ExternalInputInterrupt);
-
-  //Set relay defaults
-
-  for (int8_t y = 0; y < RELAY_TOTAL; y++)
-  {
-    hal.SetOutputState(y, previousRelayState[y]);
-  }
-
   InputsEnabled = hal.InputsEnabled;
   OutputsEnabled = hal.OutputsEnabled;
+
+  //Set relay defaults
+  for (int8_t y = 0; y < RELAY_TOTAL; y++)
+  {
+    previousRelayState[y] = mysettings.rulerelaydefault[y];
+    //Set relay defaults
+    hal.SetOutputState(y, mysettings.rulerelaydefault[y]);
+  }
 
   //Temporarly force WIFI settings
   //wifi_eeprom_settings xxxx;
@@ -1110,6 +1143,7 @@ void setup()
 
 void loop()
 {
+  ArduinoOTA.handle();
   //ESP_LOGW("LOOP","LOOP");
 
   // Call update to receive, decode and process incoming packets.

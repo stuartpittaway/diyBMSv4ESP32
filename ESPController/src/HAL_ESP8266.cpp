@@ -13,6 +13,13 @@
 PCF857x pcf8574(0x38, &Wire);
 #endif
 
+void HAL_ESP8266::ConfigurePins() {
+  //Serial is used for communication to modules, SERIAL_DEBUG is for debug output
+  pinMode(GREEN_LED, OUTPUT);
+  //D3 is used to reset access point WIFI details on boot up
+  pinMode(RESET_WIFI_PIN, INPUT_PULLUP);
+}
+
 uint8_t HAL_ESP8266::ReadInputRegisters()
 {
     return InputsEnabled ? pcf8574.read8() : 0;
