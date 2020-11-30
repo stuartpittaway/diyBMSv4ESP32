@@ -8,9 +8,14 @@ uint8_t HAL_ESP32::readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
     //seems to have issues with corrupting i2c data if used from multiple threads
     uint8_t data;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    //Select the correct register on the i2c device
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_WRITE, true);    
+    i2c_master_write_byte(cmd, reg, true);
+    // Send repeated start, and read the register
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_READ, true);
-    i2c_master_write_byte(cmd, reg, true);
+    //Read single byte and expect NACK in reply
     i2c_master_read_byte(cmd, &data, i2c_ack_type_t::I2C_MASTER_NACK);
     i2c_master_stop(cmd);
     esp_err_t ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
@@ -61,7 +66,11 @@ void HAL_ESP32::SetOutputState(uint8_t outputId, RelayState state)
             uint8_t bit = outputId + 4;
             TCA6408_Value = (state == RelayState::RELAY_ON) ? (TCA6408_Value | (1 << bit)) : (TCA6408_Value & ~(1 << bit));
             esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
+
+            TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
         }
+
+        
     }
 }
 
@@ -72,6 +81,10 @@ void HAL_ESP32::GreenLedOn()
     //Green on
     TCA9534APWR_Value = TCA9534APWR_Value | B00000100;
     esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
+
+    //TODO: REMOVE THIS AS NOT NEEDED, JUST FOR TEST
+    TCA9534APWR_Value = readByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
+
 }
 
 void HAL_ESP32::GreenLedOff()
@@ -79,6 +92,9 @@ void HAL_ESP32::GreenLedOff()
     //Clear LED pins
     TCA9534APWR_Value = TCA9534APWR_Value & B11111000;
     esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
+
+    //TODO: REMOVE THIS AS NOT NEEDED, JUST FOR TEST
+    TCA9534APWR_Value = readByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
 }
 
 void HAL_ESP32::ConfigurePins()
@@ -135,7 +151,7 @@ void HAL_ESP32::ConfigureI2C(void (*ExternalInputInterrupt)(void))
 
     //0×02 Polarity Inversion, zero = off
     //writeByte(TCA9534APWR_ADDRESS, TCA9534APWR_POLARITY_INVERSION, 0);
-    TCA9534APWR_Value = readByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, 0);
+    TCA9534APWR_Value = readByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
     SERIAL_DEBUG.println("Found TCA9534APWR");
 
     /*
