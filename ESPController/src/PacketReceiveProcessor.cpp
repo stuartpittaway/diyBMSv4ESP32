@@ -15,7 +15,7 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
   //TODO: VALIDATE REPLY START/END RANGES ARE VALID TO AVOID MEMORY BUFFER OVERRUNS
 
-  // Copy to our buffer (probably dont need to do this)
+  // Copy to our buffer (probably don't need to do this)
   memcpy(&_packetbuffer, receivebuffer, sizeof(_packetbuffer));
 
   // Calculate the CRC and compare to received

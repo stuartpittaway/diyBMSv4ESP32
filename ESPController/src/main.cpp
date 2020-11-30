@@ -62,6 +62,7 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #include <WiFi.h>
 #include <SPI.h>
 #include "time.h"
+#include <esp_wifi.h>
 #endif
 
 //Shared libraries across processors
@@ -105,7 +106,7 @@ NTPSyncEvent_t ntpEvent;            // Last triggered event
 
 AsyncWebServer server(80);
 
-void ICACHE_RAM_ATTR ExternalInputInterrupt()
+void IRAM_ATTR ExternalInputInterrupt()
 {
   uint8_t inputRegisters = hal.ReadInputRegisters();
 
@@ -134,8 +135,6 @@ cppQueue requestQueue(sizeof(PacketStruct), 16, FIFO);
 PacketRequestGenerator prg = PacketRequestGenerator(&requestQueue);
 
 PacketReceiveProcessor receiveProc = PacketReceiveProcessor();
-
-//#define framingmarker (uint8_t)B10101010
 
 // Memory to hold in and out serial buffer
 uint8_t SerialPacketReceiveBuffer[2 * sizeof(PacketStruct)];
@@ -981,6 +980,10 @@ void setup()
   esp_log_level_set("*", ESP_LOG_WARN); // set all components to ERROR level
   //esp_log_level_set("wifi", ESP_LOG_WARN);      // enable WARN logs from WiFi stack
   //esp_log_level_set("dhcpc", ESP_LOG_INFO);     // enable INFO logs from DHCP client
+
+  //Attempt to resolve i2c errors by setting WIFI_STORAGE_RAM flag
+  ESP_ERROR_CHECK( esp_wifi_set_storage(wifi_storage_t::WIFI_STORAGE_RAM) );
+
 #endif
 
   //Debug serial output

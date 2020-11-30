@@ -26,7 +26,8 @@
 			"deque": "cpp",
 			"memory": "cpp",
 			"initializer_list": "cpp",
-			"functional": "cpp"
+			"functional": "cpp",
+			"bitset": "cpp"
 		}
 	}
 }
