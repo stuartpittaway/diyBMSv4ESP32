@@ -6,7 +6,8 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #if defined(ESP32)
 
 #include <Arduino.h>
-#include <Wire.h>
+#include "driver/i2c.h"
+#include "esp32-hal-i2c.h"
 
 //#define GREEN_LED 2
 
@@ -17,17 +18,18 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #ifndef HAL_ESP32_H_
 #define HAL_ESP32_H_
 
+#define TCA9534APWR_ADDRESS 0x38
+#define TCA9534APWR_OUTPUT 0x01
+#define TCA9534APWR_POLARITY_INVERSION 0x02
+#define TCA9534APWR_CONFIGURATION 0x03
 
- #define TCA9534APWR_ADDRESS                           0x38
- #define TCA9534APWR_OUTPUT                          0x01
- #define TCA9534APWR_POLARITY_INVERSION              0x02
- #define TCA9534APWR_CONFIGURATION                   0x03
-
- #define TCA6408_ADDRESS                           0x20
- #define TCA6408_INPUT                           0x00
- #define TCA6408_OUTPUT                          0x01
- #define TCA6408_POLARITY_INVERSION              0x02
- #define TCA6408_CONFIGURATION                   0x03
+//GPIO39 (input only pin)
+#define TCA6408_INTERRUPT_PIN 39
+#define TCA6408_ADDRESS 0x20
+#define TCA6408_INPUT 0x00
+#define TCA6408_OUTPUT 0x01
+#define TCA6408_POLARITY_INVERSION 0x02
+#define TCA6408_CONFIGURATION 0x03
 
 // Derived classes
 class HAL_ESP32
@@ -41,7 +43,6 @@ public:
     void GreenLedOn();
     void GreenLedOff();
     void ConfigurePins();
-    
 
 private:
     //Private constructor (static class)
@@ -50,6 +51,9 @@ private:
     uint8_t TCA9534APWR_Value;
     //Copy of pin state for TCA6408
     uint8_t TCA6408_Value;
+
+    esp_err_t writeByte(i2c_port_t i2c_num,uint8_t dev, uint8_t reg, uint8_t data);
+    uint8_t readByte(i2c_port_t i2c_num,uint8_t dev, uint8_t reg);
 };
 
 #endif

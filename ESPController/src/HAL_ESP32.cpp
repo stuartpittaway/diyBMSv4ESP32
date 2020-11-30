@@ -2,91 +2,65 @@
 #include "defines.h"
 #include "HAL_ESP32.h"
 
-bool writeByte(uint8_t dev, uint8_t reg, uint8_t data);
-int8_t readBytes(uint8_t dev, uint8_t reg, uint8_t size, uint8_t *data);
-uint8_t readByte(uint8_t dev, uint8_t reg);
-
-int8_t readBytes(uint8_t dev, uint8_t reg, uint8_t size, uint8_t *data)
+uint8_t HAL_ESP32::readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
 {
-    Wire.beginTransmission(dev);
-    Wire.write(reg);
-    Wire.endTransmission();
-    Wire.requestFrom(dev, size);
-    int8_t count = 0;
-    while (Wire.available())
-        data[count++] = Wire.read();
-    return count;
-}
-
-uint8_t readByte(uint8_t dev, uint8_t reg)
-{
+    //We use the native i2c commands for ESP32 as the Arduino library
+    //seems to have issues with corrupting i2c data if used from multiple threads
     uint8_t data;
-    readBytes(dev, reg, 1, &data);
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_READ, true);
+    i2c_master_write_byte(cmd, reg, true);
+    i2c_master_read_byte(cmd, &data, i2c_ack_type_t::I2C_MASTER_NACK);
+    i2c_master_stop(cmd);
+    esp_err_t ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
     return data;
 }
 
-bool writeBit(uint8_t dev, uint8_t reg, uint8_t bit, uint8_t data)
+//i2c: Writes a single byte to a slave devices register
+esp_err_t HAL_ESP32::writeByte(i2c_port_t i2c_num, uint8_t deviceAddress, uint8_t i2cregister, uint8_t data)
 {
-    uint8_t b = readByte(dev, reg);
-    b = (data != 0) ? (b | (1 << bit)) : (b & ~(1 << bit));
-    return writeByte(dev, reg, b);
-}
-
-bool writeBytes(uint8_t dev, uint8_t reg, uint8_t size, uint8_t *data)
-{
-    Wire.beginTransmission(dev);
-    Wire.write(reg);
-    for (uint8_t i = 0; i < size; i++)
-        Wire.write(data[i]);
-    uint8_t sts = Wire.endTransmission();
-    if (sts != 0)
-    {
-        SERIAL_DEBUG.print("I2C ERROR : ");
-        SERIAL_DEBUG.println(sts);
-    }
-    return (sts == 0);
-}
-
-bool writeByte(uint8_t deviceAddress, uint8_t i2cregister, uint8_t data)
-{
-    Wire.beginTransmission(deviceAddress);
-    Wire.write(i2cregister);
-    Wire.write(data);
-    uint8_t sts = Wire.endTransmission();
-    if (sts != 0)
-    {
-        SERIAL_DEBUG.print("I2C ERROR : ");
-        SERIAL_DEBUG.println(sts);
-    }
-    return (sts == 0);
+    //We use the native i2c commands for ESP32 as the Arduino library
+    //seems to have issues with corrupting i2c data if used from multiple threads
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (deviceAddress << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd, i2cregister, true);
+    i2c_master_write_byte(cmd, data, true);
+    i2c_master_stop(cmd);
+    esp_err_t ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
+    return ret;
 }
 
 uint8_t HAL_ESP32::ReadInputRegisters()
 {
-    return 0;
+    TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
+    return TCA6408_Value;
 }
 
 void HAL_ESP32::SetOutputState(uint8_t outputId, RelayState state)
 {
-    SERIAL_DEBUG.print("SetOutputState ");
-    SERIAL_DEBUG.print(outputId);
-    SERIAL_DEBUG.print("=");
-    SERIAL_DEBUG.println(state);
-    
     if (OutputsEnabled)
     {
+        SERIAL_DEBUG.print("SetOutputState ");
+        SERIAL_DEBUG.print(outputId);
+        SERIAL_DEBUG.print("=");
+        SERIAL_DEBUG.println(state);
+
         //Relays connected to TCA6408A
         //P4 = RELAY1 (outputId=0)
         //P5 = RELAY2 (outputId=1)
         //P6 = RELAY3_SSR (outputId=2)
         //P7 = EXT_IO_E (outputId=3)
 
-        if (outputId >= 0 && outputId <= 3)
+        if (outputId <= 3)
         {
-            TCA6408_Value = readByte(TCA6408_ADDRESS, TCA6408_INPUT);
-            uint8_t bit = outputId + 3;
+            TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
+            uint8_t bit = outputId + 4;
             TCA6408_Value = (state == RelayState::RELAY_ON) ? (TCA6408_Value | (1 << bit)) : (TCA6408_Value & ~(1 << bit));
-            writeByte(TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
+            esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
         }
     }
 }
@@ -97,18 +71,20 @@ void HAL_ESP32::GreenLedOn()
     TCA9534APWR_Value = TCA9534APWR_Value & B11111000;
     //Green on
     TCA9534APWR_Value = TCA9534APWR_Value | B00000100;
-    writeByte(TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
+    esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
 }
 
 void HAL_ESP32::GreenLedOff()
 {
     //Clear LED pins
     TCA9534APWR_Value = TCA9534APWR_Value & B11111000;
-    writeByte(TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
+    esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
 }
 
 void HAL_ESP32::ConfigurePins()
 {
+    //D5 is interrupt pin from TCA6408
+    pinMode(TCA6408_INTERRUPT_PIN, INPUT_PULLUP);
 }
 
 void HAL_ESP32::ConfigureI2C(void (*ExternalInputInterrupt)(void))
@@ -120,28 +96,17 @@ void HAL_ESP32::ConfigureI2C(void (*ExternalInputInterrupt)(void))
     //I2C Bus 1: uses GPIO 27 (SDA) and GPIO 26 (SCL);
     //I2C Bus 2: uses GPIO 33 (SDA) and GPIO 32 (SCL);
 
-    //Use 100khz i2c
-    Wire.begin(27, 26, 100000UL);
+    // Initialize
+    i2c_config_t conf;
+    conf.mode = I2C_MODE_MASTER;
+    conf.sda_io_num = gpio_num_t::GPIO_NUM_27;
+    conf.scl_io_num = gpio_num_t::GPIO_NUM_26;
+    conf.sda_pullup_en = GPIO_PULLUP_DISABLE;
+    conf.scl_pullup_en = GPIO_PULLUP_DISABLE;
+    conf.master.clk_speed = 400000;
+    i2c_param_config(I2C_NUM_0, &conf);
+    i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0);
 
-    /*
-    byte count = 0;
-    for (byte i = 8; i < 120; i++)
-    {
-        Wire.beginTransmission(i);       // Begin I2C transmission Address (i)
-        if (Wire.endTransmission() == 0) // Receive 0 = success (ACK response)
-        {
-            SERIAL_DEBUG.print("Found address: ");
-            SERIAL_DEBUG.print(i, DEC);
-            SERIAL_DEBUG.print(" (0x");
-            SERIAL_DEBUG.print(i, HEX); // PCF8574 7 bit address
-            SERIAL_DEBUG.println(")");
-            count++;
-        }
-    }
-    SERIAL_DEBUG.print("Found ");
-    SERIAL_DEBUG.print(count, DEC); // numbers of devices
-    SERIAL_DEBUG.println(" device(s).");
-*/
     // https://datasheet.lcsc.com/szlcsc/1809041633_Texas-Instruments-TCA9534APWR_C206010.pdf
     // TCA9534APWR Remote 8-Bit I2C and Low-Power I/O Expander With Interrupt Output and Configuration Registers
     // https://lcsc.com/product-detail/Interface-I-O-Expanders_Texas-Instruments-TCA9534APWR_C206010.html
@@ -160,75 +125,35 @@ void HAL_ESP32::ConfigureI2C(void (*ExternalInputInterrupt)(void))
     //BIT  76543210
     //PORT 76543210
 
-    Wire.beginTransmission(TCA9534APWR_ADDRESS); // Begin I2C transmission Address (i)
-    if (Wire.endTransmission() == 0)             // Receive 0 = success (ACK response)
-    {
-        //All off
-        writeByte(0x38, TCA9534APWR_OUTPUT, 0);
-        //0×03 Configuration, P5/6/7=inputs, others outputs (0=OUTPUT)
-        writeByte(TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, B11100000);
-        //0×02 Polarity Inversion, zero = off
-        //writeByte(TCA9534APWR_ADDRESS, TCA9534APWR_POLARITY_INVERSION, 0);
-        TCA9534APWR_Value = readByte(TCA9534APWR_ADDRESS, 0);
-        SERIAL_DEBUG.println("Found TCA9534APWR");
-    }
-    else
-    {
-        SERIAL_DEBUG.println("** Missing TCA9534APWR **");
-    }
+    //All off
+    esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, 0);
+    SERIAL_DEBUG.println(ret, HEX);
 
-    //uint8_t portIOValue;
-    //Read single byte
-    //readBytes(0x38, 1, 1, &portIOValue);
+    //0×03 Configuration, P5/6/7=inputs, others outputs (0=OUTPUT)
+    ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, B11100000);
+    SERIAL_DEBUG.println(ret, HEX);
+
+    //0×02 Polarity Inversion, zero = off
+    //writeByte(TCA9534APWR_ADDRESS, TCA9534APWR_POLARITY_INVERSION, 0);
+    TCA9534APWR_Value = readByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, 0);
+    SERIAL_DEBUG.println("Found TCA9534APWR");
+
     /*
-while (1) {
-    //portIOValue = 0xFF;
-    //0×01 Output Port
-    writeByte(0x38, 1, 0);    
-    delay(500);
-
-    writeByte(0x38, 1, B00000001);    
-    delay(500);
-
-    writeByte(0x38, 1, B00000010);    
-    delay(500);
-    writeByte(0x38, 1, B00000100);    
-    delay(500);
-
-    writeByte(0x38, 1, B00000110);    
-    delay(500);
-
-    writeByte(0x38, 1, B00000101);    
-    delay(500);
-    writeByte(0x38, 1, B00000011);    
-    delay(500);
-}
+Now for the TCA6408
 */
 
-    //Need to configure interrupt pins!
+    //Set ports to off before we set configuration
+    ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, 0);
+    SERIAL_DEBUG.println(ret, HEX);
+    //Ports A/B inputs, C/D outputs, RELAY1/2/3/SPARE outputs
+    ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_CONFIGURATION, B00000011);
+    SERIAL_DEBUG.println(ret, HEX);
+    //writeByte(TCA6408_ADDRESS, TCA6408_POLARITY_INVERSION, B11111111);
+    TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
+    OutputsEnabled = true;
+    InputsEnabled = true;
 
-    Wire.beginTransmission(TCA6408_ADDRESS); // Begin I2C transmission Address (i)
-    if (Wire.endTransmission() == 0)         // Receive 0 = success (ACK response)
-    {
-        // 0x20 https://www.ti.com/lit/ds/symlink/tca6408a.pdf
-        // TCA6408A TCA6408A Low-Voltage 8-Bit I2C and SMBus I/O Expander With Interrupt Output, Reset, and Configuration Registers
-
-        //Set ports to off before we set configuration
-        writeByte(TCA6408_ADDRESS, TCA6408_OUTPUT, 0);
-        //Ports A/B inputs, C/D outputs, RELAY1/2/3/SPARE outputs
-        writeByte(TCA6408_ADDRESS, TCA6408_CONFIGURATION, B00000011);
-        //writeByte(TCA6408_ADDRESS, TCA6408_POLARITY_INVERSION, B11111111);
-        TCA6408_Value = readByte(TCA6408_ADDRESS, TCA6408_INPUT);
-        OutputsEnabled = true;
-        InputsEnabled = true;
-        SERIAL_DEBUG.println("Found TCA6408");
-    }
-    else
-    {
-        SERIAL_DEBUG.println("** Missing TCA6408 **");
-    }
-
-    //Need to configure interrupt pins!
+    attachInterrupt(TCA6408_INTERRUPT_PIN, ExternalInputInterrupt, FALLING);
 }
 
 #endif
