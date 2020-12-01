@@ -47,8 +47,7 @@ public:
     uint8_t ReadTCA9534InputRegisters();
     bool OutputsEnabled = false;
     bool InputsEnabled = false;
-    void LedOn(uint8_t bits);
-    void LedOff();
+    void Led(uint8_t bits);
     void ConfigurePins();
 
 private:

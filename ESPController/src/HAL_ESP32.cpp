@@ -53,9 +53,6 @@ uint8_t HAL_ESP32::ReadTCA9534InputRegisters()
 
 void HAL_ESP32::SetOutputState(uint8_t outputId, RelayState state)
 {
-    //TODO: FIX THIS
-    return;
-
     if (OutputsEnabled)
     {
         SERIAL_DEBUG.print("SetOutputState ");
@@ -76,26 +73,17 @@ void HAL_ESP32::SetOutputState(uint8_t outputId, RelayState state)
             TCA6408_Value = (state == RelayState::RELAY_ON) ? (TCA6408_Value | (1 << bit)) : (TCA6408_Value & ~(1 << bit));
             esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
             //TODO: Check return value
-
             TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
         }
     }
 }
 
-void HAL_ESP32::LedOn(uint8_t bits)
+void HAL_ESP32::Led(uint8_t bits)
 {
     //Clear LED pins
     TCA9534APWR_Value = TCA9534APWR_Value & B11111000;
     //Set on
     TCA9534APWR_Value = TCA9534APWR_Value | (bits & B00000111);
-    esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
-    //TODO: Check return value
-}
-
-void HAL_ESP32::LedOff()
-{
-    //Clear LED pins
-    TCA9534APWR_Value = TCA9534APWR_Value & B11111000;
     esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
     //TODO: Check return value
 }
