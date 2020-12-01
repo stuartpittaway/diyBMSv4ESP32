@@ -18,8 +18,9 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #ifndef HAL_ESP32_H_
 #define HAL_ESP32_H_
 
+//GPIO34 (input only pin)
+#define TCA9534A_INTERRUPT_PIN 34
 #define TCA9534APWR_ADDRESS 0x38
-
 #define TCA9534APWR_INPUT 0x00
 #define TCA9534APWR_OUTPUT 0x01
 #define TCA9534APWR_POLARITY_INVERSION 0x02
@@ -43,6 +44,7 @@ public:
     bool OutputsEnabled = false;
     bool InputsEnabled = false;
     void GreenLedOn();
+    void WhiteLedOn();
     void GreenLedOff();
     void ConfigurePins();
 

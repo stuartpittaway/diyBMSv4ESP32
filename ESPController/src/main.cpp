@@ -106,16 +106,69 @@ NTPSyncEvent_t ntpEvent;            // Last triggered event
 
 AsyncWebServer server(80);
 
+#if defined(ESP32)
+TaskHandle_t i2c_task_handle;
+
+void i2c_task(void *param)
+{
+  // init i2c here
+  while(true)
+  {
+    // block until we are woken up to execute an i2c transaction
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    // do some i2c task
+    SERIAL_DEBUG.println("INTER!!");
+  }
+}
+
 void IRAM_ATTR ExternalInputInterrupt()
 {
-  uint8_t inputRegisters = hal.ReadInputRegisters();
+  xTaskNotifyFromISR(i2c_task_handle, 0x00, eNotifyAction::eNoAction, NULL);
+}
+#endif
 
-  if ((inputRegisters & B00010000) == 0)
+#if defined(ESP8266)
+void IRAM_ATTR ExternalInputInterrupt()
+{
+ if ((hal.ReadInputRegisters() & B00010000) == 0)
   {
     //Emergency Stop (J1) has triggered
     emergencyStop = true;
   }
 }
+#endif
+
+/*
+void TCA6408InterruptTask(void *parameter)
+{
+  while (true)
+  {
+    //Block until Semaphore raised...
+    xSemaphoreTake(syncSemaphoreTCA6408Int, portMAX_DELAY);
+
+    //Don't do this in the ISR,
+    uint8_t inputRegisters = hal.ReadInputRegisters();
+
+  //P0=EXT_IO_A = B00000001
+  //P1=EXT_IO_B = B00000010
+    //EXT_IO_A
+    if ((inputRegisters & B00000001) == 0)
+    {
+      //Emergency Stop (J1) has triggered
+      emergencyStop = true;
+    }
+
+    //EXT_IO_B
+    if ((inputRegisters & B00000010) == 0)
+    {
+      //Emergency Stop (J1) has triggered
+      hal.WhiteLedOn();
+    }
+
+  }
+  vTaskDelete(NULL);
+}
+*/
 
 //This large array holds all the information about the modules
 //up to 4x16
@@ -265,7 +318,6 @@ void onPacketReceived()
   //Note that this function gets called frequently with zero length packets
   //due to the way the modules operate
   hal.GreenLedOn();
-
 
 #if defined(PACKET_LOGGING_RECEIVE)
   // Process decoded incoming packet
@@ -557,6 +609,7 @@ void connectToWifi()
   SERIAL_DEBUG.println(F("Connecting to Wi-Fi..."));
   WiFi.mode(WIFI_STA);
 #if defined(ESP8266)
+  //Serial.printf(" ESP8266 Chip id = %08X\n", ESP.getChipId());
   wifi_station_set_hostname("diyBMSESP8266");
   WiFi.hostname("diyBMSESP8266");
 #endif
@@ -981,14 +1034,11 @@ void setup()
   //esp_log_level_set("wifi", ESP_LOG_WARN);      // enable WARN logs from WiFi stack
   //esp_log_level_set("dhcpc", ESP_LOG_INFO);     // enable INFO logs from DHCP client
 
-  //Attempt to resolve i2c errors by setting WIFI_STORAGE_RAM flag
-  ESP_ERROR_CHECK( esp_wifi_set_storage(wifi_storage_t::WIFI_STORAGE_RAM) );
-
 #endif
 
   //Debug serial output
 #if defined(ESP8266)
-//ESP8266 uses dedicated 2nd serial port, but transmit only
+  //ESP8266 uses dedicated 2nd serial port, but transmit only
   SERIAL_DEBUG.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
   SERIAL_DEBUG.setDebugOutput(true);
 #endif
@@ -1017,7 +1067,7 @@ void setup()
   hal.GreenLedOff();
 #else
   //Pretend the button is not pressed
-  uint8_t clearAPSettings=0xFF;
+  uint8_t clearAPSettings = 0xFF;
 #endif
 
   //Pre configure the array
@@ -1045,9 +1095,11 @@ void setup()
   SERIAL_DATA.swap();
 #endif
 
+#if defined(ESP32)
+  xTaskCreate(i2c_task, "i2c", 2048, nullptr, 2, &i2c_task_handle);
+#endif
+
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
-
-
 
 #if defined(ESP8266)
   // initialize LittleFS
@@ -1126,6 +1178,7 @@ void setup()
 
     connectToWifi();
   }
+
 
   //Ensure we service the cell modules every 4 seconds
   myTimer.attach(4, timerEnqueueCallback);
