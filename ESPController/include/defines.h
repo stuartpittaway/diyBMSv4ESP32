@@ -34,8 +34,21 @@
 //Version 4.XX of DIYBMS modules operate at 2400 baud
 #define COMMS_BAUD_RATE 2400
 
-
 #define EEPROM_SETTINGS_START_ADDRESS 256
+
+enum enumInputState : uint8_t
+{
+  INPUT_HIGH = 0xFF,
+  INPUT_LOW = 0x99,
+  INPUT_UNKNOWN = 0x00
+};
+
+struct i2cQueueMessage
+{
+    uint8_t command;
+    uint8_t data;
+};
+
 
 enum RelayState : uint8_t
 {
@@ -53,6 +66,9 @@ enum RelayType : uint8_t
 #define RELAY_RULES 10
 //Number of relays on board (4)
 #define RELAY_TOTAL 4
+
+//5 inputs on board
+#define INPUTS_TOTAL 5
 
 #define SHOW_TIME_PERIOD 5000
 #define NTP_TIMEOUT 1500

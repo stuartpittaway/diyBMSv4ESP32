@@ -99,6 +99,8 @@ bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
 
+volatile enumInputState InputState[INPUTS_TOTAL];
+
 #if defined(ESP8266)
 bool NTPsyncEventTriggered = false; // True if a time even has been triggered
 NTPSyncEvent_t ntpEvent;            // Last triggered event
@@ -108,29 +110,93 @@ AsyncWebServer server(80);
 
 #if defined(ESP32)
 TaskHandle_t i2c_task_handle;
+QueueHandle_t queue_i2c;
 
+// Handle all calls to i2c devices in this single task
+// Provides thread safe mechanism to talk to i2c
 void i2c_task(void *param)
 {
-  // init i2c here
-  while(true)
+  while (true)
   {
-    // block until we are woken up to execute an i2c transaction
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    // do some i2c task
-    SERIAL_DEBUG.println("INTER!!");
+    //xTaskNotifyWait(0x00,               /* Don’t clear any bits on entry. */
+    //               ULONG_MAX,          /* Clear all bits on exit. */
+    //               &ulInterruptStatus, /* Receives the notification value. */
+    //              portMAX_DELAY);     /* Block indefinitely. */
+    i2cQueueMessage m;
+
+    if (xQueueReceive(queue_i2c, &m, portMAX_DELAY) == pdPASS)
+    {
+      // do some i2c task
+      if (m.command == 0x01)
+      {
+        // Read ports A/B inputs (on TCA6408)
+        uint8_t v = hal.ReadTCA6408InputRegisters();
+        InputState[0] = (v & B00000001) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+        InputState[1] = (v & B00000010) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+      }
+
+      if (m.command == 0x02)
+      {
+        //Read ports
+        //The 9534 deals with internal LED outputs and spare IO on J10
+        //P5/P6/P7 = EXTRA I/O (on internal header breakout pins J10)
+        uint8_t v = hal.ReadTCA9534InputRegisters();
+        InputState[2] = (v & B00100000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+        InputState[3] = (v & B01000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+        InputState[4] = (v & B10000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+      }
+
+      if (m.command == 0x03)
+      {
+        hal.LedOn(m.data);
+      }
+
+      if (m.command == 0x04)
+      {
+        hal.LedOff();
+      }
+
+      /*
+      if (v & B00000001)
+      {
+        hal.GreenLedOn();
+      }
+      else if (v & B00000010)
+      {
+        hal.WhiteLedOn();
+      }
+      else
+      {
+        hal.LedOff();
+      }
+*/
+    }
   }
 }
 
-void IRAM_ATTR ExternalInputInterrupt()
+void IRAM_ATTR TCA6408Interrupt()
 {
-  xTaskNotifyFromISR(i2c_task_handle, 0x00, eNotifyAction::eNoAction, NULL);
+  //xTaskNotifyFromISR(TCA6408_task_handle, 0x00, eNotifyAction::eNoAction, NULL);
+
+  i2cQueueMessage m;
+  m.command = 0x01;
+  m.data = 0;
+  xQueueSendToBackFromISR(queue_i2c, &m, NULL);
+}
+void IRAM_ATTR TCA9534AInterrupt()
+{
+  //xTaskNotifyFromISR(TCA9534A_task_handle, 0x00, eNotifyAction::eNoAction, NULL);
+  i2cQueueMessage m;
+  m.command = 0x02;
+  m.data = 0;
+  xQueueSendToBackFromISR(queue_i2c, &m, NULL);
 }
 #endif
 
 #if defined(ESP8266)
 void IRAM_ATTR ExternalInputInterrupt()
 {
- if ((hal.ReadInputRegisters() & B00010000) == 0)
+  if ((hal.ReadInputRegisters() & B00010000) == 0)
   {
     //Emergency Stop (J1) has triggered
     emergencyStop = true;
@@ -317,7 +383,16 @@ void onPacketReceived()
 {
   //Note that this function gets called frequently with zero length packets
   //due to the way the modules operate
+#if defined(ESP8266)
   hal.GreenLedOn();
+#else
+  i2cQueueMessage m;
+  //3 = LED
+  m.command = 0x03;
+  //Lowest 3 bits are RGB led GREEN/RED/BLUE
+  m.data = B00000100;
+  xQueueSendToBack(queue_i2c, &m, 50 / portTICK_PERIOD_MS);
+#endif
 
 #if defined(PACKET_LOGGING_RECEIVE)
   // Process decoded incoming packet
@@ -334,7 +409,14 @@ void onPacketReceived()
   //SERIAL_DEBUG.print("Timing:");SERIAL_DEBUG.print(receiveProc.packetTimerMillisecond);SERIAL_DEBUG.println("ms");
 #endif
 
+#if defined(ESP8266)
   hal.GreenLedOff();
+#else
+  //LED OFF
+  m.command = 0x04;
+  m.data = 0;
+  xQueueSendToBack(queue_i2c, &m, 50 / portTICK_PERIOD_MS);
+#endif
 }
 
 void timerTransmitCallback()
@@ -1029,11 +1111,9 @@ void setup()
   WiFi.mode(WIFI_OFF);
 #if defined(ESP32)
   btStop();
-
-  esp_log_level_set("*", ESP_LOG_WARN); // set all components to ERROR level
+  esp_log_level_set("*", ESP_LOG_WARN); // set all components to WARN level
   //esp_log_level_set("wifi", ESP_LOG_WARN);      // enable WARN logs from WiFi stack
-  //esp_log_level_set("dhcpc", ESP_LOG_INFO);     // enable INFO logs from DHCP client
-
+  //esp_log_level_set("dhcpc", ESP_LOG_WARN);     // enable INFO logs from DHCP client
 #endif
 
   //Debug serial output
@@ -1055,19 +1135,25 @@ void setup()
   SetControllerState(ControllerState::PowerUp);
 
   hal.ConfigurePins();
-  hal.ConfigureI2C(ExternalInputInterrupt);
+  hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
 
+#if defined(ESP32)
+  //All comms to i2c needs to go through this single task
+  //to prevent issues with thread safety on the i2c hardware/libraries
+  queue_i2c = xQueueCreate(10, sizeof(i2cQueueMessage));
+  xTaskCreate(i2c_task, "i2c", 2048, nullptr, 2, &i2c_task_handle);
+#endif
+
+  //Pretend the button is not pressed
+  uint8_t clearAPSettings = 0xFF;
 #if defined(ESP8266)
   //Fix for issue 5, delay for 3 seconds on power up with green LED lit so
   //people get chance to jump WIFI reset pin (d3)
   hal.GreenLedOn();
   delay(3000);
   //This is normally pulled high, D3 is used to reset WIFI details
-  uint8_t clearAPSettings = digitalRead(RESET_WIFI_PIN);
+  clearAPSettings = digitalRead(RESET_WIFI_PIN);
   hal.GreenLedOff();
-#else
-  //Pretend the button is not pressed
-  uint8_t clearAPSettings = 0xFF;
 #endif
 
   //Pre configure the array
@@ -1093,10 +1179,6 @@ void setup()
   //D7 = GPIO13 = RECEIVE SERIAL
   //D8 = GPIO15 = TRANSMIT SERIAL
   SERIAL_DATA.swap();
-#endif
-
-#if defined(ESP32)
-  xTaskCreate(i2c_task, "i2c", 2048, nullptr, 2, &i2c_task_handle);
 #endif
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
@@ -1179,7 +1261,6 @@ void setup()
     connectToWifi();
   }
 
-
   //Ensure we service the cell modules every 4 seconds
   myTimer.attach(4, timerEnqueueCallback);
 
@@ -1204,6 +1285,24 @@ void loop()
 
   // Call update to receive, decode and process incoming packets.
   myPacketSerial.checkInputStream();
+
+  if (InputState[0] == enumInputState::INPUT_HIGH)
+  {
+    i2cQueueMessage m;
+    //3 = LED
+    m.command = 0x03;
+    //Lowest 3 bits are RGB led
+    m.data = B00000101;
+    xQueueSendToBack(queue_i2c, &m, 50 / portTICK_PERIOD_MS);
+  }
+  else
+  {
+    i2cQueueMessage m;
+    //4 = LED OFF
+    m.command = 0x04;
+    m.data = 0;
+    xQueueSendToBack(queue_i2c, &m, 50 / portTICK_PERIOD_MS);
+  }
 
   if (ConfigHasChanged > 0)
   {

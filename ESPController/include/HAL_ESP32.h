@@ -25,6 +25,7 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #define TCA9534APWR_OUTPUT 0x01
 #define TCA9534APWR_POLARITY_INVERSION 0x02
 #define TCA9534APWR_CONFIGURATION 0x03
+#define TCA9534APWR_INPUTMASK B11100000
 
 //GPIO39 (input only pin)
 #define TCA6408_INTERRUPT_PIN 39
@@ -34,18 +35,20 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #define TCA6408_POLARITY_INVERSION 0x02
 #define TCA6408_CONFIGURATION 0x03
 
+#define TCA6408_INPUTMASK B00000011
+
 // Derived classes
 class HAL_ESP32
 {
 public:
-    void ConfigureI2C(void (*ExternalInputInterrupt)(void));
+    void ConfigureI2C(void (*TCA6408Interrupt)(void),void (*TCA9534AInterrupt)(void));
     void SetOutputState(uint8_t outputId, RelayState state);
-    uint8_t ReadInputRegisters();
+    uint8_t ReadTCA6408InputRegisters();
+    uint8_t ReadTCA9534InputRegisters();
     bool OutputsEnabled = false;
     bool InputsEnabled = false;
-    void GreenLedOn();
-    void WhiteLedOn();
-    void GreenLedOff();
+    void LedOn(uint8_t bits);
+    void LedOff();
     void ConfigurePins();
 
 private:
