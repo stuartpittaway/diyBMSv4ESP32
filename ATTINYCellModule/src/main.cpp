@@ -257,7 +257,6 @@ void loop()
   wdt_reset();
 
   //if (bypassHasJustFinished>0)  {    hardware.BlueLedOn();  }else {    hardware.BlueLedOff();  }
-
   //if (hztiming) {  hardware.SparePinOn();} else {  hardware.SparePinOff();}hztiming=!hztiming;
 
   if (PP.identifyModule > 0)
@@ -314,6 +313,19 @@ void loop()
   //We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass
   //this is also triggered by the watchdog should comms fail or the module is running standalone
 
+  if (PP.bypassCountDown > 0)
+  {
+    if (PP.pwmrunning)
+    {
+      //Disable the PWM during voltage readings
+      hardware.DisableTOCPMCOE();
+    }
+    else
+    {
+      hardware.DumpLoadOff();
+    }
+  }
+
   hardware.ReferenceVoltageOn();
 
   //allow reference voltage to stabalize
@@ -326,6 +338,19 @@ void loop()
   PP.TakeAnAnalogueReading(ADC_EXTERNAL_TEMP);
 
   hardware.ReferenceVoltageOff();
+
+  //Switch balance back on if needed
+  if (PP.bypassCountDown > 0)
+  {
+    if (PP.pwmrunning)
+    {
+      hardware.EnableTOCPMCOE();
+    }
+    else
+    {
+      hardware.DumpLoadOn();
+    }
+  }
 
   uint8_t temp = PP.InternalTemperature() & 0xFF;
 
