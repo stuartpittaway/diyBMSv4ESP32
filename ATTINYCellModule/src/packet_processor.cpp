@@ -152,12 +152,7 @@ bool PacketProcessor::onPacketReceived(PacketStruct *receivebuffer)
     //}
   }
 
-  //Clear the packet buffer on an invalid packet so the previous packet
-  //is not re-transmitted issue #22
-  //memset(&buffer, 0, sizeof(buffer));
-  receivebuffer->crc =0;
-
-  //We need to do something here, the packet received was not correct
+  //The packet received was not correct, failed CRC check
   badpackets++;
   return false;
 }
@@ -214,6 +209,12 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
       buffer->moduledata[mymoduleaddress] = buffer->moduledata[mymoduleaddress] | 0x8000;
     }
 
+    return true;
+  }
+
+  case COMMAND::Timing:
+  {
+    //Do nothing just accept and pass on the packet
     return true;
   }
 

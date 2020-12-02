@@ -39,7 +39,6 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #define nop  __asm__("nop\n\t");
 
 
-
 enum COMMAND: uint8_t
 {
     ResetBadPacketCounter = B00000000,
@@ -49,7 +48,8 @@ enum COMMAND: uint8_t
     ReadBadPacketCounter=B00000100,
     ReadSettings=B00000101,
     WriteSettings=B00000110,
-    ReadBalancePowerPWM=B00000111
+    ReadBalancePowerPWM=B00000111,
+    Timing=B00001000,
    
     // 0000 0000  = set bank identity [obsolete]
     // 0000 0001  = read voltage and status
@@ -59,6 +59,7 @@ enum COMMAND: uint8_t
     // 0000 0101  = Report settings/configuration
     // 0000 0110  = Write settings/configuration
     // 0000 0111  = Read current level of PWM for power balance
+    // 0000 1000  = Timing of the commands through the string of modules
 };
 
 
@@ -79,6 +80,5 @@ struct CellModuleConfig {
   //External Thermistor settings
   //uint16_t External_BCoefficient;
 } __attribute__((packed));
-
 
 #endif
