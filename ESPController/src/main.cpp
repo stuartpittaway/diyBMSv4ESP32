@@ -381,6 +381,8 @@ void onPacketReceived()
     QueueLED(B00000001);
 #endif
     SERIAL_DEBUG.print(F("**FAIL PROCESS REPLY**"));
+    SERIAL_DEBUG.print("R:");
+    dumpPacketToDebug((PacketStruct *)SerialPacketReceiveBuffer);
   }
 
 #if defined(PACKET_LOGGING_RECEIVE)
