@@ -11,6 +11,7 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 * No additional restrictions — You may not apply legal terms or technological measures
   that legally restrict others from doing anything the license permits.  
 */
+
 #ifndef DIYBMS_DEFINES_H // include guard
 #define DIYBMS_DEFINES_H
 
@@ -49,7 +50,7 @@ enum COMMAND: uint8_t
     ReadSettings=B00000101,
     WriteSettings=B00000110,
     ReadBalancePowerPWM=B00000111,
-    Timing=B00001000,
+    Timing=B00001000
    
     // 0000 0000  = set bank identity [obsolete]
     // 0000 0001  = read voltage and status

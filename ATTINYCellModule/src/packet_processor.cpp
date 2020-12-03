@@ -37,7 +37,7 @@ bool PacketProcessor::BypassOverheatCheck()
 // uses basic B Coefficient Steinhart calculaton to give rough approximation in temperature
 int16_t PacketProcessor::InternalTemperature()
 {
-  return Steinhart::ThermistorToCelcius(INT_BCOEFFICIENT, onboard_temperature);
+  return Steinhart::ThermistorToCelcius(INT_BCOEFFICIENT, raw_adc_onboard_temperature);
 }
 
 //Returns TRUE if the cell voltage is greater than the required setting
@@ -61,18 +61,18 @@ void PacketProcessor::ADCReading(uint16_t value)
   {
 #if (defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && defined(SWAPR19R20)))
     //R19 and R20 swapped on V4.2 board, invert the thermistor reading
-    onboard_temperature = 1225 - value;
+    raw_adc_onboard_temperature = 1225 - value;
 #elif (defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 430 && defined(SWAPR19R20)))
     //R19 and R20 swapped on V4.3 board (never publically released), invert the thermistor reading
-    onboard_temperature = 1000 - value;
+    raw_adc_onboard_temperature = 1000 - value;
 #else
-    onboard_temperature = value;
+    raw_adc_onboard_temperature = value;
 #endif
     break;
   }
   case ADC_EXTERNAL_TEMP:
   {
-    external_temperature = value;
+    raw_adc_external_temperature = value;
     break;
   }
   }
@@ -342,6 +342,6 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
 
 uint16_t PacketProcessor::TemperatureMeasurement()
 {
-  return (Steinhart::TemperatureToByte(Steinhart::ThermistorToCelcius(INT_BCOEFFICIENT, onboard_temperature)) << 8) +
-         Steinhart::TemperatureToByte(Steinhart::ThermistorToCelcius(EXT_BCOEFFICIENT, external_temperature));
+  return (Steinhart::TemperatureToByte(Steinhart::ThermistorToCelcius(INT_BCOEFFICIENT, raw_adc_onboard_temperature)) << 8) +
+         Steinhart::TemperatureToByte(Steinhart::ThermistorToCelcius(EXT_BCOEFFICIENT, raw_adc_external_temperature));
 }

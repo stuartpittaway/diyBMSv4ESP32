@@ -30,7 +30,6 @@ struct PacketStruct
   uint16_t crc;
 } __attribute__((packed));
 
-
 typedef union
 {
   float number;
@@ -63,24 +62,30 @@ public:
     watchdog_counter++;
     return watchdog_counter;
   }
+
   bool BypassCheck();
   uint16_t TemperatureMeasurement();
-  byte identifyModule;
+  uint8_t identifyModule;
   bool BypassOverheatCheck();
 
   //Raw value returned from ADC (10bit)
   uint16_t RawADCValue();
   int16_t InternalTemperature();
 
-  //Returns TRUE if the module is bypassing current
+  //Returns TRUE if the module is in "bypassing current" mode
   bool WeAreInBypass;
 
   //Value of PWM 0-100
   uint16_t PWMValue;
   volatile bool SettingsHaveChanged;
 
+  //Count down which runs whilst bypass is in operation
   uint16_t bypassCountDown;
+
+  //Count down which starts after the current cycle of bypass has completed (aka cool down period whilst voltage may rise again)
   uint8_t bypassHasJustFinished;
+
+  //True when PWM is running for bypass (instead of 100% on)
   bool pwmrunning;
 
   bool IsBypassActive()
@@ -99,10 +104,14 @@ private:
   volatile bool ModuleAddressAssignedFlag = false;
   volatile uint8_t adcmode = 0;
   volatile uint16_t raw_adc_voltage;
-  volatile uint16_t onboard_temperature;
-  volatile uint16_t external_temperature;
+  volatile uint16_t raw_adc_onboard_temperature;
+  volatile uint16_t raw_adc_external_temperature;
+
+  //Cell number in the string (updated dynamically)
   volatile uint8_t mymoduleaddress = 0;
+  //Count of bad packets of data received, most likely with corrupt data or crc errors
   volatile uint16_t badpackets = 0;
+  //Count of number of WDT events which have triggered, could indicate standalone mode or problems with serial comms
   volatile uint16_t watchdog_counter = 0;
 };
 
