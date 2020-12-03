@@ -29,11 +29,20 @@ IMPORTANT
 You need to configure the correct DIYBMSMODULEVERSION in defines.h file to build for your module
 
 */
+
+#define RX_BUFFER_SIZE 64
+
 #include <Arduino.h>
 
 #if !(F_CPU == 8000000)
 #error Processor speed should be 8 Mhz internal
 #endif
+
+#if !defined(ATTINY_CORE)
+#error Expected ATTINYCORE
+#endif
+
+
 
 //Our project code includes
 #include "defines.h"
@@ -97,7 +106,7 @@ void DefaultConfig()
 
 ISR(WDT_vect)
 {
-  //This is the watchdog timer - something went wrong and no activity recieved in a while
+  //This is the watchdog timer - something went wrong and no serial activity received in over 8 seconds
   wdt_triggered = true;
   PP.IncrementWatchdogCounter();
 }
@@ -110,8 +119,7 @@ ISR(ADC_vect)
 
 void onPacketReceived()
 {
-  //if (len > 0)
-  //{
+  hardware.EnableSerial0TX();
 
   //A data packet has just arrived, process it and forward the results to the next module
   if (PP.onPacketReceived((PacketStruct *)SerialPacketReceiveBuffer))
@@ -120,39 +128,16 @@ void onPacketReceived()
     hardware.GreenLedOn();
   }
 
-  if (PP.pwmrunning)
-  {
-    //Disable the PWM during Serial transmission to avoid CRC errors
-    hardware.DisableTOCPMCOE();
-  }
-
-  hardware.EnableSerial0TX();
-
-  //Wake up the connected cell module from sleep, send a framingmarker
-  //byte which the receiver will ignore
-  //myPacketSerial.sendStartFrame();
-  Serial.write((uint8_t)0x00);
-  //Let connected module wake up
-  hardware.FlushSerial0();
-  //delay(1);
-
   //Send the packet (fixed length!) (even if it was invalid so controller can count crc errors)
   myPacketSerial.sendBuffer(SerialPacketReceiveBuffer);
 
-  //DEBUG: Are there any known issues with Serial Flush causing a CPU to hang?
+  //PLATFORM ATTINYCORE version is 1.3.2 which is old, and SERIAL.FLUSH simply clears the buffer (bad)
+  //Therefore we use 1.4.1 which has the correct code to wait until the buffer is empty.
   hardware.FlushSerial0();
 
   //Replace flush with a simple delay - we have 35+ bytes to transmit at 2400 baud + COBS encoding
-  //delay(10);
-
   //At 2400bits per second, = 300 bytes per second = 1000ms/300bytes/sec= 3ms per byte
-
-  hardware.DisableSerial0TX();
-  //}
-  if (PP.pwmrunning)
-  {
-    hardware.EnableTOCPMCOE();
-  }
+  //delay(10);
 
   hardware.GreenLedOff();
 }
@@ -233,9 +218,6 @@ void setup()
   Serial.begin(COMMS_BAUD_RATE, SERIAL_8N1);
 
   myPacketSerial.begin(&Serial, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
-
-  //myPacketSerial.setStream(&Serial);
-  //myPacketSerial.setPacketHandler(&onPacketReceived);
 }
 
 void StopBalance()
@@ -262,11 +244,17 @@ void loop()
   if (PP.identifyModule > 0)
   {
     hardware.GreenLedOn();
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+    hardware.BlueLedOn();
+#endif
     PP.identifyModule--;
 
     if (PP.identifyModule == 0)
     {
       hardware.GreenLedOff();
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+      hardware.BlueLedOff();
+#endif
     }
   }
 
@@ -276,16 +264,23 @@ void loop()
     StopBalance();
   }
 
-  //#ifndef DIYBMS_DEBUG
   if (!PP.WeAreInBypass && PP.bypassHasJustFinished == 0)
   {
-    //We don't sleep if we are in bypass mode or just after completing bypass
+    //hardware.BlueLedOff();
+
+    //Go to SLEEP, we are not in bypass anymore
+
+    //Switch of TX - save power
+    hardware.DisableSerial0TX();
+
+    //Wake up on Serial port RX
     hardware.EnableStartFrameDetection();
 
-    //Program stops here until woken by watchdog or pin change interrupt
+    //Program stops here until woken by watchdog or Serial port ISR
     hardware.Sleep();
+
+    //hardware.BlueLedOn();
   }
-  //#endif
 
   //We are awake....
 
@@ -300,10 +295,7 @@ void loop()
 #endif
 
     //Setup IO ports
-    hardware.ConfigurePorts();
-
-    //More power saving changes
-    hardware.EnableSerial0();
+    //hardware.ConfigurePorts();
 
     //If we have just woken up, we shouldn't be in balance
     //safety check that we are not
@@ -313,11 +305,11 @@ void loop()
   //We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass
   //this is also triggered by the watchdog should comms fail or the module is running standalone
 
+  //Disable the PWM/load during voltage readings
   if (PP.bypassCountDown > 0)
   {
     if (PP.pwmrunning)
     {
-      //Disable the PWM during voltage readings
       hardware.DisableTOCPMCOE();
     }
     else
@@ -329,17 +321,39 @@ void loop()
   hardware.ReferenceVoltageOn();
 
   //allow reference voltage to stabalize
-  delay(4);
+  delay(1);
 
-  PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
   //Internal temperature
   PP.TakeAnAnalogueReading(ADC_INTERNAL_TEMP);
   //External temperature
   PP.TakeAnAnalogueReading(ADC_EXTERNAL_TEMP);
+  //Do voltage reading last to give as much time for voltage to settle
+  PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
 
   hardware.ReferenceVoltageOff();
 
-  //Switch balance back on if needed
+  if (wdt_triggered)
+  {
+    //We got here because the watchdog (after 8 seconds) went off - we didn't receive a packet of data
+    wdt_triggered = false;
+  }
+  else
+  {
+    //Loop here processing any packets then go back to sleep
+
+    //NOTE this loop size is dependant on the size of the packet buffer (40 bytes)
+    //     too small a loop will prevent anything being processed as we go back to Sleep
+    //     before packet is received correctly
+    for (size_t i = 0; i < 20; i++)
+    {
+      // Call update to receive, decode and process incoming packets.
+      myPacketSerial.checkInputStream();
+      //Allow data to be received in buffer (delay must be AFTER) checkInputStream and before DisableSerial0TX
+      delay(1);
+    }
+  }
+
+  //Switch balance PWM back on if needed
   if (PP.bypassCountDown > 0)
   {
     if (PP.pwmrunning)
@@ -352,9 +366,9 @@ void loop()
     }
   }
 
-  uint8_t temp = PP.InternalTemperature() & 0xFF;
+  uint8_t internal_temperature = PP.InternalTemperature() & 0xFF;
 
-  if (temp > DIYBMS_MODULE_SafetyTemperatureCutoff)
+  if (internal_temperature > DIYBMS_MODULE_SafetyTemperatureCutoff)
   {
     //Force shut down if temperature is too high
     //although this does run the risk that the voltage on the cell will go high
@@ -363,7 +377,7 @@ void loop()
   }
 
   //Only enter bypass if the board temperature is below safety
-  if (PP.BypassCheck() && temp < DIYBMS_MODULE_SafetyTemperatureCutoff)
+  if (PP.BypassCheck() && internal_temperature < DIYBMS_MODULE_SafetyTemperatureCutoff)
   {
     //Our cell voltage is OVER the voltage setpoint limit, start draining cell using bypass resistor
 
@@ -384,7 +398,7 @@ void loop()
 
   if (PP.bypassCountDown > 0)
   {
-    if (temp < (myConfig.BypassTemperatureSetPoint - 10))
+    if (internal_temperature < (myConfig.BypassTemperatureSetPoint - 10))
     {
       //Full power if we are nowhere near the setpoint (more than 10 degrees C away)
       hardware.StopTimer2();
@@ -405,7 +419,7 @@ void loop()
       }
 
       //Compare the real temperature against max setpoint, we want the PID to keep at this temperature
-      PP.PWMValue = myPID.step(myConfig.BypassTemperatureSetPoint, temp);
+      PP.PWMValue = myPID.step(myConfig.BypassTemperatureSetPoint, internal_temperature);
 
       //Scale PWM up to 0-10000
       hardware.SetTimer2Value(PP.PWMValue * 100);
@@ -425,30 +439,22 @@ void loop()
     }
   }
 
-  if (wdt_triggered)
-  {
-    //We got here because the watchdog (after 8 seconds) went off - we didn't receive a packet of data
-    wdt_triggered = false;
-  }
-  else
-  {
-    //Loop here processing any packets then go back to sleep
-
-    //NOTE this loop size is dependant on the size of the packet buffer (34 bytes)
-    //     too small a loop will prevent anything being processed as we go back to Sleep
-    //     before packet is received correctly
-    for (size_t i = 0; i < 15; i++)
-    {
-      //Allow data to be received in buffer
-      delay(10);
-
-      // Call update to receive, decode and process incoming packets.
-      myPacketSerial.checkInputStream();
-    }
-  }
-
   if (PP.bypassHasJustFinished > 0)
   {
     PP.bypassHasJustFinished--;
+  }
+
+  if (PP.bypassCountDown > 0)
+  {
+    //If we are trying to drain the cell/balance, then we need
+    //to wait around a bit here whilst the balancing works
+    //otherwise the loop() will start again and switch balance off!
+    //wait 500ms before continuing, or we exit when some Serial data arrives
+    uint16_t i = 500 / 5;
+    while (i > 0 && Serial.available() < 8)
+    {
+      delay(5);
+      i--;
+    }
   }
 }
