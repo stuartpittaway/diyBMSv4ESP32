@@ -23,13 +23,10 @@ public:
 
   uint8_t totalModulesFound = 0;
 
-  //Timer for "read voltage" packets (default to 1 minute at startup)
+  //Duration (ms) for a packet to travel through the string (default to 1 minute at startup)
   uint32_t packetTimerMillisecond = 60 * 1000;
-  uint32_t packetLastReceivedMillisecond = 0;
-  
-  uint16_t packetLastSentSequence = 0;
+  uint32_t packetLastReceivedMillisecond = 0; 
   uint16_t packetLastReceivedSequence = 0;
-  uint32_t packetLastSentMillisecond = 0;
 
   void ResetCounters()
   {

@@ -36,6 +36,7 @@ class PacketRequestGenerator {
      void sendReadBalancePowerRequest(uint8_t startmodule,uint8_t endmodule);
 
      void sendBadPacketCounterReset();
+     void sendTimingRequest();
 
      uint32_t packetsGenerated = 0;
      uint16_t QueueLength();

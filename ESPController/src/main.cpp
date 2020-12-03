@@ -261,39 +261,76 @@ bool InputsEnabled;
 
 AsyncMqttClient mqttClient;
 
+void dumpByte(uint8_t data)
+{
+  if (data <= 0x0F)
+    SERIAL_DEBUG.print('0');
+  SERIAL_DEBUG.print(data, HEX);
+}
 void dumpPacketToDebug(PacketStruct *buffer)
 {
-  SERIAL_DEBUG.print(buffer->start_address, HEX);
+  //Filter on some commands
+  //if ((buffer->command & 0x0F) != COMMAND::Timing)    return;
+
+  SERIAL_DEBUG.print(millis(), HEX);
+  SERIAL_DEBUG.print(':');
+
+  if ((buffer->command & B10000000) > 0)
+    SERIAL_DEBUG.print('R');
+  else
+    SERIAL_DEBUG.print('S');
+
+  SERIAL_DEBUG.print(':');
+  dumpByte(buffer->start_address);
   SERIAL_DEBUG.print('-');
-  SERIAL_DEBUG.print(buffer->end_address, HEX);
+  dumpByte(buffer->end_address);
   SERIAL_DEBUG.print('/');
-  SERIAL_DEBUG.print(buffer->hops, HEX);
+  dumpByte(buffer->hops);
   SERIAL_DEBUG.print('/');
-  SERIAL_DEBUG.print(buffer->command, HEX);
+  dumpByte(buffer->command);
 
-  if (buffer->command == ReadVoltageAndStatus)
+  switch (buffer->command & 0x0F)
   {
-    SERIAL_DEBUG.print(F(" ReadVoltageStatus "));
-  }
-  if (buffer->command == ReadTemperature)
-  {
-    SERIAL_DEBUG.print(F(" ReadTemperature "));
-  }
-  if (buffer->command == ReadSettings)
-  {
-    SERIAL_DEBUG.print(F(" ReadSettings "));
+  case COMMAND::ReadVoltageAndStatus:
+    SERIAL_DEBUG.print(F(" RdVolt   "));
+    break;
+  case COMMAND::ReadTemperature:
+    SERIAL_DEBUG.print(F(" RdTemp   "));
+    break;
+  case COMMAND::ReadSettings:
+    SERIAL_DEBUG.print(F(" RdSettin "));
+    break;
+  case COMMAND::ReadBadPacketCounter:
+    SERIAL_DEBUG.print(F(" RdBadPkC "));
+    break;
+  case COMMAND::ReadBalancePowerPWM:
+    SERIAL_DEBUG.print(F(" RdBalanc "));
+    break;
+  case COMMAND::WriteSettings:
+    SERIAL_DEBUG.print(F(" WriteSet "));
+    break;
+  case COMMAND::Timing:
+    SERIAL_DEBUG.print(F(" Timing   "));
+    break;
+  default:
+    SERIAL_DEBUG.print(F("          "));
+    break;
   }
 
-  SERIAL_DEBUG.print('/');
-  SERIAL_DEBUG.print(buffer->sequence, HEX);
+  SERIAL_DEBUG.printf("%.4X", buffer->sequence);
+  //SERIAL_DEBUG.print(buffer->sequence, HEX);
   SERIAL_DEBUG.print('=');
   for (size_t i = 0; i < maximum_cell_modules_per_packet; i++)
   {
-    SERIAL_DEBUG.print(buffer->moduledata[i], HEX);
+    //SERIAL_DEBUG.print(buffer->moduledata[i], HEX);
+    SERIAL_DEBUG.printf("%.4X", buffer->moduledata[i]);
     SERIAL_DEBUG.print(" ");
   }
-  SERIAL_DEBUG.print(" =");
-  SERIAL_DEBUG.print(buffer->crc, HEX);
+  SERIAL_DEBUG.print("=");
+  //SERIAL_DEBUG.print(buffer->crc, HEX);
+  SERIAL_DEBUG.printf("%.4X", buffer->crc);
+
+  SERIAL_DEBUG.println();
 }
 
 void SetControllerState(ControllerState newState)
@@ -364,7 +401,7 @@ void onPacketReceived()
 
 #if defined(PACKET_LOGGING_RECEIVE)
   // Process decoded incoming packet
-  SERIAL_DEBUG.print("R:");
+  //SERIAL_DEBUG.print("R:");
   dumpPacketToDebug((PacketStruct *)SerialPacketReceiveBuffer);
 #endif
 
@@ -380,15 +417,13 @@ void onPacketReceived()
     //Error blue
     QueueLED(B00000001);
 #endif
-    SERIAL_DEBUG.print(F("**FAIL PROCESS REPLY**"));
-    SERIAL_DEBUG.print("R:");
+    SERIAL_DEBUG.print(F("*FAIL*"));
     dumpPacketToDebug((PacketStruct *)SerialPacketReceiveBuffer);
   }
 
-#if defined(PACKET_LOGGING_RECEIVE)
-  SERIAL_DEBUG.println("");
-  //SERIAL_DEBUG.print("Timing:");SERIAL_DEBUG.print(receiveProc.packetTimerMillisecond);SERIAL_DEBUG.println("ms");
-#endif
+  //#if defined(PACKET_LOGGING_RECEIVE)
+  //  SERIAL_DEBUG.println("");
+  //#endif
 
 #if defined(ESP8266)
   hal.GreenLedOff();
@@ -408,30 +443,29 @@ void timerTransmitCallback()
 
     //Wake up the connected cell module from sleep
     //SERIAL_DATA.write(framingmarker);
-    myPacketSerial.sendStartFrame();
-    delay(3);
+    //myPacketSerial.sendStartFrame();
+    //delay(3);
 
     requestQueue.pop(&transmitBuffer);
     sequence++;
     transmitBuffer.sequence = sequence;
 
+    if (transmitBuffer.command == COMMAND::Timing)
+    {
+      //Timestamp at the last possible moment
+      uint32_t t = millis();
+      transmitBuffer.moduledata[0] = (t & 0xFFFF0000) >> 16;
+      transmitBuffer.moduledata[1] = t & 0x0000FFFF;
+    }
+
     transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
     myPacketSerial.sendBuffer((byte *)&transmitBuffer); //, sizeof(transmitBuffer));
 
-    //Grab the time we sent this packet to time how long packets take to move
-    //through the modules.  We only time the COMMAND::ReadVoltageAndStatus packets
-    if (transmitBuffer.command == COMMAND::ReadVoltageAndStatus)
-    {
-      receiveProc.packetLastSentSequence = sequence;
-      receiveProc.packetLastSentMillisecond = millis();
-    }
-
     // Output the packet we just transmitted to debug console
 #if defined(PACKET_LOGGING_SEND)
-    SERIAL_DEBUG.print("S:");
     dumpPacketToDebug(&transmitBuffer);
-    SERIAL_DEBUG.print("/Q:");
-    SERIAL_DEBUG.println(requestQueue.getCount());
+    //SERIAL_DEBUG.print("/Q:");
+    //SERIAL_DEBUG.println(requestQueue.getCount());
 #endif
   }
 }
@@ -661,9 +695,10 @@ void timerEnqueueCallback()
 
   uint8_t max = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
   uint8_t startmodule = 0;
-  //uint8_t endmodule=maximum_cell_modules_per_packet;
+
   while (b < max)
   {
+    //Need to watch overflow of the uint8 here...
     uint8_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
 
     //Limit to number of modules we have configured
@@ -1086,9 +1121,12 @@ void LoadConfiguration()
   }
 }
 
-//Lazy load the config data - Every 10 seconds see if there is a module we don't have configuration data for, if so request it
+//Lazy load the config data - Every 15 seconds see if there is a module we don't have configuration data for, if so request it
 void timerLazyCallback()
 {
+
+  prg.sendTimingRequest();
+
   uint8_t counter = 0;
   //Find the first module that doesn't have settings cached and request them
   for (uint8_t module = 0; module < (mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules); module++)
@@ -1182,9 +1220,6 @@ void setup()
   }
 
   resetAllRules();
-
-  //512 bytes RAM for receive buffer
-  SERIAL_DATA.setRxBufferSize(512);
 
 #if defined(ESP32)
   //Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
@@ -1285,7 +1320,7 @@ void setup()
   //Process rules every 5 seconds
   myTimerRelay.attach(5, timerProcessRules);
 
-  //We process the transmit queue every 1 seconds (this needs to be lower delay than the queue fills)
+  //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
   //and slower than it takes a single module to process a command (about 300ms)
   myTransmitTimer.attach(1, timerTransmitCallback);
 
@@ -1302,6 +1337,15 @@ void loop()
   //ESP_LOGW("LOOP","LOOP");
 
   // Call update to receive, decode and process incoming packets.
+  if (SERIAL_DATA.available() > 0)
+  {
+    digitalWrite(4, HIGH);
+  }
+  else
+  {
+    digitalWrite(4, LOW);
+  }
+
   myPacketSerial.checkInputStream();
 
   if (ConfigHasChanged > 0)

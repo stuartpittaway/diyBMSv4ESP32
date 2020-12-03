@@ -1,6 +1,5 @@
 #include "PacketReceiveProcessor.h"
 
-
 bool PacketReceiveProcessor::HasCommsTimedOut()
 {
   //We timeout the comms if we dont receive a packet within 5 times the normal
@@ -28,17 +27,18 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
     totalModulesFound = _packetbuffer.hops;
 
-    if (packetLastReceivedSequence>0 && _packetbuffer.sequence!=packetLastReceivedSequence+1) {
+    if (packetLastReceivedSequence > 0 && _packetbuffer.sequence != packetLastReceivedSequence + 1)
+    {
       SERIAL_DEBUG.println();
       SERIAL_DEBUG.print(F("OOS Error, expected="));
-      SERIAL_DEBUG.print(packetLastReceivedSequence,HEX);
+      SERIAL_DEBUG.print(packetLastReceivedSequence, HEX);
       SERIAL_DEBUG.print(", got=");
-      SERIAL_DEBUG.println(_packetbuffer.sequence,HEX);
+      SERIAL_DEBUG.println(_packetbuffer.sequence, HEX);
 
       totalOutofSequenceErrors++;
     }
 
-    packetLastReceivedSequence=_packetbuffer.sequence;
+    packetLastReceivedSequence = _packetbuffer.sequence;
 
     if (ReplyWasProcessedByAModule())
     {
@@ -48,13 +48,29 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
       case COMMAND::ResetBadPacketCounter:
         break; // Ignore reply
 
-      case COMMAND::ReadVoltageAndStatus:
-        if (packetLastSentSequence == _packetbuffer.sequence)
+      case COMMAND::Timing:
+      {
+        uint32_t tnow = millis();
+        uint32_t tprevious = (_packetbuffer.moduledata[0] << 16) + _packetbuffer.moduledata[1];
+
+        //Check millis time hasn't rolled over
+        if (tnow > tprevious)
         {
-          //Record the number of milliseconds taken for this packet to go through the modules
-          //we use this to later check for unusually large timeouts (indication of fault)
-          packetTimerMillisecond = millis() - packetLastSentMillisecond;
+          packetTimerMillisecond = tnow - tprevious;
+          //SERIAL_DEBUG.print("Timing=");          SERIAL_DEBUG.println(packetTimerMillisecond);
         }
+
+        break;
+      }
+      case COMMAND::ReadVoltageAndStatus:
+        //if (packetLastSentSequence == _packetbuffer.sequence)
+        //{
+        //SERIAL_DEBUG.print("Rec Timing:");          SERIAL_DEBUG.print(millis());          SERIAL_DEBUG.print(" vs ");          SERIAL_DEBUG.println(packetLastSentMillisecond);
+        //Record the number of milliseconds taken for this packet to go through the modules
+        //we use this to later check for unusually large timeouts (indication of fault)
+        //packetTimerMillisecond = millis() - packetLastSentMillisecond;
+        //packetTimerInProgress=false;
+        //}
         ProcessReplyVoltage();
         break;
 

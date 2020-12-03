@@ -95,6 +95,17 @@ void PacketRequestGenerator::sendIdentifyModuleRequest(uint8_t cellid)
   pushPacketToQueue();
 }
 
+void PacketRequestGenerator::sendTimingRequest() {
+  //Ask all modules to simple pass on a NULL request/packet for timing purposes
+  setPacketAddressBroadcast();
+  //Command - Timing
+  _packetbuffer.command = COMMAND::Timing;
+
+  clearmoduledata();
+
+  pushPacketToQueue();
+}
+
 void PacketRequestGenerator::sendGetSettingsRequest(uint8_t cellid)
 {
   //SERIAL_DEBUG.println("sendGetSettingsRequest");

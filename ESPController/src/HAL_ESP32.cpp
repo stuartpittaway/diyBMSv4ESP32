@@ -95,6 +95,14 @@ void HAL_ESP32::ConfigurePins()
 
     //GPIO34 is interrupt pin from TCA9534A (doesnt have pull up/down resistors)
     pinMode(TCA9534A_INTERRUPT_PIN, INPUT);
+
+    //TOUCH_CHIP_SELECT
+    pinMode(4, OUTPUT);
+    digitalWrite(4,LOW);
+
+    //SDCARD_CHIP_SELECT
+    pinMode(5, OUTPUT);
+    digitalWrite(5,LOW);
 }
 
 void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void))
