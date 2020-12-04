@@ -129,8 +129,8 @@ void ledoff_task(void *param)
   {
     //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    //Wait 100ms
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    //Wait 60ms
+    vTaskDelay(60 / portTICK_PERIOD_MS);
     //LED OFF
     QueueLED(0);
   }
@@ -451,48 +451,49 @@ void onPacketReceived()
     SERIAL_DEBUG.println(F("*Failed to queue reply*"));
   }
 
-#if defined(PACKET_LOGGING_RECEIVE)
+  //#if defined(PACKET_LOGGING_RECEIVE)
   // Process decoded incoming packet
-  dumpPacketToDebug('Q', &ps);
-#endif
+  //dumpPacketToDebug('Q', &ps);
+  //#endif
 
 #if defined(ESP8266)
   hal.GreenLedOff();
 #endif
 #if defined(ESP32)
-  //Fire task to switch off LED in 100ms
+  //Fire task to switch off LED in a few ms
   xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
 #endif
 }
 
 void timerTransmitCallback()
 {
+  if (requestQueue.isEmpty())
+    return;
+
   // Called to transmit the next packet in the queue need to ensure this procedure is called more frequently than
   // items are added into the queue
-  if (!requestQueue.isEmpty())
+
+  PacketStruct transmitBuffer;
+
+  requestQueue.pop(&transmitBuffer);
+  sequence++;
+  transmitBuffer.sequence = sequence;
+
+  if (transmitBuffer.command == COMMAND::Timing)
   {
-    PacketStruct transmitBuffer;
-
-    requestQueue.pop(&transmitBuffer);
-    sequence++;
-    transmitBuffer.sequence = sequence;
-
-    if (transmitBuffer.command == COMMAND::Timing)
-    {
-      //Timestamp at the last possible moment
-      uint32_t t = millis();
-      transmitBuffer.moduledata[0] = (t & 0xFFFF0000) >> 16;
-      transmitBuffer.moduledata[1] = t & 0x0000FFFF;
-    }
-
-    transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
-    myPacketSerial.sendBuffer((byte *)&transmitBuffer);
-
-    // Output the packet we just transmitted to debug console
-#if defined(PACKET_LOGGING_SEND)
-    dumpPacketToDebug('S', &transmitBuffer);
-#endif
+    //Timestamp at the last possible moment
+    uint32_t t = millis();
+    transmitBuffer.moduledata[0] = (t & 0xFFFF0000) >> 16;
+    transmitBuffer.moduledata[1] = t & 0x0000FFFF;
   }
+
+  transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
+  myPacketSerial.sendBuffer((byte *)&transmitBuffer);
+
+  // Output the packet we just transmitted to debug console
+#if defined(PACKET_LOGGING_SEND)
+  dumpPacketToDebug('S', &transmitBuffer);
+#endif
 }
 
 //Runs the rules and populates rule_outcome array with true/false for each rule
@@ -731,7 +732,7 @@ void timerEnqueueCallback()
       endmodule = max - 1;
     }
 
-    //Need to watch overflow of the uint8 here... 
+    //Need to watch overflow of the uint8 here...
     prg.sendCellVoltageRequest(startmodule, endmodule);
     prg.sendCellTemperatureRequest(startmodule, endmodule);
 
