@@ -42,8 +42,8 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #error GIT_VERSION not defined
 #endif
 
-//#define PACKET_LOGGING_RECEIVE
-//#define PACKET_LOGGING_SEND
+#define PACKET_LOGGING_RECEIVE
+#define PACKET_LOGGING_SEND
 //#define RULES_LOGGING
 
 #include "FS.h"
@@ -135,6 +135,7 @@ void ledoff_task(void *param)
     QueueLED(0);
   }
 }
+
 // Handle all calls to i2c devices in this single task
 // Provides thread safe mechanism to talk to i2c
 void i2c_task(void *param)
@@ -228,6 +229,8 @@ CellModuleInfo cmi[maximum_controller_cell_modules];
 // Instantiate queue to hold packets ready for transmission
 cppQueue requestQueue(sizeof(PacketStruct), 16, FIFO);
 
+cppQueue replyQueue(sizeof(PacketStruct), 8, FIFO);
+
 PacketRequestGenerator prg = PacketRequestGenerator(&requestQueue);
 
 PacketReceiveProcessor receiveProc = PacketReceiveProcessor();
@@ -245,6 +248,7 @@ WiFiEventHandler wifiDisconnectHandler;
 Ticker myTimerRelay;
 Ticker myTimer;
 Ticker myTransmitTimer;
+Ticker myReplyTimer;
 Ticker myLazyTimer;
 Ticker wifiReconnectTimer;
 Ticker mqttReconnectTimer;
@@ -267,18 +271,15 @@ void dumpByte(uint8_t data)
     SERIAL_DEBUG.print('0');
   SERIAL_DEBUG.print(data, HEX);
 }
-void dumpPacketToDebug(PacketStruct *buffer)
+void dumpPacketToDebug(char indicator, PacketStruct *buffer)
 {
   //Filter on some commands
   //if ((buffer->command & 0x0F) != COMMAND::Timing)    return;
 
-  SERIAL_DEBUG.print(millis(), HEX);
+  SERIAL_DEBUG.print(millis());
   SERIAL_DEBUG.print(':');
 
-  if ((buffer->command & B10000000) > 0)
-    SERIAL_DEBUG.print('R');
-  else
-    SERIAL_DEBUG.print('S');
+  SERIAL_DEBUG.print(indicator);
 
   SERIAL_DEBUG.print(':');
   dumpByte(buffer->start_address);
@@ -393,41 +394,72 @@ void processSyncEvent(NTPSyncEvent_t ntpEvent)
 }
 #endif
 
+void serviceReplyQueue()
+{
+  //if (replyQueue.isEmpty()) return;
+
+  while (!replyQueue.isEmpty())
+  {
+    PacketStruct ps;
+    replyQueue.pop(&ps);
+
+#if defined(PACKET_LOGGING_RECEIVE)
+    // Process decoded incoming packet
+    dumpPacketToDebug('R', &ps);
+#endif
+
+    if (receiveProc.ProcessReply(&ps))
+    {
+      //Success, do nothing
+    }
+    else
+    {
+#if defined(ESP32)
+      //Error blue
+      QueueLED(B00000001);
+#endif
+      SERIAL_DEBUG.print(F("*FAIL*"));
+      dumpPacketToDebug('F', &ps);
+    }
+  }
+}
+
 void onPacketReceived()
 {
 #if defined(ESP8266)
   hal.GreenLedOn();
 #endif
+#if defined(ESP32)
+  QueueLED(B00000100);
+#endif
+
+  PacketStruct ps;
+  memcpy(&ps, SerialPacketReceiveBuffer, sizeof(PacketStruct));
+
+  if ((ps.command & 0x0F) == COMMAND::Timing)
+  {
+    //Timestamp at the earliest possible moment
+    uint32_t t = millis();
+    ps.moduledata[2] = (t & 0xFFFF0000) >> 16;
+    ps.moduledata[3] = t & 0x0000FFFF;
+    //Ensure CRC is correct
+    ps.crc = CRC16::CalculateArray((uint8_t *)&ps, sizeof(PacketStruct) - 2);
+  }
+
+  if (!replyQueue.push(&ps))
+  {
+    SERIAL_DEBUG.println(F("*Failed to queue reply*"));
+  }
 
 #if defined(PACKET_LOGGING_RECEIVE)
   // Process decoded incoming packet
-  //SERIAL_DEBUG.print("R:");
-  dumpPacketToDebug((PacketStruct *)SerialPacketReceiveBuffer);
+  dumpPacketToDebug('Q', &ps);
 #endif
-
-  if (receiveProc.ProcessReply((PacketStruct *)SerialPacketReceiveBuffer))
-  {
-#if defined(ESP32)
-    QueueLED(B00000100);
-#endif
-  }
-  else
-  {
-#if defined(ESP32)
-    //Error blue
-    QueueLED(B00000001);
-#endif
-    SERIAL_DEBUG.print(F("*FAIL*"));
-    dumpPacketToDebug((PacketStruct *)SerialPacketReceiveBuffer);
-  }
-
-  //#if defined(PACKET_LOGGING_RECEIVE)
-  //  SERIAL_DEBUG.println("");
-  //#endif
 
 #if defined(ESP8266)
   hal.GreenLedOff();
-#else
+#endif
+#if defined(ESP32)
   //Fire task to switch off LED in 100ms
   xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
 #endif
@@ -440,11 +472,6 @@ void timerTransmitCallback()
   if (!requestQueue.isEmpty())
   {
     PacketStruct transmitBuffer;
-
-    //Wake up the connected cell module from sleep
-    //SERIAL_DATA.write(framingmarker);
-    //myPacketSerial.sendStartFrame();
-    //delay(3);
 
     requestQueue.pop(&transmitBuffer);
     sequence++;
@@ -459,13 +486,11 @@ void timerTransmitCallback()
     }
 
     transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
-    myPacketSerial.sendBuffer((byte *)&transmitBuffer); //, sizeof(transmitBuffer));
+    myPacketSerial.sendBuffer((byte *)&transmitBuffer);
 
     // Output the packet we just transmitted to debug console
 #if defined(PACKET_LOGGING_SEND)
-    dumpPacketToDebug(&transmitBuffer);
-    //SERIAL_DEBUG.print("/Q:");
-    //SERIAL_DEBUG.println(requestQueue.getCount());
+    dumpPacketToDebug('S', &transmitBuffer);
 #endif
   }
 }
@@ -686,20 +711,19 @@ void timerProcessRules()
 #endif
 }
 
-uint8_t counter = 0;
+//uint8_t counter = 0;
 
 void timerEnqueueCallback()
 {
   //this is called regularly on a timer, it determines what request to make to the modules (via the request queue)
-  uint8_t b = 0;
+  uint16_t i = 0;
+  uint16_t max = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
 
-  uint8_t max = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
   uint8_t startmodule = 0;
 
-  while (b < max)
+  while (i < max)
   {
-    //Need to watch overflow of the uint8 here...
-    uint8_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
+    uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
 
     //Limit to number of modules we have configured
     if (endmodule > max)
@@ -707,6 +731,7 @@ void timerEnqueueCallback()
       endmodule = max - 1;
     }
 
+    //Need to watch overflow of the uint8 here... 
     prg.sendCellVoltageRequest(startmodule, endmodule);
     prg.sendCellTemperatureRequest(startmodule, endmodule);
 
@@ -716,22 +741,21 @@ void timerEnqueueCallback()
       if (cmi[m].inBypass)
       {
         prg.sendReadBalancePowerRequest(startmodule, endmodule);
+        //We only need 1 reading for whole bank
         break;
       }
     }
 
     //Every 50 loops also ask for bad packet count (saves battery power if we dont ask for this all the time)
-    if (counter % 50 == 0)
+    if (sequence % 50 == 0)
     {
       prg.sendReadBadPacketCounter(startmodule, endmodule);
     }
 
+    //Move to the next bank
     startmodule = endmodule + 1;
-    b += maximum_cell_modules_per_packet;
+    i += maximum_cell_modules_per_packet;
   }
-
-  //It's an unsigned byte, let it overflow to reset
-  counter++;
 }
 
 void connectToWifi()
@@ -1136,9 +1160,9 @@ void timerLazyCallback()
       prg.sendGetSettingsRequest(module);
       counter++;
 
-      if (counter > 4)
+      if (requestQueue.getRemainingCount() < 6)
       {
-        //Should exit here to avoid flooding the queue, so leave space
+        //Exit here to avoid flooding the queue
         return;
       }
     }
@@ -1186,6 +1210,7 @@ void setup()
 #if defined(ESP32)
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
 #endif
+
 #if defined(ESP8266)
   hal.ConfigureI2C(ExternalInputInterrupt);
 #endif
@@ -1315,7 +1340,7 @@ void setup()
   }
 
   //Ensure we service the cell modules every 4 seconds
-  myTimer.attach(4, timerEnqueueCallback);
+  myTimer.attach(8, timerEnqueueCallback);
 
   //Process rules every 5 seconds
   myTimerRelay.attach(5, timerProcessRules);
@@ -1324,8 +1349,11 @@ void setup()
   //and slower than it takes a single module to process a command (about 300ms)
   myTransmitTimer.attach(1, timerTransmitCallback);
 
+  //Service reply queue
+  myReplyTimer.attach(1, serviceReplyQueue);
+
   //This is a lazy timer for low priority tasks
-  myLazyTimer.attach(15, timerLazyCallback);
+  myLazyTimer.attach(20, timerLazyCallback);
 
   //We have just started...
   SetControllerState(ControllerState::Stabilizing);

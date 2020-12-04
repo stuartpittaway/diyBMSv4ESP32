@@ -72,8 +72,8 @@ void DefaultConfig()
   //Default bank zero
   //myConfig.mybank = 0;
 
-  //About 2.2100 seems about right
-  myConfig.Calibration = 2.21000;
+  //About 2.2007 seems about right
+  myConfig.Calibration = 2.2007;
 
   //2mV per ADC resolution
   //myConfig.mVPerADC = 2.0; //2048.0/1024.0;

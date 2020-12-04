@@ -5,7 +5,6 @@
 #include <cppQueue.h>
 #include <defines.h>
 
-
 //command byte
 // WRRR CCCC
 // W    = 1 bit indicator packet was processed (controller send (0) module processed (1))
@@ -20,40 +19,41 @@
 // 0000 0100  = Report number of bad packets
 // 0000 0101  = Report settings/configuration
 
+class PacketRequestGenerator
+{
+public:
+  PacketRequestGenerator(cppQueue *requestQ) { _requestq = requestQ; }
+  ~PacketRequestGenerator() {}
+  void sendGetSettingsRequest(uint8_t cellid);
+  void sendIdentifyModuleRequest(uint8_t cellid);
+  void sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration);
+  void sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown);
+  void sendReadBadPacketCounter(uint8_t startmodule, uint8_t endmodule);
 
-class PacketRequestGenerator {
-   public:
-     PacketRequestGenerator(cppQueue* requestQ) {_requestq=requestQ;}
-     ~PacketRequestGenerator() {}
-     void sendGetSettingsRequest(uint8_t cellid);
-     void sendIdentifyModuleRequest(uint8_t cellid);
-     void sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration);
-     void sendSaveGlobalSetting(uint16_t BypassThresholdmV,uint8_t BypassOverTempShutdown);
-     void sendReadBadPacketCounter(uint8_t startmodule,uint8_t endmodule);
+  void sendCellVoltageRequest(uint8_t startmodule, uint8_t endmodule);
+  void sendCellTemperatureRequest(uint8_t startmodule, uint8_t endmodule);
+  void sendReadBalancePowerRequest(uint8_t startmodule, uint8_t endmodule);
 
-     void sendCellVoltageRequest(uint8_t startmodule,uint8_t endmodule);
-     void sendCellTemperatureRequest(uint8_t startmodule,uint8_t endmodule);
-     void sendReadBalancePowerRequest(uint8_t startmodule,uint8_t endmodule);
+  void sendBadPacketCounterReset();
+  void sendTimingRequest();
 
-     void sendBadPacketCounterReset();
-     void sendTimingRequest();
+  uint32_t packetsGenerated = 0;
 
-     uint32_t packetsGenerated = 0;
-     uint16_t QueueLength();
+  void clearPacket(PacketStruct *_packetbuffer)
+  {
+    memset(_packetbuffer, 0, sizeof(PacketStruct));
+  }
 
-  private:
-    cppQueue* _requestq;
-    PacketStruct _packetbuffer;
-    void pushPacketToQueue();    
-    void setPacketAddress(uint8_t module);
-    void setPacketAddressSingle(uint8_t module);
-    void setPacketAddressModuleRange(uint8_t startmodule,uint8_t endmodule);
-    void setPacketAddressBroadcast();
-    void clearmoduledata();
-    void setmoduledataFFFF();
-    void clearSettingsForAllModules();
+private:
+  cppQueue *_requestq;
+  void pushPacketToQueue(PacketStruct *_packetbuffer);
+  void setPacketAddress(PacketStruct *_packetbuffer, uint8_t module);
+  void setPacketAddressSingle(PacketStruct *_packetbuffer, uint8_t module);
+  void setPacketAddressModuleRange(PacketStruct *_packetbuffer, uint8_t startmodule, uint8_t endmodule);
+  void setPacketAddressBroadcast(PacketStruct *_packetbuffer);
+  //void clearmoduledata(PacketStruct *_packetbuffer)  {        for (int a = 0; a < maximum_cell_modules_per_packet; a++)    {      _packetbuffer->moduledata[a] = 0;    }  }
+  void setmoduledataFFFF(PacketStruct *_packetbuffer);
+  void clearSettingsForAllModules();
 };
-
-
 
 #endif

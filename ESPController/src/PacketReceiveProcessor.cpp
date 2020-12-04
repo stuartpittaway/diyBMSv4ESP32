@@ -2,7 +2,7 @@
 
 bool PacketReceiveProcessor::HasCommsTimedOut()
 {
-  //We timeout the comms if we dont receive a packet within 5 times the normal
+  //We timeout the comms if we don't receive a packet within 3 times the normal
   //round trip time of the packets through the modules (minimum of 5 seconds to cater for low numbers of modules)
   uint32_t millisecondSinceLastPacket = millis() - packetLastReceivedMillisecond;
   return ((millisecondSinceLastPacket > 5 * packetTimerMillisecond) && (millisecondSinceLastPacket > 5000));
@@ -14,7 +14,7 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
   //TODO: VALIDATE REPLY START/END RANGES ARE VALID TO AVOID MEMORY BUFFER OVERRUNS
 
-  // Copy to our buffer (probably don't need to do this)
+  // Copy to our buffer (probably don't need to do this), just use pointer instead
   memcpy(&_packetbuffer, receivebuffer, sizeof(_packetbuffer));
 
   // Calculate the CRC and compare to received
@@ -31,10 +31,9 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
     {
       SERIAL_DEBUG.println();
       SERIAL_DEBUG.print(F("OOS Error, expected="));
-      SERIAL_DEBUG.print(packetLastReceivedSequence, HEX);
+      SERIAL_DEBUG.print(packetLastReceivedSequence+1, HEX);
       SERIAL_DEBUG.print(", got=");
       SERIAL_DEBUG.println(_packetbuffer.sequence, HEX);
-
       totalOutofSequenceErrors++;
     }
 
@@ -50,27 +49,19 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
       case COMMAND::Timing:
       {
-        uint32_t tnow = millis();
+        //uint32_t tnow = millis();
+        uint32_t tnow = (_packetbuffer.moduledata[2] << 16) + _packetbuffer.moduledata[3];
         uint32_t tprevious = (_packetbuffer.moduledata[0] << 16) + _packetbuffer.moduledata[1];
 
         //Check millis time hasn't rolled over
         if (tnow > tprevious)
         {
           packetTimerMillisecond = tnow - tprevious;
-          //SERIAL_DEBUG.print("Timing=");          SERIAL_DEBUG.println(packetTimerMillisecond);
         }
 
         break;
       }
       case COMMAND::ReadVoltageAndStatus:
-        //if (packetLastSentSequence == _packetbuffer.sequence)
-        //{
-        //SERIAL_DEBUG.print("Rec Timing:");          SERIAL_DEBUG.print(millis());          SERIAL_DEBUG.print(" vs ");          SERIAL_DEBUG.println(packetLastSentMillisecond);
-        //Record the number of milliseconds taken for this packet to go through the modules
-        //we use this to later check for unusually large timeouts (indication of fault)
-        //packetTimerMillisecond = millis() - packetLastSentMillisecond;
-        //packetTimerInProgress=false;
-        //}
         ProcessReplyVoltage();
         break;
 
@@ -94,24 +85,29 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
         break;
       }
 
+#if defined(PACKET_LOGGING_RECEIVE)
+      SERIAL_DEBUG.println(F("*OK*"));
+#endif
       return true;
     }
     else
     {
-      //Error count for a request that was not processed by any module
+      //Error count for a request that was not processed by any module in the string
       totalNotProcessedErrors++;
-      //Invalidate the whole bank if a module didn't process the request - something is a miss
-      //or we have just configured a module to another bank
-      //numberOfModules[0]=0;
+#if defined(PACKET_LOGGING_RECEIVE)
+      SERIAL_DEBUG.println(F("*IGNORE*"));
+#endif
     }
   }
   else
   {
     //crc error
     totalCRCErrors++;
+#if defined(PACKET_LOGGING_RECEIVE)
+    SERIAL_DEBUG.println(F("*CRC Error*"));
+#endif
   }
-
-  //SERIAL_DEBUG.println("Failed ProcessReply");
+ 
   return false;
 }
 
