@@ -40,9 +40,8 @@ typedef union
 class PacketProcessor
 {
 public:
-  PacketProcessor(DiyBMSATTiny841 *hardware, CellModuleConfig *config)
+  PacketProcessor(CellModuleConfig *config)
   {
-    _hardware = hardware;
     _config = config;
     SettingsHaveChanged = false;
     WeAreInBypass = false;
@@ -94,10 +93,7 @@ public:
   }
 
 private:
-  DiyBMSATTiny841 *_hardware;
   CellModuleConfig *_config;
-
-  //PacketStruct buffer;
 
   bool processPacket(PacketStruct *buffer);
 

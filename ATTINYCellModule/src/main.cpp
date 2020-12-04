@@ -60,9 +60,9 @@ SerialEncoder myPacketSerial;
 //Default values which get overwritten by EEPROM on power up
 CellModuleConfig myConfig;
 
-DiyBMSATTiny841 hardware;
+//DiyBMSATTiny841 hardware;
 
-PacketProcessor PP(&hardware, &myConfig);
+PacketProcessor PP(&myConfig);
 
 volatile bool wdt_triggered = false;
 
@@ -114,18 +114,18 @@ ISR(WDT_vect)
 ISR(ADC_vect)
 {
   // when ADC completed, take an interrupt and process result
-  PP.ADCReading(hardware.ReadADC());
+  PP.ADCReading(DiyBMSATTiny841::ReadADC());
 }
 
 void onPacketReceived()
 {
-  hardware.EnableSerial0TX();
+  DiyBMSATTiny841::EnableSerial0TX();
 
   //A data packet has just arrived, process it and forward the results to the next module
   if (PP.onPacketReceived((PacketStruct *)SerialPacketReceiveBuffer))
   {
     //Only light green if packet is good
-    hardware.GreenLedOn();
+    DiyBMSATTiny841::GreenLedOn();
   }
 
   //Send the packet (fixed length!) (even if it was invalid so controller can count crc errors)
@@ -133,13 +133,13 @@ void onPacketReceived()
 
   //PLATFORM ATTINYCORE version is 1.3.2 which is old, and SERIAL.FLUSH simply clears the buffer (bad)
   //Therefore we use 1.4.1 which has the correct code to wait until the buffer is empty.
-  hardware.FlushSerial0();
+  DiyBMSATTiny841::FlushSerial0();
 
   //Replace flush with a simple delay - we have 35+ bytes to transmit at 2400 baud + COBS encoding
   //At 2400bits per second, = 300 bytes per second = 1000ms/300bytes/sec= 3ms per byte
   //delay(10);
 
-  hardware.GreenLedOff();
+  DiyBMSATTiny841::GreenLedOff();
 }
 
 ISR(USART0_START_vect)
@@ -185,15 +185,15 @@ void setup()
   wdt_reset();
 
   //8 second between watchdogs
-  hardware.SetWatchdog8sec();
+  DiyBMSATTiny841::SetWatchdog8sec();
 
   //Setup IO ports
-  hardware.ConfigurePorts();
+  DiyBMSATTiny841::ConfigurePorts();
 
   //More power saving changes
-  hardware.EnableSerial0();
+  DiyBMSATTiny841::EnableSerial0();
 
-  hardware.DisableSerial1();
+  DiyBMSATTiny841::DisableSerial1();
 
   //Check if setup routine needs to be run
   if (!Settings::ReadConfigFromEEPROM((uint8_t *)&myConfig, sizeof(myConfig), EEPROM_CONFIG_ADDRESS))
@@ -205,10 +205,10 @@ void setup()
 
   ValidateConfiguration();
 
-  hardware.double_tap_green_led();
+  DiyBMSATTiny841::double_tap_green_led();
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-  hardware.double_tap_blue_led();
+  DiyBMSATTiny841::double_tap_blue_led();
 #endif
 
   //The PID can vary between 0 and 100
@@ -229,8 +229,8 @@ void StopBalance()
   PP.PWMValue = 0;
   PP.SettingsHaveChanged = false;
 
-  hardware.StopTimer2();
-  hardware.DumpLoadOff();
+  DiyBMSATTiny841::StopTimer2();
+  DiyBMSATTiny841::DumpLoadOff();
 }
 
 void loop()
@@ -238,22 +238,22 @@ void loop()
   //This loop runs around 3 times per second when the module is in bypass
   wdt_reset();
 
-  //if (bypassHasJustFinished>0)  {    hardware.BlueLedOn();  }else {    hardware.BlueLedOff();  }
-  //if (hztiming) {  hardware.SparePinOn();} else {  hardware.SparePinOff();}hztiming=!hztiming;
+  //if (bypassHasJustFinished>0)  {    DiyBMSATTiny841::BlueLedOn();  }else {    DiyBMSATTiny841::BlueLedOff();  }
+  //if (hztiming) {  DiyBMSATTiny841::SparePinOn();} else {  DiyBMSATTiny841::SparePinOff();}hztiming=!hztiming;
 
   if (PP.identifyModule > 0)
   {
-    hardware.GreenLedOn();
+    DiyBMSATTiny841::GreenLedOn();
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-    hardware.BlueLedOn();
+    DiyBMSATTiny841::BlueLedOn();
 #endif
     PP.identifyModule--;
 
     if (PP.identifyModule == 0)
     {
-      hardware.GreenLedOff();
+      DiyBMSATTiny841::GreenLedOff();
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-      hardware.BlueLedOff();
+      DiyBMSATTiny841::BlueLedOff();
 #endif
     }
   }
@@ -271,13 +271,13 @@ void loop()
     //Go to SLEEP, we are not in bypass anymore
 
     //Switch of TX - save power
-    hardware.DisableSerial0TX();
+    DiyBMSATTiny841::DisableSerial0TX();
 
     //Wake up on Serial port RX
-    hardware.EnableStartFrameDetection();
+    DiyBMSATTiny841::EnableStartFrameDetection();
 
     //Program stops here until woken by watchdog or Serial port ISR
-    hardware.Sleep();
+    DiyBMSATTiny841::Sleep();
 
     //hardware.BlueLedOn();
   }
@@ -288,14 +288,14 @@ void loop()
   {
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
     //Flash blue LED twice after a watchdog wake up
-    hardware.double_tap_blue_led();
+    DiyBMSATTiny841::double_tap_blue_led();
 #else
     //Flash green LED twice after a watchdog wake up
-    hardware.double_tap_green_led();
+    DiyBMSATTiny841::double_tap_green_led();
 #endif
 
     //Setup IO ports
-    //hardware.ConfigurePorts();
+    //DiyBMSATTiny841::ConfigurePorts();
 
     //If we have just woken up, we shouldn't be in balance
     //safety check that we are not
@@ -310,15 +310,15 @@ void loop()
   {
     if (PP.pwmrunning)
     {
-      hardware.DisableTOCPMCOE();
+      DiyBMSATTiny841::DisableTOCPMCOE();
     }
     else
     {
-      hardware.DumpLoadOff();
+      DiyBMSATTiny841::DumpLoadOff();
     }
   }
 
-  hardware.ReferenceVoltageOn();
+  DiyBMSATTiny841::ReferenceVoltageOn();
 
   //allow reference voltage to stabalize
   delay(1);
@@ -330,7 +330,7 @@ void loop()
   //Do voltage reading last to give as much time for voltage to settle
   PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
 
-  hardware.ReferenceVoltageOff();
+  DiyBMSATTiny841::ReferenceVoltageOff();
 
   if (wdt_triggered)
   {
@@ -358,11 +358,11 @@ void loop()
   {
     if (PP.pwmrunning)
     {
-      hardware.EnableTOCPMCOE();
+      DiyBMSATTiny841::EnableTOCPMCOE();
     }
     else
     {
-      hardware.DumpLoadOn();
+      DiyBMSATTiny841::DumpLoadOn();
     }
   }
 
@@ -401,8 +401,8 @@ void loop()
     if (internal_temperature < (myConfig.BypassTemperatureSetPoint - 10))
     {
       //Full power if we are nowhere near the setpoint (more than 10 degrees C away)
-      hardware.StopTimer2();
-      hardware.DumpLoadOn();
+      DiyBMSATTiny841::StopTimer2();
+      DiyBMSATTiny841::DumpLoadOn();
       PP.PWMValue = 100;
       PP.pwmrunning = false;
     }
@@ -411,9 +411,9 @@ void loop()
       if (!PP.pwmrunning)
       {
         //We have approached the set point, enable PWM
-        hardware.DumpLoadOff();
+        DiyBMSATTiny841::DumpLoadOff();
         //Start timer2 with zero value
-        hardware.StartTimer2();
+        DiyBMSATTiny841::StartTimer2();
         PP.pwmrunning = true;
         //myPID.clear();
       }
@@ -422,7 +422,7 @@ void loop()
       PP.PWMValue = myPID.step(myConfig.BypassTemperatureSetPoint, internal_temperature);
 
       //Scale PWM up to 0-10000
-      hardware.SetTimer2Value(PP.PWMValue * 100);
+      DiyBMSATTiny841::SetTimer2Value(PP.PWMValue * 100);
     }
 
     PP.bypassCountDown--;

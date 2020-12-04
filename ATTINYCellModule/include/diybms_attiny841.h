@@ -20,73 +20,73 @@ class DiyBMSATTiny841
 public:
    DiyBMSATTiny841() {}
    ~DiyBMSATTiny841() {}
-   void ConfigurePorts();
+   static void ConfigurePorts();
 
-   void EnableTOCPMCOE()
+   static void EnableTOCPMCOE()
    {
       // TOCPMSA1 and TOCPMSA0 – Timer/Counter Output Compare Pin Mux Selection Registers
       // Timer/Counter Output Compare Pin Mux Channel Output Enable
       // Enable TOCC2 to be output
       TOCPMCOE = (1 << TOCC2OE);
    }
-   void DisableTOCPMCOE()
+   static void DisableTOCPMCOE()
    {
       TOCPMCOE = 0;
    }
 
-   void GreenLedOn();
-   void GreenLedOff();
+   static void GreenLedOn();
+   static void GreenLedOff();
 
-   void DumpLoadOn();
-   void DumpLoadOff();
+   static void DumpLoadOn();
+   static void DumpLoadOff();
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-   void SparePinOn();
-   void SparePinOff();
+   static void SparePinOn();
+   static void SparePinOff();
 #endif
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-   void BlueLedOn();
-   void BlueLedOff();
+   static void BlueLedOn();
+   static void BlueLedOff();
 #endif
 
-   void ReferenceVoltageOn();
-   void ReferenceVoltageOff();
+   static void ReferenceVoltageOn();
+   static void ReferenceVoltageOff();
 
-   void FlushSerial0();
+   static void FlushSerial0();
 
-   void DisableSerial0();
-   void EnableSerial0();
+   static void DisableSerial0();
+   static void EnableSerial0();
 
-   void DisableSerial0TX();
-   void EnableSerial0TX();
+   static void DisableSerial0TX();
+   static void EnableSerial0TX();
 
-   void DisableSerial1();
-   void EnableSerial1();
+   static void DisableSerial1();
+   static void EnableSerial1();
    /*
    void EnablePinChangeInterrupt();
    void DisablePinChangeInterrupt();
 */
-   void SetWatchdog8sec();
+   static void SetWatchdog8sec();
 
-   uint16_t ReadADC();
+   static uint16_t ReadADC();
 
-   void BeginADCReading();
+   static void BeginADCReading();
 
-   void Sleep();
+   static void Sleep();
 
-   void SelectCellVoltageChannel();
-   void SelectInternalTemperatureChannel();
-   void SelectExternalTemperatureChannel();
-   void EnableStartFrameDetection();
+   static void SelectCellVoltageChannel();
+   static void SelectInternalTemperatureChannel();
+   static void SelectExternalTemperatureChannel();
+   static void EnableStartFrameDetection();
 
-   void StopTimer2();
-   void StartTimer2();
-   void SetTimer2Value(uint16_t value);
+   static void StopTimer2();
+   static void StartTimer2();
+   static void SetTimer2Value(uint16_t value);
 
-   void double_tap_green_led();
+   static void double_tap_green_led();
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-   void double_tap_blue_led();
+   static void double_tap_blue_led();
 #endif
 };
 
