@@ -32,6 +32,7 @@ function configureModule(button, cellid, attempts) {
         function (data) {
             var div = $("#settingConfig .settings");
             $('#c').val(data.settings.id);
+            $('#m').val(data.settings.id);
 
             if (data.settings.Cached == true) {
                 var currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
