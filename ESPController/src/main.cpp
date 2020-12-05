@@ -42,9 +42,10 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #error GIT_VERSION not defined
 #endif
 
-#define PACKET_LOGGING_RECEIVE
-#define PACKET_LOGGING_SEND
+//#define PACKET_LOGGING_RECEIVE
+//#define PACKET_LOGGING_SEND
 //#define RULES_LOGGING
+//#define MQTT_LOGGING
 
 #include "FS.h"
 
@@ -89,6 +90,7 @@ HAL_ESP32 hal;
 #include "Rules.h"
 
 volatile bool emergencyStop = false;
+volatile bool WifiDisconnected = true;
 
 Rules rules;
 
@@ -292,6 +294,9 @@ void dumpPacketToDebug(char indicator, PacketStruct *buffer)
 
   switch (buffer->command & 0x0F)
   {
+  case COMMAND::ResetBadPacketCounter:
+    SERIAL_DEBUG.print(F(" ResetC   "));
+    break;
   case COMMAND::ReadVoltageAndStatus:
     SERIAL_DEBUG.print(F(" RdVolt   "));
     break;
@@ -761,17 +766,34 @@ void timerEnqueueCallback()
 
 void connectToWifi()
 {
-  SERIAL_DEBUG.println(F("Connecting to Wi-Fi..."));
-  WiFi.mode(WIFI_STA);
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    //SERIAL_DEBUG.println(F("Configuring Wi-Fi STA..."));
+    WiFi.mode(WIFI_STA);
+
+    char hostname[40];
+
 #if defined(ESP8266)
-  //Serial.printf(" ESP8266 Chip id = %08X\n", ESP.getChipId());
-  wifi_station_set_hostname("diyBMSESP8266");
-  WiFi.hostname("diyBMSESP8266");
+    sprintf(hostname, "DIYBMS-%08X", ESP.getChipId());
+    wifi_station_set_hostname(hostname);
+    WiFi.hostname(hostname);
 #endif
 #if defined(ESP32)
-  WiFi.setHostname("diyBMSESP32");
+    uint32_t chipId = 0;
+    for (int i = 0; i < 17; i = i + 8)
+    {
+      chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
+    }
+    sprintf(hostname, "DIYBMS-%08X", chipId);
+    WiFi.setHostname(hostname);
 #endif
-  WiFi.begin(DIYBMSSoftAP::WifiSSID(), DIYBMSSoftAP::WifiPassword());
+    SERIAL_DEBUG.print(F("Hostname: "));
+    SERIAL_DEBUG.print(hostname);
+    SERIAL_DEBUG.println(F("  Connecting to Wi-Fi..."));
+    WiFi.begin(DIYBMSSoftAP::WifiSSID(), DIYBMSSoftAP::WifiPassword());
+  }
+
+  WifiDisconnected = false;
 }
 
 void connectToMqtt()
@@ -979,12 +1001,17 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
 #endif
   SERIAL_DEBUG.println(F("Disconnected from Wi-Fi."));
+
+  //Indicate to loop() to reconnect, seems to be
+  //ESP issues using Wifi from timers - https://github.com/espressif/arduino-esp32/issues/2686
+  WifiDisconnected = true;
+
   // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
   mqttReconnectTimer.detach();
   myTimerSendMqttPacket.detach();
   myTimerSendInfluxdbPacket.detach();
 
-  wifiReconnectTimer.once(2, connectToWifi);
+  //wifiReconnectTimer.once(2, connectToWifi);
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
@@ -1001,62 +1028,120 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 
 //Send a few MQTT packets and keep track so we send the next batch on following calls
 uint8_t mqttStartModule = 0;
+uint8_t mqttFrequencyCounter = 0;
 void sendMqttPacket()
 {
+#if defined(MQTT_LOGGING)
+  SERIAL_DEBUG.println("sendMqttPacket");
+#endif
+
   if (!mysettings.mqtt_enabled && !mqttClient.connected())
     return;
-
-  //SERIAL_DEBUG.println("Sending MQTT");
 
   char topic[80];
   char jsonbuffer[100];
 
-  uint8_t counter = 0;
-
-  for (uint8_t i = mqttStartModule; i < mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks; i++)
+  if (mqttFrequencyCounter % 5 == 0)
   {
-
-    //Only send valid module data
-    if (cmi[i].valid)
+    //Publish the outcome of the rules over MQTT, only do this periodically
+    //ideally we would only do this when the rule outcome actually changed, perhaps on back of an event
+    //(output about every 25 seconds)
+    for (uint8_t i = 0; i < RELAY_RULES; i++)
     {
-      uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
-      uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
-
-      StaticJsonDocument<100> doc;
-      doc["voltage"] = (float)cmi[i].voltagemV / 1000.0;
-      doc["inttemp"] = cmi[i].internalTemp;
-      doc["exttemp"] = cmi[i].externalTemp;
-      doc["bypass"] = cmi[i].inBypass ? 1 : 0;
-      serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-
-      sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, module);
-
-      //SERIAL_DEBUG.print("Sending MQTT - ");
-      //SERIAL_DEBUG.println(topic);
-
+      sprintf(topic, "%s/rule/%d", mysettings.mqtt_topic, i);
+      if (rules.rule_outcome[i])
+      {
+        strcpy(jsonbuffer, "1");
+      }
+      else
+      {
+        strcpy(jsonbuffer, "0");
+      }
       mqttClient.publish(topic, 0, false, jsonbuffer);
-      //SERIAL_DEBUG.println(topic);
+
+#if defined(MQTT_LOGGING)
+      SERIAL_DEBUG.print("MQTT - ");
+      SERIAL_DEBUG.print(topic);
+      SERIAL_DEBUG.print('=');
+      SERIAL_DEBUG.println(jsonbuffer);
+#endif
     }
 
-    counter++;
-
-    //After transmitting this many packets over MQTT, store our current state and exit the function.
-    //this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
-    if (counter == 6)
+    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
-      mqttStartModule = i + 1;
-
-      if (mqttStartModule > mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks)
+      sprintf(topic, "%s/output/%d", mysettings.mqtt_topic, i);
+      if (previousRelayState[i] == RelayState::RELAY_ON)
       {
-        mqttStartModule = 0;
+        strcpy(jsonbuffer, "1");
       }
+      else
+      {
+        strcpy(jsonbuffer, "0");
+      }
+      mqttClient.publish(topic, 0, false, jsonbuffer);
 
-      return;
+#if defined(MQTT_LOGGING)
+      SERIAL_DEBUG.print("MQTT - ");
+      SERIAL_DEBUG.print(topic);
+      SERIAL_DEBUG.print('=');
+      SERIAL_DEBUG.println(jsonbuffer);
+#endif
     }
   }
 
-  //Completed the loop, start at zero
-  mqttStartModule = 0;
+  mqttFrequencyCounter++;
+
+  //If the BMS is in error, stop sending MQTT packets for the data
+  if (rules.ErrorCode == InternalErrorCode::NoError)
+  {
+    uint8_t counter = 0;
+    for (uint8_t i = mqttStartModule; i < mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks; i++)
+    {
+      //Only send valid module data
+      if (cmi[i].valid)
+      {
+        uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
+        uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
+
+        StaticJsonDocument<100> doc;
+        doc["voltage"] = (float)cmi[i].voltagemV / 1000.0;
+        doc["inttemp"] = cmi[i].internalTemp;
+        doc["exttemp"] = cmi[i].externalTemp;
+        doc["bypass"] = cmi[i].inBypass ? 1 : 0;
+        serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+
+        sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, module);
+
+        mqttClient.publish(topic, 0, false, jsonbuffer);
+
+#if defined(MQTT_LOGGING)
+        SERIAL_DEBUG.print("MQTT - ");
+        SERIAL_DEBUG.print(topic);
+        SERIAL_DEBUG.print('=');
+        SERIAL_DEBUG.println(jsonbuffer);
+#endif
+      }
+
+      counter++;
+
+      //After transmitting this many packets over MQTT, store our current state and exit the function.
+      //this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
+      if (counter == 6)
+      {
+        mqttStartModule = i + 1;
+
+        if (mqttStartModule > mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks)
+        {
+          mqttStartModule = 0;
+        }
+
+        return;
+      }
+    }
+
+    //Completed the loop, start at zero
+    mqttStartModule = 0;
+  }
 }
 
 void onMqttConnect(bool sessionPresent)
@@ -1199,6 +1284,19 @@ void setup()
   //ESP32 we use the USB serial interface for console/debug messages
   SERIAL_DEBUG.begin(115200, SERIAL_8N1);
   SERIAL_DEBUG.setDebugOutput(true);
+
+  esp_chip_info_t chip_info;
+  esp_chip_info(&chip_info);
+
+  SERIAL_DEBUG.print(F("ESP32 Chip model = "));
+  SERIAL_DEBUG.print(chip_info.model);
+  SERIAL_DEBUG.print(", Rev ");
+  SERIAL_DEBUG.print(chip_info.revision);
+  SERIAL_DEBUG.print(", Cores ");
+  SERIAL_DEBUG.print(chip_info.cores);
+  SERIAL_DEBUG.print(", Features=0x");
+  SERIAL_DEBUG.println(chip_info.features,HEX);
+ 
 #endif
 
   //We generate a unique number which is used in all following JSON requests
@@ -1336,8 +1434,6 @@ void setup()
       mqttClient.setServer(mysettings.mqtt_server, mysettings.mqtt_port);
       mqttClient.setCredentials(mysettings.mqtt_username, mysettings.mqtt_password);
     }
-
-    connectToWifi();
   }
 
   //Ensure we service the cell modules every 4 seconds
@@ -1362,7 +1458,13 @@ void setup()
 
 void loop()
 {
+  if (WifiDisconnected)
+  {
+    connectToWifi();
+  }
+
   ArduinoOTA.handle();
+
   //ESP_LOGW("LOOP","LOOP");
 
   // Call update to receive, decode and process incoming packets.
