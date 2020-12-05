@@ -945,12 +945,12 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
 #endif
 
-  SERIAL_DEBUG.print(F("DIYBMS Wi-Fi, "));
+  SERIAL_DEBUG.print(F("Wi-Fi status="));
   SERIAL_DEBUG.print(WiFi.status());
   SERIAL_DEBUG.print(F(". Connected IP:"));
   SERIAL_DEBUG.println(WiFi.localIP());
 
-  SERIAL_DEBUG.print(F("Requesting NTP from "));
+  SERIAL_DEBUG.print(F("Request NTP from "));
   SERIAL_DEBUG.println(mysettings.ntpServer);
 
 #if defined(ESP8266)
