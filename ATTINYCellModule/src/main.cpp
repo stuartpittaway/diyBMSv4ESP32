@@ -305,7 +305,9 @@ void loop()
 
   if (!PP.WeAreInBypass && PP.bypassHasJustFinished == 0)
   {
-    DiyBMSATTiny841::BlueLedOff();
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+//      DiyBMSATTiny841::BlueLedOff();
+#endif
 
     //Go to SLEEP, we are not in bypass anymore
 
@@ -318,7 +320,9 @@ void loop()
     //Program stops here until woken by watchdog or Serial port ISR
     DiyBMSATTiny841::Sleep();
 
-    DiyBMSATTiny841::BlueLedOn();
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+//      DiyBMSATTiny841::BlueLedOn();
+#endif
   }
 
   //We are awake....

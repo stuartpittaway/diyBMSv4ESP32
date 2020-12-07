@@ -24,12 +24,13 @@ public:
    {
       //Switch ON Bit 1 – OCIE1A: Timer/Counter, Output Compare A Match Interrupt Enable
       TIMSK1 |= _BV(OCIE1A);
+      interrupts();
    }
 
    static void StopTimer1()
    {
       //Switch OFF Bit 1 – OCIE1A: Timer/Counter, Output Compare A Match Interrupt Enable
-      TIMSK1 &= _BV(OCIE1A);
+      TIMSK1 &= (~_BV(OCIE1A));
    }
 
    static void StartTimer1()
@@ -119,6 +120,8 @@ public:
    static void FlushSerial0()
    {
       Serial.flush();
+
+      //while (bit_is_set(UCSR0B, UDRIE0) || bit_is_clear(UCSR0A, TXC0))       {      }
    }
 
    static void DisableSerial0TX()
@@ -159,6 +162,7 @@ public:
    static void EnableStartFrameDetection()
    {
       noInterrupts();
+
       // Enable Start Frame Detection
       UCSR0D = (1 << RXSIE0) | (1 << SFDE0);
 
