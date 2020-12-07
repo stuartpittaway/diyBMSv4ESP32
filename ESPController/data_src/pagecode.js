@@ -60,7 +60,7 @@ function configureModule(button, cellid, attempts) {
                 if (attempts > 0) {
                     //Call back to refresh page, only try for a limited number of attempts
                     attempts--;
-                    setTimeout(configureModule, 1500, button, bank, module, attempts);
+                    setTimeout(configureModule, 1500, button, cellid, attempts);
                 }
             }
         }).fail(function () {
