@@ -47,8 +47,7 @@ public:
 private:
   cppQueue *_requestq;
   void pushPacketToQueue(PacketStruct *_packetbuffer);
-  void setPacketAddress(PacketStruct *_packetbuffer, uint8_t module);
-  void setPacketAddressSingle(PacketStruct *_packetbuffer, uint8_t module);
+  void setPacketAddress(PacketStruct *_packetbuffer, uint8_t module);  
   void setPacketAddressModuleRange(PacketStruct *_packetbuffer, uint8_t startmodule, uint8_t endmodule);
   void setPacketAddressBroadcast(PacketStruct *_packetbuffer);
   //void clearmoduledata(PacketStruct *_packetbuffer)  {        for (int a = 0; a < maximum_cell_modules_per_packet; a++)    {      _packetbuffer->moduledata[a] = 0;    }  }

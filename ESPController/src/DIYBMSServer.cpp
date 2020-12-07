@@ -496,12 +496,11 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
   if (!validateXSS(request))
     return;
 
-  if (request->hasParam("m", true) && request->hasParam("b", true))
+  if (request->hasParam("m", true))
   {
-
     AsyncWebParameter *module = request->getParam("m", true);
-
-    int m = module->value().toInt();
+    //Will this overflow?
+    uint8_t m = module->value().toInt();
 
     if (m > maximum_controller_cell_modules)
     {
