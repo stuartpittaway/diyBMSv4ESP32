@@ -237,7 +237,7 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
   {
     //Read the last PWM value
     //Use WeAreInBypass instead of IsByPassActive() as the later also includes the "settle" time
-    buffer->moduledata[mymoduleaddress] = WeAreInBypass ? (PWMValue & 0xFF) : 0;
+    buffer->moduledata[mymoduleaddress] = WeAreInBypass ? PWMSetPoint : 0;
     return true;
   }
 

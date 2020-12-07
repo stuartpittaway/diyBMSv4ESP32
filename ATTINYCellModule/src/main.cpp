@@ -42,8 +42,6 @@ You need to configure the correct DIYBMSMODULEVERSION in defines.h file to build
 #error Expected ATTINYCORE
 #endif
 
-
-
 //Our project code includes
 #include "defines.h"
 #include "settings.h"
@@ -66,12 +64,11 @@ PacketProcessor PP(&myConfig);
 
 volatile bool wdt_triggered = false;
 
+//Interrupt counter
+volatile uint8_t v = 0;
+
 void DefaultConfig()
 {
-
-  //Default bank zero
-  //myConfig.mybank = 0;
-
   //About 2.2007 seems about right
   myConfig.Calibration = 2.2007;
 
@@ -135,10 +132,6 @@ void onPacketReceived()
   //Therefore we use 1.4.1 which has the correct code to wait until the buffer is empty.
   DiyBMSATTiny841::FlushSerial0();
 
-  //Replace flush with a simple delay - we have 35+ bytes to transmit at 2400 baud + COBS encoding
-  //At 2400bits per second, = 300 bytes per second = 1000ms/300bytes/sec= 3ms per byte
-  //delay(10);
-
   DiyBMSATTiny841::GreenLedOff();
 }
 
@@ -178,6 +171,18 @@ void ValidateConfiguration()
 #endif
 }
 
+void StopBalance()
+{
+  PP.WeAreInBypass = false;
+  PP.bypassCountDown = 0;
+  PP.bypassHasJustFinished = 0;
+  PP.PWMSetPoint = 0;
+  PP.SettingsHaveChanged = false;
+
+  DiyBMSATTiny841::StopTimer1();
+  DiyBMSATTiny841::DumpLoadOff();
+}
+
 void setup()
 {
   //Must be first line of code
@@ -211,8 +216,10 @@ void setup()
   DiyBMSATTiny841::double_tap_blue_led();
 #endif
 
-  //The PID can vary between 0 and 100
-  myPID.setOutputRange(0, 100);
+  //The PID can vary between 0 and 255 (1 byte)
+  myPID.setOutputRange(0, 255);
+
+  StopBalance();
 
   //Set up data handler
   Serial.begin(COMMS_BAUD_RATE, SERIAL_8N1);
@@ -220,26 +227,58 @@ void setup()
   myPacketSerial.begin(&Serial, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 }
 
-void StopBalance()
+ISR(TIMER1_COMPA_vect)
 {
-  PP.WeAreInBypass = false;
-  PP.bypassCountDown = 0;
-  PP.bypassHasJustFinished = 0;
-  PP.pwmrunning = false;
-  PP.PWMValue = 0;
-  PP.SettingsHaveChanged = false;
+  // This ISR is called every 1 millisecond when TIMER1 is enabled
 
-  DiyBMSATTiny841::StopTimer2();
-  DiyBMSATTiny841::DumpLoadOff();
+  // when v=1, the duration between on and off is 2.019ms (1.0095ms per interrupt) - on for 2.019ms off for 255.7ms, 0.7844% duty
+  // when v=128 (50%), the duration between on and off is 130.8ms (1.0218ms per interrupt) - on for 130.8ms, off for 127.4ms 50.67% duty
+  // when v=192 (75%), the duration between on and off is 195.6ms (1.0187ms per interrupt) - on for 62.63ms, off for 30.83ms, 75.74% duty
+  v++;
+  //Reset at top
+  if (v == 255)
+  {
+    v = 0;
+  }
+
+  //Switch the load on if the counter is below the SETPOINT
+  if (v <= PP.PWMSetPoint)
+  {
+    //Enable the pin
+    //DiyBMSATTiny841::SparePinOn();
+    DiyBMSATTiny841::DumpLoadOn();
+  }
+  else
+  {
+    //Off
+    //DiyBMSATTiny841::SparePinOff();
+    DiyBMSATTiny841::DumpLoadOff();
+  }
 }
+
+/*
+void test_loop()
+{
+  //This loop runs around 3 times per second when the module is in bypass
+  wdt_reset();
+
+  DiyBMSATTiny841::StartTimer1();
+
+  while (1)
+  {
+    //This loop runs around 3 times per second when the module is in bypass
+    wdt_reset();
+    delay(1000);
+
+    PP.PWMSetPoint = 192;
+  }
+}
+*/
 
 void loop()
 {
   //This loop runs around 3 times per second when the module is in bypass
   wdt_reset();
-
-  //if (bypassHasJustFinished>0)  {    DiyBMSATTiny841::BlueLedOn();  }else {    DiyBMSATTiny841::BlueLedOff();  }
-  //if (hztiming) {  DiyBMSATTiny841::SparePinOn();} else {  DiyBMSATTiny841::SparePinOff();}hztiming=!hztiming;
 
   if (PP.identifyModule > 0)
   {
@@ -266,7 +305,7 @@ void loop()
 
   if (!PP.WeAreInBypass && PP.bypassHasJustFinished == 0)
   {
-    //hardware.BlueLedOff();
+    DiyBMSATTiny841::BlueLedOff();
 
     //Go to SLEEP, we are not in bypass anymore
 
@@ -279,7 +318,7 @@ void loop()
     //Program stops here until woken by watchdog or Serial port ISR
     DiyBMSATTiny841::Sleep();
 
-    //hardware.BlueLedOn();
+    DiyBMSATTiny841::BlueLedOn();
   }
 
   //We are awake....
@@ -305,20 +344,13 @@ void loop()
   //We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass
   //this is also triggered by the watchdog should comms fail or the module is running standalone
 
+  DiyBMSATTiny841::ReferenceVoltageOn();
+
   //Disable the PWM/load during voltage readings
   if (PP.bypassCountDown > 0)
   {
-    if (PP.pwmrunning)
-    {
-      DiyBMSATTiny841::DisableTOCPMCOE();
-    }
-    else
-    {
-      DiyBMSATTiny841::DumpLoadOff();
-    }
+    DiyBMSATTiny841::PausePWM();
   }
-
-  DiyBMSATTiny841::ReferenceVoltageOn();
 
   //allow reference voltage to stabalize
   delay(1);
@@ -356,14 +388,7 @@ void loop()
   //Switch balance PWM back on if needed
   if (PP.bypassCountDown > 0)
   {
-    if (PP.pwmrunning)
-    {
-      DiyBMSATTiny841::EnableTOCPMCOE();
-    }
-    else
-    {
-      DiyBMSATTiny841::DumpLoadOn();
-    }
+    DiyBMSATTiny841::ResumePWM();
   }
 
   uint8_t internal_temperature = PP.InternalTemperature() & 0xFF;
@@ -393,6 +418,10 @@ void loop()
 
       //Reset PID to defaults
       myPID.clear();
+
+      //Start PWM
+      DiyBMSATTiny841::StartTimer1();
+      PP.PWMSetPoint = 0;
     }
   }
 
@@ -401,28 +430,12 @@ void loop()
     if (internal_temperature < (myConfig.BypassTemperatureSetPoint - 10))
     {
       //Full power if we are nowhere near the setpoint (more than 10 degrees C away)
-      DiyBMSATTiny841::StopTimer2();
-      DiyBMSATTiny841::DumpLoadOn();
-      PP.PWMValue = 100;
-      PP.pwmrunning = false;
+      PP.PWMSetPoint = 0xFF;
     }
     else
     {
-      if (!PP.pwmrunning)
-      {
-        //We have approached the set point, enable PWM
-        DiyBMSATTiny841::DumpLoadOff();
-        //Start timer2 with zero value
-        DiyBMSATTiny841::StartTimer2();
-        PP.pwmrunning = true;
-        //myPID.clear();
-      }
-
       //Compare the real temperature against max setpoint, we want the PID to keep at this temperature
-      PP.PWMValue = myPID.step(myConfig.BypassTemperatureSetPoint, internal_temperature);
-
-      //Scale PWM up to 0-10000
-      DiyBMSATTiny841::SetTimer2Value(PP.PWMValue * 100);
+      PP.PWMSetPoint = myPID.step(myConfig.BypassTemperatureSetPoint, internal_temperature);
     }
 
     PP.bypassCountDown--;

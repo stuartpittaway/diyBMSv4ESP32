@@ -50,52 +50,8 @@ FOR MODULE VERSION 400,410,420,421....
 
 #include "diybms_attiny841.h"
 
-void DiyBMSATTiny841::SetTimer2Value(uint16_t value) {
-  OCR2B = value;
-}
-
-void DiyBMSATTiny841::StopTimer2() {
-  TCCR2A = 0; //Normal port operation, OCnA/OCnB disconnected
-  TCCR2B = 0; //Normal port operation, OCnA/OCnB disconnected
-  DisableTOCPMCOE();
-  SetTimer2Value(0);
-}
-
-
-//Start TIMER2 with zero value
-void DiyBMSATTiny841::StartTimer2() {
-  //Dump resistor is on PA3 which maps to TOCC2
-  //Before this is called, the DDR register has already been set
-
-  //Return if its already enabled
-  //if ((TOCPMSA0 & (1 << TOCC2S1))>0) return;
-  
-  //PA3 (pin 10) is used for PWM output signal
-  // PA3/10/2	TOCC2	 OC2B
-
-  //TOCPMSA1 and TOCPMSA0 – Timer/Counter Output Compare Pin Mux Selection Registers
-  //Enable OC2B for TOCC2
-  TOCPMSA0 = (1 << TOCC2S1);
-  TOCPMSA1 = 0;
-
-  EnableTOCPMCOE();
-
-  // Fast PWM, mode 14, non inverting, presc 1:8
-  //COM2b1= Clear OCnA/OCnB on Compare Match (Set output to low level)
-  TCCR2A = (1 << COM2B1) | 1 << WGM21;
-
-  //Clock div 64 prescaler
-  TCCR2B = 1 << CS21 | 1 << CS20 | 1 << WGM23 | 1 << WGM22;
-
-  //Maximum of 10000 and low of zero
-  ICR2 = 10000 - 1;
-
-  //OFF
-  SetTimer2Value(0);
-}
-
-
-void DiyBMSATTiny841::double_tap_green_led() {
+void DiyBMSATTiny841::double_tap_green_led()
+{
   GreenLedOn();
   delay(50);
   GreenLedOff();
@@ -106,7 +62,8 @@ void DiyBMSATTiny841::double_tap_green_led() {
 }
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-void DiyBMSATTiny841::double_tap_blue_led() {
+void DiyBMSATTiny841::double_tap_blue_led()
+{
   BlueLedOn();
   delay(50);
   BlueLedOff();
@@ -117,7 +74,8 @@ void DiyBMSATTiny841::double_tap_blue_led() {
 }
 #endif
 
-void DiyBMSATTiny841::ConfigurePorts() {
+void DiyBMSATTiny841::ConfigurePorts()
+{
   //PUEA – Port A Pull-Up Enable Control Register (All disabled)
   PUEA = 0;
   //PUEB – Port B Pull-Up Enable Control Register (All disabled)
@@ -128,7 +86,7 @@ void DiyBMSATTiny841::ConfigurePorts() {
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
   DDRA |= _BV(DDA3) | _BV(DDA6) | _BV(DDA7) | _BV(DDA5);
 #else
-//4.3 boards dont have blue led, so don't configure DA5
+  //4.3 boards dont have blue led, so don't configure DA5
   DDRA |= _BV(DDA3) | _BV(DDA6) | _BV(DDA7);
 #endif
   //DDRB – Port B Data Direction Register
@@ -148,127 +106,15 @@ void DiyBMSATTiny841::ConfigurePorts() {
   GreenLedOff();
 }
 
-void DiyBMSATTiny841::DumpLoadOn() {
-  PORTA |= _BV(PORTA3);
-}
-
-void DiyBMSATTiny841::DumpLoadOff() {
-  PORTA &= (~_BV(PORTA3));
-}
-
-void DiyBMSATTiny841::ReferenceVoltageOn() {
-  //When to switch external voltage reference on or off. Connected to Pin 6, PA7
-  PORTA |= _BV(PORTA7);
-}
-
-void DiyBMSATTiny841::ReferenceVoltageOff() {
-  //When to switch external voltage reference on or off. Connected to Pin 6, PA7
-  PORTA &= (~_BV(PORTA7));
-}
-
-void DiyBMSATTiny841::GreenLedOn() {
-  PORTA |= _BV(PORTA6);
-}
-
-void DiyBMSATTiny841::GreenLedOff() {
-  PORTA &= (~_BV(PORTA6));
-}
-
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-void DiyBMSATTiny841::SparePinOn() {
-  PORTB |= _BV(PORTB1);
-}
-
-void DiyBMSATTiny841::SparePinOff() {
-  PORTB &= (~_BV(PORTB1));
-}
-#endif
-
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-void DiyBMSATTiny841::BlueLedOn() {
-  PORTA |= _BV(PORTA5);
-}
-
-void DiyBMSATTiny841::BlueLedOff() {
-  PORTA &= (~_BV(PORTA5));
-}
-#endif
-
-void DiyBMSATTiny841::FlushSerial0() {
-  Serial.flush();
-}
-
-void DiyBMSATTiny841::DisableSerial0TX() {
-  UCSR0B &= ~_BV(TXEN0); //disable transmitter (saves 6mA)
-}
-
-void DiyBMSATTiny841::EnableSerial0TX() {
-  UCSR0B |= (1 << TXEN0); // enable transmitter
-}
-
-void DiyBMSATTiny841::DisableSerial0() {
-  //Disable serial0
-  UCSR0B &= ~_BV(RXEN0); //disable receiver
-  UCSR0B &= ~_BV(TXEN0); //disable transmitter
-}
-
-void DiyBMSATTiny841::EnableSerial0() {
-  UCSR0B |= (1 << RXEN0); // enable RX Serial0
-  UCSR0B |= (1 << TXEN0); // enable TX Serial0
-}
-
-void DiyBMSATTiny841::DisableSerial1() {
-  UCSR1B &= ~_BV(RXEN1); //disable receiver
-  UCSR1B &= ~_BV(TXEN1); //disable transmitter
-}
-
-void DiyBMSATTiny841::EnableSerial1() {
-  UCSR1B |= (1 << RXEN1); // enable RX Serial1
-  UCSR1B |= (1 << TXEN1); // enable TX Serial1
-}
-
-void DiyBMSATTiny841::EnableStartFrameDetection() {
-  noInterrupts();
-  // Enable Start Frame Detection
-  UCSR0D = (1 << RXSIE0) | (1 << SFDE0);
-
-  interrupts();
-}
-
-/*
-void DiyBMSATTiny841::EnablePinChangeInterrupt() {
-  //Fire pin change interrupt on RXD0 changing state
-  noInterrupts();
-
-  MCUCR |= (1 << ISC01);
-  MCUCR |= (1 << ISC00);
-  // GIFR – General Interrupt Flag Register
-  // PCIF0: Pin Change Interrupt Flag 0
-  GIFR |= (1 << PCIF0);
-
-  // PCIE0: Pin Change Interrupt Enable 0
-  GIMSK |= (1 << PCIE0);
-
-  //PCMSK0 – Pin Change Mask Register 0
-  //PCINT2 maps to PA2 RXD0 Serial data input of USART0
-  PCMSK0 |= (1 << PCINT2);
-
-  interrupts();
-}
-
-void DiyBMSATTiny841::DisablePinChangeInterrupt() {
-  GIMSK &= ~(1 << PCIE0); // disable interrupt
-}
-*/
-
-void DiyBMSATTiny841::SetWatchdog8sec() {
+void DiyBMSATTiny841::SetWatchdog8sec()
+{
   //Setup a watchdog timer for 8 seconds
   MCUSR = 0;
   //Enable watchdog (to reset)
   WDTCSR |= bit(WDE);
 
   CCP = 0xD8;
-  //WDTCSR – Watchdog Timer Control and Status Register
+  // WDTCSR – Watchdog Timer Control and Status Register
   // We INTERRUPT the chip after 8 seconds of sleeping (not reboot!)
   // WDE: Watchdog Enable
   // Bits 5, 2:0 – WDP[3:0]: Watchdog Timer Prescaler 3 - 0
@@ -278,16 +124,15 @@ void DiyBMSATTiny841::SetWatchdog8sec() {
   wdt_reset();
 }
 
-uint16_t DiyBMSATTiny841::ReadADC() {
+uint16_t DiyBMSATTiny841::ReadADC()
+{
   // must read ADCL first
   uint8_t low = ADCL;
   return (ADCH << 8) | low;
 }
 
-void DiyBMSATTiny841::BeginADCReading() {
-
-  //BlueLedOn();
-
+void DiyBMSATTiny841::BeginADCReading()
+{
   //ADMUXB – ADC Multiplexer Selection Register
   //Select external AREF pin (internal reference turned off)
   ADMUXB = _BV(REFS2);
@@ -305,10 +150,10 @@ void DiyBMSATTiny841::BeginADCReading() {
   // wait for ADC to settle
   // The ADC must be enabled during the settling time.
   // ADC requires a settling time of 1ms before measurements are stable
-  delay(2);
+  delay(1);
 
   noInterrupts();
-  set_sleep_mode(SLEEP_MODE_ADC); // sleep during ADC sample
+  set_sleep_mode(SLEEP_MODE_IDLE); // sleep during ADC sample
   sleep_enable();
 
   // start the conversion
@@ -318,27 +163,30 @@ void DiyBMSATTiny841::BeginADCReading() {
   sleep_disable();
 
   // awake again, reading should be done, better make sure maybe the timer interrupt fired
-  while (bit_is_set(ADCSRA, ADSC)) {}
+  while (bit_is_set(ADCSRA, ADSC))
+  {
+  }
 
   //adc_disable
   ADCSRA &= (~(1 << ADEN));
 }
 
-void DiyBMSATTiny841::Sleep() {
+void DiyBMSATTiny841::Sleep()
+{
   //ATTINY841 sleep mode
   byte old_ADCSRA = ADCSRA;
   //For low power applications, before entering sleep, remember to turn off the ADC
   //ADCSRA&=(~(1<<ADEN));
   // disable ADC
   ADCSRA = 0;
-  
+
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 #else
-//Using an external crystal so keep it awake - consumes more power (about 0.97mA vs 0.78mA) but module wakes quicker (6 clock cycles)
-set_sleep_mode(SLEEP_MODE_STANDBY);
+  //Using an external crystal so keep it awake - consumes more power (about 0.97mA vs 0.78mA) but module wakes quicker (6 clock cycles)
+  set_sleep_mode(SLEEP_MODE_STANDBY);
 #endif
-  
+
   power_spi_disable();
   power_timer0_disable();
   power_timer1_disable();
@@ -363,37 +211,9 @@ set_sleep_mode(SLEEP_MODE_STANDBY);
   power_adc_enable();
   power_timer0_enable();
   power_timer1_enable();
-  power_timer2_enable();
+  //power_timer2_enable();
 
   //power_all_enable();
 
   ADCSRA = old_ADCSRA;
-}
-
-void DiyBMSATTiny841::SelectCellVoltageChannel() {
-  //PB2 = ADC8 PIN 5 ARDUINO PIN 2/A8 = VOLTAGE reading
-  //ADMUXA – ADC Multiplexer Selection Register A
-  //ADC8 (single end) MUX[5:0] 00 1000
-  ADMUXA = (0 << MUX5) | (0 << MUX4) | (1 << MUX3) | (0 << MUX2) | (0 << MUX1) | (0 << MUX0);
-}
-
-void DiyBMSATTiny841::SelectInternalTemperatureChannel() {
-  //PA4
-  //ADMUXA – ADC Multiplexer Selection Register A
-  //ADC4 (single end) MUX[5:0] 00 0100
-  ADMUXA = (0 << MUX5) | (0 << MUX4) | (0 << MUX3) | (1 << MUX2) | (0 << MUX1) | (0 << MUX0);
-}
-
-void DiyBMSATTiny841::SelectExternalTemperatureChannel() {
-  //External sensor
-  //ADMUXA – ADC Multiplexer Selection Register A
-
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-  //ADC11 (single end) MUX[5:0] 00 1011
-  ADMUXA = (0 << MUX5) | (0 << MUX4) | (1 << MUX3) | (0 << MUX2) | (1 << MUX1) | (1 << MUX0);
-#else
-  //V4.3 boards ADC5 (single end) MUX[5:0] 00 0101
-  ADMUXA = (0 << MUX5) | (0 << MUX4) | (0 << MUX3) | (1 << MUX2) | (0 << MUX1) | (1 << MUX0);
-#endif
-
 }

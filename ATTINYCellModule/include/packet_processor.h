@@ -47,7 +47,6 @@ public:
     WeAreInBypass = false;
     bypassCountDown = 0;
     bypassHasJustFinished = 0;
-    pwmrunning = false;
   }
   ~PacketProcessor() {}
 
@@ -56,6 +55,7 @@ public:
   void ADCReading(uint16_t value);
   void TakeAnAnalogueReading(uint8_t mode);
   uint16_t CellVoltage();
+  
   uint16_t IncrementWatchdogCounter()
   {
     watchdog_counter++;
@@ -74,22 +74,19 @@ public:
   //Returns TRUE if the module is in "bypassing current" mode
   bool WeAreInBypass;
 
-  //Value of PWM 0-100
-  uint16_t PWMValue;
+  //Value of PWM 0-255
+  volatile uint8_t PWMSetPoint;
   volatile bool SettingsHaveChanged;
 
-  //Count down which runs whilst bypass is in operation
+  //Count down which runs whilst bypass is in operation,  zero = bypass stopped/off
   uint16_t bypassCountDown;
 
   //Count down which starts after the current cycle of bypass has completed (aka cool down period whilst voltage may rise again)
   uint8_t bypassHasJustFinished;
 
-  //True when PWM is running for bypass (instead of 100% on)
-  bool pwmrunning;
-
   bool IsBypassActive()
   {
-    return WeAreInBypass || bypassHasJustFinished > 0 || pwmrunning;
+    return WeAreInBypass || bypassHasJustFinished > 0;
   }
 
 private:
