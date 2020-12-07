@@ -18,8 +18,8 @@ if you are porting to another chipset, clone this class and modify it.
 class DiyBMSATTiny841
 {
 public:
-   DiyBMSATTiny841() {}
-   ~DiyBMSATTiny841() {}
+   //DiyBMSATTiny841() {}
+   //~DiyBMSATTiny841() {}
    static void ConfigurePorts();
 
    static void EnableTOCPMCOE()
@@ -27,7 +27,7 @@ public:
       // TOCPMSA1 and TOCPMSA0 – Timer/Counter Output Compare Pin Mux Selection Registers
       // Timer/Counter Output Compare Pin Mux Channel Output Enable
       // Enable TOCC2 to be output
-      TOCPMCOE = (1 << TOCC2OE);
+      TOCPMCOE = _BV(TOCC2OE);
    }
    static void DisableTOCPMCOE()
    {

@@ -307,8 +307,8 @@ void DiyBMSATTiny841::BeginADCReading() {
   // ADC requires a settling time of 1ms before measurements are stable
   delay(2);
 
-  noInterrupts();
-  set_sleep_mode(SLEEP_MODE_ADC); // sleep during ADC sample
+  //noInterrupts();
+  set_sleep_mode(SLEEP_MODE_IDLE); // sleep during ADC sample, but keep UART and timers running
   sleep_enable();
 
   // start the conversion
