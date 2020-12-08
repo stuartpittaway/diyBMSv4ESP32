@@ -16,3 +16,7 @@ if (path.exists('..'+os.path.sep+'.git')):
 else:
     env.Append(CPPDEFINES=('-D GIT_VERSION=\\\"'+"Compiled without GIT"+'\\\"'))
 
+
+#print(env.Dump())
+env.Replace(PROGNAME="diybms_controller_firmware_%s_%s" % ( env["PIOPLATFORM"], env["PIOENV"] ))
+
