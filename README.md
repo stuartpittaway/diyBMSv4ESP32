@@ -10,6 +10,12 @@ Please watch this video on how to program the controller and modules.
 
 https://youtu.be/wTqDMg_Ql98
 
+# Support
+
+If you find the BMS useful, please consider buying me a beer, check out Patron for more information
+
+https://www.patreon.com/bePatron?u=41013995
+
 # TRAVIS-CI
 [![Build Status](https://travis-ci.org/stuartpittaway/diyBMSv4Code.svg?branch=master)](https://travis-ci.org/stuartpittaway/diyBMSv4Code)
 
