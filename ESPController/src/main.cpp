@@ -1295,8 +1295,8 @@ void setup()
   SERIAL_DEBUG.print(", Cores ");
   SERIAL_DEBUG.print(chip_info.cores);
   SERIAL_DEBUG.print(", Features=0x");
-  SERIAL_DEBUG.println(chip_info.features,HEX);
- 
+  SERIAL_DEBUG.println(chip_info.features, HEX);
+
 #endif
 
   //We generate a unique number which is used in all following JSON requests
@@ -1390,9 +1390,13 @@ void setup()
   //strcpy(xxxx.wifi_ssid,"XXXXXX");
   //strcpy(xxxx.wifi_passphrase,"XXXXXX");
   //Settings::WriteConfigToEEPROM((char*)&xxxx, sizeof(xxxx), EEPROM_WIFI_START_ADDRESS);
+  clearAPSettings = 0;
 
   if (!DIYBMSSoftAP::LoadConfigFromEEPROM() || clearAPSettings == 0)
   {
+      //We have just started...
+    SetControllerState(ControllerState::ConfigurationSoftAP);
+
     SERIAL_DEBUG.print(F("Clear AP settings"));
     SERIAL_DEBUG.println(clearAPSettings);
     SERIAL_DEBUG.println(F("Setup Access Point"));
@@ -1434,49 +1438,41 @@ void setup()
       mqttClient.setServer(mysettings.mqtt_server, mysettings.mqtt_port);
       mqttClient.setCredentials(mysettings.mqtt_username, mysettings.mqtt_password);
     }
+
+    //Ensure we service the cell modules every 4 seconds
+    myTimer.attach(8, timerEnqueueCallback);
+
+    //Process rules every 5 seconds
+    myTimerRelay.attach(5, timerProcessRules);
+
+    //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
+    //and slower than it takes a single module to process a command (about 300ms)
+    myTransmitTimer.attach(1, timerTransmitCallback);
+
+    //Service reply queue
+    myReplyTimer.attach(1, serviceReplyQueue);
+
+    //This is a lazy timer for low priority tasks
+    myLazyTimer.attach(20, timerLazyCallback);
+
+    //We have just started...
+    SetControllerState(ControllerState::Stabilizing);
   }
 
-  //Ensure we service the cell modules every 4 seconds
-  myTimer.attach(8, timerEnqueueCallback);
-
-  //Process rules every 5 seconds
-  myTimerRelay.attach(5, timerProcessRules);
-
-  //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
-  //and slower than it takes a single module to process a command (about 300ms)
-  myTransmitTimer.attach(1, timerTransmitCallback);
-
-  //Service reply queue
-  myReplyTimer.attach(1, serviceReplyQueue);
-
-  //This is a lazy timer for low priority tasks
-  myLazyTimer.attach(20, timerLazyCallback);
-
-  //We have just started...
-  SetControllerState(ControllerState::Stabilizing);
 }
 
 void loop()
 {
-  if (WifiDisconnected)
+  //ESP_LOGW("LOOP","LOOP");
+
+  if (WifiDisconnected && ControlState!=ControllerState::ConfigurationSoftAP)
   {
     connectToWifi();
   }
 
   ArduinoOTA.handle();
 
-  //ESP_LOGW("LOOP","LOOP");
-
   // Call update to receive, decode and process incoming packets.
-  if (SERIAL_DATA.available() > 0)
-  {
-    digitalWrite(4, HIGH);
-  }
-  else
-  {
-    digitalWrite(4, LOW);
-  }
-
   myPacketSerial.checkInputStream();
 
   if (ConfigHasChanged > 0)

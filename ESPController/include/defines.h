@@ -200,9 +200,11 @@ struct CellModuleInfo
 // it stabilizes and moves into running state.
 enum ControllerState : uint8_t
 {
+  Unknown=0,
   PowerUp = 1,
   Stabilizing = 2,
-  Running = 255,
+  ConfigurationSoftAP=3,
+  Running = 255,  
 };
 
 //This holds all the cell information in a large array array
