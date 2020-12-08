@@ -2,23 +2,13 @@ name: PlatformIO CI
 
 on: 
   push:
-    branches:
-    - master
  
 jobs:
   build:
 
     runs-on: ubuntu-latest
 
-    steps:
-    - name: Get Branch Name
-      run: |
-        ref="${github_ref////-}"
-        echo $ref
-        echo "::set-env name=ref::$ref"
-      env:
-        github_ref: ${{ github.ref }}       
-        
+    steps:       
     - uses: actions/checkout@v2
     - name: Cache pip
       uses: actions/cache@v2
@@ -49,7 +39,7 @@ jobs:
     - name: Publish Compile Artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: DIYBMS-Compiled-Code-${{ env.ref }}
+        name: DIYBMS-Compiled-Code
         path: |
           ./ATTINYCellModule/.pio/build/attiny841_V*/*.hex
           ./ESPController/.pio/build/*/*.bin
