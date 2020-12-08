@@ -29,12 +29,17 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install --upgrade platformio
-    - name: Run PlatformIO
+    - name: Build code for modules
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
+    - name: Build code for controller
+      run: pio run --project-dir=./ESPController --project-conf=./ESPController/platformio.ini
     - name: Archive code coverage results
       uses: actions/upload-artifact@v2
       with:
         name: Module-Compiled-Code
-        path: ./ATTINYCellModule/.pio/build/attiny841_V*/*.hex
+        path: 
+          ./ATTINYCellModule/.pio/build/attiny841_V*/*.hex
+          ./ESPController/.pio/build/esp*/*.bin
+          ./ESPController/.pio/build/esp*/*.bin
         if-no-files-found: error
         
