@@ -36,7 +36,7 @@ jobs:
     - name: Publish Compile Artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: DIYBMS-Compiled-Code
+        name: DIYBMS-Compiled-Code-${{ github.ref }}
         path: |
           ./ATTINYCellModule/.pio/build/attiny841_V*/*.hex
           ./ESPController/.pio/build/*/*.bin
