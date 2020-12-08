@@ -33,13 +33,13 @@ jobs:
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
     - name: Build code for controller
       run: pio run --project-dir=./ESPController --project-conf=./ESPController/platformio.ini
-    - name: Archive code coverage results
+    - name: Publish Compile Artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: Module-Compiled-Code
-        path: 
+        name: DIYBMS-Compiled-Code
+        path: |
           ./ATTINYCellModule/.pio/build/attiny841_V*/*.hex
-          ./ESPController/.pio/build/esp*/*.bin
-          ./ESPController/.pio/build/esp*/*.bin
+          ./ESPController/.pio/build/*/*.bin
+          ./ESPController/.pio/build/*/*.bin
         if-no-files-found: error
         
