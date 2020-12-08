@@ -31,4 +31,9 @@ jobs:
         pip install --upgrade platformio
     - name: Run PlatformIO
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
-
+    - name: Archive code coverage results
+        uses: actions/upload-artifact@v2
+        with:
+          name: Module-Compiled-Code
+          path: ./ATTINYCellModule/.pio/build/*/*.hex
+          if-no-files-found: error 
