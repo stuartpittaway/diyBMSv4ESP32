@@ -1390,7 +1390,7 @@ void setup()
   //strcpy(xxxx.wifi_ssid,"XXXXXX");
   //strcpy(xxxx.wifi_passphrase,"XXXXXX");
   //Settings::WriteConfigToEEPROM((char*)&xxxx, sizeof(xxxx), EEPROM_WIFI_START_ADDRESS);
-  clearAPSettings = 0;
+  //clearAPSettings = 0;
 
   if (!DIYBMSSoftAP::LoadConfigFromEEPROM() || clearAPSettings == 0)
   {
