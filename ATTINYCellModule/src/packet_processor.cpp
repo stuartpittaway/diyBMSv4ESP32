@@ -271,8 +271,9 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
     buffer->moduledata[9] = EXT_BCOEFFICIENT;
     buffer->moduledata[10] = DIYBMSMODULEVERSION;
 
-    //Version of firmware.
-    buffer->moduledata[15] = MODULE_FIRMWARE_VERSION;
+    //Version of firmware (taken automatically from GIT)
+    buffer->moduledata[14] = GIT_VERSION_B1;
+    buffer->moduledata[15] = GIT_VERSION_B2;
     return true;
   }
 

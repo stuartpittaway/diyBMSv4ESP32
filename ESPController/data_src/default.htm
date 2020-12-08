@@ -110,7 +110,8 @@
         <div class="region">
             <h2>Platform &amp; Version</h2>
             <p>%PLATFORM%</p>
-            <p id="platformversion"></p>
+            <p>%GIT_VERSION%</p>
+            <p>%COMPILE_DATE_TIME%</p>           
         </div>
     </div>
     <div class="page" id="modulesPage">
@@ -148,7 +149,7 @@
                         </div>
                         <div>
                             <label for="Version">Module version</label>
-                            <input type="number" name="Version" id="Version" value="" readonly="">
+                            <input type="text" name="Version" id="Version" value="" readonly="">
                         </div>
                         <div>
                             <label for="BypassOverTempShutdown">Bypass over temperature</label>

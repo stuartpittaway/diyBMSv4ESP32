@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+#include "EmbeddedFiles_Defines.h"
+
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
@@ -192,6 +194,8 @@ struct CellModuleInfo
   uint16_t External_BCoefficient;
   //Version number returned by code of module
   uint16_t BoardVersionNumber;
+  //Last 4 bytes of GITHUB version
+  uint32_t CodeVersionNumber;
   //Value of PWM timer for load shedding
   uint16_t PWMValue;
 };

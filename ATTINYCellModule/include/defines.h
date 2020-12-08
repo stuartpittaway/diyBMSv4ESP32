@@ -12,11 +12,11 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
   that legally restrict others from doing anything the license permits.  
 */
 
+#include "EmbeddedFiles_Defines.h"
+
 #ifndef DIYBMS_DEFINES_H // include guard
 #define DIYBMS_DEFINES_H
 
-//Incremented when major revisions of code are made and new features
-#define MODULE_FIRMWARE_VERSION 1
 
 #if (!defined(DIYBMSMODULEVERSION))
 #error You need to enable one of the DIYBMSMODULEVERSION define statements

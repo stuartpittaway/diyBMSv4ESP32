@@ -42,7 +42,7 @@ function configureModule(button, cellid, attempts) {
 
                 //Populate settings div
                 $('#ModuleId').val(data.settings.id);
-                $('#Version').val(data.settings.ver);
+                $('#Version').val(data.settings.ver.toString()+'/'+data.settings.code.toString(16));
                 $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);
                 $('#BypassThresholdmV').val(data.settings.BypassThresholdmV);
                 $('#Calib').val(data.settings.Calib.toFixed(4));
@@ -735,8 +735,6 @@ $(function () {
 
         $.getJSON("settings.json",
             function (data) {
-                $("#platformversion").text(data.settings.Version);
-
                 $("#aboutPage").show();
             }).fail(function () { }
             );

@@ -660,10 +660,6 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   request->send(response);
 }
 
-#ifndef GIT_VERSION
-#error GIT_VERSION not defined
-#endif
-
 void DIYBMSServer::settings(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response =
@@ -674,7 +670,8 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
 
   JsonObject settings = root.createNestedObject("settings");
 
-  settings["Version"] = String(GIT_VERSION);
+  //settings["Version"] = String(GIT_VERSION);
+  //settings["CompileDate"] = String(COMPILE_DATE_TIME);
 
   settings["totalnumberofbanks"] = mysettings.totalNumberOfBanks;
   settings["totalseriesmodules"] = mysettings.totalNumberOfSeriesModules;
@@ -789,6 +786,7 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
     settings["module"] = m;
     settings["id"] = c;
     settings["ver"] = cmi[c].BoardVersionNumber;
+    settings["code"] = cmi[m].CodeVersionNumber;    
     settings["Cached"] = cmi[c].settingsCached;
 
     if (cmi[c].settingsCached)
@@ -966,6 +964,12 @@ String DIYBMSServer::TemplateProcessor(const String &var)
   if (var == "PLATFORM")
     return String("ESP32");
 #endif
+
+  if (var == "GIT_VERSION")
+    return String(GIT_VERSION);
+
+  if (var == "COMPILE_DATE_TIME")
+    return String(COMPILE_DATE_TIME);
 
   //  const DEFAULT_GRAPH_MAX_VOLTAGE = %graph_voltagehigh%;
   //  const DEFAULT_GRAPH_MIN_VOLTAGE = %graph_voltagelow%;
