@@ -19,6 +19,9 @@ https://www.patreon.com/bePatron?u=41013995
 # TRAVIS-CI
 [![Build Status](https://travis-ci.org/stuartpittaway/diyBMSv4Code.svg?branch=master)](https://travis-ci.org/stuartpittaway/diyBMSv4Code)
 
+# GITHUB Actions
+![PlatformIO CI](https://github.com/stuartpittaway/diyBMSv4Code/workflows/PlatformIO%20CI/badge.svg?branch=master)
+
 # Videos on how to use and build
 
 https://www.youtube.com/stuartpittaway
