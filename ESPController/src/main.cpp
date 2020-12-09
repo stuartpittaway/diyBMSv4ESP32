@@ -1446,8 +1446,8 @@ void setup()
       mqttClient.setCredentials(mysettings.mqtt_username, mysettings.mqtt_password);
     }
 
-    //Ensure we service the cell modules every 4 seconds
-    myTimer.attach(8, timerEnqueueCallback);
+    //Ensure we service the cell modules every 6 seconds
+    myTimer.attach(6, timerEnqueueCallback);
 
     //Process rules every 5 seconds
     myTimerRelay.attach(5, timerProcessRules);
