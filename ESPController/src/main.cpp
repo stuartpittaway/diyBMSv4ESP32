@@ -503,38 +503,40 @@ void timerTransmitCallback()
 void ProcessRules()
 {
   rules.ClearValues();
+  rules.ClearWarnings();
+  rules.ClearErrors();
 
-  InternalErrorCode newErrCode = InternalErrorCode::NoError;
-  InternalWarningCode newWarnCode = InternalWarningCode::NoWarning;
+  //InternalErrorCode newErrCode = InternalErrorCode::NoError;
+  //InternalWarningCode newWarnCode = InternalWarningCode::NoWarning;
 
   uint16_t totalConfiguredModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
   if (totalConfiguredModules > maximum_controller_cell_modules)
   {
     //System is configured with more than maximum modules - abort!
-    newErrCode = InternalErrorCode::TooManyModules;
+    rules.SetError(InternalErrorCode::TooManyModules);
   }
 
   if (receiveProc.totalModulesFound != totalConfiguredModules)
   {
     //Found more or less modules than configured for
-    newErrCode = InternalErrorCode::ModuleCountMismatch;
+    rules.SetError(InternalErrorCode::ModuleCountMismatch);
   }
 
   if (rules.invalidModuleCount > 0)
   {
     //Some modules are not yet valid
-    newErrCode = InternalErrorCode::WaitingForModulesToReply;
+    rules.SetError(InternalErrorCode::WaitingForModulesToReply);
   }
 
   //Communications error...
   if (receiveProc.HasCommsTimedOut())
   {
-    newErrCode = InternalErrorCode::CommunicationsError;
+    rules.SetError(InternalErrorCode::CommunicationsError);
   }
 
   if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
   {
-    newErrCode = InternalErrorCode::ZeroVoltModule;
+    rules.SetError(InternalErrorCode::ZeroVoltModule);
   }
 
   uint8_t cellid = 0;
@@ -548,12 +550,26 @@ void ProcessRules()
       {
         if (cmi[cellid].BypassThresholdmV != mysettings.BypassThresholdmV)
         {
-          newWarnCode = InternalWarningCode::ModuleInconsistantBypassVoltage;
+          rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassVoltage);
         }
-        else if (cmi[cellid].BypassOverTempShutdown != mysettings.BypassOverTempShutdown)
+
+        if (cmi[cellid].BypassOverTempShutdown != mysettings.BypassOverTempShutdown)
         {
-          newWarnCode = InternalWarningCode::ModuleInconsistantBypassTemperature;
+          rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassTemperature);
         }
+
+        if (cmi[cellid].CodeVersionNumber != cmi[0].CodeVersionNumber)
+        {
+          //Do all the modules have the same version of code as module zero?
+          rules.SetWarning(InternalWarningCode::ModuleInconsistantCodeVersion);
+        }
+
+        if (cmi[cellid].BoardVersionNumber != cmi[0].BoardVersionNumber)
+        {
+          //Do all the modules have the same hardware revision?
+          rules.SetWarning(InternalWarningCode::ModuleInconsistantBoardRevision);
+        }
+        
       }
 
       cellid++;
@@ -561,8 +577,8 @@ void ProcessRules()
     rules.ProcessBank(bank);
   }
 
-  rules.SetError(newErrCode);
-  rules.SetWarning(newWarnCode);
+  //rules.SetError(newErrCode);
+  //rules.SetWarning(newWarnCode);
 
   rules.RunRules(
       mysettings.rulevalue,
@@ -1088,7 +1104,7 @@ void sendMqttPacket()
   mqttFrequencyCounter++;
 
   //If the BMS is in error, stop sending MQTT packets for the data
-  if (rules.ErrorCode == InternalErrorCode::NoError)
+  if (!rules.rule_outcome[Rule::BMSError])
   {
     uint8_t counter = 0;
     for (uint8_t i = mqttStartModule; i < mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks; i++)
@@ -1390,7 +1406,7 @@ void setup()
 
   if (!DIYBMSSoftAP::LoadConfigFromEEPROM() || clearAPSettings == 0)
   {
-      //We have just started...
+    //We have just started...
     SetControllerState(ControllerState::ConfigurationSoftAP);
 
     SERIAL_DEBUG.print(F("Clear AP settings"));
@@ -1454,14 +1470,13 @@ void setup()
     //We have just started...
     SetControllerState(ControllerState::Stabilizing);
   }
-
 }
 
 void loop()
 {
   //ESP_LOGW("LOOP","LOOP");
 
-  if (WifiDisconnected && ControlState!=ControllerState::ConfigurationSoftAP)
+  if (WifiDisconnected && ControlState != ControllerState::ConfigurationSoftAP)
   {
     connectToWifi();
   }

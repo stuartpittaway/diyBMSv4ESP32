@@ -24,7 +24,9 @@ enum InternalWarningCode : uint8_t
 {
     NoWarning = 0,
     ModuleInconsistantBypassVoltage = 1,
-    ModuleInconsistantBypassTemperature = 2
+    ModuleInconsistantBypassTemperature = 2,
+    ModuleInconsistantCodeVersion = 3,
+    ModuleInconsistantBoardRevision = 4
 };
 
 enum InternalErrorCode : uint8_t
@@ -56,8 +58,8 @@ public:
     uint16_t lowestCellVoltage;
     int8_t highestExternalTemp;
     int8_t lowestExternalTemp;
-    InternalErrorCode ErrorCode;
-    InternalWarningCode WarningCode;
+    InternalErrorCode ErrorCodes[8];
+    InternalWarningCode WarningCodes[8];
     bool moduleHasExternalTempSensor;
     uint8_t invalidModuleCount;
 
@@ -65,6 +67,17 @@ public:
     void ProcessCell(uint8_t bank, CellModuleInfo *c);
     void ProcessBank(uint8_t bank);
     void SetWarning(InternalWarningCode warncode);
+
+    void ClearWarnings()
+    {
+        memset(&WarningCodes, 0, sizeof(WarningCodes));
+    }
+
+    void ClearErrors()
+    {
+        memset(&ErrorCodes, 0, sizeof(ErrorCodes));
+    }
+
     void SetError(InternalErrorCode err);
     uint16_t VoltageRangeInBank(uint8_t bank);
     void RunRules(
