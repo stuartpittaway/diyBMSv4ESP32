@@ -506,8 +506,7 @@ void ProcessRules()
   rules.ClearWarnings();
   rules.ClearErrors();
 
-  //InternalErrorCode newErrCode = InternalErrorCode::NoError;
-  //InternalWarningCode newWarnCode = InternalWarningCode::NoWarning;
+  rules.rule_outcome[Rule::BMSError] = false;
 
   uint16_t totalConfiguredModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
   if (totalConfiguredModules > maximum_controller_cell_modules)
@@ -516,27 +515,16 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::TooManyModules);
   }
 
-  if (receiveProc.totalModulesFound != totalConfiguredModules)
+  if (receiveProc.totalModulesFound > 0 && receiveProc.totalModulesFound != totalConfiguredModules)
   {
     //Found more or less modules than configured for
     rules.SetError(InternalErrorCode::ModuleCountMismatch);
-  }
-
-  if (rules.invalidModuleCount > 0)
-  {
-    //Some modules are not yet valid
-    rules.SetError(InternalErrorCode::WaitingForModulesToReply);
   }
 
   //Communications error...
   if (receiveProc.HasCommsTimedOut())
   {
     rules.SetError(InternalErrorCode::CommunicationsError);
-  }
-
-  if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
-  {
-    rules.SetError(InternalErrorCode::ZeroVoltModule);
   }
 
   uint8_t cellid = 0;
@@ -569,7 +557,6 @@ void ProcessRules()
           //Do all the modules have the same hardware revision?
           rules.SetWarning(InternalWarningCode::ModuleInconsistantBoardRevision);
         }
-        
       }
 
       cellid++;
@@ -577,8 +564,16 @@ void ProcessRules()
     rules.ProcessBank(bank);
   }
 
-  //rules.SetError(newErrCode);
-  //rules.SetWarning(newWarnCode);
+  if (rules.invalidModuleCount > 0)
+  {
+    //Some modules are not yet valid
+    rules.SetError(InternalErrorCode::WaitingForModulesToReply);
+  }
+
+  if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
+  {
+    rules.SetError(InternalErrorCode::ZeroVoltModule);
+  }
 
   rules.RunRules(
       mysettings.rulevalue,

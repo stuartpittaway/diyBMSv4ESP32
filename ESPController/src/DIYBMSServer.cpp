@@ -826,7 +826,7 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     doc2["banks"] = mysettings.totalNumberOfBanks;
     doc2["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
     JsonArray errors = doc2.createNestedArray("errors");
-    JsonArray warnings = doc2.createNestedArray("warnings");
+    //JsonArray warnings = doc2.createNestedArray("warnings");
     errors.add(InternalErrorCode::ControllerMemoryError);
     doc2["sent"] = prg.packetsGenerated;
     doc2["received"] = receiveProc.packetsReceived;
@@ -845,8 +845,6 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
     doc["banks"] = mysettings.totalNumberOfBanks;
     doc["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
-    //doc["errorcode"] = rules.ErrorCode;
-    //doc["warningcode"] = rules.WarningCode;
     JsonArray errors = doc.createNestedArray("errors");
     for (size_t i = 0; i < sizeof(rules.ErrorCodes); i++)
     {
