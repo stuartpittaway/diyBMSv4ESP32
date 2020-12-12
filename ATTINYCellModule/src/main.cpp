@@ -148,7 +148,7 @@ ISR(USART0_START_vect)
 //6Hz rate - number of times we call this code in Loop
 //Kp, Ki, Kd, Hz, output_bits, output_signed);
 //Settings for V4.00 boards with 2R2 resistors = (4.0, 0.5, 0.2, 6, 8, false);
-FastPID myPID(4.0, 0.5, 0.2, 6, 8, false);
+FastPID myPID(4.0, 0.5, 0.2, 2, 8, false);
 
 void ValidateConfiguration()
 {
@@ -275,10 +275,13 @@ void test_loop()
 }
 */
 
+
 void loop()
 {
   //This loop runs around 3 times per second when the module is in bypass
   wdt_reset();
+
+  
 
   if (PP.identifyModule > 0)
   {
@@ -305,10 +308,6 @@ void loop()
 
   if (!PP.WeAreInBypass && PP.bypassHasJustFinished == 0)
   {
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-//      DiyBMSATTiny841::BlueLedOff();
-#endif
-
     //Go to SLEEP, we are not in bypass anymore
 
     //Switch of TX - save power
@@ -320,9 +319,8 @@ void loop()
     //Program stops here until woken by watchdog or Serial port ISR
     DiyBMSATTiny841::Sleep();
 
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-//      DiyBMSATTiny841::BlueLedOn();
-#endif
+    //Reset PID to defaults, in case we want to start balancing
+    myPID.clear();
   }
 
   //We are awake....
@@ -420,9 +418,6 @@ void loop()
       PP.bypassCountDown = 200;
       PP.bypassHasJustFinished = 0;
 
-      //Reset PID to defaults
-      myPID.clear();
-
       //Start PWM
       DiyBMSATTiny841::StartTimer1();
       PP.PWMSetPoint = 0;
@@ -433,13 +428,15 @@ void loop()
   {
     if (internal_temperature < (myConfig.BypassTemperatureSetPoint - 10))
     {
-      //Full power if we are nowhere near the setpoint (more than 10 degrees C away)
+      //Full power if we are no where near the setpoint (more than 10 degrees C away)
       PP.PWMSetPoint = 0xFF;
     }
     else
     {
       //Compare the real temperature against max setpoint, we want the PID to keep at this temperature
       PP.PWMSetPoint = myPID.step(myConfig.BypassTemperatureSetPoint, internal_temperature);
+
+
     }
 
     PP.bypassCountDown--;
