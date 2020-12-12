@@ -1,5 +1,7 @@
 Import('env')
 
+env.Execute("$PYTHONEXE -m pip install -v htmlmin")
+
 import os
 import gzip
 import shutil
@@ -15,6 +17,7 @@ def prepare_www_files():
 
     #add filetypes (extensions only) to be gzipped before uploading. Everything else will be copied directly
     filetypes_to_gzip = ['js','css','ico']
+    filetypes_to_minify = ['htm']
     
     print('[COPY/GZIP DATA FILES]')
 
@@ -35,29 +38,40 @@ def prepare_www_files():
 
     files_to_gzip = []
     for extension in filetypes_to_gzip:
-        files_to_gzip.extend(glob.glob(os.path.join(data_src_dir, '*.' + extension)))
-    
+        files_to_gzip.extend(glob.glob(os.path.join(data_src_dir, '*.' + extension)))   
     print('  files to gzip: ' + str(files_to_gzip))
 
-    all_files = glob.glob(os.path.join(data_src_dir, '*.*'))
-    files_to_copy = list(set(all_files) - set(files_to_gzip))
+    files_to_minify = []
+    for extension in filetypes_to_minify:
+        files_to_minify.extend(glob.glob(os.path.join(data_src_dir, '*.' + extension)))   
+    print('  files to minify: ' + str(files_to_minify))
 
+    all_files = glob.glob(os.path.join(data_src_dir, '*.*'))
+    files_to_copy = list(set(all_files) - set(files_to_gzip) - set(files_to_minify))
     print('  files to copy: ' + str(files_to_copy))
 
     for file in files_to_copy:
         print('  Copying file: ' + file + ' to data dir')
         shutil.copy(file, data_dir)
-    
+
+    for file in files_to_minify:
+        print('  Minify file: ' + file + ' to data dir')
+        shutil.copy(file, os.path.join(data_dir, os.path.basename(file)))
+        env.Execute("htmlmin  --keep-optional-attribute-quotes "+file+" "+os.path.join(data_dir, os.path.basename(file)))
+
     for file in files_to_gzip:
         print('  GZipping file: ' + file + ' to data dir')
         with open(file, 'rb') as f_in, gzip.open(os.path.join(data_dir, os.path.basename(file) + '.gz'), 'wb') as f_out:        
             shutil.copyfileobj(f_in, f_out)
 
     print('[/COPY/GZIP DATA FILES]')
-    
+
 prepare_www_files()
 
 #env.AddPreAction('$BUILD_DIR/src/DIYBMSServer.cpp.o', prepare_www_files)
+
+
+
 
 
 def block_spiffs(source, target, env):

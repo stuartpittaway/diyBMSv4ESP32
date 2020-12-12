@@ -32,25 +32,28 @@
             <a id="about" href="#about">About</a>
         </div>
     </div>
-    <div class="flexgrid">
-        <div id='commserr' class='error'>The controller is having difficulty communicating with the cell monitoring
-            modules.</div>
+    <div class="flexgrid">      
+        <div id='error1' class='error'>The controller is having difficulty communicating with the cell monitoring modules.</div>
+        <div id='error2' class='error'>Controller found <span id='missingmodule1'></span> modules, but is configured for <span id='missingmodule2'></span>.</div>
+        <div id='error3' class='error'>Controller is configured to use more modules than it can cope with.</div>
+        <div id='error4' class='error'>Waiting for modules to reply</div>
+        <div id='error5' class='error'>Module has returned ZERO volt reading, check configuration</div>
+        <div id='error6' class='error'>Controller has run out of memory.</div>
+
         <div id='iperror' class='error'>Cannot communicate with the controller for status updates.</div>
-        <div id='missingmodules' class='error'>Controller found <span id='missingmodule1'></span> modules, but is
-            configured
-            for <span id='missingmodule2'></span>.</div>
-        <div id='toomanymodules' class='error'>Controller is configured to use more modules than it can cope with.</div>
         <div id='genericerror' class='error'>Controller error <span id="genericerrcode"></span></div>
+
         <div id='jslibrary' class='error'>Javascript library has failed to load correctly, please refresh page.</div>
         <div id='saveerror' class='error'>Failed to save settings.</div>
         <div id='savesuccess' class='success'>Settings saved</div>
+
         <div id='genericwarning' class='warning'>Controller warning <span id="genericwarningcode"></span></div>
-        <div id='warning1' class='warning'>Warning: one or more modules are configured with a different bypass voltage
-            value
-        </div>
-        <div id='warning2' class='warning'>Warning: one or more modules are configured with a different bypass
-            temperature
-            value</div>
+
+        <div id='warning1' class='warning'>Warning: Modules are configured with different bypass voltages</div>
+        <div id='warning2' class='warning'>Warning: Modules are configured with different bypass temperatures</div>
+        <div id='warning3' class='warning'>Warning: Modules have mixed versions of code, may cause instability</div>
+        <div id='warning4' class='warning'>Warning: Modules have mixed versions of hardware/boards</div>
+    
     </div>
     <div id="info" class="info">
         <div id="current" class="stat"><span class="x t">Current:</span><span class="x v"></span></div>
@@ -109,8 +112,9 @@
         </div>
         <div class="region">
             <h2>Platform &amp; Version</h2>
-            <p>%PLATFORM%</p>
-            <p id="platformversion"></p>
+            <p>Processor: %PLATFORM%</p>
+            <p>Version: <a href="https://github.com/stuartpittaway/diyBMSv4Code/commit/%GIT_VERSION%" rel="noreferrer" target="_blank">%GIT_VERSION%</a></p>
+            <p>Compiled: %COMPILE_DATE_TIME%</p>
         </div>
     </div>
     <div class="page" id="modulesPage">
@@ -148,7 +152,7 @@
                         </div>
                         <div>
                             <label for="Version">Module version</label>
-                            <input type="number" name="Version" id="Version" value="" readonly="">
+                            <input type="text" name="Version" id="Version" value="" readonly="">
                         </div>
                         <div>
                             <label for="BypassOverTempShutdown">Bypass over temperature</label>

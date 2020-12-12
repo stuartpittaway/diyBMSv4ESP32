@@ -38,10 +38,6 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 
 #include <Arduino.h>
 
-#ifndef GIT_VERSION
-#error GIT_VERSION not defined
-#endif
-
 //#define PACKET_LOGGING_RECEIVE
 //#define PACKET_LOGGING_SEND
 //#define RULES_LOGGING
@@ -507,38 +503,28 @@ void timerTransmitCallback()
 void ProcessRules()
 {
   rules.ClearValues();
+  rules.ClearWarnings();
+  rules.ClearErrors();
 
-  InternalErrorCode newErrCode = InternalErrorCode::NoError;
-  InternalWarningCode newWarnCode = InternalWarningCode::NoWarning;
+  rules.rule_outcome[Rule::BMSError] = false;
 
   uint16_t totalConfiguredModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
   if (totalConfiguredModules > maximum_controller_cell_modules)
   {
     //System is configured with more than maximum modules - abort!
-    newErrCode = InternalErrorCode::TooManyModules;
+    rules.SetError(InternalErrorCode::TooManyModules);
   }
 
-  if (receiveProc.totalModulesFound != totalConfiguredModules)
+  if (receiveProc.totalModulesFound > 0 && receiveProc.totalModulesFound != totalConfiguredModules)
   {
     //Found more or less modules than configured for
-    newErrCode = InternalErrorCode::ModuleCountMismatch;
-  }
-
-  if (rules.invalidModuleCount > 0)
-  {
-    //Some modules are not yet valid
-    newErrCode = InternalErrorCode::WaitingForModulesToReply;
+    rules.SetError(InternalErrorCode::ModuleCountMismatch);
   }
 
   //Communications error...
   if (receiveProc.HasCommsTimedOut())
   {
-    newErrCode = InternalErrorCode::CommunicationsError;
-  }
-
-  if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
-  {
-    newErrCode = InternalErrorCode::ZeroVoltModule;
+    rules.SetError(InternalErrorCode::CommunicationsError);
   }
 
   uint8_t cellid = 0;
@@ -552,11 +538,24 @@ void ProcessRules()
       {
         if (cmi[cellid].BypassThresholdmV != mysettings.BypassThresholdmV)
         {
-          newWarnCode = InternalWarningCode::ModuleInconsistantBypassVoltage;
+          rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassVoltage);
         }
-        else if (cmi[cellid].BypassOverTempShutdown != mysettings.BypassOverTempShutdown)
+
+        if (cmi[cellid].BypassOverTempShutdown != mysettings.BypassOverTempShutdown)
         {
-          newWarnCode = InternalWarningCode::ModuleInconsistantBypassTemperature;
+          rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassTemperature);
+        }
+
+        if (cmi[cellid].CodeVersionNumber != cmi[0].CodeVersionNumber)
+        {
+          //Do all the modules have the same version of code as module zero?
+          rules.SetWarning(InternalWarningCode::ModuleInconsistantCodeVersion);
+        }
+
+        if (cmi[cellid].BoardVersionNumber != cmi[0].BoardVersionNumber)
+        {
+          //Do all the modules have the same hardware revision?
+          rules.SetWarning(InternalWarningCode::ModuleInconsistantBoardRevision);
         }
       }
 
@@ -565,8 +564,16 @@ void ProcessRules()
     rules.ProcessBank(bank);
   }
 
-  rules.SetError(newErrCode);
-  rules.SetWarning(newWarnCode);
+  if (rules.invalidModuleCount > 0)
+  {
+    //Some modules are not yet valid
+    rules.SetError(InternalErrorCode::WaitingForModulesToReply);
+  }
+
+  if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
+  {
+    rules.SetError(InternalErrorCode::ZeroVoltModule);
+  }
 
   rules.RunRules(
       mysettings.rulevalue,
@@ -1092,7 +1099,7 @@ void sendMqttPacket()
   mqttFrequencyCounter++;
 
   //If the BMS is in error, stop sending MQTT packets for the data
-  if (rules.ErrorCode == InternalErrorCode::NoError)
+  if (!rules.rule_outcome[Rule::BMSError])
   {
     uint8_t counter = 0;
     for (uint8_t i = mqttStartModule; i < mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks; i++)
@@ -1295,8 +1302,8 @@ void setup()
   SERIAL_DEBUG.print(", Cores ");
   SERIAL_DEBUG.print(chip_info.cores);
   SERIAL_DEBUG.print(", Features=0x");
-  SERIAL_DEBUG.println(chip_info.features,HEX);
- 
+  SERIAL_DEBUG.println(chip_info.features, HEX);
+
 #endif
 
   //We generate a unique number which is used in all following JSON requests
@@ -1390,9 +1397,13 @@ void setup()
   //strcpy(xxxx.wifi_ssid,"XXXXXX");
   //strcpy(xxxx.wifi_passphrase,"XXXXXX");
   //Settings::WriteConfigToEEPROM((char*)&xxxx, sizeof(xxxx), EEPROM_WIFI_START_ADDRESS);
+  //clearAPSettings = 0;
 
   if (!DIYBMSSoftAP::LoadConfigFromEEPROM() || clearAPSettings == 0)
   {
+    //We have just started...
+    SetControllerState(ControllerState::ConfigurationSoftAP);
+
     SERIAL_DEBUG.print(F("Clear AP settings"));
     SERIAL_DEBUG.println(clearAPSettings);
     SERIAL_DEBUG.println(F("Setup Access Point"));
@@ -1434,49 +1445,40 @@ void setup()
       mqttClient.setServer(mysettings.mqtt_server, mysettings.mqtt_port);
       mqttClient.setCredentials(mysettings.mqtt_username, mysettings.mqtt_password);
     }
+
+    //Ensure we service the cell modules every 6 seconds
+    myTimer.attach(6, timerEnqueueCallback);
+
+    //Process rules every 5 seconds
+    myTimerRelay.attach(5, timerProcessRules);
+
+    //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
+    //and slower than it takes a single module to process a command (about 300ms)
+    myTransmitTimer.attach(1, timerTransmitCallback);
+
+    //Service reply queue
+    myReplyTimer.attach(1, serviceReplyQueue);
+
+    //This is a lazy timer for low priority tasks
+    myLazyTimer.attach(20, timerLazyCallback);
+
+    //We have just started...
+    SetControllerState(ControllerState::Stabilizing);
   }
-
-  //Ensure we service the cell modules every 4 seconds
-  myTimer.attach(8, timerEnqueueCallback);
-
-  //Process rules every 5 seconds
-  myTimerRelay.attach(5, timerProcessRules);
-
-  //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
-  //and slower than it takes a single module to process a command (about 300ms)
-  myTransmitTimer.attach(1, timerTransmitCallback);
-
-  //Service reply queue
-  myReplyTimer.attach(1, serviceReplyQueue);
-
-  //This is a lazy timer for low priority tasks
-  myLazyTimer.attach(20, timerLazyCallback);
-
-  //We have just started...
-  SetControllerState(ControllerState::Stabilizing);
 }
 
 void loop()
 {
-  if (WifiDisconnected)
+  //ESP_LOGW("LOOP","LOOP");
+
+  if (WifiDisconnected && ControlState != ControllerState::ConfigurationSoftAP)
   {
     connectToWifi();
   }
 
   ArduinoOTA.handle();
 
-  //ESP_LOGW("LOOP","LOOP");
-
   // Call update to receive, decode and process incoming packets.
-  if (SERIAL_DATA.available() > 0)
-  {
-    digitalWrite(4, HIGH);
-  }
-  else
-  {
-    digitalWrite(4, LOW);
-  }
-
   myPacketSerial.checkInputStream();
 
   if (ConfigHasChanged > 0)

@@ -1,14 +1,13 @@
 #include "Rules.h"
 
-
 void Rules::ClearValues()
 {
     //Array to hold the total voltage of each bank/pack (in millivolts)
     for (uint8_t r = 0; r < maximum_number_of_banks; r++)
     {
         packvoltage[r] = 0;
-        lowestvoltageinpack[r]=0xFFFF;
-        highestvoltageinpack[r]=0;
+        lowestvoltageinpack[r] = 0xFFFF;
+        highestvoltageinpack[r] = 0;
     }
 
     highestPackVoltage = 0;
@@ -18,18 +17,19 @@ void Rules::ClearValues()
     highestExternalTemp = -127;
     lowestExternalTemp = 127;
     zeroVoltageModuleCount = 0;
-    invalidModuleCount =0;
+    invalidModuleCount = 0;
     moduleHasExternalTempSensor = false;
 }
 
 //Looking at individual voltages and temperatures and sum up pack voltages.
 void Rules::ProcessCell(uint8_t bank, CellModuleInfo *c)
 {
-    if (c->valid==false) {
+    if (c->valid == false)
+    {
         invalidModuleCount++;
         return;
     }
-    
+
     packvoltage[bank] += c->voltagemV;
 
     //If the voltage of the module is zero, we probably haven't requested it yet (which happens during power up)
@@ -47,7 +47,6 @@ void Rules::ProcessCell(uint8_t bank, CellModuleInfo *c)
     {
         lowestvoltageinpack[bank] = c->voltagemV;
     }
-
 
     if (c->voltagemV > highestCellVoltage)
     {
@@ -76,7 +75,8 @@ void Rules::ProcessCell(uint8_t bank, CellModuleInfo *c)
     }
 }
 
-uint16_t Rules::VoltageRangeInBank(uint8_t bank) {
+uint16_t Rules::VoltageRangeInBank(uint8_t bank)
+{
     return highestvoltageinpack[bank] - lowestvoltageinpack[bank];
 }
 
@@ -93,32 +93,54 @@ void Rules::ProcessBank(uint8_t bank)
     }
 }
 
-void Rules::SetWarning(InternalWarningCode warncode) {
-    if (WarningCode!=warncode) {
-        WarningCode=warncode;
-        SERIAL_DEBUG.print("Warning State="); SERIAL_DEBUG.println(WarningCode);
+void Rules::SetWarning(InternalWarningCode warncode)
+{
+    for (size_t i = 0; i < sizeof(WarningCodes); i++)
+    {
+        if (WarningCodes[i] == warncode) {
+            //We already have the warning in the list, so skip
+            break;
+        }
+        //Find a free space
+        if (WarningCodes[i] == InternalWarningCode::NoWarning)
+        {
+            WarningCodes[i] = warncode;
+            //SERIAL_DEBUG.print("Added warning ");            SERIAL_DEBUG.println(warncode);
+            break;
+        }
     }
 }
 
+void Rules::SetError(InternalErrorCode err)
+{
+    for (size_t i = 0; i < sizeof(ErrorCodes); i++)
+    {
+        if (ErrorCodes[i] == err)
+        {
+            //Error is already in the array
+            break;
+        }
+        //Find a free space
+        if (ErrorCodes[i] == InternalErrorCode::NoError)
+        {
+            rule_outcome[Rule::BMSError] = true;
 
-void Rules::SetError(InternalErrorCode err) {
-    if (ErrorCode!=err) {
-        ErrorCode=err;
-        rule_outcome[Rule::BMSError] =(err!=InternalErrorCode::NoError);
+            ErrorCodes[i] = err;
 
-        SERIAL_DEBUG.print("Error State="); SERIAL_DEBUG.println(err);
+            SERIAL_DEBUG.print("Error State=");SERIAL_DEBUG.println(err);
+            break;
+        }
     }
 }
 
 void Rules::RunRules(
     uint32_t *value,
     uint32_t *hysteresisvalue,
-    bool emergencyStop, 
+    bool emergencyStop,
     uint16_t mins)
 {
     //Emergency stop signal...
     rule_outcome[Rule::EmergencyStop] = emergencyStop;
-
 
     //Timer 1 and Timer 2
     rule_outcome[Rule::Timer1] = (mins >= value[Rule::Timer1] && mins <= hysteresisvalue[Rule::Timer1]);

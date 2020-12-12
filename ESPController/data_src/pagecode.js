@@ -1,7 +1,9 @@
 const INTERNALWARNINGCODE = {
     NoWarning: 0,
     ModuleInconsistantBypassVoltage: 1,
-    ModuleInconsistantBypassTemperature: 2
+    ModuleInconsistantBypassTemperature: 2,
+    ModuleInconsistantCodeVersion: 3,
+    ModuleInconsistantBoardRevision: 4
 }
 Object.freeze(INTERNALWARNINGCODE);
 
@@ -12,7 +14,8 @@ const INTERNALERRORCODE =
     ModuleCountMismatch: 2,
     TooManyModules: 3,
     WaitingForModulesToReply: 4,
-    ZeroVoltModule: 5
+    ZeroVoltModule: 5,
+    ControllerMemoryError: 6
 
 };
 Object.freeze(INTERNALERRORCODE);
@@ -42,7 +45,7 @@ function configureModule(button, cellid, attempts) {
 
                 //Populate settings div
                 $('#ModuleId').val(data.settings.id);
-                $('#Version').val(data.settings.ver);
+                $('#Version').val(data.settings.ver.toString() + '/' + data.settings.code.toString(16));
                 $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);
                 $('#BypassThresholdmV').val(data.settings.BypassThresholdmV);
                 $('#Calib').val(data.settings.Calib.toFixed(4));
@@ -60,7 +63,7 @@ function configureModule(button, cellid, attempts) {
                 if (attempts > 0) {
                     //Call back to refresh page, only try for a limited number of attempts
                     attempts--;
-                    setTimeout(configureModule, 1500, button, bank, module, attempts);
+                    setTimeout(configureModule, 1500, button, cellid, attempts);
                 }
             }
         }).fail(function () {
@@ -187,56 +190,29 @@ function queryBMS() {
             }
         }
 
-        switch (jsondata.warningcode) {
-            case INTERNALWARNINGCODE.NoWarning:
-                $(".warning").hide();
-                break;
-            case INTERNALWARNINGCODE.ModuleInconsistantBypassVoltage:
-                $(".warning").hide();
-                $("#warning1").show();
-                break;
-            case INTERNALWARNINGCODE.ModuleInconsistantBypassTemperature:
-                $(".warning").hide();
-                $("#warning2").show();
-                break;
-            default:
-                $(".warning").hide();
-                $("#genericwarning").show();
-                $("#genericwarningcode").html(jsondata.warningcode);
-                break;
+
+
+        //Needs increasing when more warnings are added
+        for (let warning = 1; warning <= 4; warning++) {
+            if (jsondata.warnings.includes(warning)) {
+                $("#warning" + warning).show();
+            } else {
+                $("#warning" + warning).hide();
+            }
         }
 
-        switch (jsondata.errorcode) {
-            case INTERNALERRORCODE.NoError:
-                $(".error").hide();
-                $("#homePage").css({ opacity: 1.0 });
-                break;
+        //Needs increasing when more errors are added
+        for (let error = 1; error <= 6; error++) {
+            if (jsondata.errors.includes(error)) {
+                $("#error" + error).show();
 
-            case INTERNALERRORCODE.CommunicationsError:
-                $("#commserr").show();
-                //Dim the main home page graph
-                $("#homePage").css({ opacity: 0.1 });
-                break;
-
-            case INTERNALERRORCODE.ModuleCountMismatch:
-                $("#missingmodules").show();
-                $("#missingmodule1").html(jsondata.modulesfnd);
-                $("#missingmodule2").html(jsondata.banks * jsondata.seriesmodules);
-                break;
-
-            case INTERNALERRORCODE.TooManyModules:
-                $("#toomanymodules").show();
-                break;
-
-            case INTERNALERRORCODE.TooManyModules:
-                $("#genericerrcode").html(jsondata.errorcode);
-                $("#genericerror").show();
-                break;
-
-            case INTERNALERRORCODE.ZeroVoltModule:
-                $("#genericerrcode").html(jsondata.errorcode);
-                $("#genericerror").show();
-                break;
+                if (error == INTERNALERRORCODE.ModuleCountMismatch) {
+                    $("#missingmodule1").html(jsondata.modulesfnd);
+                    $("#missingmodule2").html(jsondata.banks * jsondata.seriesmodules);
+                }
+            } else {
+                $("#error" + error).hide();
+            }
         }
 
         $("#info").show();
@@ -613,13 +589,13 @@ function queryBMS() {
                 var banks3d = [];
 
                 for (var seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
-                    cells3d.push({value:'Cell ' + seriesmodules, textStyle: { color: '#ffffff' }});
+                    cells3d.push({ value: 'Cell ' + seriesmodules, textStyle: { color: '#ffffff' } });
                 }
 
                 var data3d = [];
                 var cell = 0;
                 for (var bankNumber = 0; bankNumber < jsondata.banks; bankNumber++) {
-                    banks3d.push({value:'Bank ' + bankNumber, textStyle: { color: '#ffffff' }});
+                    banks3d.push({ value: 'Bank ' + bankNumber, textStyle: { color: '#ffffff' } });
                     //Build up 3d array for cell data
                     for (var seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
                         data3d.push({ value: [seriesmodules, bankNumber, voltages[cell].value], itemStyle: voltages[cell].itemStyle });
@@ -628,14 +604,14 @@ function queryBMS() {
                 }
 
                 g2.setOption({
-                    xAxis3D: { data:  cells3d },
+                    xAxis3D: { data: cells3d },
                     yAxis3D: { data: banks3d },
                     zAxis3D: { min: minVoltage, max: maxVoltage },
                     series: [{ data: data3d }]
 
                     , grid3D: {
-                        boxWidth: 20*jsondata.seriesmodules > 200 ? 200:20*jsondata.seriesmodules,
-                        boxDepth: 20*jsondata.banks > 100 ? 100:20*jsondata.banks
+                        boxWidth: 20 * jsondata.seriesmodules > 200 ? 200 : 20 * jsondata.seriesmodules,
+                        boxDepth: 20 * jsondata.banks > 100 ? 100 : 20 * jsondata.banks
                     }
                 }
 
@@ -659,9 +635,9 @@ function queryBMS() {
     });
 }
 
-$(window).on('resize', function () { 
-    if (g1 != null && g1 != undefined && $('#homePage').is(':visible')) { g1.resize(); } 
-    if (g2 != null && g2 != undefined && $('#homePage').is(':visible')) { g2.resize(); } 
+$(window).on('resize', function () {
+    if (g1 != null && g1 != undefined && $('#homePage').is(':visible')) { g1.resize(); }
+    if (g2 != null && g2 != undefined && $('#homePage').is(':visible')) { g2.resize(); }
 });
 
 $(function () {
@@ -678,8 +654,8 @@ $(function () {
     for (var n = 1; n <= 32; n++) {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }
-    for (var n = MAXIMUM_NUMBER_OF_BANKS-1; n>=0; n--) {
-        $("#totalBanks").prepend('<option>' + (n+1) + '</option>')
+    for (var n = MAXIMUM_NUMBER_OF_BANKS - 1; n >= 0; n--) {
+        $("#totalBanks").prepend('<option>' + (n + 1) + '</option>')
         $("#info").prepend('<div id="range' + n + '" class="stat"><span class="x t">Range ' + n + ':</span><span class="x v"></span></div>');
         $("#info").prepend('<div id="voltage' + n + '" class="stat"><span class="x t">Voltage ' + n + ':</span><span class="x v"></span></div>');
 
@@ -688,7 +664,7 @@ $(function () {
     }
 
 
-    
+
     $("#graph1").show();
     $("#graph2").hide();
     $("#graphOptions a").click(function (event) {
@@ -735,8 +711,6 @@ $(function () {
 
         $.getJSON("settings.json",
             function (data) {
-                $("#platformversion").text(data.settings.Version);
-
                 $("#aboutPage").show();
             }).fail(function () { }
             );

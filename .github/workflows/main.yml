@@ -1,0 +1,48 @@
+name: PlatformIO CI
+
+on: 
+  push:
+ 
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:       
+    - uses: actions/checkout@v2
+    - name: Cache pip
+      uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: ${{ runner.os }}-pip-
+    - name: Cache PlatformIO
+      uses: actions/cache@v2
+      with:
+        path: ~/.platformio
+        key: ${{ runner.os }}-${{ hashFiles('**/lockfiles') }}
+    - name: Set up Python
+      uses: actions/setup-python@v2
+    - name: Install PlatformIO
+      run: |
+        python -m pip install --upgrade pip
+        pip install --upgrade platformio
+        
+        
+    - name: Build code for modules
+      run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
+
+      
+    - name: Build code for controller
+      run: pio run --project-dir=./ESPController --project-conf=./ESPController/platformio.ini
+
+    - name: Publish Compile Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: DIYBMS-Compiled-Code
+        path: |
+          ./ATTINYCellModule/.pio/build/attiny841_V*/*.hex
+          ./ESPController/.pio/build/*/*.bin
+          ./ESPController/.pio/build/*/*.bin
+        if-no-files-found: error
+        

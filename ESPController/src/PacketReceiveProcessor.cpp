@@ -219,4 +219,6 @@ void PacketReceiveProcessor::ProcessReplySettings()
   cmi[m].External_BCoefficient = _packetbuffer.moduledata[9];
   // uint16_t
   cmi[m].BoardVersionNumber = _packetbuffer.moduledata[10];
+
+  cmi[m].CodeVersionNumber = (_packetbuffer.moduledata[14] << 16) +_packetbuffer.moduledata[15];
 }

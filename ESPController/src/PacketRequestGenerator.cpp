@@ -12,6 +12,8 @@ void PacketRequestGenerator::clearSettingsForAllModules()
 void PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
 {
   PacketStruct _packetbuffer;
+  clearPacket(&_packetbuffer);
+
   //Ask all modules to set bypass and temperature value
   setPacketAddressBroadcast(&_packetbuffer);
   //Command - WriteSettings
@@ -28,7 +30,8 @@ void PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, u
 void PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration)
 {
   PacketStruct _packetbuffer;
-  setPacketAddressSingle(&_packetbuffer, m);
+  clearPacket(&_packetbuffer);
+  setPacketAddressModuleRange(&_packetbuffer, m,m);
   //Command - WriteSettings
   _packetbuffer.command = COMMAND::WriteSettings;
 
@@ -90,7 +93,7 @@ void PacketRequestGenerator::sendIdentifyModuleRequest(uint8_t cellid)
   //Read settings from single module
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
-  setPacketAddressSingle(&_packetbuffer, cellid);
+  setPacketAddressModuleRange(&_packetbuffer, cellid, cellid);
   //Command 3 - identify
   _packetbuffer.command = COMMAND::Identify;
   pushPacketToQueue(&_packetbuffer);
@@ -114,7 +117,7 @@ void PacketRequestGenerator::sendGetSettingsRequest(uint8_t cellid)
   clearPacket(&_packetbuffer);
 
   //Read settings from single module
-  setPacketAddressSingle(&_packetbuffer, cellid);
+  setPacketAddressModuleRange(&_packetbuffer, cellid, cellid);
   //Command 5 - read settings
   _packetbuffer.command = COMMAND::ReadSettings;
   pushPacketToQueue(&_packetbuffer);
@@ -158,10 +161,6 @@ void PacketRequestGenerator::pushPacketToQueue(PacketStruct *_packetbuffer)
   packetsGenerated++;
 }
 
-void PacketRequestGenerator::setPacketAddressSingle(PacketStruct *_packetbuffer, uint8_t module)
-{
-  setPacketAddressModuleRange(_packetbuffer, module, module);
-}
 void PacketRequestGenerator::setPacketAddressModuleRange(PacketStruct *_packetbuffer, uint8_t startmodule, uint8_t endmodule)
 {
   //This is already zero from clearPacket

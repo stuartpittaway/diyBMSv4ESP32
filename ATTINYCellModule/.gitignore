@@ -3,3 +3,4 @@
 .clang_complete
 .gcc-flags.json
 .pio
+EmbeddedFiles_Defines.h

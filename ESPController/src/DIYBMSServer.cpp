@@ -496,12 +496,11 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
   if (!validateXSS(request))
     return;
 
-  if (request->hasParam("m", true) && request->hasParam("b", true))
+  if (request->hasParam("m", true))
   {
-
     AsyncWebParameter *module = request->getParam("m", true);
-
-    int m = module->value().toInt();
+    //Will this overflow?
+    uint8_t m = module->value().toInt();
 
     if (m > maximum_controller_cell_modules)
     {
@@ -594,7 +593,6 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   root["OutputsEnabled"] = OutputsEnabled;
   root["InputsEnabled"] = InputsEnabled;
   root["ControlState"] = ControlState;
-  
 
   JsonArray defaultArray = root.createNestedArray("relaydefault");
   for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
@@ -661,10 +659,6 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   request->send(response);
 }
 
-#ifndef GIT_VERSION
-#error GIT_VERSION not defined
-#endif
-
 void DIYBMSServer::settings(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response =
@@ -675,7 +669,8 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
 
   JsonObject settings = root.createNestedObject("settings");
 
-  settings["Version"] = String(GIT_VERSION);
+  //settings["Version"] = String(GIT_VERSION);
+  //settings["CompileDate"] = String(COMPILE_DATE_TIME);
 
   settings["totalnumberofbanks"] = mysettings.totalNumberOfBanks;
   settings["totalseriesmodules"] = mysettings.totalNumberOfSeriesModules;
@@ -790,6 +785,7 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
     settings["module"] = m;
     settings["id"] = c;
     settings["ver"] = cmi[c].BoardVersionNumber;
+    settings["code"] = cmi[m].CodeVersionNumber;
     settings["Cached"] = cmi[c].settingsCached;
 
     if (cmi[c].settingsCached)
@@ -818,8 +814,7 @@ void DIYBMSServer::handleRestartController(AsyncWebServerRequest *request)
 
 void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 {
-
-  DynamicJsonDocument doc(13312);
+  DynamicJsonDocument doc(maximum_controller_cell_modules*140);
 
   if (doc.capacity() == 0)
   {
@@ -830,8 +825,9 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
     doc2["banks"] = mysettings.totalNumberOfBanks;
     doc2["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
-    doc2["errorcode"] = InternalErrorCode::ControllerMemoryError;
-    doc2["warningcode"] = rules.WarningCode;
+    JsonArray errors = doc2.createNestedArray("errors");
+    //JsonArray warnings = doc2.createNestedArray("warnings");
+    errors.add(InternalErrorCode::ControllerMemoryError);
     doc2["sent"] = prg.packetsGenerated;
     doc2["received"] = receiveProc.packetsReceived;
     doc2["modulesfnd"] = receiveProc.totalModulesFound;
@@ -849,8 +845,24 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
     doc["banks"] = mysettings.totalNumberOfBanks;
     doc["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
-    doc["errorcode"] = rules.ErrorCode;
-    doc["warningcode"] = rules.WarningCode;
+    JsonArray errors = doc.createNestedArray("errors");
+    for (size_t i = 0; i < sizeof(rules.ErrorCodes); i++)
+    {
+      if (rules.ErrorCodes[i] != InternalErrorCode::NoError)
+      {
+        errors.add(rules.ErrorCodes[i]);
+      }
+    }
+
+    JsonArray warnings = doc.createNestedArray("warnings");
+    for (size_t i = 0; i < sizeof(rules.WarningCodes); i++)
+    {
+      if (rules.WarningCodes[i] != InternalWarningCode::NoWarning)
+      {
+        warnings.add(rules.WarningCodes[i]);
+      }
+    }
+
     doc["sent"] = prg.packetsGenerated;
     doc["received"] = receiveProc.packetsReceived;
     doc["modulesfnd"] = receiveProc.totalModulesFound;
@@ -967,6 +979,12 @@ String DIYBMSServer::TemplateProcessor(const String &var)
   if (var == "PLATFORM")
     return String("ESP32");
 #endif
+
+  if (var == "GIT_VERSION")
+    return String(GIT_VERSION);
+
+  if (var == "COMPILE_DATE_TIME")
+    return String(COMPILE_DATE_TIME);
 
   //  const DEFAULT_GRAPH_MAX_VOLTAGE = %graph_voltagehigh%;
   //  const DEFAULT_GRAPH_MIN_VOLTAGE = %graph_voltagelow%;
