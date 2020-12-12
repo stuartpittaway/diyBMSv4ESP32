@@ -65,7 +65,11 @@ PacketProcessor PP(&myConfig);
 volatile bool wdt_triggered = false;
 
 //Interrupt counter
-volatile uint8_t v = 0;
+volatile uint8_t InterruptCounter = 0;
+volatile uint16_t PulsePeriod = 0;
+volatile uint16_t OnPulseCount = 0;
+
+volatile float MilliAmpBalanceCounter = 0;
 
 void DefaultConfig()
 {
@@ -234,19 +238,25 @@ ISR(TIMER1_COMPA_vect)
   // when v=1, the duration between on and off is 2.019ms (1.0095ms per interrupt) - on for 2.019ms off for 255.7ms, 0.7844% duty
   // when v=128 (50%), the duration between on and off is 130.8ms (1.0218ms per interrupt) - on for 130.8ms, off for 127.4ms 50.67% duty
   // when v=192 (75%), the duration between on and off is 195.6ms (1.0187ms per interrupt) - on for 62.63ms, off for 30.83ms, 75.74% duty
-  v++;
+  InterruptCounter++;
+  PulsePeriod++;
   //Reset at top
-  if (v == 255)
+  if (InterruptCounter == 255)
   {
-    v = 0;
+    InterruptCounter = 0;
   }
 
   //Switch the load on if the counter is below the SETPOINT
-  if (v <= PP.PWMSetPoint)
+  if (InterruptCounter <= PP.PWMSetPoint)
   {
     //Enable the pin
     //DiyBMSATTiny841::SparePinOn();
     DiyBMSATTiny841::DumpLoadOn();
+
+    //Count the number of "on" periods, so we can calculate the amount of energy consumed
+    //over time
+    OnPulseCount++;
+
   }
   else
   {
@@ -254,6 +264,27 @@ ISR(TIMER1_COMPA_vect)
     //DiyBMSATTiny841::SparePinOff();
     DiyBMSATTiny841::DumpLoadOff();
   }
+
+  if (PulsePeriod==1000) {
+    //One second has passed- Coulomb Counting
+
+    //Ohms law, I=V/R, we assume that the current has been the same over the past 1 second
+    //as we have a fixed resistance (or since the last voltage reading really)
+
+    //Amp-hours are calculated by multiplying the number of amps (A) a battery provides by the discharge time in hours (h)
+    //3600 seconds in 1 hour
+
+    //Example: 4V / 4.4R = 0.909Amps (balance current), * 1000 = 909.09MilliAmps / 3600.0 = 0.2525 milli-amp-hours
+    // then scale down to the number of "on periods", if the PWM has only been on 700ms (out of 1000ms), then 0.17675 milli-amp-hours (70% on)
+
+    // Floats are not good on ATTINY/8bit controllers, need to look at moving to fixed decimal/integer calculations
+
+    float CurrentMilliAmpHour=(OnPulseCount/1000.0)*(((float)PP.CellVoltage()/(float)LOAD_RESISTANCE)*1000.0/3600.0);
+    MilliAmpBalanceCounter+=CurrentMilliAmpHour;
+
+    PulsePeriod=0;
+  }
+
 }
 
 /*
