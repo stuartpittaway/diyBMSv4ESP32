@@ -27,11 +27,12 @@ void PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, u
 
   clearSettingsForAllModules();
 }
+
 void PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration)
 {
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
-  setPacketAddressModuleRange(&_packetbuffer, m,m);
+  setPacketAddressModuleRange(&_packetbuffer, m, m);
   //Command - WriteSettings
   _packetbuffer.command = COMMAND::WriteSettings;
 
@@ -66,92 +67,70 @@ void PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThreshold
 
 void PacketRequestGenerator::sendReadBadPacketCounter(uint8_t startmodule, uint8_t endmodule)
 {
-  //Read bad packet count (broadcast) to bank
-  PacketStruct _packetbuffer;
-  clearPacket(&_packetbuffer);
-  setPacketAddressModuleRange(&_packetbuffer, startmodule, endmodule);
-  _packetbuffer.command = COMMAND::ReadBadPacketCounter;
-  //AVR MCUs are little endian (least significant byte first in memory)
-  
-  pushPacketToQueue(&_packetbuffer);
+  BuildAndSendRequest(COMMAND::ReadBadPacketCounter, startmodule, endmodule);
 }
 
 void PacketRequestGenerator::sendCellVoltageRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  //Read voltage
-  PacketStruct _packetbuffer;
-  clearPacket(&_packetbuffer);
-  setPacketAddressModuleRange(&_packetbuffer, startmodule, endmodule);
-  //Command 1 - read voltage
-  _packetbuffer.command = COMMAND::ReadVoltageAndStatus;
-  //AVR MCUs are little endian (least significant byte first in memory)
-  pushPacketToQueue(&_packetbuffer);
+  BuildAndSendRequest(COMMAND::ReadVoltageAndStatus, startmodule, endmodule);
 }
 
 void PacketRequestGenerator::sendIdentifyModuleRequest(uint8_t cellid)
 {
-  //Read settings from single module
-  PacketStruct _packetbuffer;
-  clearPacket(&_packetbuffer);
-  setPacketAddressModuleRange(&_packetbuffer, cellid, cellid);
-  //Command 3 - identify
-  _packetbuffer.command = COMMAND::Identify;
-  pushPacketToQueue(&_packetbuffer);
+  BuildAndSendRequest(COMMAND::Identify, cellid, cellid);
 }
 
 void PacketRequestGenerator::sendTimingRequest()
 {
   //Ask all modules to simple pass on a NULL request/packet for timing purposes
-  PacketStruct _packetbuffer;
-  clearPacket(&_packetbuffer);
-  setPacketAddressBroadcast(&_packetbuffer);
-  //Command - Timing
-  _packetbuffer.command = COMMAND::Timing;
-  pushPacketToQueue(&_packetbuffer);
+  BuildAndSendRequest(COMMAND::Timing);
 }
 
 void PacketRequestGenerator::sendGetSettingsRequest(uint8_t cellid)
 {
-  //SERIAL_DEBUG.println("sendGetSettingsRequest");
-  PacketStruct _packetbuffer;
-  clearPacket(&_packetbuffer);
-
-  //Read settings from single module
-  setPacketAddressModuleRange(&_packetbuffer, cellid, cellid);
-  //Command 5 - read settings
-  _packetbuffer.command = COMMAND::ReadSettings;
-  pushPacketToQueue(&_packetbuffer);
+  BuildAndSendRequest(COMMAND::ReadSettings, cellid, cellid);
 }
 
 void PacketRequestGenerator::sendCellTemperatureRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  PacketStruct _packetbuffer;
-  clearPacket(&_packetbuffer);
-  //Read temperature (broadcast) to bank
-  setPacketAddressModuleRange(&_packetbuffer, startmodule, endmodule);
-  //Command 3 - read temperatures
-  _packetbuffer.command = COMMAND::ReadTemperature;
-  pushPacketToQueue(&_packetbuffer);
+  BuildAndSendRequest(COMMAND::ReadTemperature, startmodule, endmodule);
+}
+
+void PacketRequestGenerator::sendReadBalanceCurrentCountRequest(uint8_t startmodule, uint8_t endmodule)
+{
+  BuildAndSendRequest(COMMAND::ReadBalanceCurrentCounter, startmodule, endmodule);
+}
+
+void PacketRequestGenerator::sendReadPacketsReceivedRequest(uint8_t startmodule, uint8_t endmodule)
+{
+  BuildAndSendRequest(COMMAND::ReadPacketReceivedCounter, startmodule, endmodule);
 }
 
 void PacketRequestGenerator::sendReadBalancePowerRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  PacketStruct _packetbuffer;
-  clearPacket(&_packetbuffer);
-  //Read PWM value
-  setPacketAddressModuleRange(&_packetbuffer, startmodule, endmodule);
-  //Command 7 - read PWM
-  _packetbuffer.command = COMMAND::ReadBalancePowerPWM;
-  pushPacketToQueue(&_packetbuffer);
+  BuildAndSendRequest(COMMAND::ReadBalancePowerPWM, startmodule, endmodule);
 }
 
 void PacketRequestGenerator::sendBadPacketCounterReset()
 {
+  BuildAndSendRequest(COMMAND::ResetBadPacketCounter);
+}
+
+void PacketRequestGenerator::BuildAndSendRequest(COMMAND command)
+{
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
   setPacketAddressBroadcast(&_packetbuffer);
-  //Command 0
-  _packetbuffer.command = COMMAND::ResetBadPacketCounter;
+  _packetbuffer.command = command;
+  pushPacketToQueue(&_packetbuffer);
+}
+
+void PacketRequestGenerator::BuildAndSendRequest(COMMAND command, uint8_t startmodule, uint8_t endmodule)
+{
+  PacketStruct _packetbuffer;
+  clearPacket(&_packetbuffer);
+  setPacketAddressModuleRange(&_packetbuffer, startmodule, endmodule);
+  _packetbuffer.command = command;
   pushPacketToQueue(&_packetbuffer);
 }
 
@@ -163,8 +142,6 @@ void PacketRequestGenerator::pushPacketToQueue(PacketStruct *_packetbuffer)
 
 void PacketRequestGenerator::setPacketAddressModuleRange(PacketStruct *_packetbuffer, uint8_t startmodule, uint8_t endmodule)
 {
-  //This is already zero from clearPacket
-  //_packetbuffer->hops = 0;
   _packetbuffer->start_address = startmodule;
   _packetbuffer->end_address = endmodule;
 }

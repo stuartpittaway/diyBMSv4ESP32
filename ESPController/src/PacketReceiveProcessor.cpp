@@ -83,6 +83,14 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
       case COMMAND::ReadBalancePowerPWM:
         ProcessReplyBalancePower();
         break;
+
+    case COMMAND::ReadBalanceCurrentCounter:
+        ProcessReplyReadBalanceCurrentCounter();
+        break;
+    case COMMAND::ReadPacketReceivedCounter:
+        ProcessReplyReadPacketReceivedCounter();
+        break;
+
       }
 
 #if defined(PACKET_LOGGING_RECEIVE)
@@ -135,6 +143,29 @@ void PacketReceiveProcessor::ProcessReplyTemperature()
     q++;
   }
 }
+
+
+void PacketReceiveProcessor::ProcessReplyReadBalanceCurrentCounter()
+{
+  // Called when a decoded packet has arrived in _packetbuffer for command 1
+  uint8_t q = 0;
+  for (uint8_t i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++)
+  {
+    cmi[i].BalanceCurrentCount = _packetbuffer.moduledata[q];
+    q++;
+  }
+}
+void PacketReceiveProcessor::ProcessReplyReadPacketReceivedCounter()
+{
+  // Called when a decoded packet has arrived in _packetbuffer for command 1
+  uint8_t q = 0;
+  for (uint8_t i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++)
+  {
+    cmi[i].PacketReceivedCount = _packetbuffer.moduledata[q];
+    q++;
+  }
+}
+
 
 void PacketReceiveProcessor::ProcessReplyBalancePower()
 {

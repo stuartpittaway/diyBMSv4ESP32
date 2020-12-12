@@ -1238,28 +1238,62 @@ void LoadConfiguration()
   }
 }
 
-//Lazy load the config data - Every 15 seconds see if there is a module we don't have configuration data for, if so request it
+uint8_t lazyTimerMode = 0;
+//Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 void timerLazyCallback()
 {
-
-  prg.sendTimingRequest();
-
-  uint8_t counter = 0;
-  //Find the first module that doesn't have settings cached and request them
-  for (uint8_t module = 0; module < (mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules); module++)
+  if (requestQueue.getRemainingCount() < 6)
   {
-    if (cmi[module].valid && !cmi[module].settingsCached)
-    {
-      prg.sendGetSettingsRequest(module);
-      counter++;
+    //Exit here to avoid overflowing the queue
+    return;
+  }
 
-      if (requestQueue.getRemainingCount() < 6)
+  lazyTimerMode++;
+
+  if (lazyTimerMode == 1)
+  {
+    //Lazy load the config data - Every 15 seconds see if there is a module we don't have configuration data for, if so request it
+    prg.sendTimingRequest();
+    return;
+  }
+
+  if (lazyTimerMode == 2)
+  {
+    uint8_t counter = 0;
+    //Find modules that don't have settings cached and request them
+    for (uint8_t module = 0; module < (mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules); module++)
+    {
+      if (cmi[module].valid && !cmi[module].settingsCached)
       {
-        //Exit here to avoid flooding the queue
-        return;
+        if (requestQueue.getRemainingCount() < 6)
+        {
+          //Exit here to avoid flooding the queue
+          return;
+        }
+
+        prg.sendGetSettingsRequest(module);
+        counter++;
       }
     }
+
+    return;
   }
+
+  if (lazyTimerMode == 3)
+  {
+    //Just for debug, only do the first 16 modules
+    prg.sendReadBalanceCurrentCountRequest(0, maximum_cell_modules_per_packet - 1);
+    return;
+  }
+
+  if (lazyTimerMode == 4)
+  {
+    //Just for debug, only do the first 16 modules
+    prg.sendReadPacketsReceivedRequest(0, maximum_cell_modules_per_packet - 1);
+    return;
+  }
+
+  lazyTimerMode = 0;
 }
 
 void resetAllRules()
@@ -1460,7 +1494,7 @@ void setup()
     myReplyTimer.attach(1, serviceReplyQueue);
 
     //This is a lazy timer for low priority tasks
-    myLazyTimer.attach(20, timerLazyCallback);
+    myLazyTimer.attach(8, timerLazyCallback);
 
     //We have just started...
     SetControllerState(ControllerState::Stabilizing);

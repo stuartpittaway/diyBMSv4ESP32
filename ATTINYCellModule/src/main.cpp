@@ -264,22 +264,23 @@ ISR(TIMER1_COMPA_vect)
 
   if (PulsePeriod == 1000)
   {
-    //One second has passed- Coulomb Counting
 
-    //Ohms law, I=V/R, we assume that the current has been the same over the past 1 second
-    //as we have a fixed resistance (or since the last voltage reading really)
+    // Calculate the WATTS PER SECOND of enegy consumed by the balance
 
-    //Amp-hours are calculated by multiplying the number of amps (A) a battery provides by the discharge time in hours (h)
-    //3600 seconds in 1 hour
-
-    //Example: 4V / 4.4R = 0.909Amps (balance current), * 1000 = 909.09MilliAmps / 3600.0 = 0.2525 milli-amp-hours
-    // then scale down to the number of "on periods", if the PWM has only been on 700ms (out of 1000ms), then 0.17675 milli-amp-hours (70% on)
+    // 4V / 4.4R = 0.909Amps * 4V = 3.636Watts
+    // If the balance was on 100% for 1 hour, we would have 3.636 Watt hours = or 0.003636kWh
 
     // Floats are not good on ATTINY/8bit controllers, need to look at moving to fixed decimal/integer calculations
 
-    float CurrentMilliAmpHour = (OnPulseCount / 1000.0) * (((float)PP.CellVoltage() / (float)LOAD_RESISTANCE) * 1000.0 / 3600.0);
-    PP.MilliAmpBalanceCounter += CurrentMilliAmpHour;
+    //CellVoltage is in millivolts, so we get milli-amp out.
+    float CurrentmA =  ((float)PP.CellVoltage() / (float)LOAD_RESISTANCE);
 
+    //Scale down to the number of "ON" pulses
+    float milliAmpHours = (CurrentmA *((float)OnPulseCount / (float)1000.0)) * (1/3600);    
+    
+    PP.MilliAmpHourBalanceCounter += milliAmpHours;
+
+    OnPulseCount=0;
     PulsePeriod = 0;
   }
 }

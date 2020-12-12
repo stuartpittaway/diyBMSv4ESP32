@@ -83,6 +83,9 @@ function queryBMS() {
         var tempext = [];
         var pwm = [];
 
+        var balcurrent=[];
+        var pktrecvd=[];
+
         var badpktcount = [];
 
         var minVoltage = DEFAULT_GRAPH_MIN_VOLTAGE;
@@ -137,6 +140,9 @@ function queryBMS() {
 
                 badpktcount.push(jsondata.badpacket[i]);
 
+                balcurrent.push(jsondata.balcurrent[i])
+                pktrecvd.push(jsondata.pktrecvd[i])
+                
                 cellsInBank++;
                 if (cellsInBank == jsondata.seriesmodules) {
                     cellsInBank = 0;
@@ -147,7 +153,7 @@ function queryBMS() {
                 color = jsondata.bypasshot[i] == 1 ? red : stdcolor;
                 tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
                 tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]), itemStyle: { color: stdcolor } });
-                pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : jsondata.bypasspwm[i] });
+                pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : Math.trunc(jsondata.bypasspwm[i]/255*100) });
             }
         }
 
@@ -231,7 +237,7 @@ function queryBMS() {
                     $(tbody).append("<tr><td>"
                         + bank[index]
                         + "</td><td>" + value + "</td><td></td><td class='hide'></td><td class='hide'></td>"
-                        + "<td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td>"
+                        + "<td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td>"
                         + "<td><button type='button' onclick='return identifyModule(this," + index + ");'>Identify</button>"
                         + "<button type='button' onclick='return configureModule(this," + index + ",10);'>Configure</button></td></tr>")
                 });
@@ -248,6 +254,9 @@ function queryBMS() {
                 $(columns[6]).html(tempext[index].value);
                 $(columns[7]).html(pwm[index].value);
                 $(columns[8]).html(badpktcount[index]);
+
+                $(columns[9]).html(pktrecvd[index]);
+                $(columns[10]).html(balcurrent[index]);
             });
         }
 

@@ -814,7 +814,7 @@ void DIYBMSServer::handleRestartController(AsyncWebServerRequest *request)
 
 void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 {
-  DynamicJsonDocument doc(maximum_controller_cell_modules*140);
+  DynamicJsonDocument doc(maximum_controller_cell_modules * 140);
 
   if (doc.capacity() == 0)
   {
@@ -888,6 +888,9 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     JsonArray exttemp = doc.createNestedArray("exttemp");
     JsonArray bypasspwm = doc.createNestedArray("bypasspwm");
 
+    JsonArray balancecurrentcount = doc.createNestedArray("balcurrent");
+    JsonArray packetreceivedcount = doc.createNestedArray("pktrecvd");
+
     for (uint8_t i = 0; i < totalModules; i++)
     {
       if (cmi[i].valid)
@@ -924,6 +927,10 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
         //Convert boolean to 1 or 0 to save bandwidth (every byte counts on this request)
         bypass.add(cmi[i].inBypass ? 1 : 0);
         bypasshot.add(cmi[i].bypassOverTemp ? 1 : 0);
+
+        //Just for debug, move these to config packets instead
+        balancecurrentcount.add(cmi[i].BalanceCurrentCount);
+        packetreceivedcount.add(cmi[i].PacketReceivedCount);
       }
       else
       {

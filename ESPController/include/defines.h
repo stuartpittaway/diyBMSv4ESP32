@@ -124,29 +124,21 @@ typedef union
   uint16_t word[2];
 } FLOATUNION_t;
 
+// Only the lowest 4 bits can be used!
 enum COMMAND: uint8_t
 {
-    ResetBadPacketCounter = B00000000,
-    ReadVoltageAndStatus=B00000001,
-    Identify=B00000010,
-    ReadTemperature=B00000011,
-    ReadBadPacketCounter=B00000100,
-    ReadSettings=B00000101,
-    WriteSettings=B00000110,
-    ReadBalancePowerPWM=B00000111,
-    Timing=B00001000,
-   
-    // 0000 0000  = set bank identity [obsolete]
-    // 0000 0001  = read voltage and status
-    // 0000 0010  = identify module (flash leds)
-    // 0000 0011  = Read temperature
-    // 0000 0100  = Report number of bad packets
-    // 0000 0101  = Report settings/configuration
-    // 0000 0110  = Write settings/configuration
-    // 0000 0111  = Read current level of PWM for power balance
-    // 0000 1000  = Timing of the commands through the string of modules
+    ResetBadPacketCounter = 0,
+    ReadVoltageAndStatus=1,
+    Identify=2,
+    ReadTemperature=3,
+    ReadBadPacketCounter=4,
+    ReadSettings=5,
+    WriteSettings=6,
+    ReadBalancePowerPWM=7,
+    Timing=8,
+    ReadBalanceCurrentCounter=9,
+    ReadPacketReceivedCounter=10   
 };
-
 
 //NOTE THIS MUST BE EVEN IN SIZE (BYTES) ESP8266 IS 32 BIT AND WILL ALIGN AS SUCH!
 struct PacketStruct
@@ -198,6 +190,9 @@ struct CellModuleInfo
   uint32_t CodeVersionNumber;
   //Value of PWM timer for load shedding
   uint16_t PWMValue;
+
+  uint16_t BalanceCurrentCount;
+  uint16_t PacketReceivedCount;
 };
 
 // This enum holds the states the controller goes through whilst

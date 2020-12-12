@@ -40,6 +40,7 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #define nop  __asm__("nop\n\t");
 
 
+// Only the lowest 4 bits can be used!
 enum COMMAND: uint8_t
 {
     ResetBadPacketCounter = 0,
@@ -52,18 +53,7 @@ enum COMMAND: uint8_t
     ReadBalancePowerPWM=7,
     Timing=8,
     ReadBalanceCurrentCounter=9,
-    ReadPacketReceivedCounter=10
-
-   
-    // 0000 0000  = set bank identity [obsolete]
-    // 0000 0001  = read voltage and status
-    // 0000 0010  = identify module (flash leds)
-    // 0000 0011  = Read temperature
-    // 0000 0100  = Report number of bad packets
-    // 0000 0101  = Report settings/configuration
-    // 0000 0110  = Write settings/configuration
-    // 0000 0111  = Read current level of PWM for power balance
-    // 0000 1000  = Timing of the commands through the string of modules
+    ReadPacketReceivedCounter=10   
 };
 
 

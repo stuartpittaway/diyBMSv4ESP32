@@ -335,7 +335,7 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
 
   case COMMAND::ReadBalanceCurrentCounter:
   {
-    buffer->moduledata[mymoduleaddress] = MilliAmpBalanceCounter;
+    buffer->moduledata[mymoduleaddress] = MilliAmpHourBalanceCounter;
     return true;
   }
 

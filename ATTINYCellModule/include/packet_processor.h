@@ -71,7 +71,7 @@ public:
   uint16_t RawADCValue();
   int16_t InternalTemperature();
 
-  volatile float MilliAmpBalanceCounter = 0;
+  volatile float MilliAmpHourBalanceCounter = 0;
 
   //Returns TRUE if the module is in "bypassing current" mode
   bool WeAreInBypass;

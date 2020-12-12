@@ -47,6 +47,8 @@ private:
 
   void ProcessReplyBadPacketCount();
   void ProcessReplyBalancePower();
+  void ProcessReplyReadBalanceCurrentCounter();
+  void ProcessReplyReadPacketReceivedCounter();
 };
 
 #endif

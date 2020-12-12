@@ -103,6 +103,8 @@ button:hover {border:solid 1px white;}
 button:focus {color:#1e90ff;background-color:white;}
 form input[type='submit'] {color:white;background-color:#1e90ff;}
 
+.page .region.wide {width:98%;}
+
 .hidden {visibility: hidden;}
 .rule input { width:80px; }
 th {font-family:Arial,Helvetica,sans-serif;text-align:center;font-size:14px;}

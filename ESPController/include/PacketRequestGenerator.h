@@ -33,7 +33,8 @@ public:
   void sendCellVoltageRequest(uint8_t startmodule, uint8_t endmodule);
   void sendCellTemperatureRequest(uint8_t startmodule, uint8_t endmodule);
   void sendReadBalancePowerRequest(uint8_t startmodule, uint8_t endmodule);
-
+  void sendReadBalanceCurrentCountRequest(uint8_t startmodule, uint8_t endmodule);
+  void sendReadPacketsReceivedRequest(uint8_t startmodule, uint8_t endmodule);
   void sendBadPacketCounterReset();
   void sendTimingRequest();
 
@@ -50,9 +51,11 @@ private:
   void setPacketAddress(PacketStruct *_packetbuffer, uint8_t module);  
   void setPacketAddressModuleRange(PacketStruct *_packetbuffer, uint8_t startmodule, uint8_t endmodule);
   void setPacketAddressBroadcast(PacketStruct *_packetbuffer);
-  //void clearmoduledata(PacketStruct *_packetbuffer)  {        for (int a = 0; a < maximum_cell_modules_per_packet; a++)    {      _packetbuffer->moduledata[a] = 0;    }  }
   void setmoduledataFFFF(PacketStruct *_packetbuffer);
   void clearSettingsForAllModules();
+
+  void BuildAndSendRequest(COMMAND command,uint8_t startmodule, uint8_t endmodule);
+  void BuildAndSendRequest(COMMAND command);
 };
 
 #endif
