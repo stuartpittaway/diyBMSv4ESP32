@@ -111,12 +111,8 @@ void PacketProcessor::TakeAnAnalogueReading(uint8_t mode)
 //Run when a new packet is received over serial
 bool PacketProcessor::onPacketReceived(PacketStruct *receivebuffer)
 {
-  // Process your decoded incoming packet here.
-  //if (len == sizeof(buffer))
-  //{
-
-  //Copy to our buffer (probably a better way to share memory than this)
-  //memcpy(&buffer, re1ceivebuffer, sizeof(PacketStruct));
+  //Temporary debug counter, see where packets get lost
+  PacketReceivedCounter++;
 
   //Calculate the CRC and compare to received
   uint16_t validateCRC = CRC16::CalculateArray((unsigned char *)receivebuffer, sizeof(PacketStruct) - 2);
@@ -149,7 +145,6 @@ bool PacketProcessor::onPacketReceived(PacketStruct *receivebuffer)
 
     //Return false the packet was not for me (but still a valid packet)...
     return commandProcessed;
-    //}
   }
 
   //The packet received was not correct, failed CRC check
@@ -184,6 +179,7 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
   {
   case COMMAND::ResetBadPacketCounter:
     badpackets = 0;
+    PacketReceivedCounter = 0;
     return true;
 
   case COMMAND::ReadVoltageAndStatus:
@@ -334,6 +330,18 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
 
     SettingsHaveChanged = true;
 
+    return true;
+  }
+
+  case COMMAND::ReadBalanceCurrentCounter:
+  {
+    buffer->moduledata[mymoduleaddress] = MilliAmpBalanceCounter;
+    return true;
+  }
+
+  case COMMAND::ReadPacketReceivedCounter:
+  {
+    buffer->moduledata[mymoduleaddress] = PacketReceivedCounter;
     return true;
   }
   }

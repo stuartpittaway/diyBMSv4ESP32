@@ -71,6 +71,8 @@ public:
   uint16_t RawADCValue();
   int16_t InternalTemperature();
 
+  volatile float MilliAmpBalanceCounter = 0;
+
   //Returns TRUE if the module is in "bypassing current" mode
   bool WeAreInBypass;
 
@@ -106,6 +108,9 @@ private:
   volatile uint16_t badpackets = 0;
   //Count of number of WDT events which have triggered, could indicate standalone mode or problems with serial comms
   volatile uint16_t watchdog_counter = 0;
+
+  uint16_t PacketReceivedCounter=0;
+
 };
 
 #endif

@@ -69,8 +69,6 @@ volatile uint8_t InterruptCounter = 0;
 volatile uint16_t PulsePeriod = 0;
 volatile uint16_t OnPulseCount = 0;
 
-volatile float MilliAmpBalanceCounter = 0;
-
 void DefaultConfig()
 {
   //About 2.2007 seems about right
@@ -256,7 +254,6 @@ ISR(TIMER1_COMPA_vect)
     //Count the number of "on" periods, so we can calculate the amount of energy consumed
     //over time
     OnPulseCount++;
-
   }
   else
   {
@@ -265,7 +262,8 @@ ISR(TIMER1_COMPA_vect)
     DiyBMSATTiny841::DumpLoadOff();
   }
 
-  if (PulsePeriod==1000) {
+  if (PulsePeriod == 1000)
+  {
     //One second has passed- Coulomb Counting
 
     //Ohms law, I=V/R, we assume that the current has been the same over the past 1 second
@@ -279,40 +277,17 @@ ISR(TIMER1_COMPA_vect)
 
     // Floats are not good on ATTINY/8bit controllers, need to look at moving to fixed decimal/integer calculations
 
-    float CurrentMilliAmpHour=(OnPulseCount/1000.0)*(((float)PP.CellVoltage()/(float)LOAD_RESISTANCE)*1000.0/3600.0);
-    MilliAmpBalanceCounter+=CurrentMilliAmpHour;
+    float CurrentMilliAmpHour = (OnPulseCount / 1000.0) * (((float)PP.CellVoltage() / (float)LOAD_RESISTANCE) * 1000.0 / 3600.0);
+    PP.MilliAmpBalanceCounter += CurrentMilliAmpHour;
 
-    PulsePeriod=0;
-  }
-
-}
-
-/*
-void test_loop()
-{
-  //This loop runs around 3 times per second when the module is in bypass
-  wdt_reset();
-
-  DiyBMSATTiny841::StartTimer1();
-
-  while (1)
-  {
-    //This loop runs around 3 times per second when the module is in bypass
-    wdt_reset();
-    delay(1000);
-
-    PP.PWMSetPoint = 192;
+    PulsePeriod = 0;
   }
 }
-*/
-
 
 void loop()
 {
   //This loop runs around 3 times per second when the module is in bypass
   wdt_reset();
-
-  
 
   if (PP.identifyModule > 0)
   {
@@ -366,11 +341,7 @@ void loop()
     DiyBMSATTiny841::double_tap_green_led();
 #endif
 
-    //Setup IO ports
-    //DiyBMSATTiny841::ConfigurePorts();
-
-    //If we have just woken up, we shouldn't be in balance
-    //safety check that we are not
+    //If we have just woken up, we shouldn't be in balance safety check that we are not
     StopBalance();
   }
 
@@ -409,7 +380,7 @@ void loop()
     //NOTE this loop size is dependant on the size of the packet buffer (40 bytes)
     //     too small a loop will prevent anything being processed as we go back to Sleep
     //     before packet is received correctly
-    for (size_t i = 0; i < 20; i++)
+    for (size_t i = 0; i < 120; i++)
     {
       // Call update to receive, decode and process incoming packets.
       myPacketSerial.checkInputStream();
@@ -466,8 +437,6 @@ void loop()
     {
       //Compare the real temperature against max setpoint, we want the PID to keep at this temperature
       PP.PWMSetPoint = myPID.step(myConfig.BypassTemperatureSetPoint, internal_temperature);
-
-
     }
 
     PP.bypassCountDown--;

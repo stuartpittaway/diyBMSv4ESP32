@@ -42,15 +42,18 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 enum COMMAND: uint8_t
 {
-    ResetBadPacketCounter = B00000000,
-    ReadVoltageAndStatus=B00000001,
-    Identify=B00000010,
-    ReadTemperature=B00000011,
-    ReadBadPacketCounter=B00000100,
-    ReadSettings=B00000101,
-    WriteSettings=B00000110,
-    ReadBalancePowerPWM=B00000111,
-    Timing=B00001000
+    ResetBadPacketCounter = 0,
+    ReadVoltageAndStatus=1,
+    Identify=2,
+    ReadTemperature=3,
+    ReadBadPacketCounter=4,
+    ReadSettings=5,
+    WriteSettings=6,
+    ReadBalancePowerPWM=7,
+    Timing=8,
+    ReadBalanceCurrentCounter=9,
+    ReadPacketReceivedCounter=10
+
    
     // 0000 0000  = set bank identity [obsolete]
     // 0000 0001  = read voltage and status
