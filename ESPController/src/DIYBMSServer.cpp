@@ -142,6 +142,7 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
   for (uint8_t i = 0; i < maximum_controller_cell_modules; i++)
   {
     cmi[i].badPacketCount = 0;
+    cmi[i].PacketReceivedCount = 0;
   }
 
   //Reset internal counters on CONTROLLER

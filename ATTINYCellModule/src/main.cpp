@@ -181,6 +181,9 @@ void StopBalance()
   PP.PWMSetPoint = 0;
   PP.SettingsHaveChanged = false;
 
+  OnPulseCount=0;
+  PulsePeriod = 0;
+
   DiyBMSATTiny841::StopTimer1();
   DiyBMSATTiny841::DumpLoadOff();
 }
@@ -265,19 +268,19 @@ ISR(TIMER1_COMPA_vect)
   if (PulsePeriod == 1000)
   {
 
-    // Calculate the WATTS PER SECOND of enegy consumed by the balance
-
-    // 4V / 4.4R = 0.909Amps * 4V = 3.636Watts
-    // If the balance was on 100% for 1 hour, we would have 3.636 Watt hours = or 0.003636kWh
-
     // Floats are not good on ATTINY/8bit controllers, need to look at moving to fixed decimal/integer calculations
 
-    //CellVoltage is in millivolts, so we get milli-amp out.
+    //CellVoltage is in millivolts, so we get milli-amp current reading out.
+    //For example 4000mV / 4.4R = 909.0909mA
     float CurrentmA =  ((float)PP.CellVoltage() / (float)LOAD_RESISTANCE);
 
     //Scale down to the number of "ON" pulses
-    float milliAmpHours = (CurrentmA *((float)OnPulseCount / (float)1000.0)) * (1/3600);    
+    //Assuming 100% on, 909.0909mA * (1000/1000) * 0.0002777 = 0.2525 milli amp hours (or 0.000252 amp hours)
+    float milliAmpHours = (CurrentmA * ((float)OnPulseCount / (float)1000.0)) * (1.0/3600.0);    
     
+    //0.2525 * 3600 / 1000 = 0.909Ah
+
+    //Keep running total
     PP.MilliAmpHourBalanceCounter += milliAmpHours;
 
     OnPulseCount=0;

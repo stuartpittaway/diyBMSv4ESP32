@@ -147,7 +147,6 @@ void PacketReceiveProcessor::ProcessReplyTemperature()
 
 void PacketReceiveProcessor::ProcessReplyReadBalanceCurrentCounter()
 {
-  // Called when a decoded packet has arrived in _packetbuffer for command 1
   uint8_t q = 0;
   for (uint8_t i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++)
   {
@@ -157,7 +156,6 @@ void PacketReceiveProcessor::ProcessReplyReadBalanceCurrentCounter()
 }
 void PacketReceiveProcessor::ProcessReplyReadPacketReceivedCounter()
 {
-  // Called when a decoded packet has arrived in _packetbuffer for command 1
   uint8_t q = 0;
   for (uint8_t i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++)
   {
