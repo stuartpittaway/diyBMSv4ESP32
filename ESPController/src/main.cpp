@@ -41,7 +41,7 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 //#define PACKET_LOGGING_RECEIVE
 //#define PACKET_LOGGING_SEND
 //#define RULES_LOGGING
-#define MQTT_LOGGING
+//#define MQTT_LOGGING
 
 #include "FS.h"
 
