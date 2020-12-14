@@ -251,6 +251,7 @@ Ticker myLazyTimer;
 Ticker wifiReconnectTimer;
 Ticker mqttReconnectTimer;
 Ticker myTimerSendMqttPacket;
+Ticker myTimerSendMqttStatus;
 Ticker myTimerSendInfluxdbPacket;
 Ticker myTimerSwitchPulsedRelay;
 
@@ -1016,6 +1017,7 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
   // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
   mqttReconnectTimer.detach();
   myTimerSendMqttPacket.detach();
+  myTimerSendMqttStatus.detach();
   myTimerSendInfluxdbPacket.detach();
 
   //wifiReconnectTimer.once(2, connectToWifi);
@@ -1026,11 +1028,54 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
   SERIAL_DEBUG.println(F("Disconnected from MQTT."));
 
   myTimerSendMqttPacket.detach();
+  myTimerSendMqttStatus.detach();
 
   if (WiFi.isConnected())
   {
     mqttReconnectTimer.once(2, connectToMqtt);
   }
+}
+
+
+void sendMqttStatus()
+{
+  if (!mysettings.mqtt_enabled && !mqttClient.connected())
+    return;
+
+  //SERIAL_DEBUG.println("Sending MQTT");
+
+  char topic[80];
+  char jsonbuffer[200];
+  DynamicJsonDocument doc(200);
+  JsonObject root = doc.to<JsonObject>();
+
+  root["banks"] = mysettings.totalNumberOfBanks;
+  root["cells"] = mysettings.totalNumberOfSeriesModules;
+  root["uptime"] = millis()/1000; // I want to know the uptime of the device. 
+
+  JsonObject monitor = root.createNestedObject("monitor");
+
+  // Set error flag if we have attempted to send 2*number of banks without a reply
+  monitor["commserr"] = receiveProc.HasCommsTimedOut() ? 1:0;
+  monitor["sent"] = prg.packetsGenerated;
+  monitor["received"] = receiveProc.packetsReceived;
+  monitor["badcrc"] = receiveProc.totalCRCErrors;
+  monitor["ignored"] = receiveProc.totalNotProcessedErrors;
+  monitor["roundtrip"] = receiveProc.packetTimerMillisecond;
+
+  // Below to be converted to all bank voltages in future perhaps. 
+  uint16_t cellVoltage = 0;
+  for (uint8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
+  {
+    cellVoltage += cmi[i].voltagemV;
+  }
+  
+  root["bankVoltage"] = (float)cellVoltage/1000.0;
+
+  serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+  sprintf(topic, "%s/%s", mysettings.mqtt_topic, "status");
+  mqttClient.publish(topic, 0, false, jsonbuffer);
+  SERIAL_DEBUG.println(topic);
 }
 
 //Send a few MQTT packets and keep track so we send the next batch on following calls
@@ -1046,54 +1091,46 @@ void sendMqttPacket()
     return;
 
   char topic[80];
-  char jsonbuffer[100];
+  char jsonbuffer[200];
+  StaticJsonDocument<200> doc;
 
   if (mqttFrequencyCounter % 5 == 0)
   {
     //Publish the outcome of the rules over MQTT, only do this periodically
     //ideally we would only do this when the rule outcome actually changed, perhaps on back of an event
     //(output about every 25 seconds)
+
+    //Using Json for below reduced MQTT messages from 14 to 2. Could be combined into same json object too. But even better is status + event driven.
+    sprintf(topic, "%s/rule", mysettings.mqtt_topic);
     for (uint8_t i = 0; i < RELAY_RULES; i++)
     {
-      sprintf(topic, "%s/rule/%d", mysettings.mqtt_topic, i);
-      if (rules.rule_outcome[i])
-      {
-        strcpy(jsonbuffer, "1");
-      }
-      else
-      {
-        strcpy(jsonbuffer, "0");
-      }
-      mqttClient.publish(topic, 0, false, jsonbuffer);
-
-#if defined(MQTT_LOGGING)
+      doc[(String)i] = rules.rule_outcome[i] ? 1:0;  // String conversion should be removed but just quick to get json format nice
+    }
+    serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+    #if defined(MQTT_LOGGING)
       SERIAL_DEBUG.print("MQTT - ");
       SERIAL_DEBUG.print(topic);
       SERIAL_DEBUG.print('=');
       SERIAL_DEBUG.println(jsonbuffer);
-#endif
-    }
+    #endif
+    mqttClient.publish(topic, 0, false, jsonbuffer);
 
+    doc.clear(); // Need to clear the json object for next message
+    sprintf(topic, "%s/output", mysettings.mqtt_topic);
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
-      sprintf(topic, "%s/output/%d", mysettings.mqtt_topic, i);
-      if (previousRelayState[i] == RelayState::RELAY_ON)
-      {
-        strcpy(jsonbuffer, "1");
-      }
-      else
-      {
-        strcpy(jsonbuffer, "0");
-      }
-      mqttClient.publish(topic, 0, false, jsonbuffer);
-
-#if defined(MQTT_LOGGING)
+      doc[(String)i] = (previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0;
+    }
+  
+    serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+    #if defined(MQTT_LOGGING)
       SERIAL_DEBUG.print("MQTT - ");
       SERIAL_DEBUG.print(topic);
       SERIAL_DEBUG.print('=');
       SERIAL_DEBUG.println(jsonbuffer);
-#endif
-    }
+    #endif
+    mqttClient.publish(topic, 0, false, jsonbuffer);
+    
   }
 
   mqttFrequencyCounter++;
@@ -1110,11 +1147,17 @@ void sendMqttPacket()
         uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
         uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
 
-        StaticJsonDocument<100> doc;
+        doc.clear();
         doc["voltage"] = (float)cmi[i].voltagemV / 1000.0;
+        doc["vMax"] = (float)cmi[i].voltagemVMax/1000.0;
+        doc["vMin"] = (float)cmi[i].voltagemVMin/1000.0;
         doc["inttemp"] = cmi[i].internalTemp;
         doc["exttemp"] = cmi[i].externalTemp;
         doc["bypass"] = cmi[i].inBypass ? 1 : 0;
+        doc["PWM"] = (int)((float)cmi[i].PWMValue/255.0*100);
+        doc["bypassT"] = cmi[i].bypassOverTemp ? 1:0;
+        doc["bpc"] = cmi[i].badPacketCount;
+        doc["mAh"] = cmi[i].BalanceCurrentCount;
         serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
 
         sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, module);
@@ -1155,6 +1198,7 @@ void onMqttConnect(bool sessionPresent)
 {
   SERIAL_DEBUG.println(F("Connected to MQTT."));
   myTimerSendMqttPacket.attach(5, sendMqttPacket);
+  myTimerSendMqttStatus.attach(25, sendMqttStatus);
 }
 
 void LoadConfiguration()
