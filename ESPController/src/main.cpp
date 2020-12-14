@@ -41,7 +41,7 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 //#define PACKET_LOGGING_RECEIVE
 //#define PACKET_LOGGING_SEND
 //#define RULES_LOGGING
-//#define MQTT_LOGGING
+#define MQTT_LOGGING
 
 #include "FS.h"
 
@@ -678,7 +678,6 @@ void timerProcessRules()
     }
   }
 
-  //Perhaps we should publish the relay settings over MQTT and INFLUX/website?
   for (int8_t n = 0; n < RELAY_TOTAL; n++)
   {
     if (previousRelayState[n] != relay[n])
@@ -1036,13 +1035,12 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
   }
 }
 
-
 void sendMqttStatus()
 {
   if (!mysettings.mqtt_enabled && !mqttClient.connected())
     return;
 
-  //SERIAL_DEBUG.println("Sending MQTT");
+  SERIAL_DEBUG.println("sendMqttStatus");
 
   char topic[80];
   char jsonbuffer[200];
@@ -1051,36 +1049,75 @@ void sendMqttStatus()
 
   root["banks"] = mysettings.totalNumberOfBanks;
   root["cells"] = mysettings.totalNumberOfSeriesModules;
-  root["uptime"] = millis()/1000; // I want to know the uptime of the device. 
+  root["uptime"] = millis() / 1000; // I want to know the uptime of the device.
+
+  JsonArray bankVoltage = root.createNestedArray("bankVoltage");
+  for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
+  {
+    bankVoltage.add((float)rules.packvoltage[bank] / (float)1000.0);
+  }
 
   JsonObject monitor = root.createNestedObject("monitor");
 
   // Set error flag if we have attempted to send 2*number of banks without a reply
-  monitor["commserr"] = receiveProc.HasCommsTimedOut() ? 1:0;
+  monitor["commserr"] = receiveProc.HasCommsTimedOut() ? 1 : 0;
   monitor["sent"] = prg.packetsGenerated;
   monitor["received"] = receiveProc.packetsReceived;
   monitor["badcrc"] = receiveProc.totalCRCErrors;
   monitor["ignored"] = receiveProc.totalNotProcessedErrors;
+  monitor["oos"] = receiveProc.totalOutofSequenceErrors;
   monitor["roundtrip"] = receiveProc.packetTimerMillisecond;
 
-  // Below to be converted to all bank voltages in future perhaps. 
-  uint16_t cellVoltage = 0;
-  for (uint8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
+  serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+  sprintf(topic, "%s/status", mysettings.mqtt_topic);
+  mqttClient.publish(topic, 0, false, jsonbuffer);
+#if defined(MQTT_LOGGING)
+  SERIAL_DEBUG.print("MQTT - ");
+  SERIAL_DEBUG.print(topic);
+  SERIAL_DEBUG.print('=');
+  SERIAL_DEBUG.println(jsonbuffer);
+#endif
+
+  //Publish the outcome of the rules over MQTT, only do this periodically
+  //ideally we would only do this when the rule outcome actually changed, perhaps on back of an event
+  //(output about every 25 seconds)
+
+  //Using Json for below reduced MQTT messages from 14 to 2. Could be combined into same json object too. But even better is status + event driven.
+  doc.clear(); // Need to clear the json object for next message
+  sprintf(topic, "%s/rule", mysettings.mqtt_topic);
+  for (uint8_t i = 0; i < RELAY_RULES; i++)
   {
-    cellVoltage += cmi[i].voltagemV;
+    doc[(String)i] = rules.rule_outcome[i] ? 1 : 0; // String conversion should be removed but just quick to get json format nice
   }
-  
-  root["bankVoltage"] = (float)cellVoltage/1000.0;
+  serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+#if defined(MQTT_LOGGING)
+  SERIAL_DEBUG.print("MQTT - ");
+  SERIAL_DEBUG.print(topic);
+  SERIAL_DEBUG.print('=');
+  SERIAL_DEBUG.println(jsonbuffer);
+#endif
+  mqttClient.publish(topic, 0, false, jsonbuffer);
+
+  doc.clear(); // Need to clear the json object for next message
+  sprintf(topic, "%s/output", mysettings.mqtt_topic);
+  for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+  {
+    doc[(String)i] = (previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0;
+  }
 
   serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-  sprintf(topic, "%s/%s", mysettings.mqtt_topic, "status");
+#if defined(MQTT_LOGGING)
+  SERIAL_DEBUG.print("MQTT - ");
+  SERIAL_DEBUG.print(topic);
+  SERIAL_DEBUG.print('=');
+  SERIAL_DEBUG.println(jsonbuffer);
+#endif
   mqttClient.publish(topic, 0, false, jsonbuffer);
-  SERIAL_DEBUG.println(topic);
 }
 
 //Send a few MQTT packets and keep track so we send the next batch on following calls
 uint8_t mqttStartModule = 0;
-uint8_t mqttFrequencyCounter = 0;
+
 void sendMqttPacket()
 {
 #if defined(MQTT_LOGGING)
@@ -1093,47 +1130,6 @@ void sendMqttPacket()
   char topic[80];
   char jsonbuffer[200];
   StaticJsonDocument<200> doc;
-
-  if (mqttFrequencyCounter % 5 == 0)
-  {
-    //Publish the outcome of the rules over MQTT, only do this periodically
-    //ideally we would only do this when the rule outcome actually changed, perhaps on back of an event
-    //(output about every 25 seconds)
-
-    //Using Json for below reduced MQTT messages from 14 to 2. Could be combined into same json object too. But even better is status + event driven.
-    sprintf(topic, "%s/rule", mysettings.mqtt_topic);
-    for (uint8_t i = 0; i < RELAY_RULES; i++)
-    {
-      doc[(String)i] = rules.rule_outcome[i] ? 1:0;  // String conversion should be removed but just quick to get json format nice
-    }
-    serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-    #if defined(MQTT_LOGGING)
-      SERIAL_DEBUG.print("MQTT - ");
-      SERIAL_DEBUG.print(topic);
-      SERIAL_DEBUG.print('=');
-      SERIAL_DEBUG.println(jsonbuffer);
-    #endif
-    mqttClient.publish(topic, 0, false, jsonbuffer);
-
-    doc.clear(); // Need to clear the json object for next message
-    sprintf(topic, "%s/output", mysettings.mqtt_topic);
-    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
-    {
-      doc[(String)i] = (previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0;
-    }
-  
-    serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-    #if defined(MQTT_LOGGING)
-      SERIAL_DEBUG.print("MQTT - ");
-      SERIAL_DEBUG.print(topic);
-      SERIAL_DEBUG.print('=');
-      SERIAL_DEBUG.println(jsonbuffer);
-    #endif
-    mqttClient.publish(topic, 0, false, jsonbuffer);
-    
-  }
-
-  mqttFrequencyCounter++;
 
   //If the BMS is in error, stop sending MQTT packets for the data
   if (!rules.rule_outcome[Rule::BMSError])
@@ -1148,14 +1144,14 @@ void sendMqttPacket()
         uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
 
         doc.clear();
-        doc["voltage"] = (float)cmi[i].voltagemV / 1000.0;
-        doc["vMax"] = (float)cmi[i].voltagemVMax/1000.0;
-        doc["vMin"] = (float)cmi[i].voltagemVMin/1000.0;
+        doc["voltage"] = (float)cmi[i].voltagemV / (float)1000.0;
+        doc["vMax"] = (float)cmi[i].voltagemVMax / (float)1000.0;
+        doc["vMin"] = (float)cmi[i].voltagemVMin / (float)1000.0;
         doc["inttemp"] = cmi[i].internalTemp;
         doc["exttemp"] = cmi[i].externalTemp;
         doc["bypass"] = cmi[i].inBypass ? 1 : 0;
-        doc["PWM"] = (int)((float)cmi[i].PWMValue/255.0*100);
-        doc["bypassT"] = cmi[i].bypassOverTemp ? 1:0;
+        doc["PWM"] = (int)((float)cmi[i].PWMValue / (float)255.0 * 100);
+        doc["bypassT"] = cmi[i].bypassOverTemp ? 1 : 0;
         doc["bpc"] = cmi[i].badPacketCount;
         doc["mAh"] = cmi[i].BalanceCurrentCount;
         serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
