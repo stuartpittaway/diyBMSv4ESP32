@@ -786,7 +786,7 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
     settings["module"] = m;
     settings["id"] = c;
     settings["ver"] = cmi[c].BoardVersionNumber;
-    settings["code"] = cmi[m].CodeVersionNumber;
+    settings["code"] = cmi[c].CodeVersionNumber;
     settings["Cached"] = cmi[c].settingsCached;
 
     if (cmi[c].settingsCached)
@@ -889,6 +889,9 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     JsonArray exttemp = doc.createNestedArray("exttemp");
     JsonArray bypasspwm = doc.createNestedArray("bypasspwm");
 
+
+    //TODO: Remove these two as they don't update frequently, so move to 
+    //seperate JSON call to not bloat this one (potentialy memory issues on ESP8266)
     JsonArray balancecurrentcount = doc.createNestedArray("balcurrent");
     JsonArray packetreceivedcount = doc.createNestedArray("pktrecvd");
 
