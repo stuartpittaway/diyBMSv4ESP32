@@ -65,7 +65,7 @@ enum RelayType : uint8_t
   RELAY_PULSE = 0x01
 };
 
-#define RELAY_RULES 10
+#define RELAY_RULES 12
 //Number of relays on board (4)
 #define RELAY_TOTAL 4
 
