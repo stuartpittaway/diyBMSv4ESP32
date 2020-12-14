@@ -12,12 +12,15 @@ enum Rule : uint8_t
     BMSError = 1,
     Individualcellovervoltage = 2,
     Individualcellundervoltage = 3,
-    IndividualcellovertemperatureExternal = 4,
-    IndividualcellundertemperatureExternal = 5,
-    PackOverVoltage = 6,
-    PackUnderVoltage = 7,
-    Timer2 = 8,
-    Timer1 = 9
+    IndividualcellovertemperatureInternal = 4,
+    IndividualcellundertemperatureInternal = 5,
+    IndividualcellovertemperatureExternal = 6,
+    IndividualcellundertemperatureExternal = 7,
+    PackOverVoltage = 8,
+    PackUnderVoltage = 9,
+    Timer2 = 10,
+    Timer1 = 11
+
 };
 
 enum InternalWarningCode : uint8_t
@@ -58,6 +61,8 @@ public:
     uint16_t lowestCellVoltage;
     int8_t highestExternalTemp;
     int8_t lowestExternalTemp;
+    int8_t highestInternalTemp;
+    int8_t lowestInternalTemp;
     InternalErrorCode ErrorCodes[8];
     InternalWarningCode WarningCodes[8];
     bool moduleHasExternalTempSensor;
