@@ -68,7 +68,7 @@ volatile bool wdt_triggered = false;
 volatile uint8_t InterruptCounter = 0;
 volatile uint16_t PulsePeriod = 0;
 volatile uint16_t OnPulseCount = 0;
-volatile bool PacketProcessed=false;
+volatile bool PacketProcessed = false;
 
 void DefaultConfig()
 {
@@ -137,7 +137,7 @@ void onPacketReceived()
 
   DiyBMSATTiny841::GreenLedOff();
 
-  PacketProcessed=true;
+  PacketProcessed = true;
 }
 
 ISR(USART0_START_vect)
@@ -184,7 +184,7 @@ void StopBalance()
   PP.PWMSetPoint = 0;
   PP.SettingsHaveChanged = false;
 
-  OnPulseCount=0;
+  OnPulseCount = 0;
   PulsePeriod = 0;
 
   DiyBMSATTiny841::StopTimer1();
@@ -275,18 +275,18 @@ ISR(TIMER1_COMPA_vect)
 
     //CellVoltage is in millivolts, so we get milli-amp current reading out.
     //For example 4000mV / 4.4R = 909.0909mA
-    float CurrentmA =  ((float)PP.CellVoltage() / (float)LOAD_RESISTANCE);
+    float CurrentmA = ((float)PP.CellVoltage() / (float)LOAD_RESISTANCE);
 
     //Scale down to the number of "ON" pulses
     //Assuming 100% on, 909.0909mA * (1000/1000) * 0.0002777 = 0.2525 milli amp hours (or 0.000252 amp hours)
-    float milliAmpHours = (CurrentmA * ((float)OnPulseCount / (float)1000.0)) * (1.0/3600.0);    
-    
+    float milliAmpHours = (CurrentmA * ((float)OnPulseCount / (float)1000.0)) * (1.0 / 3600.0);
+
     //0.2525 * 3600 / 1000 = 0.909Ah
 
     //Keep running total
     PP.MilliAmpHourBalanceCounter += milliAmpHours;
 
-    OnPulseCount=0;
+    OnPulseCount = 0;
     PulsePeriod = 0;
   }
 }
@@ -387,14 +387,15 @@ void loop()
     //NOTE this loop size is dependant on the size of the packet buffer (40 bytes)
     //     too small a loop will prevent anything being processed as we go back to Sleep
     //     before packet is received correctly
-    PacketProcessed=false;
+    PacketProcessed = false;
     for (size_t i = 0; i < 120; i++)
     {
       // Call update to receive, decode and process incoming packets.
       myPacketSerial.checkInputStream();
 
       //Abort loop if we just processed a packet
-      if (PacketProcessed) break;
+      if (PacketProcessed)
+        break;
 
       //Allow data to be received in buffer (delay must be AFTER) checkInputStream and before DisableSerial0TX
       delay(1);
@@ -410,7 +411,7 @@ void loop()
   //We should probably check for invalid InternalTemperature ranges here and throw error (shorted or unconnecter thermistor for example)
   uint8_t internal_temperature = PP.InternalTemperature() & 0xFF;
 
-  if (internal_temperature > DIYBMS_MODULE_SafetyTemperatureCutoff || internal_temperature > (myConfig.BypassTemperatureSetPoint+10) )
+  if (internal_temperature > DIYBMS_MODULE_SafetyTemperatureCutoff || internal_temperature > (myConfig.BypassTemperatureSetPoint + 10))
   {
     //Force shut down if temperature is too high although this does run the risk that the voltage on the cell will go high
     //but the BMS controller should shut off the charger in this situation
@@ -430,7 +431,7 @@ void loop()
 
       //This controls how many cycles of loop() we make before re-checking the situation
       //about every 30 seconds
-      PP.bypassCountDown = 100;
+      PP.bypassCountDown = 50;
       PP.bypassHasJustFinished = 0;
 
       //Start PWM
@@ -441,9 +442,9 @@ void loop()
 
   if (PP.bypassCountDown > 0)
   {
-    if (internal_temperature < (myConfig.BypassTemperatureSetPoint - 10))
+    if (internal_temperature < (myConfig.BypassTemperatureSetPoint - 6))
     {
-      //Full power if we are no where near the setpoint (more than 10 degrees C away)
+      //Full power if we are no where near the setpoint (more than 6 degrees C away)
       PP.PWMSetPoint = 0xFF;
     }
     else
@@ -451,13 +452,14 @@ void loop()
       //Compare the real temperature against max setpoint, we want the PID to keep at this temperature
       PP.PWMSetPoint = myPID.step(myConfig.BypassTemperatureSetPoint, internal_temperature);
 
-      if (myPID.err()) {
+      if (myPID.err())
+      {
         //Clear the error and stop balancing
         myPID.clear();
         StopBalance();
         //Just for debug...
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-    DiyBMSATTiny841::BlueLedOn();
+        DiyBMSATTiny841::BlueLedOn();
 #endif
       }
     }
