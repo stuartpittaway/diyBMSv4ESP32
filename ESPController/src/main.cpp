@@ -93,6 +93,9 @@ Rules rules;
 diybms_eeprom_settings mysettings;
 uint16_t ConfigHasChanged = 0;
 
+uint16_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
+
+
 bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
@@ -111,7 +114,6 @@ TaskHandle_t i2c_task_handle;
 TaskHandle_t ledoff_task_handle;
 QueueHandle_t queue_i2c;
 
-uint16_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
 
 void QueueLED(uint8_t bits)
 {
