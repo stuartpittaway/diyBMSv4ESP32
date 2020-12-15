@@ -111,6 +111,8 @@ TaskHandle_t i2c_task_handle;
 TaskHandle_t ledoff_task_handle;
 QueueHandle_t queue_i2c;
 
+uint16_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
+
 void QueueLED(uint8_t bits)
 {
   i2cQueueMessage m;
@@ -291,32 +293,42 @@ void dumpPacketToDebug(char indicator, PacketStruct *buffer)
 
   switch (buffer->command & 0x0F)
   {
+
   case COMMAND::ResetBadPacketCounter:
     SERIAL_DEBUG.print(F(" ResetC   "));
     break;
   case COMMAND::ReadVoltageAndStatus:
     SERIAL_DEBUG.print(F(" RdVolt   "));
     break;
+  case COMMAND::Identify:
+    SERIAL_DEBUG.print(F(" Ident    "));
+    break;
   case COMMAND::ReadTemperature:
     SERIAL_DEBUG.print(F(" RdTemp   "));
-    break;
-  case COMMAND::ReadSettings:
-    SERIAL_DEBUG.print(F(" RdSettin "));
     break;
   case COMMAND::ReadBadPacketCounter:
     SERIAL_DEBUG.print(F(" RdBadPkC "));
     break;
-  case COMMAND::ReadBalancePowerPWM:
-    SERIAL_DEBUG.print(F(" RdBalanc "));
+  case COMMAND::ReadSettings:
+    SERIAL_DEBUG.print(F(" RdSettin "));
     break;
   case COMMAND::WriteSettings:
     SERIAL_DEBUG.print(F(" WriteSet "));
     break;
+  case COMMAND::ReadBalancePowerPWM:
+    SERIAL_DEBUG.print(F(" RdBalanc "));
+    break;
   case COMMAND::Timing:
     SERIAL_DEBUG.print(F(" Timing   "));
     break;
+  case COMMAND::ReadBalanceCurrentCounter:
+    SERIAL_DEBUG.print(F(" Current  "));
+    break;
+  case COMMAND::ReadPacketReceivedCounter:
+    SERIAL_DEBUG.print(F(" PktRvd   "));
+    break;
   default:
-    SERIAL_DEBUG.print(F("          "));
+    SERIAL_DEBUG.print(F(" ??????   "));
     break;
   }
 
@@ -509,7 +521,7 @@ void ProcessRules()
 
   rules.rule_outcome[Rule::BMSError] = false;
 
-  uint16_t totalConfiguredModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
+  uint16_t totalConfiguredModules = TotalNumberOfCells();
   if (totalConfiguredModules > maximum_controller_cell_modules)
   {
     //System is configured with more than maximum modules - abort!
@@ -724,13 +736,11 @@ void timerProcessRules()
 #endif
 }
 
-//uint8_t counter = 0;
-
 void timerEnqueueCallback()
 {
   //this is called regularly on a timer, it determines what request to make to the modules (via the request queue)
   uint16_t i = 0;
-  uint16_t max = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
+  uint16_t max = TotalNumberOfCells();
 
   uint8_t startmodule = 0;
 
@@ -749,7 +759,7 @@ void timerEnqueueCallback()
     prg.sendCellTemperatureRequest(startmodule, endmodule);
 
     //If any module is in bypass then request PWM reading for whole bank
-    for (uint8_t m = startmodule; m < endmodule; m++)
+    for (uint8_t m = startmodule; m <= endmodule; m++)
     {
       if (cmi[m].inBypass)
       {
@@ -757,12 +767,6 @@ void timerEnqueueCallback()
         //We only need 1 reading for whole bank
         break;
       }
-    }
-
-    //Every 50 loops also ask for bad packet count (saves battery power if we dont ask for this all the time)
-    if (sequence % 50 == 0)
-    {
-      prg.sendReadBadPacketCounter(startmodule, endmodule);
     }
 
     //Move to the next bank
@@ -1129,7 +1133,7 @@ void sendMqttPacket()
   if (!rules.rule_outcome[Rule::BMSError])
   {
     uint8_t counter = 0;
-    for (uint8_t i = mqttStartModule; i < mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks; i++)
+    for (uint8_t i = mqttStartModule; i < TotalNumberOfCells(); i++)
     {
       //Only send valid module data
       if (cmi[i].valid)
@@ -1170,7 +1174,7 @@ void sendMqttPacket()
       {
         mqttStartModule = i + 1;
 
-        if (mqttStartModule > mysettings.totalNumberOfSeriesModules * mysettings.totalNumberOfBanks)
+        if (mqttStartModule > TotalNumberOfCells())
         {
           mqttStartModule = 0;
         }
@@ -1286,16 +1290,9 @@ void timerLazyCallback()
 
   if (lazyTimerMode == 1)
   {
-    //Lazy load the config data - Every 15 seconds see if there is a module we don't have configuration data for, if so request it
-    prg.sendTimingRequest();
-    return;
-  }
-
-  if (lazyTimerMode == 2)
-  {
     uint8_t counter = 0;
     //Find modules that don't have settings cached and request them
-    for (uint8_t module = 0; module < (mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules); module++)
+    for (uint8_t module = 0; module < (TotalNumberOfCells()); module++)
     {
       if (cmi[module].valid && !cmi[module].settingsCached)
       {
@@ -1313,18 +1310,55 @@ void timerLazyCallback()
     return;
   }
 
-  if (lazyTimerMode == 3)
+  if (lazyTimerMode == 2)
   {
-    //Just for debug, only do the first 16 modules
-    prg.sendReadBalanceCurrentCountRequest(0, maximum_cell_modules_per_packet - 1);
+    //Send a "ping" message through the cells to get a round trip time
+    prg.sendTimingRequest();
     return;
   }
 
-  if (lazyTimerMode == 4)
+  //Send these requests to all banks of modules
+  uint16_t i = 0;
+  uint16_t max = TotalNumberOfCells();
+
+  uint8_t startmodule = 0;
+
+  while (i < max)
   {
-    //Just for debug, only do the first 16 modules
-    prg.sendReadPacketsReceivedRequest(0, maximum_cell_modules_per_packet - 1);
-    return;
+    uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
+
+    //Limit to number of modules we have configured
+    if (endmodule > max)
+    {
+      endmodule = max - 1;
+    }
+
+    //Need to watch overflow of the uint8 here...
+    prg.sendCellVoltageRequest(startmodule, endmodule);
+
+    if (lazyTimerMode == 3)
+    {
+      prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule);
+      return;
+    }
+
+    if (lazyTimerMode == 4)
+    {
+      //Just for debug, only do the first 16 modules
+      prg.sendReadPacketsReceivedRequest(startmodule, endmodule);
+      return;
+    }
+
+    //Ask for bad packet count (saves battery power if we dont ask for this all the time)
+    if (lazyTimerMode == 5)
+    {
+      prg.sendReadBadPacketCounter(startmodule, endmodule);
+      return;
+    }
+
+    //Move to the next bank
+    startmodule = endmodule + 1;
+    i += maximum_cell_modules_per_packet;
   }
 
   lazyTimerMode = 0;
