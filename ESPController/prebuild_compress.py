@@ -21,13 +21,10 @@ def prepare_www_files():
     
     print('[COPY/GZIP DATA FILES]')
 
-    data_dir = env.get('PROJECTDATA_DIR')
-    data_src_dir = os.path.join(env.get('PROJECT_DIR'), 'data_src')
+    #data_dir = env.get('PROJECTDATA_DIR')
 
-    if(os.path.exists(data_dir) and not os.path.exists(data_src_dir) ):
-        print('  "data" dir exists, "data_src" not found.')
-        print('  renaming "' + data_dir + '" to "' + data_src_dir + '"')
-        os.rename(data_dir, data_src_dir)
+    data_dir = os.path.join(env.get('PROJECT_DIR'), 'web_temp')
+    data_src_dir = os.path.join(env.get('PROJECT_DIR'), 'web_src')
 
     if(os.path.exists(data_dir)):
         print('  Deleting data dir ' + data_dir)
@@ -68,13 +65,3 @@ def prepare_www_files():
 
 prepare_www_files()
 
-#env.AddPreAction('$BUILD_DIR/src/DIYBMSServer.cpp.o', prepare_www_files)
-
-
-
-
-
-def block_spiffs(source, target, env):
-    raise Exception("SPIFFs and the 'upload filesystem image' are no longer needed in DIYBMS")
-env.AddPreAction('$BUILD_DIR/spiffs.bin', block_spiffs)
-env.AddPreAction('$BUILD_DIR/littlefs.bin', block_spiffs)

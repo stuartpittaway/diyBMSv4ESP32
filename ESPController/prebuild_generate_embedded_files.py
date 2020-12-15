@@ -10,12 +10,13 @@ import hashlib
 Import("env")
 
 def prepare_embedded_files():
-    #This routine takes every file in the data folder and converts
+    #This routine takes every file in the web_temp folder and converts
     #to a byte array suitable for embedding into flash to avoid using SPIFF or LITTLEFS
+    #it also generates checksums and file length variables to improve caching and speed
 
     print('prebuild_generate_embedded_files.py')
 
-    data_dir = env.get('PROJECTDATA_DIR')
+    data_dir = os.path.join(env.get('PROJECT_DIR'), 'web_temp')
     include_dir = os.path.join(env.get('PROJECT_DIR'), 'include')
 
     if (os.path.exists(data_dir)==False or os.path.exists(include_dir)==False):
@@ -86,6 +87,3 @@ def prepare_embedded_files():
 
 
 prepare_embedded_files()
-
-#env.AddPreAction('$BUILD_DIR/src/DIYBMSServer.cpp.o', prepare_embedded_files)
-#env.AddPreAction('$BUILD_DIR/src/SoftAP.cpp.o', prepare_embedded_files)
