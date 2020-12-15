@@ -68,7 +68,7 @@ volatile bool wdt_triggered = false;
 volatile uint8_t InterruptCounter = 0;
 volatile uint16_t PulsePeriod = 0;
 volatile uint16_t OnPulseCount = 0;
-volatile bool PacketProcessed = false;
+//volatile bool PacketProcessed = false;
 
 void DefaultConfig()
 {
@@ -137,7 +137,7 @@ void onPacketReceived()
 
   DiyBMSATTiny841::GreenLedOff();
 
-  PacketProcessed = true;
+  //PacketProcessed = true;
 }
 
 ISR(USART0_START_vect)
@@ -291,11 +291,8 @@ ISR(TIMER1_COMPA_vect)
   }
 }
 
-void loop()
+inline void identifyModule()
 {
-  //This loop runs around 3 times per second when the module is in bypass
-  wdt_reset();
-
   if (PP.identifyModule > 0)
   {
     DiyBMSATTiny841::GreenLedOn();
@@ -312,6 +309,13 @@ void loop()
 #endif
     }
   }
+}
+
+void loop()
+{
+  //This loop runs around 3 times per second when the module is in bypass
+  wdt_reset();
+  identifyModule();
 
   if (PP.SettingsHaveChanged)
   {
@@ -319,9 +323,12 @@ void loop()
     StopBalance();
   }
 
-  if (!PP.WeAreInBypass && PP.bypassHasJustFinished == 0)
+  if (!PP.WeAreInBypass && PP.bypassHasJustFinished == 0 && Serial.available() == 0)
   {
-    //Go to SLEEP, we are not in bypass anymore
+    //Go to SLEEP, we are not in bypass anymore and no serial data waiting...
+
+    //Reset PID to defaults, in case we want to start balancing
+    myPID.clear();
 
     //Switch of TX - save power
     DiyBMSATTiny841::DisableSerial0TX();
@@ -331,9 +338,6 @@ void loop()
 
     //Program stops here until woken by watchdog or Serial port ISR
     DiyBMSATTiny841::Sleep();
-
-    //Reset PID to defaults, in case we want to start balancing
-    myPID.clear();
   }
 
   //We are awake....
@@ -354,25 +358,40 @@ void loop()
 
   //We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass
   //this is also triggered by the watchdog should comms fail or the module is running standalone
-
   DiyBMSATTiny841::ReferenceVoltageOn();
 
-  //Disable the PWM/load during voltage readings
-  if (PP.bypassCountDown > 0)
-  {
-    DiyBMSATTiny841::PausePWM();
-  }
-
-  //allow reference voltage to stabalize
-  delay(1);
+  //allow reference voltage to stabilize
+  //delay(1);
 
   //Internal temperature
   PP.TakeAnAnalogueReading(ADC_INTERNAL_TEMP);
-  //External temperature
-  PP.TakeAnAnalogueReading(ADC_EXTERNAL_TEMP);
-  //Do voltage reading last to give as much time for voltage to settle
-  PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
 
+  //Disable the PWM/load during voltage readings
+  //if (PP.bypassCountDown > 0) { DiyBMSATTiny841::PausePWM(); }
+
+  //Only take these readings when we are NOT in bypass....
+  //this causes the voltage and temperature to "freeze" during bypass cycles
+  if (PP.bypassCountDown == 0)
+  {
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+    DiyBMSATTiny841::BlueLedOn();
+#endif    
+
+    //External temperature
+    PP.TakeAnAnalogueReading(ADC_EXTERNAL_TEMP);
+
+    //Do voltage reading last to give as much time for voltage to settle
+    PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
+
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+    DiyBMSATTiny841::BlueLedOff();
+#endif    
+  }
+
+  //Switch balance PWM back on if needed
+  //if (PP.bypassCountDown > 0) { DiyBMSATTiny841::ResumePWM(); }
+
+  //Switch reference off if we are not in bypass (otherwise leave on)
   DiyBMSATTiny841::ReferenceVoltageOff();
 
   if (wdt_triggered)
@@ -387,25 +406,18 @@ void loop()
     //NOTE this loop size is dependant on the size of the packet buffer (40 bytes)
     //     too small a loop will prevent anything being processed as we go back to Sleep
     //     before packet is received correctly
-    PacketProcessed = false;
-    for (size_t i = 0; i < 120; i++)
+    //PacketProcessed = false;
+    for (size_t i = 0; i < 200; i++)
     {
       // Call update to receive, decode and process incoming packets.
       myPacketSerial.checkInputStream();
 
       //Abort loop if we just processed a packet
-      if (PacketProcessed)
-        break;
+      //if (PacketProcessed) break;
 
       //Allow data to be received in buffer (delay must be AFTER) checkInputStream and before DisableSerial0TX
       delay(1);
     }
-  }
-
-  //Switch balance PWM back on if needed
-  if (PP.bypassCountDown > 0)
-  {
-    DiyBMSATTiny841::ResumePWM();
   }
 
   //We should probably check for invalid InternalTemperature ranges here and throw error (shorted or unconnecter thermistor for example)
@@ -483,6 +495,7 @@ void loop()
     PP.bypassHasJustFinished--;
   }
 
+/*
   if (PP.bypassCountDown > 0)
   {
     //If we are trying to drain the cell/balance, then we need
@@ -490,13 +503,13 @@ void loop()
     //otherwise the loop() will start again and switch balance off!
     //wait 500ms before continuing, or we exit when some Serial data arrives
     uint16_t i = 500 / 5;
-    while (i > 0 && Serial.available() < 8)
+    while (i > 0)
     {
       // Call update to receive, decode and process incoming packets (if any)
       myPacketSerial.checkInputStream();
-
       delay(5);
       i--;
     }
   }
+*/  
 }
