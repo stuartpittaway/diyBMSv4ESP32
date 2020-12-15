@@ -68,6 +68,7 @@ volatile bool wdt_triggered = false;
 volatile uint8_t InterruptCounter = 0;
 volatile uint16_t PulsePeriod = 0;
 volatile uint16_t OnPulseCount = 0;
+volatile bool PacketProcessed=false;
 
 void DefaultConfig()
 {
@@ -135,6 +136,8 @@ void onPacketReceived()
   DiyBMSATTiny841::FlushSerial0();
 
   DiyBMSATTiny841::GreenLedOff();
+
+  PacketProcessed=true;
 }
 
 ISR(USART0_START_vect)
@@ -150,7 +153,7 @@ ISR(USART0_START_vect)
 //6Hz rate - number of times we call this code in Loop
 //Kp, Ki, Kd, Hz, output_bits, output_signed);
 //Settings for V4.00 boards with 2R2 resistors = (4.0, 0.5, 0.2, 6, 8, false);
-FastPID myPID(4.0, 0.5, 0.2, 2, 8, false);
+FastPID myPID(5.0, 1.0, 0.1, 3, 8, false);
 
 void ValidateConfiguration()
 {
@@ -384,10 +387,15 @@ void loop()
     //NOTE this loop size is dependant on the size of the packet buffer (40 bytes)
     //     too small a loop will prevent anything being processed as we go back to Sleep
     //     before packet is received correctly
+    PacketProcessed=false;
     for (size_t i = 0; i < 120; i++)
     {
       // Call update to receive, decode and process incoming packets.
       myPacketSerial.checkInputStream();
+
+      //Abort loop if we just processed a packet
+      if (PacketProcessed) break;
+
       //Allow data to be received in buffer (delay must be AFTER) checkInputStream and before DisableSerial0TX
       delay(1);
     }
@@ -399,13 +407,14 @@ void loop()
     DiyBMSATTiny841::ResumePWM();
   }
 
+  //We should probably check for invalid InternalTemperature ranges here and throw error (shorted or unconnecter thermistor for example)
   uint8_t internal_temperature = PP.InternalTemperature() & 0xFF;
 
-  if (internal_temperature > DIYBMS_MODULE_SafetyTemperatureCutoff)
+  if (internal_temperature > DIYBMS_MODULE_SafetyTemperatureCutoff || internal_temperature > (myConfig.BypassTemperatureSetPoint+10) )
   {
-    //Force shut down if temperature is too high
-    //although this does run the risk that the voltage on the cell will go high
+    //Force shut down if temperature is too high although this does run the risk that the voltage on the cell will go high
     //but the BMS controller should shut off the charger in this situation
+    myPID.clear();
     StopBalance();
   }
 
@@ -421,7 +430,7 @@ void loop()
 
       //This controls how many cycles of loop() we make before re-checking the situation
       //about every 30 seconds
-      PP.bypassCountDown = 200;
+      PP.bypassCountDown = 100;
       PP.bypassHasJustFinished = 0;
 
       //Start PWM
@@ -441,6 +450,16 @@ void loop()
     {
       //Compare the real temperature against max setpoint, we want the PID to keep at this temperature
       PP.PWMSetPoint = myPID.step(myConfig.BypassTemperatureSetPoint, internal_temperature);
+
+      if (myPID.err()) {
+        //Clear the error and stop balancing
+        myPID.clear();
+        StopBalance();
+        //Just for debug...
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+    DiyBMSATTiny841::BlueLedOn();
+#endif
+      }
     }
 
     PP.bypassCountDown--;
@@ -471,6 +490,9 @@ void loop()
     uint16_t i = 500 / 5;
     while (i > 0 && Serial.available() < 8)
     {
+      // Call update to receive, decode and process incoming packets (if any)
+      myPacketSerial.checkInputStream();
+
       delay(5);
       i--;
     }
