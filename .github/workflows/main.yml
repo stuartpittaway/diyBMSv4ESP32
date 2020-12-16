@@ -15,7 +15,7 @@ jobs:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: ${{ runner.os }}-pip-
-        
+      
     - name: Cache PlatformIO
       uses: actions/cache@v2
       with:
@@ -24,12 +24,12 @@ jobs:
 
     - name: Set up Python
       uses: actions/setup-python@v2
-      
+
     - name: Install PlatformIO
       run: |
         python -m pip install --upgrade pip
         pip install --upgrade platformio
-       
+
     - name: Build code for modules
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
 
@@ -118,7 +118,6 @@ jobs:
     - name: Build code for controller
       run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
       
-
     - name: Publish Artifacts 4
       uses: actions/upload-artifact@v2
       with:
@@ -172,10 +171,10 @@ jobs:
 
     - name: Get current date
       id: date
-      run: echo "name=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+      run: echo "dt=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
     - name: Display structure of downloaded files
-      run: mv release.zip release_${{ steps.date.outputs.date }}.zip
+      run: mv release.zip release_${{ steps.date.outputs.dt }}.zip
 
     - name: Create Release Files on MASTER branch only
       id: create_release
@@ -184,8 +183,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
       with:
-        tag_name: Tag-${{ steps.date.outputs.date }}
-        release_name: Release-${{ steps.date.outputs.date }}
+        tag_name: Tag-${{ steps.date.outputs.dt }}
+        release_name: Release-${{ steps.date.outputs.dt }}
         body: |
           Automatically generated release
         draft: false
@@ -199,6 +198,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }} 
-        asset_path: ./release_${{ steps.date.outputs.date }}.zip
-        asset_name: Compiled_Firmware_${{ steps.date.outputs.date }}.zip
-        asset_content_type: application/zip        
+        asset_path: ./release_${{ steps.date.outputs.dt }}.zip
+        asset_name: Compiled_Firmware_${{ steps.date.outputs.dt }}.zip
+        asset_content_type: application/zip
