@@ -73,13 +73,12 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: DIYBMS-Compiled-Controller-Code
-        path: |
-          ./ESPController/.pio/build/*/*.bin
+        path: ./ESPController/.pio/build/*/*.bin
         if-no-files-found: error
 
     - name: Build File System Image for ESP8266
       run: pio run --project-dir=./ESPController --target buildfs --environment esp8266_d1minipro
-      
+
     - name: Build File System Image for esp32
       run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
 
@@ -87,8 +86,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: DIYBMS-Compiled-Controller-Code
-        path: |
-          ./ESPController/.pio/build/*/*.bin
+        path: ./ESPController/.pio/build/*/*.bin
         if-no-files-found: error
 
   job_zip_code:
