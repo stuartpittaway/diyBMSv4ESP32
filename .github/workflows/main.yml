@@ -15,25 +15,33 @@ jobs:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: ${{ runner.os }}-pip-
+        
     - name: Cache PlatformIO
       uses: actions/cache@v2
       with:
         path: ~/.platformio
         key: ${{ runner.os }}-${{ hashFiles('**/lockfiles') }}
+
     - name: Set up Python
       uses: actions/setup-python@v2
+      
     - name: Install PlatformIO
       run: |
         python -m pip install --upgrade pip
         pip install --upgrade platformio
+        
     - name: Build code for modules
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
+      
     - name: Build code for controller
       run: pio run --project-dir=./ESPController --project-conf=./ESPController/platformio.ini
+      
     - name: Build File System Image for ESP8266
       run: pio run --project-dir=./ESPController --target buildfs --environment esp8266_d1minipro
+      
     - name: Build File System Image for esp32
       run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
+      
     - name: Publish Compile Artifacts
       uses: actions/upload-artifact@v2
       with:
@@ -43,6 +51,13 @@ jobs:
           ./ESPController/.pio/build/*/*.bin
           ./ESPController/.pio/build/*/*.bin
         if-no-files-found: error
+
+    - name: ZIP output for release
+      id: zipoutput
+      run: |
+        zip release.zip ./ESPController/.pio/build/esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
+        zip release.zip ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin
+
     - name: Create Release Files on MASTER branch only
       id: create_release
       uses: actions/create-release@v1
@@ -53,6 +68,18 @@ jobs:
         tag_name: ${{ github.ref }}
         release_name: Release ${{ github.ref }}
         body: |
-          Automatically generated release file
+          Automatically generated release
         draft: false
         prerelease: false
+
+    - name: Upload Release Asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      if: github.ref == 'refs/heads/master'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} 
+        asset_path: .
+        asset_name: release.zip
+        asset_content_type: application/zip
