@@ -35,6 +35,12 @@ jobs:
       
     - name: Build code for controller
       run: pio run --project-dir=./ESPController --project-conf=./ESPController/platformio.ini
+
+    - name: ZIP output for release
+      run: |
+        zip release.zip ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin
+        zip release.zip ./ESPController/.pio/build/esp8266_d1minipro/diybms_controller_firmware_espressif8266_esp8266_d1minipro.bin
+
       
     - name: Build File System Image for ESP8266
       run: pio run --project-dir=./ESPController --target buildfs --environment esp8266_d1minipro
@@ -53,10 +59,9 @@ jobs:
         if-no-files-found: error
 
     - name: ZIP output for release
-      id: zipoutput
       run: |
         zip release.zip ./ESPController/.pio/build/esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
-        zip release.zip ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin
+        zip release.zip ./ESPController/.pio/build/esp8266_d1minipro/diybms_controller_filesystemimage_espressif8266_esp8266_d1minipro.bin
 
     - name: Create Release Files on MASTER branch only
       id: create_release
