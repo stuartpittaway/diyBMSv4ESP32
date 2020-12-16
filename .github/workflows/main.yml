@@ -38,13 +38,13 @@ jobs:
 
     - name: ZIP output for release
       run: |
-        zip release.zip ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin
-        zip release.zip ./ESPController/.pio/build/esp8266_d1minipro/diybms_controller_firmware_espressif8266_esp8266_d1minipro.bin
-        zip release.zip ./ATTINYCellModule/.pio/build/attiny841_V400/*.hex
-        zip release.zip ./ATTINYCellModule/.pio/build/attiny841_V410/*.hex
-        zip release.zip ./ATTINYCellModule/.pio/build/attiny841_V420/*.hex
-        zip release.zip ./ATTINYCellModule/.pio/build/attiny841_V420_SWAPR19R20/*.hex
-        zip release.zip ./ATTINYCellModule/.pio/build/attiny841_V421/*.hex
+        zip --junk-paths release.zip ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin
+        zip --junk-paths release.zip ./ESPController/.pio/build/esp8266_d1minipro/diybms_controller_firmware_espressif8266_esp8266_d1minipro.bin
+        zip --junk-paths release.zip ./ATTINYCellModule/.pio/build/attiny841_V400/*.hex
+        zip --junk-paths release.zip ./ATTINYCellModule/.pio/build/attiny841_V410/*.hex
+        zip --junk-paths release.zip ./ATTINYCellModule/.pio/build/attiny841_V420/*.hex
+        zip --junk-paths release.zip ./ATTINYCellModule/.pio/build/attiny841_V420_SWAPR19R20/*.hex
+        zip --junk-paths release.zip ./ATTINYCellModule/.pio/build/attiny841_V421/*.hex
       
     - name: Build File System Image for ESP8266
       run: pio run --project-dir=./ESPController --target buildfs --environment esp8266_d1minipro
@@ -54,8 +54,8 @@ jobs:
       
     - name: ZIP output for release
       run: |
-        zip release.zip ./ESPController/.pio/build/esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
-        zip release.zip ./ESPController/.pio/build/esp8266_d1minipro/diybms_controller_filesystemimage_espressif8266_esp8266_d1minipro.bin
+        zip --junk-paths release.zip ./ESPController/.pio/build/esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
+        zip --junk-paths release.zip ./ESPController/.pio/build/esp8266_d1minipro/diybms_controller_filesystemimage_espressif8266_esp8266_d1minipro.bin
 
     - name: Publish Compile Artifacts
       uses: actions/upload-artifact@v2
