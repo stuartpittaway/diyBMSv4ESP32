@@ -1,11 +1,12 @@
 name: PlatformIO CI
 
-on: 
+on:
   push:
- 
+    branches:
+      - '*'
+	  
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:       
@@ -16,26 +17,33 @@ jobs:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: ${{ runner.os }}-pip-
+		
     - name: Cache PlatformIO
       uses: actions/cache@v2
       with:
         path: ~/.platformio
         key: ${{ runner.os }}-${{ hashFiles('**/lockfiles') }}
+
     - name: Set up Python
       uses: actions/setup-python@v2
+
     - name: Install PlatformIO
       run: |
         python -m pip install --upgrade pip
         pip install --upgrade platformio
-        
-        
+
     - name: Build code for modules
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
-
       
     - name: Build code for controller
       run: pio run --project-dir=./ESPController --project-conf=./ESPController/platformio.ini
 
+    - name: Build File System Image for ESP8266
+      run: pio run --project-dir=./ESPController --target buildfs --environment esp8266_d1minipro
+
+    - name: Build File System Image for esp32
+      run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
+	  
     - name: Publish Compile Artifacts
       uses: actions/upload-artifact@v2
       with:
@@ -45,4 +53,17 @@ jobs:
           ./ESPController/.pio/build/*/*.bin
           ./ESPController/.pio/build/*/*.bin
         if-no-files-found: error
-        
+       
+    - name: Create Release Files on MASTER branch only
+        id: create_release
+        uses: actions/create-release@v1
+		if: github.ref == 'refs/heads/master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Automatically generated release file
+          draft: false
+          prerelease: false
