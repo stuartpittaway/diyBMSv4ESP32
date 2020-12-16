@@ -40,7 +40,11 @@ jobs:
       run: |
         zip release.zip ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin
         zip release.zip ./ESPController/.pio/build/esp8266_d1minipro/diybms_controller_firmware_espressif8266_esp8266_d1minipro.bin
-
+        zip release.zip ./ATTINYCellModule/.pio/build/attiny841_V400/*.hex
+        zip release.zip ./ATTINYCellModule/.pio/build/attiny841_V410/*.hex
+        zip release.zip ./ATTINYCellModule/.pio/build/attiny841_V420/*.hex
+        zip release.zip ./ATTINYCellModule/.pio/build/attiny841_V420_SWAPR19R20/*.hex
+        zip release.zip ./ATTINYCellModule/.pio/build/attiny841_V421/*.hex
       
     - name: Build File System Image for ESP8266
       run: pio run --project-dir=./ESPController --target buildfs --environment esp8266_d1minipro
@@ -48,20 +52,17 @@ jobs:
     - name: Build File System Image for esp32
       run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
       
-    - name: Publish Compile Artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: DIYBMS-Compiled-Code
-        path: |
-          ./ATTINYCellModule/.pio/build/attiny841_V*/*.hex
-          ./ESPController/.pio/build/*/*.bin
-          ./ESPController/.pio/build/*/*.bin
-        if-no-files-found: error
-
     - name: ZIP output for release
       run: |
         zip release.zip ./ESPController/.pio/build/esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
         zip release.zip ./ESPController/.pio/build/esp8266_d1minipro/diybms_controller_filesystemimage_espressif8266_esp8266_d1minipro.bin
+
+    - name: Publish Compile Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: DIYBMS-Compiled-Code
+        path: ./release.zip
+        if-no-files-found: error
 
     - name: Create Release Files on MASTER branch only
       id: create_release
