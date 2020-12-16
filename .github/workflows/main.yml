@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+
     - name: Cache pip
       uses: actions/cache@v2
       with:
@@ -45,6 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+
     - name: Cache pip
       uses: actions/cache@v2
       with:
@@ -94,12 +96,12 @@ jobs:
     needs: [job_build_modulecode, job_build_controllercode]
     steps:
     - name: Download artifact DIYBMS-Compiled-Controller-Code
-    - uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v2
       with:
         name: DIYBMS-Compiled-Controller-Code
 
     - name: Download artifact DIYBMS-Compiled-Module-Code
-    - uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v2
       with:
         name: DIYBMS-Compiled-Module-Code
 
