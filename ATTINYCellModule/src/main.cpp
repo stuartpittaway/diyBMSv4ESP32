@@ -373,9 +373,10 @@ void loop()
   //this causes the voltage and temperature to "freeze" during bypass cycles
   if (PP.bypassCountDown == 0)
   {
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-    DiyBMSATTiny841::BlueLedOn();
-#endif    
+//Just for debug purposes, shows when voltage is read
+//#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+//    DiyBMSATTiny841::BlueLedOn();
+//#endif    
 
     //External temperature
     PP.TakeAnAnalogueReading(ADC_EXTERNAL_TEMP);
@@ -383,9 +384,9 @@ void loop()
     //Do voltage reading last to give as much time for voltage to settle
     PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
 
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-    DiyBMSATTiny841::BlueLedOff();
-#endif    
+//#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+//    DiyBMSATTiny841::BlueLedOff();
+//#endif    
   }
 
   //Switch balance PWM back on if needed
