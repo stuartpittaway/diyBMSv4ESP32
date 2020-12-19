@@ -2,6 +2,8 @@
 
 #include "EmbeddedFiles_Defines.h"
 
+#include "EmbeddedFiles_Integrity.h"
+
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
@@ -13,6 +15,17 @@
 //Total number of cells a single controler can handle (memory limitation)
 #define maximum_controller_cell_modules 250
 
+enum RGBLED : uint8_t
+{
+  OFF = 0,
+  Blue = B00000001,
+  Red = B00000010,
+  Purple = B00000011,
+  Green = B00000100,
+  Cyan = B00000101,
+  Yellow = B00000110,
+  White = B00000111
+};
 #endif
 
 #if defined(ESP8266)
@@ -31,8 +44,6 @@
 //This also needs changing in default.htm (MAXIMUM_NUMBER_OF_BANKS)
 #define maximum_number_of_banks 16
 
-
-
 //Version 4.XX of DIYBMS modules operate at 2400 baud
 #define COMMS_BAUD_RATE 2400
 
@@ -47,10 +58,9 @@ enum enumInputState : uint8_t
 
 struct i2cQueueMessage
 {
-    uint8_t command;
-    uint8_t data;
+  uint8_t command;
+  uint8_t data;
 };
-
 
 enum RelayState : uint8_t
 {
@@ -125,19 +135,19 @@ typedef union
 } FLOATUNION_t;
 
 // Only the lowest 4 bits can be used!
-enum COMMAND: uint8_t
+enum COMMAND : uint8_t
 {
-    ResetBadPacketCounter = 0,
-    ReadVoltageAndStatus=1,
-    Identify=2,
-    ReadTemperature=3,
-    ReadBadPacketCounter=4,
-    ReadSettings=5,
-    WriteSettings=6,
-    ReadBalancePowerPWM=7,
-    Timing=8,
-    ReadBalanceCurrentCounter=9,
-    ReadPacketReceivedCounter=10   
+  ResetBadPacketCounter = 0,
+  ReadVoltageAndStatus = 1,
+  Identify = 2,
+  ReadTemperature = 3,
+  ReadBadPacketCounter = 4,
+  ReadSettings = 5,
+  WriteSettings = 6,
+  ReadBalancePowerPWM = 7,
+  Timing = 8,
+  ReadBalanceCurrentCounter = 9,
+  ReadPacketReceivedCounter = 10
 };
 
 //NOTE THIS MUST BE EVEN IN SIZE (BYTES) ESP8266 IS 32 BIT AND WILL ALIGN AS SUCH!
@@ -199,11 +209,11 @@ struct CellModuleInfo
 // it stabilizes and moves into running state.
 enum ControllerState : uint8_t
 {
-  Unknown=0,
+  Unknown = 0,
   PowerUp = 1,
   Stabilizing = 2,
-  ConfigurationSoftAP=3,
-  Running = 255,  
+  ConfigurationSoftAP = 3,
+  Running = 255,
 };
 
 //This holds all the cell information in a large array array

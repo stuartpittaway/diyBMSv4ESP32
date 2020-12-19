@@ -62,6 +62,8 @@ private:
     static void saveDisplaySetting(AsyncWebServerRequest *request);
 
     static String uuidToString(uint8_t *uuidLocation);
+    static void SetCacheAndETagGzip(AsyncWebServerResponse *response, String ETag);
+    static void SetCacheAndETag(AsyncWebServerResponse *response, String ETag);
 };
 
 //TODO: Mixing of classes, static and extern is not great

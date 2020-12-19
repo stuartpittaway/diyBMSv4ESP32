@@ -134,7 +134,7 @@ void ledoff_task(void *param)
     //Wait 60ms
     vTaskDelay(60 / portTICK_PERIOD_MS);
     //LED OFF
-    QueueLED(0);
+    QueueLED(RGBLED::OFF);
   }
 }
 
@@ -432,7 +432,7 @@ void serviceReplyQueue()
     {
 #if defined(ESP32)
       //Error blue
-      QueueLED(B00000001);
+      QueueLED(RGBLED::Blue);
 #endif
       SERIAL_DEBUG.print(F("*FAIL*"));
       dumpPacketToDebug('F', &ps);
@@ -446,7 +446,7 @@ void onPacketReceived()
   hal.GreenLedOn();
 #endif
 #if defined(ESP32)
-  QueueLED(B00000100);
+  QueueLED(RGBLED::Green);
 #endif
 
   PacketStruct ps;
@@ -610,7 +610,7 @@ void ProcessRules()
   if (emergencyStop)
   {
     //Lowest 3 bits are RGB led GREEN/RED/BLUE
-    QueueLED(B00000011);
+    QueueLED(RGBLED::Red);
   }
 #endif
 }
@@ -1419,6 +1419,8 @@ void setup()
   hal.ConfigurePins();
 #if defined(ESP32)
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
+  //Purple during start up
+  hal.Led(RGBLED::Purple);
 #endif
 
 #if defined(ESP8266)
