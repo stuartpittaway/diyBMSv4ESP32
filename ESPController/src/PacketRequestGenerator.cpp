@@ -115,6 +115,11 @@ void PacketRequestGenerator::sendBadPacketCounterReset()
 {
   BuildAndSendRequest(COMMAND::ResetBadPacketCounter);
 }
+void PacketRequestGenerator::sendResetBalanceCurrentCounter()
+{
+  BuildAndSendRequest(COMMAND::ResetBalanceCurrentCounter);
+}
+
 
 void PacketRequestGenerator::BuildAndSendRequest(COMMAND command)
 {

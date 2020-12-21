@@ -147,7 +147,8 @@ enum COMMAND : uint8_t
   ReadBalancePowerPWM = 7,
   Timing = 8,
   ReadBalanceCurrentCounter = 9,
-  ReadPacketReceivedCounter = 10
+  ReadPacketReceivedCounter = 10,
+  ResetBalanceCurrentCounter = 11
 };
 
 //NOTE THIS MUST BE EVEN IN SIZE (BYTES) ESP8266 IS 32 BIT AND WILL ALIGN AS SUCH!

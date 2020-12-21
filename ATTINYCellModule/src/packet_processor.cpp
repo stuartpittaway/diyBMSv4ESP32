@@ -344,6 +344,12 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
     buffer->moduledata[mymoduleaddress] = PacketReceivedCounter;
     return true;
   }
+
+  case COMMAND::ResetBalanceCurrentCounter:
+  {
+    MilliAmpHourBalanceCounter = 0;
+    return true;
+  }
   }
 
   return false;

@@ -37,13 +37,10 @@ public:
   void sendReadPacketsReceivedRequest(uint8_t startmodule, uint8_t endmodule);
   void sendBadPacketCounterReset();
   void sendTimingRequest();
+  void sendResetBalanceCurrentCounter();
 
   uint32_t packetsGenerated = 0;
 
-  void clearPacket(PacketStruct *_packetbuffer)
-  {
-    memset(_packetbuffer, 0, sizeof(PacketStruct));
-  }
 
 private:
   cppQueue *_requestq;
@@ -56,6 +53,12 @@ private:
 
   void BuildAndSendRequest(COMMAND command,uint8_t startmodule, uint8_t endmodule);
   void BuildAndSendRequest(COMMAND command);
+
+  void clearPacket(PacketStruct *_packetbuffer)
+  {
+    memset(_packetbuffer, 0, sizeof(PacketStruct));
+  }
+
 };
 
 #endif

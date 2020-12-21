@@ -53,7 +53,8 @@ enum COMMAND: uint8_t
     ReadBalancePowerPWM=7,
     Timing=8,
     ReadBalanceCurrentCounter=9,
-    ReadPacketReceivedCounter=10   
+    ReadPacketReceivedCounter=10,
+    ResetBalanceCurrentCounter=11
 };
 
 

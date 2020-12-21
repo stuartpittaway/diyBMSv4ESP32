@@ -139,6 +139,7 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
 
   //Ask modules to reset bad packet counters
   prg.sendBadPacketCounterReset();
+  prg.sendResetBalanceCurrentCounter();
 
   for (uint8_t i = 0; i < maximum_controller_cell_modules; i++)
   {

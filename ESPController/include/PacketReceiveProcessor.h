@@ -34,6 +34,7 @@ public:
     totalOutofSequenceErrors = 0;
   }
 
+
 private:
   PacketStruct _packetbuffer;
   //uint8_t ReplyFromBank() {return (_packetbuffer.address & B00110000) >> 4;}
