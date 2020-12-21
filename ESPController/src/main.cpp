@@ -95,7 +95,6 @@ uint16_t ConfigHasChanged = 0;
 
 uint16_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
 
-
 bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
@@ -113,7 +112,6 @@ AsyncWebServer server(80);
 TaskHandle_t i2c_task_handle;
 TaskHandle_t ledoff_task_handle;
 QueueHandle_t queue_i2c;
-
 
 void QueueLED(uint8_t bits)
 {
@@ -1375,6 +1373,149 @@ void resetAllRules()
   }
 }
 
+bool CaptureSerialInput(HardwareSerial stream, char *buffer, int buffersize, bool OnlyDigits, bool ShowPasswordChar)
+{
+  int length = 0;
+  unsigned long timer=millis()+30000;
+
+  while (true)
+  {
+
+    //Abort after 30 seconds of inactivity
+    if (millis() > timer) return false;
+
+    //We should add a timeout in here, and return FALSE when we abort....
+    while (stream.available())
+    {
+      //Reset timer on serial input
+      timer=millis()+30000;
+
+      int data = stream.read();
+      if (data == '\b' || data == '\177')
+      { // BS and DEL
+        if (length)
+        {
+          length--;
+          stream.write("\b \b");
+        }
+      }
+      else if (data == '\n')
+      {
+        //Ignore
+      }
+      else if (data == '\r')
+      {
+        if (length > 0)
+        {
+          stream.write("\r\n"); // output CRLF
+          buffer[length] = '\0';
+
+          //Soak up any other characters on the buffer and throw away
+          while (stream.available())
+          {
+            stream.read();
+          }
+
+          //Return to caller
+          return true;
+        }
+
+        length = 0;
+      }
+      else if (length < buffersize - 1)
+      {
+        if (OnlyDigits && (data < '0' || data > '9'))
+        {
+          //We need to filter out non-digit characters
+        }
+        else
+        {
+          buffer[length++] = data;
+          if (ShowPasswordChar)
+          {
+            //Hide real character
+            stream.write('*');
+          }
+          else
+          {
+            stream.write(data);
+          }
+        }
+      }
+    }
+  }
+}
+
+void TerminalBasedWifiSetup()
+{
+  SERIAL_DEBUG.println(F("\r\n\r\nDIYBMS CONTROLLER - Scanning Wifi"));
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
+  int n = WiFi.scanNetworks();
+
+  if (n == 0)
+    SERIAL_DEBUG.println(F("no networks found"));
+  else
+  {
+    for (int i = 0; i < n; ++i)
+    {
+      if (i < 10)
+      {
+        SERIAL_DEBUG.print(' ');
+      }
+      SERIAL_DEBUG.print(i);
+      SERIAL_DEBUG.print(':');
+      SERIAL_DEBUG.print(WiFi.SSID(i));
+
+      //Pad out the wifi names into 2 columns
+      for (size_t spaces = WiFi.SSID(i).length(); spaces < 36; spaces++)
+      {
+        SERIAL_DEBUG.print(' ');
+      }
+
+      if ((i + 1) % 2 == 0)
+      {
+        SERIAL_DEBUG.println();
+      }
+      delay(5);
+    }
+    SERIAL_DEBUG.println();
+  }
+
+  WiFi.mode(WIFI_OFF);
+
+  SERIAL_DEBUG.print(F("Enter the NUMBER of the Wifi network to connect to:"));
+
+  bool result;
+  char buffer[10];
+  result = CaptureSerialInput(SERIAL_DEBUG, buffer, 10, true, false);
+  if (result)
+  {
+    int index = String(buffer).toInt();
+    SERIAL_DEBUG.print(F("Enter the password to use when connecting to '"));
+    SERIAL_DEBUG.print(WiFi.SSID(index));
+    SERIAL_DEBUG.print("':");
+
+    char passwordbuffer[80];
+    result = CaptureSerialInput(SERIAL_DEBUG, passwordbuffer, 80, false, true);
+
+    if (result)
+    {
+      wifi_eeprom_settings config;
+      memset(&config, 0, sizeof(config));
+      WiFi.SSID(index).toCharArray(config.wifi_ssid, sizeof(config.wifi_ssid));
+      strcpy(config.wifi_passphrase, passwordbuffer);
+      Settings::WriteConfigToEEPROM((char *)&config, sizeof(config), EEPROM_WIFI_START_ADDRESS);
+    }
+  }
+
+  SERIAL_DEBUG.println(F("REBOOTING IN 5..."));
+  delay(5000);
+  ESP.restart();
+}
+
 void setup()
 {
   WiFi.mode(WIFI_OFF);
@@ -1395,7 +1536,11 @@ void setup()
   //ESP32 we use the USB serial interface for console/debug messages
   SERIAL_DEBUG.begin(115200, SERIAL_8N1);
   SERIAL_DEBUG.setDebugOutput(true);
-
+  SERIAL_DEBUG.print(F("DIYBMS CONTROLLER - version:"));
+  SERIAL_DEBUG.print(GIT_VERSION);
+  SERIAL_DEBUG.print(F(" compiled:"));
+  SERIAL_DEBUG.println(COMPILE_DATE_TIME);
+/*
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
 
@@ -1407,7 +1552,7 @@ void setup()
   SERIAL_DEBUG.print(chip_info.cores);
   SERIAL_DEBUG.print(", Features=0x");
   SERIAL_DEBUG.println(chip_info.features, HEX);
-
+*/
 #endif
 
   //We generate a unique number which is used in all following JSON requests
@@ -1437,9 +1582,9 @@ void setup()
   xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
 #endif
 
+#if defined(ESP8266)
   //Pretend the button is not pressed
   uint8_t clearAPSettings = 0xFF;
-#if defined(ESP8266)
   //Fix for issue 5, delay for 3 seconds on power up with green LED lit so
   //people get chance to jump WIFI reset pin (d3)
   hal.GreenLedOn();
@@ -1498,6 +1643,28 @@ void setup()
     hal.SetOutputState(y, mysettings.rulerelaydefault[y]);
   }
 
+#if defined(ESP32)
+  //Allow user to press SPACE BAR key on serial terminal
+  //to enter text based WIFI setup
+  SERIAL_DEBUG.print(F("Press SPACE BAR to enter terminal based configuration...."));
+  for (size_t i = 0; i < (3000 / 250); i++)
+  {
+    SERIAL_DEBUG.print('.');
+    while (SERIAL_DEBUG.available())
+    {
+      int x = SERIAL_DEBUG.read();
+      //SPACE BAR
+      if (x == 32)
+      {
+        TerminalBasedWifiSetup();
+      }
+    }
+    delay(250);
+  }
+  SERIAL_DEBUG.println(F("skipped"));
+
+#endif
+
   //Temporarly force WIFI settings
   //wifi_eeprom_settings xxxx;
   //strcpy(xxxx.wifi_ssid,"XXXXXX");
@@ -1505,13 +1672,17 @@ void setup()
   //Settings::WriteConfigToEEPROM((char*)&xxxx, sizeof(xxxx), EEPROM_WIFI_START_ADDRESS);
   //clearAPSettings = 0;
 
-  if (!DIYBMSSoftAP::LoadConfigFromEEPROM() || clearAPSettings == 0)
+  if (!DIYBMSSoftAP::LoadConfigFromEEPROM()
+#if defined(ESP8266)
+      || clearAPSettings == 0
+#endif
+  )
   {
-    //We have just started...
+    //We have just started up and the EEPROM is empty of configuration
     SetControllerState(ControllerState::ConfigurationSoftAP);
 
-    SERIAL_DEBUG.print(F("Clear AP settings"));
-    SERIAL_DEBUG.println(clearAPSettings);
+    //SERIAL_DEBUG.print(F("Clear AP settings"));
+    //SERIAL_DEBUG.println(clearAPSettings);
     SERIAL_DEBUG.println(F("Setup Access Point"));
     //We are in initial power on mode (factory reset)
     DIYBMSSoftAP::SetupAccessPoint(&server);
