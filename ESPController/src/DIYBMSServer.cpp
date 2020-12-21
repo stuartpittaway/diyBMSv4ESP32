@@ -814,6 +814,44 @@ void DIYBMSServer::handleRestartController(AsyncWebServerRequest *request)
   ESP.restart();
 }
 
+void DIYBMSServer::monitor3(AsyncWebServerRequest *request)
+{
+  DynamicJsonDocument doc(maximum_controller_cell_modules * 50);
+
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+
+  //This service exists to ensure that monitor2 is keep as small as possible
+  //for ESP8266 memory limitations, these values are only updated very infrequently (lazy timer)
+  JsonArray badpacket = doc.createNestedArray("badpacket");
+  JsonArray balancecurrentcount = doc.createNestedArray("balcurrent");
+  JsonArray packetreceivedcount = doc.createNestedArray("pktrecvd");
+
+  //doc["FreeHeap"] = ESP.getFreeHeap();
+  //doc["FreeBlockSize"] = ESP.getMaxFreeBlockSize();
+
+  uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    if (cmi[i].valid)
+    {
+      //Just for debug, move these to config packets instead
+      balancecurrentcount.add(cmi[i].BalanceCurrentCount);
+      packetreceivedcount.add(cmi[i].PacketReceivedCount);
+      badpacket.add(cmi[i].badPacketCount);
+    }
+    else
+    {
+      //Return NULL
+      balancecurrentcount.add((char *)0);
+      packetreceivedcount.add((char *)0);
+      badpacket.add((char *)0);
+    }
+  }
+
+  serializeJson(doc, *response);
+  request->send(response);
+}
+
 void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 {
   DynamicJsonDocument doc(maximum_controller_cell_modules * 140);
@@ -873,27 +911,18 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     doc["roundtrip"] = receiveProc.packetTimerMillisecond;
     doc["oos"] = receiveProc.totalOutofSequenceErrors;
 
-    //doc["FreeHeap"]=ESP.getFreeHeap();
-    //doc["FreeBlockSize"]=ESP.getMaxFreeBlockSize();
-
     uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
 
     JsonArray voltages = doc.createNestedArray("voltages");
 
     JsonArray minvoltages = doc.createNestedArray("minvoltages");
     JsonArray maxvoltages = doc.createNestedArray("maxvoltages");
-    JsonArray badpacket = doc.createNestedArray("badpacket");
 
     JsonArray bypass = doc.createNestedArray("bypass");
     JsonArray bypasshot = doc.createNestedArray("bypasshot");
     JsonArray inttemp = doc.createNestedArray("inttemp");
     JsonArray exttemp = doc.createNestedArray("exttemp");
     JsonArray bypasspwm = doc.createNestedArray("bypasspwm");
-
-    //TODO: Remove these two as they don't update frequently, so move to
-    //seperate JSON call to not bloat this one (potentialy memory issues on ESP8266)
-    JsonArray balancecurrentcount = doc.createNestedArray("balcurrent");
-    JsonArray packetreceivedcount = doc.createNestedArray("pktrecvd");
 
     for (uint8_t i = 0; i < totalModules; i++)
     {
@@ -906,7 +935,6 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
           //To preserve memory, only return these parameters when there are less than =64 modules
           minvoltages.add(cmi[i].voltagemVMin);
           maxvoltages.add(cmi[i].voltagemVMax);
-          badpacket.add(cmi[i].badPacketCount);
         }
 
         if (cmi[i].internalTemp != -40)
@@ -931,10 +959,6 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
         //Convert boolean to 1 or 0 to save bandwidth (every byte counts on this request)
         bypass.add(cmi[i].inBypass ? 1 : 0);
         bypasshot.add(cmi[i].bypassOverTemp ? 1 : 0);
-
-        //Just for debug, move these to config packets instead
-        balancecurrentcount.add(cmi[i].BalanceCurrentCount);
-        packetreceivedcount.add(cmi[i].PacketReceivedCount);
       }
       else
       {
@@ -944,7 +968,7 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
         {
           minvoltages.add((char *)0);
           maxvoltages.add((char *)0);
-          badpacket.add(0);
+          //badpacket.add(0);
         }
         inttemp.add((char *)0);
         exttemp.add((char *)0);
@@ -1180,6 +1204,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
 
   //Read endpoints
   _myserver->on("/monitor2.json", HTTP_GET, DIYBMSServer::monitor2);
+  _myserver->on("/monitor3.json", HTTP_GET, DIYBMSServer::monitor3);
   _myserver->on("/integration.json", HTTP_GET, DIYBMSServer::integration);
   _myserver->on("/modules.json", HTTP_GET, DIYBMSServer::modules);
   _myserver->on("/identifyModule.json", HTTP_GET, DIYBMSServer::identifyModule);

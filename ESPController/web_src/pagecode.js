@@ -83,10 +83,6 @@ function queryBMS() {
         var tempext = [];
         var pwm = [];
 
-        var balcurrent=[];
-        var pktrecvd=[];
-
-        var badpktcount = [];
 
         var minVoltage = DEFAULT_GRAPH_MIN_VOLTAGE;
         var maxVoltage = DEFAULT_GRAPH_MAX_VOLTAGE;
@@ -138,17 +134,12 @@ function queryBMS() {
                 bank.push(bankNumber);
                 cells.push(i);
 
-                badpktcount.push(jsondata.badpacket[i]);
-
-                balcurrent.push(jsondata.balcurrent[i])
-                pktrecvd.push(jsondata.pktrecvd[i])
                 
                 cellsInBank++;
                 if (cellsInBank == jsondata.seriesmodules) {
                     cellsInBank = 0;
                     bankNumber++;
                 }
-
 
                 color = jsondata.bypasshot[i] == 1 ? red : stdcolor;
                 tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
@@ -196,8 +187,6 @@ function queryBMS() {
             }
         }
 
-
-
         //Needs increasing when more warnings are added
         for (let warning = 1; warning <= 4; warning++) {
             if (jsondata.warnings.includes(warning)) {
@@ -225,6 +214,7 @@ function queryBMS() {
         $("#iperror").hide();
 
         if ($('#modulesPage').is(':visible')) {
+            //The modules page is visible
             var tbody = $("#modulesRows");
 
             if ($('#modulesRows tr').length != cells.length) {
@@ -253,10 +243,24 @@ function queryBMS() {
                 $(columns[5]).html(tempint[index].value);
                 $(columns[6]).html(tempext[index].value);
                 $(columns[7]).html(pwm[index].value);
-                $(columns[8]).html(badpktcount[index]);
+                //$(columns[8]).html(badpktcount[index]);
+                //$(columns[9]).html(pktrecvd[index]);
+                //$(columns[10]).html(balcurrent[index]);
+            });
 
-                $(columns[9]).html(pktrecvd[index]);
-                $(columns[10]).html(balcurrent[index]);
+            //As the module page is open, we refresh the last 3 columns using seperate JSON web service to keep the monitor2.json 
+            //packets as small as possible
+
+
+            $.getJSON("monitor3.json", function (jsondata) {              
+                var tbody = $("#modulesRows");
+                var rows = $(tbody).find("tr");
+                $.each(cells, function (index, value) {
+                    var columns = $(rows[index]).find("td");
+                    $(columns[8]).html(jsondata.badpacket[index]);
+                    $(columns[9]).html(jsondata.pktrecvd[index]);
+                    $(columns[10]).html(jsondata.balcurrent[index]);
+                });
             });
         }
 

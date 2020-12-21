@@ -37,6 +37,7 @@ private:
 
     static void handleNotFound(AsyncWebServerRequest *request);
     static void monitor2(AsyncWebServerRequest *request);
+    static void monitor3(AsyncWebServerRequest *request);
     //static void monitor(AsyncWebServerRequest *request);
     static void modules(AsyncWebServerRequest *request);
 
