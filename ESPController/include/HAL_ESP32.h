@@ -49,6 +49,7 @@ public:
     bool InputsEnabled = false;
     void Led(uint8_t bits);
     void ConfigurePins(void (*WiFiPasswordResetInterrput)(void));
+    void TFTScreenBacklight(bool Status);
 
 private:
     //Private constructor (static class)

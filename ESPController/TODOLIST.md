@@ -24,20 +24,35 @@ Controls RGB LED, TFT display LED and AVR ISP reset line
 Controls relay's and external IO A/B/C/D/E
 
 ### Relay 1
-### Relay 2
-### Relay 3
-### RGB LED
-### TFT Screen
-### SD CARD
-### TX1/RX1
+Driven from pin 9/P4 of TCA6408AQPWRQ1, confirmed working.
 
+### Relay 2
+Driven from pin 10/P5 of TCA6408AQPWRQ1
+
+### Relay 3 (SSR)
+Driven from pin 11/P6 of TCA6408AQPWRQ1
+
+### TX1/RX1
 Uses GPIO2 for RX and 32 for TX.  Works as per ESP8266 modules using hardware based UART.
 
 ### I/O ports
+Driven from pin 4/5/6/7/12 (P0/1/2/3/7) of TCA6408AQPWRQ1
+
+### External 5v power supply input
+Confirmed working, 3.3v regulator working, reverse polarity protection working
+Over voltage zener diode (ZMM5V6) not working as expected, incorrectly positioned in circuit diagram (fixed, but not tested in new revision)
+
+### RGB LED
+Confirmed working, driven from TCA9534A pins 4/5/6 (P0/P1/P2) BLUE, RED, GREEN.
+
+### TFT Screen
+Confirmed LED backlight working, driven from TCA9534A pin 7 (P3).
+
+### SD CARD
 ### CANBUS
 ### RS485
 ### ATTINY ISP Programming
-### External 5v power supply
+
 ### SD Card on TFT display
 ### TFT Touch
 ### TX2/RX2 ?

@@ -11,6 +11,10 @@
 		},
 		{
 			"path": "ATTINYCellModule"
+		},
+		{
+			"name": "TFTTest",
+			"path": "..\\TFTESP32\\TFTTest"
 		}
 	],
 	"settings": {

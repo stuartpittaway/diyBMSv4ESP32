@@ -50,6 +50,44 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #include <SPI.h>
 #include "time.h"
 #include <esp_wifi.h>
+
+/*
+#define USER_SETUP_LOADED
+
+#define USE_DMA_TO_TFT
+// Color depth has to be 16 bits if DMA is used to render image
+#define COLOR_DEPTH 16
+#define ILI9341_DRIVER
+//#define SPI_FREQUENCY 40000000
+//#define SPI_READ_FREQUENCY 20000000
+//#define SPI_TOUCH_FREQUENCY 2500000
+
+#define LOAD_GLCD  // Font 1. Original Adafruit 8 pixel font needs ~1820 bytes in FLASH
+#define LOAD_FONT2 // Font 2. Small 16 pixel high font, needs ~3534 bytes in FLASH, 96 characters
+#define LOAD_FONT4 // Font 4. Medium 26 pixel high font, needs ~5848 bytes in FLASH, 96 characters
+#define LOAD_FONT6 // Font 6. Large 48 pixel font, needs ~2666 bytes in FLASH, only characters 1234567890:-.apm
+#define LOAD_FONT7 // Font 7. 7 segment 48 pixel font, needs ~2438 bytes in FLASH, only characters 1234567890:.
+#define LOAD_FONT8 // Font 8. Large 75 pixel font needs ~3256 bytes in FLASH, only characters 1234567890:-.
+#define LOAD_GFXFF // FreeFonts. Include access to the 48 Adafruit_GFX free fonts FF1 to FF48 and custom fonts
+
+//#define SMOOTH_FONT
+
+//#define TFT_MISO 12
+//#define TFT_MOSI 13
+//#define TFT_SCLK 14
+#define TFT_DC 15  // Data Command control pin
+#define TFT_RST -1 // Reset pin (could connect to RST pin)
+
+#define USE_HSPI_PORT
+#define SUPPORT_TRANSACTIONS
+
+//Our CS pin is directly connected to ground as the TFT display is the only item on the HSPI bus
+#undef TFT_CS
+*/
+#include "TFT_eSPI.h"
+
+TFT_eSPI tft = TFT_eSPI();
+
 #endif
 
 //Shared libraries across processors
@@ -104,7 +142,6 @@ TaskHandle_t ledoff_task_handle;
 QueueHandle_t queue_i2c;
 #endif
 
-
 //This large array holds all the information about the modules
 //up to 4x16
 CellModuleInfo cmi[maximum_controller_cell_modules];
@@ -156,7 +193,6 @@ bool OutputsEnabled;
 bool InputsEnabled;
 
 AsyncMqttClient mqttClient;
-
 
 #if defined(ESP32)
 
@@ -234,14 +270,14 @@ void i2c_task(void *param)
 }
 
 volatile uint32_t WifiPasswordClearTime;
-volatile bool ResetWifi=false;
+volatile bool ResetWifi = false;
 void IRAM_ATTR WifiPasswordClear()
 {
   if (digitalRead(GPIO_NUM_0) == LOW)
   {
     //Button pressed, store time
     WifiPasswordClearTime = millis() + 4000;
-    ResetWifi=false;
+    ResetWifi = false;
   }
   else
   {
@@ -249,8 +285,7 @@ void IRAM_ATTR WifiPasswordClear()
     //Did user press button for longer than 4 seconds?
     if (millis() > WifiPasswordClearTime)
     {
-      ResetWifi=true;
-
+      ResetWifi = true;
     }
   }
 }
@@ -282,7 +317,6 @@ void IRAM_ATTR ExternalInputInterrupt()
   }
 }
 #endif
-
 
 void dumpByte(uint8_t data)
 {
@@ -381,10 +415,11 @@ void SetControllerState(ControllerState newState)
     switch (ControlState)
     {
     case ControllerState::PowerUp:
-      //Purple during start up
+      //Purple during start up, don't use the QueueLED as thats not setup at this state
       hal.Led(RGBLED::Purple);
       break;
     case ControllerState::ConfigurationSoftAP:
+      //Don't use the QueueLED as thats not setup at this state
       hal.Led(RGBLED::White);
       break;
     case ControllerState::Stabilizing:
@@ -393,7 +428,7 @@ void SetControllerState(ControllerState newState)
     case ControllerState::Running:
       QueueLED(RGBLED::Green);
       //Fire task to switch off LED in a few ms
-      xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
+      //xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
       break;
     case ControllerState::Unknown:
       //Do nothing
@@ -952,7 +987,7 @@ void SetupOTA()
 {
 
   ArduinoOTA.setPort(3232);
-  //ArduinoOTA.setHostname("diybmsesp32");
+
   ArduinoOTA.setPassword("1jiOOx12AQgEco4e");
 
   ArduinoOTA
@@ -988,6 +1023,7 @@ void SetupOTA()
 
   ArduinoOTA.begin();
 }
+
 #if defined(ESP8266)
 void onWifiConnect(const WiFiEventStationModeGotIP &event)
 {
@@ -1634,6 +1670,8 @@ void setup()
   hal.GreenLedOff();
 #endif
 
+  hal.TFTScreenBacklight(false);
+
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
   for (size_t i = 0; i < maximum_controller_cell_modules; i++)
@@ -1702,7 +1740,6 @@ void setup()
     delay(250);
   }
   SERIAL_DEBUG.println(F("skipped"));
-
 #endif
 
   //Temporarly force WIFI settings
@@ -1782,12 +1819,31 @@ void setup()
     //We have just started...
     SetControllerState(ControllerState::Stabilizing);
   }
+
+  tft.init();
+  tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
+  tft.setRotation(1);
+  tft.fillScreen(TFT_BLACK);
+
+  // Set "cursor" at top left corner of display (0,0) and select font 4
+  tft.setCursor(0, 0, 4);
+
+  // Set the font colour to be white with a black background
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+
+  // We can now plot text on screen using the "print" class
+  tft.println("Intialised default\n");
+
+  hal.TFTScreenBacklight(true);
+  delay(2000);
+  hal.TFTScreenBacklight(false);
+
 }
 
 void loop()
 {
   //Allow CPU to sleep some
-  delay(10);
+  //delay(10);
   //ESP_LOGW("LOOP","LOOP");
 
   if (WifiDisconnected && ControlState != ControllerState::ConfigurationSoftAP)
@@ -1795,15 +1851,16 @@ void loop()
     connectToWifi();
   }
 
-  if (ResetWifi) {
-      //Password reset, turn LED CYAN
-      QueueLED(RGBLED::Cyan);
+  if (ResetWifi)
+  {
+    //Password reset, turn LED CYAN
+    QueueLED(RGBLED::Cyan);
 
-      //Wipe EEPROM WIFI setting
-      DIYBMSSoftAP::FactoryReset();
+    //Wipe EEPROM WIFI setting
+    DIYBMSSoftAP::FactoryReset();
   }
 
-  ArduinoOTA.handle();
+  //ArduinoOTA.handle();
 
   // Call update to receive, decode and process incoming packets.
   myPacketSerial.checkInputStream();

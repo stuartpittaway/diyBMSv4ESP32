@@ -88,6 +88,22 @@ void HAL_ESP32::Led(uint8_t bits)
     //TODO: Check return value
 }
 
+// Control TFT backlight LED
+void HAL_ESP32::TFTScreenBacklight(bool value)
+{
+    //Clear LED pins
+    TCA9534APWR_Value = TCA9534APWR_Value & B11110111;
+
+    if (value==true) {
+        //Set on
+        TCA9534APWR_Value = TCA9534APWR_Value | B00001000;
+    }
+
+    esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
+    //TODO: Check return value
+}
+
+
 void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void))
 {
     //GPIO39 is interrupt pin from TCA6408 (doesnt have pull up/down resistors)
