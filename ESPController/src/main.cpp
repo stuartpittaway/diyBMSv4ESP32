@@ -20,16 +20,6 @@ The Time.h file in this library conflicts with the time.h file in the ESP core p
 See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 */
 /*
-   ESP8266 PINS
-   D0 = GREEN_LED
-   D1 = i2c SDA
-   D2 = i2c SCL
-   D3 = switch to ground (reset WIFI configuration on power up)
-   D4 = GPIO2 = TXD1 = TRANSMIT DEBUG SERIAL (and blue led on esp8266)
-   D5 = GPIO14 = Interrupt in from PCF8574
-   D7 = GPIO13 = RECEIVE SERIAL
-   D8 = GPIO15 = TRANSMIT SERIAL
-
    DIAGRAM
    https://www.hackster.io/Aritro/getting-started-with-esp-nodemcu-using-arduinoide-aa7267
 */
@@ -112,6 +102,63 @@ AsyncWebServer server(80);
 TaskHandle_t i2c_task_handle;
 TaskHandle_t ledoff_task_handle;
 QueueHandle_t queue_i2c;
+#endif
+
+
+//This large array holds all the information about the modules
+//up to 4x16
+CellModuleInfo cmi[maximum_controller_cell_modules];
+
+#include "crc16.h"
+
+#include "settings.h"
+#include "SoftAP.h"
+#include "DIYBMSServer.h"
+#include "PacketRequestGenerator.h"
+#include "PacketReceiveProcessor.h"
+
+// Instantiate queue to hold packets ready for transmission
+cppQueue requestQueue(sizeof(PacketStruct), 16, FIFO);
+
+cppQueue replyQueue(sizeof(PacketStruct), 8, FIFO);
+
+PacketRequestGenerator prg = PacketRequestGenerator(&requestQueue);
+
+PacketReceiveProcessor receiveProc = PacketReceiveProcessor();
+
+// Memory to hold in and out serial buffer
+uint8_t SerialPacketReceiveBuffer[2 * sizeof(PacketStruct)];
+
+SerialEncoder myPacketSerial;
+
+#if defined(ESP8266)
+WiFiEventHandler wifiConnectHandler;
+WiFiEventHandler wifiDisconnectHandler;
+#endif
+
+Ticker myTimerRelay;
+Ticker myTimer;
+Ticker myTransmitTimer;
+Ticker myReplyTimer;
+Ticker myLazyTimer;
+Ticker wifiReconnectTimer;
+Ticker mqttReconnectTimer;
+Ticker myTimerSendMqttPacket;
+Ticker myTimerSendMqttStatus;
+Ticker myTimerSendInfluxdbPacket;
+Ticker myTimerSwitchPulsedRelay;
+
+uint16_t sequence = 0;
+
+ControllerState ControlState;
+
+bool OutputsEnabled;
+bool InputsEnabled;
+
+AsyncMqttClient mqttClient;
+
+
+#if defined(ESP32)
 
 void QueueLED(uint8_t bits)
 {
@@ -129,8 +176,8 @@ void ledoff_task(void *param)
   {
     //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    //Wait 60ms
-    vTaskDelay(60 / portTICK_PERIOD_MS);
+    //Wait 100ms
+    vTaskDelay(100 / portTICK_PERIOD_MS);
     //LED OFF
     QueueLED(RGBLED::OFF);
   }
@@ -186,6 +233,28 @@ void i2c_task(void *param)
   }
 }
 
+volatile uint32_t WifiPasswordClearTime;
+volatile bool ResetWifi=false;
+void IRAM_ATTR WifiPasswordClear()
+{
+  if (digitalRead(GPIO_NUM_0) == LOW)
+  {
+    //Button pressed, store time
+    WifiPasswordClearTime = millis() + 4000;
+    ResetWifi=false;
+  }
+  else
+  {
+    //Button released
+    //Did user press button for longer than 4 seconds?
+    if (millis() > WifiPasswordClearTime)
+    {
+      ResetWifi=true;
+
+    }
+  }
+}
+
 void IRAM_ATTR TCA6408Interrupt()
 {
   i2cQueueMessage m;
@@ -214,57 +283,6 @@ void IRAM_ATTR ExternalInputInterrupt()
 }
 #endif
 
-//This large array holds all the information about the modules
-//up to 4x16
-CellModuleInfo cmi[maximum_controller_cell_modules];
-
-#include "crc16.h"
-
-#include "settings.h"
-#include "SoftAP.h"
-#include "DIYBMSServer.h"
-#include "PacketRequestGenerator.h"
-#include "PacketReceiveProcessor.h"
-
-// Instantiate queue to hold packets ready for transmission
-cppQueue requestQueue(sizeof(PacketStruct), 16, FIFO);
-
-cppQueue replyQueue(sizeof(PacketStruct), 8, FIFO);
-
-PacketRequestGenerator prg = PacketRequestGenerator(&requestQueue);
-
-PacketReceiveProcessor receiveProc = PacketReceiveProcessor();
-
-// Memory to hold in and out serial buffer
-uint8_t SerialPacketReceiveBuffer[2 * sizeof(PacketStruct)];
-
-SerialEncoder myPacketSerial;
-
-#if defined(ESP8266)
-WiFiEventHandler wifiConnectHandler;
-WiFiEventHandler wifiDisconnectHandler;
-#endif
-
-Ticker myTimerRelay;
-Ticker myTimer;
-Ticker myTransmitTimer;
-Ticker myReplyTimer;
-Ticker myLazyTimer;
-Ticker wifiReconnectTimer;
-Ticker mqttReconnectTimer;
-Ticker myTimerSendMqttPacket;
-Ticker myTimerSendMqttStatus;
-Ticker myTimerSendInfluxdbPacket;
-Ticker myTimerSwitchPulsedRelay;
-
-uint16_t sequence = 0;
-
-ControllerState ControlState;
-
-bool OutputsEnabled;
-bool InputsEnabled;
-
-AsyncMqttClient mqttClient;
 
 void dumpByte(uint8_t data)
 {
@@ -272,6 +290,7 @@ void dumpByte(uint8_t data)
     SERIAL_DEBUG.print('0');
   SERIAL_DEBUG.print(data, HEX);
 }
+
 void dumpPacketToDebug(char indicator, PacketStruct *buffer)
 {
   //Filter on some commands
@@ -357,6 +376,30 @@ void SetControllerState(ControllerState newState)
     SERIAL_DEBUG.println("");
     SERIAL_DEBUG.print(F("** Controller changed to state = "));
     SERIAL_DEBUG.println(newState, HEX);
+
+#if defined(ESP32)
+    switch (ControlState)
+    {
+    case ControllerState::PowerUp:
+      //Purple during start up
+      hal.Led(RGBLED::Purple);
+      break;
+    case ControllerState::ConfigurationSoftAP:
+      hal.Led(RGBLED::White);
+      break;
+    case ControllerState::Stabilizing:
+      QueueLED(RGBLED::Yellow);
+      break;
+    case ControllerState::Running:
+      QueueLED(RGBLED::Green);
+      //Fire task to switch off LED in a few ms
+      xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
+      break;
+    case ControllerState::Unknown:
+      //Do nothing
+      break;
+    }
+#endif
   }
 }
 
@@ -443,9 +486,6 @@ void onPacketReceived()
 #if defined(ESP8266)
   hal.GreenLedOn();
 #endif
-#if defined(ESP32)
-  QueueLED(RGBLED::Green);
-#endif
 
   PacketStruct ps;
   memcpy(&ps, SerialPacketReceiveBuffer, sizeof(PacketStruct));
@@ -472,10 +512,6 @@ void onPacketReceived()
 
 #if defined(ESP8266)
   hal.GreenLedOff();
-#endif
-#if defined(ESP32)
-  //Fire task to switch off LED in a few ms
-  xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
 #endif
 }
 
@@ -738,6 +774,10 @@ void timerProcessRules()
 
 void timerEnqueueCallback()
 {
+  QueueLED(RGBLED::Green);
+  //Fire task to switch off LED in a few ms
+  xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
+
   //this is called regularly on a timer, it determines what request to make to the modules (via the request queue)
   uint16_t i = 0;
   uint16_t max = TotalNumberOfCells();
@@ -1376,19 +1416,20 @@ void resetAllRules()
 bool CaptureSerialInput(HardwareSerial stream, char *buffer, int buffersize, bool OnlyDigits, bool ShowPasswordChar)
 {
   int length = 0;
-  unsigned long timer=millis()+30000;
+  unsigned long timer = millis() + 30000;
 
   while (true)
   {
 
     //Abort after 30 seconds of inactivity
-    if (millis() > timer) return false;
+    if (millis() > timer)
+      return false;
 
     //We should add a timeout in here, and return FALSE when we abort....
     while (stream.available())
     {
       //Reset timer on serial input
-      timer=millis()+30000;
+      timer = millis() + 30000;
 
       int data = stream.read();
       if (data == '\b' || data == '\177')
@@ -1559,18 +1600,17 @@ void setup()
   //we use this as a simple method to avoid cross site scripting attacks
   DIYBMSServer::generateUUID();
 
-  SetControllerState(ControllerState::PowerUp);
-
-  hal.ConfigurePins();
 #if defined(ESP32)
+  hal.ConfigurePins(WifiPasswordClear);
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
-  //Purple during start up
-  hal.Led(RGBLED::Purple);
 #endif
 
 #if defined(ESP8266)
+  hal.ConfigurePins();
   hal.ConfigureI2C(ExternalInputInterrupt);
 #endif
+
+  SetControllerState(ControllerState::PowerUp);
 
 #if defined(ESP32)
   //All comms to i2c needs to go through this single task
@@ -1746,11 +1786,21 @@ void setup()
 
 void loop()
 {
+  //Allow CPU to sleep some
+  delay(10);
   //ESP_LOGW("LOOP","LOOP");
 
   if (WifiDisconnected && ControlState != ControllerState::ConfigurationSoftAP)
   {
     connectToWifi();
+  }
+
+  if (ResetWifi) {
+      //Password reset, turn LED CYAN
+      QueueLED(RGBLED::Cyan);
+
+      //Wipe EEPROM WIFI setting
+      DIYBMSSoftAP::FactoryReset();
   }
 
   ArduinoOTA.handle();

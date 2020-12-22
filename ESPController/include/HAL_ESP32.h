@@ -19,7 +19,7 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #define HAL_ESP32_H_
 
 //GPIO34 (input only pin)
-#define TCA9534A_INTERRUPT_PIN 34
+#define TCA9534A_INTERRUPT_PIN GPIO_NUM_34
 #define TCA9534APWR_ADDRESS 0x38
 #define TCA9534APWR_INPUT 0x00
 #define TCA9534APWR_OUTPUT 0x01
@@ -28,7 +28,7 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #define TCA9534APWR_INPUTMASK B11100000
 
 //GPIO39 (input only pin)
-#define TCA6408_INTERRUPT_PIN 39
+#define TCA6408_INTERRUPT_PIN GPIO_NUM_39
 #define TCA6408_ADDRESS 0x20
 #define TCA6408_INPUT 0x00
 #define TCA6408_OUTPUT 0x01
@@ -48,7 +48,7 @@ public:
     bool OutputsEnabled = false;
     bool InputsEnabled = false;
     void Led(uint8_t bits);
-    void ConfigurePins();
+    void ConfigurePins(void (*WiFiPasswordResetInterrput)(void));
 
 private:
     //Private constructor (static class)

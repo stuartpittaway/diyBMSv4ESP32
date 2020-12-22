@@ -88,7 +88,7 @@ void HAL_ESP32::Led(uint8_t bits)
     //TODO: Check return value
 }
 
-void HAL_ESP32::ConfigurePins()
+void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void))
 {
     //GPIO39 is interrupt pin from TCA6408 (doesnt have pull up/down resistors)
     pinMode(TCA6408_INTERRUPT_PIN, INPUT);
@@ -103,6 +103,10 @@ void HAL_ESP32::ConfigurePins()
     //SDCARD_CHIP_SELECT
     pinMode(5, OUTPUT);
     digitalWrite(5,LOW);
+
+    //BOOT Button on ESP32 module is used for resetting wifi details
+    pinMode(GPIO_NUM_0,INPUT_PULLUP);
+    attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);  
 }
 
 void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void))
