@@ -48,7 +48,7 @@ public:
     bool OutputsEnabled = false;
     bool InputsEnabled = false;
     void Led(uint8_t bits);
-    void ConfigurePins(void (*WiFiPasswordResetInterrput)(void), void (*TFTScreenTouch)(void));
+    void ConfigurePins(void (*WiFiPasswordResetInterrput)(void));
     void TFTScreenBacklight(bool Status);
 
 private:

@@ -104,7 +104,7 @@ void HAL_ESP32::TFTScreenBacklight(bool value)
 }
 
 
-void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void), void (*TFTScreenTouch)(void) )
+void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void) )
 {
     //GPIO39 is interrupt pin from TCA6408 (doesnt have pull up/down resistors)
     pinMode(TCA6408_INTERRUPT_PIN, INPUT);
@@ -124,8 +124,9 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void), void (*T
     pinMode(GPIO_NUM_0,INPUT_PULLUP);
     attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);  
 
+    //For touch screen
     pinMode(GPIO_NUM_36,INPUT_PULLUP);
-    attachInterrupt(GPIO_NUM_36, TFTScreenTouch, FALLING);
+    //attachInterrupt(GPIO_NUM_36, TFTScreenTouch, FALLING);
 }
 
 void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void))

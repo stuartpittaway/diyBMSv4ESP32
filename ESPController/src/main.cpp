@@ -88,6 +88,10 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 
 TFT_eSPI tft = TFT_eSPI();
 
+#include <XPT2046_Touchscreen.h>
+
+XPT2046_Touchscreen touchscreen(4, 36);  // Param 2 - Touch IRQ Pin - interrupt enabled polling
+
 #endif
 
 //Shared libraries across processors
@@ -274,14 +278,6 @@ void i2c_task(void *param)
   }
 }
 
-void IRAM_ATTR TFTScreenTouch()
-{
-  //Switch LCD Backlight on
-  //i2cQueueMessage m;
-  //m.command = 0x04;
-  //m.data = true;
-  //xQueueSendToBackFromISR(queue_i2c, &m, NULL);
-}
 
 volatile uint32_t WifiPasswordClearTime;
 volatile bool ResetWifi = false;
@@ -1628,6 +1624,9 @@ void init_tft_display()
   tft.setRotation(3);
   tft.fillScreen(SplashLogoPalette[0]);
 
+  touchscreen.begin();
+  touchscreen.setRotation(3);
+
   //SplashLogoGraphic_Height
   tft.pushImage((int32_t)TFT_HEIGHT / 2 - SplashLogoGraphic_Width / 2, (int32_t)4, (int32_t)152, (int32_t)48, SplashLogoGraphic, false, SplashLogoPalette);
 
@@ -1686,7 +1685,7 @@ void setup()
   DIYBMSServer::generateUUID();
 
 #if defined(ESP32)
-  hal.ConfigurePins(WifiPasswordClear, TFTScreenTouch);
+  hal.ConfigurePins(WifiPasswordClear);
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
 #endif
 
@@ -1877,6 +1876,19 @@ void loop()
   //Allow CPU to sleep some
   //delay(10);
   //ESP_LOGW("LOOP","LOOP");
+
+  if (touchscreen.tirqTouched()) {
+    if (touchscreen.touched()) {
+      TS_Point p = touchscreen.getPoint();
+      SERIAL_DEBUG.print("Pressure = ");
+      SERIAL_DEBUG.print(p.z);
+      SERIAL_DEBUG.print(", x = ");
+      SERIAL_DEBUG.print(p.x);
+      SERIAL_DEBUG.print(", y = ");
+      SERIAL_DEBUG.print(p.y);
+      SERIAL_DEBUG.println();
+    }
+  }
 
   if (WifiDisconnected && ControlState != ControllerState::ConfigurationSoftAP)
   {
