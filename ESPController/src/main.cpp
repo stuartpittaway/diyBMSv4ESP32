@@ -274,6 +274,15 @@ void i2c_task(void *param)
   }
 }
 
+void IRAM_ATTR TFTScreenTouch()
+{
+  //Switch LCD Backlight on
+  //i2cQueueMessage m;
+  //m.command = 0x04;
+  //m.data = true;
+  //xQueueSendToBackFromISR(queue_i2c, &m, NULL);
+}
+
 volatile uint32_t WifiPasswordClearTime;
 volatile bool ResetWifi = false;
 void IRAM_ATTR WifiPasswordClear()
@@ -1677,7 +1686,7 @@ void setup()
   DIYBMSServer::generateUUID();
 
 #if defined(ESP32)
-  hal.ConfigurePins(WifiPasswordClear);
+  hal.ConfigurePins(WifiPasswordClear, TFTScreenTouch);
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
 #endif
 
