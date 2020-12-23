@@ -51,6 +51,13 @@ with open(os.path.join(include_dir, 'EmbeddedFiles_Defines.h'), 'w') as f:
         f.write("LocalCompile")
     f.write("\";\n\n")
 
+    f.write("static const char GIT_VERSION_SHORT[] = \"")
+    if (git_sha!=None):
+        f.write(git_sha[-8:])
+    else:
+        f.write("LocalCompile")
+    f.write("\";\n\n")
+
     f.write("static const uint16_t GIT_VERSION_B1 = 0x")
     if (git_sha!=None):
         f.write(git_sha[32:36])
@@ -70,6 +77,10 @@ with open(os.path.join(include_dir, 'EmbeddedFiles_Defines.h'), 'w') as f:
 
     f.write("static const char COMPILE_DATE_TIME[] = \"")
     f.write(datetime.datetime.utcnow().isoformat()[:-3]+'Z')
+    f.write("\";\n\n")
+
+    f.write("static const char COMPILE_DATE_TIME_SHORT[] = \"")
+    f.write(datetime.datetime.utcnow().strftime("%d %b %Y %H:%M"))
     f.write("\";\n\n")
 
     f.write("#endif")

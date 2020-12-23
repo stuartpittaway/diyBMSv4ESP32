@@ -59,3 +59,4 @@ ESPControllerCircuit/fp-info-cache
 **/.vscode
 *.log
 ESPController/include/EmbeddedFiles_Integrity.h
+ESPController/include/tft_splash_image.h

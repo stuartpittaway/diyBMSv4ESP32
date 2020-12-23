@@ -50,7 +50,7 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #include <SPI.h>
 #include "time.h"
 #include <esp_wifi.h>
-
+#include "tft_splash_image.h"
 /*
 #define USER_SETUP_LOADED
 
@@ -258,6 +258,11 @@ void i2c_task(void *param)
       if (m.command == 0x03)
       {
         hal.Led(m.data);
+      }
+
+      if (m.command == 0x04)
+      {
+        hal.TFTScreenBacklight(m.data);
       }
 
       if (m.command >= 0xE0 && m.command <= 0xE0 + RELAY_TOTAL)
@@ -1593,6 +1598,41 @@ void TerminalBasedWifiSetup()
   ESP.restart();
 }
 
+void tft_display_off()
+{
+  tft.fillScreen(TFT_BLACK);
+  //hal.TFTScreenBacklight(true);
+
+  //Queue up i2c message
+  i2cQueueMessage m;
+  //4 = TFT backlight LED
+  m.command = 0x04;
+  //Lowest 3 bits are RGB led GREEN/RED/BLUE
+  m.data = false;
+  xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
+}
+
+void init_tft_display()
+{
+  tft.init();
+  tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
+  tft.setRotation(3);
+  tft.fillScreen(SplashLogoPalette[0]);
+
+  //SplashLogoGraphic_Height
+  tft.pushImage((int32_t)TFT_HEIGHT / 2 - SplashLogoGraphic_Width / 2, (int32_t)4, (int32_t)152, (int32_t)48, SplashLogoGraphic, false, SplashLogoPalette);
+
+  tft.setTextColor(TFT_WHITE, SplashLogoPalette[0]);
+
+  tft.setCursor(0, 48 + 16, 4);
+  tft.print(F("Ver:"));
+  tft.println(GIT_VERSION_SHORT);
+  tft.println(F("Build Date:"));
+  tft.println(COMPILE_DATE_TIME_SHORT);
+
+  hal.TFTScreenBacklight(true);
+}
+
 void setup()
 {
   WiFi.mode(WIFI_OFF);
@@ -1648,6 +1688,8 @@ void setup()
 
   SetControllerState(ControllerState::PowerUp);
 
+  init_tft_display();
+
 #if defined(ESP32)
   //All comms to i2c needs to go through this single task
   //to prevent issues with thread safety on the i2c hardware/libraries
@@ -1669,8 +1711,6 @@ void setup()
   clearAPSettings = digitalRead(RESET_WIFI_PIN);
   hal.GreenLedOff();
 #endif
-
-  hal.TFTScreenBacklight(false);
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
@@ -1818,26 +1858,9 @@ void setup()
 
     //We have just started...
     SetControllerState(ControllerState::Stabilizing);
+
+    tft_display_off();
   }
-
-  tft.init();
-  tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
-  tft.setRotation(1);
-  tft.fillScreen(TFT_BLACK);
-
-  // Set "cursor" at top left corner of display (0,0) and select font 4
-  tft.setCursor(0, 0, 4);
-
-  // Set the font colour to be white with a black background
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-
-  // We can now plot text on screen using the "print" class
-  tft.println("Intialised default\n");
-
-  hal.TFTScreenBacklight(true);
-  delay(2000);
-  hal.TFTScreenBacklight(false);
-
 }
 
 void loop()
@@ -1860,7 +1883,7 @@ void loop()
     DIYBMSSoftAP::FactoryReset();
   }
 
-  //ArduinoOTA.handle();
+  ArduinoOTA.handle();
 
   // Call update to receive, decode and process incoming packets.
   myPacketSerial.checkInputStream();
