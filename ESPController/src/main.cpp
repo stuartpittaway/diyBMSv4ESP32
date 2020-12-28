@@ -1879,6 +1879,7 @@ void loop()
 
   if (touchscreen.tirqTouched()) {
     if (touchscreen.touched()) {
+      /*
       TS_Point p = touchscreen.getPoint();
       SERIAL_DEBUG.print("Pressure = ");
       SERIAL_DEBUG.print(p.z);
@@ -1887,6 +1888,7 @@ void loop()
       SERIAL_DEBUG.print(", y = ");
       SERIAL_DEBUG.print(p.y);
       SERIAL_DEBUG.println();
+      */
     }
   }
 

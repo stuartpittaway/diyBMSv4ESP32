@@ -48,11 +48,70 @@ Confirmed working, driven from TCA9534A pins 4/5/6 (P0/P1/P2) BLUE, RED, GREEN.
 ### TFT Screen
 Confirmed LED backlight working, driven from TCA9534A pin 7 (P3).
 
+Display uses ILI9341 driver and is 240x320 pixels, with touch and SD Card interface (on seperate pins).
+
+https://uk.banggood.com/2_8-Inch-ILI9341-240x320-SPI-TFT-LCD-Display-Touch-Panel-SPI-Serial-Port-Module-p-1206782.html
+
+Around £9 UK GBP.
+
+Has two header pins, one for the touch and display, the other for the SD Card.
+
+Looking top down onto the TFT screen (screen header pins on left) pins are
+
+* VCC
+* GND
+* CS
+* RESET
+* DC
+* MOSI
+* SCK
+* LED backlight
+* MISO
+* T_CLK (touch)
+* T_CS (touch)
+* T_DIN (touch)
+* T_DO (touch)
+* T_IRQ (touch)
+
+### TFT Touch
+
+uses GPIO4 for chip select and VSPI interface for comms
+
 ### SD CARD
+
+Integrated into TFT display, see TFT Screen above, uses GPIO5 for chip select
+
 ### CANBUS
+
+Using SN65HVD230DR, 3.3-V CAN Bus Transceiver
+https://www.ti.com/lit/ds/symlink/sn65hvd230.pdf?ts=1609135156501
+
+120ohm terminator resistor included on controller board (jumper to remove)
+Driven using soft serial library
+
+TX=GPIO16, RX=GPIO17 and RS=GPIO0 (boot)
+
+Boot wifi reset not possible whilst CANBUS in use
+
 ### RS485
+
+Using SN65HVD75DR,  3.3-V Supply RS-485 With IEC ESD protection.
+
+Driven using soft serial library
+
+TX=GPIO22, RX=GPIO21, ENABLE=GPIO25
+
 ### ATTINY ISP Programming
 
-### SD Card on TFT display
-### TFT Touch
-### TX2/RX2 ?
+Connected to VSPI interface and uses P4 output on  TCA9534A to drive reset line.
+
+VSPI should be disabled/not used whilst IVR programmer in use
+
+### TX2/RX2 
+Experimental comms interface for modules using 6N137S1(TA) Logic Output Optoisolator
+
+https://www.digikey.com/en/products/detail/everlight-electronics-co-ltd/6N137S1-TA/2692187
+
+RX2=GPIO35, TX2=GPIO33
+
+Note - likely to change as device is physically large
