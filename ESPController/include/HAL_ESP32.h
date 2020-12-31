@@ -8,6 +8,7 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #include <Arduino.h>
 #include "driver/i2c.h"
 #include "esp32-hal-i2c.h"
+#include <SPI.h>
 
 //#define GREEN_LED 2
 
@@ -25,7 +26,7 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #define TCA9534APWR_OUTPUT 0x01
 #define TCA9534APWR_POLARITY_INVERSION 0x02
 #define TCA9534APWR_CONFIGURATION 0x03
-#define TCA9534APWR_INPUTMASK B11100000
+#define TCA9534APWR_INPUTMASK B10000000
 
 //GPIO39 (input only pin)
 #define TCA6408_INTERRUPT_PIN GPIO_NUM_39
@@ -34,14 +35,25 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #define TCA6408_OUTPUT 0x01
 #define TCA6408_POLARITY_INVERSION 0x02
 #define TCA6408_CONFIGURATION 0x03
+#define TCA6408_INPUTMASK B10001111
 
-#define TCA6408_INPUTMASK B00000011
+#define VSPI_SCK GPIO_NUM_18
+
+#define TOUCH_IRQ GPIO_NUM_36
+#define TOUCH_CHIPSELECT GPIO_NUM_4
+#define SDCARD_CHIPSELECT GPIO_NUM_5
 
 // Derived classes
 class HAL_ESP32
 {
 public:
-    void ConfigureI2C(void (*TCA6408Interrupt)(void),void (*TCA9534AInterrupt)(void));
+    SPIClass vspi;
+    HAL_ESP32()
+    {
+        vspi = SPIClass(VSPI);
+    }
+
+    void ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void));
     void SetOutputState(uint8_t outputId, RelayState state);
     uint8_t ReadTCA6408InputRegisters();
     uint8_t ReadTCA9534InputRegisters();
@@ -50,17 +62,55 @@ public:
     void Led(uint8_t bits);
     void ConfigurePins(void (*WiFiPasswordResetInterrput)(void));
     void TFTScreenBacklight(bool Status);
+    void SwapGPIO0ToOutput();
+    void ConfigureVSPI()
+    {
+        vspi.endTransaction();
+        vspi.end();
+        //VSPI
+        //GPIO23 (MOSI), GPIO19(MISO), GPIO18(CLK) and GPIO5 (CS)
+        vspi.begin(18,19,23,-1);
+        //Don't use hardware chip selects on VSPI
+        vspi.setHwCs(false);
+        //10mhz
+        vspi.setFrequency(10000000);
+    }
+
+    void ConfigureVSPIForAVRISP()
+    {
+        vspi.endTransaction();
+        vspi.end();
+        vspi.begin(18,19,23,-1);
+        vspi.setHwCs(false);
+        vspi.setFrequency(300e3);
+        vspi.setBitOrder(MSBFIRST);
+        vspi.setDataMode(SPI_MODE0);       
+        vspi.beginTransaction(SPISettings(300e3, MSBFIRST, SPI_MODE0));
+        // See AVR datasheets, chapter "SERIAL_PRG Programming Algorithm":
+    }
+
+    uint8_t VSPI_Transaction(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
+    {
+        vspi.transfer(a);
+        vspi.transfer(b);
+        vspi.transfer(c);
+        return vspi.transfer(d);
+    }
+
+    void VSPI_EndTransaction() {
+        vspi.endTransaction();
+    }
+
 
 private:
-    //Private constructor (static class)
 
     //Copy of pin state for TCA9534
     uint8_t TCA9534APWR_Value;
     //Copy of pin state for TCA6408
     uint8_t TCA6408_Value;
 
-    esp_err_t writeByte(i2c_port_t i2c_num,uint8_t dev, uint8_t reg, uint8_t data);
-    uint8_t readByte(i2c_port_t i2c_num,uint8_t dev, uint8_t reg);
+    esp_err_t writeByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg, uint8_t data);
+    uint8_t readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg);
 };
 
 #endif

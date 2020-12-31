@@ -51,6 +51,9 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #include "time.h"
 #include <esp_wifi.h>
 #include "tft_splash_image.h"
+#endif
+
+#if defined(ESP32)
 /*
 #define USER_SETUP_LOADED
 
@@ -85,13 +88,7 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #undef TFT_CS
 */
 #include "TFT_eSPI.h"
-
 TFT_eSPI tft = TFT_eSPI();
-
-#include <XPT2046_Touchscreen.h>
-
-XPT2046_Touchscreen touchscreen(4, 36);  // Param 2 - Touch IRQ Pin - interrupt enabled polling
-
 #endif
 
 //Shared libraries across processors
@@ -114,6 +111,12 @@ HAL_ESP8266 hal;
 #include "HAL_ESP32.h"
 HAL_ESP32 hal;
 #endif
+
+#if defined(ESP32)
+#include <XPT2046_Touchscreen.h>
+XPT2046_Touchscreen touchscreen(TOUCH_CHIPSELECT, TOUCH_IRQ); // Param 2 - Touch IRQ Pin - interrupt enabled polling
+#endif
+
 
 #include "Rules.h"
 
@@ -141,9 +144,10 @@ NTPSyncEvent_t ntpEvent;            // Last triggered event
 AsyncWebServer server(80);
 
 #if defined(ESP32)
-TaskHandle_t i2c_task_handle;
-TaskHandle_t ledoff_task_handle;
-QueueHandle_t queue_i2c;
+static TaskHandle_t i2c_task_handle = NULL;
+static TaskHandle_t ledoff_task_handle = NULL;
+static TaskHandle_t wifiresetdisable_task_handle = NULL;
+static QueueHandle_t queue_i2c = NULL;
 #endif
 
 //This large array holds all the information about the modules
@@ -191,9 +195,11 @@ Ticker myTimerSwitchPulsedRelay;
 
 uint16_t sequence = 0;
 
-ControllerState ControlState;
+ControllerState ControlState = ControllerState::Unknown;
 
+//These need to be removed/replaced/fixed
 bool OutputsEnabled;
+//These need to be removed/replaced/fixed
 bool InputsEnabled;
 
 AsyncMqttClient mqttClient;
@@ -210,9 +216,31 @@ void QueueLED(uint8_t bits)
   xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
 }
 
+//Disable the BOOT button from acting as a WIFI RESET
+//button which clears the EEPROM settings for WIFI connection
+void wifiresetdisable_task(void *param)
+{
+  for (;;)
+  {
+    //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    //Wait for 20 seconds before disabling button/pin
+    for (size_t i = 0; i < 20; i++)
+    {
+      //Wait 1 second
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+
+    hal.SwapGPIO0ToOutput();
+  }
+
+  //vTaskDelete( NULL );
+}
+
 void ledoff_task(void *param)
 {
-  while (true)
+  for (;;)
   {
     //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -227,7 +255,7 @@ void ledoff_task(void *param)
 // Provides thread safe mechanism to talk to i2c
 void i2c_task(void *param)
 {
-  while (true)
+  for (;;)
   {
     i2cQueueMessage m;
 
@@ -236,27 +264,35 @@ void i2c_task(void *param)
       // do some i2c task
       if (m.command == 0x01)
       {
-        // Read ports A/B inputs (on TCA6408)
+        // Read ports A/B/C/D inputs (on TCA6408)
         uint8_t v = hal.ReadTCA6408InputRegisters();
+        //P0=A
         InputState[0] = (v & B00000001) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+        //P1=B
         InputState[1] = (v & B00000010) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-
-        //Emergency Stop (J1) has triggered
-        if (InputState[0] == enumInputState::INPUT_HIGH)
-        {
-          emergencyStop = true;
-        }
+        //P2=C
+        InputState[2] = (v & B00000100) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+        //P3=D
+        InputState[3] = (v & B00001000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+        //P7=E
+        InputState[4] = (v & B10000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
       }
 
       if (m.command == 0x02)
       {
         //Read ports
         //The 9534 deals with internal LED outputs and spare IO on J10
-        //P5/P6/P7 = EXTRA I/O (on internal header breakout pins J10)
         uint8_t v = hal.ReadTCA9534InputRegisters();
-        InputState[2] = (v & B00100000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-        InputState[3] = (v & B01000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-        InputState[4] = (v & B10000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+        //P6 = spare I/O (on PCB pin)
+        InputState[5] = (v & B01000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+        //P7 = Emergency Stop
+        InputState[6] = (v & B10000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+
+        //Emergency Stop (J1) has triggered
+        if (InputState[6] == enumInputState::INPUT_LOW)
+        {
+          emergencyStop = true;
+        }
       }
 
       if (m.command == 0x03)
@@ -278,9 +314,11 @@ void i2c_task(void *param)
   }
 }
 
-
 volatile uint32_t WifiPasswordClearTime;
 volatile bool ResetWifi = false;
+
+// Check if BOOT button is pressed, if held down for more than 4 seconds
+// trigger a wifi password reset/clear from EEPROM.
 void IRAM_ATTR WifiPasswordClear()
 {
   if (digitalRead(GPIO_NUM_0) == LOW)
@@ -302,6 +340,7 @@ void IRAM_ATTR WifiPasswordClear()
 
 void IRAM_ATTR TCA6408Interrupt()
 {
+  if (queue_i2c==NULL) return;
   i2cQueueMessage m;
   m.command = 0x01;
   m.data = 0;
@@ -310,6 +349,7 @@ void IRAM_ATTR TCA6408Interrupt()
 
 void IRAM_ATTR TCA9534AInterrupt()
 {
+  if (queue_i2c==NULL) return;
   i2cQueueMessage m;
   m.command = 0x02;
   m.data = 0;
@@ -331,7 +371,9 @@ void IRAM_ATTR ExternalInputInterrupt()
 void dumpByte(uint8_t data)
 {
   if (data <= 0x0F)
+  {
     SERIAL_DEBUG.print('0');
+  }
   SERIAL_DEBUG.print(data, HEX);
 }
 
@@ -411,15 +453,36 @@ void dumpPacketToDebug(char indicator, PacketStruct *buffer)
   SERIAL_DEBUG.println();
 }
 
+String ControllerStateString(ControllerState value)
+{
+  switch (value)
+  {
+  case ControllerState::PowerUp:
+    return String(F("PowerUp"));
+  case ControllerState::ConfigurationSoftAP:
+    return String(F("ConfigurationSoftAP"));
+  case ControllerState::Stabilizing:
+    return String(F("Stabilizing"));
+  case ControllerState::Running:
+    return String(F("Running"));
+  case ControllerState::Unknown:
+    return String(F("Unknown"));
+  }
+
+  return String("?");
+}
+
 void SetControllerState(ControllerState newState)
 {
   if (ControlState != newState)
   {
-    ControlState = newState;
+    SERIAL_DEBUG.println();
+    SERIAL_DEBUG.print(F("** Controller changed state from "));
+    SERIAL_DEBUG.print(ControllerStateString(ControlState));
+    SERIAL_DEBUG.print(F(" to "));
+    SERIAL_DEBUG.println(ControllerStateString(newState));
 
-    SERIAL_DEBUG.println("");
-    SERIAL_DEBUG.print(F("** Controller changed to state = "));
-    SERIAL_DEBUG.println(newState, HEX);
+    ControlState = newState;
 
 #if defined(ESP32)
     switch (ControlState)
@@ -437,8 +500,8 @@ void SetControllerState(ControllerState newState)
       break;
     case ControllerState::Running:
       QueueLED(RGBLED::Green);
-      //Fire task to switch off LED in a few ms
-      //xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
+      //Fire task to switch off BOOT button after 30 seconds
+      xTaskNotify(wifiresetdisable_task_handle, 0x00, eNotifyAction::eNoAction);
       break;
     case ControllerState::Unknown:
       //Do nothing
@@ -508,6 +571,8 @@ void serviceReplyQueue()
 #if defined(PACKET_LOGGING_RECEIVE)
     // Process decoded incoming packet
     dumpPacketToDebug('R', &ps);
+#else
+    //SERIAL_DEBUG.print('R');
 #endif
 
     if (receiveProc.ProcessReply(&ps))
@@ -588,6 +653,8 @@ void timerTransmitCallback()
   // Output the packet we just transmitted to debug console
 #if defined(PACKET_LOGGING_SEND)
   dumpPacketToDebug('S', &transmitBuffer);
+#else
+  //SERIAL_DEBUG.print('S');
 #endif
 }
 
@@ -1617,15 +1684,15 @@ void tft_display_off()
   xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
 }
 
+
+
 void init_tft_display()
 {
   tft.init();
   tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
+  tft.getSPIinstance().setHwCs(false);
   tft.setRotation(3);
   tft.fillScreen(SplashLogoPalette[0]);
-
-  touchscreen.begin();
-  touchscreen.setRotation(3);
 
   //SplashLogoGraphic_Height
   tft.pushImage((int32_t)TFT_HEIGHT / 2 - SplashLogoGraphic_Width / 2, (int32_t)4, (int32_t)152, (int32_t)48, SplashLogoGraphic, false, SplashLogoPalette);
@@ -1641,6 +1708,13 @@ void init_tft_display()
   hal.TFTScreenBacklight(true);
 }
 
+bool rst_active_high=false;
+
+void avr_reset_target(bool reset) {
+  digitalWrite(GPIO_NUM_0, ((reset && rst_active_high) || (!reset && !rst_active_high)) ? HIGH : LOW);
+}
+
+
 void setup()
 {
   WiFi.mode(WIFI_OFF);
@@ -1650,6 +1724,9 @@ void setup()
   //esp_log_level_set("wifi", ESP_LOG_WARN);      // enable WARN logs from WiFi stack
   //esp_log_level_set("dhcpc", ESP_LOG_WARN);     // enable INFO logs from DHCP client
 #endif
+
+  //file_diybms_module_blinky_firmware_avrbin
+  //size_file_diybms_module_blinky_firmware_avrbin
 
   //Debug serial output
 #if defined(ESP8266)
@@ -1687,6 +1764,7 @@ void setup()
 #if defined(ESP32)
   hal.ConfigurePins(WifiPasswordClear);
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
+  hal.ConfigureVSPI();
 #endif
 
 #if defined(ESP8266)
@@ -1696,9 +1774,69 @@ void setup()
 
   SetControllerState(ControllerState::PowerUp);
 
-  init_tft_display();
+  hal.Led(0);
+
+  SERIAL_DEBUG.println("Start ATMEL ISP programming...");
+
+  avr_reset_target(true);
+  //Disable BOOT button interrupt
+  hal.SwapGPIO0ToOutput();
+  hal.ConfigureVSPIForAVRISP();
+
+
+  digitalWrite(VSPI_SCK, LOW);
+  delay(20); // discharge PIN_SCK, value arbitrarily chosen
+  avr_reset_target(false);
+  // Pulse must be minimum 2 target CPU clock cycles so 100 usec is ok for CPU speeds above 20 KHz
+  delayMicroseconds(100);
+  avr_reset_target(true);
+
+  // Send the enable programming command:
+  delay(30); // datasheet: must be > 20 msec
+  uint8_t reply = hal.VSPI_Transaction(0xAC, 0x53, 0x00, 0x00);
+
+  SERIAL_DEBUG.println(reply);
+
+  SERIAL_DEBUG.print("Device Signature=");
+  uint8_t high = hal.VSPI_Transaction(0x30, 0x00, 0x00, 0x00);
+  SERIAL_DEBUG.print(high,HEX);
+  uint8_t middle = hal.VSPI_Transaction(0x30, 0x00, 0x01, 0x00);
+  SERIAL_DEBUG.print(middle,HEX);
+  uint8_t low = hal.VSPI_Transaction(0x30, 0x00, 0x02, 0x00);
+  SERIAL_DEBUG.println(low,HEX);
+
+  SERIAL_DEBUG.print("Delay 1");
+  delay(1000);
+  SERIAL_DEBUG.print("2");
+  delay(1000);
+  SERIAL_DEBUG.print("3");
+  delay(1000);
+  SERIAL_DEBUG.print("4");
+  delay(1000);
+  SERIAL_DEBUG.println("5");
+  delay(1000);
+  
+  hal.VSPI_EndTransaction();
+  //Exit programming mode
+  hal.ConfigureVSPI();
+  avr_reset_target(false);
+  SERIAL_DEBUG.println("FINISH");
+  SERIAL_DEBUG.flush();
+
+  while (true)
+  {
+    delay(100);
+  }
+
 
 #if defined(ESP32)
+  hal.ConfigureVSPI();
+  init_tft_display();
+
+  //Init the touch screen
+  touchscreen.begin(hal.vspi);  
+  touchscreen.setRotation(3);
+
   //All comms to i2c needs to go through this single task
   //to prevent issues with thread safety on the i2c hardware/libraries
   queue_i2c = xQueueCreate(10, sizeof(i2cQueueMessage));
@@ -1706,6 +1844,7 @@ void setup()
   //Create i2c task on CPU 0 (normal code runs on CPU 1)
   xTaskCreatePinnedToCore(i2c_task, "i2c", 2048, nullptr, 2, &i2c_task_handle, 0);
   xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
+  xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 1, &wifiresetdisable_task_handle);
 #endif
 
 #if defined(ESP8266)
@@ -1758,6 +1897,7 @@ void setup()
 
   LoadConfiguration();
 
+  //These need to be removed/replaced/fixed
   InputsEnabled = hal.InputsEnabled;
   OutputsEnabled = hal.OutputsEnabled;
 
@@ -1877,8 +2017,10 @@ void loop()
   //delay(10);
   //ESP_LOGW("LOOP","LOOP");
 
-  if (touchscreen.tirqTouched()) {
-    if (touchscreen.touched()) {
+  if (touchscreen.tirqTouched())
+  {
+    if (touchscreen.touched())
+    {
       /*
       TS_Point p = touchscreen.getPoint();
       SERIAL_DEBUG.print("Pressure = ");

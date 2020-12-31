@@ -79,8 +79,8 @@ enum RelayType : uint8_t
 //Number of relays on board (4)
 #define RELAY_TOTAL 4
 
-//5 inputs on board
-#define INPUTS_TOTAL 5
+//7 inputs on board
+#define INPUTS_TOTAL 7
 
 #define SHOW_TIME_PERIOD 5000
 #define NTP_TIMEOUT 1500

@@ -113,11 +113,11 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void) )
     pinMode(TCA9534A_INTERRUPT_PIN, INPUT);
 
     //TOUCH_CHIP_SELECT
-    pinMode(4, OUTPUT);
+    pinMode(GPIO_NUM_4, OUTPUT);
     digitalWrite(4,LOW);
 
     //SDCARD_CHIP_SELECT
-    pinMode(5, OUTPUT);
+    pinMode(GPIO_NUM_5, OUTPUT);
     digitalWrite(5,LOW);
 
     //BOOT Button on ESP32 module is used for resetting wifi details
@@ -127,6 +127,20 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void) )
     //For touch screen
     pinMode(GPIO_NUM_36,INPUT_PULLUP);
     //attachInterrupt(GPIO_NUM_36, TFTScreenTouch, FALLING);
+
+
+    //Configure the CHIP SELECT pins as OUTPUT and set HIGH
+    pinMode(TOUCH_CHIPSELECT,OUTPUT);
+    digitalWrite(TOUCH_CHIPSELECT,HIGH);
+    pinMode(SDCARD_CHIPSELECT,OUTPUT);
+    digitalWrite(SDCARD_CHIPSELECT,HIGH);
+}
+
+void HAL_ESP32::SwapGPIO0ToOutput() {
+    //BOOT Button on ESP32 module is used for resetting wifi details
+    detachInterrupt(GPIO_NUM_0);
+    pinMode(GPIO_NUM_0,OUTPUT);
+    digitalWrite(GPIO_NUM_0,HIGH);
 }
 
 void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void))
@@ -159,24 +173,26 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
     //P1= RED
     //P2= GREEN
     //P3= DISPLAY BACKLIGHT LED
-    //P4= AVRISP RESET
-    //P5/P6/P7 = EXTRA I/O (on internal header breakout pins)
+    //P4= SPARE on J13
+    //P5= Canbus RS
+    //P6= SPARE on J13
+    //P7= ESTOP (pull to ground to trigger)
     //INTERRUPT PIN = ESP32 IO34
 
-    //Config all OUTPUT
     //BIT  76543210
     //PORT 76543210
+    //MASK=10000000
 
     //All off
     esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, 0);
 
-    //0×03 Configuration, P5/6/7=inputs, others outputs (0=OUTPUT)
+    //0×03 Configuration, P7 as input, others outputs (0=OUTPUT)
     ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, TCA9534APWR_INPUTMASK);
 
     //0×02 Polarity Inversion, zero = off
     //writeByte(TCA9534APWR_ADDRESS, TCA9534APWR_POLARITY_INVERSION, 0);
     TCA9534APWR_Value = readByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
-    SERIAL_DEBUG.println("Found TCA9534APWR");
+    //SERIAL_DEBUG.println("Found TCA9534APWR");
 
     attachInterrupt(TCA9534A_INTERRUPT_PIN, TCA9534AInterrupt, FALLING);
 
@@ -195,8 +211,8 @@ Now for the TCA6408
 
     //Set ports to off before we set configuration
     ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, 0);
-    //Ports A/B inputs, C/D outputs, RELAY1/2/3/SPARE outputs
-    ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_CONFIGURATION, B00000011);
+    //Ports A/B/C/D/E inputs, RELAY1/2/3 outputs
+    ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_CONFIGURATION, TCA6408_INPUTMASK);
     //ret =writeByte(i2c_port_t::I2C_NUM_0,TCA6408_ADDRESS, TCA6408_POLARITY_INVERSION, B00000000);
     TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
     //TODO: Validate if there was a read error or not.
