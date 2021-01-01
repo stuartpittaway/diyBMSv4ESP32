@@ -78,57 +78,8 @@ public:
         vspi.setFrequency(10000000);
     }
 
-    void ConfigureVSPIForAVRISP()
-    {
-        vspi.endTransaction();
-        vspi.end();
-        vspi.begin(18,19,23,-1);
-        vspi.setHwCs(false);
-        vspi.setFrequency((1000000 / 6));
-        vspi.setBitOrder(MSBFIRST);
-        vspi.setDataMode(SPI_MODE0);       
-        vspi.beginTransaction(SPISettings((1000000 / 6), MSBFIRST, SPI_MODE0));
-        // See AVR datasheets, chapter "SERIAL_PRG Programming Algorithm":
-    }
-
-void dumpByte(uint8_t data)
-{
-  if (data <= 0x0F)
-  {
-    SERIAL_DEBUG.print('0');
-  }
-  SERIAL_DEBUG.print(data, HEX);
-}
 
 
-    uint8_t VSPI_Transaction(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
-    {
-/*
-        SERIAL_DEBUG.print("[");
-        dumpByte(a);SERIAL_DEBUG.print(",");
-        dumpByte(b);SERIAL_DEBUG.print(",");
-        dumpByte(c);SERIAL_DEBUG.print(",");
-        dumpByte(d);SERIAL_DEBUG.println("]");
-*/
-        vspi.transfer(a);
-        vspi.transfer(b);
-        vspi.transfer(c);
-        return vspi.transfer(d);
-    }
-
-    uint8_t VSPI_TransactionByte3(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
-    {
-        //Returns the result of the 3rd byte (used for checking programming mode)
-        vspi.transfer(a);
-        vspi.transfer(b);
-        uint8_t replyc=vspi.transfer(c);
-        vspi.transfer(d);
-        return replyc;
-    }
-
-    void VSPI_EndTransaction() {
-        vspi.endTransaction();
-    }
 
 
 private:

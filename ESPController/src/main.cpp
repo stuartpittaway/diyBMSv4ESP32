@@ -1710,34 +1710,6 @@ void init_tft_display()
   hal.TFTScreenBacklight(true);
 }
 
-uint16_t current_page(uint16_t here, uint16_t pagesize)
-{
-  if (pagesize == 32)
-  {
-    return here & 0xFFFFFFF0;
-  }
-  if (pagesize == 64)
-  {
-    return here & 0xFFFFFFE0;
-  }
-  if (pagesize == 128)
-  {
-    return here & 0xFFFFFFC0;
-  }
-  if (pagesize == 256)
-  {
-    return here & 0xFFFFFF80;
-  }
-  return here;
-}
-
-bool rst_active_high = false;
-
-void avr_reset_target(bool reset)
-{
-  digitalWrite(GPIO_NUM_0, ((reset && rst_active_high) || (!reset && !rst_active_high)) ? HIGH : LOW);
-}
-
 void setup()
 {
   WiFi.mode(WIFI_OFF);
@@ -1748,20 +1720,22 @@ void setup()
   //esp_log_level_set("dhcpc", ESP_LOG_WARN);     // enable INFO logs from DHCP client
 #endif
 
-  //file_diybms_module_blinky_firmware_avrbin
-  //size_file_diybms_module_blinky_firmware_avrbin
-
   //Debug serial output
 #if defined(ESP8266)
   //ESP8266 uses dedicated 2nd serial port, but transmit only
   SERIAL_DEBUG.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
   SERIAL_DEBUG.setDebugOutput(true);
 #endif
+
+  const char *diybms_logo = "\r\n\r\n\r\n                _          __ \r\n    _|  o      |_)  |\\/|  (_  \r\n   (_|  |  \\/  |_)  |  |  __) \r\n           /                  ";
 #if defined(ESP32)
   //ESP32 we use the USB serial interface for console/debug messages
   SERIAL_DEBUG.begin(115200, SERIAL_8N1);
   SERIAL_DEBUG.setDebugOutput(true);
-  SERIAL_DEBUG.print(F("DIYBMS CONTROLLER - version:"));
+
+  SERIAL_DEBUG.println(diybms_logo);
+
+  SERIAL_DEBUG.print(F("CONTROLLER - ver:"));
   SERIAL_DEBUG.print(GIT_VERSION);
   SERIAL_DEBUG.print(F(" compiled:"));
   SERIAL_DEBUG.println(COMPILE_DATE_TIME);
@@ -1801,194 +1775,15 @@ void setup()
 
   SERIAL_DEBUG.println("Start ATMEL ISP programming...");
 
-  avr_reset_target(true);
-  //Disable BOOT button interrupt
   hal.SwapGPIO0ToOutput();
-  hal.ConfigureVSPIForAVRISP();
 
-  digitalWrite(VSPI_SCK, LOW);
-  delay(20); // discharge PIN_SCK, value arbitrarily chosen
-  avr_reset_target(false);
-  // Pulse must be minimum 2 target CPU clock cycles so 100 usec is ok for CPU speeds above 20 KHz
-  delayMicroseconds(100);
-  avr_reset_target(true);
+  AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&hal.vspi, GPIO_NUM_0, false, VSPI_SCK);
+  bool progresult = isp.ProgramAVRDevice(0x1e9315, size_file_diybms_module_blinky_firmware_avrbin, file_diybms_module_blinky_firmware_avrbin);
 
-  // Send the enable programming command:
-  delay(30); // datasheet: must be > 20 msec
-  uint8_t programmingreply = hal.VSPI_TransactionByte3(0xAC, 0x53, 0x00, 0x00);
+  SERIAL_DEBUG.println(progresult);
 
-  if (programmingreply != 0x53)
-  {
-    SERIAL_DEBUG.println("** Start programming mode failed **");
-  }
-  uint32_t device_signature = 0;
-
-  device_signature = (hal.VSPI_Transaction(0x30, 0x00, 0x00, 0x00) << 16) + (hal.VSPI_Transaction(0x30, 0x00, 0x01, 0x00) << 8) + hal.VSPI_Transaction(0x30, 0x00, 0x02, 0x00);
-
-  SERIAL_DEBUG.print("Device Signature=");
-  SERIAL_DEBUG.println(device_signature, HEX);
-
-  //ATTINY841
-  if (device_signature == 0x1e9315)
-  {
-    SERIAL_DEBUG.println("ATTINY841");
-    //Read Fuse bits
-    uint8_t lfuse = hal.VSPI_Transaction(0x50, 0x00, 0x00, 0x00);
-    //Read Fuse High bits
-    uint8_t hfuse = hal.VSPI_Transaction(0x58, 0x08, 0x00, 0x00);
-    //Read Fuse Extended Bits
-    uint8_t efuse = hal.VSPI_Transaction(0x50, 0x08, 0x00, 0x00);
-
-    SERIAL_DEBUG.print("Fuses (");
-    SERIAL_DEBUG.print(" E:");
-    dumpByte(efuse);
-    SERIAL_DEBUG.print(" H:");
-    dumpByte(hfuse);
-    SERIAL_DEBUG.print(" L:");
-    dumpByte(lfuse);
-    SERIAL_DEBUG.println(")");
-
-
-    //Data for ATTINY841
-    //Page Size = 8 words (16 bytes), Flash = 4K words (8kbytes), 512 Pages
-    //Wait delays for programming, WD_FLASH=4.5ms, WD_EEROM=3.6ms, WD_ERASE=9.0m
-    const uint16_t WD_FLASH = 1+ 4.5;
-    const uint16_t WD_ERASE = 1+ 9.0;
-    const uint16_t WD_EEPROM = 1+ 3.6;
-    const uint16_t PAGE_SIZE_WORDS = 8;
-
-    //Chip ERASE....
-    hal.VSPI_Transaction(0xAC, 0x80, 0, 0);
-    delay(WD_ERASE);
-
-    //file_diybms_module_blinky_firmware_avrbin
-    //size_file_diybms_module_blinky_firmware_avrbin
-
-    //Set Address = 0
-    //HERE is in WORDS (16 bit)
-    uint16_t page = 0;
-
-    //write_flash_pages
-    uint16_t length = (uint16_t)size_file_diybms_module_blinky_firmware_avrbin;
-
-    uint16_t x = 0;
-
-
-    //Program page by page
-    //uint16_t page = current_page(here, 16);
-    while (x < length)
-    {
-
-      SERIAL_DEBUG.printf("%.4X", x);
-      SERIAL_DEBUG.print(' ');
-
-      uint8_t lowbyte;
-      uint8_t highbyte;
-      //Count up in WORDS
-      for (size_t i = 0; i < PAGE_SIZE_WORDS; i++)
-      {
-        if (x < length)
-        {
-          lowbyte = file_diybms_module_blinky_firmware_avrbin[x];
-          x++;
-          highbyte = file_diybms_module_blinky_firmware_avrbin[x];
-          x++;
-        }
-        else
-        {
-          //Prevent buffer overrun... Fill remaining page bytes with 0xFF
-          lowbyte = 0xFF;
-          highbyte = 0xFF;
-          x++;
-          x++;
-        }
-
-        dumpByte(lowbyte);
-        dumpByte(highbyte);
-
-        //Load Program Memory Page, Low byte
-        hal.VSPI_Transaction(0x40,
-                             0,
-                             i & B00111111,
-                             lowbyte);
-
-        //delay(10);
-
-        //Load Program Memory Page, High byte
-        hal.VSPI_Transaction(0x48,
-                             0,
-                             i & B00111111,
-                             highbyte);
-
-        //delay(10);
-      }
-
-      //commit(page, WD_FLASH);
-      uint8_t reply = hal.VSPI_Transaction(0x4C, (page >> 8) & 0xFF, page & 0xFF, 0);
-
-      if (reply!=(page & 0xFF)) {
-        SERIAL_DEBUG.print(" *ERROR*");
-      }
-      
-      SERIAL_DEBUG.println();
-
-      page += PAGE_SIZE_WORDS;
-
-      //Delay to allow FLASH to program....
-      delay(WD_FLASH);
-
-    }
-  }
-
-  SERIAL_DEBUG.print("Delay");
-  delay(1000);
-
-  uint16_t length = (uint16_t)size_file_diybms_module_blinky_firmware_avrbin;
-  uint16_t x = 0;
-  for (size_t i = 0; i < 512 * 8; i++)
-  {
-    if (i % 8 == 0)
-    {
-      SERIAL_DEBUG.println();
-      SERIAL_DEBUG.printf("%.4X", x);
-      SERIAL_DEBUG.print(' ');
-    }
-
-    uint8_t MSB = (i >> 8) & 0xFF;
-    uint8_t LSB = i & 0x00FF;
-    //Read Program Memory, Low byte
-    uint8_t lowbyte = hal.VSPI_Transaction(0x20, MSB, LSB, 0);
-    dumpByte(lowbyte);
-
-    if (x < length && file_diybms_module_blinky_firmware_avrbin[x] != lowbyte)
-    {
-      SERIAL_DEBUG.print("*FAIL*");
-    }
-
-    x++;
-
-    //Read Program Memory, High byte
-    uint8_t highbyte = hal.VSPI_Transaction(0x28,
-                                            MSB,
-                                            LSB,
-                                            0);
-    dumpByte(highbyte);
-
-    if (x < length && file_diybms_module_blinky_firmware_avrbin[x] != highbyte)
-    {
-      SERIAL_DEBUG.print("*FAIL*");
-    }
-
-    x++;
-
-    if (x>=length) break;
-  }
-  SERIAL_DEBUG.println();
-
-  hal.VSPI_EndTransaction();
-  //Exit programming mode
+  //Must reconfigure SPI after using ISP Programmer (changes clock speed etc.)
   hal.ConfigureVSPI();
-  avr_reset_target(false);
   SERIAL_DEBUG.println("FINISH");
   SERIAL_DEBUG.flush();
 
