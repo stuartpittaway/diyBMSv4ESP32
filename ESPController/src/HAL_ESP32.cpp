@@ -112,14 +112,6 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void) )
     //GPIO34 is interrupt pin from TCA9534A (doesnt have pull up/down resistors)
     pinMode(TCA9534A_INTERRUPT_PIN, INPUT);
 
-    //TOUCH_CHIP_SELECT
-    pinMode(GPIO_NUM_4, OUTPUT);
-    digitalWrite(4,LOW);
-
-    //SDCARD_CHIP_SELECT
-    pinMode(GPIO_NUM_5, OUTPUT);
-    digitalWrite(5,LOW);
-
     //BOOT Button on ESP32 module is used for resetting wifi details
     pinMode(GPIO_NUM_0,INPUT_PULLUP);
     attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);  
@@ -127,7 +119,6 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void) )
     //For touch screen
     pinMode(GPIO_NUM_36,INPUT_PULLUP);
     //attachInterrupt(GPIO_NUM_36, TFTScreenTouch, FALLING);
-
 
     //Configure the CHIP SELECT pins as OUTPUT and set HIGH
     pinMode(TOUCH_CHIPSELECT,OUTPUT);
