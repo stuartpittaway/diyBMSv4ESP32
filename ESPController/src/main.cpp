@@ -120,6 +120,8 @@ XPT2046_Touchscreen touchscreen(TOUCH_CHIPSELECT, TOUCH_IRQ); // Param 2 - Touch
 
 #include "Rules.h"
 
+#include "avrisp_programmer.h"
+
 volatile bool emergencyStop = false;
 volatile bool WifiDisconnected = true;
 
@@ -1847,12 +1849,17 @@ void setup()
     SERIAL_DEBUG.println(")");
 
 
-    const uint16_t WD_FLASH = 30;
+    //Data for ATTINY841
+    //Page Size = 8 words (16 bytes), Flash = 4K words (8kbytes), 512 Pages
+    //Wait delays for programming, WD_FLASH=4.5ms, WD_EEROM=3.6ms, WD_ERASE=9.0m
+    const uint16_t WD_FLASH = 1+ 4.5;
+    const uint16_t WD_ERASE = 1+ 9.0;
+    const uint16_t WD_EEPROM = 1+ 3.6;
     const uint16_t PAGE_SIZE_WORDS = 8;
 
     //Chip ERASE....
     hal.VSPI_Transaction(0xAC, 0x80, 0, 0);
-    delay(WD_FLASH);
+    delay(WD_ERASE);
 
     //file_diybms_module_blinky_firmware_avrbin
     //size_file_diybms_module_blinky_firmware_avrbin
@@ -1865,9 +1872,6 @@ void setup()
     uint16_t length = (uint16_t)size_file_diybms_module_blinky_firmware_avrbin;
 
     uint16_t x = 0;
-    //Data for ATTINY841
-    //Page Size = 8 words (16 bytes), Flash = 4K words (8kbytes), 512 Pages
-    //Wait delays for programming, WD_FLASH=4.5ms, WD_EEROM=3.6ms, WD_ERASE=9.0m
 
 
     //Program page by page
@@ -1908,7 +1912,7 @@ void setup()
                              i & B00111111,
                              lowbyte);
 
-        delay(10);
+        //delay(10);
 
         //Load Program Memory Page, High byte
         hal.VSPI_Transaction(0x48,
@@ -1916,15 +1920,16 @@ void setup()
                              i & B00111111,
                              highbyte);
 
-        delay(10);
+        //delay(10);
       }
 
       //commit(page, WD_FLASH);
       uint8_t reply = hal.VSPI_Transaction(0x4C, (page >> 8) & 0xFF, page & 0xFF, 0);
 
-
-
-      //SERIAL_DEBUG.print(" Commit ");  SERIAL_DEBUG.println(addr, HEX);
+      if (reply!=(page & 0xFF)) {
+        SERIAL_DEBUG.print(" *ERROR*");
+      }
+      
       SERIAL_DEBUG.println();
 
       page += PAGE_SIZE_WORDS;
@@ -1975,6 +1980,8 @@ void setup()
     }
 
     x++;
+
+    if (x>=length) break;
   }
   SERIAL_DEBUG.println();
 
