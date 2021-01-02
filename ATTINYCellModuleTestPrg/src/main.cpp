@@ -139,7 +139,7 @@ void setup() {
 
   if (myPID.err()) {
     //Report and halt here
-    Serial1.println(F("PDF config error!"));
+    Serial1.println(F("PID config error!"));
   }
 
   //The TIMER2 can vary between 0 and 10,000
