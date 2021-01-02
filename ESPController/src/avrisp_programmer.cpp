@@ -2,9 +2,43 @@
 
 AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, uint32_t byteLength, const uint8_t *dataToProgram, uint8_t fuse, uint8_t fusehigh, uint8_t fuseext)
 {
-    uint32_t freq = (1000000 / 6);
-    _spi->setFrequency(freq);
-    _spi->beginTransaction(SPISettings(freq, MSBFIRST, SPI_MODE0));
+    //May need a slower frequency for different devices
+    _freq = 1000000 / 2;
+    
+    //ATTINY841
+    if (deviceid == 0x1e9315)
+    {
+        //Data for ATTINY841
+        //Page Size = 8 words (16 bytes), Flash = 4K words (8kbytes), 512 Pages
+        //Wait delays for programming, WD_FLASH=4.5ms, WD_EEROM=3.6ms, WD_ERASE=9.0m
+
+        //Set the timing values for the ATTINY841 (plus extra milliseconds for good luck)
+        WD_FLASH = 5;
+        WD_ERASE = 10;
+        WD_EEPROM = 4;
+        PAGE_SIZE_WORDS = 8;
+        NUMBER_OF_PAGES = 512;
+    }
+
+    //ATMEGA328P (typical Arduino)
+    if (deviceid == 0x1E950F)
+    {
+        //Data for ATMEGA328P
+        //https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf
+        //Page Size = 64 words (128 bytes), Flash = 16K words (32Kbytes), 256 Pages
+        //Wait delays for programming, WD_FLASH=4.5ms, WD_EEROM=3.6ms, WD_ERASE=9.0m
+
+        WD_FLASH = 5;
+        WD_ERASE = 10;
+        WD_EEPROM = 4;
+
+        PAGE_SIZE_WORDS = 64;
+        NUMBER_OF_PAGES = 256;
+    }
+
+    
+    _spi->setFrequency(_freq);
+    _spi->beginTransaction(SPISettings(_freq, MSBFIRST, SPI_MODE0));
 
     avr_reset_target(true);
 
@@ -35,38 +69,8 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
         return AVRISP_PROGRAMMER_RESULT::WRONG_DEVICE_ID;
     }
 
-    //ATTINY841
-    if (device_signature == 0x1e9315)
+    if (PAGE_SIZE_WORDS * NUMBER_OF_PAGES == 0)
     {
-        //Data for ATTINY841
-        //Page Size = 8 words (16 bytes), Flash = 4K words (8kbytes), 512 Pages
-        //Wait delays for programming, WD_FLASH=4.5ms, WD_EEROM=3.6ms, WD_ERASE=9.0m
-
-        //Set the timing values for the ATTINY841 (plus extra milliseconds for good luck)
-        WD_FLASH = 6;
-        WD_ERASE = 10;
-        WD_EEPROM = 5;
-        PAGE_SIZE_WORDS = 8;
-        NUMBER_OF_PAGES = 512;
-    }
-
-    //ATMEGA328P (typical Arduino)
-    if (device_signature == 0x1E950F)
-    {
-        //Data for ATMEGA328P
-        //https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf
-        //Page Size = 64 words (128 bytes), Flash = 16K words (32Kbytes), 256 Pages
-        //Wait delays for programming, WD_FLASH=4.5ms, WD_EEROM=3.6ms, WD_ERASE=9.0m
-
-        WD_FLASH = 6;
-        WD_ERASE = 10;
-        WD_EEPROM = 5;
-
-        PAGE_SIZE_WORDS = 64;
-        NUMBER_OF_PAGES = 256;
-    }
-
-    if (PAGE_SIZE_WORDS * NUMBER_OF_PAGES==0) {
         return AVRISP_PROGRAMMER_RESULT::INCORRECT_PAGE_CONFIG;
     }
 

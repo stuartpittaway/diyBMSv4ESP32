@@ -43,6 +43,7 @@ private:
     uint8_t _spiClockGPIO;
     uint8_t _resetGPIO;
     bool _resetActiveHigh;
+    uint32_t _freq;
 
     uint8_t WD_FLASH = 50;
     uint8_t WD_ERASE = 50;
