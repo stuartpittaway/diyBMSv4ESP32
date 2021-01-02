@@ -13,9 +13,6 @@
 			"path": "ATTINYCellModule"
 		},
 		{
-			"path": "ESP32_ISP"
-		},
-		{
 			"path": "ATTINYCellModuleBlinky"
 		}
 	],

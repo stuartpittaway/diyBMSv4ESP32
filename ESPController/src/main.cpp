@@ -1777,10 +1777,15 @@ void setup()
 
   hal.SwapGPIO0ToOutput();
 
+  uint32_t starttime=millis();
   AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&hal.vspi, GPIO_NUM_0, false, VSPI_SCK);
-  bool progresult = isp.ProgramAVRDevice(0x1e9315, size_file_diybms_module_blinky_firmware_avrbin, file_diybms_module_blinky_firmware_avrbin);
+  bool progresult = isp.ProgramAVRDevice((uint32_t)0x1e9315, size_file_diybms_module_firmware_blinky_avrbin, file_diybms_module_firmware_blinky_avrbin, 0b11100010, 0b11010110, 0b11111110);
+  uint32_t endtime=millis();
 
   SERIAL_DEBUG.println(progresult);
+  SERIAL_DEBUG.println(isp.device_signature,HEX);
+  SERIAL_DEBUG.print("Duration: ");
+  SERIAL_DEBUG.println(endtime-starttime);
 
   //Must reconfigure SPI after using ISP Programmer (changes clock speed etc.)
   hal.ConfigureVSPI();
