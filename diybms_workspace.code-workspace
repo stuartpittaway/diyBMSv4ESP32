@@ -13,8 +13,10 @@
 			"path": "ATTINYCellModule"
 		},
 		{
-			"name": "TFTTest",
-			"path": "..\\TFTESP32\\TFTTest"
+			"path": "ESP32_ISP"
+		},
+		{
+			"path": "ATTINYCellModuleBlinky"
 		}
 	],
 	"settings": {
