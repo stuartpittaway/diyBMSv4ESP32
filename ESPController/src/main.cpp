@@ -1852,7 +1852,7 @@ SD CARD TEST
   {
     SERIAL_DEBUG.println("Card Mount Failed");
   }
-/*
+  /*
   SERIAL_DEBUG.println("OK");
 
   if (_sd_card_installed)
@@ -1908,7 +1908,35 @@ delay(5000);
   hal.ConfigureVSPI();
   SERIAL_DEBUG.println("FINISH");
   SERIAL_DEBUG.flush();
+*/
 
+  /* TEST RS485 */
+/*
+  SERIAL_DEBUG.println("TEST RS485");
+  SERIAL_RS485.begin(38400, SERIAL_8N1, RS485_RX, RS485_TX, false, 20000UL);
+
+  while (1)
+  {
+    digitalWrite(RS485_ENABLE, HIGH);
+    SERIAL_RS485.write((char)'A');
+    SERIAL_RS485.write((char)'B');
+    SERIAL_RS485.write((char)'C');
+    SERIAL_RS485.write((char)'D');
+    SERIAL_RS485.write((char)'E');
+    SERIAL_RS485.write((char)'F');
+    SERIAL_RS485.flush();
+    digitalWrite(RS485_ENABLE, LOW);
+
+    //Allow responses to build up in buffer
+    delay(50);
+
+    while (SERIAL_RS485.available())
+    {
+      SERIAL_DEBUG.print((char)SERIAL_RS485.read());
+    }
+
+    delay(100);
+  }
 */
 
 #if defined(ESP32)

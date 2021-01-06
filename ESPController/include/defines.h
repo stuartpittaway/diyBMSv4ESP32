@@ -11,6 +11,7 @@
 //Data uses Rx2/TX2 and debug logs go to serial0 - USB
 #define SERIAL_DATA Serial2
 #define SERIAL_DEBUG Serial
+#define SERIAL_RS485 Serial1
 
 //Total number of cells a single controler can handle (memory limitation)
 #define maximum_controller_cell_modules 250

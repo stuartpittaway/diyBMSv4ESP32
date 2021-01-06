@@ -94,9 +94,9 @@ TX=GPIO16, RX=GPIO17 and RS=connected to P4 of TCA9534A (normally low, full spee
 
 Using SN65HVD75DR,  3.3-V Supply RS-485 With IEC ESD protection.
 
-Driven using soft serial library
+Driven using Hardware Serial port Serial1, TX=GPIO22, RX=GPIO21, ENABLE=GPIO25
 
-TX=GPIO22, RX=GPIO21, ENABLE=GPIO25
+Confirmed working
 
 ### ATTINY ISP Programming
 

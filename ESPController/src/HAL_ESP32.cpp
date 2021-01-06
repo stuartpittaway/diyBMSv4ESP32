@@ -125,6 +125,10 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void) )
     digitalWrite(TOUCH_CHIPSELECT,HIGH);
     pinMode(SDCARD_CHIPSELECT,OUTPUT);
     digitalWrite(SDCARD_CHIPSELECT,HIGH);
+
+    pinMode(RS485_ENABLE,OUTPUT);
+    //Enable receive
+    digitalWrite(RS485_ENABLE,LOW);    
 }
 
 void HAL_ESP32::SwapGPIO0ToOutput() {
