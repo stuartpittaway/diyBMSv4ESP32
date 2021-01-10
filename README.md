@@ -14,6 +14,11 @@ Any donations go towards the on going development and prototype costs of the pro
 
 https://www.youtube.com/stuartpittaway
 
+# Help
+
+If you need help, ask over at the [forum](https://community.openenergymonitor.org/t/diybms-v4)
+
+If you discover a bug or want to make a feature suggestion, open a Github issue
 
 # How to use the code
 
@@ -40,6 +45,8 @@ Download the ZIP file and *extract its contents* and inside the folder you shoul
 You will need to determine which file to use for the module boards (see "Identify which module/board you have" below for help).  Most people will have a V4.00 or V4.21 board.
 
 ## Programming the controller
+
+Both [Wemos D1 Mini](https://amzn.to/3i1gPIz) and Wemos D1 Mini Pro are supported - minimum of 4MB flash memory, ESP32 version coming soon.
 
 1. Connect the WEMOS D1 to the computer using a USB cable
 1. Download the [esphome-flasher](https://github.com/esphome/esphome-flasher/releases) tool for your operating system
@@ -80,6 +87,10 @@ Done! Flashing is complete!
 ```
 
 ## Programming the modules
+
+Module code runs on the ATTINY841 micro controller, it is important to program the chip with the correct version of code depending on your PCB version.
+
+You will need a programming device capable of programming ATMEL AVR chips - like the [USBASP programmer](https://amzn.to/2JZRp1h)
 
 ### Setup the programmer
 
@@ -170,16 +181,6 @@ Hardware for this code is in a seperate repository, and consists of a controller
 
 https://github.com/stuartpittaway/diyBMSv4
 
-## Controller Code
-ESP8266 (recommend Wemos D1 Mini) is currently supported, ESP32 version coming soon.
-
-Both [Wemos D1 Mini](https://amzn.to/3i1gPIz) and Wemos D1 Mini Pro are supported - minimum of 4MB flash memory.
-
-
-## Module Code
-Module code runs on the ATTINY841 micro controller, it is important to program the chip with the correct version of code depending on your PCB version.
-
-You will need a programming device capable of programming ATMEL AVR chips - like the [USBASP programmer](https://amzn.to/2JZRp1h)
 
 ## Identify which module/board you have
 * V400 = Original board (marked DIYBMS v4 on silkscreen) - has 8 large resistors (marked 2R20) and likely handsoldered using 0805 sized parts [4.0 boards do have TP2 near the ATTINY841 chip]
