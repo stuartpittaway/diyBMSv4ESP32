@@ -74,12 +74,14 @@ Looking top down onto the TFT screen (screen header pins on left marked J2) pins
 ### TFT Touch
 
 uses GPIO4 for chip select and VSPI interface for communication with XPT2046 driver
-
 http://grobotronics.com/images/datasheets/xpt2046-datasheet.pdf
 
 ### SD CARD
 
 Integrated into TFT display, see TFT Screen above, uses GPIO5 for chip select
+
+Added Micro SD card onto controller PCB for users who don't want TFT screen but do want logging
+using MOLEX part 1040310811  https://datasheet.lcsc.com/szlcsc/2011171806_MOLEX-1040310811_C585350.pdf
 
 ### CANBUS
 
@@ -89,6 +91,8 @@ https://www.ti.com/lit/ds/symlink/sn65hvd230.pdf?ts=1609135156501
 120ohm terminator resistor included on controller board (jumper to remove)
 
 TX=GPIO16, RX=GPIO17 and RS=connected to P4 of TCA9534A (normally low, full speed CAN)
+
+Confirmed working, but changing parts to TJA1051T/3
 
 ### RS485
 
