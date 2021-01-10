@@ -1,61 +1,59 @@
 # diyBMS v4
 
-Version 4 of the diyBMS.  Do it yourself battery management system for Lithium ion battery packs/cells
+Version 4 of the diyBMS.  Do it yourself battery management system for Lithium ion battery packs and cells
 
 If you are looking for version 3 of this project take a look here https://github.com/stuartpittaway/diyBMS
 
-# How to use/compile the code
-
-Please watch this video on how to program the controller and modules.
-
-https://youtu.be/wTqDMg_Ql98
-
-# Support
+# Support the project
 
 If you find the BMS useful, please consider buying me a beer, check out Patron for more information
 
 https://www.patreon.com/StuartP
 
-# TRAVIS-CI
-[![Build Status](https://travis-ci.org/stuartpittaway/diyBMSv4Code.svg?branch=master)](https://travis-ci.org/stuartpittaway/diyBMSv4Code)
-
-# GITHUB Actions
-![PlatformIO CI](https://github.com/stuartpittaway/diyBMSv4Code/workflows/PlatformIO%20CI/badge.svg?branch=master)
+Any donations go towards the on going development and prototype costs of the project.
 
 # Videos on how to use and build
 
 https://www.youtube.com/stuartpittaway
 
+
+# How to use the code
+
+This release removes the need to manually install platformIO and compile the code yourself, instead GITHUB Actions are now used to build the code for you automatically.
+
+
+
+# GITHUB Actions
+
+![Master Branch](https://github.com/stuartpittaway/diyBMSv4Code/workflows/PlatformIO%20CI/badge.svg?branch=master)
+
+
+# How to compile the code
+
+The code uses [PlatformIO](https://platformio.org/) to build the code.  There isn't any need to compile the code if you simply want to use it, see "How to use the code" above.
+
+If you want to make changes, fix bugs or poke around, use platformio editor to open the workspace named "diybms_workspace.code-workspace"
+
+
+
+
 # Hardware
 
-Hardware for this code is in a seperate repository.
+Hardware for this code is in a seperate repository, and consists of a controller (you need 1 of these) and modules (one per series cell in your battery)
 
 https://github.com/stuartpittaway/diyBMSv4
 
-
-# WARNING
-
-This is a DIY product/solution so don’t use this for safety critical systems or in any situation where there could be a risk to life.  
-
-There is no warranty, it may not work as expected or at all.
-
-The use of this project is done so entirely at your own risk.  It may involve electrical voltages which could kill - if in doubt, seek help.
-
-The use of this project may not be compliant with local laws or regulations - if in doubt, seek help.
-
-
-
 ## Controller Code
-ESP8266 (recommend Wemos D1 Mini Pro 16MB flash) is currently supported, ESP32 version compiles but is experimental and untested (don't use for production applications)
+ESP8266 (recommend Wemos D1 Mini) is currently supported, ESP32 version coming soon.
 
-The current version requires you to program both FLASH memory and SPIFF memory.  This is achieved through platformio.
-
-Please watch this video on how to program the controller and modules.
-https://youtu.be/wTqDMg_Ql98
+Both [Wemos D1 Mini](https://amzn.to/3i1gPIz) and Wemos D1 Mini Pro are supported - minimum of 4MB flash memory.
 
 
 ## Module Code
-Module code runs on ATTINY841, it is important to program the chip with the correct version of code depending on your PCB version.
+Module code runs on the ATTINY841 micro controller, it is important to program the chip with the correct version of code depending on your PCB version.
+
+You will need a programming device capable of programming ATMEL AVR chips - like the [USBASP programmer](https://amzn.to/2JZRp1h)
+
 
 * V400 = Original board (marked DIYBMS v4 on silkscreen) - has 8 large resistors (marked 2R20) and likely handsoldered using 0805 sized parts [4.0 boards do have TP2 near the ATTINY841 chip]
 
@@ -71,6 +69,16 @@ Module code runs on ATTINY841, it is important to program the chip with the corr
 
 Open the module code, navigate to platformio environment "env:attiny841_VXXX", (where XXX is the version from above).  Connect your USBASP programmer to the module and select "Upload"
 
+
+# WARNING
+
+This is a DIY product/solution so don’t use this for safety critical systems or in any situation where there could be a risk to life.  
+
+There is no warranty, it may not work as expected or at all.
+
+The use of this project is done so entirely at your own risk.  It may involve electrical voltages which could kill - if in doubt, seek help.
+
+The use of this project may not be compliant with local laws or regulations - if in doubt, seek help.
 
 
 
@@ -97,53 +105,3 @@ You do not have to comply with the license for elements of the material in the p
 
 No warranties are given. The license may not give you all of the permissions necessary for your intended use. For example, other rights such as publicity, privacy, or moral rights may limit how you use the material.
 
-
-
-# Problem
-
-A DIY Powerwall is the DIY construction of a pack of battery cells to create an energy store which can be used via inverters to power electrical items in the home. Generally cells are salvaged/second hand, and typically use Lithium 18650 cells.
-
-Lithium batteries need to be kept at the same voltage level across a parallel pack. This is done by balancing each cell in the pack to raise or lower its voltage to match the others.
-
-Existing balancing solutions are available in the market place, but at a relatively high cost compared to the cost of the battery bank, so this project is to design a low-cost, simple featured BMS/balancer.
-
-
-
-
-# BMS Design
-
-Design Goals: 
-* Build upon my existing skill set and knowledge. 
-* Building something that others can contribute to using regular standard libraries and off the shelf components.
-* Build something that is inheriently safe
-* Use platform.io to manage code and libraries
-* Use Arduino based libraries and tools 
-* Put everything on GITHUB
-* Document it (always gets left to the end!)
-
-# How it works
-
-Controller provides human interface over Wifi/Web and also integrates with other systems like MQTT, emonCMS and Grafana.
-
-Controller is esp8266-12e (NodeMCU v1) - although could be upgraded to ESP32 if really needed.
-
-Controller should be able to take action on alerts/events to shut down inverters/chargers/fuses.
-
-Each cell in a battery pack has a monitoring module.  This uses AVR ATTINY841 linked together by optoisolated serial ports for communication.
-
-ATTINY841 provides:
-* internal temperature monitoring
-* external temperature monitoring
-* Spare input/output for 3rd party use
-* autonomous cell voltage balancing - it should still work even if controller is down
-
-# How has v4 improved over v3?
-
-* Code is better!
-* Web interface no longer requires access to internet to download javascript libraries
-* Controller provides outputs for integration with relay boards and switch gear
-* Rules to control relay outputs
-* Cell modules use ATTINY841 chip which provides more pins and lower power usage
-* Removal of 3.3v regulator and ADUM chips lowers current usage significantly
-* v3 module uses 10-12mA current constantly and v4 uses <1mA
-* Dual temperature monitoring board + cells
