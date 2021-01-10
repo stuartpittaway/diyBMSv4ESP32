@@ -70,7 +70,7 @@ jobs:
         pip install --upgrade platformio
        
     - name: Build code for controller
-      run: pio run --project-dir=./ESPController  --environment esp8266_d1minipro --project-conf=./ESPController/platformio.ini
+      run: pio run --project-dir=./ESPController  --environment esp8266_d1mini --project-conf=./ESPController/platformio.ini
 
     - name: Publish Artifacts 2
       uses: actions/upload-artifact@v2
@@ -80,7 +80,7 @@ jobs:
         if-no-files-found: error
 
     - name: Build File System Image for ESP8266
-      run: pio run --project-dir=./ESPController --target buildfs --environment esp8266_d1minipro
+      run: pio run --project-dir=./ESPController --target buildfs --environment esp8266_d1mini
 
     - name: Publish Artifacts 3
       uses: actions/upload-artifact@v2
