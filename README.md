@@ -1,14 +1,12 @@
 # diyBMS v4
 
-Version 4 of the diyBMS.  Do it yourself battery management system for Lithium ion battery packs and cells
+Version 4 of the diyBMS.  Do-it-yourself battery management system for Lithium ion battery packs and cells
 
 If you are looking for version 3 of this project take a look here https://github.com/stuartpittaway/diyBMS
 
 # Support the project
 
-If you find the BMS useful, please consider buying me a beer, check out Patron for more information
-
-https://www.patreon.com/StuartP
+If you find the BMS useful, please consider buying me a beer, check out [Patreon](https://www.patreon.com/StuartP) for more information.
 
 Any donations go towards the on going development and prototype costs of the project.
 
@@ -19,21 +17,11 @@ https://www.youtube.com/stuartpittaway
 
 # How to use the code
 
-This release removes the need to manually install platformIO and compile the code yourself, instead GITHUB Actions are now used to build the code for you automatically.
-
-
-
-# GITHUB Actions
-
 ![Master Branch](https://github.com/stuartpittaway/diyBMSv4Code/workflows/PlatformIO%20CI/badge.svg?branch=master)
 
+This release removes the need to manually compile the code yourself, instead GITHUB Actions are now used to build the code for you automatically.
 
-# How to compile the code
-
-The code uses [PlatformIO](https://platformio.org/) to build the code.  There isn't any need to compile the code if you simply want to use it, see "How to use the code" above.
-
-If you want to make changes, fix bugs or poke around, use platformio editor to open the workspace named "diybms_workspace.code-workspace"
-
+The files you will need are held as ZIP files in [Releases](https://github.com/stuartpittaway/diyBMSv4Code/releases)
 
 
 
@@ -81,6 +69,12 @@ The use of this project is done so entirely at your own risk.  It may involve el
 The use of this project may not be compliant with local laws or regulations - if in doubt, seek help.
 
 
+# How to compile the code yourself
+
+The code uses [PlatformIO](https://platformio.org/) to build the code.  There isn't any need to compile the code if you simply want to use it, see "How to use the code" above.
+
+If you want to make changes, fix bugs or poke around, use platformio editor to open the workspace named "diybms_workspace.code-workspace"
+
 
 # License
 
@@ -98,7 +92,6 @@ Under the following terms:
 * Non-Commercial — You may not use the material for commercial purposes.
 * ShareAlike — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
 * No additional restrictions — You may not apply legal terms or technological measures that legally restrict others from doing anything the license permits.
-
 
 Notices:
 You do not have to comply with the license for elements of the material in the public domain or where your use is permitted by an applicable exception or limitation.
