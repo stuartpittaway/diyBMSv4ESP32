@@ -1,5 +1,9 @@
 #include <SDM.h>
 
+#ifndef DIYBMS_MODBUS_H_
+#define DIYBMS_MODBUS_H_
+
+
 #define MODBUS_NUM   10
 #define MODBUS_NAME_LEN 20
 #define MODBUS_UNIT_LEN 10
@@ -39,3 +43,5 @@ void setModbus(int dev, uint8_t addr, uint32_t min, uint32_t max, uint16_t reg, 
 void setModbusName(int dev, char* cp);
 void setModbusUnit(int dev, char* cp);
 void setModbusDesc(int dev, char* cp);
+
+#endif
