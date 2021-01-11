@@ -27,11 +27,12 @@
             <a id="modules" href="#modules">Modules</a>
             <a id="settings" href="#settings">Settings</a>
             <a id="rules" href="#rules">Rules</a>
+            <a id="modbus" href="#modbus">Modbus</a>
             <a id="integration" href="#integration">Integration</a>
             <a id="about" href="#about">About</a>
         </div>
     </div>
-    <div class="flexgrid">      
+    <div class="flexgrid">
         <div id='error1' class='error'>The controller is having difficulty communicating with the cell monitoring modules.</div>
         <div id='error2' class='error'>Controller found <span id='missingmodule1'></span> modules, but is configured for <span id='missingmodule2'></span>.</div>
         <div id='error3' class='error'>Controller is configured to use more modules than it can cope with.</div>
@@ -52,7 +53,7 @@
         <div id='warning2' class='warning'>Warning: Modules are configured with different bypass temperatures</div>
         <div id='warning3' class='warning'>Warning: Modules have mixed versions of code, may cause instability</div>
         <div id='warning4' class='warning'>Warning: Modules have mixed versions of hardware/boards</div>
-    
+
     </div>
     <div id="info" class="info">
         <div id="current" class="stat"><span class="x t">Current:</span><span class="x v"></span></div>
@@ -219,6 +220,83 @@
         </div>
     </div>
 
+    <div class="page" id="modbusPage">
+        <h1>Modbus</h1>
+        <div class="region">
+            <table id="modbusTable">
+                <thead>
+                    <tr>
+                        <th>Device</th>
+                        <th>Name</th>
+                        <th>Value</th>
+                        <th>Unit</th>
+                        <th>Description</th>
+                        <th>Rule</th>
+                        <th>MQTT</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody class="rows" id="modbusRows">
+                  <tr>
+                  </tr>
+                </tbody>
+            </table>
+        </div>
+        <div id="modbusConfig">
+            <h2>Settings for modbus device </h2>
+            <form id="modbusForm" method="POST" action="savemodbus.json" autocomplete="off">
+                <div class="settings">
+                    <input name="device" id="device" type="hidden" value="">
+                    <div>
+                        <label for="DeviceId">Device Id</label>
+                        <input type="text" name="dev" id="dev" value="" readonly>
+                    </div>
+                    <div>
+                        <label for="addr">Address</label>
+                        <input type="number" name="addr" id="addr" value="">
+                    </div>
+                    <div>
+                        <label for="reg">Register</label>
+                        <input type="number" name="reg" id="reg" value="">
+                    </div>
+                    <div>
+                        <label for="name">Name</label>
+                        <input type="text" name="name" id="name" value="">
+                    </div>
+                    <div>
+                        <label for="unit">Unit</label>
+                        <input type="text" name="unit" id="unit" value="">
+                    </div>
+                    <div>
+                        <label for="desc">Description</label>
+                        <input type="text" name="unit" id="desc" value="">
+                    </div>
+                    <div>
+                        <label for="min">Min duration (s)</label>
+                        <input type="text" name="min" id="min" value="">
+                    </div>
+                    <div>
+                        <label for="max">Max duration (s)</label>
+                        <input type="text" name="max" id="max" value="">
+                    </div>
+                    <div>
+                        <label for="rule">Used in Rules</label>
+                        <input type="checkbox" name="rule" id="rule">
+                    </div>
+                    <div>
+                        <label for="mqtt">MQTT</label>
+                        <input type="checkbox" name="mqtt" id="mqtt">
+                   </div>
+
+                    <input type="submit" value="Save settings" />
+
+                    <button type="button" value="Close" id="close">Close</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="page" id="integrationPage">
         <h1>Integration</h1>
         <p>For security, you will need to re-enter the password for the service(s) you want to enable or modify, before
@@ -365,7 +443,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule5value">Module over temperature (internal) °C</label></td>
+                                <td><label for="rule5value">Individual cell over temperature (internal) °C</label></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule5value" id="rule5value"
                                         value="66" required=""></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule5hysteresis"
@@ -373,7 +451,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule6value">Module under temperature (internal) °C</label></td>
+                                <td><label for="rule6value">Individual cell under temperature (internal) °C</label></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule6value" id="rule6value"
                                         value="5" required=""></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule6hysteresis"

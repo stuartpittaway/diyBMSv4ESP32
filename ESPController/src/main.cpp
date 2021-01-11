@@ -120,8 +120,13 @@ HAL_ESP32 hal;
 #endif
 
 #if defined(ESP32)
+#include "Modbus.h"
+
 #include <XPT2046_Touchscreen.h>
 XPT2046_Touchscreen touchscreen(TOUCH_CHIPSELECT, TOUCH_IRQ); // Param 2 - Touch IRQ Pin - interrupt enabled polling
+
+#include "Modbus.h"
+
 #endif
 
 #include "Rules.h"
@@ -1902,7 +1907,7 @@ SD CARD TEST
 //  AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&hal.vspi, GPIO_NUM_0, false, VSPI_SCK);
 //  bool progresult = isp.ProgramAVRDevice((uint32_t)0x1e9315, size_file_diybms_module_firmware_blinky_avrbin, file_diybms_module_firmware_blinky_avrbin, 0b11100010, 0b11010110, 0b11111110);
 //  bool progresult = isp.ProgramAVRDevice((uint32_t)0x1e9315, size_file_diybms_module_firmware_400_avrbin, file_diybms_module_firmware_400_avrbin, 0b11100010, 0b11010110, 0b11111110);
-//328P -Uefuse:w:0xFD:m -Uhfuse:w:0xDA:m -Ulfuse:w:0xFF:m 
+//328P -Uefuse:w:0xFD:m -Uhfuse:w:0xDA:m -Ulfuse:w:0xFF:m
 //  bool progresult = isp.ProgramAVRDevice((uint32_t)0x1E950F, size_file_atmega328p_fade_avrbin, file_atmega328p_fade_avrbin, 0xFF, 0xDA, 0xFD);
 
   uint32_t endtime=millis();
@@ -1949,7 +1954,7 @@ delay(5000);
 */
 
   /*
-TEST CAN BUS 
+TEST CAN BUS
 */
 
 /*
@@ -1989,7 +1994,7 @@ TEST CAN BUS
     if (res == ESP_OK)
     {
       //SERIAL_DEBUG.println("Message received\n");
-      
+
       SERIAL_DEBUG.printf("\nID is %d=", message.identifier);
       if (!(message.flags & CAN_MSG_FLAG_RTR))
       {
@@ -2017,7 +2022,7 @@ TEST CAN BUS
       // When the bus is OFF we need to initiate recovery, transmit is
       // not possible when in this state.
       SERIAL_DEBUG.printf("ESP32-CAN: initiating recovery");
-      can_initiate_recovery();      
+      can_initiate_recovery();
     }
     else if (status.state == CAN_STATE_RECOVERING)
     {
@@ -2066,6 +2071,8 @@ TEST CAN BUS
   }
 
   resetAllRules();
+
+  InitModbus();
 
 #if defined(ESP32)
   //Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
@@ -2232,6 +2239,7 @@ void loop()
       */
     }
   }
+#endif
 
   if (WifiDisconnected && ControlState != ControllerState::ConfigurationSoftAP)
   {
@@ -2269,6 +2277,8 @@ void loop()
       ESP.restart();
     }
   }
+
+ReadModbus();
 
 #if defined(ESP8266)
   if (NTPsyncEventTriggered)

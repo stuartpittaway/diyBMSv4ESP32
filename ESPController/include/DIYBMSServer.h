@@ -40,7 +40,6 @@ private:
     static void monitor3(AsyncWebServerRequest *request);
     //static void monitor(AsyncWebServerRequest *request);
     static void modules(AsyncWebServerRequest *request);
-
     static void integration(AsyncWebServerRequest *request);
     static void identifyModule(AsyncWebServerRequest *request);
     static void GetRules(AsyncWebServerRequest *request);
@@ -51,6 +50,10 @@ private:
     static void settings(AsyncWebServerRequest *request);
     static void resetCounters(AsyncWebServerRequest *request);
     static void handleRestartController(AsyncWebServerRequest *request);
+
+    static void modbus(AsyncWebServerRequest *request);
+    static void modbusVal(AsyncWebServerRequest *request);
+    static void saveModbus(AsyncWebServerRequest *request);
 
     static void saveSetting(AsyncWebServerRequest *request);
     static void saveInfluxDBSetting(AsyncWebServerRequest *request);

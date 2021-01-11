@@ -114,7 +114,7 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void) )
 
     //BOOT Button on ESP32 module is used for resetting wifi details
     pinMode(GPIO_NUM_0,INPUT_PULLUP);
-    attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);  
+    attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);
 
     //For touch screen
     pinMode(GPIO_NUM_36,INPUT_PULLUP);
@@ -152,8 +152,10 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
     conf.mode = I2C_MODE_MASTER;
     conf.sda_io_num = gpio_num_t::GPIO_NUM_27;
     conf.scl_io_num = gpio_num_t::GPIO_NUM_26;
-    conf.sda_pullup_en = GPIO_PULLUP_DISABLE;
-    conf.scl_pullup_en = GPIO_PULLUP_DISABLE;
+    //conf.sda_pullup_en = GPIO_PULLUP_DISABLE;
+    //conf.scl_pullup_en = GPIO_PULLUP_DISABLE;
+    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
     conf.master.clk_speed = 400000;
     i2c_param_config(I2C_NUM_0, &conf);
     i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0);
@@ -212,8 +214,10 @@ Now for the TCA6408
     TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
     //TODO: Validate if there was a read error or not.
 
+    SERIAL_DEBUG.println("Found TCA6408");
+
     OutputsEnabled = true;
-    InputsEnabled = true;
+//    InputsEnabled = true;
 
     attachInterrupt(TCA6408_INTERRUPT_PIN, TCA6408Interrupt, FALLING);
 }
