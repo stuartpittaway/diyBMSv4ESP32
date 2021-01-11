@@ -37,19 +37,34 @@
 #include "SD.h"
 #include "driver/gpio.h"
 #include "driver/can.h"
-
+#include <SDM.h>
 #include <Ticker.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
 #include <ArduinoOTA.h>
 #include <SerialEncoder.h>
 #include <cppQueue.h>
+#include <XPT2046_Touchscreen.h>
+
 #include "defines.h"
 #include "HAL_ESP32.h"
-#include <XPT2046_Touchscreen.h>
+
+SDM sdm(SERIAL_RS485, 9600, NOT_A_PIN, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
+
 #include "Modbus.h"
+
+ModbusInfo ModBus[MODBUS_NUM];
+ModbusVal ModBusVal[MODBUS_NUM];
+
 #include "Rules.h"
 #include "avrisp_programmer.h"
+
+//void InitModbus();
+
+void setModbus(int dev, uint8_t addr, uint32_t min, uint32_t max, uint16_t reg, char *name, char *unit, char *desc);
+void setModbusName(int dev, char *cp) { strncpy(ModBus[dev].name, cp, MODBUS_NAME_LEN); }
+void setModbusUnit(int dev, char *cp) { strncpy(ModBus[dev].unit, cp, MODBUS_UNIT_LEN); }
+void setModbusDesc(int dev, char *cp) { strncpy(ModBus[dev].desc, cp, MODBUS_DESC_LEN); }
 
 /*
 #define USER_SETUP_LOADED
@@ -112,6 +127,7 @@ AsyncWebServer server(80);
 static TaskHandle_t i2c_task_handle = NULL;
 static TaskHandle_t ledoff_task_handle = NULL;
 static TaskHandle_t wifiresetdisable_task_handle = NULL;
+static TaskHandle_t modbuscomms_task_handle = NULL;
 static QueueHandle_t queue_i2c = NULL;
 
 //This large array holds all the information about the modules
@@ -163,6 +179,45 @@ bool InputsEnabled;
 
 AsyncMqttClient mqttClient;
 
+void setModbus(int dev, uint8_t addr, uint32_t min, uint32_t max, uint16_t reg, char *name, char *unit, char *desc)
+{
+  ModBus[dev].addr = addr;
+  ModBus[dev].op = MB_READ_REGISTER;
+  ModBus[dev].min = min;
+  ModBus[dev].max = max;
+  ModBus[dev].reg = reg;
+  /*
+  strncpy(ModBus[dev].name, name, MODBUS_NAME_LEN);
+  strncpy(ModBus[dev].unit, unit, MODBUS_UNIT_LEN);
+  strncpy(ModBus[dev].desc, desc, MODBUS_DESC_LEN);
+*/
+  setModbusName(dev, name);
+  setModbusUnit(dev, unit);
+  setModbusDesc(dev, desc);
+
+  //  SERIAL_DEBUG.printf("%d %s %s %s\n", dev, (char*) ModBus[dev].name, (char*) ModBus[dev].unit, (char*) ModBus[dev].desc);
+  //dev++;
+}
+
+void InitModbus()
+{
+  sdm.begin();
+
+  memset(ModBusVal, 0, sizeof(ModbusVal) * MODBUS_NUM); //initialize SDM communication
+  //delay(1000);                                          //wait a while before next loop
+
+  setModbus(0, 31, 60, 3600, SDM_TOTAL_ACTIVE_ENERGY, (char *)"BAT_IN_E", (char *)"kWh", (char *)"Powersupply Energy");
+  setModbus(1, 31, 10, 3600, SDM_PHASE_1_POWER, (char *)"BAT_IN_P", (char *)"W", (char *)"Powersupply Power");
+  setModbus(2, 31, 10, 3600, SDM_PHASE_1_VOLTAGE, (char *)"BAT_IN_U", (char *)"V", (char *)"Powersupply Voltage");
+  setModbus(3, 31, 60, 3600, SDM_PHASE_1_CURRENT, (char *)"BAT_IN_I", (char *)"A", (char *)"Powersupply Current");
+  setModbus(4, 31, 10, 3600, SDM_FREQUENCY, (char *)"BAT_IN_F", (char *)"Hz", (char *)"Powersupply Frequency");
+  setModbus(5, 31, 60, 3600, SDM_TOTAL_ACTIVE_ENERGY, (char *)"BAT_OUT_E", (char *)"kWh", (char *)"Powerwall AC Energy");
+  setModbus(6, 31, 10, 3600, SDM_PHASE_1_POWER, (char *)"BAT_OUT_P", (char *)"W", (char *)"Powerwall AC Power");
+  setModbus(7, 31, 1, 3600, SDM_PHASE_1_VOLTAGE, (char *)"BAT_OUT_U", (char *)"V", (char *)"Powerwall AC Voltage");
+  setModbus(8, 31, 60, 3600, SDM_PHASE_1_CURRENT, (char *)"BAT_OUT_I", (char *)"A", (char *)"Powerwall AC Current");
+  setModbus(9, 31, 5, 3600, SDM_FREQUENCY, (char *)"BAT_OUT_F", (char *)"Hz", (char *)"Powerwall AC Freqency");
+}
+
 void QueueLED(uint8_t bits)
 {
   i2cQueueMessage m;
@@ -173,6 +228,37 @@ void QueueLED(uint8_t bits)
   xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
 }
 
+void modbuscomms_task(void *param)
+{
+  static uint8_t ind = 0;
+
+  for (;;)
+  {
+    //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
+    //ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    //Wait 5 seconds
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+
+    if (MODBUS_NUM)
+    {
+
+      //if (ModBus[ind].min < (ts - ModBusVal[ind].last) / 1000)
+      //{
+
+      ModBusVal[ind].val = sdm.readVal(ModBus[ind].reg, ModBus[ind].addr);
+      //ModBusVal[ind].last = ts;
+
+      //      SERIAL_DEBUG.printf("Read Modbus: %d %s: %f\n", ind, ModBus[ind].name, ModBusVal[ind].val);
+      //}
+
+      if (++ind >= MODBUS_NUM)
+        ind = 0;
+    }
+  }
+
+  //vTaskDelete( NULL );
+}
 //Disable the BOOT button from acting as a WIFI RESET
 //button which clears the EEPROM settings for WIFI connection
 void wifiresetdisable_task(void *param)
@@ -1879,10 +1965,14 @@ TEST CAN BUS
   //to prevent issues with thread safety on the i2c hardware/libraries
   queue_i2c = xQueueCreate(10, sizeof(i2cQueueMessage));
 
+  //Needs to be before xTaskCreate(modbuscomms_task
+  InitModbus();
+
   //Create i2c task on CPU 0 (normal code runs on CPU 1)
   xTaskCreatePinnedToCore(i2c_task, "i2c", 2048, nullptr, 2, &i2c_task_handle, 0);
   xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
   xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 1, &wifiresetdisable_task_handle);
+  xTaskCreate(modbuscomms_task, "modbusc", 2048, nullptr, 1, &modbuscomms_task_handle);
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
@@ -1893,7 +1983,6 @@ TEST CAN BUS
 
   resetAllRules();
 
-  InitModbus();
 
   //Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
   SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1, 2, 32); // Serial for comms to modules
@@ -1919,7 +2008,6 @@ TEST CAN BUS
     //Set relay defaults
     hal.SetOutputState(y, mysettings.rulerelaydefault[y]);
   }
-
 
   //Allow user to press SPACE BAR key on serial terminal
   //to enter text based WIFI setup
@@ -2061,6 +2149,4 @@ void loop()
       ESP.restart();
     }
   }
-
-  ReadModbus();
 }

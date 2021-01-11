@@ -4,16 +4,8 @@
 
 #include <Arduino.h>
 
-#if defined(ESP8266)
-//https://github.com/esp8266/Arduino
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
-#include "ESP8266TrueRandom.h"
-#else
 #include <WiFi.h>
 #include <AsyncTCP.h>
-#endif
-
 #include <ESPAsyncWebServer.h>
 
 #include <EEPROM.h>
@@ -23,6 +15,8 @@
 #include "ArduinoJson.h"
 #include "PacketRequestGenerator.h"
 #include "PacketReceiveProcessor.h"
+
+#include "Modbus.h"
 
 class DIYBMSServer
 {
@@ -80,5 +74,8 @@ extern ControllerState ControlState;
 
 extern bool OutputsEnabled;
 extern bool InputsEnabled;
+
+extern ModbusInfo ModBus[MODBUS_NUM];
+extern ModbusVal ModBusVal[MODBUS_NUM];
 
 #endif

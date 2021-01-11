@@ -30,7 +30,13 @@
 			"memory": "cpp",
 			"initializer_list": "cpp",
 			"functional": "cpp",
-			"bitset": "cpp"
+			"bitset": "cpp",
+			"xloctime": "cpp",
+			"algorithm": "cpp",
+			"limits": "cpp",
+			"xlocale": "cpp",
+			"xutility": "cpp",
+			"istream": "cpp"
 		}
 	}
 }
