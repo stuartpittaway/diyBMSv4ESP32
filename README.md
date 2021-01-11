@@ -8,6 +8,8 @@ If you are looking for version 3 of this project take a look here https://github
 
 If you find the BMS useful, please consider buying me a beer, check out [Patreon](https://www.patreon.com/StuartP) for more information.
 
+You can also send beer tokens via Paypal - [paypal.me/stuart2222](https://www.paypal.com/paypalme/my/profile)
+
 Any donations go towards the on going development and prototype costs of the project.
 
 # Videos on how to use and build
