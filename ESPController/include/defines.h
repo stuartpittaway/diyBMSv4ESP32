@@ -4,6 +4,8 @@
 
 #include "EmbeddedFiles_Integrity.h"
 
+//#define TOUCH_SCREEN
+
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
