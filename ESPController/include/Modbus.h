@@ -1,5 +1,3 @@
-
-
 #include <SDM.h>
 
 #ifndef DIYBMS_MODBUS_H_

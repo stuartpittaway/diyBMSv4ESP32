@@ -27,16 +27,8 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #include <ArduinoJson.h>
 #include "FS.h"
 
-#if defined(ESP8266)
-#include "ESP8266TrueRandom.h"
-#include <TimeLib.h>
-#include <LittleFS.h>
-#endif
-
-#if defined(ESP32)
 #include <SPIFFS.h>
 #include "time.h"
-#endif
 
 #include "defines.h"
 #include "DIYBMSServer.h"
@@ -80,16 +72,11 @@ void DIYBMSServer::generateUUID()
 {
   //SERIAL_DEBUG.print("generateUUID=");
   byte uuidNumber[16]; // UUIDs in binary form are 16 bytes long
-#if defined(ESP8266)
-  ESP8266TrueRandom.uuid(uuidNumber);
-#endif
 
-#if defined(ESP32)
   //ESP32 has inbuilt random number generator
   //https://techtutorialsx.com/2017/12/22/esp32-arduino-random-number-generation/
   for (uint8_t x = 0; x < 16; x--)
     uuidNumber[x] = random(0xFF);
-#endif
 
   UUIDString = uuidToString(uuidNumber);
 }
@@ -578,11 +565,6 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   DynamicJsonDocument doc(2048);
   JsonObject root = doc.to<JsonObject>();
 
-#if defined(ESP8266)
-  root["timenow"] = (hour() * 60) + minute();
-#endif
-
-#if defined(ESP32)
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo))
   {
@@ -592,7 +574,6 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   {
     root["timenow"] = (timeinfo.tm_hour * 60) + timeinfo.tm_min;
   }
-#endif
 
   root["OutputsEnabled"] = OutputsEnabled;
   root["InputsEnabled"] = InputsEnabled;
@@ -687,17 +668,11 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   settings["MinutesTimeZone"] = mysettings.minutesTimeZone;
   settings["DST"] = mysettings.daylight;
 
-#if defined(ESP8266)
-  settings["now"] = now();
-#endif
-
-#if defined(ESP32)
   time_t now;
   if (time(&now))
   {
     settings["now"] = now;
   }
-#endif
 
   response->addHeader("Cache-Control", "no-store");
 
@@ -816,17 +791,17 @@ void DIYBMSServer::modbusVal(AsyncWebServerRequest *request)
   DynamicJsonDocument doc(1024);
   JsonObject root = doc.to<JsonObject>();
 
-  JsonArray val  = root.createNestedArray("val");
-  JsonArray last  = root.createNestedArray("last");
+  JsonArray val = root.createNestedArray("val");
+  JsonArray last = root.createNestedArray("last");
 
-  for (int i=0; i<MODBUS_NUM; i++) {
+  for (int i = 0; i < MODBUS_NUM; i++)
+  {
     val.add(ModBusVal[i].val);
-    last.add((float) ModBusVal[i].last/1000.0);
+    last.add((float)ModBusVal[i].last / 1000.0);
   }
 
   serializeJson(doc, *response);
   request->send(response);
-
 }
 
 void DIYBMSServer::modbus(AsyncWebServerRequest *request)
@@ -837,7 +812,7 @@ void DIYBMSServer::modbus(AsyncWebServerRequest *request)
   DynamicJsonDocument doc(4096);
   JsonObject root = doc.to<JsonObject>();
 
-/*
+  /*
   JsonArray addr = root.createNestedArray("addr");
   JsonArray reg  = root.createNestedArray("reg");
   JsonArray name = root.createNestedArray("name");
@@ -856,24 +831,24 @@ void DIYBMSServer::modbus(AsyncWebServerRequest *request)
 
   JsonArray modbus = root.createNestedArray("modbus");
 
-  const int capacity=JSON_OBJECT_SIZE(100);
+  const int capacity = JSON_OBJECT_SIZE(100);
   StaticJsonDocument<capacity> obj;
 
-  for (int i=0; i<MODBUS_NUM; i++) {
+  for (int i = 0; i < MODBUS_NUM; i++)
+  {
 
-    obj["dev"]  = i;
+    obj["dev"] = i;
     obj["addr"] = ModBus[i].addr;
-    obj["reg"]  = ModBus[i].reg;
+    obj["reg"] = ModBus[i].reg;
     obj["min"] = ModBus[i].min;
     obj["max"] = ModBus[i].max;
     obj["rule"] = ModBus[i].rule ? "X" : "";
     obj["mqtt"] = ModBus[i].mqtt ? "X" : "";
-    obj["name"] = (char*) ModBus[i].name;
-    obj["unit"] = (char*) ModBus[i].unit;
-    obj["desc"] = (char*) ModBus[i].desc;
+    obj["name"] = (char *)ModBus[i].name;
+    obj["unit"] = (char *)ModBus[i].unit;
+    obj["desc"] = (char *)ModBus[i].desc;
 
     modbus.add(obj);
-
   }
 
   serializeJson(doc, *response);
@@ -885,11 +860,11 @@ void DIYBMSServer::saveModbus(AsyncWebServerRequest *request)
   if (!validateXSS(request))
     return;
 
-    int args = request->args();
-    for(int i=0;i<args;i++){
-      SERIAL_DEBUG.printf("ARG[%s]: %s\n", request->argName(i).c_str(), request->arg(i).c_str());
-    }
-
+  int args = request->args();
+  for (int i = 0; i < args; i++)
+  {
+    SERIAL_DEBUG.printf("ARG[%s]: %s\n", request->argName(i).c_str(), request->arg(i).c_str());
+  }
 
   if (request->hasParam("dev", true))
   {
@@ -907,22 +882,22 @@ void DIYBMSServer::saveModbus(AsyncWebServerRequest *request)
       if (request->hasParam("addr", true))
       {
         AsyncWebParameter *p1 = request->getParam("addr", true);
-        ModBus[d].addr  = p1->value().toInt();
+        ModBus[d].addr = p1->value().toInt();
       }
       if (request->hasParam("reg", true))
       {
         AsyncWebParameter *p1 = request->getParam("reg", true);
-        ModBus[d].reg  = p1->value().toInt();
+        ModBus[d].reg = p1->value().toInt();
       }
       if (request->hasParam("min", true))
       {
         AsyncWebParameter *p1 = request->getParam("min", true);
-        ModBus[d].min  = p1->value().toInt();
+        ModBus[d].min = p1->value().toInt();
       }
       if (request->hasParam("max", true))
       {
         AsyncWebParameter *p1 = request->getParam("max", true);
-        ModBus[d].max  = p1->value().toInt();
+        ModBus[d].max = p1->value().toInt();
       }
 
       if (request->hasParam("name", true))
@@ -941,12 +916,12 @@ void DIYBMSServer::saveModbus(AsyncWebServerRequest *request)
         strncpy(ModBus[d].desc, p1->value().c_str(), MODBUS_DESC_LEN);
       }
 
-      ModBus[d].rule  = request->hasParam("rule", true);
+      ModBus[d].rule = request->hasParam("rule", true);
       SERIAL_DEBUG.printf("Rule %d\n", ModBus[d].rule);
-      ModBus[d].mqtt  = request->hasParam("mqtt", true);
+      ModBus[d].mqtt = request->hasParam("mqtt", true);
       SERIAL_DEBUG.printf("MQTT %d\n", ModBus[d].mqtt);
 
-//      prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
+      //      prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
 
       SendSuccess(request);
     }
@@ -956,8 +931,6 @@ void DIYBMSServer::saveModbus(AsyncWebServerRequest *request)
     request->send(500, "text/plain", "Missing parameters");
   }
 }
-
-
 
 /*
 Restart controller from web interface
@@ -1158,15 +1131,8 @@ String DIYBMSServer::TemplateProcessor(const String &var)
   if (var == "XSS_KEY")
     return DIYBMSServer::UUIDString;
 
-#if defined(ESP8266)
-  if (var == "PLATFORM")
-    return String("ESP8266");
-#endif
-
-#if defined(ESP32)
   if (var == "PLATFORM")
     return String("ESP32");
-#endif
 
   if (var == "GIT_VERSION")
     return String(GIT_VERSION);

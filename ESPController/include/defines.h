@@ -9,7 +9,7 @@
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
-#if defined(ESP32)
+
 //Data uses Rx2/TX2 and debug logs go to serial0 - USB
 #define SERIAL_DATA Serial2
 #define SERIAL_DEBUG Serial
@@ -29,16 +29,6 @@ enum RGBLED : uint8_t
   Yellow = B00000110,
   White = B00000111
 };
-#endif
-
-#if defined(ESP8266)
-#define SERIAL_DATA Serial
-#define SERIAL_DEBUG Serial1
-
-//Total number of cells a single controler can handle (memory limitation)
-#define maximum_controller_cell_modules 100
-
-#endif
 
 //Maximum of 16 cell modules (don't change this!) number of cells to process in a single packet of data
 #define maximum_cell_modules_per_packet 16

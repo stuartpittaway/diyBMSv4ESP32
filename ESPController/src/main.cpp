@@ -107,15 +107,12 @@ bool previousRelayPulse[RELAY_TOTAL];
 
 volatile enumInputState InputState[INPUTS_TOTAL];
 
-
 AsyncWebServer server(80);
-
 
 static TaskHandle_t i2c_task_handle = NULL;
 static TaskHandle_t ledoff_task_handle = NULL;
 static TaskHandle_t wifiresetdisable_task_handle = NULL;
 static QueueHandle_t queue_i2c = NULL;
-
 
 //This large array holds all the information about the modules
 //up to 4x16
@@ -143,7 +140,6 @@ uint8_t SerialPacketReceiveBuffer[2 * sizeof(PacketStruct)];
 
 SerialEncoder myPacketSerial;
 
-
 Ticker myTimerRelay;
 Ticker myTimer;
 Ticker myTransmitTimer;
@@ -166,7 +162,6 @@ bool OutputsEnabled;
 bool InputsEnabled;
 
 AsyncMqttClient mqttClient;
-
 
 void QueueLED(uint8_t bits)
 {
@@ -320,7 +315,6 @@ void IRAM_ATTR TCA9534AInterrupt()
   xQueueSendToBackFromISR(queue_i2c, &m, NULL);
 }
 
-
 void dumpByte(uint8_t data)
 {
   if (data <= 0x0F)
@@ -437,7 +431,6 @@ void SetControllerState(ControllerState newState)
 
     ControlState = newState;
 
-#if defined(ESP32)
     switch (ControlState)
     {
     case ControllerState::PowerUp:
@@ -460,15 +453,12 @@ void SetControllerState(ControllerState newState)
       //Do nothing
       break;
     }
-#endif
   }
 }
 
 uint16_t minutesSinceMidnight()
 {
 
-
-#if defined(ESP32)
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo))
   {
@@ -478,7 +468,6 @@ uint16_t minutesSinceMidnight()
   {
     return (timeinfo.tm_hour * 60) + timeinfo.tm_min;
   }
-#endif
 }
 
 void serviceReplyQueue()
@@ -503,10 +492,10 @@ void serviceReplyQueue()
     }
     else
     {
-#if defined(ESP32)
+
       //Error blue
       QueueLED(RGBLED::Blue);
-#endif
+
       SERIAL_DEBUG.print(F("*FAIL*"));
       dumpPacketToDebug('F', &ps);
     }
@@ -538,7 +527,6 @@ void onPacketReceived()
   // Process decoded incoming packet
   //dumpPacketToDebug('Q', &ps);
   //#endif
-
 }
 
 void timerTransmitCallback()
@@ -668,13 +656,11 @@ void ProcessRules()
     }
   }
 
-#if defined(ESP32)
   if (emergencyStop)
   {
     //Lowest 3 bits are RGB led GREEN/RED/BLUE
     QueueLED(RGBLED::Red);
   }
-#endif
 }
 
 void timerSwitchPulsedRelay()
@@ -684,17 +670,15 @@ void timerSwitchPulsedRelay()
   {
     if (previousRelayPulse[y])
     {
-//We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
-//However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
-//to prevent multiple pulses being sent on each rule refresh
+      //We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
+      //However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
+      //to prevent multiple pulses being sent on each rule refresh
 
-#if defined(ESP32)
       i2cQueueMessage m;
       //Different command for each relay
       m.command = 0xE0 + y;
       m.data = previousRelayState[y] == RelayState::RELAY_ON ? RelayState::RELAY_OFF : RelayState::RELAY_ON;
       xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
-#endif
 
       previousRelayPulse[y] = false;
     }
@@ -767,14 +751,11 @@ void timerProcessRules()
       //This would be better if we worked out the bit pattern first and then just
       //submitted that as a single i2c read/write transaction
 
-
-#if defined(ESP32)
       i2cQueueMessage m;
       //Different command for each relay
       m.command = 0xE0 + n;
       m.data = relay[n];
       xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
-#endif
 
       previousRelayState[n] = relay[n];
 
@@ -846,7 +827,6 @@ void connectToWifi()
 
     char hostname[40];
 
-#if defined(ESP32)
     uint32_t chipId = 0;
     for (int i = 0; i < 17; i = i + 8)
     {
@@ -854,7 +834,7 @@ void connectToWifi()
     }
     sprintf(hostname, "DIYBMS-%08X", chipId);
     WiFi.setHostname(hostname);
-#endif
+
     SERIAL_DEBUG.print(F("Hostname: "));
     SERIAL_DEBUG.print(hostname);
     SERIAL_DEBUG.println(F("  Connecting to Wi-Fi..."));
@@ -1017,11 +997,8 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   SERIAL_DEBUG.print(F("Request NTP from "));
   SERIAL_DEBUG.println(mysettings.ntpServer);
 
-
-#if defined(ESP32)
   //Use native ESP32 code
   configTime(mysettings.minutesTimeZone * 60, mysettings.daylight * 60, mysettings.ntpServer);
-#endif
 
   /*
   TODO: CHECK ERROR CODES BETTER!
@@ -1636,26 +1613,26 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
   file.close();
 }
 
+/*
 static const char *ESP32_CAN_STATUS_STRINGS[] = {
     "STOPPED",               // CAN_STATE_STOPPED
     "RUNNING",               // CAN_STATE_RUNNING
     "OFF / RECOVERY NEEDED", // CAN_STATE_BUS_OFF
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
+*/
 
 void setup()
 {
   WiFi.mode(WIFI_OFF);
-#if defined(ESP32)
+
   btStop();
   esp_log_level_set("*", ESP_LOG_WARN); // set all components to WARN level
   //esp_log_level_set("wifi", ESP_LOG_WARN);      // enable WARN logs from WiFi stack
   //esp_log_level_set("dhcpc", ESP_LOG_WARN);     // enable INFO logs from DHCP client
-#endif
-
 
   const char *diybms_logo = "\r\n\r\n\r\n                _          __ \r\n    _|  o      |_)  |\\/|  (_  \r\n   (_|  |  \\/  |_)  |  |  __) \r\n           /                  ";
-#if defined(ESP32)
+
   //ESP32 we use the USB serial interface for console/debug messages
   SERIAL_DEBUG.begin(115200, SERIAL_8N1);
   SERIAL_DEBUG.setDebugOutput(true);
@@ -1666,7 +1643,7 @@ void setup()
   SERIAL_DEBUG.print(GIT_VERSION);
   SERIAL_DEBUG.print(F(" compiled:"));
   SERIAL_DEBUG.println(COMPILE_DATE_TIME);
-/*
+  /*
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
 
@@ -1679,18 +1656,14 @@ void setup()
   SERIAL_DEBUG.print(", Features=0x");
   SERIAL_DEBUG.println(chip_info.features, HEX);
 */
-#endif
 
   //We generate a unique number which is used in all following JSON requests
   //we use this as a simple method to avoid cross site scripting attacks
   DIYBMSServer::generateUUID();
 
-#if defined(ESP32)
   hal.ConfigurePins(WifiPasswordClear);
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
   hal.ConfigureVSPI();
-#endif
-
 
   SetControllerState(ControllerState::PowerUp);
 
@@ -1819,7 +1792,7 @@ delay(5000);
 TEST CAN BUS
 */
 
-/*
+  /*
   //Initialize configuration structures using macro initializers
   can_general_config_t g_config = CAN_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, CAN_MODE_NORMAL);
   g_config.mode = CAN_MODE_NORMAL;
@@ -1895,7 +1868,6 @@ TEST CAN BUS
   }
 */
 
-#if defined(ESP32)
   hal.ConfigureVSPI();
   init_tft_display();
 
@@ -1911,8 +1883,6 @@ TEST CAN BUS
   xTaskCreatePinnedToCore(i2c_task, "i2c", 2048, nullptr, 2, &i2c_task_handle, 0);
   xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
   xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 1, &wifiresetdisable_task_handle);
-#endif
-
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
@@ -1925,21 +1895,16 @@ TEST CAN BUS
 
   InitModbus();
 
-#if defined(ESP32)
   //Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
   SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1, 2, 32); // Serial for comms to modules
-#endif
-
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
-#if defined(ESP32)
-    // initialize LittleFS
-    if (!SPIFFS.begin())
-#endif
-    {
-      SERIAL_DEBUG.println(F("An Error has occurred while mounting LittleFS"));
-    }
+  // initialize LittleFS
+  if (!SPIFFS.begin())
+  {
+    SERIAL_DEBUG.println(F("An Error has occurred while mounting LittleFS"));
+  }
 
   LoadConfiguration();
 
@@ -1955,7 +1920,7 @@ TEST CAN BUS
     hal.SetOutputState(y, mysettings.rulerelaydefault[y]);
   }
 
-#if defined(ESP32)
+
   //Allow user to press SPACE BAR key on serial terminal
   //to enter text based WIFI setup
   SERIAL_DEBUG.print(F("Press SPACE BAR to enter terminal based configuration...."));
@@ -1974,7 +1939,6 @@ TEST CAN BUS
     delay(250);
   }
   SERIAL_DEBUG.println(F("skipped"));
-#endif
 
   //Temporarly force WIFI settings
   //wifi_eeprom_settings xxxx;
@@ -2002,10 +1966,8 @@ TEST CAN BUS
     /* Explicitly set the ESP to be a WiFi-client, otherwise by default,
       would try to act as both a client and an access-point */
 
-#if defined(ESP32)
     WiFi.onEvent(onWifiConnect, WiFiEvent_t::SYSTEM_EVENT_STA_GOT_IP);
     WiFi.onEvent(onWifiDisconnect, WiFiEvent_t::SYSTEM_EVENT_STA_DISCONNECTED);
-#endif
 
     mqttClient.onConnect(onMqttConnect);
     mqttClient.onDisconnect(onMqttDisconnect);
@@ -2062,7 +2024,6 @@ void loop()
       */
     }
   }
-#endif
 
   if (WifiDisconnected && ControlState != ControllerState::ConfigurationSoftAP)
   {
@@ -2101,7 +2062,5 @@ void loop()
     }
   }
 
-ReadModbus();
-
-
+  ReadModbus();
 }
