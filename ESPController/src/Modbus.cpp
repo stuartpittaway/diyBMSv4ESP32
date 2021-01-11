@@ -1,3 +1,5 @@
+#define USE_HARDWARESERIAL
+
 #include <Arduino.h>
 
 #include "defines.h"
