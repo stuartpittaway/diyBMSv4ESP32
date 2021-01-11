@@ -16,12 +16,15 @@
 #error ESP8266 is not supported by this code
 #endif
 
+static const char *TAG = "diybms";
+
+#include "esp_log.h"
 #include <Arduino.h>
 
-//#define PACKET_LOGGING_RECEIVE
-//#define PACKET_LOGGING_SEND
-//#define RULES_LOGGING
-//#define MQTT_LOGGING
+#define PACKET_LOGGING_RECEIVE
+#define PACKET_LOGGING_SEND
+#define RULES_LOGGING
+#define MQTT_LOGGING
 
 #include "FS.h"
 #include <SPIFFS.h>
@@ -186,17 +189,12 @@ void setModbus(int dev, uint8_t addr, uint32_t min, uint32_t max, uint16_t reg, 
   ModBus[dev].min = min;
   ModBus[dev].max = max;
   ModBus[dev].reg = reg;
-  /*
-  strncpy(ModBus[dev].name, name, MODBUS_NAME_LEN);
-  strncpy(ModBus[dev].unit, unit, MODBUS_UNIT_LEN);
-  strncpy(ModBus[dev].desc, desc, MODBUS_DESC_LEN);
-*/
+
   setModbusName(dev, name);
   setModbusUnit(dev, unit);
   setModbusDesc(dev, desc);
 
-  //  SERIAL_DEBUG.printf("%d %s %s %s\n", dev, (char*) ModBus[dev].name, (char*) ModBus[dev].unit, (char*) ModBus[dev].desc);
-  //dev++;
+  ESP_LOGD(TAG, "%d %s %s %s\n", dev, (char *)ModBus[dev].name, (char *)ModBus[dev].unit, (char *)ModBus[dev].desc);
 }
 
 void InitModbus()
@@ -401,6 +399,7 @@ void IRAM_ATTR TCA9534AInterrupt()
   xQueueSendToBackFromISR(queue_i2c, &m, NULL);
 }
 
+/*
 void dumpByte(uint8_t data)
 {
   if (data <= 0x0F)
@@ -409,111 +408,92 @@ void dumpByte(uint8_t data)
   }
   SERIAL_DEBUG.print(data, HEX);
 }
+*/
+
+const char *packetType(uint8_t cmd)
+{
+  switch (cmd)
+  {
+  case COMMAND::ResetBadPacketCounter:
+    return "ResetC";
+    break;
+  case COMMAND::ReadVoltageAndStatus:
+    return "RdVolt";
+    break;
+  case COMMAND::Identify:
+    return "Ident";
+    break;
+  case COMMAND::ReadTemperature:
+    return "RdTemp";
+    break;
+  case COMMAND::ReadBadPacketCounter:
+    return "RdBadPkC";
+    break;
+  case COMMAND::ReadSettings:
+    return "RdSettin";
+    break;
+  case COMMAND::WriteSettings:
+    return "WriteSet";
+    break;
+  case COMMAND::ReadBalancePowerPWM:
+    return "RdBalanc";
+    break;
+  case COMMAND::Timing:
+    return "Timing";
+    break;
+  case COMMAND::ReadBalanceCurrentCounter:
+    return "Current";
+    break;
+  case COMMAND::ReadPacketReceivedCounter:
+    return "PktRvd";
+    break;
+  }
+
+  return " ??????   ";
+}
 
 void dumpPacketToDebug(char indicator, PacketStruct *buffer)
 {
   //Filter on some commands
   //if ((buffer->command & 0x0F) != COMMAND::Timing)    return;
 
-  SERIAL_DEBUG.print(millis());
-  SERIAL_DEBUG.print(':');
+  ESP_LOGD(TAG, "%c %02X-%02X H:%02X C:%02X SEQ:%04X CRC:%04X %s",
+           indicator,
+           buffer->start_address,
+           buffer->end_address,
+           buffer->hops,
+           buffer->command,
+           buffer->sequence,
+           buffer->crc,
+           packetType(buffer->command & 0x0F));
 
-  SERIAL_DEBUG.print(indicator);
-
-  SERIAL_DEBUG.print(':');
-  dumpByte(buffer->start_address);
-  SERIAL_DEBUG.print('-');
-  dumpByte(buffer->end_address);
-  SERIAL_DEBUG.print('/');
-  dumpByte(buffer->hops);
-  SERIAL_DEBUG.print('/');
-  dumpByte(buffer->command);
-
-  switch (buffer->command & 0x0F)
-  {
-
-  case COMMAND::ResetBadPacketCounter:
-    SERIAL_DEBUG.print(F(" ResetC   "));
-    break;
-  case COMMAND::ReadVoltageAndStatus:
-    SERIAL_DEBUG.print(F(" RdVolt   "));
-    break;
-  case COMMAND::Identify:
-    SERIAL_DEBUG.print(F(" Ident    "));
-    break;
-  case COMMAND::ReadTemperature:
-    SERIAL_DEBUG.print(F(" RdTemp   "));
-    break;
-  case COMMAND::ReadBadPacketCounter:
-    SERIAL_DEBUG.print(F(" RdBadPkC "));
-    break;
-  case COMMAND::ReadSettings:
-    SERIAL_DEBUG.print(F(" RdSettin "));
-    break;
-  case COMMAND::WriteSettings:
-    SERIAL_DEBUG.print(F(" WriteSet "));
-    break;
-  case COMMAND::ReadBalancePowerPWM:
-    SERIAL_DEBUG.print(F(" RdBalanc "));
-    break;
-  case COMMAND::Timing:
-    SERIAL_DEBUG.print(F(" Timing   "));
-    break;
-  case COMMAND::ReadBalanceCurrentCounter:
-    SERIAL_DEBUG.print(F(" Current  "));
-    break;
-  case COMMAND::ReadPacketReceivedCounter:
-    SERIAL_DEBUG.print(F(" PktRvd   "));
-    break;
-  default:
-    SERIAL_DEBUG.print(F(" ??????   "));
-    break;
-  }
-
-  SERIAL_DEBUG.printf("%.4X", buffer->sequence);
-  //SERIAL_DEBUG.print(buffer->sequence, HEX);
-  SERIAL_DEBUG.print('=');
-  for (size_t i = 0; i < maximum_cell_modules_per_packet; i++)
-  {
-    //SERIAL_DEBUG.print(buffer->moduledata[i], HEX);
-    SERIAL_DEBUG.printf("%.4X", buffer->moduledata[i]);
-    SERIAL_DEBUG.print(" ");
-  }
-  SERIAL_DEBUG.print("=");
-  //SERIAL_DEBUG.print(buffer->crc, HEX);
-  SERIAL_DEBUG.printf("%.4X", buffer->crc);
-
-  SERIAL_DEBUG.println();
+  //ESP_LOG_BUFFER_HEX("packet", &(buffer->moduledata[0]), sizeof(buffer->moduledata), ESP_LOG_DEBUG);
 }
 
-String ControllerStateString(ControllerState value)
+const char *ControllerStateString(ControllerState value)
 {
   switch (value)
   {
   case ControllerState::PowerUp:
-    return String(F("PowerUp"));
+    return "PowerUp";
   case ControllerState::ConfigurationSoftAP:
-    return String(F("ConfigurationSoftAP"));
+    return "ConfigurationSoftAP";
   case ControllerState::Stabilizing:
-    return String(F("Stabilizing"));
+    return "Stabilizing";
   case ControllerState::Running:
-    return String(F("Running"));
+    return "Running";
   case ControllerState::Unknown:
-    return String(F("Unknown"));
+    return "Unknown";
   }
 
-  return String("?");
+  return "?";
 }
 
 void SetControllerState(ControllerState newState)
 {
   if (ControlState != newState)
   {
-    SERIAL_DEBUG.println();
-    SERIAL_DEBUG.print(F("** Controller changed state from "));
-    SERIAL_DEBUG.print(ControllerStateString(ControlState));
-    SERIAL_DEBUG.print(F(" to "));
-    SERIAL_DEBUG.println(ControllerStateString(newState));
+    ESP_LOGI(TAG, "** Controller changed state from %s to %s **", ControllerStateString(ControlState), ControllerStateString(newState));
 
     ControlState = newState;
 
@@ -568,8 +548,6 @@ void serviceReplyQueue()
 #if defined(PACKET_LOGGING_RECEIVE)
     // Process decoded incoming packet
     dumpPacketToDebug('R', &ps);
-#else
-    //SERIAL_DEBUG.print('R');
 #endif
 
     if (receiveProc.ProcessReply(&ps))
@@ -582,7 +560,9 @@ void serviceReplyQueue()
       //Error blue
       QueueLED(RGBLED::Blue);
 
-      SERIAL_DEBUG.print(F("*FAIL*"));
+      ESP_LOGE(TAG, "Packet Failed");
+
+      //SERIAL_DEBUG.print(F("*FAIL*"));
       dumpPacketToDebug('F', &ps);
     }
   }
@@ -606,13 +586,8 @@ void onPacketReceived()
 
   if (!replyQueue.push(&ps))
   {
-    SERIAL_DEBUG.println(F("*Failed to queue reply*"));
+    ESP_LOGE("*Failed to queue reply*");
   }
-
-  //#if defined(PACKET_LOGGING_RECEIVE)
-  // Process decoded incoming packet
-  //dumpPacketToDebug('Q', &ps);
-  //#endif
 }
 
 void timerTransmitCallback()
@@ -620,8 +595,8 @@ void timerTransmitCallback()
   if (requestQueue.isEmpty())
     return;
 
-  // Called to transmit the next packet in the queue need to ensure this procedure is called more frequently than
-  // items are added into the queue
+  // Called to transmit the next packet in the queue need to ensure this procedure
+  // is called more frequently than items are added into the queue
 
   PacketStruct transmitBuffer;
 
@@ -643,8 +618,6 @@ void timerTransmitCallback()
   // Output the packet we just transmitted to debug console
 #if defined(PACKET_LOGGING_SEND)
   dumpPacketToDebug('S', &transmitBuffer);
-#else
-  //SERIAL_DEBUG.print('S');
 #endif
 }
 
@@ -781,12 +754,10 @@ void timerProcessRules()
   ProcessRules();
 
 #if defined(RULES_LOGGING)
-  SERIAL_DEBUG.print(F("Rules:"));
   for (int8_t r = 0; r < RELAY_RULES; r++)
   {
-    SERIAL_DEBUG.print(rules.rule_outcome[r]);
+    ESP_LOGD(TAG, "Rule outcome %i=%i", r, rules.rule_outcome[r]);
   }
-  SERIAL_DEBUG.print("=");
 #endif
 
   RelayState relay[RELAY_TOTAL];
@@ -827,10 +798,7 @@ void timerProcessRules()
     {
       //Would be better here to use the WRITE8 to lower i2c traffic
 #if defined(RULES_LOGGING)
-      SERIAL_DEBUG.print(F("Relay:"));
-      SERIAL_DEBUG.print(n);
-      SERIAL_DEBUG.print("=");
-      SERIAL_DEBUG.print(relay[n]);
+      ESP_LOGI(TAG, "Relay %i=%i", n, relay[n]);
 #endif
       //hal.SetOutputState(n, relay[n]);
 
@@ -847,18 +815,18 @@ void timerProcessRules()
 
       if (mysettings.relaytype[n] == RELAY_PULSE)
       {
+        //TODO: This needs changing to task notify passing in the relay number to that task
+
         //If its a pulsed relay, invert the output quickly via a single shot timer
         previousRelayPulse[n] = true;
         myTimerSwitchPulsedRelay.attach(0.1, timerSwitchPulsedRelay);
+
 #if defined(RULES_LOGGING)
-        SERIAL_DEBUG.print("P");
+        ESP_LOGI(TAG, "Relay %i PULSED", n);
 #endif
       }
     }
   }
-#if defined(RULES_LOGGING)
-  SERIAL_DEBUG.println("");
-#endif
 }
 
 void timerEnqueueCallback()
@@ -908,7 +876,6 @@ void connectToWifi()
 {
   if (WiFi.status() != WL_CONNECTED)
   {
-    //SERIAL_DEBUG.println(F("Configuring Wi-Fi STA..."));
     WiFi.mode(WIFI_STA);
 
     char hostname[40];
@@ -921,9 +888,12 @@ void connectToWifi()
     sprintf(hostname, "DIYBMS-%08X", chipId);
     WiFi.setHostname(hostname);
 
-    SERIAL_DEBUG.print(F("Hostname: "));
-    SERIAL_DEBUG.print(hostname);
-    SERIAL_DEBUG.println(F("  Connecting to Wi-Fi..."));
+    //SERIAL_DEBUG.print(F("Hostname: "));
+    //SERIAL_DEBUG.print(hostname);
+    //SERIAL_DEBUG.println(F("  Connecting to Wi-Fi..."));
+
+    ESP_LOGI(TAG, "Hostname: %s   Connecting to Wi-Fi...", hostname);
+
     WiFi.begin(DIYBMSSoftAP::WifiSSID(), DIYBMSSoftAP::WifiPassword());
   }
 
@@ -932,7 +902,7 @@ void connectToWifi()
 
 void connectToMqtt()
 {
-  SERIAL_DEBUG.println(F("Connecting to MQTT..."));
+  ESP_LOGI(TAG, "Connecting to MQTT...");
   mqttClient.connect();
 }
 
@@ -949,21 +919,22 @@ void setupInfluxClient()
     return;
 
   aClient->onError([](void *arg, AsyncClient *client, err_t error) {
-    SERIAL_DEBUG.println(F("Connect Error"));
+    ESP_LOGE("Influx connect error");
+
     aClient = NULL;
     delete client;
   },
                    NULL);
 
   aClient->onConnect([](void *arg, AsyncClient *client) {
-    SERIAL_DEBUG.println(F("Connected"));
+    ESP_LOGI("Influx connected");
 
     //Send the packet here
 
     aClient->onError(NULL, NULL);
 
     client->onDisconnect([](void *arg, AsyncClient *c) {
-      SERIAL_DEBUG.println(F("Disconnected"));
+      ESP_LOGI("Influx disconnected");
       aClient = NULL;
       delete c;
     },
@@ -971,8 +942,9 @@ void setupInfluxClient()
 
     client->onData([](void *arg, AsyncClient *c, void *data, size_t len) {
       //Data received
-      SERIAL_DEBUG.print(F("\r\nData: "));
-      SERIAL_DEBUG.println(len);
+      ESP_LOGD("Influx data received");
+      //SERIAL_DEBUG.print(F("\r\nData: "));
+      //SERIAL_DEBUG.println(len);
       //uint8_t* d = (uint8_t*)data;
       //for (size_t i = 0; i < len; i++) {SERIAL_DEBUG.write(d[i]);}
     },
@@ -1004,6 +976,8 @@ void setupInfluxClient()
 
     client->write(header.c_str());
     client->write(poststring.c_str());
+
+    ESP_LOGD("Influx data sent");
   },
                      NULL);
 }
@@ -1013,13 +987,13 @@ void SendInfluxdbPacket()
   if (!mysettings.influxdb_enabled)
     return;
 
-  SERIAL_DEBUG.println(F("SendInfluxdbPacket"));
+  ESP_LOGI("SendInfluxdbPacket");
 
   setupInfluxClient();
 
   if (!aClient->connect(mysettings.influxdb_host, mysettings.influxdb_httpPort))
   {
-    SERIAL_DEBUG.println(F("Influxdb connect fail"));
+    ESP_LOGE("Influxdb connect fail");
     AsyncClient *client = aClient;
     aClient = NULL;
     delete client;
@@ -1075,13 +1049,9 @@ void SetupOTA()
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
 
-  SERIAL_DEBUG.print(F("Wi-Fi status="));
-  SERIAL_DEBUG.print(WiFi.status());
-  SERIAL_DEBUG.print(F(". Connected IP:"));
-  SERIAL_DEBUG.println(WiFi.localIP());
+  ESP_LOGI(TAG, "Wi-Fi status=%i. Connected IP:%s", (uint16_t)WiFi.status(), WiFi.localIP().toString());
 
-  SERIAL_DEBUG.print(F("Request NTP from "));
-  SERIAL_DEBUG.println(mysettings.ntpServer);
+  ESP_LOGI(TAG, "Request NTP from %s", mysettings.ntpServer);
 
   //Use native ESP32 code
   configTime(mysettings.minutesTimeZone * 60, mysettings.daylight * 60, mysettings.ntpServer);
@@ -1115,7 +1085,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
 void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
-  SERIAL_DEBUG.println(F("Disconnected from Wi-Fi."));
+  ESP_LOGE("Disconnected from Wi-Fi.");
 
   //Indicate to loop() to reconnect, seems to be
   //ESP issues using Wifi from timers - https://github.com/espressif/arduino-esp32/issues/2686
@@ -1132,7 +1102,7 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 {
-  SERIAL_DEBUG.println(F("Disconnected from MQTT."));
+  ESP_LOGE("Disconnected from MQTT.");
 
   myTimerSendMqttPacket.detach();
   myTimerSendMqttStatus.detach();
@@ -1178,10 +1148,8 @@ void sendMqttStatus()
   sprintf(topic, "%s/status", mysettings.mqtt_topic);
   mqttClient.publish(topic, 0, false, jsonbuffer);
 #if defined(MQTT_LOGGING)
-  SERIAL_DEBUG.print("MQTT - ");
-  SERIAL_DEBUG.print(topic);
-  SERIAL_DEBUG.print('=');
-  SERIAL_DEBUG.println(jsonbuffer);
+  ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+  //SERIAL_DEBUG.print("MQTT - ");SERIAL_DEBUG.print(topic);  SERIAL_DEBUG.print('=');  SERIAL_DEBUG.println(jsonbuffer);
 #endif
 
   //Using Json for below reduced MQTT messages from 14 to 2. Could be combined into same json object too. But even better is status + event driven.
@@ -1193,10 +1161,7 @@ void sendMqttStatus()
   }
   serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
 #if defined(MQTT_LOGGING)
-  SERIAL_DEBUG.print("MQTT - ");
-  SERIAL_DEBUG.print(topic);
-  SERIAL_DEBUG.print('=');
-  SERIAL_DEBUG.println(jsonbuffer);
+  ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
 #endif
   mqttClient.publish(topic, 0, false, jsonbuffer);
 
@@ -1209,10 +1174,7 @@ void sendMqttStatus()
 
   serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
 #if defined(MQTT_LOGGING)
-  SERIAL_DEBUG.print("MQTT - ");
-  SERIAL_DEBUG.print(topic);
-  SERIAL_DEBUG.print('=');
-  SERIAL_DEBUG.println(jsonbuffer);
+  ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
 #endif
   mqttClient.publish(topic, 0, false, jsonbuffer);
 }
@@ -1223,7 +1185,7 @@ uint8_t mqttStartModule = 0;
 void sendMqttPacket()
 {
 #if defined(MQTT_LOGGING)
-  SERIAL_DEBUG.println("sendMqttPacket");
+  ESP_LOGI(TAG, "Send MQTT Packet");
 #endif
 
   if (!mysettings.mqtt_enabled && !mqttClient.connected())
@@ -1263,10 +1225,7 @@ void sendMqttPacket()
         mqttClient.publish(topic, 0, false, jsonbuffer);
 
 #if defined(MQTT_LOGGING)
-        SERIAL_DEBUG.print("MQTT - ");
-        SERIAL_DEBUG.print(topic);
-        SERIAL_DEBUG.print('=');
-        SERIAL_DEBUG.println(jsonbuffer);
+        ESP_LOGI(TAG, "MQTT %s %s", topic, jsonbuffer);
 #endif
       }
 
@@ -1294,7 +1253,7 @@ void sendMqttPacket()
 
 void onMqttConnect(bool sessionPresent)
 {
-  SERIAL_DEBUG.println(F("Connected to MQTT."));
+  ESP_LOGI("Connected to MQTT");
   myTimerSendMqttPacket.attach(5, sendMqttPacket);
   myTimerSendMqttStatus.attach(25, sendMqttStatus);
 }
@@ -1304,7 +1263,7 @@ void LoadConfiguration()
   if (Settings::ReadConfigFromEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS))
     return;
 
-  SERIAL_DEBUG.println(F("Apply default config"));
+  ESP_LOGI("Apply default config");
 
   //Zero all the bytes
   memset(&mysettings, 0, sizeof(mysettings));
@@ -1659,42 +1618,42 @@ void init_tft_display()
 
 void createFile(fs::FS &fs, const char *path, const char *message)
 {
-  SERIAL_DEBUG.printf("Writing file: %s\n", path);
+  //ESP_LOGD(TAG,"Writing file: %s", path);
 
   File file = fs.open(path, FILE_WRITE);
   if (!file)
   {
-    SERIAL_DEBUG.println("Failed to open file for writing");
+    ESP_LOGE(TAG, "Failed to open file for writing");
     return;
   }
   if (file.print(message))
   {
-    SERIAL_DEBUG.println("File written");
+    ESP_LOGD(TAG, "File written");
   }
   else
   {
-    SERIAL_DEBUG.println("Write failed");
+    ESP_LOGE(TAG, "Write failed");
   }
   file.close();
 }
 
 void appendFile(fs::FS &fs, const char *path, const char *message)
 {
-  SERIAL_DEBUG.printf("Appending to file: %s\n", path);
+  //ESP_LOGD(TAG,("Appending to file: %s\n", path);
 
   File file = fs.open(path, FILE_APPEND);
   if (!file)
   {
-    SERIAL_DEBUG.println("Failed to open file for appending");
+    ESP_LOGE(TAG, "Failed to open file for appending");
     return;
   }
   if (file.print(message))
   {
-    SERIAL_DEBUG.println("Message appended");
+    ESP_LOGD(TAG, "Message appended");
   }
   else
   {
-    SERIAL_DEBUG.println("Append failed");
+    ESP_LOGE(TAG, "Append failed");
   }
   file.close();
 }
@@ -1713,9 +1672,9 @@ void setup()
   WiFi.mode(WIFI_OFF);
 
   btStop();
-  esp_log_level_set("*", ESP_LOG_WARN); // set all components to WARN level
-  //esp_log_level_set("wifi", ESP_LOG_WARN);      // enable WARN logs from WiFi stack
-  //esp_log_level_set("dhcpc", ESP_LOG_WARN);     // enable INFO logs from DHCP client
+  esp_log_level_set("*", ESP_LOG_DEBUG);    // set all components to WARN level
+  esp_log_level_set("wifi", ESP_LOG_WARN);  // enable WARN logs from WiFi stack
+  esp_log_level_set("dhcpc", ESP_LOG_WARN); // enable INFO logs from DHCP client
 
   const char *diybms_logo = "\r\n\r\n\r\n                _          __ \r\n    _|  o      |_)  |\\/|  (_  \r\n   (_|  |  \\/  |_)  |  |  __) \r\n           /                  ";
 
@@ -1725,10 +1684,8 @@ void setup()
 
   SERIAL_DEBUG.println(diybms_logo);
 
-  SERIAL_DEBUG.print(F("CONTROLLER - ver:"));
-  SERIAL_DEBUG.print(GIT_VERSION);
-  SERIAL_DEBUG.print(F(" compiled:"));
-  SERIAL_DEBUG.println(COMPILE_DATE_TIME);
+  ESP_LOGI(TAG, "CONTROLLER - ver:%s compiled %s", GIT_VERSION, COMPILE_DATE_TIME);
+
   /*
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
@@ -1767,25 +1724,24 @@ SD CARD TEST
     uint8_t cardType = SD.cardType();
     if (cardType == CARD_NONE)
     {
-      SERIAL_DEBUG.println("No SD card attached");
+      ESP_LOGW(TAG, "No SD card attached");
     }
     else
     {
-      SERIAL_DEBUG.println("Initializing SD card...");
+      ESP_LOGI(TAG, "Initializing SD card...");
       if (SD.begin(SDCARD_CHIPSELECT))
       {
-
         _sd_card_installed = true;
       }
       else
       {
-        SERIAL_DEBUG.println("ERROR - SD card initialization failed!");
+        ESP_LOGE(TAG, "ERROR - SD card initialization failed!");
       }
     }
   }
   else
   {
-    SERIAL_DEBUG.println("Card Mount Failed");
+    ESP_LOGE(TAG, "Card Mount Failed");
   }
   /*
   SERIAL_DEBUG.println("OK");
@@ -1983,7 +1939,6 @@ TEST CAN BUS
 
   resetAllRules();
 
-
   //Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
   SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1, 2, 32); // Serial for comms to modules
 
@@ -1992,7 +1947,7 @@ TEST CAN BUS
   // initialize LittleFS
   if (!SPIFFS.begin())
   {
-    SERIAL_DEBUG.println(F("An Error has occurred while mounting LittleFS"));
+    ESP_LOGE(TAG, "An Error has occurred while mounting flash store");
   }
 
   LoadConfiguration();
@@ -2042,14 +1997,14 @@ TEST CAN BUS
 
     //SERIAL_DEBUG.print(F("Clear AP settings"));
     //SERIAL_DEBUG.println(clearAPSettings);
-    SERIAL_DEBUG.println(F("Setup Access Point"));
+    ESP_LOGI(TAG, "Setup Access Point");
     //We are in initial power on mode (factory reset)
     DIYBMSSoftAP::SetupAccessPoint(&server);
   }
   else
   {
 
-    SERIAL_DEBUG.println(F("Connecting to WIFI"));
+    ESP_LOGI(TAG, "Connecting to WIFI");
 
     /* Explicitly set the ESP to be a WiFi-client, otherwise by default,
       would try to act as both a client and an access-point */
@@ -2062,7 +2017,7 @@ TEST CAN BUS
 
     if (mysettings.mqtt_enabled)
     {
-      SERIAL_DEBUG.println("MQTT Enabled");
+      ESP_LOGD(TAG, "MQTT Enabled");
       mqttClient.setServer(mysettings.mqtt_server, mysettings.mqtt_port);
       mqttClient.setCredentials(mysettings.mqtt_username, mysettings.mqtt_password);
     }
@@ -2139,7 +2094,7 @@ void loop()
     ConfigHasChanged--;
     if (ConfigHasChanged == 0)
     {
-      SERIAL_DEBUG.println(F("RESTART AFTER CONFIG CHANGE"));
+      ESP_LOGI(TAG, "RESTART AFTER CONFIG CHANGE");
       //Stop networking
       if (mqttClient.connected())
       {

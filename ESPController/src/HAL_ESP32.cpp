@@ -19,6 +19,9 @@ uint8_t HAL_ESP32::readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
     i2c_master_read_byte(cmd, &data, i2c_ack_type_t::I2C_MASTER_NACK);
     i2c_master_stop(cmd);
     esp_err_t ret = ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
+
+    ESP_LOGD(TAG,"I2C reply %i",ret);
+
     i2c_cmd_link_delete(cmd);
     return data;
 }
@@ -55,10 +58,7 @@ void HAL_ESP32::SetOutputState(uint8_t outputId, RelayState state)
 {
     if (OutputsEnabled)
     {
-        SERIAL_DEBUG.print("SetOutputState ");
-        SERIAL_DEBUG.print(outputId);
-        SERIAL_DEBUG.print("=");
-        SERIAL_DEBUG.println(state);
+        ESP_LOGD(TAG,"SetOutputState %u=%u",outputId,state);
 
         //Relays connected to TCA6408A
         //P4 = RELAY1 (outputId=0)
@@ -72,6 +72,7 @@ void HAL_ESP32::SetOutputState(uint8_t outputId, RelayState state)
             uint8_t bit = outputId + 4;
             TCA6408_Value = (state == RelayState::RELAY_ON) ? (TCA6408_Value | (1 << bit)) : (TCA6408_Value & ~(1 << bit));
             esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
+            ESP_LOGD(TAG,"TCA6408 reply %i",ret);
             //TODO: Check return value
             TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
         }
@@ -85,6 +86,7 @@ void HAL_ESP32::Led(uint8_t bits)
     //Set on
     TCA9534APWR_Value = TCA9534APWR_Value | (bits & B00000111);
     esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
+    ESP_LOGD(TAG,"TCA9534 reply %i",ret);
     //TODO: Check return value
 }
 
@@ -101,6 +103,7 @@ void HAL_ESP32::TFTScreenBacklight(bool value)
 
     esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
     //TODO: Check return value
+    ESP_LOGD(TAG,"TCA9534 reply %i",ret);
 }
 
 
@@ -140,7 +143,7 @@ void HAL_ESP32::SwapGPIO0ToOutput() {
 
 void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void))
 {
-    SERIAL_DEBUG.println("ConfigureI2C");
+    ESP_LOGI(TAG,"Configure I2C");
 
     //SDA / SCL
     //ESP32 = I2C0-SDA / I2C0-SCL
@@ -193,6 +196,8 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
 
     attachInterrupt(TCA9534A_INTERRUPT_PIN, TCA9534AInterrupt, FALLING);
 
+    ESP_LOGI(TAG,"Found TCA9534A");
+
     /*
 Now for the TCA6408
 */
@@ -214,7 +219,7 @@ Now for the TCA6408
     TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
     //TODO: Validate if there was a read error or not.
 
-    SERIAL_DEBUG.println("Found TCA6408");
+    ESP_LOGI(TAG,"Found TCA6408");
 
     OutputsEnabled = true;
 //    InputsEnabled = true;

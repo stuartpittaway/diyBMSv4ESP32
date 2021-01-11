@@ -4,7 +4,6 @@ FOR DIYBMS ESP32 CONTROLLER PCB - THIS IS THE LARGER
 PCB WITH RS485/CANBUS/TFT DISPLAY
 */
 
-
 #include <Arduino.h>
 #include "driver/i2c.h"
 #include "esp32-hal-i2c.h"
@@ -74,21 +73,16 @@ public:
         vspi.end();
         //VSPI
         //GPIO23 (MOSI), GPIO19(MISO), GPIO18(CLK) and GPIO5 (CS)
-        vspi.begin(18,19,23,-1);
+        vspi.begin(18, 19, 23, -1);
         //Don't use hardware chip selects on VSPI
         vspi.setHwCs(false);
         vspi.setBitOrder(MSBFIRST);
-        vspi.setDataMode(SPI_MODE0);       
+        vspi.setDataMode(SPI_MODE0);
         //10mhz
         vspi.setFrequency(10000000);
     }
 
-
-
-
-
 private:
-
     //Copy of pin state for TCA9534
     uint8_t TCA9534APWR_Value;
     //Copy of pin state for TCA6408
