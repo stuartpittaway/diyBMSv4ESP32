@@ -1,4 +1,4 @@
-#if defined(ESP32)
+
 #include "defines.h"
 #include "HAL_ESP32.h"
 
@@ -222,4 +222,3 @@ Now for the TCA6408
     attachInterrupt(TCA6408_INTERRUPT_PIN, TCA6408Interrupt, FALLING);
 }
 
-#endif

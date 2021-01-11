@@ -1,4 +1,4 @@
-#define USE_HARDWARESERIAL
+
 
 #include <SDM.h>
 

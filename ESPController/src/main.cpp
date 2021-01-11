@@ -5,26 +5,16 @@
  )(_) )_)(_  \  /  ) _ < )    ( \__ \   \  /(_  _)
 (____/(____) (__) (____/(_/\/\_)(___/    \/   (_)
 
-  (c) 2017/18/19/20 Stuart Pittaway
+  (c) 2017 to 2021 Stuart Pittaway
 
   This is the code for the controller - it talks to the V4.X cell modules over isolated serial bus
 
-  This code runs on ESP-8266 WEMOS D1 PRO and compiles with VS CODE and PLATFORM IO environment
-*/
-/*
-*** NOTE IF YOU GET ISSUES WHEN COMPILING IN PLATFORM.IO ***
-ERROR: "ESP Async WebServer\src\WebHandlers.cpp:67:64: error: 'strftime' was not declared in this scope"
-Delete the file <project folder>\diyBMSv4\ESPController\.pio\libdeps\esp8266_d1minipro\Time\Time.h
-The Time.h file in this library conflicts with the time.h file in the ESP core platform code
-
-See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
-*/
-/*
-   DIAGRAM
-   https://www.hackster.io/Aritro/getting-started-with-esp-nodemcu-using-arduinoide-aa7267
+  This code runs on ESP32 DEVKIT-C and compiles with VS CODE and PLATFORM IO environment
 */
 
-// PacketSerial library takes 1691ms round trip with 8 modules, 212ms per module @ 2400baud
+#if defined(ESP8266)
+#error ESP8266 is not supported by this code
+#endif
 
 #include <Arduino.h>
 
@@ -34,17 +24,6 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 //#define MQTT_LOGGING
 
 #include "FS.h"
-
-//Libraries just for ESP8266
-#if defined(ESP8266)
-#include <TimeLib.h>
-#include <ESP8266WiFi.h>
-#include <NtpClientLib.h>
-#include <LittleFS.h>
-#endif
-
-//Libraries just for ESP32
-#if defined(ESP32)
 #include <SPIFFS.h>
 #include <WiFi.h>
 #include <SPI.h>
@@ -56,11 +35,22 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 // Libraries for SD card
 #include "FS.h"
 #include "SD.h"
-#endif
-
-#if defined(ESP32)
 #include "driver/gpio.h"
 #include "driver/can.h"
+
+#include <Ticker.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncMqttClient.h>
+#include <ArduinoOTA.h>
+#include <SerialEncoder.h>
+#include <cppQueue.h>
+#include "defines.h"
+#include "HAL_ESP32.h"
+#include <XPT2046_Touchscreen.h>
+#include "Modbus.h"
+#include "Rules.h"
+#include "avrisp_programmer.h"
+
 /*
 #define USER_SETUP_LOADED
 
@@ -95,43 +85,10 @@ See reasons why here https://github.com/me-no-dev/ESPAsyncWebServer/issues/60
 #undef TFT_CS
 */
 #include "TFT_eSPI.h"
+
 TFT_eSPI tft = TFT_eSPI();
-#endif
-
-//Shared libraries across processors
-#include <Ticker.h>
-#include <ESPAsyncWebServer.h>
-#include <AsyncMqttClient.h>
-#include <SerialEncoder.h>
-#include <cppQueue.h>
-
-#include "defines.h"
-
-#include <ArduinoOTA.h>
-
-#if defined(ESP8266)
-#include "HAL_ESP8266.h"
-HAL_ESP8266 hal;
-#endif
-
-#if defined(ESP32)
-#include "HAL_ESP32.h"
 HAL_ESP32 hal;
-#endif
-
-#if defined(ESP32)
-#include "Modbus.h"
-
-#include <XPT2046_Touchscreen.h>
 XPT2046_Touchscreen touchscreen(TOUCH_CHIPSELECT, TOUCH_IRQ); // Param 2 - Touch IRQ Pin - interrupt enabled polling
-
-#include "Modbus.h"
-
-#endif
-
-#include "Rules.h"
-
-#include "avrisp_programmer.h"
 
 volatile bool emergencyStop = false;
 volatile bool WifiDisconnected = true;
@@ -150,19 +107,15 @@ bool previousRelayPulse[RELAY_TOTAL];
 
 volatile enumInputState InputState[INPUTS_TOTAL];
 
-#if defined(ESP8266)
-bool NTPsyncEventTriggered = false; // True if a time even has been triggered
-NTPSyncEvent_t ntpEvent;            // Last triggered event
-#endif
 
 AsyncWebServer server(80);
 
-#if defined(ESP32)
+
 static TaskHandle_t i2c_task_handle = NULL;
 static TaskHandle_t ledoff_task_handle = NULL;
 static TaskHandle_t wifiresetdisable_task_handle = NULL;
 static QueueHandle_t queue_i2c = NULL;
-#endif
+
 
 //This large array holds all the information about the modules
 //up to 4x16
@@ -190,10 +143,6 @@ uint8_t SerialPacketReceiveBuffer[2 * sizeof(PacketStruct)];
 
 SerialEncoder myPacketSerial;
 
-#if defined(ESP8266)
-WiFiEventHandler wifiConnectHandler;
-WiFiEventHandler wifiDisconnectHandler;
-#endif
 
 Ticker myTimerRelay;
 Ticker myTimer;
@@ -218,7 +167,6 @@ bool InputsEnabled;
 
 AsyncMqttClient mqttClient;
 
-#if defined(ESP32)
 
 void QueueLED(uint8_t bits)
 {
@@ -371,18 +319,7 @@ void IRAM_ATTR TCA9534AInterrupt()
   m.data = 0;
   xQueueSendToBackFromISR(queue_i2c, &m, NULL);
 }
-#endif
 
-#if defined(ESP8266)
-void IRAM_ATTR ExternalInputInterrupt()
-{
-  if ((hal.ReadInputRegisters() & B00010000) == 0)
-  {
-    //Emergency Stop (J1) has triggered
-    emergencyStop = true;
-  }
-}
-#endif
 
 void dumpByte(uint8_t data)
 {
@@ -530,9 +467,6 @@ void SetControllerState(ControllerState newState)
 uint16_t minutesSinceMidnight()
 {
 
-#if defined(ESP8266)
-  return (hour() * 60) + minute();
-#endif
 
 #if defined(ESP32)
   struct tm timeinfo;
@@ -546,34 +480,6 @@ uint16_t minutesSinceMidnight()
   }
 #endif
 }
-
-#if defined(ESP8266)
-void processSyncEvent(NTPSyncEvent_t ntpEvent)
-{
-  if (ntpEvent < 0)
-  {
-    SERIAL_DEBUG.printf("Time Sync error: %d\n", ntpEvent);
-    if (ntpEvent == noResponse)
-      SERIAL_DEBUG.println(F("NTP server not reachable"));
-    else if (ntpEvent == invalidAddress)
-      SERIAL_DEBUG.println(F("Invalid NTP server address"));
-    else if (ntpEvent == errorSending)
-      SERIAL_DEBUG.println(F("Error sending request"));
-    else if (ntpEvent == responseError)
-      SERIAL_DEBUG.println(F("NTP response error"));
-  }
-  else
-  {
-    if (ntpEvent == timeSyncd)
-    {
-      SERIAL_DEBUG.print(F("Got NTP time"));
-      time_t lastTime = NTP.getLastNTPSync();
-      SERIAL_DEBUG.println(NTP.getTimeDateString(lastTime));
-      setTime(lastTime);
-    }
-  }
-}
-#endif
 
 void serviceReplyQueue()
 {
@@ -609,9 +515,6 @@ void serviceReplyQueue()
 
 void onPacketReceived()
 {
-#if defined(ESP8266)
-  hal.GreenLedOn();
-#endif
 
   PacketStruct ps;
   memcpy(&ps, SerialPacketReceiveBuffer, sizeof(PacketStruct));
@@ -636,9 +539,6 @@ void onPacketReceived()
   //dumpPacketToDebug('Q', &ps);
   //#endif
 
-#if defined(ESP8266)
-  hal.GreenLedOff();
-#endif
 }
 
 void timerTransmitCallback()
@@ -787,9 +687,6 @@ void timerSwitchPulsedRelay()
 //We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
 //However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
 //to prevent multiple pulses being sent on each rule refresh
-#if defined(ESP8266)
-      hal.SetOutputState(y, previousRelayState[y] == RelayState::RELAY_ON ? RelayState::RELAY_OFF : RelayState::RELAY_ON);
-#endif
 
 #if defined(ESP32)
       i2cQueueMessage m;
@@ -870,9 +767,6 @@ void timerProcessRules()
       //This would be better if we worked out the bit pattern first and then just
       //submitted that as a single i2c read/write transaction
 
-#if defined(ESP8266)
-      hal.SetOutputState(n, relay[n]);
-#endif
 
 #if defined(ESP32)
       i2cQueueMessage m;
@@ -952,11 +846,6 @@ void connectToWifi()
 
     char hostname[40];
 
-#if defined(ESP8266)
-    sprintf(hostname, "DIYBMS-%08X", ESP.getChipId());
-    wifi_station_set_hostname(hostname);
-    WiFi.hostname(hostname);
-#endif
 #if defined(ESP32)
     uint32_t chipId = 0;
     for (int i = 0; i < 17; i = i + 8)
@@ -1117,13 +1006,8 @@ void SetupOTA()
   ArduinoOTA.begin();
 }
 
-#if defined(ESP8266)
-void onWifiConnect(const WiFiEventStationModeGotIP &event)
-{
-#else
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
-#endif
 
   SERIAL_DEBUG.print(F("Wi-Fi status="));
   SERIAL_DEBUG.print(WiFi.status());
@@ -1133,13 +1017,6 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   SERIAL_DEBUG.print(F("Request NTP from "));
   SERIAL_DEBUG.println(mysettings.ntpServer);
 
-#if defined(ESP8266)
-  //Update time every 10 minutes
-  NTP.setInterval(600);
-  NTP.setNTPTimeout(NTP_TIMEOUT);
-  // String ntpServerName, int8_t timeZone, bool daylight, int8_t minutes, AsyncUDP* udp_conn
-  NTP.begin(mysettings.ntpServer, mysettings.timeZone, mysettings.daylight, mysettings.minutesTimeZone);
-#endif
 
 #if defined(ESP32)
   //Use native ESP32 code
@@ -1173,13 +1050,8 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   SetupOTA();
 }
 
-#if defined(ESP8266)
-void onWifiDisconnect(const WiFiEventStationModeDisconnected &event)
-{
-#else
 void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
-#endif
   SERIAL_DEBUG.println(F("Disconnected from Wi-Fi."));
 
   //Indicate to loop() to reconnect, seems to be
@@ -1781,12 +1653,6 @@ void setup()
   //esp_log_level_set("dhcpc", ESP_LOG_WARN);     // enable INFO logs from DHCP client
 #endif
 
-  //Debug serial output
-#if defined(ESP8266)
-  //ESP8266 uses dedicated 2nd serial port, but transmit only
-  SERIAL_DEBUG.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
-  SERIAL_DEBUG.setDebugOutput(true);
-#endif
 
   const char *diybms_logo = "\r\n\r\n\r\n                _          __ \r\n    _|  o      |_)  |\\/|  (_  \r\n   (_|  |  \\/  |_)  |  |  __) \r\n           /                  ";
 #if defined(ESP32)
@@ -1825,10 +1691,6 @@ void setup()
   hal.ConfigureVSPI();
 #endif
 
-#if defined(ESP8266)
-  hal.ConfigurePins();
-  hal.ConfigureI2C(ExternalInputInterrupt);
-#endif
 
   SetControllerState(ControllerState::PowerUp);
 
@@ -2051,17 +1913,6 @@ TEST CAN BUS
   xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 1, &wifiresetdisable_task_handle);
 #endif
 
-#if defined(ESP8266)
-  //Pretend the button is not pressed
-  uint8_t clearAPSettings = 0xFF;
-  //Fix for issue 5, delay for 3 seconds on power up with green LED lit so
-  //people get chance to jump WIFI reset pin (d3)
-  hal.GreenLedOn();
-  delay(3000);
-  //This is normally pulled high, D3 is used to reset WIFI details
-  clearAPSettings = digitalRead(RESET_WIFI_PIN);
-  hal.GreenLedOff();
-#endif
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
@@ -2079,20 +1930,9 @@ TEST CAN BUS
   SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1, 2, 32); // Serial for comms to modules
 #endif
 
-#if defined(ESP8266)
-  SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1); // Serial for comms to modules
-  //Use alternative GPIO pins of D7/D8
-  //D7 = GPIO13 = RECEIVE SERIAL
-  //D8 = GPIO15 = TRANSMIT SERIAL
-  SERIAL_DATA.swap();
-#endif
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
-#if defined(ESP8266)
-  // initialize LittleFS
-  if (!LittleFS.begin())
-#endif
 #if defined(ESP32)
     // initialize LittleFS
     if (!SPIFFS.begin())
@@ -2143,11 +1983,7 @@ TEST CAN BUS
   //Settings::WriteConfigToEEPROM((char*)&xxxx, sizeof(xxxx), EEPROM_WIFI_START_ADDRESS);
   //clearAPSettings = 0;
 
-  if (!DIYBMSSoftAP::LoadConfigFromEEPROM()
-#if defined(ESP8266)
-      || clearAPSettings == 0
-#endif
-  )
+  if (!DIYBMSSoftAP::LoadConfigFromEEPROM())
   {
     //We have just started up and the EEPROM is empty of configuration
     SetControllerState(ControllerState::ConfigurationSoftAP);
@@ -2161,23 +1997,10 @@ TEST CAN BUS
   else
   {
 
-#if defined(ESP8266)
-    //Config NTP
-    NTP.onNTPSyncEvent([](NTPSyncEvent_t event) {
-      ntpEvent = event;
-      NTPsyncEventTriggered = true;
-    });
-#endif
-
     SERIAL_DEBUG.println(F("Connecting to WIFI"));
 
-    /* Explicitly set the ESP8266 to be a WiFi-client, otherwise by default,
+    /* Explicitly set the ESP to be a WiFi-client, otherwise by default,
       would try to act as both a client and an access-point */
-
-#if defined(ESP8266)
-    wifiConnectHandler = WiFi.onStationModeGotIP(onWifiConnect);
-    wifiDisconnectHandler = WiFi.onStationModeDisconnected(onWifiDisconnect);
-#endif
 
 #if defined(ESP32)
     WiFi.onEvent(onWifiConnect, WiFiEvent_t::SYSTEM_EVENT_STA_GOT_IP);
@@ -2280,11 +2103,5 @@ void loop()
 
 ReadModbus();
 
-#if defined(ESP8266)
-  if (NTPsyncEventTriggered)
-  {
-    processSyncEvent(ntpEvent);
-    NTPsyncEventTriggered = false;
-  }
-#endif
+
 }

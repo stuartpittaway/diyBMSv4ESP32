@@ -3,7 +3,7 @@ THIS IS THE HARDWARE ABSTRACT LAYER
 FOR DIYBMS ESP32 CONTROLLER PCB - THIS IS THE LARGER
 PCB WITH RS485/CANBUS/TFT DISPLAY
 */
-#if defined(ESP32)
+
 
 #include <Arduino.h>
 #include "driver/i2c.h"
@@ -98,5 +98,4 @@ private:
     uint8_t readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg);
 };
 
-#endif
 #endif
