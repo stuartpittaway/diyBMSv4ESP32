@@ -20,7 +20,7 @@ uint8_t HAL_ESP32::readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
     i2c_master_stop(cmd);
     esp_err_t ret = ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
 
-    ESP_LOGD(TAG,"I2C reply %i",ret);
+    //ESP_LOGD(TAG,"I2C reply %i",ret);
 
     i2c_cmd_link_delete(cmd);
     return data;

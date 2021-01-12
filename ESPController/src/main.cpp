@@ -52,7 +52,7 @@ static const char *TAG = "diybms";
 #include "defines.h"
 #include "HAL_ESP32.h"
 
-SDM sdm(SERIAL_RS485, 9600, NOT_A_PIN, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
+SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
 
 #include "Modbus.h"
 
@@ -202,7 +202,6 @@ void InitModbus()
   sdm.begin();
 
   memset(ModBusVal, 0, sizeof(ModbusVal) * MODBUS_NUM); //initialize SDM communication
-  //delay(1000);                                          //wait a while before next loop
 
   setModbus(0, 31, 60, 3600, SDM_TOTAL_ACTIVE_ENERGY, (char *)"BAT_IN_E", (char *)"kWh", (char *)"Powersupply Energy");
   setModbus(1, 31, 10, 3600, SDM_PHASE_1_POWER, (char *)"BAT_IN_P", (char *)"W", (char *)"Powersupply Power");
@@ -756,7 +755,10 @@ void timerProcessRules()
 #if defined(RULES_LOGGING)
   for (int8_t r = 0; r < RELAY_RULES; r++)
   {
-    ESP_LOGD(TAG, "Rule outcome %i=%i", r, rules.rule_outcome[r]);
+    if (rules.rule_outcome[r])
+    {
+      ESP_LOGD(TAG, "Rule outcome %i=TRUE", r);
+    }
   }
 #endif
 
@@ -888,11 +890,7 @@ void connectToWifi()
     sprintf(hostname, "DIYBMS-%08X", chipId);
     WiFi.setHostname(hostname);
 
-    //SERIAL_DEBUG.print(F("Hostname: "));
-    //SERIAL_DEBUG.print(hostname);
-    //SERIAL_DEBUG.println(F("  Connecting to Wi-Fi..."));
-
-    ESP_LOGI(TAG, "Hostname: %s   Connecting to Wi-Fi...", hostname);
+    ESP_LOGI(TAG, "Hostname: %s", hostname);
 
     WiFi.begin(DIYBMSSoftAP::WifiSSID(), DIYBMSSoftAP::WifiPassword());
   }
