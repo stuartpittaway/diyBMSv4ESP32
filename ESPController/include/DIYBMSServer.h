@@ -72,9 +72,6 @@ extern uint16_t ConfigHasChanged;
 extern Rules rules;
 extern ControllerState ControlState;
 
-extern bool OutputsEnabled;
-extern bool InputsEnabled;
-
 extern ModbusInfo ModBus[MODBUS_NUM];
 extern ModbusVal ModBusVal[MODBUS_NUM];
 

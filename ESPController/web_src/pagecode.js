@@ -904,9 +904,6 @@ $(function () {
 
                 $("#minutesnow").html(data.timenow);
 
-                if (data.OutputsEnabled) {
-                    $("#ExternalIO").hide();
-                } else { $("#ExternalIO").show(); }
 
                 //Loop through each rule updating the page
                 var i = 1;

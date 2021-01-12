@@ -575,8 +575,9 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
     root["timenow"] = (timeinfo.tm_hour * 60) + timeinfo.tm_min;
   }
 
-  root["OutputsEnabled"] = OutputsEnabled;
-  root["InputsEnabled"] = InputsEnabled;
+  //TODO: REMOVE THESE
+  //root["OutputsEnabled"] = true;
+  //root["InputsEnabled"] = true;
   root["ControlState"] = ControlState;
 
   JsonArray defaultArray = root.createNestedArray("relaydefault");

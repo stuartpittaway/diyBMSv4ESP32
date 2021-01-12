@@ -56,26 +56,23 @@ uint8_t HAL_ESP32::ReadTCA9534InputRegisters()
 
 void HAL_ESP32::SetOutputState(uint8_t outputId, RelayState state)
 {
-    if (OutputsEnabled)
+    ESP_LOGD(TAG, "SetOutputState %u=%u", outputId, state);
+
+    //Relays connected to TCA6408A
+    //P4 = RELAY1 (outputId=0)
+    //P5 = RELAY2 (outputId=1)
+    //P6 = RELAY3_SSR (outputId=2)
+    //P7 = EXT_IO_E (outputId=3)
+
+    if (outputId <= 3)
     {
-        ESP_LOGD(TAG,"SetOutputState %u=%u",outputId,state);
-
-        //Relays connected to TCA6408A
-        //P4 = RELAY1 (outputId=0)
-        //P5 = RELAY2 (outputId=1)
-        //P6 = RELAY3_SSR (outputId=2)
-        //P7 = EXT_IO_E (outputId=3)
-
-        if (outputId <= 3)
-        {
-            TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
-            uint8_t bit = outputId + 4;
-            TCA6408_Value = (state == RelayState::RELAY_ON) ? (TCA6408_Value | (1 << bit)) : (TCA6408_Value & ~(1 << bit));
-            esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
-            ESP_LOGD(TAG,"TCA6408 reply %i",ret);
-            //TODO: Check return value
-            TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
-        }
+        TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
+        uint8_t bit = outputId + 4;
+        TCA6408_Value = (state == RelayState::RELAY_ON) ? (TCA6408_Value | (1 << bit)) : (TCA6408_Value & ~(1 << bit));
+        esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
+        ESP_LOGD(TAG, "TCA6408 reply %i", ret);
+        //TODO: Check return value
+        TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
     }
 }
 
@@ -86,7 +83,7 @@ void HAL_ESP32::Led(uint8_t bits)
     //Set on
     TCA9534APWR_Value = TCA9534APWR_Value | (bits & B00000111);
     esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
-    ESP_LOGD(TAG,"TCA9534 reply %i",ret);
+    //ESP_LOGD(TAG,"TCA9534 reply %i",ret);
     //TODO: Check return value
 }
 
@@ -96,18 +93,18 @@ void HAL_ESP32::TFTScreenBacklight(bool value)
     //Clear LED pins
     TCA9534APWR_Value = TCA9534APWR_Value & B11110111;
 
-    if (value==true) {
+    if (value == true)
+    {
         //Set on
         TCA9534APWR_Value = TCA9534APWR_Value | B00001000;
     }
 
     esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
     //TODO: Check return value
-    ESP_LOGD(TAG,"TCA9534 reply %i",ret);
+    //ESP_LOGD(TAG,"TCA9534 reply %i",ret);
 }
 
-
-void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void) )
+void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void))
 {
     //GPIO39 is interrupt pin from TCA6408 (doesnt have pull up/down resistors)
     pinMode(TCA6408_INTERRUPT_PIN, INPUT);
@@ -116,34 +113,35 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void) )
     pinMode(TCA9534A_INTERRUPT_PIN, INPUT);
 
     //BOOT Button on ESP32 module is used for resetting wifi details
-    pinMode(GPIO_NUM_0,INPUT_PULLUP);
+    pinMode(GPIO_NUM_0, INPUT_PULLUP);
     attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);
 
     //For touch screen
-    pinMode(GPIO_NUM_36,INPUT_PULLUP);
+    pinMode(GPIO_NUM_36, INPUT_PULLUP);
     //attachInterrupt(GPIO_NUM_36, TFTScreenTouch, FALLING);
 
     //Configure the CHIP SELECT pins as OUTPUT and set HIGH
-    pinMode(TOUCH_CHIPSELECT,OUTPUT);
-    digitalWrite(TOUCH_CHIPSELECT,HIGH);
-    pinMode(SDCARD_CHIPSELECT,OUTPUT);
-    digitalWrite(SDCARD_CHIPSELECT,HIGH);
+    pinMode(TOUCH_CHIPSELECT, OUTPUT);
+    digitalWrite(TOUCH_CHIPSELECT, HIGH);
+    pinMode(SDCARD_CHIPSELECT, OUTPUT);
+    digitalWrite(SDCARD_CHIPSELECT, HIGH);
 
-    pinMode(RS485_ENABLE,OUTPUT);
+    pinMode(RS485_ENABLE, OUTPUT);
     //Enable receive
-    digitalWrite(RS485_ENABLE,LOW);    
+    digitalWrite(RS485_ENABLE, LOW);
 }
 
-void HAL_ESP32::SwapGPIO0ToOutput() {
+void HAL_ESP32::SwapGPIO0ToOutput()
+{
     //BOOT Button on ESP32 module is used for resetting wifi details
     detachInterrupt(GPIO_NUM_0);
-    pinMode(GPIO_NUM_0,OUTPUT);
-    digitalWrite(GPIO_NUM_0,HIGH);
+    pinMode(GPIO_NUM_0, OUTPUT);
+    digitalWrite(GPIO_NUM_0, HIGH);
 }
 
 void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void))
 {
-    ESP_LOGI(TAG,"Configure I2C");
+    ESP_LOGI(TAG, "Configure I2C");
 
     //SDA / SCL
     //ESP32 = I2C0-SDA / I2C0-SCL
@@ -196,7 +194,7 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
 
     attachInterrupt(TCA9534A_INTERRUPT_PIN, TCA9534AInterrupt, FALLING);
 
-    ESP_LOGI(TAG,"Found TCA9534A");
+    ESP_LOGI(TAG, "Found TCA9534A");
 
     /*
 Now for the TCA6408
@@ -219,11 +217,7 @@ Now for the TCA6408
     TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
     //TODO: Validate if there was a read error or not.
 
-    ESP_LOGI(TAG,"Found TCA6408");
-
-    OutputsEnabled = true;
-//    InputsEnabled = true;
+    ESP_LOGI(TAG, "Found TCA6408");
 
     attachInterrupt(TCA6408_INTERRUPT_PIN, TCA6408Interrupt, FALLING);
 }
-

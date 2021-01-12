@@ -61,8 +61,7 @@ public:
     void SetOutputState(uint8_t outputId, RelayState state);
     uint8_t ReadTCA6408InputRegisters();
     uint8_t ReadTCA9534InputRegisters();
-    bool OutputsEnabled = true;
-    bool InputsEnabled = false;
+
     void Led(uint8_t bits);
     void ConfigurePins(void (*WiFiPasswordResetInterrput)(void));
     void TFTScreenBacklight(bool Status);

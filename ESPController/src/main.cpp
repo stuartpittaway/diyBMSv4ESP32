@@ -175,10 +175,6 @@ uint16_t sequence = 0;
 
 ControllerState ControlState = ControllerState::Unknown;
 
-//These need to be removed/replaced/fixed
-bool OutputsEnabled;
-//These need to be removed/replaced/fixed
-bool InputsEnabled;
 
 AsyncMqttClient mqttClient;
 
@@ -1950,9 +1946,6 @@ TEST CAN BUS
 
   LoadConfiguration();
 
-  //These need to be removed/replaced/fixed
-  InputsEnabled = hal.InputsEnabled;
-  OutputsEnabled = hal.OutputsEnabled;
 
   //Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
