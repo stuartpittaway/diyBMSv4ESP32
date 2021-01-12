@@ -422,7 +422,7 @@ void loop()
   }
 
   //We should probably check for invalid InternalTemperature ranges here and throw error (shorted or unconnecter thermistor for example)
-  uint8_t internal_temperature = PP.InternalTemperature() & 0xFF;
+  int16_t internal_temperature = PP.InternalTemperature();
 
   if (internal_temperature > DIYBMS_MODULE_SafetyTemperatureCutoff || internal_temperature > (myConfig.BypassTemperatureSetPoint + 10))
   {

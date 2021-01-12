@@ -14,7 +14,7 @@
 #define ADC_EXTERNAL_TEMP 2
 
 //Define maximum allowed temperature as safety cut off
-#define DIYBMS_MODULE_SafetyTemperatureCutoff 90
+#define DIYBMS_MODULE_SafetyTemperatureCutoff (int16_t)90
 
 #define maximum_cell_modules 16
 
