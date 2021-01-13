@@ -1315,24 +1315,27 @@ void LoadConfiguration()
     mysettings.rulerelaydefault[x] = RELAY_OFF;
   }
 
-  //1. Emergency stop
+  //Emergency stop
   mysettings.rulevalue[Rule::EmergencyStop] = 0;
-  //2. Internal BMS error (communication issues, fault readings from modules etc)
+  //Internal BMS error (communication issues, fault readings from modules etc)
   mysettings.rulevalue[Rule::BMSError] = 0;
-  //3. Individual cell over voltage
+  //Individual cell over voltage
   mysettings.rulevalue[Rule::Individualcellovervoltage] = 4150;
-  //4. Individual cell under voltage
+  //Individual cell under voltage
   mysettings.rulevalue[Rule::Individualcellundervoltage] = 3000;
-  //5. Individual cell over temperature (external probe)
+  //Individual cell over temperature (external probe)
   mysettings.rulevalue[Rule::IndividualcellovertemperatureExternal] = 55;
-  //6. Pack over voltage (mV)
+  //Pack over voltage (mV)
   mysettings.rulevalue[Rule::IndividualcellundertemperatureExternal] = 5;
-  //7. Pack under voltage (mV)
+  //Pack under voltage (mV)
   mysettings.rulevalue[Rule::PackOverVoltage] = 4200 * 8;
-  //8. RULE_PackUnderVoltage
+  //RULE_PackUnderVoltage
   mysettings.rulevalue[Rule::PackUnderVoltage] = 3000 * 8;
   mysettings.rulevalue[Rule::Timer1] = 60 * 8;  //8am
   mysettings.rulevalue[Rule::Timer2] = 60 * 17; //5pm
+
+  mysettings.rulevalue[Rule::ModuleOverTemperatureInternal] = 60;
+  mysettings.rulevalue[Rule::ModuleUnderTemperatureInternal] = 50;
 
   for (size_t i = 0; i < RELAY_RULES; i++)
   {

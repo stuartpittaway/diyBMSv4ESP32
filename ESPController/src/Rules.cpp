@@ -165,8 +165,8 @@ void Rules::RunRules(
         rule_outcome[Rule::Individualcellundervoltage] = false;
         rule_outcome[Rule::IndividualcellovertemperatureExternal] = false;
         rule_outcome[Rule::IndividualcellundertemperatureExternal] = false;
-        rule_outcome[Rule::IndividualcellovertemperatureInternal] = false;
-        rule_outcome[Rule::IndividualcellundertemperatureInternal] = false;
+        rule_outcome[Rule::ModuleOverTemperatureInternal] = false;
+        rule_outcome[Rule::ModuleUnderTemperatureInternal] = false;
 
         //Abort processing any more rules until controller is stable/running state
         return;
@@ -249,27 +249,27 @@ void Rules::RunRules(
 
     //Internal temperatyre monitoring and rules
         //Doesn't cater for negative temperatures on rule (int8 vs uint32)
-    if (((uint8_t)highestInternalTemp > value[Rule::IndividualcellovertemperatureInternal]) && rule_outcome[Rule::IndividualcellovertemperatureInternal] == false)
+    if (((uint8_t)highestInternalTemp > value[Rule::ModuleOverTemperatureInternal]) && rule_outcome[Rule::ModuleOverTemperatureInternal] == false)
     {
         //Rule Individual cell over temperature (Internal probe)
-        rule_outcome[Rule::IndividualcellovertemperatureInternal] = true;
+        rule_outcome[Rule::ModuleOverTemperatureInternal] = true;
     }
-    else if (((uint8_t)highestInternalTemp < hysteresisvalue[Rule::IndividualcellovertemperatureInternal]) && rule_outcome[Rule::IndividualcellovertemperatureInternal] == true)
+    else if (((uint8_t)highestInternalTemp < hysteresisvalue[Rule::ModuleOverTemperatureInternal]) && rule_outcome[Rule::ModuleOverTemperatureInternal] == true)
     {
         //Rule Individual cell over temperature (Internal probe) - HYSTERESIS RESET
-        rule_outcome[Rule::IndividualcellovertemperatureInternal] = false;
+        rule_outcome[Rule::ModuleOverTemperatureInternal] = false;
     }
 
     //Doesn't cater for negative temperatures on rule (int8 vs uint32)
-    if (((uint8_t)lowestInternalTemp < value[Rule::IndividualcellundertemperatureInternal]) && rule_outcome[Rule::IndividualcellundertemperatureInternal] == false)
+    if (((uint8_t)lowestInternalTemp < value[Rule::ModuleUnderTemperatureInternal]) && rule_outcome[Rule::ModuleUnderTemperatureInternal] == false)
     {
         //Rule Individual cell UNDER temperature (Internal probe)
-        rule_outcome[Rule::IndividualcellundertemperatureInternal] = true;
+        rule_outcome[Rule::ModuleUnderTemperatureInternal] = true;
     }
-    else if (((uint8_t)lowestInternalTemp > hysteresisvalue[Rule::IndividualcellundertemperatureInternal]) && rule_outcome[Rule::IndividualcellundertemperatureInternal] == true)
+    else if (((uint8_t)lowestInternalTemp > hysteresisvalue[Rule::ModuleUnderTemperatureInternal]) && rule_outcome[Rule::ModuleUnderTemperatureInternal] == true)
     {
         //Rule Individual cell UNDER temperature (Internal probe) - HYSTERESIS RESET
-        rule_outcome[Rule::IndividualcellundertemperatureInternal] = false;
+        rule_outcome[Rule::ModuleUnderTemperatureInternal] = false;
     }
 
 
