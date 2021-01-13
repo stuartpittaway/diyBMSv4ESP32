@@ -1,1 +1,1 @@
-This is an empty data directory
+This folder gets converted to a LITTLEFS file system for the ESP32 to store files

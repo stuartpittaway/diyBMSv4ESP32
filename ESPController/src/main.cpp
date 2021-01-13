@@ -27,7 +27,8 @@ static const char *TAG = "diybms";
 //#define MQTT_LOGGING
 
 #include "FS.h"
-#include <SPIFFS.h>
+//#include <SPIFFS.h>
+#include <LITTLEFS.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <SPI.h>
@@ -1674,6 +1675,64 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
 }
 
 /*
+void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
+{
+  SERIAL_DEBUG.printf("Listing directory: %s\r\n", dirname);
+
+  File root = fs.open(dirname);
+  if (!root)
+  {
+    SERIAL_DEBUG.println("- failed to open directory");
+    return;
+  }
+  if (!root.isDirectory())
+  {
+    SERIAL_DEBUG.println(" - not a directory");
+    return;
+  }
+
+  File file = root.openNextFile();
+  while (file)
+  {
+    if (file.isDirectory())
+    {
+      SERIAL_DEBUG.print("  DIR : ");
+
+#ifdef CONFIG_LITTLEFS_FOR_IDF_3_2
+      SERIAL_DEBUG.println(file.name());
+#else
+      SERIAL_DEBUG.print(file.name());
+      time_t t = file.getLastWrite();
+      struct tm *tmstruct = localtime(&t);
+      SERIAL_DEBUG.printf("  LAST WRITE: %d-%02d-%02d %02d:%02d:%02d\n", (tmstruct->tm_year) + 1900, (tmstruct->tm_mon) + 1, tmstruct->tm_mday, tmstruct->tm_hour, tmstruct->tm_min, tmstruct->tm_sec);
+#endif
+
+      if (levels)
+      {
+        listDir(fs, file.name(), levels - 1);
+      }
+    }
+    else
+    {
+      SERIAL_DEBUG.print("  FILE: ");
+      SERIAL_DEBUG.print(file.name());
+      SERIAL_DEBUG.print("  SIZE: ");
+
+#ifdef CONFIG_LITTLEFS_FOR_IDF_3_2
+      SERIAL_DEBUG.println(file.size());
+#else
+      SERIAL_DEBUG.print(file.size());
+      time_t t = file.getLastWrite();
+      struct tm *tmstruct = localtime(&t);
+      SERIAL_DEBUG.printf("  LAST WRITE: %d-%02d-%02d %02d:%02d:%02d\n", (tmstruct->tm_year) + 1900, (tmstruct->tm_mon) + 1, tmstruct->tm_mday, tmstruct->tm_hour, tmstruct->tm_min, tmstruct->tm_sec);
+#endif
+    }
+    file = root.openNextFile();
+  }
+}
+*/
+
+/*
 static const char *ESP32_CAN_STATUS_STRINGS[] = {
     "STOPPED",               // CAN_STATE_STOPPED
     "RUNNING",               // CAN_STATE_RUNNING
@@ -1701,19 +1760,11 @@ void setup()
 
   ESP_LOGI(TAG, "CONTROLLER - ver:%s compiled %s", GIT_VERSION, COMPILE_DATE_TIME);
 
-  /*
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
 
-  SERIAL_DEBUG.print(F("ESP32 Chip model = "));
-  SERIAL_DEBUG.print(chip_info.model);
-  SERIAL_DEBUG.print(", Rev ");
-  SERIAL_DEBUG.print(chip_info.revision);
-  SERIAL_DEBUG.print(", Cores ");
-  SERIAL_DEBUG.print(chip_info.cores);
-  SERIAL_DEBUG.print(", Features=0x");
-  SERIAL_DEBUG.println(chip_info.features, HEX);
-*/
+  ESP_LOGI(TAG, "ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u", chip_info.model,chip_info.revision,chip_info.cores,chip_info.features);
+  
 
   //We generate a unique number which is used in all following JSON requests
   //we use this as a simple method to avoid cross site scripting attacks
@@ -1726,6 +1777,18 @@ void setup()
   SetControllerState(ControllerState::PowerUp);
 
   hal.Led(0);
+
+  if (!LITTLEFS.begin(false))
+  {
+    ESP_LOGE(TAG, "LITTLEFS mount failed, did you upload file system image? - SYSTEM HALTED");
+
+    hal.Halt();
+  }
+  else
+  {
+    ESP_LOGI(TAG, "LITTLEFS mounted, totalBytes=%u, usedBytes=%u", LITTLEFS.totalBytes(), LITTLEFS.usedBytes());
+    //listDir(LITTLEFS, "/", 0);
+  }
 
   /*
 SD CARD TEST
@@ -1959,6 +2022,8 @@ TEST CAN BUS
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
   // initialize LittleFS
+
+  /*
   if (!SPIFFS.begin())
   {
     ESP_LOGE(TAG, "An Error has occurred while mounting flash store");
@@ -1970,6 +2035,7 @@ TEST CAN BUS
   {
     ESP_LOGI(TAG, "SPIFFs mounted");
   }
+*/
 
   LoadConfiguration();
 

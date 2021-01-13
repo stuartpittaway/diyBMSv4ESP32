@@ -29,8 +29,7 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 
 //GPIO39 (input only pin)
 #define TCA6408_INTERRUPT_PIN GPIO_NUM_39
-//#define TCA6408_ADDRESS 0x20
-#define TCA6408_ADDRESS 0x38
+#define TCA6408_ADDRESS 0x20
 #define TCA6408_INPUT 0x00
 #define TCA6408_OUTPUT 0x01
 #define TCA6408_POLARITY_INVERSION 0x02
@@ -66,6 +65,19 @@ public:
     void ConfigurePins(void (*WiFiPasswordResetInterrput)(void));
     void TFTScreenBacklight(bool Status);
     void SwapGPIO0ToOutput();
+
+    //Infinite loop flashing the LED RED/WHITE
+    void Halt()
+    {
+        while (true)
+        {
+            Led(RGBLED::Red);
+            delay(800);
+            Led(RGBLED::White);
+            delay(100);
+        }
+    }
+
     void ConfigureVSPI()
     {
         vspi.endTransaction();
