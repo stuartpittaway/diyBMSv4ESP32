@@ -33,7 +33,7 @@ public:
   static char *WifiPassword();
   static void FactoryReset()
   {
-    Settings::FactoryDefault(sizeof(_config), EEPROM_WIFI_START_ADDRESS);
+    Settings::FactoryDefault("diybms");
   }
 
 private:

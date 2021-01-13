@@ -166,7 +166,7 @@ void DIYBMSServer::saveDisplaySetting(AsyncWebServerRequest *request)
     mysettings.graph_voltagelow = 0;
   }
 
-  Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
+  Settings::WriteConfig("diybms", (char *)&mysettings, sizeof(mysettings));
 
   SendSuccess(request);
 }
@@ -216,7 +216,7 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
     p1->value().toCharArray(mysettings.influxdb_password, sizeof(mysettings.influxdb_password));
   }
 
-  Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
+  Settings::WriteConfig("diybms", (char *)&mysettings, sizeof(mysettings));
 
   ConfigHasChanged = REBOOT_COUNT_DOWN;
   SendSuccess(request);
@@ -309,7 +309,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
 
   //RELAY_TOTAL
 
-  Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
+  Settings::WriteConfig("diybms", (char *)&mysettings, sizeof(mysettings));
 
   SendSuccess(request);
 }
@@ -344,7 +344,7 @@ void DIYBMSServer::saveNTP(AsyncWebServerRequest *request)
     mysettings.daylight = p1->value().equals("on") ? true : false;
   }
 
-  Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
+  Settings::WriteConfig("diybms", (char *)&mysettings, sizeof(mysettings));
 
   ConfigHasChanged = REBOOT_COUNT_DOWN;
   SendSuccess(request);
@@ -374,7 +374,7 @@ void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
   {
     mysettings.totalNumberOfSeriesModules = totalSeriesModules;
     mysettings.totalNumberOfBanks = totalBanks;
-    Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
+    Settings::WriteConfig("diybms",(char *)&mysettings, sizeof(mysettings));
 
     SendSuccess(request);
   }
@@ -433,7 +433,7 @@ void DIYBMSServer::saveMQTTSetting(AsyncWebServerRequest *request)
     p1->value().toCharArray(mysettings.mqtt_password, sizeof(mysettings.mqtt_password));
   }
 
-  Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
+  Settings::WriteConfig("diybms",(char *)&mysettings, sizeof(mysettings));
 
   ConfigHasChanged = REBOOT_COUNT_DOWN;
   SendSuccess(request);
@@ -453,7 +453,7 @@ void DIYBMSServer::saveGlobalSetting(AsyncWebServerRequest *request)
     AsyncWebParameter *p2 = request->getParam("BypassThresholdmV", true);
     mysettings.BypassThresholdmV = p2->value().toInt();
 
-    Settings::WriteConfigToEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS);
+    Settings::WriteConfig("diybms",(char *)&mysettings, sizeof(mysettings));
 
     prg.sendSaveGlobalSetting(mysettings.BypassThresholdmV, mysettings.BypassOverTempShutdown);
 

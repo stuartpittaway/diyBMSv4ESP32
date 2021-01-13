@@ -33,6 +33,7 @@ static const char *TAG = "diybms";
 #include <SPI.h>
 #include "time.h"
 #include <esp_wifi.h>
+#include <Preferences.h>
 #include "tft_splash_image.h"
 
 // Libraries for SD card
@@ -1014,28 +1015,30 @@ void SetupOTA()
           type = "filesystem";
 
         // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-        SERIAL_DEBUG.println("Start updating " + type);
+        ESP_LOGI(TAG, "Start updating %s", type);
       });
   ArduinoOTA.onEnd([]() {
-    SERIAL_DEBUG.println("\nEnd");
+    ESP_LOGD(TAG, "\nEnd");
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    SERIAL_DEBUG.printf("Progress: %u%%\r", (progress / (total / 100)));
+    ESP_LOGD(TAG, "Progress: %u%%\r", (progress / (total / 100)));
   });
   ArduinoOTA.onError([](ota_error_t error) {
-    SERIAL_DEBUG.printf("Error[%u]: ", error);
+    ESP_LOGD(TAG, "Error [%u]: ", error);
     if (error == OTA_AUTH_ERROR)
-      SERIAL_DEBUG.println("Auth Failed");
+      ESP_LOGE(TAG, "Auth Failed");
     else if (error == OTA_BEGIN_ERROR)
-      SERIAL_DEBUG.println("Begin Failed");
+      ESP_LOGE(TAG, "Begin Failed");
     else if (error == OTA_CONNECT_ERROR)
-      SERIAL_DEBUG.println("Connect Failed");
+      ESP_LOGE(TAG, "Connect Failed");
     else if (error == OTA_RECEIVE_ERROR)
-      SERIAL_DEBUG.println("Receive Failed");
+      ESP_LOGE(TAG, "Receive Failed");
     else if (error == OTA_END_ERROR)
-      SERIAL_DEBUG.println("End Failed");
+      ESP_LOGE(TAG, "End Failed");
   });
 
+  ArduinoOTA.setHostname("diybms");
+  ArduinoOTA.setMdnsEnabled(true);
   ArduinoOTA.begin();
 }
 
@@ -1269,7 +1272,7 @@ void onMqttConnect(bool sessionPresent)
 
 void LoadConfiguration()
 {
-  if (Settings::ReadConfigFromEEPROM((char *)&mysettings, sizeof(mysettings), EEPROM_SETTINGS_START_ADDRESS))
+  if (Settings::ReadConfig("diybms", (char *)&mysettings, sizeof(mysettings)))
     return;
 
   ESP_LOGI("Apply default config");
@@ -1580,7 +1583,7 @@ void TerminalBasedWifiSetup()
       memset(&config, 0, sizeof(config));
       WiFi.SSID(index).toCharArray(config.wifi_ssid, sizeof(config.wifi_ssid));
       strcpy(config.wifi_passphrase, passwordbuffer);
-      Settings::WriteConfigToEEPROM((char *)&config, sizeof(config), EEPROM_WIFI_START_ADDRESS);
+      Settings::WriteConfig("diybmswifi", (char *)&config, sizeof(config));
     }
   }
 
@@ -1995,7 +1998,7 @@ TEST CAN BUS
   //wifi_eeprom_settings xxxx;
   //strcpy(xxxx.wifi_ssid,"XXXXXX");
   //strcpy(xxxx.wifi_passphrase,"XXXXXX");
-  //Settings::WriteConfigToEEPROM((char*)&xxxx, sizeof(xxxx), EEPROM_WIFI_START_ADDRESS);
+  //Settings::WriteConfig("diybmswifi",(char *)&config, sizeof(config));
   //clearAPSettings = 0;
 
   if (!DIYBMSSoftAP::LoadConfigFromEEPROM())

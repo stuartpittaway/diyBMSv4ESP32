@@ -2,9 +2,8 @@
 #define Settings_H
 
 /*
-
-EEPROM Settings storage with checksum (works with ESP8266 devices)
-(c)2019 Stuart Pittaway
+Settings storage with checksum (works with ESP32 devices)
+(c)2021 Stuart Pittaway
 
 LICENSE
 Attribution-NonCommercial-ShareAlike 2.0 UK: England & Wales (CC BY-NC-SA 2.0 UK)
@@ -18,20 +17,16 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 * No additional restrictions — You may not apply legal terms or technological measures
   that legally restrict others from doing anything the license permits.
 
-ATTiny841 data sheet
-http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-8495-8-bit-AVR-Microcontrollers-ATtiny441-ATtiny841_Datasheet.pdf
 */
 
-#include <EEPROM.h>
-
+#include <Preferences.h>
 #include "crc16.h"
 
-#define EEPROM_storageSize 1024
-
-class Settings {
-   public:
-      static void WriteConfigToEEPROM(char* settings, int size, uint16_t eepromStartAddress);
-      static bool ReadConfigFromEEPROM(char* settings, int size, uint16_t eepromStartAddress);
-      static void FactoryDefault(int size,uint16_t eepromStartAddress);
+class Settings
+{
+public:
+  static void WriteConfig(const char *tag, char *settings, int size);
+  static bool ReadConfig(const char *tag, char *settings, int size);
+  static void FactoryDefault(const char *tag);
 };
 #endif
