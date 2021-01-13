@@ -44,13 +44,13 @@ esp_err_t HAL_ESP32::writeByte(i2c_port_t i2c_num, uint8_t deviceAddress, uint8_
 
 uint8_t HAL_ESP32::ReadTCA6408InputRegisters()
 {
-    TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
+    TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
     return TCA6408_Value & TCA6408_INPUTMASK;
 }
 
 uint8_t HAL_ESP32::ReadTCA9534InputRegisters()
 {
-    TCA9534APWR_Value = readByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
+    TCA9534APWR_Value = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
     return TCA9534APWR_Value & TCA9534APWR_INPUTMASK;
 }
 
@@ -66,13 +66,13 @@ void HAL_ESP32::SetOutputState(uint8_t outputId, RelayState state)
 
     if (outputId <= 3)
     {
-        TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
+        TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
         uint8_t bit = outputId + 4;
         TCA6408_Value = (state == RelayState::RELAY_ON) ? (TCA6408_Value | (1 << bit)) : (TCA6408_Value & ~(1 << bit));
-        esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
+        esp_err_t ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
         ESP_LOGD(TAG, "TCA6408 reply %i", ret);
         //TODO: Check return value
-        TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
+        TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
     }
 }
 
@@ -82,7 +82,7 @@ void HAL_ESP32::Led(uint8_t bits)
     TCA9534APWR_Value = TCA9534APWR_Value & B11111000;
     //Set on
     TCA9534APWR_Value = TCA9534APWR_Value | (bits & B00000111);
-    esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
+    esp_err_t ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
     //ESP_LOGD(TAG,"TCA9534 reply %i",ret);
     //TODO: Check return value
 }
@@ -99,7 +99,7 @@ void HAL_ESP32::TFTScreenBacklight(bool value)
         TCA9534APWR_Value = TCA9534APWR_Value | B00001000;
     }
 
-    esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
+    esp_err_t ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value);
     //TODO: Check return value
     //ESP_LOGD(TAG,"TCA9534 reply %i",ret);
 }
@@ -182,14 +182,14 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
     //MASK=10000000
 
     //All off
-    esp_err_t ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, 0);
+    esp_err_t ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, 0);
 
     //0×03 Configuration, P7 as input, others outputs (0=OUTPUT)
-    ret = writeByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, TCA9534APWR_INPUTMASK);
+    ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, TCA9534APWR_INPUTMASK);
 
     //0×02 Polarity Inversion, zero = off
     //writeByte(TCA9534APWR_ADDRESS, TCA9534APWR_POLARITY_INVERSION, 0);
-    TCA9534APWR_Value = readByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
+    TCA9534APWR_Value = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
     //SERIAL_DEBUG.println("Found TCA9534APWR");
 
     attachInterrupt(TCA9534A_INTERRUPT_PIN, TCA9534AInterrupt, FALLING);
@@ -210,11 +210,11 @@ Now for the TCA6408
     //P7=EXT_IO_E
 
     //Set ports to off before we set configuration
-    ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, 0);
+    ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, 0);
     //Ports A/B/C/D/E inputs, RELAY1/2/3 outputs
-    ret = writeByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_CONFIGURATION, TCA6408_INPUTMASK);
+    ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_CONFIGURATION, TCA6408_INPUTMASK);
     //ret =writeByte(i2c_port_t::I2C_NUM_0,TCA6408_ADDRESS, TCA6408_POLARITY_INVERSION, B00000000);
-    TCA6408_Value = readByte(i2c_port_t::I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
+    TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
     //TODO: Validate if there was a read error or not.
 
     ESP_LOGI(TAG, "Found TCA6408");

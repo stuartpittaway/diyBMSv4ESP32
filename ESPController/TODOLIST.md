@@ -24,19 +24,22 @@ Controls RGB LED, TFT display LED and AVR ISP reset line
 Controls relay's and external IO A/B/C/D/E
 
 ### Relay 1
-Driven from pin 9/P4 of TCA6408AQPWRQ1, confirmed working.
+Driven from pin 9/P4 of TCA6408AQPWRQ1, confirmed working.  Relay SRD-05VDC-SL-C, rated 10A @ 250VAC/ 28VDC
 
 ### Relay 2
-Driven from pin 10/P5 of TCA6408AQPWRQ1
+Driven from pin 10/P5 of TCA6408AQPWRQ1, relay SRD-05VDC-SL-C, rated 10A @ 250VAC/ 28VDC
 
 ### Relay 3 (SSR)
-Driven from pin 11/P6 of TCA6408AQPWRQ1
+Driven from pin 11/P6 of TCA6408AQPWRQ1, uses Panasonic AQY212GSZ.  Rated 60V @ 1A
+
+### Relay 4 (SSR)
+Driven from pin 12/P7 of TCA6408AQPWRQ1, uses Panasonic AQY212GSZ.  Rated 60V @ 1A
 
 ### TX1/RX1
-Uses GPIO2 for RX and 32 for TX.  Works as per ESP8266 modules using hardware based UART.
+Uses GPIO2 for RX and 32 for TX.  Works as per ESP8266 modules using hardware based UART, and EL3H7(B)(TA)-G isolator.
 
 ### I/O ports
-Driven from pin 4/5/6/7/12 (P0/1/2/3/7) of TCA6408AQPWRQ1
+Driven from pin 4/5/6/7 (P0/1/2/3) of TCA6408AQPWRQ1.  Maps to header socket marked A/B/C/D.
 
 ### External 5v power supply input
 Confirmed working, 3.3v regulator working, reverse polarity protection working
@@ -83,6 +86,8 @@ Integrated into TFT display, see TFT Screen above, uses GPIO5 for chip select
 Added Micro SD card onto controller PCB for users who don't want TFT screen but do want logging
 using MOLEX part 1040310811  https://datasheet.lcsc.com/szlcsc/2011171806_MOLEX-1040310811_C585350.pdf
 
+PCB also has seperate micro SD socket/footprint for users who want logging but not TFT screen.
+
 ### CANBUS
 
 Using SN65HVD230DR, 3.3-V CAN Bus Transceiver
@@ -92,10 +97,9 @@ https://www.ti.com/lit/ds/symlink/sn65hvd230.pdf?ts=1609135156501
 
 TX=GPIO16, RX=GPIO17 and RS=connected to P4 of TCA9534A (normally low, full speed CAN)
 
-Confirmed working, but changing parts to TJA1051T/3
+Confirmed working, but changing parts to TJA1051T/3, allowing jumpter for 3.3 or 5v operation
 
 ### RS485
-
 Using SN65HVD75DR,  3.3-V Supply RS-485 With IEC ESD protection.
 
 Driven using Hardware Serial port Serial1, TX=GPIO22, RX=GPIO21, ENABLE=GPIO25
@@ -103,7 +107,6 @@ Driven using Hardware Serial port Serial1, TX=GPIO22, RX=GPIO21, ENABLE=GPIO25
 Confirmed working
 
 ### ATTINY ISP Programming
-
 Connected to VSPI interface and uses P4 output on  TCA9534A to drive reset line.
 
 VSPI should be disabled/not used whilst IVR programmer in use
