@@ -21,14 +21,15 @@ static const char *TAG = "diybms";
 #include "esp_log.h"
 #include <Arduino.h>
 
-#define PACKET_LOGGING_RECEIVE
-#define PACKET_LOGGING_SEND
-#define RULES_LOGGING
-#define MQTT_LOGGING
+//#define PACKET_LOGGING_RECEIVE
+//#define PACKET_LOGGING_SEND
+//#define RULES_LOGGING
+//#define MQTT_LOGGING
 
 #include "FS.h"
 #include <SPIFFS.h>
 #include <WiFi.h>
+#include <ESPmDNS.h>
 #include <SPI.h>
 #include "time.h"
 #include <esp_wifi.h>
@@ -173,7 +174,6 @@ Ticker myTimerSwitchPulsedRelay;
 uint16_t sequence = 0;
 
 ControllerState ControlState = ControllerState::Unknown;
-
 
 AsyncMqttClient mqttClient;
 
@@ -1049,7 +1049,6 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   //Use native ESP32 code
   configTime(mysettings.minutesTimeZone * 60, mysettings.daylight * 60, mysettings.ntpServer);
 
-
   /*
   TODO: CHECK ERROR CODES BETTER!
   0 : WL_IDLE_STATUS when Wi-Fi is in process of changing between statuses
@@ -1075,6 +1074,22 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   }
 
   SetupOTA();
+
+  // Set up mDNS responder:
+  // - first argument is the domain name, in this example
+  //   the fully-qualified domain name is "esp8266.local"
+  // - second argument is the IP address to advertise
+  //   we send our IP address on the WiFi network
+  if (!MDNS.begin("diybms"))
+  {
+    ESP_LOGE("Error setting up MDNS responder!");
+  }
+  else
+  {
+    ESP_LOGI("mDNS responder started");
+    // Add service to MDNS-SD
+    MDNS.addService("http", "tcp", 80);
+  }
 }
 
 void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
@@ -1945,11 +1960,9 @@ TEST CAN BUS
     SPIFFS.format();
 
     //fs::File f = LittleFS.open("/pageheader.html", "r");
-
   }
 
   LoadConfiguration();
-
 
   //Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
