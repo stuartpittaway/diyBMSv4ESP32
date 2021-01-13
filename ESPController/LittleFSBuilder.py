@@ -1,4 +1,5 @@
 import os
+import stat
 
 Import ('env')
 
@@ -13,7 +14,7 @@ if os.name == 'nt':
 else:
     st = os.stat(mklittlefs)
     os.chmod(mklittlefs, st.st_mode | stat.S_IEXEC)
-    
+
 env.Replace (MKSPIFFSTOOL = os.path.join(env.get('PROJECT_DIR'), mklittlefs) )
 
 print('LittleFSBuilder.py')
