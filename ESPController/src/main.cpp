@@ -190,7 +190,7 @@ void setModbus(int dev, uint8_t addr, uint32_t min, uint32_t max, uint16_t reg, 
   setModbusUnit(dev, unit);
   setModbusDesc(dev, desc);
 
-  ESP_LOGD(TAG, "%d %s %s %s\n", dev, (char *)ModBus[dev].name, (char *)ModBus[dev].unit, (char *)ModBus[dev].desc);
+  ESP_LOGD(TAG, "%d %s %s %s", dev, (char *)ModBus[dev].name, (char *)ModBus[dev].unit, (char *)ModBus[dev].desc);
 }
 
 void InitModbus()
@@ -1735,11 +1735,10 @@ SD CARD TEST
   SD.begin(SDCARD_CHIPSELECT);
   if (SD.begin(SDCARD_CHIPSELECT))
   {
-
     uint8_t cardType = SD.cardType();
     if (cardType == CARD_NONE)
     {
-      ESP_LOGW(TAG, "No SD card attached");
+      ESP_LOGI(TAG, "No SD card attached");
     }
     else
     {
@@ -1966,6 +1965,10 @@ TEST CAN BUS
     SPIFFS.format();
 
     //fs::File f = LittleFS.open("/pageheader.html", "r");
+  }
+  else
+  {
+    ESP_LOGI(TAG, "SPIFFs mounted");
   }
 
   LoadConfiguration();
