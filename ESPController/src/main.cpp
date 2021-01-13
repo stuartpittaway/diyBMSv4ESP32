@@ -1043,12 +1043,13 @@ void SetupOTA()
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
 
-  ESP_LOGI(TAG, "Wi-Fi status=%i. Connected IP:%s", (uint16_t)WiFi.status(), WiFi.localIP().toString());
+  ESP_LOGI(TAG, "Wi-Fi status=%i", (uint16_t)WiFi.status());
 
   ESP_LOGI(TAG, "Request NTP from %s", mysettings.ntpServer);
 
   //Use native ESP32 code
   configTime(mysettings.minutesTimeZone * 60, mysettings.daylight * 60, mysettings.ntpServer);
+
 
   /*
   TODO: CHECK ERROR CODES BETTER!
