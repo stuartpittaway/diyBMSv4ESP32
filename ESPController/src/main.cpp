@@ -16,6 +16,8 @@
 #error ESP8266 is not supported by this code
 #endif
 
+#undef CONFIG_DISABLE_HAL_LOCKS
+
 static const char *TAG = "diybms";
 
 #include "esp_log.h"
@@ -116,6 +118,8 @@ volatile bool WifiDisconnected = true;
 Rules rules;
 
 bool _sd_card_installed = false;
+bool _sd_card_logging = false;
+
 diybms_eeprom_settings mysettings;
 uint16_t ConfigHasChanged = 0;
 
@@ -133,6 +137,7 @@ static TaskHandle_t i2c_task_handle = NULL;
 static TaskHandle_t ledoff_task_handle = NULL;
 static TaskHandle_t wifiresetdisable_task_handle = NULL;
 static TaskHandle_t modbuscomms_task_handle = NULL;
+static TaskHandle_t sdcardlog_task_handle = NULL;
 static QueueHandle_t queue_i2c = NULL;
 
 //This large array holds all the information about the modules
@@ -222,6 +227,142 @@ void QueueLED(uint8_t bits)
   xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
 }
 
+void sdcardlog_task(void *param)
+{
+
+  for (;;)
+  {
+    //Wait 10 seconds
+    vTaskDelay(20000 / portTICK_PERIOD_MS);
+
+    if (_sd_card_installed && _sd_card_logging && ControlState == ControllerState::Running)
+    {
+      //ESP_LOGD(TAG, "sdcardlog_task");
+      //Its time to output a status log to the SD Card in CSV format
+
+      //Do we need to lock the SPI bus here?  Mutex?
+
+      struct tm timeinfo;
+      //getLocalTime has delay() functions in it :-(
+      if (getLocalTime(&timeinfo, 1))
+      {
+        timeinfo.tm_year += 1900;
+        //Month is 0 to 11 based!
+        timeinfo.tm_mon++;
+
+        //ESP_LOGD(TAG, "%04u-%02u-%02u %02u:%02u:%02u", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+        char filename[32];
+        sprintf(filename, "/data_%04u%02u%02u.csv", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
+
+        File file;
+
+        if (SD.exists(filename))
+        {
+          //Open existing file (assumes there is enough SD card space to log)
+          file = SD.open(filename, FILE_APPEND);
+
+          //ESP_LOGD(TAG, "Open log %s", filename);
+        }
+        else
+        {
+          //Create a new file
+          uint64_t freeSpace = SD.totalBytes() - SD.usedBytes();
+
+          //Ensure there is more than 25MB of free space on SD card before creating a file
+          if (freeSpace > (uint64_t)(25 * 1024 * 1024))
+          {
+            //Create the file
+            File file = SD.open(filename, FILE_WRITE);
+            if (file)
+            {
+              //ESP_LOGD(TAG, "Create log %s", filename);
+
+              file.print("DateTime,");
+
+              for (uint8_t i = 0; i < TotalNumberOfCells(); i++)
+              {
+                file.print("VoltagemV_");
+                file.print(i);
+                file.print(",InternalTemp_");
+                file.print(i);
+                file.print(",ExternalTemp_");
+                file.print(i);
+                file.print(",Bypass_");
+                file.print(i);
+                file.print(",PWM_");
+                file.print(i);
+                file.print(",BypassOverTemp_");
+                file.print(i);
+                file.print(",BadPackets_");
+                file.print(i);
+                file.print(",BalancemAh_");
+                file.print(i);
+
+                if (i < TotalNumberOfCells()-1)
+                {
+                  file.print(',');
+                }
+              }
+              file.println();
+            }
+          }
+          else
+          {
+            ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
+            //We had an error, so switch off logging
+            _sd_card_logging = false;
+          }
+        }
+        /*
+        if (!file)
+        {
+          ESP_LOGE(TAG, "File is FALSE");
+        }
+*/
+        if (file && _sd_card_logging)
+        {
+          char dataMessage[255];
+
+          sprintf(dataMessage, "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+          file.print(dataMessage);
+
+          for (uint8_t i = 0; i < TotalNumberOfCells(); i++)
+          {
+            //This may output invalid data when controller is first powered up
+            sprintf(dataMessage, "%u,%i,%i,%c,%u,%c,%u,%u",
+                    cmi[i].voltagemV, cmi[i].internalTemp,
+                    cmi[i].externalTemp, cmi[i].inBypass ? 'Y' : 'N',
+                    (int)((float)cmi[i].PWMValue / (float)255.0 * 100), cmi[i].bypassOverTemp ? 'Y' : 'N',
+                    cmi[i].badPacketCount, cmi[i].BalanceCurrentCount);
+            file.print(dataMessage);
+            if (i < TotalNumberOfCells()-1)
+            {
+              file.print(',');
+            }
+          }
+          file.println();
+          file.close();
+
+          //ESP_LOGD(TAG, "Wrote to SD log");
+        }
+        else
+        {
+          ESP_LOGE(TAG, "Failed to create/append SD logging file");
+          //We had an error opening the file, so switch off logging
+          _sd_card_logging = false;
+        }
+      }
+      else
+      {
+        ESP_LOGE(TAG, "Invalid datetime");
+      }
+    }
+  }
+
+  //vTaskDelete( NULL );
+}
+
 void modbuscomms_task(void *param)
 {
   static uint8_t ind = 0;
@@ -240,7 +381,9 @@ void modbuscomms_task(void *param)
       //if (ModBus[ind].min < (ts - ModBusVal[ind].last) / 1000)
       //{
 
+      /*
       ModBusVal[ind].val = sdm.readVal(ModBus[ind].reg, ModBus[ind].addr);
+*/
       //ModBusVal[ind].last = ts;
 
       //      SERIAL_DEBUG.printf("Read Modbus: %d %s: %f\n", ind, ModBus[ind].name, ModBusVal[ind].val);
@@ -1038,7 +1181,7 @@ void SetupOTA()
       ESP_LOGE(TAG, "End Failed");
   });
 
-  ArduinoOTA.setHostname("diybms");
+  ArduinoOTA.setHostname(WiFi.getHostname());
   ArduinoOTA.setMdnsEnabled(true);
   ArduinoOTA.begin();
 }
@@ -1084,7 +1227,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   //   the fully-qualified domain name is "esp8266.local"
   // - second argument is the IP address to advertise
   //   we send our IP address on the WiFi network
-  if (!MDNS.begin("diybms"))
+  if (!MDNS.begin(WiFi.getHostname()))
   {
     ESP_LOGE("Error setting up MDNS responder!");
   }
@@ -1763,8 +1906,7 @@ void setup()
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
 
-  ESP_LOGI(TAG, "ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u", chip_info.model,chip_info.revision,chip_info.cores,chip_info.features);
-  
+  ESP_LOGI(TAG, "ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u", chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
   //We generate a unique number which is used in all following JSON requests
   //we use this as a simple method to avoid cross site scripting attacks
@@ -1795,7 +1937,7 @@ SD CARD TEST
 */
 
   // Initialize SD card
-  SD.begin(SDCARD_CHIPSELECT);
+  SD.begin(SDCARD_CHIPSELECT, hal.vspi);
   if (SD.begin(SDCARD_CHIPSELECT))
   {
     uint8_t cardType = SD.cardType();
@@ -1805,15 +1947,9 @@ SD CARD TEST
     }
     else
     {
-      ESP_LOGI(TAG, "Initializing SD card...");
-      if (SD.begin(SDCARD_CHIPSELECT))
-      {
-        _sd_card_installed = true;
-      }
-      else
-      {
-        ESP_LOGE(TAG, "ERROR - SD card initialization failed!");
-      }
+      ESP_LOGI(TAG, "SD card available");
+      _sd_card_installed = true;
+      _sd_card_logging = true;
     }
   }
   else
@@ -2006,6 +2142,7 @@ TEST CAN BUS
   xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
   xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 1, &wifiresetdisable_task_handle);
   xTaskCreate(modbuscomms_task, "modbusc", 2048, nullptr, 1, &modbuscomms_task_handle);
+  xTaskCreate(sdcardlog_task, "sdcardl", 3072, nullptr, 1, &sdcardlog_task_handle);
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));

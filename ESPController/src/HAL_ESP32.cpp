@@ -6,6 +6,7 @@ uint8_t HAL_ESP32::readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
 {
     //We use the native i2c commands for ESP32 as the Arduino library
     //seems to have issues with corrupting i2c data if used from multiple threads
+
     uint8_t data;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     //Select the correct register on the i2c device
@@ -24,6 +25,7 @@ uint8_t HAL_ESP32::readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
     //ESP_LOGD(TAG,"I2C reply %i",ret);
 
     i2c_cmd_link_delete(cmd);
+    
     return data;
 }
 
