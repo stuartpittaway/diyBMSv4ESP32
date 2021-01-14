@@ -138,6 +138,7 @@ static TaskHandle_t ledoff_task_handle = NULL;
 static TaskHandle_t wifiresetdisable_task_handle = NULL;
 static TaskHandle_t modbuscomms_task_handle = NULL;
 static TaskHandle_t sdcardlog_task_handle = NULL;
+static TaskHandle_t sdcardlog_outputs_task_handle = NULL;
 static QueueHandle_t queue_i2c = NULL;
 
 //This large array holds all the information about the modules
@@ -227,9 +228,9 @@ void QueueLED(uint8_t bits)
   xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
 }
 
+//Output a status log to the SD Card in CSV format
 void sdcardlog_task(void *param)
 {
-
   for (;;)
   {
     //Wait 10 seconds
@@ -238,9 +239,6 @@ void sdcardlog_task(void *param)
     if (_sd_card_installed && _sd_card_logging && ControlState == ControllerState::Running)
     {
       //ESP_LOGD(TAG, "sdcardlog_task");
-      //Its time to output a status log to the SD Card in CSV format
-
-      //Do we need to lock the SPI bus here?  Mutex?
 
       struct tm timeinfo;
       //getLocalTime has delay() functions in it :-(
@@ -257,108 +255,229 @@ void sdcardlog_task(void *param)
 
         File file;
 
-        if (SD.exists(filename))
+        //Prevent other devices using the VSPI bus
+        if (hal.GetVSPIMutex())
         {
-          //Open existing file (assumes there is enough SD card space to log)
-          file = SD.open(filename, FILE_APPEND);
-
-          //ESP_LOGD(TAG, "Open log %s", filename);
-        }
-        else
-        {
-          //Create a new file
-          uint64_t freeSpace = SD.totalBytes() - SD.usedBytes();
-
-          //Ensure there is more than 25MB of free space on SD card before creating a file
-          if (freeSpace > (uint64_t)(25 * 1024 * 1024))
+          if (SD.exists(filename))
           {
-            //Create the file
-            File file = SD.open(filename, FILE_WRITE);
-            if (file)
-            {
-              //ESP_LOGD(TAG, "Create log %s", filename);
+            //Open existing file (assumes there is enough SD card space to log)
+            file = SD.open(filename, FILE_APPEND);
 
-              file.print("DateTime,");
-
-              for (uint8_t i = 0; i < TotalNumberOfCells(); i++)
-              {
-                file.print("VoltagemV_");
-                file.print(i);
-                file.print(",InternalTemp_");
-                file.print(i);
-                file.print(",ExternalTemp_");
-                file.print(i);
-                file.print(",Bypass_");
-                file.print(i);
-                file.print(",PWM_");
-                file.print(i);
-                file.print(",BypassOverTemp_");
-                file.print(i);
-                file.print(",BadPackets_");
-                file.print(i);
-                file.print(",BalancemAh_");
-                file.print(i);
-
-                if (i < TotalNumberOfCells() - 1)
-                {
-                  file.print(',');
-                }
-              }
-              file.println();
-            }
+            //ESP_LOGD(TAG, "Open log %s", filename);
           }
           else
           {
-            ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
-            //We had an error, so switch off logging
-            _sd_card_logging = false;
-          }
-        }
-        /*
-        if (!file)
-        {
-          ESP_LOGE(TAG, "File is FALSE");
-        }
-*/
-        if (file && _sd_card_logging)
-        {
-          char dataMessage[255];
+            //Create a new file
+            uint64_t freeSpace = SD.totalBytes() - SD.usedBytes();
 
-          sprintf(dataMessage, "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-          file.print(dataMessage);
-
-          for (uint8_t i = 0; i < TotalNumberOfCells(); i++)
-          {
-            //This may output invalid data when controller is first powered up
-            sprintf(dataMessage, "%u,%i,%i,%c,%u,%c,%u,%u",
-                    cmi[i].voltagemV, cmi[i].internalTemp,
-                    cmi[i].externalTemp, cmi[i].inBypass ? 'Y' : 'N',
-                    (int)((float)cmi[i].PWMValue / (float)255.0 * 100), cmi[i].bypassOverTemp ? 'Y' : 'N',
-                    cmi[i].badPacketCount, cmi[i].BalanceCurrentCount);
-            file.print(dataMessage);
-            if (i < TotalNumberOfCells() - 1)
+            //Ensure there is more than 25MB of free space on SD card before creating a file
+            if (freeSpace > (uint64_t)(25 * 1024 * 1024))
             {
-              file.print(',');
+              //Create the file
+              File file = SD.open(filename, FILE_WRITE);
+              if (file)
+              {
+                //ESP_LOGD(TAG, "Create log %s", filename);
+
+                file.print("DateTime,");
+
+                for (uint8_t i = 0; i < TotalNumberOfCells(); i++)
+                {
+                  file.print("VoltagemV_");
+                  file.print(i);
+                  file.print(",InternalTemp_");
+                  file.print(i);
+                  file.print(",ExternalTemp_");
+                  file.print(i);
+                  file.print(",Bypass_");
+                  file.print(i);
+                  file.print(",PWM_");
+                  file.print(i);
+                  file.print(",BypassOverTemp_");
+                  file.print(i);
+                  file.print(",BadPackets_");
+                  file.print(i);
+                  file.print(",BalancemAh_");
+                  file.print(i);
+
+                  if (i < TotalNumberOfCells() - 1)
+                  {
+                    file.print(',');
+                  }
+                }
+                file.println();
+              }
+            }
+            else
+            {
+              ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
+              //We had an error, so switch off logging
+              _sd_card_logging = false;
             }
           }
-          file.println();
-          file.close();
 
-          ESP_LOGD(TAG, "Wrote to SD log");
+          if (file && _sd_card_logging)
+          {
+            char dataMessage[255];
+
+            sprintf(dataMessage, "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+            file.print(dataMessage);
+
+            for (uint8_t i = 0; i < TotalNumberOfCells(); i++)
+            {
+              //This may output invalid data when controller is first powered up
+              sprintf(dataMessage, "%u,%i,%i,%c,%u,%c,%u,%u",
+                      cmi[i].voltagemV, cmi[i].internalTemp,
+                      cmi[i].externalTemp, cmi[i].inBypass ? 'Y' : 'N',
+                      (int)((float)cmi[i].PWMValue / (float)255.0 * 100), cmi[i].bypassOverTemp ? 'Y' : 'N',
+                      cmi[i].badPacketCount, cmi[i].BalanceCurrentCount);
+              file.print(dataMessage);
+              if (i < TotalNumberOfCells() - 1)
+              {
+                file.print(',');
+              }
+            }
+            file.println();
+            file.close();
+
+            ESP_LOGD(TAG, "Wrote to SD log");
+          }
+          else
+          {
+            ESP_LOGE(TAG, "Failed to create/append SD logging file");
+            //We had an error opening the file, so switch off logging
+            //_sd_card_logging = false;
+          }
         }
         else
         {
-          ESP_LOGE(TAG, "Failed to create/append SD logging file");
-          //We had an error opening the file, so switch off logging
-          _sd_card_logging = false;
+          ESP_LOGE(TAG, "Invalid datetime");
         }
-      }
-      else
-      {
-        ESP_LOGE(TAG, "Invalid datetime");
+
+        //Must be the last thing...
+        hal.ReleaseVSPIMutex();
       }
     }
-  }
+  } //end for loop
+
+  //vTaskDelete( NULL );
+}
+
+//Writes a status log of the OUTPUT STATUES to the SD Card in CSV format
+void sdcardlog_outputs_task(void *param)
+{
+  for (;;)
+  {
+    //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    if (_sd_card_installed && _sd_card_logging)
+    {
+      ESP_LOGD(TAG, "sdcardlog_outputs_task");
+
+      struct tm timeinfo;
+      //getLocalTime has delay() functions in it :-(
+      if (getLocalTime(&timeinfo, 1))
+      {
+        timeinfo.tm_year += 1900;
+        //Month is 0 to 11 based!
+        timeinfo.tm_mon++;
+
+        //ESP_LOGD(TAG, "%04u-%02u-%02u %02u:%02u:%02u", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+        char filename[32];
+        sprintf(filename, "/output_status_%04u%02u%02u.csv", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
+
+        File file;
+
+        //Prevent other devices using the VSPI bus
+        if (hal.GetVSPIMutex())
+        {
+
+          if (SD.exists(filename))
+          {
+            //Open existing file (assumes there is enough SD card space to log)
+            file = SD.open(filename, FILE_APPEND);
+
+            //ESP_LOGD(TAG, "Open log %s", filename);
+          }
+          else
+          {
+            //Create a new file
+            uint64_t freeSpace = SD.totalBytes() - SD.usedBytes();
+
+            //Ensure there is more than 25MB of free space on SD card before creating a file
+            if (freeSpace > (uint64_t)(25 * 1024 * 1024))
+            {
+              //Create the file
+              File file = SD.open(filename, FILE_WRITE);
+              if (file)
+              {
+                //ESP_LOGD(TAG, "Create log %s", filename);
+
+                file.print("DateTime,Bits,");
+
+                for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+                {
+                  file.print("Output_");
+                  file.print(i);
+                  if (i < RELAY_TOTAL - 1)
+                  {
+                    file.print(',');
+                  }
+                }
+                file.println();
+              }
+            }
+            else
+            {
+              ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
+              //We had an error, so switch off logging
+              //_sd_card_logging = false;
+            }
+          }
+
+          if (file && _sd_card_logging)
+          {
+            char dataMessage[255];
+
+            sprintf(dataMessage, "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+            file.print(dataMessage);
+            file.print(hal.LastTCA6408Value(), BIN);
+            file.print(',');
+
+            for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+            {
+              //This may output invalid data when controller is first powered up
+              sprintf(dataMessage, "%c", previousRelayState[i] == RelayState::RELAY_ON ? 'Y' : 'N');
+              file.print(dataMessage);
+              if (i < RELAY_TOTAL - 1)
+              {
+                file.print(',');
+              }
+            }
+            file.println();
+            file.close();
+
+            ESP_LOGD(TAG, "Wrote to SD log");
+          }
+          else
+          {
+            ESP_LOGE(TAG, "Failed to create/append SD logging file");
+            //We had an error opening the file, so switch off logging
+            //_sd_card_logging = false;
+          }
+        }
+        else
+        {
+          ESP_LOGE(TAG, "Invalid datetime");
+        }
+
+        //Must be the last thing...
+        hal.ReleaseVSPIMutex();
+      }//end if
+    }//end if
+  } //end for loop
 
   //vTaskDelete( NULL );
 }
@@ -663,7 +782,6 @@ void SetControllerState(ControllerState newState)
 
 uint16_t minutesSinceMidnight()
 {
-
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo))
   {
@@ -884,6 +1002,9 @@ void timerSwitchPulsedRelay()
 
   //This only fires once
   myTimerSwitchPulsedRelay.detach();
+
+  //Fire task to record state of outputs to SD Card
+  xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
 }
 
 void timerProcessRules()
@@ -934,16 +1055,16 @@ void timerProcessRules()
     }
   }
 
+  uint8_t changes = 0;
   for (int8_t n = 0; n < RELAY_TOTAL; n++)
   {
     if (previousRelayState[n] != relay[n])
     {
+      changes++;
       //Would be better here to use the WRITE8 to lower i2c traffic
 #if defined(RULES_LOGGING)
       ESP_LOGI(TAG, "Relay %i=%i", n, relay[n]);
 #endif
-      //hal.SetOutputState(n, relay[n]);
-
       //This would be better if we worked out the bit pattern first and then just
       //submitted that as a single i2c read/write transaction
 
@@ -960,14 +1081,21 @@ void timerProcessRules()
         //TODO: This needs changing to task notify passing in the relay number to that task
 
         //If its a pulsed relay, invert the output quickly via a single shot timer
+        //a pulse is unlikely to be captured in the SDCard log, as its over quickly
         previousRelayPulse[n] = true;
-        myTimerSwitchPulsedRelay.attach(0.1, timerSwitchPulsedRelay);
+        myTimerSwitchPulsedRelay.attach(0.2, timerSwitchPulsedRelay);
 
 #if defined(RULES_LOGGING)
         ESP_LOGI(TAG, "Relay %i PULSED", n);
 #endif
       }
     }
+  }
+
+  if (changes)
+  {
+    //Fire task to record state of outputs to SD Card
+    xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
   }
 }
 
@@ -1956,6 +2084,7 @@ SD CARD TEST
   {
     ESP_LOGE(TAG, "Card Mount Failed");
   }
+
   /*
   SERIAL_DEBUG.println("OK");
 
@@ -2142,7 +2271,8 @@ TEST CAN BUS
   xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
   xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 1, &wifiresetdisable_task_handle);
   xTaskCreate(modbuscomms_task, "modbusc", 2048, nullptr, 1, &modbuscomms_task_handle);
-  xTaskCreate(sdcardlog_task, "sdcardl", 3072, nullptr, 1, &sdcardlog_task_handle);
+  xTaskCreate(sdcardlog_task, "sdlog", 3072, nullptr, 1, &sdcardlog_task_handle);
+  xTaskCreate(sdcardlog_outputs_task, "sdout", 3072, nullptr, 1, &sdcardlog_outputs_task_handle);
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
@@ -2158,22 +2288,6 @@ TEST CAN BUS
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
-  // initialize LittleFS
-
-  /*
-  if (!SPIFFS.begin())
-  {
-    ESP_LOGE(TAG, "An Error has occurred while mounting flash store");
-    SPIFFS.format();
-
-    //fs::File f = LittleFS.open("/pageheader.html", "r");
-  }
-  else
-  {
-    ESP_LOGI(TAG, "SPIFFs mounted");
-  }
-*/
-
   LoadConfiguration();
 
   //Set relay defaults
@@ -2183,6 +2297,8 @@ TEST CAN BUS
     //Set relay defaults
     hal.SetOutputState(y, mysettings.rulerelaydefault[y]);
   }
+  //Fire task to record state of outputs to SD Card
+  xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
 
   //Allow user to press SPACE BAR key on serial terminal
   //to enter text based WIFI setup

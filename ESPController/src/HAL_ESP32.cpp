@@ -6,44 +6,61 @@ uint8_t HAL_ESP32::readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
 {
     //We use the native i2c commands for ESP32 as the Arduino library
     //seems to have issues with corrupting i2c data if used from multiple threads
+    if (Geti2cMutex())
+    {
 
-    uint8_t data;
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    //Select the correct register on the i2c device
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, reg, true);
-    // Send repeated start, and read the register
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_READ, true);
-    //Read single byte and expect NACK in reply
-    i2c_master_read_byte(cmd, &data, i2c_ack_type_t::I2C_MASTER_NACK);
-    i2c_master_stop(cmd);
-    //esp_err_t ret = 
-    ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
+        uint8_t data;
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        //Select the correct register on the i2c device
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_WRITE, true);
+        i2c_master_write_byte(cmd, reg, true);
+        // Send repeated start, and read the register
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_READ, true);
+        //Read single byte and expect NACK in reply
+        i2c_master_read_byte(cmd, &data, i2c_ack_type_t::I2C_MASTER_NACK);
+        i2c_master_stop(cmd);
+        //esp_err_t ret =
+        ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
 
-    //ESP_LOGD(TAG,"I2C reply %i",ret);
+        //ESP_LOGD(TAG,"I2C reply %i",ret);
 
-    i2c_cmd_link_delete(cmd);
-    
-    return data;
+        i2c_cmd_link_delete(cmd);
+
+        Releasei2cMutex();
+        return data;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 //i2c: Writes a single byte to a slave devices register
 esp_err_t HAL_ESP32::writeByte(i2c_port_t i2c_num, uint8_t deviceAddress, uint8_t i2cregister, uint8_t data)
 {
-    //We use the native i2c commands for ESP32 as the Arduino library
-    //seems to have issues with corrupting i2c data if used from multiple threads
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (deviceAddress << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, i2cregister, true);
-    i2c_master_write_byte(cmd, data, true);
-    i2c_master_stop(cmd);
-    
-    esp_err_t ret = ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
-    i2c_cmd_link_delete(cmd);
-    return ret;
+    if (Geti2cMutex())
+    {
+        //We use the native i2c commands for ESP32 as the Arduino library
+        //seems to have issues with corrupting i2c data if used from multiple threads
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (deviceAddress << 1) | I2C_MASTER_WRITE, true);
+        i2c_master_write_byte(cmd, i2cregister, true);
+        i2c_master_write_byte(cmd, data, true);
+        i2c_master_stop(cmd);
+
+        esp_err_t ret = ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
+        i2c_cmd_link_delete(cmd);
+
+        Releasei2cMutex();
+        return ret;
+    }
+    else
+    {
+        return ESP_ERR_INVALID_STATE;
+    }
 }
 
 uint8_t HAL_ESP32::ReadTCA6408InputRegisters()
@@ -86,9 +103,9 @@ void HAL_ESP32::Led(uint8_t bits)
     TCA9534APWR_Value = TCA9534APWR_Value & B11111000;
     //Set on
     TCA9534APWR_Value = TCA9534APWR_Value | (bits & B00000111);
-    //esp_err_t ret = 
+    //esp_err_t ret =
     ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value));
-    
+
     //ESP_LOGD(TAG,"TCA9534 LED reply %i",ret);
     //TODO: Check return value
 }
@@ -105,7 +122,7 @@ void HAL_ESP32::TFTScreenBacklight(bool value)
         TCA9534APWR_Value = TCA9534APWR_Value | B00001000;
     }
 
-    //esp_err_t ret = 
+    //esp_err_t ret =
     ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value));
     //TODO: Check return value
     //ESP_LOGD(TAG,"TCA9534 reply %i",ret);
@@ -190,7 +207,8 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
 
     //All off
     esp_err_t ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, 0);
-    if (ret!=ESP_OK) {
+    if (ret != ESP_OK)
+    {
         ESP_LOGE(TAG, "TCA9534APWR Error");
         Halt();
     }
@@ -223,7 +241,8 @@ Now for the TCA6408
     //Set ports to off before we set configuration
     ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, 0);
 
-    if (ret!=ESP_OK) {
+    if (ret != ESP_OK)
+    {
         ESP_LOGE(TAG, "TCA6408 Error");
         Halt();
     }

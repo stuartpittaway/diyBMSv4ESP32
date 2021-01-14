@@ -54,6 +54,8 @@ public:
     HAL_ESP32()
     {
         vspi = SPIClass(VSPI);
+        xVSPIMutex = xSemaphoreCreateMutex();
+        xi2cMutex = xSemaphoreCreateMutex();
     }
 
     void ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void));
@@ -65,6 +67,47 @@ public:
     void ConfigurePins(void (*WiFiPasswordResetInterrput)(void));
     void TFTScreenBacklight(bool Status);
     void SwapGPIO0ToOutput();
+
+    bool GetVSPIMutex()
+    {
+        if (xVSPIMutex == NULL)
+            return false;
+
+        bool reply = (xSemaphoreTake(xVSPIMutex, (TickType_t)50) == pdTRUE);
+        if (!reply)
+        {
+            ESP_LOGE(TAG, "Unable to get VSPI mutex");
+        }
+        return reply;
+    }
+    bool ReleaseVSPIMutex()
+    {
+        if (xVSPIMutex == NULL)
+            return false;
+
+        return (xSemaphoreGive(xVSPIMutex) == pdTRUE);
+    }
+
+    bool Geti2cMutex()
+    {
+        if (xi2cMutex == NULL)
+            return false;
+
+        bool reply = (xSemaphoreTake(xi2cMutex, (TickType_t)50) == pdTRUE);
+        if (!reply)
+        {
+            ESP_LOGE(TAG, "Unable to get I2C mutex");
+        }
+        return reply;
+
+    }
+    bool Releasei2cMutex()
+    {
+        if (xi2cMutex == NULL)
+            return false;
+
+        return (xSemaphoreGive(xi2cMutex) == pdTRUE);
+    }
 
     //Infinite loop flashing the LED RED/WHITE
     void Halt()
@@ -93,7 +136,15 @@ public:
         vspi.setFrequency(10000000);
     }
 
+    uint8_t LastTCA6408Value()
+    {
+        return TCA6408_Value;
+    }
+
 private:
+    SemaphoreHandle_t xVSPIMutex = NULL;
+    SemaphoreHandle_t xi2cMutex = NULL;
+
     //Copy of pin state for TCA9534
     uint8_t TCA9534APWR_Value;
     //Copy of pin state for TCA6408
