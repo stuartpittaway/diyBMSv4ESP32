@@ -299,7 +299,7 @@ void sdcardlog_task(void *param)
                 file.print(",BalancemAh_");
                 file.print(i);
 
-                if (i < TotalNumberOfCells()-1)
+                if (i < TotalNumberOfCells() - 1)
                 {
                   file.print(',');
                 }
@@ -336,7 +336,7 @@ void sdcardlog_task(void *param)
                     (int)((float)cmi[i].PWMValue / (float)255.0 * 100), cmi[i].bypassOverTemp ? 'Y' : 'N',
                     cmi[i].badPacketCount, cmi[i].BalanceCurrentCount);
             file.print(dataMessage);
-            if (i < TotalNumberOfCells()-1)
+            if (i < TotalNumberOfCells() - 1)
             {
               file.print(',');
             }
@@ -344,7 +344,7 @@ void sdcardlog_task(void *param)
           file.println();
           file.close();
 
-          //ESP_LOGD(TAG, "Wrote to SD log");
+          ESP_LOGD(TAG, "Wrote to SD log");
         }
         else
         {
