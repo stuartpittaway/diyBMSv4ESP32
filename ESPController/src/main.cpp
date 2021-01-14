@@ -2271,8 +2271,8 @@ TEST CAN BUS
   xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
   xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 1, &wifiresetdisable_task_handle);
   xTaskCreate(modbuscomms_task, "modbusc", 2048, nullptr, 1, &modbuscomms_task_handle);
-  xTaskCreate(sdcardlog_task, "sdlog", 3072, nullptr, 1, &sdcardlog_task_handle);
-  xTaskCreate(sdcardlog_outputs_task, "sdout", 3072, nullptr, 1, &sdcardlog_outputs_task_handle);
+  xTaskCreate(sdcardlog_task, "sdlog", 4096, nullptr, 1, &sdcardlog_task_handle);
+  xTaskCreate(sdcardlog_outputs_task, "sdout", 4096, nullptr, 1, &sdcardlog_outputs_task_handle);
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
