@@ -118,7 +118,7 @@ volatile bool WifiDisconnected = true;
 Rules rules;
 
 bool _sd_card_installed = false;
-bool _sd_card_logging = false;
+//bool _sd_card_logging = false;
 
 diybms_eeprom_settings mysettings;
 uint16_t ConfigHasChanged = 0;
@@ -233,10 +233,14 @@ void sdcardlog_task(void *param)
 {
   for (;;)
   {
-    //Wait 10 seconds
-    vTaskDelay(20000 / portTICK_PERIOD_MS);
+    //Wait X seconds
+    for (size_t i = 0; i < mysettings.loggingFrequencySeconds; i++)
+    {
+      //Delay 1 second
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
 
-    if (_sd_card_installed && _sd_card_logging && ControlState == ControllerState::Running)
+    if (_sd_card_installed && mysettings.loggingEnabled && ControlState == ControllerState::Running)
     {
       //ESP_LOGD(TAG, "sdcardlog_task");
 
@@ -311,12 +315,12 @@ void sdcardlog_task(void *param)
             else
             {
               ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
-              //We had an error, so switch off logging
-              _sd_card_logging = false;
+              //We had an error, so switch off logging (this is only in memory so not written perm.)
+              mysettings.loggingEnabled = false;
             }
           }
 
-          if (file && _sd_card_logging)
+          if (file && mysettings.loggingEnabled)
           {
             char dataMessage[255];
 
@@ -346,7 +350,7 @@ void sdcardlog_task(void *param)
           {
             ESP_LOGE(TAG, "Failed to create/append SD logging file");
             //We had an error opening the file, so switch off logging
-            //_sd_card_logging = false;
+            //mysettings.loggingEnabled = false;
           }
         }
         else
@@ -371,7 +375,7 @@ void sdcardlog_outputs_task(void *param)
     //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    if (_sd_card_installed && _sd_card_logging)
+    if (_sd_card_installed && mysettings.loggingEnabled)
     {
       ESP_LOGD(TAG, "sdcardlog_outputs_task");
 
@@ -433,11 +437,11 @@ void sdcardlog_outputs_task(void *param)
             {
               ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
               //We had an error, so switch off logging
-              //_sd_card_logging = false;
+              //mysettings.loggingEnabled = false;
             }
           }
 
-          if (file && _sd_card_logging)
+          if (file && mysettings.loggingEnabled)
           {
             char dataMessage[255];
 
@@ -465,7 +469,7 @@ void sdcardlog_outputs_task(void *param)
           {
             ESP_LOGE(TAG, "Failed to create/append SD logging file");
             //We had an error opening the file, so switch off logging
-            //_sd_card_logging = false;
+            //mysettings.loggingEnabled = false;
           }
         }
         else
@@ -475,9 +479,9 @@ void sdcardlog_outputs_task(void *param)
 
         //Must be the last thing...
         hal.ReleaseVSPIMutex();
-      }//end if
-    }//end if
-  } //end for loop
+      } //end if
+    }   //end if
+  }     //end for loop
 
   //vTaskDelete( NULL );
 }
@@ -872,7 +876,7 @@ void timerTransmitCallback()
   transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
   myPacketSerial.sendBuffer((byte *)&transmitBuffer);
 
-  // Output the packet we just transmitted to debug console
+// Output the packet we just transmitted to debug console
 #if defined(PACKET_LOGGING_SEND)
   dumpPacketToDebug('S', &transmitBuffer);
 #endif
@@ -943,6 +947,11 @@ void ProcessRules()
       cellid++;
     }
     rules.ProcessBank(bank);
+  }
+
+  if (mysettings.loggingEnabled && !_sd_card_installed)
+  {
+    rules.SetWarning(InternalWarningCode::LoggingEnabledNoSDCard);
   }
 
   if (rules.invalidModuleCount > 0)
@@ -1061,7 +1070,7 @@ void timerProcessRules()
     if (previousRelayState[n] != relay[n])
     {
       changes++;
-      //Would be better here to use the WRITE8 to lower i2c traffic
+//Would be better here to use the WRITE8 to lower i2c traffic
 #if defined(RULES_LOGGING)
       ESP_LOGI(TAG, "Relay %i=%i", n, relay[n]);
 #endif
@@ -1314,6 +1323,29 @@ void SetupOTA()
   ArduinoOTA.begin();
 }
 
+sdcard_info sdcard_callback()
+{
+  sdcard_info ret;
+
+  ret.available = _sd_card_installed;
+
+  //Lock VSPI bus during operation (not sure if this is acutally needed, as the SD class may have cached these values)
+  if (hal.GetVSPIMutex())
+  {
+    //Convert to KiB
+    ret.totalkilobytes = SD.totalBytes() / 1024;
+    ret.usedkilobytes = SD.usedBytes() / 1024;
+    hal.ReleaseVSPIMutex();
+  }
+  else
+  {
+    ret.totalkilobytes = 0;
+    ret.usedkilobytes = 0;
+  }
+
+  return ret;
+}
+
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
 
@@ -1334,7 +1366,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   */
   if (!server_running)
   {
-    DIYBMSServer::StartServer(&server);
+    DIYBMSServer::StartServer(&server, &mysettings, &sdcard_callback, &prg, &receiveProc, &ControlState, &rules, &ModBus, &ModBusVal);
     server_running = true;
   }
 
@@ -1433,7 +1465,7 @@ void sendMqttStatus()
   mqttClient.publish(topic, 0, false, jsonbuffer);
 #if defined(MQTT_LOGGING)
   ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-  //SERIAL_DEBUG.print("MQTT - ");SERIAL_DEBUG.print(topic);  SERIAL_DEBUG.print('=');  SERIAL_DEBUG.println(jsonbuffer);
+//SERIAL_DEBUG.print("MQTT - ");SERIAL_DEBUG.print(topic);  SERIAL_DEBUG.print('=');  SERIAL_DEBUG.println(jsonbuffer);
 #endif
 
   //Using Json for below reduced MQTT messages from 14 to 2. Could be combined into same json object too. But even better is status + event driven.
@@ -1564,6 +1596,9 @@ void LoadConfiguration()
   //EEPROM settings are invalid so default configuration
   mysettings.mqtt_enabled = false;
   mysettings.mqtt_port = 1883;
+
+  mysettings.loggingEnabled = false;
+  mysettings.loggingFrequencySeconds = 15;
 
   //Default to EMONPI default MQTT settings
   strcpy(mysettings.mqtt_topic, "diybms");
@@ -2012,6 +2047,33 @@ static const char *ESP32_CAN_STATUS_STRINGS[] = {
 };
 */
 
+void mountSDCard()
+{
+  /*
+SD CARD TEST
+*/
+
+  // Initialize SD card
+  SD.begin(SDCARD_CHIPSELECT, hal.vspi);
+  if (SD.begin(SDCARD_CHIPSELECT))
+  {
+    uint8_t cardType = SD.cardType();
+    if (cardType == CARD_NONE)
+    {
+      ESP_LOGI(TAG, "No SD card attached");
+    }
+    else
+    {
+      ESP_LOGI(TAG, "SD card available");
+      _sd_card_installed = true;
+    }
+  }
+  else
+  {
+    ESP_LOGE(TAG, "Card Mount Failed");
+  }
+}
+
 void setup()
 {
   WiFi.mode(WIFI_OFF);
@@ -2060,59 +2122,7 @@ void setup()
     //listDir(LITTLEFS, "/", 0);
   }
 
-  /*
-SD CARD TEST
-*/
-
-  // Initialize SD card
-  SD.begin(SDCARD_CHIPSELECT, hal.vspi);
-  if (SD.begin(SDCARD_CHIPSELECT))
-  {
-    uint8_t cardType = SD.cardType();
-    if (cardType == CARD_NONE)
-    {
-      ESP_LOGI(TAG, "No SD card attached");
-    }
-    else
-    {
-      ESP_LOGI(TAG, "SD card available");
-      _sd_card_installed = true;
-      _sd_card_logging = true;
-    }
-  }
-  else
-  {
-    ESP_LOGE(TAG, "Card Mount Failed");
-  }
-
-  /*
-  SERIAL_DEBUG.println("OK");
-
-  if (_sd_card_installed)
-  {
-
-    SERIAL_DEBUG.print(F("Card totalBytes="));
-    SERIAL_DEBUG.print(SD.totalBytes());
-    SERIAL_DEBUG.print(", free=");
-    SERIAL_DEBUG.println(SD.usedBytes());
-
-    // If the data.txt file doesn't exist
-    // Create a file on the SD card and write the data labels
-    if (!SD.exists("/data.txt"))
-    {
-      SERIAL_DEBUG.println("File doens't exist");
-      SERIAL_DEBUG.println("Creating file...");
-      createFile(SD, "/data.txt", "Reading ID, Date, Hour, Temperature \r\n");
-    }
-    else
-    {
-      SERIAL_DEBUG.println("File already exists");
-    }
-
-    String dataMessage = String("Hello world") + "\r\n";
-    appendFile(SD, "/data.txt", dataMessage.c_str());
-  }
-*/
+  mountSDCard();
 
   /*
   SERIAL_DEBUG.println("Start ATMEL ISP programming...");
@@ -2426,6 +2436,7 @@ void loop()
   // Call update to receive, decode and process incoming packets.
   myPacketSerial.checkInputStream();
 
+  /*
   if (ConfigHasChanged > 0)
   {
     //Auto reboot if needed (after changing MQTT or INFLUX settings)
@@ -2443,4 +2454,5 @@ void loop()
       ESP.restart();
     }
   }
+*/
 }

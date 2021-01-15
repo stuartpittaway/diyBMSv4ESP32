@@ -29,7 +29,8 @@ enum InternalWarningCode : uint8_t
     ModuleInconsistantBypassVoltage = 1,
     ModuleInconsistantBypassTemperature = 2,
     ModuleInconsistantCodeVersion = 3,
-    ModuleInconsistantBoardRevision = 4
+    ModuleInconsistantBoardRevision = 4,
+    LoggingEnabledNoSDCard=5
 };
 
 enum InternalErrorCode : uint8_t

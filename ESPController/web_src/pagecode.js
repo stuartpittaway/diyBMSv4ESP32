@@ -78,12 +78,12 @@ function configureModbus(button, device, attempts) {
     $(button).parent().parent().parent().find(".selected").removeClass("selected");
     $(button).parent().parent().addClass("selected");
 
-//    $.getJSON("modules.json", { d: device },
+    //    $.getJSON("modules.json", { d: device },
     $.getJSON("modbus.json", function (data) {
 
-      var div = $("#settingConfig .settings");
-//        var div = $("#modbusConfig .settings");
-//        $('#d').val(data.settings.id);
+        var div = $("#settingConfig .settings");
+        //        var div = $("#modbusConfig .settings");
+        //        $('#d').val(data.settings.id);
 
         $("#modbusConfig h2").html("Settings for modbus device:" + device);
 
@@ -181,7 +181,7 @@ function queryBMS() {
                 color = jsondata.bypasshot[i] == 1 ? red : stdcolor;
                 tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
                 tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]), itemStyle: { color: stdcolor } });
-                pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : Math.trunc(jsondata.bypasspwm[i]/255*100) });
+                pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : Math.trunc(jsondata.bypasspwm[i] / 255 * 100) });
             }
         }
 
@@ -823,16 +823,16 @@ $(function () {
             var tbody = $("#modbusRows");
             $.each(data.modbus, function (index, value) {
                 $(tbody).append("<tr><td>"
-                  + index + "</td><td>"
-                  + value.name + "</td><td>"
-                               + "</td><td>"  // value
-                  + value.unit + "</td><td>"
-                  + value.desc + "</td><td>"
-                  + value.rule + "</td><td>"
-                  + value.mqtt + "</td>"
-                  + "<td><button type='button' onclick='return configureModbus(this," + index + ",10);'>Configure</button></td>"
-//                  + "<td><button type='button' onclick='return deleteModbus(this," + index + ",10);'>Delete</button></td></tr>");
-                  + "</tr>");
+                    + index + "</td><td>"
+                    + value.name + "</td><td>"
+                    + "</td><td>"  // value
+                    + value.unit + "</td><td>"
+                    + value.desc + "</td><td>"
+                    + value.rule + "</td><td>"
+                    + value.mqtt + "</td>"
+                    + "<td><button type='button' onclick='return configureModbus(this," + index + ",10);'>Configure</button></td>"
+                    //                  + "<td><button type='button' onclick='return deleteModbus(this," + index + ",10);'>Delete</button></td></tr>");
+                    + "</tr>");
             });
 
         }).fail(function () { }
@@ -979,6 +979,32 @@ $(function () {
         return true;
     });
 
+
+    $("#storage").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        $(".page").hide();
+        $("#storagePage").show();
+
+        $.getJSON("storage.json",
+            function (data) {
+                $("#loggingEnabled").prop("checked", data.storage.enabled);
+                $("#loggingFreq").val(data.storage.frequency);
+                if (data.storage.sdcard) {
+                    $("#sdcardmissing").hide();
+                } else { $("#sdcardmissing").show(); }
+
+                $("#sdcard_total").val(data.storage.sdcard_total);
+                $("#sdcard_used").val(data.storage.sdcard_used);
+
+
+            }).fail(function () { }
+            );
+
+        return true;
+    });
+
+
     $("form").unbind('submit').submit(function (e) {
         e.preventDefault();
 
@@ -1033,7 +1059,7 @@ $(function () {
     $("#modbusForm").unbind('close').submit(function (e) {
         e.preventDefault();
 
-//        $("#modbusConfig").hide();
+        //        $("#modbusConfig").hide();
     });
 
 

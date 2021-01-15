@@ -10,6 +10,7 @@
 
 #include <EEPROM.h>
 
+#include "defines.h"
 #include "Rules.h"
 #include "settings.h"
 #include "ArduinoJson.h"
@@ -21,13 +22,39 @@
 class DIYBMSServer
 {
 public:
-    static void StartServer(AsyncWebServer *webserver);
+    static void StartServer(AsyncWebServer *webserver,
+                            diybms_eeprom_settings *mysettings,
+                            sdcard_info (*sdcardcallback)(),
+                            PacketRequestGenerator *prg,
+                            PacketReceiveProcessor *pktreceiveproc,
+                            ControllerState *controlState,
+                            Rules *rules,
+                            ModbusInfo (*ModBus)[MODBUS_NUM],
+                            ModbusVal (*ModBusVal)[MODBUS_NUM]);
+
     static void generateUUID();
     static void clearModuleValues(uint8_t module);
+    //static uint16_t ConfigHasChanged;
 
 private:
     static AsyncWebServer *_myserver;
     static String UUIDString;
+
+    //Pointers to other classes (not always a good idea in static classes)
+    static sdcard_info (*_sdcardcallback)();
+    static PacketRequestGenerator *_prg;
+    static PacketReceiveProcessor *_receiveProc;
+    static diybms_eeprom_settings *_mysettings;
+    static Rules *_rules;
+    static ControllerState *_controlState;
+
+    static ModbusInfo (*_ModBus)[MODBUS_NUM];
+    static ModbusVal (*_ModBusVal)[MODBUS_NUM];
+
+    static void saveConfiguration()
+    {
+        Settings::WriteConfig("diybms", (char *)_mysettings, sizeof(diybms_eeprom_settings));
+    }
 
     static void handleNotFound(AsyncWebServerRequest *request);
     static void monitor2(AsyncWebServerRequest *request);
@@ -44,6 +71,7 @@ private:
     static void settings(AsyncWebServerRequest *request);
     static void resetCounters(AsyncWebServerRequest *request);
     static void handleRestartController(AsyncWebServerRequest *request);
+    static void storage(AsyncWebServerRequest *request);
 
     static void modbus(AsyncWebServerRequest *request);
     static void modbusVal(AsyncWebServerRequest *request);
@@ -56,6 +84,7 @@ private:
     static void saveBankConfiguration(AsyncWebServerRequest *request);
     static void saveRuleConfiguration(AsyncWebServerRequest *request);
     static void saveNTP(AsyncWebServerRequest *request);
+    static void saveStorage(AsyncWebServerRequest *request);
 
     static void saveDisplaySetting(AsyncWebServerRequest *request);
 
@@ -63,16 +92,5 @@ private:
     static void SetCacheAndETagGzip(AsyncWebServerResponse *response, String ETag);
     static void SetCacheAndETag(AsyncWebServerResponse *response, String ETag);
 };
-
-//TODO: Mixing of classes, static and extern is not great
-extern PacketRequestGenerator prg;
-extern PacketReceiveProcessor receiveProc;
-extern diybms_eeprom_settings mysettings;
-extern uint16_t ConfigHasChanged;
-extern Rules rules;
-extern ControllerState ControlState;
-
-extern ModbusInfo ModBus[MODBUS_NUM];
-extern ModbusVal ModBusVal[MODBUS_NUM];
 
 #endif

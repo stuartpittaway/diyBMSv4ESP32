@@ -41,6 +41,16 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 AsyncWebServer *DIYBMSServer::_myserver;
 String DIYBMSServer::UUIDString;
 
+sdcard_info (*DIYBMSServer::_sdcardcallback)() = 0;
+PacketRequestGenerator *DIYBMSServer::_prg = 0;
+PacketReceiveProcessor *DIYBMSServer::_receiveProc = 0;
+diybms_eeprom_settings *DIYBMSServer::_mysettings = 0;
+Rules *DIYBMSServer::_rules = 0;
+ControllerState *DIYBMSServer::_controlState = 0;
+ModbusInfo (*DIYBMSServer::_ModBus)[MODBUS_NUM] = 0;
+ModbusVal (*DIYBMSServer::_ModBusVal)[MODBUS_NUM] = 0;
+//uint16_t DIYBMSServer::ConfigHasChanged=0;
+
 #define REBOOT_COUNT_DOWN 2000
 
 String DIYBMSServer::uuidToString(uint8_t *uuidLocation)
@@ -126,8 +136,8 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
     return;
 
   //Ask modules to reset bad packet counters
-  prg.sendBadPacketCounterReset();
-  prg.sendResetBalanceCurrentCounter();
+  _prg->sendBadPacketCounterReset();
+  _prg->sendResetBalanceCurrentCounter();
 
   for (uint8_t i = 0; i < maximum_controller_cell_modules; i++)
   {
@@ -136,9 +146,9 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
   }
 
   //Reset internal counters on CONTROLLER
-  receiveProc.ResetCounters();
+  _receiveProc->ResetCounters();
 
-  prg.packetsGenerated = 0;
+  _prg->packetsGenerated = 0;
 
   SendSuccess(request);
 }
@@ -151,22 +161,22 @@ void DIYBMSServer::saveDisplaySetting(AsyncWebServerRequest *request)
   if (request->hasParam("VoltageHigh", true))
   {
     AsyncWebParameter *p1 = request->getParam("VoltageHigh", true);
-    mysettings.graph_voltagehigh = p1->value().toFloat();
+    _mysettings->graph_voltagehigh = p1->value().toFloat();
   }
 
   if (request->hasParam("VoltageLow", true))
   {
     AsyncWebParameter *p1 = request->getParam("VoltageLow", true);
-    mysettings.graph_voltagelow = p1->value().toFloat();
+    _mysettings->graph_voltagelow = p1->value().toFloat();
   }
 
   //Validate high is greater than low
-  if (mysettings.graph_voltagelow > mysettings.graph_voltagehigh)
+  if (_mysettings->graph_voltagelow > _mysettings->graph_voltagehigh)
   {
-    mysettings.graph_voltagelow = 0;
+    _mysettings->graph_voltagelow = 0;
   }
 
-  Settings::WriteConfig("diybms", (char *)&mysettings, sizeof(mysettings));
+  saveConfiguration();
 
   SendSuccess(request);
 }
@@ -179,46 +189,46 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
   if (request->hasParam("influxEnabled", true))
   {
     AsyncWebParameter *p1 = request->getParam("influxEnabled", true);
-    mysettings.influxdb_enabled = p1->value().equals("on") ? true : false;
+    _mysettings->influxdb_enabled = p1->value().equals("on") ? true : false;
   }
   else
   {
-    mysettings.influxdb_enabled = false;
+    _mysettings->influxdb_enabled = false;
   }
 
   if (request->hasParam("influxPort", true))
   {
     AsyncWebParameter *p1 = request->getParam("influxPort", true);
-    mysettings.influxdb_httpPort = p1->value().toInt();
+    _mysettings->influxdb_httpPort = p1->value().toInt();
   }
 
   if (request->hasParam("influxServer", true))
   {
     AsyncWebParameter *p1 = request->getParam("influxServer", true);
-    p1->value().toCharArray(mysettings.influxdb_host, sizeof(mysettings.influxdb_host));
+    p1->value().toCharArray(_mysettings->influxdb_host, sizeof(_mysettings->influxdb_host));
   }
 
   if (request->hasParam("influxDatabase", true))
   {
     AsyncWebParameter *p1 = request->getParam("influxDatabase", true);
-    p1->value().toCharArray(mysettings.influxdb_database, sizeof(mysettings.influxdb_database));
+    p1->value().toCharArray(_mysettings->influxdb_database, sizeof(_mysettings->influxdb_database));
   }
 
   if (request->hasParam("influxUsername", true))
   {
     AsyncWebParameter *p1 = request->getParam("influxUsername", true);
-    p1->value().toCharArray(mysettings.influxdb_user, sizeof(mysettings.influxdb_user));
+    p1->value().toCharArray(_mysettings->influxdb_user, sizeof(_mysettings->influxdb_user));
   }
 
   if (request->hasParam("influxPassword", true))
   {
     AsyncWebParameter *p1 = request->getParam("influxPassword", true);
-    p1->value().toCharArray(mysettings.influxdb_password, sizeof(mysettings.influxdb_password));
+    p1->value().toCharArray(_mysettings->influxdb_password, sizeof(_mysettings->influxdb_password));
   }
 
-  Settings::WriteConfig("diybms", (char *)&mysettings, sizeof(mysettings));
+  saveConfiguration();
 
-  ConfigHasChanged = REBOOT_COUNT_DOWN;
+  //ConfigHasChanged = REBOOT_COUNT_DOWN;
   SendSuccess(request);
 }
 
@@ -236,10 +246,10 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
     {
       AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
       //Default
-      mysettings.relaytype[i] = RelayType::RELAY_STANDARD;
+      _mysettings->relaytype[i] = RelayType::RELAY_STANDARD;
       if (p1->value().equals("Pulse"))
       {
-        mysettings.relaytype[i] = RelayType::RELAY_PULSE;
+        _mysettings->relaytype[i] = RelayType::RELAY_PULSE;
       }
     }
   }
@@ -253,10 +263,10 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
     {
       AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
       //Default
-      mysettings.rulerelaydefault[i] = RelayState::RELAY_OFF;
+      _mysettings->rulerelaydefault[i] = RelayState::RELAY_OFF;
       if (p1->value().equals("On"))
       {
-        mysettings.rulerelaydefault[i] = RelayState::RELAY_ON;
+        _mysettings->rulerelaydefault[i] = RelayState::RELAY_ON;
       }
     }
   }
@@ -272,7 +282,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
     if (request->hasParam(name, true))
     {
       AsyncWebParameter *p1 = request->getParam(name, true);
-      mysettings.rulevalue[rule] = p1->value().toInt();
+      _mysettings->rulevalue[rule] = p1->value().toInt();
     }
 
     //TODO: This STRING doesnt work properly if its on a single line!
@@ -282,7 +292,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
     if (request->hasParam(hname, true))
     {
       AsyncWebParameter *p1 = request->getParam(hname, true);
-      mysettings.rulehysteresis[rule] = p1->value().toInt();
+      _mysettings->rulehysteresis[rule] = p1->value().toInt();
     }
 
     //Rule/relay processing
@@ -296,20 +306,45 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
       if (request->hasParam(name, true))
       {
         AsyncWebParameter *p1 = request->getParam(name, true);
-        mysettings.rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RelayState::RELAY_ON : RelayState::RELAY_OFF;
+        _mysettings->rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RelayState::RELAY_ON : RelayState::RELAY_OFF;
       }
     }
 
     //Reset state of rules after updating the new values
     for (int8_t r = 0; r < RELAY_RULES; r++)
     {
-      rules.rule_outcome[r] = false;
+      _rules->rule_outcome[r] = false;
     }
   }
 
-  //RELAY_TOTAL
+  saveConfiguration();
 
-  Settings::WriteConfig("diybms", (char *)&mysettings, sizeof(mysettings));
+  SendSuccess(request);
+}
+
+void DIYBMSServer::saveStorage(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (request->hasParam("loggingEnabled", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("loggingEnabled", true);
+    _mysettings->loggingEnabled = p1->value().equals("on") ? true : false;
+  }
+
+  if (request->hasParam("loggingFreq", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("loggingFreq", true);
+    _mysettings->loggingFrequencySeconds = p1->value().toInt();
+    //Validate
+    if (_mysettings->loggingFrequencySeconds < 15 || _mysettings->loggingFrequencySeconds > 600)
+    {
+      _mysettings->loggingFrequencySeconds = 15;
+    }
+  }
+
+  saveConfiguration();
 
   SendSuccess(request);
 }
@@ -322,31 +357,31 @@ void DIYBMSServer::saveNTP(AsyncWebServerRequest *request)
   if (request->hasParam("NTPServer", true))
   {
     AsyncWebParameter *p1 = request->getParam("NTPServer", true);
-    p1->value().toCharArray(mysettings.ntpServer, sizeof(mysettings.ntpServer));
+    p1->value().toCharArray(_mysettings->ntpServer, sizeof(_mysettings->ntpServer));
   }
 
   if (request->hasParam("NTPZoneHour", true))
   {
     AsyncWebParameter *p1 = request->getParam("NTPZoneHour", true);
-    mysettings.timeZone = p1->value().toInt();
+    _mysettings->timeZone = p1->value().toInt();
   }
 
   if (request->hasParam("NTPZoneMin", true))
   {
     AsyncWebParameter *p1 = request->getParam("NTPZoneMin", true);
-    mysettings.minutesTimeZone = p1->value().toInt();
+    _mysettings->minutesTimeZone = p1->value().toInt();
   }
 
-  mysettings.daylight = false;
+  _mysettings->daylight = false;
   if (request->hasParam("NTPDST", true))
   {
     AsyncWebParameter *p1 = request->getParam("NTPDST", true);
-    mysettings.daylight = p1->value().equals("on") ? true : false;
+    _mysettings->daylight = p1->value().equals("on") ? true : false;
   }
 
-  Settings::WriteConfig("diybms", (char *)&mysettings, sizeof(mysettings));
+  saveConfiguration();
 
-  ConfigHasChanged = REBOOT_COUNT_DOWN;
+  //ConfigHasChanged = REBOOT_COUNT_DOWN;
   SendSuccess(request);
 }
 
@@ -372,9 +407,9 @@ void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
 
   if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
   {
-    mysettings.totalNumberOfSeriesModules = totalSeriesModules;
-    mysettings.totalNumberOfBanks = totalBanks;
-    Settings::WriteConfig("diybms",(char *)&mysettings, sizeof(mysettings));
+    _mysettings->totalNumberOfSeriesModules = totalSeriesModules;
+    _mysettings->totalNumberOfBanks = totalBanks;
+    saveConfiguration();
 
     SendSuccess(request);
   }
@@ -392,50 +427,49 @@ void DIYBMSServer::saveMQTTSetting(AsyncWebServerRequest *request)
   if (request->hasParam("mqttEnabled", true))
   {
     AsyncWebParameter *p1 = request->getParam("mqttEnabled", true);
-    mysettings.mqtt_enabled = p1->value().equals("on") ? true : false;
+    _mysettings->mqtt_enabled = p1->value().equals("on") ? true : false;
   }
   else
   {
-    mysettings.mqtt_enabled = false;
+    _mysettings->mqtt_enabled = false;
   }
 
   if (request->hasParam("mqttTopic", true))
   {
     AsyncWebParameter *p1 = request->getParam("mqttTopic", true);
-    p1->value().toCharArray(mysettings.mqtt_topic, sizeof(mysettings.mqtt_topic));
+    p1->value().toCharArray(_mysettings->mqtt_topic, sizeof(_mysettings->mqtt_topic));
   }
   else
   {
-    sprintf(mysettings.mqtt_topic, "diybms");
+    sprintf(_mysettings->mqtt_topic, "diybms");
   }
 
   if (request->hasParam("mqttPort", true))
   {
     AsyncWebParameter *p1 = request->getParam("mqttPort", true);
-    mysettings.mqtt_port = p1->value().toInt();
+    _mysettings->mqtt_port = p1->value().toInt();
   }
 
   if (request->hasParam("mqttServer", true))
   {
     AsyncWebParameter *p1 = request->getParam("mqttServer", true);
-    p1->value().toCharArray(mysettings.mqtt_server, sizeof(mysettings.mqtt_server));
+    p1->value().toCharArray(_mysettings->mqtt_server, sizeof(_mysettings->mqtt_server));
   }
 
   if (request->hasParam("mqttUsername", true))
   {
     AsyncWebParameter *p1 = request->getParam("mqttUsername", true);
-    p1->value().toCharArray(mysettings.mqtt_username, sizeof(mysettings.mqtt_username));
+    p1->value().toCharArray(_mysettings->mqtt_username, sizeof(_mysettings->mqtt_username));
   }
 
   if (request->hasParam("mqttPassword", true))
   {
     AsyncWebParameter *p1 = request->getParam("mqttPassword", true);
-    p1->value().toCharArray(mysettings.mqtt_password, sizeof(mysettings.mqtt_password));
+    p1->value().toCharArray(_mysettings->mqtt_password, sizeof(_mysettings->mqtt_password));
   }
 
-  Settings::WriteConfig("diybms",(char *)&mysettings, sizeof(mysettings));
+  saveConfiguration();
 
-  ConfigHasChanged = REBOOT_COUNT_DOWN;
   SendSuccess(request);
 }
 
@@ -448,23 +482,23 @@ void DIYBMSServer::saveGlobalSetting(AsyncWebServerRequest *request)
   {
 
     AsyncWebParameter *p1 = request->getParam("BypassOverTempShutdown", true);
-    mysettings.BypassOverTempShutdown = p1->value().toInt();
+    _mysettings->BypassOverTempShutdown = p1->value().toInt();
 
     AsyncWebParameter *p2 = request->getParam("BypassThresholdmV", true);
-    mysettings.BypassThresholdmV = p2->value().toInt();
+    _mysettings->BypassThresholdmV = p2->value().toInt();
 
-    Settings::WriteConfig("diybms",(char *)&mysettings, sizeof(mysettings));
+    saveConfiguration();
 
-    prg.sendSaveGlobalSetting(mysettings.BypassThresholdmV, mysettings.BypassOverTempShutdown);
+    _prg->sendSaveGlobalSetting(_mysettings->BypassThresholdmV, _mysettings->BypassOverTempShutdown);
 
-    uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
+    uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
 
     for (uint8_t i = 0; i < totalModules; i++)
     {
       if (cmi[i].valid)
       {
-        cmi[i].BypassThresholdmV = mysettings.BypassThresholdmV;
-        cmi[i].BypassOverTempShutdown = mysettings.BypassOverTempShutdown;
+        cmi[i].BypassThresholdmV = _mysettings->BypassThresholdmV;
+        cmi[i].BypassOverTempShutdown = _mysettings->BypassOverTempShutdown;
       }
     }
 
@@ -531,7 +565,7 @@ void DIYBMSServer::saveSetting(AsyncWebServerRequest *request)
         Calibration = p1->value().toFloat();
       }
 
-      prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
+      _prg->sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
 
       clearModuleValues(m);
 
@@ -578,12 +612,12 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   //TODO: REMOVE THESE
   //root["OutputsEnabled"] = true;
   //root["InputsEnabled"] = true;
-  root["ControlState"] = ControlState;
+  root["ControlState"] = _controlState;
 
   JsonArray defaultArray = root.createNestedArray("relaydefault");
   for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
   {
-    switch (mysettings.rulerelaydefault[relay])
+    switch (_mysettings->rulerelaydefault[relay])
     {
     case RELAY_OFF:
       defaultArray.add(false);
@@ -600,7 +634,7 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   JsonArray typeArray = root.createNestedArray("relaytype");
   for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
   {
-    switch (mysettings.relaytype[relay])
+    switch (_mysettings->relaytype[relay])
     {
     case RELAY_STANDARD:
       typeArray.add("Std");
@@ -619,14 +653,14 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   for (uint8_t r = 0; r < RELAY_RULES; r++)
   {
     JsonObject rule = bankArray.createNestedObject();
-    rule["value"] = mysettings.rulevalue[r];
-    rule["hysteresis"] = mysettings.rulehysteresis[r];
-    rule["triggered"] = rules.rule_outcome[r];
+    rule["value"] = _mysettings->rulevalue[r];
+    rule["hysteresis"] = _mysettings->rulehysteresis[r];
+    rule["triggered"] = _rules->rule_outcome[r];
     JsonArray data = rule.createNestedArray("relays");
 
     for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
     {
-      switch (mysettings.rulerelaystate[r][relay])
+      switch (_mysettings->rulerelaystate[r][relay])
       {
       case RELAY_OFF:
         data.add(false);
@@ -658,16 +692,16 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   //settings["Version"] = String(GIT_VERSION);
   //settings["CompileDate"] = String(COMPILE_DATE_TIME);
 
-  settings["totalnumberofbanks"] = mysettings.totalNumberOfBanks;
-  settings["totalseriesmodules"] = mysettings.totalNumberOfSeriesModules;
+  settings["totalnumberofbanks"] = _mysettings->totalNumberOfBanks;
+  settings["totalseriesmodules"] = _mysettings->totalNumberOfSeriesModules;
 
-  settings["bypassthreshold"] = mysettings.BypassThresholdmV;
-  settings["bypassovertemp"] = mysettings.BypassOverTempShutdown;
+  settings["bypassthreshold"] = _mysettings->BypassThresholdmV;
+  settings["bypassovertemp"] = _mysettings->BypassOverTempShutdown;
 
-  settings["NTPServerName"] = mysettings.ntpServer;
-  settings["TimeZone"] = mysettings.timeZone;
-  settings["MinutesTimeZone"] = mysettings.minutesTimeZone;
-  settings["DST"] = mysettings.daylight;
+  settings["NTPServerName"] = _mysettings->ntpServer;
+  settings["TimeZone"] = _mysettings->timeZone;
+  settings["MinutesTimeZone"] = _mysettings->minutesTimeZone;
+  settings["DST"] = _mysettings->daylight;
 
   time_t now;
   if (time(&now))
@@ -675,6 +709,34 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
     settings["now"] = now;
   }
 
+  response->addHeader("Cache-Control", "no-store");
+
+  serializeJson(doc, *response);
+  request->send(response);
+}
+
+void DIYBMSServer::storage(AsyncWebServerRequest *request)
+{
+  AsyncResponseStream *response =
+      request->beginResponseStream("application/json");
+
+  DynamicJsonDocument doc(2048);
+  JsonObject root = doc.to<JsonObject>();
+
+  JsonObject settings = root.createNestedObject("storage");
+
+  settings["enabled"] = _mysettings->loggingEnabled;
+  settings["frequency"] = _mysettings->loggingFrequencySeconds;
+
+  if (DIYBMSServer::_sdcardcallback != 0)
+  {
+    //Get data from main.cpp
+    sdcard_info info = (*DIYBMSServer::_sdcardcallback)();
+
+    settings["sdcard"] = info.available;
+    settings["sdcard_total"] = info.totalkilobytes;
+    settings["sdcard_used"] = info.usedkilobytes;
+  }
   response->addHeader("Cache-Control", "no-store");
 
   serializeJson(doc, *response);
@@ -690,22 +752,22 @@ void DIYBMSServer::integration(AsyncWebServerRequest *request)
   JsonObject root = doc.to<JsonObject>();
 
   JsonObject mqtt = root.createNestedObject("mqtt");
-  mqtt["enabled"] = mysettings.mqtt_enabled;
-  mqtt["topic"] = mysettings.mqtt_topic;
-  mqtt["port"] = mysettings.mqtt_port;
-  mqtt["server"] = mysettings.mqtt_server;
-  mqtt["username"] = mysettings.mqtt_username;
+  mqtt["enabled"] = _mysettings->mqtt_enabled;
+  mqtt["topic"] = _mysettings->mqtt_topic;
+  mqtt["port"] = _mysettings->mqtt_port;
+  mqtt["server"] = _mysettings->mqtt_server;
+  mqtt["username"] = _mysettings->mqtt_username;
   //We don't output the password in the json file as this could breach security
-  //mqtt["password"] =mysettings.mqtt_password;
+  //mqtt["password"] =_mysettings->mqtt_password;
 
   JsonObject influxdb = root.createNestedObject("influxdb");
-  influxdb["enabled"] = mysettings.influxdb_enabled;
-  influxdb["port"] = mysettings.influxdb_httpPort;
-  influxdb["server"] = mysettings.influxdb_host;
-  influxdb["database"] = mysettings.influxdb_database;
-  influxdb["username"] = mysettings.influxdb_user;
+  influxdb["enabled"] = _mysettings->influxdb_enabled;
+  influxdb["port"] = _mysettings->influxdb_httpPort;
+  influxdb["server"] = _mysettings->influxdb_host;
+  influxdb["database"] = _mysettings->influxdb_database;
+  influxdb["username"] = _mysettings->influxdb_user;
   //We don't output the password in the json file as this could breach security
-  //influxdb["password"] = mysettings.influxdb_password;
+  //influxdb["password"] = _mysettings->influxdb_password;
 
   serializeJson(doc, *response);
   request->send(response);
@@ -718,14 +780,14 @@ void DIYBMSServer::identifyModule(AsyncWebServerRequest *request)
     AsyncWebParameter *cellid = request->getParam("c", false);
     uint8_t c = cellid->value().toInt();
 
-    if (c > mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules)
+    if (c > _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules)
     {
       request->send(500, "text/plain", "Wrong parameter bank");
       return;
     }
     else
     {
-      prg.sendIdentifyModuleRequest(c);
+      _prg->sendIdentifyModuleRequest(c);
       SendSuccess(request);
     }
   }
@@ -742,7 +804,7 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
     AsyncWebParameter *cellid = request->getParam("c", false);
     uint8_t c = cellid->value().toInt();
 
-    if (c > mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules)
+    if (c > _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules)
     {
       request->send(500, "text/plain", "Wrong parameter bank");
       return;
@@ -750,7 +812,7 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
 
     if (cmi[c].settingsCached == false)
     {
-      prg.sendGetSettingsRequest(c);
+      _prg->sendGetSettingsRequest(c);
     }
 
     AsyncResponseStream *response = request->beginResponseStream("application/json");
@@ -759,8 +821,8 @@ void DIYBMSServer::modules(AsyncWebServerRequest *request)
     JsonObject root = doc.to<JsonObject>();
     JsonObject settings = root.createNestedObject("settings");
 
-    uint8_t b = c / mysettings.totalNumberOfSeriesModules;
-    uint8_t m = c - (b * mysettings.totalNumberOfSeriesModules);
+    uint8_t b = c / _mysettings->totalNumberOfSeriesModules;
+    uint8_t m = c - (b * _mysettings->totalNumberOfSeriesModules);
     settings["bank"] = b;
     settings["module"] = m;
     settings["id"] = c;
@@ -797,8 +859,8 @@ void DIYBMSServer::modbusVal(AsyncWebServerRequest *request)
 
   for (int i = 0; i < MODBUS_NUM; i++)
   {
-    val.add(ModBusVal[i].val);
-    last.add((float)ModBusVal[i].last / 1000.0);
+    val.add((*_ModBusVal)[i].val);
+    last.add((float)(*_ModBusVal)[i].last / 1000.0);
   }
 
   serializeJson(doc, *response);
@@ -839,15 +901,15 @@ void DIYBMSServer::modbus(AsyncWebServerRequest *request)
   {
 
     obj["dev"] = i;
-    obj["addr"] = ModBus[i].addr;
-    obj["reg"] = ModBus[i].reg;
-    obj["min"] = ModBus[i].min;
-    obj["max"] = ModBus[i].max;
-    obj["rule"] = ModBus[i].rule ? "X" : "";
-    obj["mqtt"] = ModBus[i].mqtt ? "X" : "";
-    obj["name"] = (char *)ModBus[i].name;
-    obj["unit"] = (char *)ModBus[i].unit;
-    obj["desc"] = (char *)ModBus[i].desc;
+    obj["addr"] = (*_ModBus)[i].addr;
+    obj["reg"] = (*_ModBus)[i].reg;
+    obj["min"] = (*_ModBus)[i].min;
+    obj["max"] = (*_ModBus)[i].max;
+    obj["rule"] = (*_ModBus)[i].rule ? "X" : "";
+    obj["mqtt"] = (*_ModBus)[i].mqtt ? "X" : "";
+    obj["name"] = (char *)(*_ModBus)[i].name;
+    obj["unit"] = (char *)(*_ModBus)[i].unit;
+    obj["desc"] = (char *)(*_ModBus)[i].desc;
 
     modbus.add(obj);
   }
@@ -883,44 +945,45 @@ void DIYBMSServer::saveModbus(AsyncWebServerRequest *request)
       if (request->hasParam("addr", true))
       {
         AsyncWebParameter *p1 = request->getParam("addr", true);
-        ModBus[d].addr = p1->value().toInt();
+        (*_ModBus)[d].addr = p1->value().toInt();
       }
       if (request->hasParam("reg", true))
       {
         AsyncWebParameter *p1 = request->getParam("reg", true);
-        ModBus[d].reg = p1->value().toInt();
+        (*_ModBus)[d].reg = p1->value().toInt();
       }
       if (request->hasParam("min", true))
       {
         AsyncWebParameter *p1 = request->getParam("min", true);
-        ModBus[d].min = p1->value().toInt();
+        (*_ModBus)[d].min = p1->value().toInt();
       }
       if (request->hasParam("max", true))
       {
         AsyncWebParameter *p1 = request->getParam("max", true);
-        ModBus[d].max = p1->value().toInt();
+        (*_ModBus)[d].max = p1->value().toInt();
       }
 
       if (request->hasParam("name", true))
       {
         AsyncWebParameter *p1 = request->getParam("name", true);
-        strncpy(ModBus[d].name, p1->value().c_str(), MODBUS_NAME_LEN);
+        strncpy((*_ModBus)[d].name, p1->value().c_str(), MODBUS_NAME_LEN);
       }
       if (request->hasParam("unit", true))
       {
         AsyncWebParameter *p1 = request->getParam("unit", true);
-        strncpy(ModBus[d].unit, p1->value().c_str(), MODBUS_UNIT_LEN);
+        strncpy((*_ModBus)[d].unit, p1->value().c_str(), MODBUS_UNIT_LEN);
       }
       if (request->hasParam("desc", true))
       {
         AsyncWebParameter *p1 = request->getParam("desc", true);
-        strncpy(ModBus[d].desc, p1->value().c_str(), MODBUS_DESC_LEN);
+        strncpy((*_ModBus)[d].desc, p1->value().c_str(), MODBUS_DESC_LEN);
       }
 
-      ModBus[d].rule = request->hasParam("rule", true);
-      SERIAL_DEBUG.printf("Rule %d\n", ModBus[d].rule);
-      ModBus[d].mqtt = request->hasParam("mqtt", true);
-      SERIAL_DEBUG.printf("MQTT %d\n", ModBus[d].mqtt);
+      (*_ModBus)[d].rule = request->hasParam("rule", true);
+      ESP_LOGD(TAG, "Rule %d\n", (*_ModBus)[d].rule);
+
+      (*_ModBus)[d].mqtt = request->hasParam("mqtt", true);
+      ESP_LOGD(TAG, "MQTT %d\n", (*_ModBus)[d].mqtt);
 
       //      prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration);
 
@@ -956,7 +1019,7 @@ void DIYBMSServer::monitor3(AsyncWebServerRequest *request)
   //doc["FreeHeap"] = ESP.getFreeHeap();
   //doc["FreeBlockSize"] = ESP.getMaxFreeBlockSize();
 
-  uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
+  uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
   for (uint8_t i = 0; i < totalModules; i++)
   {
     if (cmi[i].valid)
@@ -981,6 +1044,8 @@ void DIYBMSServer::monitor3(AsyncWebServerRequest *request)
 
 void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 {
+  //ESP_LOGD(TAG, "monitor2");
+
   DynamicJsonDocument doc(maximum_controller_cell_modules * 140);
 
   if (doc.capacity() == 0)
@@ -990,18 +1055,18 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
     AsyncResponseStream *response = request->beginResponseStream("application/json");
     DynamicJsonDocument doc2(512);
 
-    doc2["banks"] = mysettings.totalNumberOfBanks;
-    doc2["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
+    doc2["banks"] = _mysettings->totalNumberOfBanks;
+    doc2["seriesmodules"] = _mysettings->totalNumberOfSeriesModules;
     JsonArray errors = doc2.createNestedArray("errors");
     //JsonArray warnings = doc2.createNestedArray("warnings");
     errors.add(InternalErrorCode::ControllerMemoryError);
-    doc2["sent"] = prg.packetsGenerated;
-    doc2["received"] = receiveProc.packetsReceived;
-    doc2["modulesfnd"] = receiveProc.totalModulesFound;
-    doc2["badcrc"] = receiveProc.totalCRCErrors;
-    doc2["ignored"] = receiveProc.totalNotProcessedErrors;
-    doc2["roundtrip"] = receiveProc.packetTimerMillisecond;
-    doc2["oos"] = receiveProc.totalOutofSequenceErrors;
+    doc2["sent"] = _prg->packetsGenerated;
+    doc2["received"] = _receiveProc->packetsReceived;
+    doc2["modulesfnd"] = _receiveProc->totalModulesFound;
+    doc2["badcrc"] = _receiveProc->totalCRCErrors;
+    doc2["ignored"] = _receiveProc->totalNotProcessedErrors;
+    doc2["roundtrip"] = _receiveProc->packetTimerMillisecond;
+    doc2["oos"] = _receiveProc->totalOutofSequenceErrors;
 
     serializeJson(doc2, *response);
     request->send(response);
@@ -1010,35 +1075,35 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   {
     AsyncResponseStream *response = request->beginResponseStream("application/json");
 
-    doc["banks"] = mysettings.totalNumberOfBanks;
-    doc["seriesmodules"] = mysettings.totalNumberOfSeriesModules;
+    doc["banks"] = _mysettings->totalNumberOfBanks;
+    doc["seriesmodules"] = _mysettings->totalNumberOfSeriesModules;
     JsonArray errors = doc.createNestedArray("errors");
-    for (size_t i = 0; i < sizeof(rules.ErrorCodes); i++)
+    for (size_t i = 0; i < sizeof(_rules->ErrorCodes); i++)
     {
-      if (rules.ErrorCodes[i] != InternalErrorCode::NoError)
+      if (_rules->ErrorCodes[i] != InternalErrorCode::NoError)
       {
-        errors.add(rules.ErrorCodes[i]);
+        errors.add(_rules->ErrorCodes[i]);
       }
     }
 
     JsonArray warnings = doc.createNestedArray("warnings");
-    for (size_t i = 0; i < sizeof(rules.WarningCodes); i++)
+    for (size_t i = 0; i < sizeof(_rules->WarningCodes); i++)
     {
-      if (rules.WarningCodes[i] != InternalWarningCode::NoWarning)
+      if (_rules->WarningCodes[i] != InternalWarningCode::NoWarning)
       {
-        warnings.add(rules.WarningCodes[i]);
+        warnings.add(_rules->WarningCodes[i]);
       }
     }
 
-    doc["sent"] = prg.packetsGenerated;
-    doc["received"] = receiveProc.packetsReceived;
-    doc["modulesfnd"] = receiveProc.totalModulesFound;
-    doc["badcrc"] = receiveProc.totalCRCErrors;
-    doc["ignored"] = receiveProc.totalNotProcessedErrors;
-    doc["roundtrip"] = receiveProc.packetTimerMillisecond;
-    doc["oos"] = receiveProc.totalOutofSequenceErrors;
+    doc["sent"] = _prg->packetsGenerated;
+    doc["received"] = _receiveProc->packetsReceived;
+    doc["modulesfnd"] = _receiveProc->totalModulesFound;
+    doc["badcrc"] = _receiveProc->totalCRCErrors;
+    doc["ignored"] = _receiveProc->totalNotProcessedErrors;
+    doc["roundtrip"] = _receiveProc->packetTimerMillisecond;
+    doc["oos"] = _receiveProc->totalOutofSequenceErrors;
 
-    uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
+    uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
 
     JsonArray voltages = doc.createNestedArray("voltages");
 
@@ -1108,10 +1173,10 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
     JsonArray bankvoltage = doc.createNestedArray("bankv");
     JsonArray voltagerange = doc.createNestedArray("voltrange");
-    for (uint8_t b = 0; b < mysettings.totalNumberOfBanks; b++)
+    for (uint8_t b = 0; b < _mysettings->totalNumberOfBanks; b++)
     {
-      bankvoltage.add(rules.packvoltage[b]);
-      voltagerange.add(rules.VoltageRangeInBank(b));
+      bankvoltage.add(_rules->packvoltage[b]);
+      voltagerange.add(_rules->VoltageRangeInBank(b));
     }
 
     //Current reading in mA
@@ -1129,6 +1194,8 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
 String DIYBMSServer::TemplateProcessor(const String &var)
 {
+  ESP_LOGD(TAG, "%s", var.c_str());
+
   if (var == "XSS_KEY")
     return DIYBMSServer::UUIDString;
 
@@ -1145,10 +1212,10 @@ String DIYBMSServer::TemplateProcessor(const String &var)
   //  const DEFAULT_GRAPH_MIN_VOLTAGE = %graph_voltagelow%;
 
   if (var == "graph_voltagehigh")
-    return String(mysettings.graph_voltagehigh);
+    return String(_mysettings->graph_voltagehigh);
 
   if (var == "graph_voltagelow")
-    return String(mysettings.graph_voltagelow);
+    return String(_mysettings->graph_voltagelow);
 
   if (var == "integrity_file_jquery_js")
     return String(integrity_file_jquery_js);
@@ -1167,9 +1234,27 @@ void DIYBMSServer::SetCacheAndETag(AsyncWebServerResponse *response, String ETag
   response->addHeader("Cache-Control", "no-cache, max-age=86400");
 }
 
-void DIYBMSServer::StartServer(AsyncWebServer *webserver)
+
+// Start Web Server (crazy amount of pointer params!)
+void DIYBMSServer::StartServer(AsyncWebServer *webserver,
+                               diybms_eeprom_settings *mysettings,
+                               sdcard_info (*sdcardcallback)(),
+                               PacketRequestGenerator *prg,
+                               PacketReceiveProcessor *pktreceiveproc,
+                               ControllerState *controlState,
+                               Rules *rules,
+                               ModbusInfo (*ModBus)[MODBUS_NUM],
+                               ModbusVal (*ModBusVal)[MODBUS_NUM])
 {
   _myserver = webserver;
+  _prg = prg;
+  _controlState = controlState;
+  _rules = rules;
+  _sdcardcallback = sdcardcallback;
+  _ModBusVal = ModBusVal;
+  _ModBus = ModBus;
+  _mysettings = mysettings;
+  _receiveProc=pktreceiveproc;
 
   String cookieValue = "DIYBMS_XSS=";
   cookieValue += DIYBMSServer::UUIDString;
@@ -1315,13 +1400,6 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
                   }
                 });
 
-//Put this last...
-#if defined(ESP8266)
-  //_myserver->serveStatic("/", LittleFS, "/").setCacheControl("max-age=600");
-#else
-  //_myserver->serveStatic("/", SPIFFS, "/").setCacheControl("max-age=600");
-#endif
-
   //Read endpoints
   _myserver->on("/monitor2.json", HTTP_GET, DIYBMSServer::monitor2);
   _myserver->on("/monitor3.json", HTTP_GET, DIYBMSServer::monitor3);
@@ -1330,6 +1408,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
   _myserver->on("/identifyModule.json", HTTP_GET, DIYBMSServer::identifyModule);
   _myserver->on("/settings.json", HTTP_GET, DIYBMSServer::settings);
   _myserver->on("/rules.json", HTTP_GET, DIYBMSServer::GetRules);
+  _myserver->on("/storage.json", HTTP_GET, DIYBMSServer::storage);
 
   _myserver->on("/modbus.json", HTTP_GET, DIYBMSServer::modbus);
   _myserver->on("/modbusVal.json", HTTP_GET, DIYBMSServer::modbusVal);
@@ -1345,10 +1424,13 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver)
   _myserver->on("/saverules.json", HTTP_POST, DIYBMSServer::saveRuleConfiguration);
   _myserver->on("/saventp.json", HTTP_POST, DIYBMSServer::saveNTP);
   _myserver->on("/savedisplaysetting.json", HTTP_POST, DIYBMSServer::saveDisplaySetting);
+  _myserver->on("/savestorage.json", HTTP_POST, DIYBMSServer::saveStorage);
 
   _myserver->on("/resetcounters.json", HTTP_POST, DIYBMSServer::resetCounters);
   _myserver->on("/restartcontroller.json", HTTP_POST, DIYBMSServer::handleRestartController);
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();
+
+  ESP_LOGD(TAG, "Start Web Server complete");
 }

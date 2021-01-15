@@ -9,7 +9,6 @@
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
-
 //Data uses Rx2/TX2 and debug logs go to serial0 - USB
 #define SERIAL_DATA Serial2
 #define SERIAL_DEBUG Serial
@@ -104,6 +103,9 @@ struct diybms_eeprom_settings
   bool daylight;          //=false;
   char ntpServer[64 + 1]; // = "time.google.com";
 
+  bool loggingEnabled;
+  uint16_t loggingFrequencySeconds;
+
   //NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
   uint16_t mqtt_port;
@@ -120,8 +122,7 @@ struct diybms_eeprom_settings
   char influxdb_password[32 + 1];
 };
 
-typedef union
-{
+typedef union {
   float number;
   uint8_t bytes[4];
   uint16_t word[2];
@@ -208,6 +209,13 @@ enum ControllerState : uint8_t
   Stabilizing = 2,
   ConfigurationSoftAP = 3,
   Running = 255,
+};
+
+struct sdcard_info
+{
+  bool available;
+  uint32_t totalkilobytes;
+  uint32_t usedkilobytes;
 };
 
 //This holds all the cell information in a large array array

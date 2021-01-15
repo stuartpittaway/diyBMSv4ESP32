@@ -14,7 +14,8 @@
         var DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat('%graph_voltagelow%');
         var XSS_KEY = '%XSS_KEY%';
     </script>
-    <script type='text/javascript' src='jquery.js' integrity='%integrity_file_jquery_js%' crossorigin='anonymous'></script>
+    <script type='text/javascript' src='jquery.js' integrity='%integrity_file_jquery_js%' crossorigin='anonymous'>
+    </script>
     <title>DIY BMS CONTROLLER v4</title>
 </head>
 
@@ -29,12 +30,15 @@
             <a id="rules" href="#rules">Rules</a>
             <a id="modbus" href="#modbus">Modbus</a>
             <a id="integration" href="#integration">Integration</a>
+            <a id="storage" href="#storage">Storage</a>
             <a id="about" href="#about">About</a>
         </div>
     </div>
     <div class="flexgrid">
-        <div id='error1' class='error'>The controller is having difficulty communicating with the cell monitoring modules.</div>
-        <div id='error2' class='error'>Controller found <span id='missingmodule1'></span> modules, but is configured for <span id='missingmodule2'></span>.</div>
+        <div id='error1' class='error'>The controller is having difficulty communicating with the cell monitoring
+            modules.</div>
+        <div id='error2' class='error'>Controller found <span id='missingmodule1'></span> modules, but is configured for
+            <span id='missingmodule2'></span>.</div>
         <div id='error3' class='error'>Controller is configured to use more modules than it can cope with.</div>
         <div id='error4' class='error'>Waiting for modules to reply</div>
         <div id='error5' class='error'>Module has returned ZERO volt reading, check configuration</div>
@@ -53,7 +57,7 @@
         <div id='warning2' class='warning'>Warning: Modules are configured with different bypass temperatures</div>
         <div id='warning3' class='warning'>Warning: Modules have mixed versions of code, may cause instability</div>
         <div id='warning4' class='warning'>Warning: Modules have mixed versions of hardware/boards</div>
-
+        <div id='warning5' class='warning'>Warning: Logging enabled but SD card not installed/found</div>
     </div>
     <div id="info" class="info">
         <div id="current" class="stat"><span class="x t">Current:</span><span class="x v"></span></div>
@@ -81,11 +85,13 @@
         <h1>About</h1>
         <div class="region">
             <h2>Source Code</h2>
-            <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer" target="_blank">https://github.com/stuartpittaway/diyBMSv4</a>
+            <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer"
+                target="_blank">https://github.com/stuartpittaway/diyBMSv4</a>
         </div>
         <div class="region">
             <h2>Videos</h2>
-            <a href="https://www.youtube.com/stuartpittaway" rel="noreferrer" target="_blank">YouTube videos on installation and configuration</a>
+            <a href="https://www.youtube.com/stuartpittaway" rel="noreferrer" target="_blank">YouTube videos on
+                installation and configuration</a>
         </div>
         <div class="region">
             <h2>WARNING</h2>
@@ -101,19 +107,22 @@
             <p>Remember, this product is free for personal use, if you would like to make a regular donation to keep the
                 features and improvements flowing, use the Patreon link below. Even just a coffee/beer a month makes a
                 difference. Thank you!
-                <a href="https://www.patreon.com/StuartP" rel="noreferrer" target="_blank"><img src="patron.png" width="176" height="34" alt="Patron" /></a>
+                <a href="https://www.patreon.com/StuartP" rel="noreferrer" target="_blank"><img src="patron.png"
+                        width="176" height="34" alt="Patron" /></a>
             </p>
         </div>
         <div class="region">
             <h2>License</h2>
             <p>This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 2.0 UK: England &
                 Wales License.</p>
-            <a href="https://creativecommons.org/licenses/by-nc-sa/2.0/uk/" rel="noreferrer" target="_blank">https://creativecommons.org/licenses/by-nc-sa/2.0/uk/</a>
+            <a href="https://creativecommons.org/licenses/by-nc-sa/2.0/uk/" rel="noreferrer"
+                target="_blank">https://creativecommons.org/licenses/by-nc-sa/2.0/uk/</a>
         </div>
         <div class="region">
             <h2>Platform &amp; Version</h2>
             <p>Processor: %PLATFORM%</p>
-            <p>Version: <a href="https://github.com/stuartpittaway/diyBMSv4Code/commit/%GIT_VERSION%" rel="noreferrer" target="_blank">%GIT_VERSION%</a></p>
+            <p>Version: <a href="https://github.com/stuartpittaway/diyBMSv4Code/commit/%GIT_VERSION%" rel="noreferrer"
+                    target="_blank">%GIT_VERSION%</a></p>
             <p>Compiled: %COMPILE_DATE_TIME%</p>
         </div>
     </div>
@@ -238,8 +247,8 @@
                     </tr>
                 </thead>
                 <tbody class="rows" id="modbusRows">
-                  <tr>
-                  </tr>
+                    <tr>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -287,7 +296,7 @@
                     <div>
                         <label for="mqtt">MQTT</label>
                         <input type="checkbox" name="mqtt" id="mqtt">
-                   </div>
+                    </div>
 
                     <input type="submit" value="Save settings" />
 
@@ -398,7 +407,7 @@
                 works if connected to internet for regular time updates. Minutes since midnight now is: <span
                     id='minutesnow'></span></p>
             <p>Emergency stop is triggered by connector J1, once triggered controller needs to be reset to disable.</p>
-            
+
         </div>
         <div class="region">
 
@@ -675,6 +684,43 @@
                     <input type="submit" value="Restart Controller" />
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div class="page" id="storagePage">
+        <h1>Storage</h1>
+        <div class="region">
+            <h2>Logging</h2>
+            <p>Cell data and output states can be stored into log files using an SD card.</p>
+            <form id="loggingForm" method="POST" action="savestorage.json" autocomplete="off">
+                <div class="settings">
+                    <div>
+                        <label for="loggingEnabled">SD card logging enabled</label>
+                        <input type="checkbox" name="loggingEnabled" id="loggingEnabled">
+                    </div>
+                    <div>
+                        <label for="loggingFreq">Cell data logging frequency (seconds)</label>
+                        <select name="loggingFreq" id="loggingFreq">
+                            <option>15</option>
+                            <option>30</option>
+                            <option>60</option>
+                            <option>90</option>
+                            <option>120</option>
+                            <option>300</option>
+                        </select>
+                    </div>
+                    <input type="submit" value="Save logging settings" />
+                </div>
+            </form>
+        </div>
+
+        <div class="region">
+            <h2>SD Card</h2>
+            <p id='sdcardmissing'>SD card not installed</p>
+            <input type="text" id="sdcard_used">
+            <input type="text" id="sdcard_total">
+            <h2>Files</h2>
+            <div id="storageFiles"></div>
         </div>
     </div>
 
