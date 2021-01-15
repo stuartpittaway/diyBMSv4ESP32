@@ -41,9 +41,8 @@ jobs:
           ./ATTINYCellModule/.pio/build/attiny841_V*/*.hex
           ./ATTINYCellModule/.pio/build/attiny841_V*/*.bin
           ./ATTINYCellModule/.pio/build/attiny841_LTO/*.hex
-          ./ATTINYCellModule/.pio/build/attiny841_LTO/*.bin
-		  
-        if-no-files-found: error      
+		  ./ATTINYCellModule/.pio/build/attiny841_LTO/*.bin
+		if-no-files-found: error      
 
 
   job_build_controller_esp32:
