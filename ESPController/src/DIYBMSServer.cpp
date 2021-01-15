@@ -733,6 +733,9 @@ void DIYBMSServer::storage(AsyncWebServerRequest *request)
     settings["sdcard"] = info.available;
     settings["sdcard_total"] = info.totalkilobytes;
     settings["sdcard_used"] = info.usedkilobytes;
+
+    settings["flash_total"] = info.flash_totalkilobytes;
+    settings["flash_used"] = info.flash_usedkilobytes;
   }
   response->addHeader("Cache-Control", "no-store");
 
@@ -1231,7 +1234,6 @@ void DIYBMSServer::SetCacheAndETag(AsyncWebServerResponse *response, String ETag
   response->addHeader("Cache-Control", "no-cache, max-age=86400");
 }
 
-
 // Start Web Server (crazy amount of pointer params!)
 void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                                diybms_eeprom_settings *mysettings,
@@ -1251,7 +1253,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _ModBusVal = ModBusVal;
   _ModBus = ModBus;
   _mysettings = mysettings;
-  _receiveProc=pktreceiveproc;
+  _receiveProc = pktreceiveproc;
 
   String cookieValue = "DIYBMS_XSS=";
   cookieValue += DIYBMSServer::UUIDString;

@@ -990,13 +990,26 @@ $(function () {
             function (data) {
                 $("#loggingEnabled").prop("checked", data.storage.enabled);
                 $("#loggingFreq").val(data.storage.frequency);
+
                 if (data.storage.sdcard) {
                     $("#sdcardmissing").hide();
                 } else { $("#sdcardmissing").show(); }
 
-                $("#sdcard_total").val(data.storage.sdcard_total);
-                $("#sdcard_used").val(data.storage.sdcard_used);
+                $("#sdcard_total").html(Number(data.storage.sdcard_total).toLocaleString());
+                $("#sdcard_used").html(Number(data.storage.sdcard_used).toLocaleString());
 
+                if (data.storage.sdcard_total > 0) {
+                    $("#sdcard_used_percent").html(((data.storage.sdcard_used / data.storage.sdcard_total) * 100).toFixed(1));
+                }
+                else { $("#sdcard_used_percent").html("0"); }
+
+                $("#flash_total").html(Number(data.storage.flash_total).toLocaleString());
+                $("#flash_used").html(Number(data.storage.flash_used).toLocaleString());
+
+                if (data.storage.flash_total > 0) {
+                    $("#flash_used_percent").html(((data.storage.flash_used / data.storage.flash_total) * 100).toFixed(1));
+                }
+                else { $("#flash_used_percent").html("0"); }
 
             }).fail(function () { }
             );

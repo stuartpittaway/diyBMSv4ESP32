@@ -310,8 +310,7 @@
         <h1>Integration</h1>
         <p>For security, you will need to re-enter the password for the service(s) you want to enable or modify, before
             you save.</p>
-        <p>After changes are made, the controller will automatically reboot. You will need to refresh the web page to
-            continue.</p>
+        <p>After changes are made, the controller will need to be rebooted, do this manually.</p>
         <div class="region">
             <h2>MQTT</h2>
             <form id="mqttForm" method="POST" action="savemqtt.json" autocomplete="off">
@@ -716,12 +715,12 @@
 
         <div class="region">
             <h2>SD Card</h2>
-            <p id='sdcardmissing'>SD card not installed</p>
-            <input type="text" id="sdcard_used">
-            <input type="text" id="sdcard_total">
-            <h2>Files</h2>
-            <div id="storageFiles"></div>
+            <p id='sdcardmissing' class="warning">SD card not installed</p>
+            Used <span id="sdcard_used"></span>KiB (<span id="sdcard_used_percent"></span>%%) of <span id="sdcard_total"></span>KiB
+            <h2>Flash Memory</h2>
+            Used <span id="flash_used"></span>KiB (<span id="flash_used_percent"></span>%%) of <span id="flash_total"></span>KiB
         </div>
+
     </div>
 
     <script type="text/javascript">

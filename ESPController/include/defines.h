@@ -216,6 +216,9 @@ struct sdcard_info
   bool available;
   uint32_t totalkilobytes;
   uint32_t usedkilobytes;
+  uint32_t flash_totalkilobytes;
+  uint32_t flash_usedkilobytes;
+
 };
 
 //This holds all the cell information in a large array array

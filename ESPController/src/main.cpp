@@ -1343,6 +1343,9 @@ sdcard_info sdcard_callback()
     ret.usedkilobytes = 0;
   }
 
+  ret.flash_totalkilobytes=LITTLEFS.totalBytes()/1024;
+  ret.flash_usedkilobytes=LITTLEFS.usedBytes()/1024;
+
   return ret;
 }
 
