@@ -609,10 +609,7 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
     root["timenow"] = (timeinfo.tm_hour * 60) + timeinfo.tm_min;
   }
 
-  //TODO: REMOVE THESE
-  //root["OutputsEnabled"] = true;
-  //root["InputsEnabled"] = true;
-  root["ControlState"] = _controlState;
+  root["ControlState"] = (*_controlState);
 
   JsonArray defaultArray = root.createNestedArray("relaydefault");
   for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
