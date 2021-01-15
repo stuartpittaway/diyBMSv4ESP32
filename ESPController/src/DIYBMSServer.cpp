@@ -42,6 +42,7 @@ AsyncWebServer *DIYBMSServer::_myserver;
 String DIYBMSServer::UUIDString;
 
 sdcard_info (*DIYBMSServer::_sdcardcallback)() = 0;
+void (*DIYBMSServer::_sdcardaction_callback)(uint8_t action) = 0;
 PacketRequestGenerator *DIYBMSServer::_prg = 0;
 PacketReceiveProcessor *DIYBMSServer::_receiveProc = 0;
 diybms_eeprom_settings *DIYBMSServer::_mysettings = 0;
@@ -128,6 +129,25 @@ void DIYBMSServer::SendSuccess(AsyncWebServerRequest *request)
 void DIYBMSServer::SendFailure(AsyncWebServerRequest *request)
 {
   request->send(500, "text/plain", "Failed");
+}
+
+void DIYBMSServer::sdMount(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  (*DIYBMSServer::_sdcardaction_callback)(1);
+
+  SendSuccess(request);
+}
+void DIYBMSServer::sdUnmount(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  (*DIYBMSServer::_sdcardaction_callback)(0);
+
+  SendSuccess(request);
 }
 
 void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
@@ -1243,7 +1263,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                                ControllerState *controlState,
                                Rules *rules,
                                ModbusInfo (*ModBus)[MODBUS_NUM],
-                               ModbusVal (*ModBusVal)[MODBUS_NUM])
+                               ModbusVal (*ModBusVal)[MODBUS_NUM],
+                               void (*sdcardaction_callback)(uint8_t action))
 {
   _myserver = webserver;
   _prg = prg;
@@ -1254,6 +1275,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _ModBus = ModBus;
   _mysettings = mysettings;
   _receiveProc = pktreceiveproc;
+  _sdcardaction_callback = sdcardaction_callback;
 
   String cookieValue = "DIYBMS_XSS=";
   cookieValue += DIYBMSServer::UUIDString;
@@ -1427,6 +1449,9 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/resetcounters.json", HTTP_POST, DIYBMSServer::resetCounters);
   _myserver->on("/restartcontroller.json", HTTP_POST, DIYBMSServer::handleRestartController);
+
+  _myserver->on("/sdmount.json", HTTP_POST, DIYBMSServer::sdMount);
+  _myserver->on("/sdunmount.json", HTTP_POST, DIYBMSServer::sdUnmount);
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();

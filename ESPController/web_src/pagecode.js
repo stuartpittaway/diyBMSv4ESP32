@@ -3,7 +3,8 @@ const INTERNALWARNINGCODE = {
     ModuleInconsistantBypassVoltage: 1,
     ModuleInconsistantBypassTemperature: 2,
     ModuleInconsistantCodeVersion: 3,
-    ModuleInconsistantBoardRevision: 4
+    ModuleInconsistantBoardRevision: 4,
+    LoggingEnabledNoSDCard: 5
 }
 Object.freeze(INTERNALWARNINGCODE);
 
@@ -225,25 +226,29 @@ function queryBMS() {
         }
 
         //Needs increasing when more warnings are added
-        for (let warning = 1; warning <= 4; warning++) {
-            if (jsondata.warnings.includes(warning)) {
-                $("#warning" + warning).show();
-            } else {
-                $("#warning" + warning).hide();
+        if (jsondata.warnings) {
+            for (let warning = 1; warning <= 5; warning++) {
+                if (jsondata.warnings.includes(warning)) {
+                    $("#warning" + warning).show();
+                } else {
+                    $("#warning" + warning).hide();
+                }
             }
         }
 
         //Needs increasing when more errors are added
-        for (let error = 1; error <= 6; error++) {
-            if (jsondata.errors.includes(error)) {
-                $("#error" + error).show();
+        if (jsondata.errors) {
+            for (let error = 1; error <= 6; error++) {
+                if (jsondata.errors.includes(error)) {
+                    $("#error" + error).show();
 
-                if (error == INTERNALERRORCODE.ModuleCountMismatch) {
-                    $("#missingmodule1").html(jsondata.modulesfnd);
-                    $("#missingmodule2").html(jsondata.banks * jsondata.seriesmodules);
+                    if (error == INTERNALERRORCODE.ModuleCountMismatch) {
+                        $("#missingmodule1").html(jsondata.modulesfnd);
+                        $("#missingmodule2").html(jsondata.banks * jsondata.seriesmodules);
+                    }
+                } else {
+                    $("#error" + error).hide();
                 }
-            } else {
-                $("#error" + error).hide();
             }
         }
 
@@ -977,6 +982,37 @@ $(function () {
             );
 
         return true;
+    });
+
+
+    $("#mount").click(function () {
+        $.ajax({
+            type: 'post',
+            url: 'sdmount.json',
+            data: 'mount=1',
+            success: function (data) {
+                //Refresh the storage page
+                $("#storage").trigger("click");
+            },
+            error: function (data) {
+                $("#saveerror").show().delay(2000).fadeOut(500);
+            },
+        });
+    });
+
+    $("#unmount").click(function () {
+        $.ajax({
+            type: 'post',
+            url: 'sdunmount.json',
+            data: 'unmount=1',
+            success: function (data) {
+                //Refresh the storage page
+                $("#storage").trigger("click");
+            },
+            error: function (data) {
+                $("#saveerror").show().delay(2000).fadeOut(500);
+            },
+        });
     });
 
 

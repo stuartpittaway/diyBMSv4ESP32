@@ -30,11 +30,12 @@ public:
                             ControllerState *controlState,
                             Rules *rules,
                             ModbusInfo (*ModBus)[MODBUS_NUM],
-                            ModbusVal (*ModBusVal)[MODBUS_NUM]);
+                            ModbusVal (*ModBusVal)[MODBUS_NUM],
+                            void (*sdcardaction_callback)(uint8_t action)
+                            );
 
     static void generateUUID();
     static void clearModuleValues(uint8_t module);
-    //static uint16_t ConfigHasChanged;
 
 private:
     static AsyncWebServer *_myserver;
@@ -42,6 +43,7 @@ private:
 
     //Pointers to other classes (not always a good idea in static classes)
     static sdcard_info (*_sdcardcallback)();
+    static void (*_sdcardaction_callback)(uint8_t action);
     static PacketRequestGenerator *_prg;
     static PacketReceiveProcessor *_receiveProc;
     static diybms_eeprom_settings *_mysettings;
@@ -87,6 +89,9 @@ private:
     static void saveStorage(AsyncWebServerRequest *request);
 
     static void saveDisplaySetting(AsyncWebServerRequest *request);
+
+    static void sdMount(AsyncWebServerRequest *request);
+    static void sdUnmount(AsyncWebServerRequest *request);
 
     static String uuidToString(uint8_t *uuidLocation);
     static void SetCacheAndETagGzip(AsyncWebServerResponse *response, String ETag);

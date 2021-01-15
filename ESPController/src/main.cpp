@@ -1343,10 +1343,58 @@ sdcard_info sdcard_callback()
     ret.usedkilobytes = 0;
   }
 
-  ret.flash_totalkilobytes=LITTLEFS.totalBytes()/1024;
-  ret.flash_usedkilobytes=LITTLEFS.usedBytes()/1024;
+  ret.flash_totalkilobytes = LITTLEFS.totalBytes() / 1024;
+  ret.flash_usedkilobytes = LITTLEFS.usedBytes() / 1024;
 
   return ret;
+}
+
+void mountSDCard()
+{
+  /*
+SD CARD TEST
+*/
+  ESP_LOGI(TAG, "Mounting SD card");
+
+  hal.GetVSPIMutex();
+  // Initialize SD card
+  SD.begin(SDCARD_CHIPSELECT, hal.vspi);
+  if (SD.begin(SDCARD_CHIPSELECT))
+  {
+    uint8_t cardType = SD.cardType();
+    if (cardType == CARD_NONE)
+    {
+      ESP_LOGI(TAG, "No SD card attached");
+    }
+    else
+    {
+      ESP_LOGI(TAG, "SD card available");
+      _sd_card_installed = true;
+    }
+  }
+  else
+  {
+    ESP_LOGE(TAG, "Card Mount Failed");
+  }
+  hal.ReleaseVSPIMutex();
+}
+
+void sdcardaction_callback(uint8_t action)
+{
+  switch (action)
+  {
+  case 0:
+    //Unmount
+    ESP_LOGI(TAG, "Unmounting SD card");
+    hal.GetVSPIMutex();
+    SD.end();
+    hal.ReleaseVSPIMutex();
+    _sd_card_installed = false;
+    break;
+  case 1:
+    mountSDCard();
+    break;
+  }
 }
 
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
@@ -1369,7 +1417,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   */
   if (!server_running)
   {
-    DIYBMSServer::StartServer(&server, &mysettings, &sdcard_callback, &prg, &receiveProc, &ControlState, &rules, &ModBus, &ModBusVal);
+    DIYBMSServer::StartServer(&server, &mysettings, &sdcard_callback, &prg, &receiveProc, &ControlState, &rules, &ModBus, &ModBusVal, &sdcardaction_callback);
     server_running = true;
   }
 
@@ -2049,33 +2097,6 @@ static const char *ESP32_CAN_STATUS_STRINGS[] = {
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
 */
-
-void mountSDCard()
-{
-  /*
-SD CARD TEST
-*/
-
-  // Initialize SD card
-  SD.begin(SDCARD_CHIPSELECT, hal.vspi);
-  if (SD.begin(SDCARD_CHIPSELECT))
-  {
-    uint8_t cardType = SD.cardType();
-    if (cardType == CARD_NONE)
-    {
-      ESP_LOGI(TAG, "No SD card attached");
-    }
-    else
-    {
-      ESP_LOGI(TAG, "SD card available");
-      _sd_card_installed = true;
-    }
-  }
-  else
-  {
-    ESP_LOGE(TAG, "Card Mount Failed");
-  }
-}
 
 void setup()
 {
