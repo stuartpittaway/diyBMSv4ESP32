@@ -8,5 +8,4 @@ my_flags = env.ParseFlags(env['BUILD_FLAGS'])
 defines = {k: v for (k, v) in my_flags.get("CPPDEFINES")}
 #print(defines.get("DIYBMSMODULEVERSION"))
 
-env.Replace(PROGNAME="diybms_module_firmware_%s%s" % (defines.get("DIYBMSMODULEVERSION") , "_SWAPR19R20" if "SWAPR19R20" in defines else "" ))
-
+env.Replace(PROGNAME="module_firmware_%s_%s%s" % (env["PIOENV"], defines.get("DIYBMSMODULEVERSION") , "_SWAPR19R20" if "SWAPR19R20" in defines else "" ))

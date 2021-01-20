@@ -175,6 +175,7 @@ uint16_t PacketProcessor::RawADCValue()
 // C    = 4 bits command (16 possible commands)
 bool PacketProcessor::processPacket(PacketStruct *buffer)
 {
+  uint8_t moduledata_index = mymoduleaddress % maximum_cell_modules;
   switch (buffer->command & 0x0F)
   {
   case COMMAND::ResetBadPacketCounter:
@@ -186,7 +187,7 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
   {
     //Read voltage of VCC
     //Maximum voltage 8191mV
-    buffer->moduledata[mymoduleaddress] = CellVoltage() & 0x1FFF;
+    buffer->moduledata[moduledata_index] = CellVoltage() & 0x1FFF;
 
     //3 top bits
     //X = In bypass
@@ -196,13 +197,13 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
     if (BypassOverheatCheck())
     {
       //Set bit
-      buffer->moduledata[mymoduleaddress] = buffer->moduledata[mymoduleaddress] | 0x4000;
+      buffer->moduledata[moduledata_index] = buffer->moduledata[moduledata_index] | 0x4000;
     }
 
     if (IsBypassActive())
     {
       //Set bit
-      buffer->moduledata[mymoduleaddress] = buffer->moduledata[mymoduleaddress] | 0x8000;
+      buffer->moduledata[moduledata_index] = buffer->moduledata[moduledata_index] | 0x8000;
     }
 
     return true;
@@ -225,7 +226,7 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
   case COMMAND::ReadTemperature:
   {
     //Return the last known temperature values recorded by the ADC (both internal and external)
-    buffer->moduledata[mymoduleaddress] = TemperatureMeasurement();
+    buffer->moduledata[moduledata_index] = TemperatureMeasurement();
     return true;
   }
 
@@ -233,20 +234,20 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
   {
     //Read the last PWM value
     //Use WeAreInBypass instead of IsByPassActive() as the later also includes the "settle" time
-    buffer->moduledata[mymoduleaddress] = WeAreInBypass ? PWMSetPoint : 0;
+    buffer->moduledata[moduledata_index] = WeAreInBypass ? PWMSetPoint : 0;
     return true;
   }
 
   case COMMAND::ReadBadPacketCounter:
   {
     //Report number of bad packets
-    buffer->moduledata[mymoduleaddress] = badpackets;
+    buffer->moduledata[moduledata_index] = badpackets;
     return true;
   }
 
   case COMMAND::ReadSettings:
   {
-    //Report settings/configuration
+    //Report settings/configuration, fills whole moduledata buffer up
 
     FLOATUNION_t myFloat;
     myFloat.number = (float)LOAD_RESISTANCE;
