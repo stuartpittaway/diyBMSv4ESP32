@@ -154,7 +154,7 @@ CellModuleInfo cmi[maximum_controller_cell_modules];
 #include "PacketReceiveProcessor.h"
 
 // Instantiate queue to hold packets ready for transmission
-cppQueue requestQueue(sizeof(PacketStruct), 16, FIFO);
+cppQueue requestQueue(sizeof(PacketStruct), 24, FIFO);
 
 cppQueue replyQueue(sizeof(PacketStruct), 8, FIFO);
 
@@ -847,7 +847,7 @@ void onPacketReceived()
 
   if (!replyQueue.push(&ps))
   {
-    ESP_LOGE("*Failed to queue reply*");
+    ESP_LOGE(TAG,"*Failed to queue reply*");
   }
 }
 
@@ -1194,7 +1194,7 @@ void setupInfluxClient()
     return;
 
   aClient->onError([](void *arg, AsyncClient *client, err_t error) {
-    ESP_LOGE("Influx connect error");
+    ESP_LOGE(TAG,"Influx connect error");
 
     aClient = NULL;
     delete client;
@@ -1268,7 +1268,7 @@ void SendInfluxdbPacket()
 
   if (!aClient->connect(mysettings.influxdb_host, mysettings.influxdb_httpPort))
   {
-    ESP_LOGE("Influxdb connect fail");
+    ESP_LOGE(TAG,"Influxdb connect fail");
     AsyncClient *client = aClient;
     aClient = NULL;
     delete client;
@@ -1440,7 +1440,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   //   we send our IP address on the WiFi network
   if (!MDNS.begin(WiFi.getHostname()))
   {
-    ESP_LOGE("Error setting up MDNS responder!");
+    ESP_LOGE(TAG,"Error setting up MDNS responder!");
   }
   else
   {
@@ -1452,7 +1452,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
 void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
-  ESP_LOGE("Disconnected from Wi-Fi.");
+  ESP_LOGE(TAG,"Disconnected from Wi-Fi.");
 
   //Indicate to loop() to reconnect, seems to be
   //ESP issues using Wifi from timers - https://github.com/espressif/arduino-esp32/issues/2686
@@ -1469,7 +1469,7 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 {
-  ESP_LOGE("Disconnected from MQTT.");
+  ESP_LOGE(TAG,"Disconnected from MQTT.");
 
   myTimerSendMqttPacket.detach();
   myTimerSendMqttStatus.detach();
@@ -1719,6 +1719,7 @@ void timerLazyCallback()
   if (requestQueue.getRemainingCount() < 6)
   {
     //Exit here to avoid overflowing the queue
+    ESP_LOGE(TAG,"ERR: Lazy overflow Q=%i",requestQueue.getRemainingCount());
     return;
   }
 
@@ -1728,7 +1729,7 @@ void timerLazyCallback()
   {
     uint8_t counter = 0;
     //Find modules that don't have settings cached and request them
-    for (uint8_t module = 0; module < (TotalNumberOfCells()); module++)
+    for (uint8_t module = 0; module < TotalNumberOfCells(); module++)
     {
       if (cmi[module].valid && !cmi[module].settingsCached)
       {
@@ -1770,26 +1771,26 @@ void timerLazyCallback()
     }
 
     //Need to watch overflow of the uint8 here...
-    prg.sendCellVoltageRequest(startmodule, endmodule);
+    //prg.sendCellVoltageRequest(startmodule, endmodule);
 
     if (lazyTimerMode == 3)
     {
       prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule);
-      return;
+      //return;
     }
 
     if (lazyTimerMode == 4)
     {
       //Just for debug, only do the first 16 modules
       prg.sendReadPacketsReceivedRequest(startmodule, endmodule);
-      return;
+      //return;
     }
 
     //Ask for bad packet count (saves battery power if we dont ask for this all the time)
     if (lazyTimerMode == 5)
     {
       prg.sendReadBadPacketCounter(startmodule, endmodule);
-      return;
+      //return;
     }
 
     //Move to the next bank

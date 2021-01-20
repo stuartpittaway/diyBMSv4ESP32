@@ -166,8 +166,12 @@ function queryBMS() {
                 if (v > maxVoltage) { maxVoltage = v; }
                 if (v < minVoltage) { minVoltage = v; }
 
-                voltagesmin.push((parseFloat(jsondata.minvoltages[i]) / 1000.0));
-                voltagesmax.push((parseFloat(jsondata.maxvoltages[i]) / 1000.0));
+                if (jsondata.minvoltages) {
+                    voltagesmin.push((parseFloat(jsondata.minvoltages[i]) / 1000.0));
+                }
+                if (jsondata.maxvoltages) {
+                    voltagesmax.push((parseFloat(jsondata.maxvoltages[i]) / 1000.0));
+                }
 
                 bank.push(bankNumber);
                 cells.push(i);
@@ -280,8 +284,16 @@ function queryBMS() {
             $.each(cells, function (index, value) {
                 var columns = $(rows[index]).find("td");
                 $(columns[2]).html(voltages[index].value.toFixed(3));
-                $(columns[3]).html(voltagesmin[index].toFixed(3));
-                $(columns[4]).html(voltagesmax[index].toFixed(3));
+                if (voltagesmin.length > 0) {
+                    $(columns[3]).html(voltagesmin[index].toFixed(3));
+                } else {
+                    $(columns[3]).html("n/a");
+                }
+                if (voltagesmax.length > 0) {
+                    $(columns[4]).html(voltagesmax[index].toFixed(3));
+                } else {
+                    $(columns[4]).html("n/a");
+                }
                 $(columns[5]).html(tempint[index].value);
                 $(columns[6]).html(tempext[index].value);
                 $(columns[7]).html(pwm[index].value);
@@ -781,6 +793,8 @@ $(function () {
 
         $.getJSON("settings.json",
             function (data) {
+                $("#FreeBlockSize").html(data.settings.FreeBlockSize);
+                $("#FreeHeap").html(data.settings.FreeHeap);
                 $("#aboutPage").show();
             }).fail(function () { }
             );

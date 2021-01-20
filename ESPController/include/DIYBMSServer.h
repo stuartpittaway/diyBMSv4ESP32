@@ -57,6 +57,7 @@ private:
     {
         Settings::WriteConfig("diybms", (char *)_mysettings, sizeof(diybms_eeprom_settings));
     }
+    static void PrintStreamComma(AsyncResponseStream *response,const char *text, uint32_t value);
 
     static void handleNotFound(AsyncWebServerRequest *request);
     static void monitor2(AsyncWebServerRequest *request);
