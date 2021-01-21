@@ -85,8 +85,7 @@
         <h1>About</h1>
         <div class="region">
             <h2>Source Code</h2>
-            <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer"
-                target="_blank">https://github.com/stuartpittaway/diyBMSv4</a>
+            <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer" target="_blank">https://github.com/stuartpittaway/diyBMSv4</a>
         </div>
         <div class="region">
             <h2>Videos</h2>
@@ -124,8 +123,9 @@
             <p>Version: <a href="https://github.com/stuartpittaway/diyBMSv4Code/commit/%GIT_VERSION%" rel="noreferrer"
                     target="_blank">%GIT_VERSION%</a></p>
             <p>Compiled: %COMPILE_DATE_TIME%</p>
-            <p>Free block size:<span id="FreeBlockSize"></span></p>
+            <p>Min free Heap:<span id="MinFreeHeap"></span></p>
             <p>Free heap:<span id="FreeHeap"></span></p>
+            <p>Min free PS Ram:<span id="MinFreePsram"></span></p>
         </div>
     </div>
     <div class="page" id="modulesPage">
@@ -165,7 +165,7 @@
                         </div>
                         <div>
                             <label for="Version">Module version</label>
-                            <input type="text" name="Version" id="Version" value="" readonly="">
+                            <span name="Version" id="Version"></span>
                         </div>
                         <div>
                             <label for="BypassOverTempShutdown">Bypass over temperature</label>

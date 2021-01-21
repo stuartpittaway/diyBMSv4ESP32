@@ -46,7 +46,7 @@ function configureModule(button, cellid, attempts) {
 
                 //Populate settings div
                 $('#ModuleId').val(data.settings.id);
-                $('#Version').val(data.settings.ver.toString() + '/' + data.settings.code.toString(16));
+                $('#Version').html(data.settings.ver.toString() + ' / <a href="https://github.com/stuartpittaway/diyBMSv4Code/commit/' + data.settings.code.toString(16) + '" rel="noreferrer" target="_blank">' + data.settings.code.toString(16) + '</a>');
                 $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);
                 $('#BypassThresholdmV').val(data.settings.BypassThresholdmV);
                 $('#Calib').val(data.settings.Calib.toFixed(4));
@@ -793,8 +793,10 @@ $(function () {
 
         $.getJSON("settings.json",
             function (data) {
-                $("#FreeBlockSize").html(data.settings.FreeBlockSize);
+                $("#MinFreeHeap").html(data.settings.MinFreeHeap);
                 $("#FreeHeap").html(data.settings.FreeHeap);
+                $("#MinFreePsram").html(data.settings.MinFreePsram);
+
                 $("#aboutPage").show();
             }).fail(function () { }
             );

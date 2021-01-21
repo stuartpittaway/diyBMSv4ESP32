@@ -326,8 +326,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
       if (request->hasParam(name, true))
       {
         AsyncWebParameter *p1 = request->getParam(name, true);
-        _mysettings->rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RelayState::RELAY_ON
-                                                                                                            : RelayState::RELAY_OFF;
+        _mysettings->rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RelayState::RELAY_ON : RelayState::RELAY_OFF;
       }
     }
 
@@ -722,7 +721,8 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   settings["DST"] = _mysettings->daylight;
 
   settings["FreeHeap"] = ESP.getFreeHeap();
-  settings["FreeBlockSize"] = ESP.getMinFreeHeap();
+  settings["MinFreeHeap"] = ESP.getMinFreeHeap();
+  settings["MinFreePsram"] = ESP.getMinFreePsram();
   time_t now;
   if (time(&now))
   {
