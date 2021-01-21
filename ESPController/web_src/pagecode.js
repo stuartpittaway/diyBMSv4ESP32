@@ -795,7 +795,7 @@ $(function () {
             function (data) {
                 $("#MinFreeHeap").html(data.settings.MinFreeHeap);
                 $("#FreeHeap").html(data.settings.FreeHeap);
-                $("#MinFreePsram").html(data.settings.MinFreePsram);
+                $("#HeapSize").html(data.settings.HeapSize);
 
                 $("#aboutPage").show();
             }).fail(function () { }

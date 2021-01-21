@@ -722,7 +722,7 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
 
   settings["FreeHeap"] = ESP.getFreeHeap();
   settings["MinFreeHeap"] = ESP.getMinFreeHeap();
-  settings["MinFreePsram"] = ESP.getMinFreePsram();
+  settings["HeapSize"] = ESP.getHeapSize();
   time_t now;
   if (time(&now))
   {
