@@ -847,7 +847,7 @@ void onPacketReceived()
 
   if (!replyQueue.push(&ps))
   {
-    ESP_LOGE(TAG,"*Failed to queue reply*");
+    ESP_LOGE(TAG, "*Failed to queue reply*");
   }
 }
 
@@ -1194,7 +1194,7 @@ void setupInfluxClient()
     return;
 
   aClient->onError([](void *arg, AsyncClient *client, err_t error) {
-    ESP_LOGE(TAG,"Influx connect error");
+    ESP_LOGE(TAG, "Influx connect error");
 
     aClient = NULL;
     delete client;
@@ -1268,7 +1268,7 @@ void SendInfluxdbPacket()
 
   if (!aClient->connect(mysettings.influxdb_host, mysettings.influxdb_httpPort))
   {
-    ESP_LOGE(TAG,"Influxdb connect fail");
+    ESP_LOGE(TAG, "Influxdb connect fail");
     AsyncClient *client = aClient;
     aClient = NULL;
     delete client;
@@ -1440,7 +1440,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   //   we send our IP address on the WiFi network
   if (!MDNS.begin(WiFi.getHostname()))
   {
-    ESP_LOGE(TAG,"Error setting up MDNS responder!");
+    ESP_LOGE(TAG, "Error setting up MDNS responder!");
   }
   else
   {
@@ -1452,7 +1452,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
 void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
-  ESP_LOGE(TAG,"Disconnected from Wi-Fi.");
+  ESP_LOGE(TAG, "Disconnected from Wi-Fi.");
 
   //Indicate to loop() to reconnect, seems to be
   //ESP issues using Wifi from timers - https://github.com/espressif/arduino-esp32/issues/2686
@@ -1469,7 +1469,7 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 {
-  ESP_LOGE(TAG,"Disconnected from MQTT.");
+  ESP_LOGE(TAG, "Disconnected from MQTT.");
 
   myTimerSendMqttPacket.detach();
   myTimerSendMqttStatus.detach();
@@ -1719,13 +1719,20 @@ void timerLazyCallback()
   if (requestQueue.getRemainingCount() < 6)
   {
     //Exit here to avoid overflowing the queue
-    ESP_LOGE(TAG,"ERR: Lazy overflow Q=%i",requestQueue.getRemainingCount());
+    ESP_LOGE(TAG, "ERR: Lazy overflow Q=%i", requestQueue.getRemainingCount());
     return;
   }
 
   lazyTimerMode++;
 
   if (lazyTimerMode == 1)
+  {
+    //Send a "ping" message through the cells to get a round trip time
+    prg.sendTimingRequest();
+    return;
+  }
+
+  if (lazyTimerMode == 2)
   {
     uint8_t counter = 0;
     //Find modules that don't have settings cached and request them
@@ -1744,13 +1751,6 @@ void timerLazyCallback()
       }
     }
 
-    return;
-  }
-
-  if (lazyTimerMode == 2)
-  {
-    //Send a "ping" message through the cells to get a round trip time
-    prg.sendTimingRequest();
     return;
   }
 
@@ -1776,21 +1776,18 @@ void timerLazyCallback()
     if (lazyTimerMode == 3)
     {
       prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule);
-      //return;
     }
 
     if (lazyTimerMode == 4)
     {
       //Just for debug, only do the first 16 modules
       prg.sendReadPacketsReceivedRequest(startmodule, endmodule);
-      //return;
     }
 
     //Ask for bad packet count (saves battery power if we dont ask for this all the time)
     if (lazyTimerMode == 5)
     {
       prg.sendReadBadPacketCounter(startmodule, endmodule);
-      //return;
     }
 
     //Move to the next bank
@@ -1798,7 +1795,11 @@ void timerLazyCallback()
     i += maximum_cell_modules_per_packet;
   }
 
-  lazyTimerMode = 0;
+  //Reset at end of cycle
+  if (lazyTimerMode >= 5)
+  {
+    lazyTimerMode = 0;
+  }
 }
 
 void resetAllRules()
