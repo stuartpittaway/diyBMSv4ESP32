@@ -34,8 +34,8 @@ You need to configure the correct DIYBMSMODULEVERSION in defines.h file to build
 
 #include <Arduino.h>
 
-#if !(F_CPU == 1000000)
-#error Processor speed should be 1 Mhz internal
+#if !(F_CPU == 2000000)
+#error Processor speed should be 2Mhz
 #endif
 
 #if !defined(ATTINY_CORE)
@@ -196,6 +196,12 @@ void setup()
   //Must be first line of code
   wdt_disable();
   wdt_reset();
+
+  //Boot up will be in 1Mhz CKDIV8 mode, swap to /4 to change speed to 2Mhz
+  // CCP – Configuration Change Protection Register
+  CCP = 0xD8;
+  //CLKPR – Clock Prescale Register  
+  CLKPR = _BV(CLKPS1);
 
   //8 second between watchdogs
   DiyBMSATTiny841::SetWatchdog8sec();
