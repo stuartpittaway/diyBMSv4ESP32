@@ -27,11 +27,9 @@ void setup()
 void loop()
 {
     PORTA |= _BV(PORTA6);
-    delay(500);
     PORTA |= _BV(PORTA5);
-    delay(500);
+    delay(1000);
     PORTA &= (~_BV(PORTA6));
-    delay(500);
     PORTA &= (~_BV(PORTA5));
-    delay(500);
+    delay(1000);
 }

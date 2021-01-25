@@ -34,8 +34,8 @@ You need to configure the correct DIYBMSMODULEVERSION in defines.h file to build
 
 #include <Arduino.h>
 
-#if !(F_CPU == 8000000)
-#error Processor speed should be 8 Mhz internal
+#if !(F_CPU == 1000000)
+#error Processor speed should be 1 Mhz internal
 #endif
 
 #if !defined(ATTINY_CORE)
