@@ -1371,8 +1371,15 @@ String DIYBMSServer::TemplateProcessor(const String &var)
   if (var == "XSS_KEY")
     return DIYBMSServer::UUIDString;
 
+#if defined(ESP8266)
+  if (var == "PLATFORM")
+    return String("ESP8266");
+#endif
+
+#if defined(ESP32)
   if (var == "PLATFORM")
     return String("ESP32");
+#endif
 
   if (var == "GIT_VERSION")
     return String(GIT_VERSION);

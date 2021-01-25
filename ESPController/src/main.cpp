@@ -931,13 +931,13 @@ void ProcessRules()
           rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassTemperature);
         }
 
-        if (cmi[cellid].CodeVersionNumber != cmi[0].CodeVersionNumber)
+        if (cmi[0].settingsCached && cmi[cellid].CodeVersionNumber != cmi[0].CodeVersionNumber)
         {
           //Do all the modules have the same version of code as module zero?
           rules.SetWarning(InternalWarningCode::ModuleInconsistantCodeVersion);
         }
 
-        if (cmi[cellid].BoardVersionNumber != cmi[0].BoardVersionNumber)
+        if (cmi[0].settingsCached && cmi[cellid].BoardVersionNumber != cmi[0].BoardVersionNumber)
         {
           //Do all the modules have the same hardware revision?
           rules.SetWarning(InternalWarningCode::ModuleInconsistantBoardRevision);
