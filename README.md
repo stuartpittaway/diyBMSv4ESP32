@@ -16,6 +16,13 @@ Any donations go towards the on going development and prototype costs of the pro
 
 https://www.youtube.com/stuartpittaway
 
+### Video on how to program the devices
+https://youtu.be/wTqDMg_Ql98
+
+### Video on how to order from JLCPCB
+https://youtu.be/E1OS0ZOmOT8
+
+
 # Help
 
 If you need help, ask over at the [forum](https://community.openenergymonitor.org/t/diybms-v4)
@@ -37,18 +44,20 @@ Download the ZIP file and *extract its contents* and inside the folder you shoul
 * diybms_controller_filesystemimage_espressif8266_esp8266_d1mini.bin
 
 *Files for the modules (ATTINY841)*
-* diybms_module_firmware_400.hex
-* diybms_module_firmware_410.hex
-* diybms_module_firmware_420.hex
-* diybms_module_firmware_420_SWAPR19R20.hex
-* diybms_module_firmware_421.hex
-* diybms_module_firmware_430_SWAPR19R20.hex
+* module_fw_V400_attiny841_400_eF4_hD6_l62.hex
+* module_fw_V410_attiny841_410_eF4_hD6_l62.hex
+* module_fw_V420_attiny841_420_eF4_hD6_l62.hex
+* module_fw_V420_SWAPR19R20_attiny841_420_SWAPR19R20_eF4_hD6_l62.hex
+* module_fw_V421_attiny841_421_eF4_hD6_l62.hex
+* module_fw_V421_LTO_attiny841_421_eF4_hD6_l62.hex
 
-You will need to determine which file to use for the module boards (see "Identify which module/board you have" below for help).  Most people will have a V4.00 or V4.21 board.
+You can ignore the "filesystemimage" for the esp8266, this is no longer required.
+
+You will need to determine which module HEX file to use (see "Identify which module/board you have" below for help).  Most people will have a V4.00 or V4.21 board.
 
 ## Programming the controller
 
-Both [Wemos D1 Mini](https://amzn.to/3i1gPIz) and Wemos D1 Mini Pro are supported - minimum of 4MB flash memory, ESP32 version coming soon.
+Both [Wemos D1 Mini](https://amzn.to/3i1gPIz) and Wemos D1 Mini & Pro are supported - minimum of 4MB flash memory, ESP32 version coming soon.
 
 1. Connect the WEMOS D1 to the computer using a USB cable
 1. Download the [esphome-flasher](https://github.com/esphome/esphome-flasher/releases) tool for your operating system
@@ -128,6 +137,7 @@ Programming the module takes around 12 seconds.
 1. Identify which module/board you have using the details found at the end of this document.
 1. Copy the required ".hex" file to the same folder where you extracted the avrdude tool to.
 1. Now we shall program the module, run the command line similar to below, replacing the "diybms_module_firmware_400" filename where applicable.
+1. The fuse settings are important, and are in the filename for example "eF4_hD6_l62" - means efuse=0xF4, hfuse=0xD6, lfuse=0x62
 ```
 avrdude -C avrdude.conf -P usb -c usbasp -p t841 -e -B 8 -U efuse:w:0xF4:m -U hfuse:w:0xD6:m -U lfuse:w:0xE2:m -U flash:w:diybms_module_firmware_400.hex:i
 ```

@@ -19,20 +19,13 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 
 #if (!defined(DIYBMSMODULEVERSION))
-#error You need to enable one of the DIYBMSMODULEVERSION define statements
+#error You need to specify the DIYBMSMODULEVERSION define
 #endif
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION > 430
 #error Incorrect value for DIYBMSMODULEVERSION
 #endif
 
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-  #define COMMS_BAUD_RATE 2400
-#endif
-
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION == 430
-  #define COMMS_BAUD_RATE 2400
-#endif
 
 //This is where the data begins in EEPROM
 #define EEPROM_CONFIG_ADDRESS 0

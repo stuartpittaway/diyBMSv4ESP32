@@ -48,9 +48,9 @@ public:
       //        II-WWCCC
       TCCR1B = B00001011;
 
-      // Prescaler 8Mhz/64 = 125000 counts per second
-      // Call ISR 1000 times per second
-      OCR1A = 125;
+      // Prescaler 8Mhz/64 = 125000 counts per second, call ISR 1000 times per second
+      // Prescaler 2Mhz/64 = 31250 counts per second, call ISR 1000 times per second - roughly, as rounding error of 31.25
+      OCR1A = (F_CPU/64)/1000;
 
       ResumePWM();
    }

@@ -36,8 +36,8 @@ enum RGBLED : uint8_t
 //This also needs changing in default.htm (MAXIMUM_NUMBER_OF_BANKS)
 #define maximum_number_of_banks 16
 
-//Version 4.XX of DIYBMS modules operate at 2400 baud
-#define COMMS_BAUD_RATE 2400
+//Version 4.XX of DIYBMS modules operate at 5000 baud (since 26 Jan 2021)
+#define COMMS_BAUD_RATE 5000
 
 #define EEPROM_SETTINGS_START_ADDRESS 256
 
