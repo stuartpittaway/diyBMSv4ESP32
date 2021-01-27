@@ -34,7 +34,7 @@ form button[type='button'] {font-family:Arial,Helvetica,sans-serif;border:none;t
 .success {padding:10px;display:none; width:100%;}
 .warning {padding:10px;display:none; width:100%;}
 .page {clear:both; width:100%; display:none;margin-top:5px;}
-.page .region {float:left;padding:10px;margin-right:10px;width:45%;}
+.page .region {float:left;padding:8px;margin-right:8px;width:45%;margin-bottom:8px;}
 #modulesTable { width:100%; border-collapse: collapse; }
 #modulesTable tbody tr td {font-family: 'Fira Code', monospace;text-align:right;}
 #modulesTable button {margin-left:10px;}

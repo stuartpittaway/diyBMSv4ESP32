@@ -38,19 +38,23 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 #include "settings.h"
 
+#include "FS.h"
+#include <LITTLEFS.h>
+#include "SD.h"
+
 AsyncWebServer *DIYBMSServer::_myserver;
 String DIYBMSServer::UUIDString;
 
-sdcard_info (*DIYBMSServer::_sdcardcallback)() = 0;
+fs::SDFS *DIYBMSServer::_sdcard = 0;
 void (*DIYBMSServer::_sdcardaction_callback)(uint8_t action) = 0;
 PacketRequestGenerator *DIYBMSServer::_prg = 0;
 PacketReceiveProcessor *DIYBMSServer::_receiveProc = 0;
 diybms_eeprom_settings *DIYBMSServer::_mysettings = 0;
 Rules *DIYBMSServer::_rules = 0;
 ControllerState *DIYBMSServer::_controlState = 0;
+HAL_ESP32 *DIYBMSServer::_hal = 0;
 ModbusInfo (*DIYBMSServer::_ModBus)[MODBUS_NUM] = 0;
 ModbusVal (*DIYBMSServer::_ModBusVal)[MODBUS_NUM] = 0;
-//uint16_t DIYBMSServer::ConfigHasChanged=0;
 
 #define REBOOT_COUNT_DOWN 2000
 
@@ -735,34 +739,104 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   request->send(response);
 }
 
+void DIYBMSServer::fileSystemListDirectory(AsyncResponseStream *response, fs::FS &fs, const char *dirname, uint8_t levels)
+{
+  File root = fs.open(dirname);
+  if (!root)
+  {
+    ESP_LOGE(TAG, "failed to open dir");
+    return;
+  }
+  if (!root.isDirectory())
+  {
+    ESP_LOGE(TAG, "not a dir");
+    return;
+  }
+
+  File file = root.openNextFile();
+  while (file)
+  {
+    if (file.isDirectory())
+    {
+      if (levels)
+      {
+        fileSystemListDirectory(response, fs, file.name(), levels - 1);
+      }
+    }
+    else
+    {
+      response->print('\"');
+      response->print(file.name());
+      response->print('\"');
+    }
+    response->print(',');
+
+    file = root.openNextFile();
+  }
+
+  //Trailing null to cope with trailing ','
+  response->print("null");
+}
+
 void DIYBMSServer::storage(AsyncWebServerRequest *request)
 {
-  AsyncResponseStream *response =
-      request->beginResponseStream("application/json");
+  sdcard_info info;
 
-  DynamicJsonDocument doc(2048);
-  JsonObject root = doc.to<JsonObject>();
+  info.available = _sd_card_installed;
 
-  JsonObject settings = root.createNestedObject("storage");
-
-  settings["enabled"] = _mysettings->loggingEnabled;
-  settings["frequency"] = _mysettings->loggingFrequencySeconds;
-
-  if (DIYBMSServer::_sdcardcallback != 0)
+  //Lock VSPI bus during operation (not sure if this is acutally needed, as the SD class may have cached these values)
+  if (_hal->GetVSPIMutex())
   {
-    //Get data from main.cpp
-    sdcard_info info = (*DIYBMSServer::_sdcardcallback)();
-
-    settings["sdcard"] = info.available;
-    settings["sdcard_total"] = info.totalkilobytes;
-    settings["sdcard_used"] = info.usedkilobytes;
-
-    settings["flash_total"] = info.flash_totalkilobytes;
-    settings["flash_used"] = info.flash_usedkilobytes;
+    //Convert to KiB
+    info.totalkilobytes = SD.totalBytes() / 1024;
+    info.usedkilobytes = SD.usedBytes() / 1024;
+    _hal->ReleaseVSPIMutex();
   }
+  else
+  {
+    info.totalkilobytes = 0;
+    info.usedkilobytes = 0;
+  }
+
+  info.flash_totalkilobytes = LITTLEFS.totalBytes() / 1024;
+  info.flash_usedkilobytes = LITTLEFS.usedBytes() / 1024;
+
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+
+  response->print("{\"storage\":{");
+  PrintStreamCommaBoolean(response, "\"logging\":", _mysettings->loggingEnabled);
+  PrintStreamComma(response, "\"frequency\":", _mysettings->loggingFrequencySeconds);
+
+  response->print("\"sdcard\":{");
+  PrintStreamCommaBoolean(response, "\"available\":", info.available);
+  PrintStreamComma(response, "\"total\":", info.totalkilobytes);
+  PrintStreamComma(response, "\"used\":", info.usedkilobytes);
+  response->print("\"files\":[");
+  //File listing goes here
+  response->print(']');
+
+  response->print("},\"flash\":{");
+  PrintStreamComma(response, "\"total\":", info.flash_totalkilobytes);
+  PrintStreamComma(response, "\"used\":", info.flash_usedkilobytes);
+
+  response->print("\"files\":[");
+  //File listing goes here
+  if (_hal->GetVSPIMutex())
+  {
+    fileSystemListDirectory(response, LITTLEFS, "/", 2);
+    _hal->ReleaseVSPIMutex();
+  }
+
+  response->print(']');
+
+  response->print('}');
+
+  //The END...
+  response->print('}');
+  response->print('}');
+
   response->addHeader("Cache-Control", "no-store");
 
-  serializeJson(doc, *response);
   request->send(response);
 }
 
@@ -1093,15 +1167,33 @@ void DIYBMSServer::monitor3(AsyncWebServerRequest *request)
   }
   response->print("]}");
 
-  //    serializeJson(doc2, *response);
+  response->addHeader("Cache-Control", "no-store");
   request->send(response);
 }
 
+void DIYBMSServer::PrintStreamCommaBoolean(AsyncResponseStream *response, const char *text, bool boolean)
+{
+  response->print(text);
+  if (boolean)
+  {
+    response->print("true");
+  }
+  else
+  {
+    response->print("false");
+  }
+  response->print(',');
+}
 void DIYBMSServer::PrintStreamComma(AsyncResponseStream *response, const char *text, uint32_t value)
 {
   response->print(text);
   response->print(value);
   response->print(',');
+}
+void DIYBMSServer::PrintStream(AsyncResponseStream *response, const char *text, uint32_t value)
+{
+  response->print(text);
+  response->print(value);
 }
 void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 {
@@ -1361,6 +1453,8 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
   //The END...
   response->print('}');
+  response->addHeader("Cache-Control", "no-store");
+
   request->send(response);
 }
 
@@ -1416,20 +1510,22 @@ void DIYBMSServer::SetCacheAndETag(AsyncWebServerResponse *response, String ETag
 // Start Web Server (crazy amount of pointer params!)
 void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                                diybms_eeprom_settings *mysettings,
-                               sdcard_info (*sdcardcallback)(),
+                               fs::SDFS *sdcard,
                                PacketRequestGenerator *prg,
                                PacketReceiveProcessor *pktreceiveproc,
                                ControllerState *controlState,
                                Rules *rules,
                                ModbusInfo (*ModBus)[MODBUS_NUM],
                                ModbusVal (*ModBusVal)[MODBUS_NUM],
-                               void (*sdcardaction_callback)(uint8_t action))
+                               void (*sdcardaction_callback)(uint8_t action),
+                               HAL_ESP32 *hal)
 {
   _myserver = webserver;
+  _hal = hal;
   _prg = prg;
   _controlState = controlState;
   _rules = rules;
-  _sdcardcallback = sdcardcallback;
+  _sdcard = sdcard;
   _ModBusVal = ModBusVal;
   _ModBus = ModBus;
   _mysettings = mysettings;

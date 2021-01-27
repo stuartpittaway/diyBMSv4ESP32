@@ -29,7 +29,6 @@ static const char *TAG = "diybms";
 //#define MQTT_LOGGING
 
 #include "FS.h"
-//#include <SPIFFS.h>
 #include <LITTLEFS.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
@@ -40,7 +39,6 @@ static const char *TAG = "diybms";
 #include "tft_splash_image.h"
 
 // Libraries for SD card
-#include "FS.h"
 #include "SD.h"
 #include "driver/gpio.h"
 //#include "driver/can.h"
@@ -118,7 +116,6 @@ volatile bool WifiDisconnected = true;
 Rules rules;
 
 bool _sd_card_installed = false;
-//bool _sd_card_logging = false;
 
 diybms_eeprom_settings mysettings;
 uint16_t ConfigHasChanged = 0;
@@ -1323,31 +1320,6 @@ void SetupOTA()
   ArduinoOTA.begin();
 }
 
-sdcard_info sdcard_callback()
-{
-  sdcard_info ret;
-
-  ret.available = _sd_card_installed;
-
-  //Lock VSPI bus during operation (not sure if this is acutally needed, as the SD class may have cached these values)
-  if (hal.GetVSPIMutex())
-  {
-    //Convert to KiB
-    ret.totalkilobytes = SD.totalBytes() / 1024;
-    ret.usedkilobytes = SD.usedBytes() / 1024;
-    hal.ReleaseVSPIMutex();
-  }
-  else
-  {
-    ret.totalkilobytes = 0;
-    ret.usedkilobytes = 0;
-  }
-
-  ret.flash_totalkilobytes = LITTLEFS.totalBytes() / 1024;
-  ret.flash_usedkilobytes = LITTLEFS.usedBytes() / 1024;
-
-  return ret;
-}
 
 void mountSDCard()
 {
@@ -1417,8 +1389,9 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   */
   if (!server_running)
   {
-    DIYBMSServer::StartServer(&server, &mysettings, &sdcard_callback, &prg, &receiveProc, &ControlState, &rules, &ModBus, &ModBusVal, &sdcardaction_callback);
+    DIYBMSServer::StartServer(&server, &mysettings, &SD, &prg, &receiveProc, &ControlState, &rules, &ModBus, &ModBusVal, &sdcardaction_callback,&hal);
     server_running = true;
+    
   }
 
   if (mysettings.mqtt_enabled)

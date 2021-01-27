@@ -34,9 +34,11 @@
             <a id="about" href="#about">About</a>
         </div>
     </div>
-    <div class="flexgrid">      
-        <div id='error1' class='error'>The controller is having difficulty communicating with the cell monitoring modules.</div>
-        <div id='error2' class='error'>Controller found <span id='missingmodule1'></span> modules, but is configured for <span id='missingmodule2'></span>.</div>
+    <div class="flexgrid">
+        <div id='error1' class='error'>The controller is having difficulty communicating with the cell monitoring
+            modules.</div>
+        <div id='error2' class='error'>Controller found <span id='missingmodule1'></span> modules, but is configured for
+            <span id='missingmodule2'></span>.</div>
         <div id='error3' class='error'>Controller is configured to use more modules than it can cope with.</div>
         <div id='error4' class='error'>Waiting for modules to reply</div>
         <div id='error5' class='error'>Module has returned ZERO volt reading, check configuration</div>
@@ -83,7 +85,8 @@
         <h1>About</h1>
         <div class="region">
             <h2>Source Code</h2>
-            <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer" target="_blank">https://github.com/stuartpittaway/diyBMSv4</a>
+            <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer"
+                target="_blank">https://github.com/stuartpittaway/diyBMSv4</a>
         </div>
         <div class="region">
             <h2>Videos</h2>
@@ -689,8 +692,25 @@
     <div class="page" id="storagePage">
         <h1>Storage</h1>
         <div class="region">
+            <h2>SD Card</h2>
+            <p id='sdcardmissing' class="warning">SD card not installed</p>
+            Used <span id="sdcard_used"></span>KiB (<span id="sdcard_used_percent"></span>%%) of <span
+                id="sdcard_total"></span>KiB
+            <p>
+                <button type="button" id="unmount">Unmount</button>
+                <button type="button" id="mount">Mount</button>
+            </p>
+        </div>
+        <div class="region">
+            <h2>Flash Memory</h2>
+            <p>Used <span id="flash_used"></span>KiB (<span id="flash_used_percent"></span>%%) of <span
+                    id="flash_total"></span>KiB</p>
+            <ul id="flashfiles">
+            </ul>
+        </div>
+        <div class="region">
             <h2>Logging</h2>
-            <p>Cell data and output states can be stored into log files using an SD card.</p>
+            <p>Cell data and output states can be stored as log files using an SD card.</p>
             <form id="loggingForm" method="POST" action="savestorage.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -711,21 +731,6 @@
                     <input type="submit" value="Save logging settings" />
                 </div>
             </form>
-        </div>
-
-        <div class="region">
-            <h2>SD Card</h2>
-            <p id='sdcardmissing' class="warning">SD card not installed</p>
-            Used <span id="sdcard_used"></span>KiB (<span id="sdcard_used_percent"></span>%%) of <span
-                id="sdcard_total"></span>KiB
-            <p>
-                <button type="button" id="unmount">Unmount</button>
-                <button type="button" id="mount">Mount</button>
-            </p>
-            <h2>Flash Memory</h2>
-            Used <span id="flash_used"></span>KiB (<span id="flash_used_percent"></span>%%) of <span
-                id="flash_total"></span>KiB
-
         </div>
 
     </div>

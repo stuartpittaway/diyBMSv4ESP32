@@ -297,14 +297,10 @@ function queryBMS() {
                 $(columns[5]).html(tempint[index].value);
                 $(columns[6]).html(tempext[index].value);
                 $(columns[7]).html(pwm[index].value);
-                //$(columns[8]).html(badpktcount[index]);
-                //$(columns[9]).html(pktrecvd[index]);
-                //$(columns[10]).html(balcurrent[index]);
             });
 
             //As the module page is open, we refresh the last 3 columns using seperate JSON web service to keep the monitor2.json
             //packets as small as possible
-
 
             $.getJSON("monitor3.json", function (jsondata) {
                 var tbody = $("#modulesRows");
@@ -1040,28 +1036,37 @@ $(function () {
 
         $.getJSON("storage.json",
             function (data) {
-                $("#loggingEnabled").prop("checked", data.storage.enabled);
+                $("#loggingEnabled").prop("checked", data.storage.logging);
                 $("#loggingFreq").val(data.storage.frequency);
 
-                if (data.storage.sdcard) {
+                if (data.storage.sdcard.available) {
                     $("#sdcardmissing").hide();
                 } else { $("#sdcardmissing").show(); }
 
-                $("#sdcard_total").html(Number(data.storage.sdcard_total).toLocaleString());
-                $("#sdcard_used").html(Number(data.storage.sdcard_used).toLocaleString());
+                $("#sdcard_total").html(Number(data.storage.sdcard.total).toLocaleString());
+                $("#sdcard_used").html(Number(data.storage.sdcard.used).toLocaleString());
 
-                if (data.storage.sdcard_total > 0) {
-                    $("#sdcard_used_percent").html(((data.storage.sdcard_used / data.storage.sdcard_total) * 100).toFixed(1));
+                if (data.storage.sdcard.total > 0) {
+                    $("#sdcard_used_percent").html(((data.storage.sdcard.used / data.storage.sdcard.total) * 100).toFixed(1));
                 }
                 else { $("#sdcard_used_percent").html("0"); }
 
-                $("#flash_total").html(Number(data.storage.flash_total).toLocaleString());
-                $("#flash_used").html(Number(data.storage.flash_used).toLocaleString());
+                $("#flash_total").html(Number(data.storage.flash.total).toLocaleString());
+                $("#flash_used").html(Number(data.storage.flash.used).toLocaleString());
 
-                if (data.storage.flash_total > 0) {
-                    $("#flash_used_percent").html(((data.storage.flash_used / data.storage.flash_total) * 100).toFixed(1));
+                if (data.storage.flash.total > 0) {
+                    $("#flash_used_percent").html(((data.storage.flash.used / data.storage.flash.total) * 100).toFixed(1));
                 }
                 else { $("#flash_used_percent").html("0"); }
+
+                if (data.storage.flash.files) {
+                    $("#flashfiles").empty();
+                    $.each(data.storage.flash.files, function (index, value) {
+                        if (value != null) {
+                            $("#flashfiles").append("<li>" + value + "</li>");
+                        }
+                    });
+                }
 
             }).fail(function () { }
             );

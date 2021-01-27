@@ -99,7 +99,6 @@ public:
             ESP_LOGE(TAG, "Unable to get I2C mutex");
         }
         return reply;
-
     }
     bool Releasei2cMutex()
     {
