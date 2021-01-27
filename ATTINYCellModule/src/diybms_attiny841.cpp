@@ -139,8 +139,17 @@ void DiyBMSATTiny841::BeginADCReading()
 
   //ADCSRA – ADC Control and Status Register A
   //Consider ADC sleep conversion mode?
+
+#if !(F_CPU == 8000000)
   //prescaler of 64 = 8MHz/64 = 125KHz.
   ADCSRA |= _BV(ADPS2) | _BV(ADPS1); // | _BV(ADPS0);
+#endif
+
+#if !(F_CPU == 2000000)
+  //prescaler of 16 = 2MHz/16 = 125000.
+  ADCSRA |= _BV(ADPS2);
+#endif
+
 
   //adc_enable();
   //Bit 4 – ADIF: ADC Interrupt Flag
