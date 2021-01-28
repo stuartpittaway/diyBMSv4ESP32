@@ -30,78 +30,41 @@ jobs:
         python -m pip install --upgrade pip
         pip install --upgrade platformio
 
+    - name: Build code for ESP32 controller
+      run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
+      
     - name: Build code for modules
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
 
     - name: Publish Artifacts 1
       uses: actions/upload-artifact@v2
       with:
-        name: DIYBMS-Compiled-Module
+        name: DIYBMS-Compiled-Code
         path: |
           ./ATTINYCellModule/.pio/build/V*/*.hex
           ./ATTINYCellModule/.pio/build/V*/*.bin
+          ./ESPController/.pio/build/*/*.bin
         if-no-files-found: error      
 
-
-  job_build_controller_esp32:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Cache pip
-      uses: actions/cache@v2
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: ${{ runner.os }}-pip-
-        
-    - name: Cache PlatformIO
-      uses: actions/cache@v2
-      with:
-        path: ~/.platformio
-        key: ${{ runner.os }}-${{ hashFiles('**/lockfiles') }}
-
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      
-    - name: Install PlatformIO
-      run: |
-        python -m pip install --upgrade pip
-        pip install --upgrade platformio
-       
-    - name: Build code for controller
-      run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
-      
-    - name: Publish Artifacts 4
-      uses: actions/upload-artifact@v2
-      with:
-        name: DIYBMS-Compiled-Controller-ESP32
-        path: ./ESPController/.pio/build/*/*.bin
-        if-no-files-found: error
-
     - name: Build File System Image for ESP32
-      run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
+        run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
 
-    - name: Publish Artifacts 5
+    - name: Publish Artifacts 2
       uses: actions/upload-artifact@v2
       with:
-        name: DIYBMS-Compiled-Controller-ESP32
+        name: DIYBMS-Compiled-Code
         path: ./ESPController/.pio/build/*/*.bin
         if-no-files-found: error
+
 
   job_zip_code:
     runs-on: ubuntu-latest
-    needs: [job_build_modulecode, job_build_controller_esp32]
+    needs: [job_build_modulecode]
     steps:
     - name: Download artifact DIYBMS-Compiled-Controller-ESP32
       uses: actions/download-artifact@v2
       with:
-        name: DIYBMS-Compiled-Controller-ESP32
-
-    - name: Download artifact DIYBMS-Compiled-Module
-      uses: actions/download-artifact@v2
-      with:
-        name: DIYBMS-Compiled-Module
+        name: DIYBMS-Compiled-Code
 
     - name: Display structure of downloaded files
       run: ls -R
