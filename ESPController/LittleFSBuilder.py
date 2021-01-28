@@ -17,4 +17,4 @@ else:
 
 env.Replace (MKSPIFFSTOOL = os.path.join(env.get('PROJECT_DIR'), mklittlefs) )
 
-print('LittleFSBuilder.py')
+print('LittleFSBuilder.py using '+mklittlefs)

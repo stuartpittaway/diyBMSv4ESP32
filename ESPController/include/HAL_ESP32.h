@@ -109,14 +109,14 @@ public:
     }
 
     //Infinite loop flashing the LED RED/WHITE
-    void Halt()
+    void Halt(RGBLED colour)
     {
         while (true)
         {
             Led(RGBLED::Red);
-            delay(800);
-            Led(RGBLED::White);
-            delay(100);
+            delay(700);
+            Led(colour);
+            delay(300);
         }
     }
 

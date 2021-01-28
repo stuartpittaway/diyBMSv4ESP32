@@ -54,6 +54,7 @@ static const char *TAG = "diybms";
 #include "defines.h"
 #include "HAL_ESP32.h"
 
+
 SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
 
 #include "Modbus.h"
@@ -1320,7 +1321,6 @@ void SetupOTA()
   ArduinoOTA.begin();
 }
 
-
 void mountSDCard()
 {
   /*
@@ -1389,9 +1389,8 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   */
   if (!server_running)
   {
-    DIYBMSServer::StartServer(&server, &mysettings, &SD, &prg, &receiveProc, &ControlState, &rules, &ModBus, &ModBusVal, &sdcardaction_callback,&hal);
+    DIYBMSServer::StartServer(&server, &mysettings, &SD, &prg, &receiveProc, &ControlState, &rules, &ModBus, &ModBusVal, &sdcardaction_callback, &hal);
     server_running = true;
-    
   }
 
   if (mysettings.mqtt_enabled)
@@ -2113,7 +2112,7 @@ void setup()
   {
     ESP_LOGE(TAG, "LITTLEFS mount failed, did you upload file system image? - SYSTEM HALTED");
 
-    hal.Halt();
+    hal.Halt(RGBLED::White);
   }
   else
   {
@@ -2264,7 +2263,7 @@ TEST CAN BUS
   hal.ConfigureVSPI();
   init_tft_display();
 
-  //Init the touch screen
+    //Init the touch screen
   touchscreen.begin(hal.vspi);
   touchscreen.setRotation(3);
 

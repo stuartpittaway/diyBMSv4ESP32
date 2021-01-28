@@ -210,7 +210,7 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
     if (ret != ESP_OK)
     {
         ESP_LOGE(TAG, "TCA9534APWR Error");
-        Halt();
+        Halt(RGBLED::Purple);
     }
 
     //0×03 Configuration, P7 as input, others outputs (0=OUTPUT)
@@ -244,7 +244,7 @@ Now for the TCA6408
     if (ret != ESP_OK)
     {
         ESP_LOGE(TAG, "TCA6408 Error");
-        Halt();
+        Halt(RGBLED::Green);
     }
 
     //Ports A/B/C/D/E inputs, RELAY1/2/3 outputs
