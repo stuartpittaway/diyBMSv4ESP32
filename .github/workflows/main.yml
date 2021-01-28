@@ -39,33 +39,34 @@ jobs:
     - name: Create Output folder
       run: |
         mkdir -p ~/OUTPUT
-		
-    - name: Create AVR folder
-      run: |
+        mkdir -p ~/OUTPUT/Controller
+        mkdir -p ~/OUTPUT/Modules/HEX
+        mkdir -p ~/OUTPUT/Modules/BIN
         mkdir -p ./ESPController/data/avr
+		
 
     - name: Build code for modules
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
 
     - name: Copy output
       run: |
-        cp ./ATTINYCellModule/.pio/build/V*/*.hex ~/OUTPUT/
-        cp ./ATTINYCellModule/.pio/build/V*/*.bin ~/OUTPUT/
+        cp ./ATTINYCellModule/.pio/build/V*/*.hex ~/OUTPUT/Modules/HEX/
+        cp ./ATTINYCellModule/.pio/build/V*/*.bin ~/OUTPUT/Modules/BIN/
 
     - name: Build code for ESP32 controller
       run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
 
     - name: Copy output
       run: |
-        cp ./ESPController/.pio/build/esp32-devkitc/*.bin ~/OUTPUT/
-        cp ./ESPController/data/avr/manifest.json ~/OUTPUT/
-	  
+        cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin ~/OUTPUT/Controller/
+        cp ./ESPController/data/avr/manifest.json ~/OUTPUT/Modules/
+
     - name: Build File System Image for ESP32
       run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
 
     - name: Copy output
       run: |
-        cp ./ESPController/.pio/build/esp32-devkitc/*.bin ~/OUTPUT/
+        cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin ~/OUTPUT/Controller/
 
     - name: Publish Artifacts 1
       uses: actions/upload-artifact@v2
