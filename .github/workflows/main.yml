@@ -42,7 +42,7 @@ jobs:
 
     - name: Build code for modules
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
-	  
+
     - name: Publish Artifacts Module COde
       uses: actions/upload-artifact@v2
       with:
@@ -54,7 +54,7 @@ jobs:
 	  
     - name: Build code for ESP32 controller
       run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
-	  
+
     - name: Publish Artifacts ESP code
       uses: actions/upload-artifact@v2
       with:
