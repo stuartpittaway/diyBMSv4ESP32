@@ -7,6 +7,10 @@ Import("env")
 
 
 def generatejson(target, source, env):
+    # This routine takes the compiled AVR code and copies it into the ESPController project
+    # ready for converting into a file system image.
+    # It also creates a single JSON file "manifest" with the details of the environment, AVR Fuses etc.
+
     # print("generatejson")
     # print(target)
     # print(source)
@@ -70,7 +74,7 @@ def generatejson(target, source, env):
     data['avrprog'].append({'board': board, 'name':  newfilename, 'ver': env["git_sha_short"],'mcu':signature,'efuse':efuse,'hfuse':hfuse,'lfuse':lfuse})
 
     with open(manifestjson, 'w') as outfile:
-        json.dump(data, outfile)
+        json.dump(data, outfile, indent=4, sort_keys=True)
 
 
 
