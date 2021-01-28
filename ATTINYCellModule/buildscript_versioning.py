@@ -6,9 +6,6 @@ from os import path
 
 Import("env")
 
-env.Replace(PROGNAME="diybms_controller_firmware_%s_%s" %
-            (env["PIOPLATFORM"], env["PIOENV"]))
-
 git_sha=None
 
 AreWeInGitHubAction = True if "GITHUB_SHA" in env else False
@@ -25,6 +22,10 @@ else:
             git_sha = None
 
 # print(env.Dump())
+
+env.Append(git_sha=git_sha)
+env.Append(git_sha_short=git_sha[32:])
+
 
 include_dir = os.path.join(env.get('PROJECT_DIR'), 'include')
 
