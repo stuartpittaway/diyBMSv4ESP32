@@ -36,8 +36,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install --upgrade platformio
 
-    - name: Create Output folder
+    - name: Create folders
       run: |
+        mkdir -p ./ESPController/data/avr
         mkdir -p ~/OUTPUT
         mkdir -p ~/OUTPUT/Controller
         mkdir -p ~/OUTPUT/Modules/HEX
