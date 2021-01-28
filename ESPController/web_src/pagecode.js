@@ -792,7 +792,7 @@ $(function () {
                 $("#MinFreeHeap").html(data.settings.MinFreeHeap);
                 $("#FreeHeap").html(data.settings.FreeHeap);
                 $("#HeapSize").html(data.settings.HeapSize);
-
+                $("#HostName").html("<a href='http://" + data.settings.HostName + "'>" + data.settings.HostName + "</a>");
                 $("#aboutPage").show();
             }).fail(function () { }
             );
@@ -1027,7 +1027,6 @@ $(function () {
         });
     });
 
-
     $("#storage").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
@@ -1051,6 +1050,15 @@ $(function () {
                 }
                 else { $("#sdcard_used_percent").html("0"); }
 
+                if (data.storage.sdcard.files) {
+                    $("#sdcardfiles").empty();
+                    $.each(data.storage.sdcard.files, function (index, value) {
+                        if (value != null) {
+                            $("#sdcardfiles").append("<li><a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a></li>");
+                        }
+                    });
+                }
+
                 $("#flash_total").html(Number(data.storage.flash.total).toLocaleString());
                 $("#flash_used").html(Number(data.storage.flash.used).toLocaleString());
 
@@ -1063,7 +1071,7 @@ $(function () {
                     $("#flashfiles").empty();
                     $.each(data.storage.flash.files, function (index, value) {
                         if (value != null) {
-                            $("#flashfiles").append("<li>" + value + "</li>");
+                            $("#flashfiles").append("<li><a href='download?type=flash&file=" + encodeURI(value) + "'>" + value + "</a></li>");
                         }
                     });
                 }

@@ -727,6 +727,9 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   settings["FreeHeap"] = ESP.getFreeHeap();
   settings["MinFreeHeap"] = ESP.getMinFreeHeap();
   settings["HeapSize"] = ESP.getHeapSize();
+
+  settings["HostName"] = WiFi.getHostname();
+
   time_t now;
   if (time(&now))
   {
@@ -813,6 +816,11 @@ void DIYBMSServer::storage(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"used\":", info.usedkilobytes);
   response->print("\"files\":[");
   //File listing goes here
+  if (_hal->GetVSPIMutex())
+  {
+    fileSystemListDirectory(response, SD, "/", 2);
+    _hal->ReleaseVSPIMutex();
+  }
   response->print(']');
 
   response->print("},\"flash\":{");
@@ -821,11 +829,7 @@ void DIYBMSServer::storage(AsyncWebServerRequest *request)
 
   response->print("\"files\":[");
   //File listing goes here
-  if (_hal->GetVSPIMutex())
-  {
-    fileSystemListDirectory(response, LITTLEFS, "/", 2);
-    _hal->ReleaseVSPIMutex();
-  }
+  fileSystemListDirectory(response, LITTLEFS, "/", 2);
 
   response->print(']');
 
@@ -892,6 +896,40 @@ void DIYBMSServer::identifyModule(AsyncWebServerRequest *request)
   {
     request->send(500, "text/plain", "Missing parameters");
   }
+}
+
+void DIYBMSServer::downloadFile(AsyncWebServerRequest *request)
+{
+  if (request->hasParam("type", false) && request->hasParam("file", false))
+  {
+    String type = request->getParam("type", false)->value();
+    String file = request->getParam("file", false)->value();
+
+    if (type.equals("sdcard") && _sd_card_installed)
+    {
+      // Process file from SD card
+
+      if (_hal->GetVSPIMutex())
+      {
+        //Get the file
+        ESP_LOGI(TAG, "Download SDCard file %s", file.c_str());
+
+        request->send(*_sdcard, file, "application/octet-stream", true, nullptr);
+        _hal->ReleaseVSPIMutex();
+        return;
+      }
+    }
+
+    if (type.equals("flash"))
+    {
+      // Process file from flash storage
+      ESP_LOGI(TAG, "Download FLASH file %s", file.c_str());
+      request->send(LITTLEFS, file, "application/octet-stream", true, nullptr);
+      return;
+    }
+  }
+
+  request->send(400); //400 bad request
 }
 
 void DIYBMSServer::modules(AsyncWebServerRequest *request)
@@ -1019,13 +1057,13 @@ void DIYBMSServer::saveModbus(AsyncWebServerRequest *request)
 {
   if (!validateXSS(request))
     return;
-
+  /*
   int args = request->args();
   for (int i = 0; i < args; i++)
   {
     SERIAL_DEBUG.printf("ARG[%s]: %s\n", request->argName(i).c_str(), request->arg(i).c_str());
   }
-
+*/
   if (request->hasParam("dev", true))
   {
     AsyncWebParameter *device = request->getParam("dev", true);
@@ -1089,7 +1127,7 @@ void DIYBMSServer::saveModbus(AsyncWebServerRequest *request)
   }
   else
   {
-    request->send(500, "text/plain", "Missing parameters");
+    request->send(400, "text/plain", "Bad request");
   }
 }
 
@@ -1539,10 +1577,6 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/", HTTP_GET, [](AsyncWebServerRequest *request) { request->redirect("/default.htm"); });
 
-  //file_default_htm
-  //_myserver->serveStatic("/default.htm", LittleFS, "/default.htm").setTemplateProcessor(DIYBMSServer::TemplateProcessor);
-  //_myserver->serveStatic("/", LittleFS, "/").setCacheControl("max-age=600");
-
   _myserver->on("/default.htm", HTTP_GET,
                 [](AsyncWebServerRequest *request) {
                   AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", (char *)file_default_htm, DIYBMSServer::TemplateProcessor);
@@ -1688,6 +1722,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/modbus.json", HTTP_GET, DIYBMSServer::modbus);
   _myserver->on("/modbusVal.json", HTTP_GET, DIYBMSServer::modbusVal);
+
+  _myserver->on("/download", HTTP_GET, DIYBMSServer::downloadFile);
 
   _myserver->on("/savemodbus.json", HTTP_POST, DIYBMSServer::saveModbus);
 

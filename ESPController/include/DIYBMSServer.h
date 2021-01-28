@@ -91,6 +91,7 @@ private:
     static void modbusVal(AsyncWebServerRequest *request);
     static void saveModbus(AsyncWebServerRequest *request);
 
+    static void downloadFile(AsyncWebServerRequest *request);
     static void saveSetting(AsyncWebServerRequest *request);
     static void saveInfluxDBSetting(AsyncWebServerRequest *request);
     static void saveMQTTSetting(AsyncWebServerRequest *request);

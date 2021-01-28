@@ -120,6 +120,7 @@
         </div>
         <div class="region">
             <h2>Platform &amp; Version</h2>
+            <p>Host name:<span id="HostName"></span></p>
             <p>Processor: %PLATFORM%</p>
             <p>Version: <a href="https://github.com/stuartpittaway/diyBMSv4Code/commit/%GIT_VERSION%" rel="noreferrer"
                     target="_blank">%GIT_VERSION%</a></p>
@@ -700,13 +701,13 @@
                 <button type="button" id="unmount">Unmount</button>
                 <button type="button" id="mount">Mount</button>
             </p>
+            <ul id="sdcardfiles"></ul>
         </div>
         <div class="region">
             <h2>Flash Memory</h2>
             <p>Used <span id="flash_used"></span>KiB (<span id="flash_used_percent"></span>%%) of <span
                     id="flash_total"></span>KiB</p>
-            <ul id="flashfiles">
-            </ul>
+            <ul id="flashfiles"></ul>
         </div>
         <div class="region">
             <h2>Logging</h2>
