@@ -47,7 +47,7 @@ jobs:
         if-no-files-found: error      
 
     - name: Build File System Image for ESP32
-        run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
+      run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
 
     - name: Publish Artifacts 2
       uses: actions/upload-artifact@v2
