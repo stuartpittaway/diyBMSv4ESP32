@@ -33,6 +33,10 @@ jobs:
     - name: Build code for ESP32 controller
       run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
       
+    - name: Inject env variables
+      run: |
+        mkdir -p ${{ github.workspace }}/ESPController/data/avr
+
     - name: Build code for modules
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
 
@@ -44,7 +48,8 @@ jobs:
           ./ATTINYCellModule/.pio/build/V*/*.hex
           ./ATTINYCellModule/.pio/build/V*/*.bin
           ./ESPController/.pio/build/*/*.bin
-        if-no-files-found: error      
+          ./ESPController/data/avr/manifest.json
+        if-no-files-found: error
 
     - name: Build File System Image for ESP32
       run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
