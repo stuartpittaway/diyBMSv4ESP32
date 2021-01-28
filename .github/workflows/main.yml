@@ -42,8 +42,6 @@ jobs:
         mkdir -p ~/OUTPUT/Controller
         mkdir -p ~/OUTPUT/Modules/HEX
         mkdir -p ~/OUTPUT/Modules/BIN
-        mkdir -p ./ESPController/data/avr
-		
 
     - name: Build code for modules
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
@@ -107,7 +105,7 @@ jobs:
         name: DIYBMS-Release-Artifact-${{ env.dt }}
         path: ./release_${{ env.dt }}.zip
         if-no-files-found: error
-	  
+
     - name: Create Release Files on MASTER branch only
       id: create_release
       uses: actions/create-release@v1
