@@ -36,24 +36,31 @@ jobs:
         python -m pip install --upgrade pip
         pip install --upgrade platformio
 
-    - name: Build code for ESP32 controller
-      run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
-      
     - name: Create AVR folder
       run: |
         mkdir -p ./ESPController/data/avr
 
     - name: Build code for modules
       run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
-
-    - name: Publish Artifacts 1
+	  
+    - name: Publish Artifacts Module COde
       uses: actions/upload-artifact@v2
       with:
-        name: DIYBMS-Compiled-Code
+        name: DIYBMS-Compiled-Module-Code
         path: |
           ./ATTINYCellModule/.pio/build/V*/*.hex
           ./ATTINYCellModule/.pio/build/V*/*.bin
-          ./ESPController/.pio/build/*/*.bin
+        if-no-files-found: error
+	  
+    - name: Build code for ESP32 controller
+      run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
+	  
+    - name: Publish Artifacts ESP code
+      uses: actions/upload-artifact@v2
+      with:
+        name: DIYBMS-Compiled-ESP-Code
+        path: |
+          ./ESPController/.pio/build/esp32-devkitc/*.bin
           ./ESPController/data/avr/manifest.json
         if-no-files-found: error
 
@@ -64,7 +71,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: DIYBMS-FileSystemImage
-        path: ./ESPController/.pio/build/*/*.bin
+        path: ./ESPController/.pio/build/esp32-devkitc/*.bin
         if-no-files-found: error
 
 
@@ -72,12 +79,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: [job_build_modulecode]
     steps:
-    - name: Download artifact DIYBMS-Compiled-Controller-ESP32
+    - name: Download artifact DIYBMS-Compiled-Module-Code
       uses: actions/download-artifact@v2
       with:
-        name: DIYBMS-Compiled-Code
+        name: DIYBMS-Compiled-Module-Code
 
-    - name: Download artifact DIYBMS-Compiled-Controller-ESP32
+    - name: Download artifact DIYBMS-Compiled-ESP-Code
+      uses: actions/download-artifact@v2
+      with:
+        name: DIYBMS-Compiled-ESP-Code
+
+    - name: Download artifact DIYBMS-FileSystemImage
       uses: actions/download-artifact@v2
       with:
         name: DIYBMS-FileSystemImage
