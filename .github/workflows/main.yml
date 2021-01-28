@@ -63,7 +63,7 @@ jobs:
     - name: Publish Artifacts 2
       uses: actions/upload-artifact@v2
       with:
-        name: DIYBMS-Compiled-Code
+        name: DIYBMS-FileSystemImage
         path: ./ESPController/.pio/build/*/*.bin
         if-no-files-found: error
 
@@ -77,6 +77,11 @@ jobs:
       with:
         name: DIYBMS-Compiled-Code
 
+    - name: Download artifact DIYBMS-Compiled-Controller-ESP32
+      uses: actions/download-artifact@v2
+      with:
+        name: DIYBMS-FileSystemImage
+
     - name: Display structure of downloaded files
       run: ls -R
   
@@ -84,7 +89,8 @@ jobs:
       run: |
         zip --junk-paths release.zip ./esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin
         zip --junk-paths release.zip ./esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
-        zip --junk-paths release.zip ./V*/*.hex
+        zip --junk-paths release.zip ./ESPController/data/avr/manifest.json
+        zip --junk-paths release.zip ./ATTINYCellModule/V*/*.hex
 
     - name: Get current date
       id: date
