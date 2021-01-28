@@ -88,9 +88,9 @@ jobs:
   
     - name: ZIP output for release
       run: |
-        zip --junk-paths release.zip ./Controller/*.*
-        zip --junk-paths release.zip ./Modules/manifest.json
-        zip --junk-paths release.zip ./Modules/HEX/*.*
+        zip release.zip ./Controller/*.*
+        zip release.zip ./Modules/manifest.json
+        zip release.zip ./Modules/HEX/*.*
 
     - name: Get current date
       id: date
@@ -103,7 +103,10 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: DIYBMS-Release-Artifact-${{ env.dt }}
-        path: ./release_${{ env.dt }}.zip
+        path: |
+            ./Controller/*.*
+            ./Modules/manifest.json
+            ./Modules/HEX/*.*
         if-no-files-found: error
 
     - name: Create Release Files on MASTER branch only
