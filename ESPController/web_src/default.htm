@@ -710,6 +710,27 @@
             <ul id="flashfiles"></ul>
         </div>
         <div class="region">
+            <h2>AVR Programmer</h2>
+            <p>Controller can program modules using the files below.</p>
+            <ul id="avrprog">
+
+            </ul>
+            <div id="avrprogconfirm">
+                <input type="hidden" value="" id="selectedavrindex" />
+                <img class="warnicon" src="warning.png" width="48" height="41" alt="Warning" />
+                    <ul>
+                        <li>Ensure you disconnect all battery and communication cables from the module/device before
+                            programming.</li>
+                        <li>Connect the module to the ISP port on the controller using a ribbon cable, ensure the notch
+                            is aligned with pin 1 on the module.</li>
+                        <li>Click 'Program Device' to start programming</li>
+                    </ul>
+                
+                <button type="button" id="ProgAVR">Program Device</button>
+                <button type="button" id="ProgAVRCancel">Cancel</button>
+            </div>
+        </div>
+        <div class="region">
             <h2>Logging</h2>
             <p>Cell data and output states can be stored as log files using an SD card.</p>
             <form id="loggingForm" method="POST" action="savestorage.json" autocomplete="off">

@@ -720,6 +720,8 @@ $(window).on('resize', function () {
 
 $(function () {
     $("#loading").show();
+    $("#avrprogconfirm").hide();
+
 
     //Populate all the setting rules with relay select lists
     $.each($(".settings table tbody tr td:empty"), function (index, value) {
@@ -1050,8 +1052,8 @@ $(function () {
                 }
                 else { $("#sdcard_used_percent").html("0"); }
 
+                $("#sdcardfiles").empty();
                 if (data.storage.sdcard.files) {
-                    $("#sdcardfiles").empty();
                     $.each(data.storage.sdcard.files, function (index, value) {
                         if (value != null) {
                             $("#sdcardfiles").append("<li><a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a></li>");
@@ -1067,14 +1069,37 @@ $(function () {
                 }
                 else { $("#flash_used_percent").html("0"); }
 
+                $("#flashfiles").empty();
                 if (data.storage.flash.files) {
-                    $("#flashfiles").empty();
                     $.each(data.storage.flash.files, function (index, value) {
                         if (value != null) {
                             $("#flashfiles").append("<li><a href='download?type=flash&file=" + encodeURI(value) + "'>" + value + "</a></li>");
                         }
                     });
                 }
+
+                $("#avrprog").empty();
+                $("#avrprogconfirm").hide();
+                if (data.storage.avrprog.avrprog) {
+                    $.each(data.storage.avrprog.avrprog, function (index, value) {
+
+                        var li=document.createElement("li");
+                        $("#avrprog").append(li);
+
+                        var aref=$("<a href='#' data-index='" + index + "'>" + value.board + " (" + value.ver + ")</a>").on("click",
+
+                            function (event) {
+                                event.preventDefault();
+                                $("#avrprogconfirm").show();
+                                $("#selectedavrindex").val($(this).data("index"));
+                            }
+                        );
+
+                        $(li).appendTo()
+                        $(li).append(aref);
+                    });
+                }
+
 
             }).fail(function () { }
             );

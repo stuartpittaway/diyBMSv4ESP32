@@ -330,7 +330,8 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
       if (request->hasParam(name, true))
       {
         AsyncWebParameter *p1 = request->getParam(name, true);
-        _mysettings->rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RelayState::RELAY_ON : RelayState::RELAY_OFF;
+        _mysettings->rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RelayState::RELAY_ON
+                                                                                                            : RelayState::RELAY_OFF;
       }
     }
 
@@ -764,6 +765,7 @@ void DIYBMSServer::fileSystemListDirectory(AsyncResponseStream *response, fs::FS
       if (levels)
       {
         fileSystemListDirectory(response, fs, file.name(), levels - 1);
+        response->print(',');
       }
     }
     else
@@ -771,8 +773,9 @@ void DIYBMSServer::fileSystemListDirectory(AsyncResponseStream *response, fs::FS
       response->print('\"');
       response->print(file.name());
       response->print('\"');
+
+      response->print(',');
     }
-    response->print(',');
 
     file = root.openNextFile();
   }
@@ -828,19 +831,35 @@ void DIYBMSServer::storage(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"used\":", info.flash_usedkilobytes);
 
   response->print("\"files\":[");
-  //File listing goes here
-  fileSystemListDirectory(response, LITTLEFS, "/", 2);
-
+  fileSystemListDirectory(response, LITTLEFS, "/", 0);
   response->print(']');
+  response->print("}");
 
-  response->print('}');
+  //See if we can open and process the AVR PROGRAMMER manifest file
+  response->print(",\"avrprog\":");
+  String manifest = String("/avr/manifest.json");
+  if (LITTLEFS.exists(manifest))
+  {
+    StaticJsonDocument<3000> doc;
+    File file = LITTLEFS.open(manifest);
+    DeserializationError error = deserializeJson(doc, file);
+    if (error)
+    {
+      ESP_LOGE(TAG, "Error deserialize Json");
+      response->print("{}");
+    }
+    else
+    {
+      serializeJson(doc, *response);
+    }
+    file.close();
+  }
 
   //The END...
   response->print('}');
   response->print('}');
 
   response->addHeader("Cache-Control", "no-store");
-
   request->send(response);
 }
 
@@ -1650,6 +1669,20 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                   {
                     AsyncWebServerResponse *response = request->beginResponse_P(200, "image/png", file_patron_png, size_file_patron_png);
                     SetCacheAndETag(response, String(etag_file_patron_png));
+                    request->send(response);
+                  }
+                });
+
+  _myserver->on("/warning.png", HTTP_GET,
+                [](AsyncWebServerRequest *request) {
+                  if (request->header("If-None-Match").equals(String(etag_file_warning_png)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "image/png", file_warning_png, size_file_warning_png);
+                    SetCacheAndETag(response, String(etag_file_warning_png));
                     request->send(response);
                   }
                 });

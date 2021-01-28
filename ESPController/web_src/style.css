@@ -124,3 +124,6 @@ form input[type='submit'] {color:white;background-color:#1e90ff;}
 th {font-family:Arial,Helvetica,sans-serif;text-align:center;font-size:14px;}
 .relayset select { min-width:50px; }
 .settings label { min-width:285px;width:auto;}
+
+.warnicon { float:left; margin-right:8px;}
+#avrprogconfirm { border: solid 4px #313131; padding: 16px 8px 25px 8px; }
