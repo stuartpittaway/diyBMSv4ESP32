@@ -87,10 +87,9 @@ jobs:
   
     - name: ZIP output for release
       run: |
-        zip --junk-paths release.zip ./esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin
-        zip --junk-paths release.zip ./esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
-        zip --junk-paths release.zip ./ESPController/data/avr/manifest.json
-        zip --junk-paths release.zip ./ATTINYCellModule/V*/*.hex
+        zip --junk-paths release.zip ./Controller/*.*
+        zip --junk-paths release.zip ./Modules/manifest.json
+        zip --junk-paths release.zip ./Modules/HEX/*.*
 
     - name: Get current date
       id: date
