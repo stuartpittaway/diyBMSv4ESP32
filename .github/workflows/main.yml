@@ -39,7 +39,7 @@ jobs:
     - name: Create Output folder
       run: |
         mkdir -p ~/OUTPUT
-		
+
     - name: Create AVR folder
       run: |
         mkdir -p ./ESPController/data/avr
@@ -59,7 +59,7 @@ jobs:
       run: |
         cp ./ESPController/.pio/build/esp32-devkitc/*.bin ~/OUTPUT/
         cp ./ESPController/data/avr/manifest.json ~/OUTPUT/
-	  
+
     - name: Build File System Image for ESP32
       run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
 
@@ -106,7 +106,7 @@ jobs:
         name: DIYBMS-Release-Artifact-${{ env.dt }}
         path: ./release_${{ env.dt }}.zip
         if-no-files-found: error
-	  
+
     - name: Create Release Files on MASTER branch only
       id: create_release
       uses: actions/create-release@v1
