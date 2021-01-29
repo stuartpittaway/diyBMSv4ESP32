@@ -21,6 +21,10 @@ const INTERNALERRORCODE =
 };
 Object.freeze(INTERNALERRORCODE);
 
+function switchPage(newPage) {
+    $(".page").hide();
+    $(newPage).show();
+}
 function identifyModule(button, cellid) {
     $.getJSON("identifyModule.json", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
@@ -698,10 +702,10 @@ function queryBMS() {
 
         }//end homepage visible
 
+        $("#homePage").css({ opacity: 1.0 });
+        $("#loading").hide();
         //Call again in a few seconds
         setTimeout(queryBMS, 4000);
-
-        $("#loading").hide();
 
     }).fail(function () {
         $("#iperror").show();
@@ -721,7 +725,6 @@ $(window).on('resize', function () {
 $(function () {
     $("#loading").show();
     $("#avrprogconfirm").hide();
-
 
     //Populate all the setting rules with relay select lists
     $.each($(".settings table tbody tr td:empty"), function (index, value) {
@@ -779,15 +782,14 @@ $(function () {
     $("#home").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
-        $(".page").hide();
-        $("#homePage").show();
+        switchPage("#homePage");
         return true;
     });
 
     $("#about").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
-        $(".page").hide();
+        switchPage("#aboutPage");
 
         $.getJSON("settings.json",
             function (data) {
@@ -795,7 +797,6 @@ $(function () {
                 $("#FreeHeap").html(data.settings.FreeHeap);
                 $("#HeapSize").html(data.settings.HeapSize);
                 $("#HostName").html("<a href='http://" + data.settings.HostName + "'>" + data.settings.HostName + "</a>");
-                $("#aboutPage").show();
             }).fail(function () { }
             );
 
@@ -807,12 +808,12 @@ $(function () {
 
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
-        $(".page").hide();
-
         //Remove existing table
         $("#modulesRows").find("tr").remove();
 
         $("#settingConfig").hide();
+
+        switchPage("#modulesPage");
 
         $.getJSON("settings.json",
             function (data) {
@@ -829,12 +830,14 @@ $(function () {
         $(".header-right a").removeClass("active");
         $("#loading").show();
         $(this).addClass("active");
-        $(".page").hide();
+
         $("#modbusPage").hide();
         $("#modbusConfig").hide();
 
         //Remove existing table
         $("#modbusRows").find("tr").remove();
+
+        switchPage("#modbusPage");
 
         var tbody = $("#modbusRows");
 
@@ -857,8 +860,6 @@ $(function () {
         }).fail(function () { }
         );
 
-        $("#modbusPage").show();
-
         return true;
     });
 
@@ -866,13 +867,14 @@ $(function () {
     $("#settings").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
-        $(".page").hide();
 
         $("#banksForm").hide();
         $("#settingsPage").show();
 
         $("#VoltageHigh").val(DEFAULT_GRAPH_MAX_VOLTAGE.toFixed(2));
         $("#VoltageLow").val(DEFAULT_GRAPH_MIN_VOLTAGE.toFixed(2));
+
+        switchPage("#settingsPage");
 
         $.getJSON("settings.json",
             function (data) {
@@ -899,10 +901,10 @@ $(function () {
     $("#rules").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
-        $(".page").hide();
 
         $("#rulesForm").hide();
-        $("#rulesPage").show();
+
+        switchPage("#rulesPage");
 
         $.getJSON("rules.json",
             function (data) {
@@ -967,8 +969,8 @@ $(function () {
     $("#integration").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
-        $(".page").hide();
-        $("#integrationPage").show();
+
+        switchPage("#integrationPage");
 
         $("#mqttForm").hide();
         $("#influxForm").hide();
@@ -1029,11 +1031,12 @@ $(function () {
         });
     });
 
+
+
     $("#storage").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
-        $(".page").hide();
-        $("#storagePage").show();
+        switchPage("#storagePage");
 
         $.getJSON("storage.json",
             function (data) {
@@ -1080,13 +1083,14 @@ $(function () {
 
                 $("#avrprog").empty();
                 $("#avrprogconfirm").hide();
+                $("#selectedavrindex").val("");
                 if (data.storage.avrprog.avrprog) {
                     $.each(data.storage.avrprog.avrprog, function (index, value) {
 
-                        var li=document.createElement("li");
+                        var li = document.createElement("li");
                         $("#avrprog").append(li);
 
-                        var aref=$("<a href='#' data-index='" + index + "'>" + value.board + " (" + value.ver + ")</a>").on("click",
+                        var aref = $("<a href='#' data-index='" + index + "'>" + value.board + " (" + value.ver + ")</a>").on("click",
 
                             function (event) {
                                 event.preventDefault();
