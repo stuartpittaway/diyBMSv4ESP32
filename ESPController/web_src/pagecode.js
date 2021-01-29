@@ -21,9 +21,11 @@ const INTERNALERRORCODE =
 };
 Object.freeze(INTERNALERRORCODE);
 
+
 function switchPage(newPage) {
     $(".page").hide();
     $(newPage).show();
+    $("#myNav").height("0%");
 }
 function identifyModule(button, cellid) {
     $.getJSON("identifyModule.json", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
@@ -726,6 +728,18 @@ $(function () {
     $("#loading").show();
     $("#avrprogconfirm").hide();
 
+    $("#more").on("click"
+        , function (e) {
+            e.preventDefault();
+            $("#myNav").height("90%");
+        });
+
+    $("#closebtn").on("click"
+        , function (e) {
+            e.preventDefault();
+            $("#myNav").height("0%");
+        });
+
     //Populate all the setting rules with relay select lists
     $.each($(".settings table tbody tr td:empty"), function (index, value) {
         $.each([1, 2, 3, 4], function (index1, relay) {
@@ -1032,6 +1046,43 @@ $(function () {
     });
 
 
+    
+    $("#avrprogrammer").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        switchPage("#avrprogPage");
+
+        $.getJSON("storage.json",
+            function (data) {
+                $("#avrprog").empty();
+                $("#avrprogconfirm").hide();
+                $("#selectedavrindex").val("");
+                if (data.storage.avrprog.avrprog) {
+                    $.each(data.storage.avrprog.avrprog, function (index, value) {
+
+                        var li = document.createElement("li");
+                        $("#avrprog").append(li);
+
+                        var aref = $("<a href='#' data-index='" + index + "'>" + value.board + " (" + value.ver + ")</a>").on("click",
+
+                            function (event) {
+                                event.preventDefault();
+                                $("#avrprogconfirm").show();
+                                $("#selectedavrindex").val($(this).data("index"));
+                            }
+                        );
+
+                        $(li).appendTo()
+                        $(li).append(aref);
+                    });
+                }
+            }).fail(function () { }
+            );
+
+        return true;
+    });
+
+
 
     $("#storage").click(function () {
         $(".header-right a").removeClass("active");
@@ -1080,30 +1131,6 @@ $(function () {
                         }
                     });
                 }
-
-                $("#avrprog").empty();
-                $("#avrprogconfirm").hide();
-                $("#selectedavrindex").val("");
-                if (data.storage.avrprog.avrprog) {
-                    $.each(data.storage.avrprog.avrprog, function (index, value) {
-
-                        var li = document.createElement("li");
-                        $("#avrprog").append(li);
-
-                        var aref = $("<a href='#' data-index='" + index + "'>" + value.board + " (" + value.ver + ")</a>").on("click",
-
-                            function (event) {
-                                event.preventDefault();
-                                $("#avrprogconfirm").show();
-                                $("#selectedavrindex").val($(this).data("index"));
-                            }
-                        );
-
-                        $(li).appendTo()
-                        $(li).append(aref);
-                    });
-                }
-
 
             }).fail(function () { }
             );

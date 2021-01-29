@@ -21,6 +21,21 @@
 
 <body>
     <div id="loading"><img src="wait.png" width="64" height="64" alt="Please wait" /></div>
+
+    <div id="myNav" class="overlay">
+        <!-- Button to close the overlay navigation -->
+        <a id="closebtn" href="#" class="closebtn">&times;</a>
+
+        <!-- Overlay content -->
+        <div class="overlay-content">
+            <a id="modbus" href="#modbus">Modbus</a>
+            <a id="integration" href="#integration">Integration</a>
+            <a id="storage" href="#storage">Storage</a>
+            <a id="avrprogrammer" href="#avrprogrammer">AVR Programmer</a>
+            <a id="about" href="#about">About</a>
+        </div>
+    </div>
+
     <div class="header">
         <div class="logocontainer"><img class="logo" src="logo.png" width="152" height="48" alt="DIYBMS" /></div>
         <div class="header-right">
@@ -28,12 +43,10 @@
             <a id="modules" href="#modules">Modules</a>
             <a id="settings" href="#settings">Settings</a>
             <a id="rules" href="#rules">Rules</a>
-            <a id="modbus" href="#modbus">Modbus</a>
-            <a id="integration" href="#integration">Integration</a>
-            <a id="storage" href="#storage">Storage</a>
-            <a id="about" href="#about">About</a>
+            <a id="more" href="#">More</a>
         </div>
     </div>
+
     <div class="flexgrid">
         <div id='error1' class='error'>The controller is having difficulty communicating with the cell monitoring
             modules.</div>
@@ -690,6 +703,30 @@
         </div>
     </div>
 
+    <div class="page" id="avrprogPage">
+        <h1>AVR Programmer</h1>
+        <div class="region">
+            <p>Controller can program modules and devices using the files below.</p>
+            <ul id="avrprog">
+
+            </ul>
+            <div id="avrprogconfirm">
+                <input type="hidden" value="" id="selectedavrindex" />
+                <img class="warnicon" src="warning.png" width="48" height="41" alt="Warning" />
+                <ul>
+                    <li>Ensure you disconnect all battery and communication cables from the module/device before
+                        programming.</li>
+                    <li>Connect the module to the ISP port on the controller using a ribbon cable, ensure the notch
+                        is aligned with pin 1 on the module.</li>
+                    <li>Click 'Program Device' to start programming</li>
+                </ul>
+
+                <button type="button" id="ProgAVR">Program Device</button>
+                <button type="button" id="ProgAVRCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <div class="page" id="storagePage">
         <h1>Storage</h1>
         <div class="region">
@@ -709,27 +746,7 @@
                     id="flash_total"></span>KiB</p>
             <ul id="flashfiles"></ul>
         </div>
-        <div class="region">
-            <h2>AVR Programmer</h2>
-            <p>Controller can program modules using the files below.</p>
-            <ul id="avrprog">
-
-            </ul>
-            <div id="avrprogconfirm">
-                <input type="hidden" value="" id="selectedavrindex" />
-                <img class="warnicon" src="warning.png" width="48" height="41" alt="Warning" />
-                    <ul>
-                        <li>Ensure you disconnect all battery and communication cables from the module/device before
-                            programming.</li>
-                        <li>Connect the module to the ISP port on the controller using a ribbon cable, ensure the notch
-                            is aligned with pin 1 on the module.</li>
-                        <li>Click 'Program Device' to start programming</li>
-                    </ul>
-                
-                <button type="button" id="ProgAVR">Program Device</button>
-                <button type="button" id="ProgAVRCancel">Cancel</button>
-            </div>
-        </div>
+       
         <div class="region">
             <h2>Logging</h2>
             <p>Cell data and output states can be stored as log files using an SD card.</p>
