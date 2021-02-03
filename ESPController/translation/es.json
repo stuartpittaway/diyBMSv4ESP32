@@ -90,7 +90,7 @@
         },
         {
             "pattern": "(?:id=\"home\"[^>]+>)([^<]+)",
-            "replacement": "Página principal"
+            "replacement": "Inicio"
         },
         {
             "pattern": "(?:id=\"modules\"[^>]+>)([^<]+)",
