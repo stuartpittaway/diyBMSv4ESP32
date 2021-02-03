@@ -1,0 +1,232 @@
+{
+    "match": [
+        {
+            "pattern": "(?:<title>)(?P<text>[^<]+)(?:<)",
+            "replacement": "DIY BMS CONTROLLER v4"
+        },
+        {
+            "pattern": "(?<=id=\\\"lang\\\">)([\\S]+)(?=<\\/span>)",
+            "replacement": "language"
+        },
+        {
+            "pattern": "(?:id=\"warning1\"[^>]+>)([^<]+)",
+            "replacement": "Warning: Module bypass voltage is different to global setting"
+        },
+        {
+            "pattern": "(?:id=\"warning2\"[^>]+>)([^<]+)",
+            "replacement": "Warning: Module bypass temperature is different to global setting"
+        },
+        {
+            "pattern": "(?:id=\"warning3\"[^>]+>)([^<]+)",
+            "replacement": "Warning: Modules have mixed versions of code, may cause instability"
+        },
+        {
+            "pattern": "(?:id=\"warning4\"[^>]+>)([^<]+)",
+            "replacement": "Warning: Modules have mixed versions of hardware/boards"
+        },
+        {
+            "pattern": "(?:id=\"warning5\"[^>]+>)([^<]+)",
+            "replacement": "Warning: Logging enabled but SD card not installed/found"
+        },
+        {
+            "pattern": "(?:id=\"genericwarning\"[^>]+>)([^<]+)",
+            "replacement": "Controller warning "
+        },
+        {
+            "pattern": "(?:id=\"error1\"[^>]+>)([^<]+)",
+            "replacement": "The controller is having difficulty communicating with the cell monitoring modules."
+        },
+        {
+            "pattern": "(?:id=\"error3\"[^>]+>)([^<]+)",
+            "replacement": "Controller is configured to use more modules than it can cope with."
+        },
+        {
+            "pattern": "(?:id=\"error4\"[^>]+>)([^<]+)",
+            "replacement": "Waiting for modules to reply"
+        },
+        {
+            "pattern": "(?:id=\"error5\"[^>]+>)([^<]+)",
+            "replacement": "Module has returned ZERO volt reading, check configuration"
+        },
+        {
+            "pattern": "(?:id=\"error6\"[^>]+>)([^<]+)",
+            "replacement": "Controller has run out of memory."
+        },
+        {
+            "pattern": "(?:id=\"iperror\"[^>]+>)([^<]+)",
+            "replacement": "Cannot communicate with the controller for status updates."
+        },
+        {
+            "pattern": "(?:id=\"genericerror\"[^>]+>)([^<]+)",
+            "replacement": "Controller error "
+        },
+        {
+            "pattern": "(?:id=\"jslibrary\"[^>]+>)([^<]+)",
+            "replacement": "Javascript library has failed to load correctly, please refresh page."
+        },
+        {
+            "pattern": "(?:id=\"saveerror\"[^>]+>)([^<]+)",
+            "replacement": "Failed to save settings."
+        },
+        {
+            "pattern": "(?:id=\"savesuccess\"[^>]+>)([^<]+)",
+            "replacement": "Settings saved"
+        },
+        {
+            "pattern": "(?:id=\"integration\"[^>]+>)([^<]+)",
+            "replacement": "Integration"
+        },
+        {
+            "pattern": "(?:id=\"storage\"[^>]+>)([^<]+)",
+            "replacement": "Storage"
+        },
+        {
+            "pattern": "(?:id=\"avrprogrammer\"[^>]+>)([^<]+)",
+            "replacement": "AVR Programmer"
+        },
+        {
+            "pattern": "(?:id=\"about\"[^>]+>)([^<]+)",
+            "replacement": "About"
+        },
+        {
+            "pattern": "(?:id=\"home\"[^>]+>)([^<]+)",
+            "replacement": "Home"
+        },
+        {
+            "pattern": "(?:id=\"modules\"[^>]+>)([^<]+)",
+            "replacement": "Modules"
+        },
+        {
+            "pattern": "(?:id=\"settings\"[^>]+>)([^<]+)",
+            "replacement": "Settings"
+        },
+        {
+            "pattern": "(?:id=\"rules\"[^>]+>)([^<]+)",
+            "replacement": "Rules"
+        },
+        {
+            "pattern": "(?:id=\"more\"[^>]+>)([^<]+)",
+            "replacement": "More"
+        },
+        {
+            "pattern": "(?:for=\"rule1value\">)([^<]+)",
+            "replacement": "Emergency stop"
+        },
+        {
+            "pattern": "(?:for=\"rule2value\">)([^<]+)",
+            "replacement": "Internal BMS error"
+        },
+        {
+            "pattern": "(?:for=\"rule3value\">)([^<]+)",
+            "replacement": "Individual cell over voltage (mV)"
+        },
+        {
+            "pattern": "(?:for=\"rule4value\">)([^<]+)",
+            "replacement": "Cell under voltage (mV)"
+        },
+        {
+            "pattern": "(?:for=\"rule5value\">)([^<]+)",
+            "replacement": "Module over temperature (internal) \u00b0C"
+        },
+        {
+            "pattern": "(?:for=\"rule6value\">)([^<]+)",
+            "replacement": "Module under temperature (internal) \u00b0C"
+        },
+        {
+            "pattern": "(?:for=\"rule7value\">)([^<]+)",
+            "replacement": "Cell over temperature (external) \u00b0C"
+        },
+        {
+            "pattern": "(?:for=\"rule8value\">)([^<]+)",
+            "replacement": "Cell under temperature (external) \u00b0C"
+        },
+        {
+            "pattern": "(?:for=\"rule9value\">)([^<]+)",
+            "replacement": "Pack over voltage (mV)"
+        },
+        {
+            "pattern": "(?:for=\"rule10value\">)([^<]+)",
+            "replacement": "Pack under voltage (mV)"
+        },
+        {
+            "pattern": "(?:for=\"rule11value\">)([^<]+)",
+            "replacement": "Timer 2"
+        },
+        {
+            "pattern": "(?:for=\"rule12value\">)([^<]+)",
+            "replacement": "Timer 1"
+        },
+        {
+            "pattern": "(?:value=\"(Save rules)\">)",
+            "replacement": "Save rules"
+        },
+        {
+            "pattern": "(?:<h1>)(Integration)(?:<)",
+            "replacement": "Integration"
+        },
+        {
+            "pattern": "(?:<h1>)(Modules)(?:<)",
+            "replacement": "Modules"
+        },
+        {
+            "pattern": "(?:<h1>)(About)(?:<)",
+            "replacement": "About"
+        },
+        {
+            "pattern": "(?:<h1>)(Rules)(?:<)",
+            "replacement": "Rules"
+        },
+        {
+            "pattern": "(?:<h1>)(Controller Settings)(?:<)",
+            "replacement": "Controller Settings"
+        },
+        {
+            "pattern": "(?:for=\"defaultvalue\">)([^<]+)",
+            "replacement": "Relay default"
+        },
+        {
+            "pattern": "(?:for=\"relaytype\">)([^<]+)",
+            "replacement": "Relay type"
+        },
+        {
+            "pattern": "(?:<th>)(Rule)(?:</th>)",
+            "replacement": "Rule"
+        },
+        {
+            "pattern": "(?:<th>)(Trigger value)(?:</th>)",
+            "replacement": "Trigger value"
+        },
+        {
+            "pattern": "(?:<th>)(Reset value)(?:</th>)",
+            "replacement": "Reset value"
+        },
+        {
+            "pattern": "(?:<th>)(Relay state)(?:</th>)",
+            "replacement": "Relay state"
+        },
+        {
+            "pattern": "(?:id=\\\"rt1\\\">)([^<]+)(?:</p>)",
+            "replacement": "DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules allow you to configure the relays for your situation."
+        },
+        {
+            "pattern": "(?:id=\\\"rt2\\\">)([^<]+)(?:</p>)",
+            "replacement": "Rules are processed from lowest priorty to highest (bottom up). Control the relays using the options. A value of \"X\" means don't care/leave at value defined by lower priority rules."
+        },
+        {
+            "pattern": "(?:id=\\\"rt3\\\">)([^<]+)(?:</p>)",
+            "replacement": "Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will only disable when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing on/off rapidly."
+        },
+        {
+            "pattern": "(?:id=\\\"rt4\\\">)([^<]+)(?:</p>)",
+            "replacement": "'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of minutes past midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch on at 8:15am and off at 9:15am. This only works if connected to internet for regular time updates."
+        },
+        {
+            "pattern": "(?:id=\"rt5\">)([^<]+)(?:<)",
+            "replacement": "Minutes since midnight now is: "
+        },
+        {
+            "pattern": "(?:id=\"rt6\">)([^<]+)(?:<)",
+            "replacement": "Emergency stop is triggered by connector J1, once triggered controller needs to be reset to disable."
+        }
+    ]
+}

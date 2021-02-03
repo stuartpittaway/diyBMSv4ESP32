@@ -1,0 +1,12 @@
+{
+    "match": [
+        {
+            "pattern": "(?:<title>)(?P<text>[^<]+)(?:<)",
+            "replacement": "DIY BMS CONTROLLER v4 (en-gb)"
+        },
+        {
+            "pattern": "(?<=id=\\\"lang\\\">)([\\S]+)(?=<\\\/span>)",
+            "replacement": "en-gb"
+        }       
+    ]
+}
