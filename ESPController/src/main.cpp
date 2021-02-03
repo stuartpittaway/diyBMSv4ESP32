@@ -54,7 +54,6 @@ static const char *TAG = "diybms";
 #include "defines.h"
 #include "HAL_ESP32.h"
 
-
 SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
 
 #include "Modbus.h"
@@ -1466,22 +1465,14 @@ void sendMqttStatus()
   root["cells"] = mysettings.totalNumberOfSeriesModules;
   root["uptime"] = millis() / 1000; // I want to know the uptime of the device.
 
-  JsonArray bankVoltage = root.createNestedArray("bankVoltage");
-  for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
-  {
-    bankVoltage.add((float)rules.packvoltage[bank] / (float)1000.0);
-  }
-
-  JsonObject monitor = root.createNestedObject("monitor");
-
   // Set error flag if we have attempted to send 2*number of banks without a reply
-  monitor["commserr"] = receiveProc.HasCommsTimedOut() ? 1 : 0;
-  monitor["sent"] = prg.packetsGenerated;
-  monitor["received"] = receiveProc.packetsReceived;
-  monitor["badcrc"] = receiveProc.totalCRCErrors;
-  monitor["ignored"] = receiveProc.totalNotProcessedErrors;
-  monitor["oos"] = receiveProc.totalOutofSequenceErrors;
-  monitor["roundtrip"] = receiveProc.packetTimerMillisecond;
+  root["commserr"] = receiveProc.HasCommsTimedOut() ? 1 : 0;
+  root["sent"] = prg.packetsGenerated;
+  root["received"] = receiveProc.packetsReceived;
+  root["badcrc"] = receiveProc.totalCRCErrors;
+  root["ignored"] = receiveProc.totalNotProcessedErrors;
+  root["oos"] = receiveProc.totalOutofSequenceErrors;
+  root["roundtrip"] = receiveProc.packetTimerMillisecond;
 
   serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
   sprintf(topic, "%s/status", mysettings.mqtt_topic);
@@ -1490,6 +1481,21 @@ void sendMqttStatus()
   ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
 //SERIAL_DEBUG.print("MQTT - ");SERIAL_DEBUG.print(topic);  SERIAL_DEBUG.print('=');  SERIAL_DEBUG.println(jsonbuffer);
 #endif
+
+  //Output bank level information (just voltage for now)
+  for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
+  {
+    doc.clear();
+    doc["voltage"] = (float)rules.packvoltage[bank] / (float)1000.0;
+
+    serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+    sprintf(topic, "%s/bank/%d", mysettings.mqtt_topic, bank);
+    mqttClient.publish(topic, 0, false, jsonbuffer);
+#if defined(MQTT_LOGGING)
+    ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+//SERIAL_DEBUG.print("MQTT - ");SERIAL_DEBUG.print(topic);  SERIAL_DEBUG.print('=');  SERIAL_DEBUG.println(jsonbuffer);
+#endif
+  }
 
   //Using Json for below reduced MQTT messages from 14 to 2. Could be combined into same json object too. But even better is status + event driven.
   doc.clear(); // Need to clear the json object for next message
@@ -2263,7 +2269,7 @@ TEST CAN BUS
   hal.ConfigureVSPI();
   init_tft_display();
 
-    //Init the touch screen
+  //Init the touch screen
   touchscreen.begin(hal.vspi);
   touchscreen.setRotation(3);
 
