@@ -97,13 +97,16 @@
     <div class="page" id="aboutPage">
         <h1>About</h1>
         <div class="region">
-            <h2>Source Code</h2>
-            <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer"
-                target="_blank">https://github.com/stuartpittaway/diyBMSv4</a>
+            <h2>Source Code &amp; Hardware</h2>
+            <p>Code:<a href="https://github.com/stuartpittaway/diyBMSv4code" rel="noreferrer"
+                    target="_blank">https://github.com/stuartpittaway/diyBMSv4code</a></p>
+            <p>Hardware: <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer"
+                    target="_blank">https://github.com/stuartpittaway/diyBMSv4</a></p>
         </div>
         <div class="region">
             <h2>Videos</h2>
-            <a href="https://www.youtube.com/stuartpittaway" rel="noreferrer" target="_blank">YouTube videos on
+            <a href="https://youtube.com/playlist?list=PLHhwQCDPuRcZW3u0jJucsiCCsUbNbMy-c" rel="noreferrer"
+                target="_blank">YouTube videos on
                 installation and configuration</a>
         </div>
         <div class="region">
@@ -406,21 +409,26 @@
     <div class="page" id="rulesPage">
         <h1>Rules</h1>
         <div class="region">
-            <p id="rt1">DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules allow you
+            <p id="rt1">DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules
+                allow you
                 to configure the relays for your situation.</p>
-            <p id="rt2">Rules are processed from lowest priorty to highest (bottom up). Control the relays using the options. A
+            <p id="rt2">Rules are processed from lowest priorty to highest (bottom up). Control the relays using the
+                options. A
                 value of "X" means
                 don't care/leave at value defined by lower priority rules.</p>
-            <p id="rt3">Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will only
+            <p id="rt3">Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will
+                only
                 disable
                 when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing
                 on/off
                 rapidly.</p>
-            <p id="rt4">'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of minutes past
+            <p id="rt4">'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of
+                minutes past
                 midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch
                 on at 8:15am and off at 9:15am. This only works if connected to internet for regular time updates.</p>
             <p id="rt5">Minutes since midnight now is: <span id='minutesnow'></span></p>
-            <p id="rt6">Emergency stop is triggered by connector J1, once triggered controller needs to be reset to disable.</p>
+            <p id="rt6">Emergency stop is triggered by connector J1, once triggered controller needs to be reset to
+                disable.</p>
         </div>
         <div class="region">
             <form id="rulesForm" method="POST" action="saverules.json" autocomplete="off">
