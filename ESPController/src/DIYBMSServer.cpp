@@ -42,6 +42,8 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #include <LITTLEFS.h>
 #include "SD.h"
 
+#include "avrisp_programmer.h"
+
 AsyncWebServer *DIYBMSServer::_myserver;
 String DIYBMSServer::UUIDString;
 
@@ -86,7 +88,7 @@ String DIYBMSServer::uuidToString(uint8_t *uuidLocation)
 void DIYBMSServer::generateUUID()
 {
   //SERIAL_DEBUG.print("generateUUID=");
-  byte uuidNumber[16]; // UUIDs in binary form are 16 bytes long
+  uint8_t uuidNumber[16]; // UUIDs in binary form are 16 bytes long
 
   //ESP32 has inbuilt random number generator
   //https://techtutorialsx.com/2017/12/22/esp32-arduino-random-number-generation/
@@ -133,6 +135,153 @@ void DIYBMSServer::SendSuccess(AsyncWebServerRequest *request)
 void DIYBMSServer::SendFailure(AsyncWebServerRequest *request)
 {
   request->send(500, "text/plain", "Failed");
+}
+
+void DIYBMSServer::avrProgrammer(AsyncWebServerRequest *request)
+{
+
+  uint8_t efuse = 0xF4;
+  uint8_t hfuse = 0xD6;
+  uint8_t lfuse = 0x62;
+  uint32_t mcu = 0;
+  size_t programsize = 0;
+  uint8_t program[8192];
+
+  memset(program, 0, sizeof(program));
+
+  if (!validateXSS(request))
+    return;
+
+  uint16_t filenumber;
+
+  if (request->hasParam("file", true))
+  {
+    AsyncWebParameter *filenumberparam = request->getParam("file", true);
+    filenumber = filenumberparam->value().toInt();
+  }
+  else
+  {
+    SendFailure(request);
+    return;
+  }
+
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+  StaticJsonDocument<500> doc;
+
+  if (_sd_card_installed)
+  {
+    doc["message"] = "Failed: Unable to program AVR whilst SD Card is mounted. Unmount it first.";
+    serializeJson(doc, *response);
+    request->send(response);
+    return;
+  }
+
+  String manifestfilename = String("/avr/manifest.json");
+
+  if (LITTLEFS.exists(manifestfilename))
+  {
+    StaticJsonDocument<3000> jsonmanifest;
+    File file = LITTLEFS.open(manifestfilename);
+    DeserializationError error = deserializeJson(jsonmanifest, file);
+    if (error != DeserializationError::Ok)
+    {
+      ESP_LOGE(TAG, "Error deserialize Json");
+      SendFailure(request);
+      return;
+    }
+    else
+    {
+      // File open
+      //ESP_LOGI(TAG, "Loaded manifest.json");
+
+      JsonArray toplevel = jsonmanifest["avrprog"];
+
+      int arraySize = jsonmanifest["avrprog"].size();
+
+      if (filenumber > arraySize)
+      {
+        ESP_LOGE(TAG, "Index outsize array %i > %i", filenumber, arraySize);
+        SendFailure(request);
+        return;
+      }
+
+      JsonObject x = toplevel[filenumber];
+
+      //serializeJsonPretty(x, SERIAL_DEBUG);
+
+      efuse = strtoul(x["efuse"].as<String>().c_str(), nullptr, 16);
+      hfuse = strtoul(x["hfuse"].as<String>().c_str(), nullptr, 16);
+      lfuse = strtoul(x["lfuse"].as<String>().c_str(), nullptr, 16);
+      mcu = strtoul(x["mcu"].as<String>().c_str(), nullptr, 16);
+
+      String avrfilename = String("/avr/") + x["name"].as<String>();
+
+      ESP_LOGI(TAG, "AVR setting e=%02X h=%02X l=%02X mcu=%08X  %s", efuse, hfuse, lfuse, mcu, avrfilename.c_str());
+
+      //Now we load the file into program array
+      if (LITTLEFS.exists(avrfilename) == false)
+      {
+        ESP_LOGE(TAG, "AVR file not found %s", avrfilename.c_str());
+        SendFailure(request);
+        return;
+      }
+
+      File binaryfile = LITTLEFS.open(avrfilename);
+      programsize = binaryfile.readBytes((char *)program, sizeof(program));
+      binaryfile.close();
+      ESP_LOGI(TAG, "Read %i bytes", programsize);
+    }
+    file.close();
+  }
+  else
+  {
+    //No files!
+    SendFailure(request);
+    return;
+  }
+
+  //Reserve the SPI bus for programming purposes
+  if (_hal->GetVSPIMutex())
+  {
+    _hal->SwapGPIO0ToOutput();
+
+    //This will block for the 6 seconds it takes to program ATTINY841...
+    //although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
+
+    uint32_t starttime = millis();
+    AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&(_hal->vspi), GPIO_NUM_0, false, VSPI_SCK);
+
+    ESP_LOGI(TAG, "Programming AVR");
+    AVRISP_PROGRAMMER_RESULT progresult = isp.ProgramAVRDevice(mcu, programsize, program, lfuse, hfuse, efuse);
+
+    uint32_t endtime = millis();
+
+    _hal->ConfigureVSPI();
+    _hal->ReleaseVSPIMutex();
+
+    char message[128];
+
+    if (progresult == AVRISP_PROGRAMMER_RESULT::SUCCESS)
+    {
+      sprintf(message, "Programming complete, duration %ums, %i bytes", endtime - starttime, programsize);
+      ESP_LOGI(TAG, "%s", message);
+    }
+    else
+    {
+      sprintf(message, "Programming failed, reason %i", (int)progresult);
+      ESP_LOGE(TAG, "%s", message);
+    }
+
+    doc["result"] = (int)progresult;
+    doc["message"] = message;
+  }
+  else
+  {
+    doc["message"] = "Failed: Unable to obtain Mutex";
+  }
+
+  serializeJson(doc, *response);
+  request->send(response);
 }
 
 void DIYBMSServer::sdMount(AsyncWebServerRequest *request)
@@ -330,8 +479,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
       if (request->hasParam(name, true))
       {
         AsyncWebParameter *p1 = request->getParam(name, true);
-        _mysettings->rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RelayState::RELAY_ON
-                                                                                                            : RelayState::RELAY_OFF;
+        _mysettings->rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RelayState::RELAY_ON : RelayState::RELAY_OFF;
       }
     }
 
@@ -784,6 +932,42 @@ void DIYBMSServer::fileSystemListDirectory(AsyncResponseStream *response, fs::FS
   response->print("null");
 }
 
+void DIYBMSServer::avrstorage(AsyncWebServerRequest *request)
+{
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+
+  //See if we can open and process the AVR PROGRAMMER manifest file
+  response->print("{\"avrprog\":");
+  String manifest = String("/avr/manifest.json");
+  if (LITTLEFS.exists(manifest))
+  {
+    StaticJsonDocument<3000> doc;
+    File file = LITTLEFS.open(manifest);
+    DeserializationError error = deserializeJson(doc, file);
+    if (error)
+    {
+      ESP_LOGE(TAG, "Error deserialize Json");
+      response->print("{}");
+    }
+    else
+    {
+      serializeJson(doc, *response);
+    }
+    file.close();
+  }
+  else
+  {
+    //No files!
+    response->print("{}");
+  }
+
+  //The END...
+  response->print('}');
+
+  response->addHeader("Cache-Control", "no-store");
+  request->send(response);
+}
+
 void DIYBMSServer::storage(AsyncWebServerRequest *request)
 {
   sdcard_info info;
@@ -819,10 +1003,13 @@ void DIYBMSServer::storage(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"used\":", info.usedkilobytes);
   response->print("\"files\":[");
   //File listing goes here
-  if (_hal->GetVSPIMutex())
+  if (info.available)
   {
-    fileSystemListDirectory(response, SD, "/", 2);
-    _hal->ReleaseVSPIMutex();
+    if (_hal->GetVSPIMutex())
+    {
+      fileSystemListDirectory(response, SD, "/", 2);
+      _hal->ReleaseVSPIMutex();
+    }
   }
   response->print(']');
 
@@ -834,26 +1021,6 @@ void DIYBMSServer::storage(AsyncWebServerRequest *request)
   fileSystemListDirectory(response, LITTLEFS, "/", 0);
   response->print(']');
   response->print("}");
-
-  //See if we can open and process the AVR PROGRAMMER manifest file
-  response->print(",\"avrprog\":");
-  String manifest = String("/avr/manifest.json");
-  if (LITTLEFS.exists(manifest))
-  {
-    StaticJsonDocument<3000> doc;
-    File file = LITTLEFS.open(manifest);
-    DeserializationError error = deserializeJson(doc, file);
-    if (error)
-    {
-      ESP_LOGE(TAG, "Error deserialize Json");
-      response->print("{}");
-    }
-    else
-    {
-      serializeJson(doc, *response);
-    }
-    file.close();
-  }
 
   //The END...
   response->print('}');
@@ -1752,6 +1919,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->on("/settings.json", HTTP_GET, DIYBMSServer::settings);
   _myserver->on("/rules.json", HTTP_GET, DIYBMSServer::GetRules);
   _myserver->on("/storage.json", HTTP_GET, DIYBMSServer::storage);
+  _myserver->on("/avrstorage.json", HTTP_GET, DIYBMSServer::avrstorage);
 
   _myserver->on("/modbus.json", HTTP_GET, DIYBMSServer::modbus);
   _myserver->on("/modbusVal.json", HTTP_GET, DIYBMSServer::modbusVal);
@@ -1776,6 +1944,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/sdmount.json", HTTP_POST, DIYBMSServer::sdMount);
   _myserver->on("/sdunmount.json", HTTP_POST, DIYBMSServer::sdUnmount);
+
+  _myserver->on("/avrprog.json", HTTP_POST, DIYBMSServer::avrProgrammer);
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();

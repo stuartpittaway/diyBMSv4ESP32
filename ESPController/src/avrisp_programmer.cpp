@@ -1,10 +1,50 @@
+/*
+(c)2021 Stuart Pittaway
+
+LICENSE
+Attribution-NonCommercial-ShareAlike 2.0 UK: England & Wales (CC BY-NC-SA 2.0 UK)
+https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
+
+* Non-Commercial — You may not use the material for commercial purposes.
+* Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made.
+  You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+* ShareAlike — If you remix, transform, or build upon the material, you must distribute your   contributions under the same license as the original.
+* No additional restrictions — You may not apply legal terms or technological measures that legally restrict others from doing anything the license permits.
+*/
+
 #include "avrisp_programmer.h"
+#include <esp_task_wdt.h>
+
+void AVRISP_PROGRAMMER::avr_reset_target(bool reset)
+{
+    digitalWrite(_resetGPIO, ((reset && _resetActiveHigh) || (!reset && !_resetActiveHigh)) ? HIGH : LOW);
+}
+
+//Returns the 4th byte of the SPI transfer
+uint8_t AVRISP_PROGRAMMER::TransferByte4(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
+{
+    _spi->transfer(a);
+    _spi->transfer(b);
+    _spi->transfer(c);
+    return _spi->transfer(d);
+}
+
+//Returns the result of the 3rd byte (used for checking programming mode)
+uint8_t AVRISP_PROGRAMMER::TransferByte3(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
+{
+    _spi->transfer(a);
+    _spi->transfer(b);
+    uint8_t replyc = _spi->transfer(c);
+    _spi->transfer(d);
+    return replyc;
+}
 
 AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, uint32_t byteLength, const uint8_t *dataToProgram, uint8_t fuse, uint8_t fusehigh, uint8_t fuseext)
 {
     //May need a slower frequency for different devices
-    _freq = 1000000 / 2;
-    
+    //200khz
+    _freq = 1000000 / 5;
+
     //ATTINY841
     if (deviceid == 0x1e9315)
     {
@@ -36,7 +76,6 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
         NUMBER_OF_PAGES = 256;
     }
 
-    
     _spi->setFrequency(_freq);
     _spi->beginTransaction(SPISettings(_freq, MSBFIRST, SPI_MODE0));
 
@@ -55,7 +94,6 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
 
     if (programmingreply != 0x53)
     {
-        //SERIAL_DEBUG.println("** Start programming mode failed **");
         return AVRISP_PROGRAMMER_RESULT::FAILED_ENTER_PROG_MODE;
     }
 
@@ -87,6 +125,9 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
     //uint16_t page = current_page(here, 16);
     while (byteCounter < byteLength)
     {
+        //Feed the watchdog a bone every page to avoid WDT errors
+        esp_task_wdt_reset();
+
         //SERIAL_DEBUG.printf("%.4X", x);
         //SERIAL_DEBUG.print(' ');
 
@@ -146,6 +187,12 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
     byteCounter = 0;
     for (size_t wordPtr = 0; wordPtr < NUMBER_OF_PAGES * PAGE_SIZE_WORDS; wordPtr++)
     {
+        if (wordPtr % PAGE_SIZE_WORDS == 0)
+        {
+            //Feed the watchdog a bone every page to avoid WDT errors
+            esp_task_wdt_reset();
+        }
+
         /*
             if (i % 8 == 0)
             {

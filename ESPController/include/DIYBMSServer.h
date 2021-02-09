@@ -86,6 +86,7 @@ private:
     static void resetCounters(AsyncWebServerRequest *request);
     static void handleRestartController(AsyncWebServerRequest *request);
     static void storage(AsyncWebServerRequest *request);
+    static void avrstorage(AsyncWebServerRequest *request);
 
     static void modbus(AsyncWebServerRequest *request);
     static void modbusVal(AsyncWebServerRequest *request);
@@ -105,6 +106,7 @@ private:
 
     static void sdMount(AsyncWebServerRequest *request);
     static void sdUnmount(AsyncWebServerRequest *request);
+    static void avrProgrammer(AsyncWebServerRequest *request);
 
     static String uuidToString(uint8_t *uuidLocation);
     static void SetCacheAndETagGzip(AsyncWebServerResponse *response, String ETag);

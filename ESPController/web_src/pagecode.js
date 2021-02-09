@@ -724,6 +724,9 @@ $(window).on('resize', function () {
     if (g2 != null && g2 != undefined && $('#homePage').is(':visible')) { g2.resize(); }
 });
 
+
+
+
 $(function () {
     $("#loading").show();
     $("#avrprogconfirm").hide();
@@ -1045,20 +1048,54 @@ $(function () {
         });
     });
 
+    $("#ProgAVRCancel").click(function () {
+        $("#avrprogconfirm").hide();
+        $("#avrinfo").empty();
 
-    
+        return true;
+    });
+
+    $("#ProgAVR").click(function () {
+        $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
+        $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
+        $("#avrinfo").empty();
+
+
+        $.ajax({
+            type: 'post',
+            url: 'avrprog.json',
+            data: { file: $("#selectedavrindex").val() },
+            //Wait up to 30 seconds
+            timeout: 30000
+        })
+            .done(
+                function (data) {
+                    $("#avrinfo").html(data.message);
+                })
+            .fail(function (data) {
+                $("#avrinfo").html("Failed");
+            })
+            .always(function (data) {
+                $("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
+                $("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+            });
+
+        return true;
+    });
+
+
     $("#avrprogrammer").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
         switchPage("#avrprogPage");
 
-        $.getJSON("storage.json",
+        $.getJSON("avrstorage.json",
             function (data) {
                 $("#avrprog").empty();
                 $("#avrprogconfirm").hide();
                 $("#selectedavrindex").val("");
-                if (data.storage.avrprog.avrprog) {
-                    $.each(data.storage.avrprog.avrprog, function (index, value) {
+                if (data.avrprog.avrprog) {
+                    $.each(data.avrprog.avrprog, function (index, value) {
 
                         var li = document.createElement("li");
                         $("#avrprog").append(li);

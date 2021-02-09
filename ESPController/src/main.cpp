@@ -62,9 +62,7 @@ ModbusInfo ModBus[MODBUS_NUM];
 ModbusVal ModBusVal[MODBUS_NUM];
 
 #include "Rules.h"
-#include "avrisp_programmer.h"
 
-//void InitModbus();
 
 void setModbus(int dev, uint8_t addr, uint32_t min, uint32_t max, uint16_t reg, char *name, char *unit, char *desc);
 void setModbusName(int dev, char *cp) { strncpy(ModBus[dev].name, cp, MODBUS_NAME_LEN); }
@@ -237,7 +235,7 @@ void sdcardlog_task(void *param)
       vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
-    if (_sd_card_installed && mysettings.loggingEnabled && ControlState == ControllerState::Running)
+    if (_sd_card_installed && mysettings.loggingEnabled && ControlState == ControllerState::Running && hal.IsVSPIMutexAvailable())
     {
       //ESP_LOGD(TAG, "sdcardlog_task");
 
@@ -263,7 +261,6 @@ void sdcardlog_task(void *param)
           {
             //Open existing file (assumes there is enough SD card space to log)
             file = SD.open(filename, FILE_APPEND);
-
             //ESP_LOGD(TAG, "Open log %s", filename);
           }
           else
@@ -278,7 +275,7 @@ void sdcardlog_task(void *param)
               File file = SD.open(filename, FILE_WRITE);
               if (file)
               {
-                //ESP_LOGD(TAG, "Create log %s", filename);
+                ESP_LOGI(TAG, "Create log %s", filename);
 
                 file.print("DateTime,");
 
@@ -1329,8 +1326,9 @@ SD CARD TEST
 
   hal.GetVSPIMutex();
   // Initialize SD card
-  SD.begin(SDCARD_CHIPSELECT, hal.vspi);
-  if (SD.begin(SDCARD_CHIPSELECT))
+  //SD.begin(SDCARD_CHIPSELECT, hal.vspi);
+
+  if (SD.begin(SDCARD_CHIPSELECT, hal.vspi))
   {
     uint8_t cardType = SD.cardType();
     if (cardType == CARD_NONE)

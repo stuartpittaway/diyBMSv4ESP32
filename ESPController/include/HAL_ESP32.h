@@ -68,12 +68,21 @@ public:
     void TFTScreenBacklight(bool Status);
     void SwapGPIO0ToOutput();
 
+    bool IsVSPIMutexAvailable()
+    {
+        if (xVSPIMutex == NULL)
+            return false;
+
+        return (uxSemaphoreGetCount(xVSPIMutex) == 1);
+    }
+
     bool GetVSPIMutex()
     {
         if (xVSPIMutex == NULL)
             return false;
 
-        bool reply = (xSemaphoreTake(xVSPIMutex, (TickType_t)50) == pdTRUE);
+        //Wait 50ms max
+        bool reply = (xSemaphoreTake(xVSPIMutex, (TickType_t)50 / portTICK_PERIOD_MS) == pdTRUE);
         if (!reply)
         {
             ESP_LOGE(TAG, "Unable to get VSPI mutex");
@@ -93,7 +102,8 @@ public:
         if (xi2cMutex == NULL)
             return false;
 
-        bool reply = (xSemaphoreTake(xi2cMutex, (TickType_t)50) == pdTRUE);
+        //Wait 50ms max
+        bool reply = (xSemaphoreTake(xi2cMutex, (TickType_t)50 / portTICK_PERIOD_MS) == pdTRUE);
         if (!reply)
         {
             ESP_LOGE(TAG, "Unable to get I2C mutex");
