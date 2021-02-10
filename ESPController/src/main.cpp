@@ -1413,10 +1413,12 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   }
   else
   {
-    ESP_LOGI("mDNS responder started");
+    ESP_LOGI(TAG, "mDNS responder started");
     // Add service to MDNS-SD
     MDNS.addService("http", "tcp", 80);
   }
+
+  ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s",WiFi.getHostname())
 }
 
 void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
