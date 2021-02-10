@@ -39,16 +39,16 @@ uint8_t AVRISP_PROGRAMMER::TransferByte3(uint8_t a, uint8_t b, uint8_t c, uint8_
     return replyc;
 }
 
-AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, uint32_t byteLength, const uint8_t *dataToProgram, uint8_t fuse, uint8_t fusehigh, uint8_t fuseext)
+AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, uint32_t byteLength, File &file, uint8_t fuse, uint8_t fusehigh, uint8_t fuseext)
 {
     //May need a slower frequency for different devices
-    //100khz
+    //200khz
     _freq = 200000;
 
     WD_FLASH = pdMS_TO_TICKS(25);
     WD_ERASE = pdMS_TO_TICKS(25);
     WD_EEPROM = pdMS_TO_TICKS(25);
-    
+
     //ATTINY841
     if (deviceid == 0x1e9315)
     {
@@ -130,8 +130,13 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
     uint16_t page = 0;
     uint16_t byteCounter = 0;
 
+    //Start at first byte in file
+    file.seek(0);
+
+    //Buffer to hold stream data
+    char buffer[2];
+
     //Program page by page
-    //uint16_t page = current_page(here, 16);
     ESP_LOGI(TAG, "Chip programming");
     while (byteCounter < byteLength)
     {
@@ -146,18 +151,18 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
         {
             if (byteCounter < byteLength)
             {
-                lowbyte = dataToProgram[byteCounter];
-                byteCounter++;
-                highbyte = dataToProgram[byteCounter];
-                byteCounter++;
+                //Todo we should check this returns 2 bytes...
+                file.readBytes(buffer, 2);
+                lowbyte = buffer[0];
+                highbyte = buffer[1];
             }
             else
             {
                 //Prevent buffer overrun... Fill remaining page bytes with 0xFF
                 lowbyte = 0xFF;
                 highbyte = 0xFF;
-                byteCounter = byteCounter + 2;
             }
+            byteCounter = byteCounter + 2;
 
             //This will need modifying if pages are larger than 64 bytes
 
@@ -189,6 +194,8 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
     }
 
     //Now verify the program was written correctly...
+    //Start at first byte in file
+    file.seek(0);
 
     ESP_LOGI(TAG, "Chip verify");
     byteCounter = 0;
@@ -199,7 +206,9 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
         //Read Program Memory, Low byte
         uint8_t lowbyte = TransferByte4(0x20, MSB, LSB, 0);
 
-        if (byteCounter < byteLength && dataToProgram[byteCounter] != lowbyte)
+        file.readBytes(buffer, 2);
+
+        if (byteCounter < byteLength && buffer[0] != lowbyte)
         {
             ESP_LOGD(TAG, "L verify fail %u", byteCounter);
             return AVRISP_PROGRAMMER_RESULT::FAIL_VERIFY;
@@ -209,8 +218,7 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
 
         //Read Program Memory, High byte
         uint8_t highbyte = TransferByte4(0x28, MSB, LSB, 0);
-
-        if (byteCounter < byteLength && dataToProgram[byteCounter] != highbyte)
+        if (byteCounter < byteLength && buffer[1] != highbyte)
         {
             ESP_LOGD(TAG, "H verify fail %u", byteCounter);
             return AVRISP_PROGRAMMER_RESULT::FAIL_VERIFY;

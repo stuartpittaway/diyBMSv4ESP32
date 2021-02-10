@@ -186,7 +186,7 @@ void QueueLED(uint8_t bits)
 
 //Very wasteful of 8K of precious memory, AVR Programmer won't be used much
 //so move to malloc ?
-uint8_t program[8192];
+//uint8_t program[8192];
 
 void avrprog_task(void *param)
 {
@@ -199,7 +199,7 @@ void avrprog_task(void *param)
     avrprogramsettings *s;
     s = (avrprogramsettings *)param;
 
-    memset(program, 0, sizeof(program));
+    //memset(program, 0, sizeof(program));
 
     ESP_LOGI(TAG, "AVR setting e=%02X h=%02X l=%02X mcu=%08X file=%s", s->efuse, s->hfuse, s->lfuse, s->mcu, s->filename);
 
@@ -208,12 +208,14 @@ void avrprog_task(void *param)
     {
       File binaryfile = LITTLEFS.open(s->filename);
 
-      void *blob = pvPortMalloc(binaryfile.size());
-      vPortFree(blob);
+      //void *blob = pvPortMalloc(binaryfile.size());
+      //vPortFree(blob);
 
-      s->programsize = binaryfile.readBytes((char *)program, sizeof(program));
-      binaryfile.close();
-      ESP_LOGD(TAG, "Read %i bytes", s->programsize);
+      s->programsize = binaryfile.size();
+
+      //s->programsize = binaryfile.readBytes((char *)program, sizeof(program));
+
+      //ESP_LOGD(TAG, "Read %i bytes", s->programsize);
 
       //Reserve the SPI bus for programming purposes
       if (hal.GetVSPIMutex())
@@ -228,7 +230,7 @@ void avrprog_task(void *param)
 
         ESP_LOGI(TAG, "Programming AVR");
         //This would be much better using a stream instead of a in ram buffer
-        s->progresult = isp.ProgramAVRDevice(s->mcu, s->programsize, program, s->lfuse, s->hfuse, s->efuse);
+        s->progresult = isp.ProgramAVRDevice(s->mcu, s->programsize, binaryfile, s->lfuse, s->hfuse, s->efuse);
 
         s->duration = millis() - starttime;
 
@@ -245,6 +247,8 @@ void avrprog_task(void *param)
           //sprintf(message, "Programming failed, reason %i", (int)progresult);
           ESP_LOGE(TAG, "Failed %i", s->progresult);
         }
+
+        binaryfile.close();
       }
       else
       {
@@ -2284,13 +2288,12 @@ TEST CAN BUS
 
   //Create i2c task on CPU 0 (normal code runs on CPU 1)
   xTaskCreatePinnedToCore(i2c_task, "i2c", 2048, nullptr, 2, &i2c_task_handle, 0);
+  //High priority task as its timing sensitive
+  xTaskCreate(avrprog_task, "avrprog", 3000, &_avrsettings, 2, &avrprog_task_handle);
   xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
   xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 0, &wifiresetdisable_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 4096, nullptr, 1, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 4096, nullptr, 1, &sdcardlog_outputs_task_handle);
-
-  //High priority task as its timing sensitive
-  xTaskCreate(avrprog_task, "avrprog", 4096, &_avrsettings, 2, &avrprog_task_handle);
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));

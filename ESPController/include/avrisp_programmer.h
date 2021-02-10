@@ -17,6 +17,7 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 #include <Arduino.h>
 #include <SPI.h>
+#include "FS.h"
 
 enum AVRISP_PROGRAMMER_RESULT : uint8_t
 {
@@ -48,7 +49,7 @@ public:
     //Fuse Extended
     uint8_t efuse;
 
-    AVRISP_PROGRAMMER_RESULT ProgramAVRDevice(uint32_t deviceid, uint32_t byteLength, const uint8_t *dataToProgram, uint8_t fuse, uint8_t fusehigh, uint8_t fuseext);
+    AVRISP_PROGRAMMER_RESULT ProgramAVRDevice(uint32_t deviceid, uint32_t byteLength, File &file, uint8_t fuse, uint8_t fusehigh, uint8_t fuseext);
 
 private:
     SPIClass *_spi = NULL;
