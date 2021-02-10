@@ -1418,7 +1418,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
     MDNS.addService("http", "tcp", 80);
   }
 
-  ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s",WiFi.getHostname())
+  ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s",WiFi.getHostname(), WiFi.localIP().toString().c_str());
 }
 
 void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)

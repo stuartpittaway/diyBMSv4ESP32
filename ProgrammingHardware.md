@@ -131,18 +131,16 @@ Enter the password to use when connecting to 'TALKTALK': ******************
 
 ```
 Press SPACE BAR to enter terminal based configuration................skipped
-[D][settings.cpp:20] ReadConfig(): ReadConfig diybmswifi
 [I][main.cpp:2355] setup(): Connecting to WIFI
 [I][main.cpp:752] SetControllerState(): ** Controller changed state from PowerUp to Stabilizing **
-
-[I][main.cpp:1164] connectToWifi(): Hostname: DIYBMS-005CED90
-
+[I][main.cpp:1164] connectToWifi(): Hostname: DIYBMS-001AAAAA
 [D][WiFiGeneric.cpp:381] _eventCallback(): STA IP: 192.168.0.68, MASK: 255.255.255.0, GW: 192.168.0.1
 [I][main.cpp:1372] onWifiConnect(): Wi-Fi status=3
 [I][main.cpp:1374] onWifiConnect(): Request NTP from time.google.com
 [D][DIYBMSServer.cpp:1953] StartServer(): Start Web Server complete
 [I][ArduinoOTA.cpp:130] begin(): OTA server at: DIYBMS-001AAAAA.local:3232
-[I][main.cpp:1416] onWifiConnect():
+[I][main.cpp:1416] onWifiConnect(): mDNS responder started
+[I][main.cpp:1422] onWifiConnect(): You can access DIYBMS interface at http://DIYBMS-001AAAAA.local or http://192.168.0.68
 ```
 
 1. If the controller fails to connect, you can repeat the whole process to reconfigure as needed
