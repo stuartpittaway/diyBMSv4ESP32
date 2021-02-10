@@ -17,8 +17,6 @@
 #include "PacketRequestGenerator.h"
 #include "PacketReceiveProcessor.h"
 
-#include "Modbus.h"
-
 #include "FS.h"
 #include <LITTLEFS.h>
 #include "SD.h"
@@ -34,8 +32,6 @@ public:
                             PacketReceiveProcessor *pktreceiveproc,
                             ControllerState *controlState,
                             Rules *rules,
-                            ModbusInfo (*ModBus)[MODBUS_NUM],
-                            ModbusVal (*ModBusVal)[MODBUS_NUM],
                             void (*sdcardaction_callback)(uint8_t action),
                             HAL_ESP32 *hal
                             );
@@ -57,9 +53,6 @@ private:
     static Rules *_rules;
     static ControllerState *_controlState;
     static HAL_ESP32 *_hal;
-
-    static ModbusInfo (*_ModBus)[MODBUS_NUM];
-    static ModbusVal (*_ModBusVal)[MODBUS_NUM];
 
     static void saveConfiguration()
     {
@@ -87,10 +80,6 @@ private:
     static void handleRestartController(AsyncWebServerRequest *request);
     static void storage(AsyncWebServerRequest *request);
     static void avrstorage(AsyncWebServerRequest *request);
-
-    static void modbus(AsyncWebServerRequest *request);
-    static void modbusVal(AsyncWebServerRequest *request);
-    static void saveModbus(AsyncWebServerRequest *request);
 
     static void downloadFile(AsyncWebServerRequest *request);
     static void saveSetting(AsyncWebServerRequest *request);

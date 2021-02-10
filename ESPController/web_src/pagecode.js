@@ -78,43 +78,6 @@ function configureModule(button, cellid, attempts) {
         });
 }
 
-function configureModbus(button, device, attempts) {
-    $('#loading').show();
-    $("#modbusConfig").show();
-    //Select correct row in table
-    $(button).parent().parent().parent().find(".selected").removeClass("selected");
-    $(button).parent().parent().addClass("selected");
-
-    //    $.getJSON("modules.json", { d: device },
-    $.getJSON("modbus.json", function (data) {
-
-        var div = $("#settingConfig .settings");
-        //        var div = $("#modbusConfig .settings");
-        //        $('#d').val(data.settings.id);
-
-        $("#modbusConfig h2").html("Settings for modbus device:" + device);
-
-        //Populate settings div
-        $("#dev").val(device);
-        $("#addr").val(data.modbus[device].addr);
-        $("#reg").val(data.modbus[device].reg);
-        $("#name").val(data.modbus[device].name);
-        $("#unit").val(data.modbus[device].unit);
-        $("#desc").val(data.modbus[device].desc);
-        $("#min").val(data.modbus[device].min);
-        $("#max").val(data.modbus[device].max);
-        $("#rule").prop("checked", data.modbus[device].rule);
-        $("#mqtt").prop("checked", data.modbus[device].mqtt);
-        $("#modbusConfig").show();  //settingsConfig
-        $('#loading').hide();
-    }).fail(function () {
-        $("#iperror").show();
-    });
-
-    $('#loading').hide();
-    $("#modbusConfig").show();
-
-}
 
 function queryBMS() {
     $.getJSON("monitor2.json", function (jsondata) {
@@ -316,21 +279,6 @@ function queryBMS() {
                     $(columns[8]).html(jsondata.badpacket[index]);
                     $(columns[9]).html(jsondata.pktrecvd[index]);
                     $(columns[10]).html(jsondata.balcurrent[index]);
-                });
-            });
-        }
-
-
-        if ($('#modbusPage').is(':visible')) {
-            //The modbus page is visible
-            var tbody = $("#modbusRows");
-
-            $.getJSON("modbusVal.json", function (data) {
-                var tbody = $("#modbusRows");
-                var rows = $(tbody).find("tr");
-                $.each(data.val, function (index, value) {
-                    var columns = $(rows[index]).find("td");
-                    $(columns[2]).html(value);
                 });
             });
         }
@@ -843,42 +791,6 @@ $(function () {
         return true;
     });
 
-    $("#modbus").click(function () {
-        $(".header-right a").removeClass("active");
-        $("#loading").show();
-        $(this).addClass("active");
-
-        $("#modbusPage").hide();
-        $("#modbusConfig").hide();
-
-        //Remove existing table
-        $("#modbusRows").find("tr").remove();
-
-        switchPage("#modbusPage");
-
-        var tbody = $("#modbusRows");
-
-        $.getJSON("modbus.json", function (data) {
-            var tbody = $("#modbusRows");
-            $.each(data.modbus, function (index, value) {
-                $(tbody).append("<tr><td>"
-                    + index + "</td><td>"
-                    + value.name + "</td><td>"
-                    + "</td><td>"  // value
-                    + value.unit + "</td><td>"
-                    + value.desc + "</td><td>"
-                    + value.rule + "</td><td>"
-                    + value.mqtt + "</td>"
-                    + "<td><button type='button' onclick='return configureModbus(this," + index + ",10);'>Configure</button></td>"
-                    //                  + "<td><button type='button' onclick='return deleteModbus(this," + index + ",10);'>Delete</button></td></tr>");
-                    + "</tr>");
-            });
-
-        }).fail(function () { }
-        );
-
-        return true;
-    });
 
 
     $("#settings").click(function () {
@@ -1227,11 +1139,6 @@ $(function () {
         });
     });
 
-    $("#modbusForm").unbind('close').submit(function (e) {
-        e.preventDefault();
-
-        //        $("#modbusConfig").hide();
-    });
 
 
     $("#mqttEnabled").change(function () {

@@ -41,17 +41,6 @@ form button[type='button'] {font-family:Arial,Helvetica,sans-serif;border:none;t
 #modulesTable thead tr th {text-align:right;}
 #loading {width:64px;position:absolute;height:64px;margin-left: auto;margin-right: auto;padding: 0;top:50%;left:50%;}
 
-#modbusTable { border-collapse: separate; border-spacing: 20px 5px;}
-#modbusTable tbody tr td {font-family: 'Fira Code', monospace;text-align:left;}
-#modbusTable button {margin-left:10px;}
-#modbusTable thead tr th {text-align:left;}
-#modbusTable tbody td:nth-of-type(0), td:nth-of-type(2) {text-align: right;}
-/*
-#modbusTable .rows span {min-width:65px;}
-#modbusTable .rows button {margin-left:2px;}
-#modbusTable .th span {min-width:65px}
-*/
-
 #graphOptions {float: right;padding-right: 5px;width:100px;height:20px;}
 
 @media screen and (max-width:1024px){
@@ -82,7 +71,6 @@ form input[type='submit'] {color:white;background-color:#1e90ff;}
 .error {color:#D8000C;background-color:#FFBABA;}
 .warning {color:#000000;background-color:#ff9933;}
 .success {color:#000000;background-color:#49BE3B;}
-#modbusTable .selected {background-color:#d3f9fa;}
 .triggered {background-color:#FFBABA;}
 
 
@@ -108,7 +96,7 @@ a:visited {color:#e8e8e8;font-weight:bold;}
 .info .stat .t {color:#c1bdbd;}
 .info .stat .v {color: #55a1ea;}
 .ct-series-a .ct-bar {stroke:#525252;}
-#modbusTable .selected {background-color:#414141;}
+
 .triggered {background-color:rgb(68, 145, 59);}
 .disablerule {text-decoration: line-through; background-color: #525252;}
 .page .region {background-color:#525252;}
