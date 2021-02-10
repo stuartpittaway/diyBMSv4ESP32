@@ -103,7 +103,7 @@ jobs:
   
     - name: ZIP output for release
       run: |
-        zip release.zip ./Controller/*.*
+        zip release.zip ./Controller/esp32-controller-firmware-complete.bin
         zip release.zip ./Modules/manifest.json
         zip release.zip ./Modules/HEX/*.*
 
