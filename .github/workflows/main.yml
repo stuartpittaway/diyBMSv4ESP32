@@ -58,7 +58,7 @@ jobs:
         cd esptool
         pip install --user -e .
         cd ~
-	
+
     - name: Build code for ESP32 controller
       run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
 
