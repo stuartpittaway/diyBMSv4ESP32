@@ -42,9 +42,13 @@ uint8_t AVRISP_PROGRAMMER::TransferByte3(uint8_t a, uint8_t b, uint8_t c, uint8_
 AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, uint32_t byteLength, const uint8_t *dataToProgram, uint8_t fuse, uint8_t fusehigh, uint8_t fuseext)
 {
     //May need a slower frequency for different devices
-    //200khz
-    _freq = 1000000 / 5;
+    //100khz
+    _freq = 200000;
 
+    WD_FLASH = pdMS_TO_TICKS(25);
+    WD_ERASE = pdMS_TO_TICKS(25);
+    WD_EEPROM = pdMS_TO_TICKS(25);
+    
     //ATTINY841
     if (deviceid == 0x1e9315)
     {
@@ -53,9 +57,9 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
         //Wait delays for programming, WD_FLASH=4.5ms, WD_EEROM=3.6ms, WD_ERASE=9.0m
 
         //Set the timing values for the ATTINY841 (plus extra milliseconds for good luck)
-        WD_FLASH = 5;
-        WD_ERASE = 10;
-        WD_EEPROM = 4;
+        WD_FLASH = pdMS_TO_TICKS(9);
+        WD_ERASE = pdMS_TO_TICKS(12);
+        WD_EEPROM = pdMS_TO_TICKS(6);
         PAGE_SIZE_WORDS = 8;
         NUMBER_OF_PAGES = 512;
     }
@@ -68,13 +72,15 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
         //Page Size = 64 words (128 bytes), Flash = 16K words (32Kbytes), 256 Pages
         //Wait delays for programming, WD_FLASH=4.5ms, WD_EEROM=3.6ms, WD_ERASE=9.0m
 
-        WD_FLASH = 5;
-        WD_ERASE = 10;
-        WD_EEPROM = 4;
+        WD_FLASH = pdMS_TO_TICKS(5);
+        WD_ERASE = pdMS_TO_TICKS(10);
+        WD_EEPROM = pdMS_TO_TICKS(4);
 
         PAGE_SIZE_WORDS = 64;
         NUMBER_OF_PAGES = 256;
     }
+
+    ESP_LOGI(TAG, "AVR setting e=%02X h=%02X l=%02X mcu=%08X len=%u", fuseext, fusehigh, fuse, deviceid, byteLength);
 
     _spi->setFrequency(_freq);
     _spi->beginTransaction(SPISettings(_freq, MSBFIRST, SPI_MODE0));
@@ -82,14 +88,17 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
     avr_reset_target(true);
 
     digitalWrite(_spiClockGPIO, LOW);
-    delay(20); // discharge PIN_SCK, value arbitrarily chosen
+    //delay(20); // discharge PIN_SCK, value arbitrarily chosen
+    vTaskDelay(pdMS_TO_TICKS(20));
     avr_reset_target(false);
     // Pulse must be minimum 2 target CPU clock cycles so 100 usec is ok for CPU speeds above 20 KHz
-    delayMicroseconds(100);
+    //delayMicroseconds(100);
+    vTaskDelay(pdMS_TO_TICKS(0.1));
     avr_reset_target(true);
 
     // Send the enable programming command:
-    delay(30); // datasheet: must be > 20 msec
+    // datasheet: must be > 20 msec
+    vTaskDelay(pdMS_TO_TICKS(30));
     uint8_t programmingreply = TransferByte3(0xAC, 0x53, 0x00, 0x00);
 
     if (programmingreply != 0x53)
@@ -99,8 +108,7 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
 
     device_signature = (TransferByte4(0x30, 0x00, 0x00, 0x00) << 16) + (TransferByte4(0x30, 0x00, 0x01, 0x00) << 8) + TransferByte4(0x30, 0x00, 0x02, 0x00);
 
-    //SERIAL_DEBUG.print("Device Signature=");
-    //SERIAL_DEBUG.println(device_signature, HEX);
+    ESP_LOGI(TAG, "Found device %08X", device_signature);
 
     if (device_signature != deviceid)
     {
@@ -113,8 +121,9 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
     }
 
     //Chip ERASE....
+    ESP_LOGI(TAG, "Chip erase");
     TransferByte4(0xAC, 0x80, 0, 0);
-    delay(WD_ERASE);
+    vTaskDelay(WD_ERASE);
 
     //Set Address = 0
     //HERE is in WORDS (16 bit)
@@ -123,16 +132,15 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
 
     //Program page by page
     //uint16_t page = current_page(here, 16);
+    ESP_LOGI(TAG, "Chip programming");
     while (byteCounter < byteLength)
     {
         //Feed the watchdog a bone every page to avoid WDT errors
-        esp_task_wdt_reset();
-
-        //SERIAL_DEBUG.printf("%.4X", x);
-        //SERIAL_DEBUG.print(' ');
+        //esp_task_wdt_reset();
 
         uint8_t lowbyte;
         uint8_t highbyte;
+
         //Count up in WORDS
         for (size_t i = 0; i < PAGE_SIZE_WORDS; i++)
         {
@@ -174,57 +182,37 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
             return AVRISP_PROGRAMMER_RESULT::COMMIT_FAIL;
         }
 
-        //SERIAL_DEBUG.println();
-
         page += PAGE_SIZE_WORDS;
 
         //Delay (as per data sheet) to allow FLASH to program....
-        delay(WD_FLASH);
+        vTaskDelay(WD_FLASH);
     }
 
     //Now verify the program was written correctly...
 
+    ESP_LOGI(TAG, "Chip verify");
     byteCounter = 0;
     for (size_t wordPtr = 0; wordPtr < NUMBER_OF_PAGES * PAGE_SIZE_WORDS; wordPtr++)
     {
-        if (wordPtr % PAGE_SIZE_WORDS == 0)
-        {
-            //Feed the watchdog a bone every page to avoid WDT errors
-            esp_task_wdt_reset();
-        }
-
-        /*
-            if (i % 8 == 0)
-            {
-                SERIAL_DEBUG.println();
-                SERIAL_DEBUG.printf("%.4X", x);
-                SERIAL_DEBUG.print(' ');
-            }
-            */
-
         uint8_t MSB = (wordPtr >> 8) & 0xFF;
         uint8_t LSB = wordPtr & 0x00FF;
         //Read Program Memory, Low byte
         uint8_t lowbyte = TransferByte4(0x20, MSB, LSB, 0);
-        //dumpByte(lowbyte);
 
         if (byteCounter < byteLength && dataToProgram[byteCounter] != lowbyte)
         {
-            //SERIAL_DEBUG.print("*FAIL*");
+            ESP_LOGD(TAG, "L verify fail %u", byteCounter);
             return AVRISP_PROGRAMMER_RESULT::FAIL_VERIFY;
         }
 
         byteCounter++;
 
         //Read Program Memory, High byte
-        uint8_t highbyte = TransferByte4(0x28,
-                                         MSB,
-                                         LSB,
-                                         0);
-        //dumpByte(highbyte);
+        uint8_t highbyte = TransferByte4(0x28, MSB, LSB, 0);
 
         if (byteCounter < byteLength && dataToProgram[byteCounter] != highbyte)
         {
+            ESP_LOGD(TAG, "H verify fail %u", byteCounter);
             return AVRISP_PROGRAMMER_RESULT::FAIL_VERIFY;
         }
 
@@ -233,7 +221,6 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
         if (byteCounter >= byteLength)
             break;
     }
-    //SERIAL_DEBUG.println();
 
     //Read Fuse bytes
     lfuse = TransferByte4(0x50, 0x00, 0x00, 0x00);
@@ -245,18 +232,21 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
     //Program fuse bytes (if needed)
     if (fuse != lfuse)
     {
+        ESP_LOGI(TAG, "Prog lfuse");
         TransferByte4(0xAC, 0xA0, 0x00, fuse);
-        delay(WD_FLASH);
+        vTaskDelay(WD_FLASH);
     }
     if (fusehigh != hfuse)
     {
+        ESP_LOGI(TAG, "Prog hfuse");
         TransferByte4(0xAC, 0xA8, 0x00, fusehigh);
-        delay(WD_FLASH);
+        vTaskDelay(WD_FLASH);
     }
     if (fuseext != efuse)
     {
+        ESP_LOGI(TAG, "Prog efuse");
         TransferByte4(0xAC, 0xA4, 0x00, fuseext);
-        delay(WD_FLASH);
+        vTaskDelay(WD_FLASH);
     }
 
     //Read Fuse bits to confirm correct programming
@@ -269,22 +259,12 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
         return AVRISP_PROGRAMMER_RESULT::FAIL_PROG_FUSE;
     }
 
-    /*
-            SERIAL_DEBUG.print("Fuses (");
-            SERIAL_DEBUG.print(" E:");
-            dumpByte(efuse);
-            SERIAL_DEBUG.print(" H:");
-            dumpByte(hfuse);
-            SERIAL_DEBUG.print(" L:");
-            dumpByte(lfuse);
-            SERIAL_DEBUG.println(")");
-*/
-
     //Exit programming mode
 
     _spi->endTransaction();
 
     avr_reset_target(false);
 
+    ESP_LOGI(TAG, "Complete");
     return AVRISP_PROGRAMMER_RESULT::SUCCESS;
 }

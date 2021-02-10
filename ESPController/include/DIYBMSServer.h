@@ -33,8 +33,7 @@ public:
                             ControllerState *controlState,
                             Rules *rules,
                             void (*sdcardaction_callback)(uint8_t action),
-                            HAL_ESP32 *hal
-                            );
+                            HAL_ESP32 *hal);
 
     static void generateUUID();
     static void clearModuleValues(uint8_t module);
@@ -58,10 +57,10 @@ private:
     {
         Settings::WriteConfig("diybms", (char *)_mysettings, sizeof(diybms_eeprom_settings));
     }
-    static void PrintStreamComma(AsyncResponseStream *response,const char *text, uint32_t value);
-    static void PrintStream(AsyncResponseStream *response,const char *text, uint32_t value);
-    static void PrintStreamCommaBoolean(AsyncResponseStream *response,const char *text, bool value);
-    static void fileSystemListDirectory(AsyncResponseStream *response,fs::FS &fs, const char * dirname, uint8_t levels);
+    static void PrintStreamComma(AsyncResponseStream *response, const char *text, uint32_t value);
+    static void PrintStream(AsyncResponseStream *response, const char *text, uint32_t value);
+    static void PrintStreamCommaBoolean(AsyncResponseStream *response, const char *text, bool value);
+    static void fileSystemListDirectory(AsyncResponseStream *response, fs::FS &fs, const char *dirname, uint8_t levels);
 
     static void handleNotFound(AsyncWebServerRequest *request);
     static void monitor2(AsyncWebServerRequest *request);
@@ -80,6 +79,8 @@ private:
     static void handleRestartController(AsyncWebServerRequest *request);
     static void storage(AsyncWebServerRequest *request);
     static void avrstorage(AsyncWebServerRequest *request);
+    static void avrstatus(AsyncWebServerRequest *request);
+    
 
     static void downloadFile(AsyncWebServerRequest *request);
     static void saveSetting(AsyncWebServerRequest *request);
@@ -104,6 +105,6 @@ private:
 
 //TODO: Remove this
 extern bool _sd_card_installed;
-
+extern TaskHandle_t avrprog_task_handle;
+extern avrprogramsettings _avrsettings;
 #endif
-

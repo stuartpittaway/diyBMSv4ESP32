@@ -31,6 +31,60 @@ function identifyModule(button, cellid) {
     $.getJSON("identifyModule.json", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
 
+
+function avrProgrammingStatsUpdate(attempts) {
+    $.getJSON("avrstatus.json",
+        function (data) {
+            console.log(data);
+
+            if (data.inprogress == 0) {
+                //Finished or aborted with error, update display
+                $("#avrinfo").empty();
+                if (data.result == 0) {
+                    $("#avrinfo").html('Success, took ' + data.duration + 'ms, ' + data.size + ' bytes.');
+                } else {
+
+                    let errmessage = "";
+                    switch (data.result) {
+                        case 1:
+                            errmessage = "WRONG_DEVICE_ID"
+                            break;
+                        case 2:
+                            errmessage = "COMMIT_FAIL"
+                            break;
+                        case 3:
+                            errmessage = "FAILED_ENTER_PROG_MODE"
+                            break;
+                        case 4:
+                            errmessage = "FAIL_VERIFY"
+                            break;
+                        case 5:
+                            errmessage = "FAIL_PROG_FUSE"
+                            break;
+                        case 6:
+                            errmessage = "INCORRECT_PAGE_CONFIG"
+                            break;
+                    }
+
+                    $("#avrinfo").html('Failed, error code ' + data.result + ' ' + errmessage);
+                }
+
+            } else {
+                $("#avrinfo").html("In progress...");
+
+                if (attempts > 0) {
+                    attempts--;
+                    setTimeout(avrProgrammingStatsUpdate, 1000, attempts);
+                }
+            }
+
+
+        }).fail(function () {
+            $("#iperror").show();
+        });
+
+}
+
 function configureModule(button, cellid, attempts) {
     $('#loading').show();
 
@@ -983,6 +1037,11 @@ $(function () {
             .done(
                 function (data) {
                     $("#avrinfo").html(data.message);
+
+                    if (data.started) {
+                        setTimeout(avrProgrammingStatsUpdate, 250, 20);
+                    }
+
                 })
             .fail(function (data) {
                 $("#avrinfo").html("Failed");

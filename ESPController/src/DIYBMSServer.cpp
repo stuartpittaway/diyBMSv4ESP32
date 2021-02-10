@@ -41,8 +41,6 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #include <LITTLEFS.h>
 #include "SD.h"
 
-#include "avrisp_programmer.h"
-
 AsyncWebServer *DIYBMSServer::_myserver;
 String DIYBMSServer::UUIDString;
 
@@ -136,16 +134,6 @@ void DIYBMSServer::SendFailure(AsyncWebServerRequest *request)
 
 void DIYBMSServer::avrProgrammer(AsyncWebServerRequest *request)
 {
-
-  uint8_t efuse = 0xF4;
-  uint8_t hfuse = 0xD6;
-  uint8_t lfuse = 0x62;
-  uint32_t mcu = 0;
-  size_t programsize = 0;
-  uint8_t program[8192];
-
-  memset(program, 0, sizeof(program));
-
   if (!validateXSS(request))
     return;
 
@@ -206,29 +194,22 @@ void DIYBMSServer::avrProgrammer(AsyncWebServerRequest *request)
 
       //serializeJsonPretty(x, SERIAL_DEBUG);
 
-      efuse = strtoul(x["efuse"].as<String>().c_str(), nullptr, 16);
-      hfuse = strtoul(x["hfuse"].as<String>().c_str(), nullptr, 16);
-      lfuse = strtoul(x["lfuse"].as<String>().c_str(), nullptr, 16);
-      mcu = strtoul(x["mcu"].as<String>().c_str(), nullptr, 16);
+      _avrsettings.efuse = strtoul(x["efuse"].as<String>().c_str(), nullptr, 16);
+      _avrsettings.hfuse = strtoul(x["hfuse"].as<String>().c_str(), nullptr, 16);
+      _avrsettings.lfuse = strtoul(x["lfuse"].as<String>().c_str(), nullptr, 16);
+      _avrsettings.mcu = strtoul(x["mcu"].as<String>().c_str(), nullptr, 16);
 
       String avrfilename = String("/avr/") + x["name"].as<String>();
 
-      ESP_LOGI(TAG, "AVR setting e=%02X h=%02X l=%02X mcu=%08X  %s", efuse, hfuse, lfuse, mcu, avrfilename.c_str());
-
-      //Now we load the file into program array
-      if (LITTLEFS.exists(avrfilename) == false)
-      {
-        ESP_LOGE(TAG, "AVR file not found %s", avrfilename.c_str());
-        SendFailure(request);
-        return;
-      }
-
-      File binaryfile = LITTLEFS.open(avrfilename);
-      programsize = binaryfile.readBytes((char *)program, sizeof(program));
-      binaryfile.close();
-      ESP_LOGI(TAG, "Read %i bytes", programsize);
+      avrfilename.toCharArray(_avrsettings.filename, sizeof(_avrsettings.filename));
     }
     file.close();
+
+    _avrsettings.progresult = 0xFF;
+    _avrsettings.inProgress = true;
+
+    //Fire task to start the AVR programming
+    xTaskNotify(avrprog_task_handle, 0x00, eNotifyAction::eNoAction);
   }
   else
   {
@@ -237,49 +218,27 @@ void DIYBMSServer::avrProgrammer(AsyncWebServerRequest *request)
     return;
   }
 
-  //Reserve the SPI bus for programming purposes
-  if (_hal->GetVSPIMutex())
-  {
-    _hal->SwapGPIO0ToOutput();
-
-    //This will block for the 6 seconds it takes to program ATTINY841...
-    //although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
-
-    uint32_t starttime = millis();
-    AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&(_hal->vspi), GPIO_NUM_0, false, VSPI_SCK);
-
-    ESP_LOGI(TAG, "Programming AVR");
-    AVRISP_PROGRAMMER_RESULT progresult = isp.ProgramAVRDevice(mcu, programsize, program, lfuse, hfuse, efuse);
-
-    uint32_t endtime = millis();
-
-    _hal->ConfigureVSPI();
-    _hal->ReleaseVSPIMutex();
-
-    char message[128];
-
-    if (progresult == AVRISP_PROGRAMMER_RESULT::SUCCESS)
-    {
-      sprintf(message, "Programming complete, duration %ums, %i bytes", endtime - starttime, programsize);
-      ESP_LOGI(TAG, "%s", message);
-    }
-    else
-    {
-      sprintf(message, "Programming failed, reason %i", (int)progresult);
-      ESP_LOGE(TAG, "%s", message);
-    }
-
-    doc["result"] = (int)progresult;
-    doc["message"] = message;
-  }
-  else
-  {
-    doc["message"] = "Failed: Unable to obtain Mutex";
-  }
+  doc["started"] = 1;
+  doc["message"] = "Started";
 
   serializeJson(doc, *response);
   request->send(response);
 }
+
+void DIYBMSServer::avrstatus(AsyncWebServerRequest *request)
+{
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+  StaticJsonDocument<256> doc;
+  doc["inprogress"] = _avrsettings.inProgress? 1:0;
+  doc["result"] = _avrsettings.progresult;
+  doc["duration"] = _avrsettings.duration;
+  doc["size"] = _avrsettings.programsize;
+  doc["mcu"] = _avrsettings.mcu;
+ 
+  serializeJson(doc, *response);
+  request->send(response);
+}
+
 
 void DIYBMSServer::sdMount(AsyncWebServerRequest *request)
 {
@@ -1764,7 +1723,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->on("/storage.json", HTTP_GET, DIYBMSServer::storage);
   _myserver->on("/avrstorage.json", HTTP_GET, DIYBMSServer::avrstorage);
   _myserver->on("/download", HTTP_GET, DIYBMSServer::downloadFile);
-
+  _myserver->on("/avrstatus.json", HTTP_GET, DIYBMSServer::avrstatus);
 
   //POST method endpoints
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);

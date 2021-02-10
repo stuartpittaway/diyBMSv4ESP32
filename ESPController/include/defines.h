@@ -216,10 +216,22 @@ struct sdcard_info
   uint32_t usedkilobytes;
   uint32_t flash_totalkilobytes;
   uint32_t flash_usedkilobytes;
-
 };
 
 //This holds all the cell information in a large array array
 extern CellModuleInfo cmi[maximum_controller_cell_modules];
+
+struct avrprogramsettings
+{
+  uint8_t efuse;
+  uint8_t hfuse;
+  uint8_t lfuse;
+  uint32_t mcu;
+  uint32_t duration;
+  bool inProgress;
+  char filename[64];
+  uint8_t progresult;
+  size_t programsize;
+};
 
 #endif

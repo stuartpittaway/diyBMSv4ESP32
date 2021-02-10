@@ -75,7 +75,7 @@ void Rules::ProcessCell(uint8_t bank, CellModuleInfo *c)
             lowestExternalTemp = c->externalTemp;
         }
     }
-    
+
     if (c->internalTemp > highestInternalTemp)
     {
         highestInternalTemp = c->internalTemp;
@@ -109,7 +109,8 @@ void Rules::SetWarning(InternalWarningCode warncode)
 {
     for (size_t i = 0; i < sizeof(WarningCodes); i++)
     {
-        if (WarningCodes[i] == warncode) {
+        if (WarningCodes[i] == warncode)
+        {
             //We already have the warning in the list, so skip
             break;
         }
@@ -139,7 +140,7 @@ void Rules::SetError(InternalErrorCode err)
 
             ErrorCodes[i] = err;
 
-            SERIAL_DEBUG.print("Error State=");SERIAL_DEBUG.println(err);
+            ESP_LOGI(TAG, "Error state=%i", err);
             break;
         }
     }
@@ -248,7 +249,7 @@ void Rules::RunRules(
     }
 
     //Internal temperatyre monitoring and rules
-        //Doesn't cater for negative temperatures on rule (int8 vs uint32)
+    //Doesn't cater for negative temperatures on rule (int8 vs uint32)
     if (((uint8_t)highestInternalTemp > value[Rule::ModuleOverTemperatureInternal]) && rule_outcome[Rule::ModuleOverTemperatureInternal] == false)
     {
         //Rule Individual cell over temperature (Internal probe)
@@ -271,7 +272,6 @@ void Rules::RunRules(
         //Rule Individual cell UNDER temperature (Internal probe) - HYSTERESIS RESET
         rule_outcome[Rule::ModuleUnderTemperatureInternal] = false;
     }
-
 
     //While Pack voltages
     if (highestPackVoltage > value[Rule::PackOverVoltage] && rule_outcome[Rule::PackOverVoltage] == false)

@@ -58,6 +58,8 @@ SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pi
 
 #include "Rules.h"
 
+#include "avrisp_programmer.h"
+
 /*
 #define USER_SETUP_LOADED
 
@@ -117,18 +119,20 @@ volatile enumInputState InputState[INPUTS_TOTAL];
 
 AsyncWebServer server(80);
 
-static TaskHandle_t i2c_task_handle = NULL;
-static TaskHandle_t ledoff_task_handle = NULL;
-static TaskHandle_t wifiresetdisable_task_handle = NULL;
+TaskHandle_t i2c_task_handle = NULL;
+TaskHandle_t ledoff_task_handle = NULL;
+TaskHandle_t wifiresetdisable_task_handle = NULL;
 
-static TaskHandle_t sdcardlog_task_handle = NULL;
-static TaskHandle_t sdcardlog_outputs_task_handle = NULL;
-static QueueHandle_t queue_i2c = NULL;
-static TaskHandle_t avrprog_task_handle = NULL;
+TaskHandle_t sdcardlog_task_handle = NULL;
+TaskHandle_t sdcardlog_outputs_task_handle = NULL;
+QueueHandle_t queue_i2c = NULL;
+TaskHandle_t avrprog_task_handle = NULL;
 
 //This large array holds all the information about the modules
 //up to 4x16
 CellModuleInfo cmi[maximum_controller_cell_modules];
+
+avrprogramsettings _avrsettings;
 
 #include "crc16.h"
 
@@ -180,13 +184,81 @@ void QueueLED(uint8_t bits)
   xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
 }
 
+//Very wasteful of 8K of precious memory, AVR Programmer won't be used much
+//so move to malloc ?
+uint8_t program[8192];
+
 void avrprog_task(void *param)
 {
   for (;;)
   {
-    //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
+    //Wait until this task is triggered
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-  }
+
+    //TODO: This needs to be passed into this as a parameter
+    avrprogramsettings *s;
+    s = (avrprogramsettings *)param;
+
+    memset(program, 0, sizeof(program));
+
+    ESP_LOGI(TAG, "AVR setting e=%02X h=%02X l=%02X mcu=%08X file=%s", s->efuse, s->hfuse, s->lfuse, s->mcu, s->filename);
+
+    //Now we load the file into program array, from LITTLEFS (SPIFF)
+    if (LITTLEFS.exists(s->filename))
+    {
+      File binaryfile = LITTLEFS.open(s->filename);
+
+      void *blob = pvPortMalloc(binaryfile.size());
+      vPortFree(blob);
+
+      s->programsize = binaryfile.readBytes((char *)program, sizeof(program));
+      binaryfile.close();
+      ESP_LOGD(TAG, "Read %i bytes", s->programsize);
+
+      //Reserve the SPI bus for programming purposes
+      if (hal.GetVSPIMutex())
+      {
+        hal.SwapGPIO0ToOutput();
+
+        //This will block for the 6 seconds it takes to program ATTINY841...
+        //although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
+
+        uint32_t starttime = millis();
+        AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&(hal.vspi), GPIO_NUM_0, false, VSPI_SCK);
+
+        ESP_LOGI(TAG, "Programming AVR");
+        //This would be much better using a stream instead of a in ram buffer
+        s->progresult = isp.ProgramAVRDevice(s->mcu, s->programsize, program, s->lfuse, s->hfuse, s->efuse);
+
+        s->duration = millis() - starttime;
+
+        hal.ConfigureVSPI();
+        hal.ReleaseVSPIMutex();
+
+        if (s->progresult == AVRISP_PROGRAMMER_RESULT::SUCCESS)
+        {
+          //sprintf(message, "Programming complete, duration %ums, %i bytes", s->duration, programsize);
+          ESP_LOGI(TAG, "Success");
+        }
+        else
+        {
+          //sprintf(message, "Programming failed, reason %i", (int)progresult);
+          ESP_LOGE(TAG, "Failed %i", s->progresult);
+        }
+      }
+      else
+      {
+        ESP_LOGE(TAG, "Unable to obtain Mutex");
+      }
+    }
+    else
+    {
+      ESP_LOGE(TAG, "AVR file not found %s", s->filename);
+    }
+
+    s->inProgress = false;
+
+  } //end for
 }
 
 //Output a status log to the SD Card in CSV format
@@ -2213,11 +2285,12 @@ TEST CAN BUS
   //Create i2c task on CPU 0 (normal code runs on CPU 1)
   xTaskCreatePinnedToCore(i2c_task, "i2c", 2048, nullptr, 2, &i2c_task_handle, 0);
   xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
-  xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 1, &wifiresetdisable_task_handle);
+  xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 0, &wifiresetdisable_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 4096, nullptr, 1, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 4096, nullptr, 1, &sdcardlog_outputs_task_handle);
 
-  xTaskCreate(avrprog_task, "avrprog", 4096, nullptr, 1, &avrprog_task_handle);
+  //High priority task as its timing sensitive
+  xTaskCreate(avrprog_task, "avrprog", 4096, &_avrsettings, 2, &avrprog_task_handle);
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));

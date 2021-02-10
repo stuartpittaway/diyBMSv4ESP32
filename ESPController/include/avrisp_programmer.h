@@ -58,9 +58,9 @@ private:
     bool _resetActiveHigh;
     uint32_t _freq;
 
-    uint8_t WD_FLASH = 50;
-    uint8_t WD_ERASE = 50;
-    uint8_t WD_EEPROM = 50;
+    TickType_t WD_FLASH;
+    TickType_t WD_ERASE;
+    TickType_t WD_EEPROM;
     uint8_t PAGE_SIZE_WORDS = 0;
     uint16_t NUMBER_OF_PAGES = 0;
 
