@@ -52,12 +52,22 @@ jobs:
         cp ./ATTINYCellModule/.pio/build/V*/*.hex ~/OUTPUT/Modules/HEX/
         cp ./ATTINYCellModule/.pio/build/V*/*.bin ~/OUTPUT/Modules/BIN/
 
+    - name: Get latest esptool
+      run: |
+        git clone https://github.com/espressif/esptool.git
+        cd esptool
+        pip install --user -e .
+        cd ~
+	
     - name: Build code for ESP32 controller
       run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
 
     - name: Copy output
       run: |
         cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin ~/OUTPUT/Controller/
+        cp ./ESPController/.pio/build/esp32-devkitc/partitions.bin ~/OUTPUT/Controller/
+        cp ~/.platformio/packages/framework-arduinoespressif32/tools/sdk/bin/bootloader_dout_40m.bin ~/OUTPUT/Controller/
+        cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin ~/OUTPUT/Controller/
         cp ./ESPController/data/avr/manifest.json ~/OUTPUT/Modules/
 
     - name: Build File System Image for ESP32
