@@ -229,16 +229,15 @@ void DIYBMSServer::avrstatus(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response = request->beginResponseStream("application/json");
   StaticJsonDocument<256> doc;
-  doc["inprogress"] = _avrsettings.inProgress? 1:0;
+  doc["inprogress"] = _avrsettings.inProgress ? 1 : 0;
   doc["result"] = _avrsettings.progresult;
   doc["duration"] = _avrsettings.duration;
   doc["size"] = _avrsettings.programsize;
   doc["mcu"] = _avrsettings.mcu;
- 
+
   serializeJson(doc, *response);
   request->send(response);
 }
-
 
 void DIYBMSServer::sdMount(AsyncWebServerRequest *request)
 {
@@ -375,10 +374,21 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
     {
       AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
       //Default
-      _mysettings->relaytype[i] = RelayType::RELAY_STANDARD;
+      RelayType oldValue = _mysettings->relaytype[i];
       if (p1->value().equals("Pulse"))
       {
         _mysettings->relaytype[i] = RelayType::RELAY_PULSE;
+      }
+      else
+      {
+        _mysettings->relaytype[i] = RelayType::RELAY_STANDARD;
+      }
+
+      if (oldValue != _mysettings->relaytype[i])
+      {
+        //The type of relay has changed - we probably need to reset something here
+        ESP_LOGI(TAG, "Type of relay has changed");
+        previousRelayState[i]= RelayState::RELAY_X;
       }
     }
   }

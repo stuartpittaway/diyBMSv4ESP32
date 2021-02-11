@@ -42,8 +42,7 @@ static const char *TAG = "diybms";
 #include "SD.h"
 #include "driver/gpio.h"
 //#include "driver/can.h"
-//#include <SDM.h>
-#include <Ticker.h>
+
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
 #include <ArduinoOTA.h>
@@ -100,7 +99,6 @@ HAL_ESP32 hal;
 XPT2046_Touchscreen touchscreen(TOUCH_CHIPSELECT, TOUCH_IRQ); // Param 2 - Touch IRQ Pin - interrupt enabled polling
 
 volatile bool emergencyStop = false;
-volatile bool WifiDisconnected = true;
 
 Rules rules;
 
@@ -119,24 +117,23 @@ volatile enumInputState InputState[INPUTS_TOTAL];
 
 AsyncWebServer server(80);
 
+QueueHandle_t queue_i2c = NULL;
+
 TaskHandle_t i2c_task_handle = NULL;
 TaskHandle_t ledoff_task_handle = NULL;
 TaskHandle_t wifiresetdisable_task_handle = NULL;
-
 TaskHandle_t sdcardlog_task_handle = NULL;
 TaskHandle_t sdcardlog_outputs_task_handle = NULL;
-QueueHandle_t queue_i2c = NULL;
 TaskHandle_t avrprog_task_handle = NULL;
-
 TaskHandle_t mqtt1_task_handle = NULL;
 TaskHandle_t mqtt2_task_handle = NULL;
-
 TaskHandle_t enqueue_task_handle = NULL;
 TaskHandle_t transmit_task_handle = NULL;
 TaskHandle_t replyqueue_task_handle = NULL;
-
-//Send a few MQTT packets and keep track so we send the next batch on following calls
-uint8_t mqttStartModule = 0;
+TaskHandle_t lazy_task_handle = NULL;
+TaskHandle_t rule_task_handle = NULL;
+TaskHandle_t influxdb_task_handle = NULL;
+TaskHandle_t pulse_relay_off_task_handle = NULL;
 
 //This large array holds all the information about the modules
 //up to 4x16
@@ -165,11 +162,6 @@ PacketReceiveProcessor receiveProc = PacketReceiveProcessor();
 uint8_t SerialPacketReceiveBuffer[2 * sizeof(PacketStruct)];
 
 SerialEncoder myPacketSerial;
-
-Ticker myTimerRelay;
-Ticker myLazyTimer;
-Ticker myTimerSendInfluxdbPacket;
-Ticker myTimerSwitchPulsedRelay;
 
 uint16_t sequence = 0;
 
@@ -1002,123 +994,132 @@ void ProcessRules()
   }
 }
 
-void timerSwitchPulsedRelay()
+void pulse_relay_off_task(void *param)
 {
-  //Set defaults based on configuration
-  for (int8_t y = 0; y < RELAY_TOTAL; y++)
+  for (;;)
   {
-    if (previousRelayPulse[y])
+    //Wait until this task is triggered
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    //Now wait 200ms before switching off the relays
+    vTaskDelay(pdMS_TO_TICKS(200));
+
+    for (int8_t y = 0; y < RELAY_TOTAL; y++)
     {
-      //We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
-      //However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
-      //to prevent multiple pulses being sent on each rule refresh
+      if (previousRelayPulse[y])
+      {
+        //We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
+        //However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
+        //to prevent multiple pulses being sent on each rule refresh
 
-      i2cQueueMessage m;
-      //Different command for each relay
-      m.command = 0xE0 + y;
-      m.data = previousRelayState[y] == RelayState::RELAY_ON ? RelayState::RELAY_OFF : RelayState::RELAY_ON;
-      xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
+        i2cQueueMessage m;
+        //Different command for each relay
+        m.command = 0xE0 + y;
+        m.data = previousRelayState[y] == RelayState::RELAY_ON ? RelayState::RELAY_OFF : RelayState::RELAY_ON;
+        xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
 
-      previousRelayPulse[y] = false;
+        previousRelayPulse[y] = false;
+      }
     }
+
+    //Fire task to record state of outputs to SD Card
+    xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
   }
-
-  //This only fires once
-  myTimerSwitchPulsedRelay.detach();
-
-  //Fire task to record state of outputs to SD Card
-  xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
 }
 
-void timerProcessRules()
+void rules_task(void *param)
 {
+  for (;;)
+  {
+    //3 seconds
+    vTaskDelay(pdMS_TO_TICKS(3000));
 
-  //Run the rules
-  ProcessRules();
+    //Run the rules
+    ProcessRules();
 
 #if defined(RULES_LOGGING)
-  for (int8_t r = 0; r < RELAY_RULES; r++)
-  {
-    if (rules.rule_outcome[r])
+    for (int8_t r = 0; r < RELAY_RULES; r++)
     {
-      ESP_LOGD(TAG, "Rule outcome %i=TRUE", r);
+      if (rules.rule_outcome[r])
+      {
+        ESP_LOGD(TAG, "Rule outcome %i=TRUE", r);
+      }
     }
-  }
 #endif
 
-  RelayState relay[RELAY_TOTAL];
+    RelayState relay[RELAY_TOTAL];
 
-  //Set defaults based on configuration
-  for (int8_t y = 0; y < RELAY_TOTAL; y++)
-  {
-    relay[y] = mysettings.rulerelaydefault[y] == RELAY_ON ? RELAY_ON : RELAY_OFF;
-  }
-
-  //Test the rules (in reverse order)
-  for (int8_t n = RELAY_RULES - 1; n >= 0; n--)
-  {
-    if (rules.rule_outcome[n] == true)
+    //Set defaults based on configuration
+    for (int8_t y = 0; y < RELAY_TOTAL; y++)
     {
+      relay[y] = mysettings.rulerelaydefault[y] == RELAY_ON ? RELAY_ON : RELAY_OFF;
+    }
 
-      for (int8_t y = 0; y < RELAY_TOTAL; y++)
+    //Test the rules (in reverse order)
+    for (int8_t n = RELAY_RULES - 1; n >= 0; n--)
+    {
+      if (rules.rule_outcome[n] == true)
       {
-        //Dont change relay if its set to ignore/X
-        if (mysettings.rulerelaystate[n][y] != RELAY_X)
+        for (int8_t y = 0; y < RELAY_TOTAL; y++)
         {
-          if (mysettings.rulerelaystate[n][y] == RELAY_ON)
+          //Dont change relay if its set to ignore/X
+          if (mysettings.rulerelaystate[n][y] != RELAY_X)
           {
-            relay[y] = RELAY_ON;
-          }
-          else
-          {
-            relay[y] = RELAY_OFF;
+            if (mysettings.rulerelaystate[n][y] == RELAY_ON)
+            {
+              relay[y] = RELAY_ON;
+            }
+            else
+            {
+              relay[y] = RELAY_OFF;
+            }
           }
         }
       }
     }
-  }
 
-  uint8_t changes = 0;
-  for (int8_t n = 0; n < RELAY_TOTAL; n++)
-  {
-    if (previousRelayState[n] != relay[n])
+
+    uint8_t changes = 0;
+    bool firePulse = false;
+    for (int8_t n = 0; n < RELAY_TOTAL; n++)
     {
-      changes++;
-//Would be better here to use the WRITE8 to lower i2c traffic
-#if defined(RULES_LOGGING)
-      ESP_LOGI(TAG, "Relay %i=%i", n, relay[n]);
-#endif
-      //This would be better if we worked out the bit pattern first and then just
-      //submitted that as a single i2c read/write transaction
-
-      i2cQueueMessage m;
-      //Different command for each relay
-      m.command = 0xE0 + n;
-      m.data = relay[n];
-      xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
-
-      previousRelayState[n] = relay[n];
-
-      if (mysettings.relaytype[n] == RELAY_PULSE)
+      if (previousRelayState[n] != relay[n])
       {
-        //TODO: This needs changing to task notify passing in the relay number to that task
+        changes++;
+        //Would be better here to use the WRITE8 to lower i2c traffic
 
-        //If its a pulsed relay, invert the output quickly via a single shot timer
-        //a pulse is unlikely to be captured in the SDCard log, as its over quickly
-        previousRelayPulse[n] = true;
-        myTimerSwitchPulsedRelay.attach(0.2, timerSwitchPulsedRelay);
+        ESP_LOGI(TAG, "Set Relay %i=%i", n, relay[n] == RelayState::RELAY_ON ? 1 : 0);
 
-#if defined(RULES_LOGGING)
-        ESP_LOGI(TAG, "Relay %i PULSED", n);
-#endif
+        //This would be better if we worked out the bit pattern first and then just submitted that as a single i2c read/write transaction
+
+        i2cQueueMessage m;
+        //Different command for each relay
+        m.command = 0xE0 + n;
+        m.data = relay[n];
+        xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
+
+        previousRelayState[n] = relay[n];
+
+        if (mysettings.relaytype[n] == RELAY_PULSE)
+        {
+          previousRelayPulse[n] = true;
+          firePulse = true;
+
+          ESP_LOGI(TAG, "Relay %i PULSED", n);
+        }
       }
     }
-  }
 
-  if (changes)
-  {
-    //Fire task to record state of outputs to SD Card
-    xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
+    if (firePulse)
+    {
+      xTaskNotify(pulse_relay_off_task_handle, 0x00, eNotifyAction::eNoAction);
+    }
+
+    if (changes)
+    {
+      //Fire task to record state of outputs to SD Card
+      xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
+    }
   }
 }
 
@@ -1211,7 +1212,7 @@ WiFi.status() only returns:
 
   ESP_LOGI(TAG, "Hostname: %s, current state %i", hostname, status);
 
-  ESP_LOGD(TAG, "WiFi begin");
+  //ESP_LOGD(TAG, "WiFi begin");
   WiFi.begin(DIYBMSSoftAP::WifiSSID(), DIYBMSSoftAP::WifiPassword());
 }
 
@@ -1221,13 +1222,20 @@ void connectToMqtt()
   {
     if (mqttClient.connected() == false)
     {
-      ESP_LOGD(TAG, "MQTT Enabled");
+      //ESP_LOGD(TAG, "MQTT Enabled");
       mqttClient.setServer(mysettings.mqtt_server, mysettings.mqtt_port);
       mqttClient.setCredentials(mysettings.mqtt_username, mysettings.mqtt_password);
 
-      ESP_LOGI(TAG, "Connecting to MQTT...");
+      ESP_LOGI(TAG, "Connect MQTT");
       mqttClient.connect();
     }
+  }
+
+  if (mysettings.mqtt_enabled == false && mqttClient.connected())
+  {
+    //We are connected but shouldn't be!
+    ESP_LOGI(TAG, "Disconnecting MQTT");
+    mqttClient.disconnect(true);
   }
 }
 
@@ -1307,29 +1315,27 @@ void setupInfluxClient()
                      NULL);
 }
 
-void SendInfluxdbPacket()
+void influxdb_task(void *param)
 {
-  if (!mysettings.influxdb_enabled)
-    return;
-
-  ESP_LOGI("SendInfluxdbPacket");
-
-  setupInfluxClient();
-
-  if (!aClient->connect(mysettings.influxdb_host, mysettings.influxdb_httpPort))
+  for (;;)
   {
-    ESP_LOGE(TAG, "Influxdb connect fail");
-    AsyncClient *client = aClient;
-    aClient = NULL;
-    delete client;
-  }
-}
+    //Delay 30 seconds
+    vTaskDelay(pdMS_TO_TICKS(30000));
 
-void startTimerToInfluxdb()
-{
-  if (mysettings.influxdb_enabled)
-  {
-    myTimerSendInfluxdbPacket.attach(30, SendInfluxdbPacket);
+    if (mysettings.influxdb_enabled && WiFi.isConnected())
+    {
+      ESP_LOGI("Send Influxdb data");
+
+      setupInfluxClient();
+
+      if (!aClient->connect(mysettings.influxdb_host, mysettings.influxdb_httpPort))
+      {
+        ESP_LOGE(TAG, "Influxdb connect fail");
+        AsyncClient *client = aClient;
+        aClient = NULL;
+        delete client;
+      }
+    }
   }
 }
 
@@ -1451,8 +1457,6 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
   connectToMqtt();
 
-  startTimerToInfluxdb();
-
   SetupOTA();
 
   // Set up mDNS responder:
@@ -1480,10 +1484,6 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
   //Indicate to loop() to reconnect, seems to be
   //ESP issues using Wifi from timers - https://github.com/espressif/arduino-esp32/issues/2686
-  WifiDisconnected = true;
-
-  // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-  myTimerSendInfluxdbPacket.detach();
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
@@ -1493,7 +1493,6 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 
 void mqtt2(void *param)
 {
-
   for (;;)
   {
     //Delay 25 seconds
@@ -1575,6 +1574,9 @@ void mqtt2(void *param)
 
 void mqtt1(void *param)
 {
+  //Send a few MQTT packets and keep track so we send the next batch on following calls
+  static uint8_t mqttStartModule = 0;
+
   for (;;)
   {
     //Delay 5 seconds
@@ -1741,92 +1743,101 @@ void LoadConfiguration()
 
 uint8_t lazyTimerMode = 0;
 //Do activities which are not critical to the system like background loading of config, or updating timing results etc.
-void timerLazyCallback()
+void lazy_tasks(void *param)
 {
-  if (requestQueue.getRemainingCount() < 6)
+  for (;;)
   {
-    //Exit here to avoid overflowing the queue
-    ESP_LOGE(TAG, "ERR: Lazy overflow Q=%i", requestQueue.getRemainingCount());
-    return;
-  }
+    //Delay 8 seconds
+    vTaskDelay(pdMS_TO_TICKS(7000));
 
-  lazyTimerMode++;
-
-  if (lazyTimerMode == 1)
-  {
-    //Send a "ping" message through the cells to get a round trip time
-    prg.sendTimingRequest();
-    return;
-  }
-
-  if (lazyTimerMode == 2)
-  {
-    uint8_t counter = 0;
-    //Find modules that don't have settings cached and request them
-    for (uint8_t module = 0; module < TotalNumberOfCells(); module++)
+    if (requestQueue.getRemainingCount() > 6)
     {
-      if (cmi[module].valid && !cmi[module].settingsCached)
-      {
-        if (requestQueue.getRemainingCount() < 6)
-        {
-          //Exit here to avoid flooding the queue
-          return;
-        }
+      bool done_for_this_loop = false;
 
-        prg.sendGetSettingsRequest(module);
-        counter++;
+      lazyTimerMode++;
+
+      if (lazyTimerMode == 1 && !done_for_this_loop)
+      {
+        //Send a "ping" message through the cells to get a round trip time
+        prg.sendTimingRequest();
+        done_for_this_loop = true;
+      }
+
+      if (lazyTimerMode == 2 && !done_for_this_loop)
+      {
+        done_for_this_loop = true;
+        uint8_t counter = 0;
+        //Find modules that don't have settings cached and request them
+        for (uint8_t module = 0; module < TotalNumberOfCells(); module++)
+        {
+          if (cmi[module].valid && !cmi[module].settingsCached)
+          {
+            if (requestQueue.getRemainingCount() < 6)
+            {
+              //Exit here to avoid flooding the queue
+              break;
+            }
+
+            prg.sendGetSettingsRequest(module);
+            counter++;
+          }
+        }
+      }
+
+      if (!done_for_this_loop)
+      {
+
+        //Send these requests to all banks of modules
+        uint16_t i = 0;
+        uint16_t max = TotalNumberOfCells();
+
+        uint8_t startmodule = 0;
+
+        while (i < max)
+        {
+          uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
+
+          //Limit to number of modules we have configured
+          if (endmodule > max)
+          {
+            endmodule = max - 1;
+          }
+
+          if (lazyTimerMode == 3)
+          {
+            prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule);
+          }
+
+          if (lazyTimerMode == 4)
+          {
+            prg.sendReadPacketsReceivedRequest(startmodule, endmodule);
+          }
+
+          //Ask for bad packet count (saves battery power if we dont ask for this all the time)
+          if (lazyTimerMode == 5)
+          {
+            prg.sendReadBadPacketCounter(startmodule, endmodule);
+          }
+
+          //Move to the next bank
+          startmodule = endmodule + 1;
+          i += maximum_cell_modules_per_packet;
+        } //end while
+      }
+
+      //Reset at end of cycle
+      if (lazyTimerMode >= 5)
+      {
+        lazyTimerMode = 0;
       }
     }
-
-    return;
-  }
-
-  //Send these requests to all banks of modules
-  uint16_t i = 0;
-  uint16_t max = TotalNumberOfCells();
-
-  uint8_t startmodule = 0;
-
-  while (i < max)
-  {
-    uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
-
-    //Limit to number of modules we have configured
-    if (endmodule > max)
+    else
     {
-      endmodule = max - 1;
+      //Exit here to avoid overflowing the queue
+      ESP_LOGE(TAG, "ERR: Lazy overflow Q=%i", requestQueue.getRemainingCount());
+      return;
     }
-
-    //Need to watch overflow of the uint8 here...
-    //prg.sendCellVoltageRequest(startmodule, endmodule);
-
-    if (lazyTimerMode == 3)
-    {
-      prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule);
-    }
-
-    if (lazyTimerMode == 4)
-    {
-      //Just for debug, only do the first 16 modules
-      prg.sendReadPacketsReceivedRequest(startmodule, endmodule);
-    }
-
-    //Ask for bad packet count (saves battery power if we dont ask for this all the time)
-    if (lazyTimerMode == 5)
-    {
-      prg.sendReadBadPacketCounter(startmodule, endmodule);
-    }
-
-    //Move to the next bank
-    startmodule = endmodule + 1;
-    i += maximum_cell_modules_per_packet;
-  }
-
-  //Reset at end of cycle
-  if (lazyTimerMode >= 5)
-  {
-    lazyTimerMode = 0;
-  }
+  } //end for
 }
 
 void resetAllRules()
@@ -2345,6 +2356,9 @@ TEST CAN BUS
 
   xTaskCreate(transmit_task, "tx", 1024, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 1024, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(lazy_tasks, "lazyt", 1024, nullptr, 1, &lazy_task_handle);
+
+  xTaskCreate(pulse_relay_off_task, "pulse", 1024, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
@@ -2427,11 +2441,9 @@ TEST CAN BUS
 
     xTaskCreate(enqueue_task, "enqueue", 1024, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
 
-    //Process rules every 5 seconds
-    myTimerRelay.attach(5, timerProcessRules);
+    xTaskCreate(rules_task, "rules", 2048, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
 
-    //This is a lazy timer for low priority tasks
-    myLazyTimer.attach(8, timerLazyCallback);
+    xTaskCreate(influxdb_task, "influxdb", 1500, nullptr, configMAX_PRIORITIES - 5, &influxdb_task_handle);
 
     //We have just started...
     SetControllerState(ControllerState::Stabilizing);
@@ -2464,11 +2476,16 @@ void loop()
     }
   }
 
+  /*
   if (touchscreen.tirqTouched())
   {
-    if (touchscreen.touched())
+    if (hal.IsVSPIMutexAvailable())
     {
-      /*
+      if (hal.GetVSPIMutex())
+      {
+        if (touchscreen.touched())
+        {
+        
       TS_Point p = touchscreen.getPoint();
       SERIAL_DEBUG.print("Pressure = ");
       SERIAL_DEBUG.print(p.z);
@@ -2477,10 +2494,14 @@ void loop()
       SERIAL_DEBUG.print(", y = ");
       SERIAL_DEBUG.print(p.y);
       SERIAL_DEBUG.println();
-      */
+      
+        }
+
+        hal.ReleaseVSPIMutex();
+      }
     }
   }
-
+*/
   if (ResetWifi)
   {
     //Password reset, turn LED CYAN
@@ -2492,26 +2513,6 @@ void loop()
 
   ArduinoOTA.handle();
 
-  // Call update to receive, decode and process incoming packets.
+  // Call update to receive, decode and process incoming packets
   myPacketSerial.checkInputStream();
-
-  /*
-  if (ConfigHasChanged > 0)
-  {
-    //Auto reboot if needed (after changing MQTT or INFLUX settings)
-    //Ideally we wouldn't need to reboot if the code could sort itself out!
-    ConfigHasChanged--;
-    if (ConfigHasChanged == 0)
-    {
-      ESP_LOGI(TAG, "RESTART AFTER CONFIG CHANGE");
-      //Stop networking
-      if (mqttClient.connected())
-      {
-        mqttClient.disconnect(true);
-      }
-      WiFi.disconnect();
-      ESP.restart();
-    }
-  }
-*/
 }
