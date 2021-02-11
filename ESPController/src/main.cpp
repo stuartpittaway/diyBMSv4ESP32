@@ -1126,14 +1126,14 @@ void enqueue_task(void *param)
 {
   for (;;)
   {
-    //Delay 5 or 10 seconds
+    //Ensure we service the cell modules every 5 or 10 seconds, depending on number of cells being serviced
+    //slower stops the queues from overflowing when a lot of cells are being monitored
     vTaskDelay(pdMS_TO_TICKS((TotalNumberOfCells() <= maximum_cell_modules_per_packet) ? 5000 : 10000));
 
     QueueLED(RGBLED::Green);
     //Fire task to switch off LED in a few ms
     xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
 
-    //this is called regularly on a timer, it determines what request to make to the modules (via the request queue)
     uint16_t i = 0;
     uint16_t max = TotalNumberOfCells();
 
@@ -1591,8 +1591,16 @@ void mqtt1(void *param)
       //If the BMS is in error, stop sending MQTT packets for the data
       if (!rules.rule_outcome[Rule::BMSError])
       {
+
+        if (mqttStartModule > TotalNumberOfCells())
+        {
+          mqttStartModule = 0;
+        }
+
         uint8_t counter = 0;
-        for (uint8_t i = mqttStartModule; i < TotalNumberOfCells(); i++)
+        uint8_t i = mqttStartModule;
+
+        while (i < TotalNumberOfCells() && counter < 8)
         {
           //Only send valid module data
           if (cmi[i].valid)
@@ -1624,24 +1632,12 @@ void mqtt1(void *param)
 
           counter++;
 
-          //After transmitting this many packets over MQTT, store our current state and exit the function.
-          //this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
-          if (counter == 6)
-          {
-            mqttStartModule = i + 1;
-
-            if (mqttStartModule > TotalNumberOfCells())
-            {
-              mqttStartModule = 0;
-            }
-
-            //Exit for loop
-            break;
-          }
+          i++;
         }
 
-        //Completed the loop, start at zero
-        mqttStartModule = 0;
+        //After transmitting this many packets over MQTT, store our current state and exit the function.
+        //this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
+        mqttStartModule = i + 1;
       }
     }
   }
@@ -2346,7 +2342,7 @@ TEST CAN BUS
 
   //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
   //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
-  
+
   xTaskCreate(transmit_task, "tx", 1024, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 1024, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
 
@@ -2428,9 +2424,6 @@ TEST CAN BUS
     mqttClient.onDisconnect(onMqttDisconnect);
 
     connectToMqtt();
-    //Ensure we service the cell modules every 5 or 10 seconds, depending on number of cells being serviced
-    //slower stops the queues from overflowing when a lot of cells are being monitored
-    //myTimer.attach((TotalNumberOfCells() <= maximum_cell_modules_per_packet) ? 5 : 10, timerEnqueueCallback);
 
     xTaskCreate(enqueue_task, "enqueue", 1024, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
 
