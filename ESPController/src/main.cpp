@@ -128,6 +128,16 @@ TaskHandle_t sdcardlog_outputs_task_handle = NULL;
 QueueHandle_t queue_i2c = NULL;
 TaskHandle_t avrprog_task_handle = NULL;
 
+TaskHandle_t mqtt1_task_handle = NULL;
+TaskHandle_t mqtt2_task_handle = NULL;
+
+TaskHandle_t enqueue_task_handle = NULL;
+TaskHandle_t transmit_task_handle = NULL;
+TaskHandle_t replyqueue_task_handle = NULL;
+
+//Send a few MQTT packets and keep track so we send the next batch on following calls
+uint8_t mqttStartModule = 0;
+
 //This large array holds all the information about the modules
 //up to 4x16
 CellModuleInfo cmi[maximum_controller_cell_modules];
@@ -157,14 +167,7 @@ uint8_t SerialPacketReceiveBuffer[2 * sizeof(PacketStruct)];
 SerialEncoder myPacketSerial;
 
 Ticker myTimerRelay;
-Ticker myTimer;
-Ticker myTransmitTimer;
-Ticker myReplyTimer;
 Ticker myLazyTimer;
-Ticker wifiReconnectTimer;
-Ticker mqttReconnectTimer;
-Ticker myTimerSendMqttPacket;
-Ticker myTimerSendMqttStatus;
 Ticker myTimerSendInfluxdbPacket;
 Ticker myTimerSwitchPulsedRelay;
 
@@ -800,41 +803,42 @@ uint16_t minutesSinceMidnight()
   }
 }
 
-void serviceReplyQueue()
+void replyqueue_task(void *param)
 {
-  //if (replyQueue.isEmpty()) return;
-
-  while (!replyQueue.isEmpty())
+  for (;;)
   {
-    PacketStruct ps;
-    replyQueue.pop(&ps);
+    //Delay 1 second
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    while (!replyQueue.isEmpty())
+    {
+      PacketStruct ps;
+      replyQueue.pop(&ps);
 
 #if defined(PACKET_LOGGING_RECEIVE)
-    // Process decoded incoming packet
-    dumpPacketToDebug('R', &ps);
+// Process decoded incoming packet
+//dumpPacketToDebug('R', &ps);
 #endif
 
-    if (receiveProc.ProcessReply(&ps))
-    {
-      //Success, do nothing
-    }
-    else
-    {
+      if (!receiveProc.ProcessReply(&ps))
+      {
+        //Error blue
+        QueueLED(RGBLED::Blue);
 
-      //Error blue
-      QueueLED(RGBLED::Blue);
+        ESP_LOGE(TAG, "Packet Failed");
 
-      ESP_LOGE(TAG, "Packet Failed");
+        //SERIAL_DEBUG.print(F("*FAIL*"));
+        //dumpPacketToDebug('F', &ps);
+      }
 
-      //SERIAL_DEBUG.print(F("*FAIL*"));
-      dumpPacketToDebug('F', &ps);
+      //Small delay to allow watchdog to be fed
+      vTaskDelay(pdMS_TO_TICKS(10));
     }
   }
 }
 
 void onPacketReceived()
 {
-
   PacketStruct ps;
   memcpy(&ps, SerialPacketReceiveBuffer, sizeof(PacketStruct));
 
@@ -854,35 +858,42 @@ void onPacketReceived()
   }
 }
 
-void timerTransmitCallback()
+void transmit_task(void *param)
 {
-  if (requestQueue.isEmpty())
-    return;
-
-  // Called to transmit the next packet in the queue need to ensure this procedure
-  // is called more frequently than items are added into the queue
-
-  PacketStruct transmitBuffer;
-
-  requestQueue.pop(&transmitBuffer);
-  sequence++;
-  transmitBuffer.sequence = sequence;
-
-  if (transmitBuffer.command == COMMAND::Timing)
+  for (;;)
   {
-    //Timestamp at the last possible moment
-    uint32_t t = millis();
-    transmitBuffer.moduledata[0] = (t & 0xFFFF0000) >> 16;
-    transmitBuffer.moduledata[1] = t & 0x0000FFFF;
+    //Delay 1 second
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    //TODO: Move to proper RTOS QUEUE...
+    if (requestQueue.isEmpty() == false)
+    {
+      // Called to transmit the next packet in the queue need to ensure this procedure
+      // is called more frequently than items are added into the queue
+
+      PacketStruct transmitBuffer;
+
+      requestQueue.pop(&transmitBuffer);
+      sequence++;
+      transmitBuffer.sequence = sequence;
+
+      if (transmitBuffer.command == COMMAND::Timing)
+      {
+        //Timestamp at the last possible moment
+        uint32_t t = millis();
+        transmitBuffer.moduledata[0] = (t & 0xFFFF0000) >> 16;
+        transmitBuffer.moduledata[1] = t & 0x0000FFFF;
+      }
+
+      transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
+      myPacketSerial.sendBuffer((byte *)&transmitBuffer);
+
+      // Output the packet we just transmitted to debug console
+      //#if defined(PACKET_LOGGING_SEND)
+      //      dumpPacketToDebug('S', &transmitBuffer);
+      //#endif
+    }
   }
-
-  transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
-  myPacketSerial.sendBuffer((byte *)&transmitBuffer);
-
-// Output the packet we just transmitted to debug console
-#if defined(PACKET_LOGGING_SEND)
-  dumpPacketToDebug('S', &transmitBuffer);
-#endif
 }
 
 //Runs the rules and populates rule_outcome array with true/false for each rule
@@ -1111,52 +1122,57 @@ void timerProcessRules()
   }
 }
 
-void timerEnqueueCallback()
+void enqueue_task(void *param)
 {
-  QueueLED(RGBLED::Green);
-  //Fire task to switch off LED in a few ms
-  xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
-
-  //this is called regularly on a timer, it determines what request to make to the modules (via the request queue)
-  uint16_t i = 0;
-  uint16_t max = TotalNumberOfCells();
-
-  uint8_t startmodule = 0;
-
-  while (i < max)
+  for (;;)
   {
-    uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
+    //Delay 5 or 10 seconds
+    vTaskDelay(pdMS_TO_TICKS((TotalNumberOfCells() <= maximum_cell_modules_per_packet) ? 5000 : 10000));
 
-    //Limit to number of modules we have configured
-    if (endmodule > max)
+    QueueLED(RGBLED::Green);
+    //Fire task to switch off LED in a few ms
+    xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
+
+    //this is called regularly on a timer, it determines what request to make to the modules (via the request queue)
+    uint16_t i = 0;
+    uint16_t max = TotalNumberOfCells();
+
+    uint8_t startmodule = 0;
+
+    while (i < max)
     {
-      endmodule = max - 1;
-    }
+      uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
 
-    //Need to watch overflow of the uint8 here...
-    prg.sendCellVoltageRequest(startmodule, endmodule);
-    prg.sendCellTemperatureRequest(startmodule, endmodule);
-
-    //If any module is in bypass then request PWM reading for whole bank
-    for (uint8_t m = startmodule; m <= endmodule; m++)
-    {
-      if (cmi[m].inBypass)
+      //Limit to number of modules we have configured
+      if (endmodule > max)
       {
-        prg.sendReadBalancePowerRequest(startmodule, endmodule);
-        //We only need 1 reading for whole bank
-        break;
+        endmodule = max - 1;
       }
-    }
 
-    //Move to the next bank
-    startmodule = endmodule + 1;
-    i += maximum_cell_modules_per_packet;
+      //Need to watch overflow of the uint8 here...
+      prg.sendCellVoltageRequest(startmodule, endmodule);
+      prg.sendCellTemperatureRequest(startmodule, endmodule);
+
+      //If any module is in bypass then request PWM reading for whole bank
+      for (uint8_t m = startmodule; m <= endmodule; m++)
+      {
+        if (cmi[m].inBypass)
+        {
+          prg.sendReadBalancePowerRequest(startmodule, endmodule);
+          //We only need 1 reading for whole bank
+          break;
+        }
+      }
+
+      //Move to the next bank
+      startmodule = endmodule + 1;
+      i += maximum_cell_modules_per_packet;
+    }
   }
 }
 
 void connectToWifi()
 {
-  ESP_LOGD(TAG, "Check WiFi status");
   wl_status_t status = WiFi.status();
   if (status == WL_CONNECTED)
   {
@@ -1201,8 +1217,18 @@ WiFi.status() only returns:
 
 void connectToMqtt()
 {
-  ESP_LOGI(TAG, "Connecting to MQTT...");
-  mqttClient.connect();
+  if (mysettings.mqtt_enabled && WiFi.isConnected())
+  {
+    if (mqttClient.connected() == false)
+    {
+      ESP_LOGD(TAG, "MQTT Enabled");
+      mqttClient.setServer(mysettings.mqtt_server, mysettings.mqtt_port);
+      mqttClient.setCredentials(mysettings.mqtt_username, mysettings.mqtt_password);
+
+      ESP_LOGI(TAG, "Connecting to MQTT...");
+      mqttClient.connect();
+    }
+  }
 }
 
 static AsyncClient *aClient = NULL;
@@ -1301,7 +1327,10 @@ void SendInfluxdbPacket()
 
 void startTimerToInfluxdb()
 {
-  myTimerSendInfluxdbPacket.attach(30, SendInfluxdbPacket);
+  if (mysettings.influxdb_enabled)
+  {
+    myTimerSendInfluxdbPacket.attach(30, SendInfluxdbPacket);
+  }
 }
 
 void SetupOTA()
@@ -1420,15 +1449,9 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
     server_running = true;
   }
 
-  if (mysettings.mqtt_enabled)
-  {
-    connectToMqtt();
-  }
+  connectToMqtt();
 
-  if (mysettings.influxdb_enabled)
-  {
-    startTimerToInfluxdb();
-  }
+  startTimerToInfluxdb();
 
   SetupOTA();
 
@@ -1460,177 +1483,177 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
   WifiDisconnected = true;
 
   // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-  mqttReconnectTimer.detach();
-  myTimerSendMqttPacket.detach();
-  myTimerSendMqttStatus.detach();
   myTimerSendInfluxdbPacket.detach();
-
-  //wifiReconnectTimer.once(2, connectToWifi);
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 {
   ESP_LOGE(TAG, "Disconnected from MQTT.");
-
-  myTimerSendMqttPacket.detach();
-  myTimerSendMqttStatus.detach();
-
-  if (WiFi.isConnected())
-  {
-    mqttReconnectTimer.once(2, connectToMqtt);
-  }
 }
 
-void sendMqttStatus()
+void mqtt2(void *param)
 {
-  if (!mysettings.mqtt_enabled && !mqttClient.connected())
-    return;
 
-  char topic[80];
-  char jsonbuffer[220];
-  DynamicJsonDocument doc(220);
-  JsonObject root = doc.to<JsonObject>();
-
-  root["banks"] = mysettings.totalNumberOfBanks;
-  root["cells"] = mysettings.totalNumberOfSeriesModules;
-  root["uptime"] = millis() / 1000; // I want to know the uptime of the device.
-
-  // Set error flag if we have attempted to send 2*number of banks without a reply
-  root["commserr"] = receiveProc.HasCommsTimedOut() ? 1 : 0;
-  root["sent"] = prg.packetsGenerated;
-  root["received"] = receiveProc.packetsReceived;
-  root["badcrc"] = receiveProc.totalCRCErrors;
-  root["ignored"] = receiveProc.totalNotProcessedErrors;
-  root["oos"] = receiveProc.totalOutofSequenceErrors;
-  root["roundtrip"] = receiveProc.packetTimerMillisecond;
-
-  serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-  sprintf(topic, "%s/status", mysettings.mqtt_topic);
-  mqttClient.publish(topic, 0, false, jsonbuffer);
-#if defined(MQTT_LOGGING)
-  ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-//SERIAL_DEBUG.print("MQTT - ");SERIAL_DEBUG.print(topic);  SERIAL_DEBUG.print('=');  SERIAL_DEBUG.println(jsonbuffer);
-#endif
-
-  //Output bank level information (just voltage for now)
-  for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
+  for (;;)
   {
-    doc.clear();
-    doc["voltage"] = (float)rules.packvoltage[bank] / (float)1000.0;
+    //Delay 25 seconds
+    vTaskDelay(pdMS_TO_TICKS(25000));
 
-    serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-    sprintf(topic, "%s/bank/%d", mysettings.mqtt_topic, bank);
-    mqttClient.publish(topic, 0, false, jsonbuffer);
-#if defined(MQTT_LOGGING)
-    ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-//SERIAL_DEBUG.print("MQTT - ");SERIAL_DEBUG.print(topic);  SERIAL_DEBUG.print('=');  SERIAL_DEBUG.println(jsonbuffer);
-#endif
-  }
-
-  //Using Json for below reduced MQTT messages from 14 to 2. Could be combined into same json object too. But even better is status + event driven.
-  doc.clear(); // Need to clear the json object for next message
-  sprintf(topic, "%s/rule", mysettings.mqtt_topic);
-  for (uint8_t i = 0; i < RELAY_RULES; i++)
-  {
-    doc[(String)i] = rules.rule_outcome[i] ? 1 : 0; // String conversion should be removed but just quick to get json format nice
-  }
-  serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-#if defined(MQTT_LOGGING)
-  ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-#endif
-  mqttClient.publish(topic, 0, false, jsonbuffer);
-
-  doc.clear(); // Need to clear the json object for next message
-  sprintf(topic, "%s/output", mysettings.mqtt_topic);
-  for (uint8_t i = 0; i < RELAY_TOTAL; i++)
-  {
-    doc[(String)i] = (previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0;
-  }
-
-  serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-#if defined(MQTT_LOGGING)
-  ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-#endif
-  mqttClient.publish(topic, 0, false, jsonbuffer);
-}
-
-//Send a few MQTT packets and keep track so we send the next batch on following calls
-uint8_t mqttStartModule = 0;
-
-void sendMqttPacket()
-{
-#if defined(MQTT_LOGGING)
-  ESP_LOGI(TAG, "Send MQTT Packet");
-#endif
-
-  if (!mysettings.mqtt_enabled && !mqttClient.connected())
-    return;
-
-  char topic[80];
-  char jsonbuffer[200];
-  StaticJsonDocument<200> doc;
-
-  //If the BMS is in error, stop sending MQTT packets for the data
-  if (!rules.rule_outcome[Rule::BMSError])
-  {
-    uint8_t counter = 0;
-    for (uint8_t i = mqttStartModule; i < TotalNumberOfCells(); i++)
+    if (mysettings.mqtt_enabled && mqttClient.connected())
     {
-      //Only send valid module data
-      if (cmi[i].valid)
-      {
-        uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
-        uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
+      ESP_LOGI(TAG, "Send MQTT Status");
 
-        doc.clear();
-        doc["voltage"] = (float)cmi[i].voltagemV / (float)1000.0;
-        doc["vMax"] = (float)cmi[i].voltagemVMax / (float)1000.0;
-        doc["vMin"] = (float)cmi[i].voltagemVMin / (float)1000.0;
-        doc["inttemp"] = cmi[i].internalTemp;
-        doc["exttemp"] = cmi[i].externalTemp;
-        doc["bypass"] = cmi[i].inBypass ? 1 : 0;
-        doc["PWM"] = (int)((float)cmi[i].PWMValue / (float)255.0 * 100);
-        doc["bypassT"] = cmi[i].bypassOverTemp ? 1 : 0;
-        doc["bpc"] = cmi[i].badPacketCount;
-        doc["mAh"] = cmi[i].BalanceCurrentCount;
-        serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+      char topic[80];
+      char jsonbuffer[220];
+      DynamicJsonDocument doc(220);
+      JsonObject root = doc.to<JsonObject>();
 
-        sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, module);
+      root["banks"] = mysettings.totalNumberOfBanks;
+      root["cells"] = mysettings.totalNumberOfSeriesModules;
+      root["uptime"] = millis() / 1000; // I want to know the uptime of the device.
 
-        mqttClient.publish(topic, 0, false, jsonbuffer);
+      // Set error flag if we have attempted to send 2*number of banks without a reply
+      root["commserr"] = receiveProc.HasCommsTimedOut() ? 1 : 0;
+      root["sent"] = prg.packetsGenerated;
+      root["received"] = receiveProc.packetsReceived;
+      root["badcrc"] = receiveProc.totalCRCErrors;
+      root["ignored"] = receiveProc.totalNotProcessedErrors;
+      root["oos"] = receiveProc.totalOutofSequenceErrors;
+      root["roundtrip"] = receiveProc.packetTimerMillisecond;
 
+      serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+      sprintf(topic, "%s/status", mysettings.mqtt_topic);
+      mqttClient.publish(topic, 0, false, jsonbuffer);
 #if defined(MQTT_LOGGING)
-        ESP_LOGI(TAG, "MQTT %s %s", topic, jsonbuffer);
+      ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+//SERIAL_DEBUG.print("MQTT - ");SERIAL_DEBUG.print(topic);  SERIAL_DEBUG.print('=');  SERIAL_DEBUG.println(jsonbuffer);
+#endif
+
+      //Output bank level information (just voltage for now)
+      for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
+      {
+        doc.clear();
+        doc["voltage"] = (float)rules.packvoltage[bank] / (float)1000.0;
+
+        serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+        sprintf(topic, "%s/bank/%d", mysettings.mqtt_topic, bank);
+        mqttClient.publish(topic, 0, false, jsonbuffer);
+#if defined(MQTT_LOGGING)
+        ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+//SERIAL_DEBUG.print("MQTT - ");SERIAL_DEBUG.print(topic);  SERIAL_DEBUG.print('=');  SERIAL_DEBUG.println(jsonbuffer);
 #endif
       }
 
-      counter++;
-
-      //After transmitting this many packets over MQTT, store our current state and exit the function.
-      //this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
-      if (counter == 6)
+      //Using Json for below reduced MQTT messages from 14 to 2. Could be combined into same json object too. But even better is status + event driven.
+      doc.clear(); // Need to clear the json object for next message
+      sprintf(topic, "%s/rule", mysettings.mqtt_topic);
+      for (uint8_t i = 0; i < RELAY_RULES; i++)
       {
-        mqttStartModule = i + 1;
+        doc[(String)i] = rules.rule_outcome[i] ? 1 : 0; // String conversion should be removed but just quick to get json format nice
+      }
+      serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+#if defined(MQTT_LOGGING)
+      ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+#endif
+      mqttClient.publish(topic, 0, false, jsonbuffer);
 
-        if (mqttStartModule > TotalNumberOfCells())
+      doc.clear(); // Need to clear the json object for next message
+      sprintf(topic, "%s/output", mysettings.mqtt_topic);
+      for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+      {
+        doc[(String)i] = (previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0;
+      }
+
+      serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+#if defined(MQTT_LOGGING)
+      ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+#endif
+      mqttClient.publish(topic, 0, false, jsonbuffer);
+    }
+  }
+}
+
+void mqtt1(void *param)
+{
+  for (;;)
+  {
+    //Delay 5 seconds
+    vTaskDelay(pdMS_TO_TICKS(5000));
+
+    if (mysettings.mqtt_enabled && mqttClient.connected())
+    {
+      //ESP_LOGI(TAG, "Send MQTT Packet");
+
+      char topic[80];
+      char jsonbuffer[200];
+      StaticJsonDocument<200> doc;
+
+      //If the BMS is in error, stop sending MQTT packets for the data
+      if (!rules.rule_outcome[Rule::BMSError])
+      {
+        uint8_t counter = 0;
+        for (uint8_t i = mqttStartModule; i < TotalNumberOfCells(); i++)
         {
-          mqttStartModule = 0;
+          //Only send valid module data
+          if (cmi[i].valid)
+          {
+            uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
+            uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
+
+            doc.clear();
+            doc["voltage"] = (float)cmi[i].voltagemV / (float)1000.0;
+            doc["vMax"] = (float)cmi[i].voltagemVMax / (float)1000.0;
+            doc["vMin"] = (float)cmi[i].voltagemVMin / (float)1000.0;
+            doc["inttemp"] = cmi[i].internalTemp;
+            doc["exttemp"] = cmi[i].externalTemp;
+            doc["bypass"] = cmi[i].inBypass ? 1 : 0;
+            doc["PWM"] = (int)((float)cmi[i].PWMValue / (float)255.0 * 100);
+            doc["bypassT"] = cmi[i].bypassOverTemp ? 1 : 0;
+            doc["bpc"] = cmi[i].badPacketCount;
+            doc["mAh"] = cmi[i].BalanceCurrentCount;
+            serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+
+            sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, module);
+
+            mqttClient.publish(topic, 0, false, jsonbuffer);
+
+#if defined(MQTT_LOGGING)
+            ESP_LOGI(TAG, "MQTT %s %s", topic, jsonbuffer);
+#endif
+          }
+
+          counter++;
+
+          //After transmitting this many packets over MQTT, store our current state and exit the function.
+          //this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
+          if (counter == 6)
+          {
+            mqttStartModule = i + 1;
+
+            if (mqttStartModule > TotalNumberOfCells())
+            {
+              mqttStartModule = 0;
+            }
+
+            //Exit for loop
+            break;
+          }
         }
 
-        return;
+        //Completed the loop, start at zero
+        mqttStartModule = 0;
       }
     }
-
-    //Completed the loop, start at zero
-    mqttStartModule = 0;
   }
 }
 
 void onMqttConnect(bool sessionPresent)
 {
   ESP_LOGI("Connected to MQTT");
-  myTimerSendMqttPacket.attach(5, sendMqttPacket);
-  myTimerSendMqttStatus.attach(25, sendMqttStatus);
+  //myTimerSendMqttPacket.detach();
+  //myTimerSendMqttStatus.detach();
+  //myTimerSendMqttPacket.attach(5, sendMqttPacket);
+  //myTimerSendMqttStatus.attach(25, sendMqttStatus);
 }
 
 void LoadConfiguration()
@@ -1660,7 +1683,7 @@ void LoadConfiguration()
   mysettings.loggingFrequencySeconds = 15;
 
   //Default to EMONPI default MQTT settings
-  strcpy(mysettings.mqtt_topic, "diybms");
+  strcpy(mysettings.mqtt_topic, "emon/diybms");
   strcpy(mysettings.mqtt_server, "192.168.0.26");
   strcpy(mysettings.mqtt_username, "emonpi");
   strcpy(mysettings.mqtt_password, "emonpimqtt2016");
@@ -2308,13 +2331,24 @@ TEST CAN BUS
   queue_i2c = xQueueCreate(10, sizeof(i2cQueueMessage));
 
   //Create i2c task on CPU 0 (normal code runs on CPU 1)
-  xTaskCreatePinnedToCore(i2c_task, "i2c", 2048, nullptr, 2, &i2c_task_handle, 0);
-  //High priority task as its timing sensitive
-  xTaskCreate(avrprog_task, "avrprog", 3000, &_avrsettings, 2, &avrprog_task_handle);
+  xTaskCreatePinnedToCore(i2c_task, "i2c", 2048, nullptr, configMAX_PRIORITIES - 1, &i2c_task_handle, 0);
   xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
-  xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 0, &wifiresetdisable_task_handle);
+
+  xTaskCreate(avrprog_task, "avrprog", 3000, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
+
+  xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 1, &wifiresetdisable_task_handle);
+
   xTaskCreate(sdcardlog_task, "sdlog", 4096, nullptr, 1, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 4096, nullptr, 1, &sdcardlog_outputs_task_handle);
+
+  xTaskCreate(mqtt1, "mqtt1", 3000, nullptr, 1, &mqtt1_task_handle);
+  xTaskCreate(mqtt2, "mqtt2", 3000, nullptr, 1, &mqtt2_task_handle);
+
+  //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
+  //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
+  
+  xTaskCreate(transmit_task, "tx", 1024, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 1024, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
@@ -2393,26 +2427,15 @@ TEST CAN BUS
     mqttClient.onConnect(onMqttConnect);
     mqttClient.onDisconnect(onMqttDisconnect);
 
-    if (mysettings.mqtt_enabled)
-    {
-      ESP_LOGD(TAG, "MQTT Enabled");
-      mqttClient.setServer(mysettings.mqtt_server, mysettings.mqtt_port);
-      mqttClient.setCredentials(mysettings.mqtt_username, mysettings.mqtt_password);
-    }
-
+    connectToMqtt();
     //Ensure we service the cell modules every 5 or 10 seconds, depending on number of cells being serviced
     //slower stops the queues from overflowing when a lot of cells are being monitored
-    myTimer.attach((TotalNumberOfCells() <= maximum_cell_modules_per_packet) ? 5 : 10, timerEnqueueCallback);
+    //myTimer.attach((TotalNumberOfCells() <= maximum_cell_modules_per_packet) ? 5 : 10, timerEnqueueCallback);
+
+    xTaskCreate(enqueue_task, "enqueue", 1024, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
 
     //Process rules every 5 seconds
     myTimerRelay.attach(5, timerProcessRules);
-
-    //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
-    //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
-    myTransmitTimer.attach(1, timerTransmitCallback);
-
-    //Service reply queue
-    myReplyTimer.attach(1, serviceReplyQueue);
 
     //This is a lazy timer for low priority tasks
     myLazyTimer.attach(8, timerLazyCallback);
@@ -2428,6 +2451,7 @@ TEST CAN BUS
 }
 
 unsigned long wifitimer = 0;
+char ptrTaskList[1024];
 
 void loop()
 {
@@ -2442,6 +2466,8 @@ void loop()
       //such as AP reboot, its written to return without action if we are already connected
       connectToWifi();
       wifitimer = currentMillis;
+
+      connectToMqtt();
     }
   }
 
