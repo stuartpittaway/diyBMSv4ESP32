@@ -42,7 +42,7 @@ static const char *TAG = "diybms";
 #include "SD.h"
 #include "driver/gpio.h"
 //#include "driver/can.h"
-#include <SDM.h>
+//#include <SDM.h>
 #include <Ticker.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
@@ -54,7 +54,7 @@ static const char *TAG = "diybms";
 #include "defines.h"
 #include "HAL_ESP32.h"
 
-SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
+//SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
 
 #include "Rules.h"
 
@@ -1156,26 +1156,47 @@ void timerEnqueueCallback()
 
 void connectToWifi()
 {
-  if (WiFi.status() != WL_CONNECTED)
+  ESP_LOGD(TAG, "Check WiFi status");
+  wl_status_t status = WiFi.status();
+  if (status == WL_CONNECTED)
   {
-    WiFi.mode(WIFI_STA);
-
-    char hostname[40];
-
-    uint32_t chipId = 0;
-    for (int i = 0; i < 17; i = i + 8)
-    {
-      chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
-    }
-    sprintf(hostname, "DIYBMS-%08X", chipId);
-    WiFi.setHostname(hostname);
-
-    ESP_LOGI(TAG, "Hostname: %s", hostname);
-
-    WiFi.begin(DIYBMSSoftAP::WifiSSID(), DIYBMSSoftAP::WifiPassword());
+    return;
   }
 
-  WifiDisconnected = false;
+  /*
+WiFi.status() only returns:
+
+    switch(status) {
+        case STATION_GOT_IP:
+            return WL_CONNECTED;
+        case STATION_NO_AP_FOUND:
+            return WL_NO_SSID_AVAIL;
+        case STATION_CONNECT_FAIL:
+        case STATION_WRONG_PASSWORD:
+            return WL_CONNECT_FAILED;
+        case STATION_IDLE:
+            return WL_IDLE_STATUS;
+        default:
+            return WL_DISCONNECTED;
+    }
+*/
+
+  WiFi.mode(WIFI_STA);
+
+  char hostname[40];
+
+  uint32_t chipId = 0;
+  for (int i = 0; i < 17; i = i + 8)
+  {
+    chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
+  }
+  sprintf(hostname, "DIYBMS-%08X", chipId);
+  WiFi.setHostname(hostname);
+
+  ESP_LOGI(TAG, "Hostname: %s, current state %i", hostname, status);
+
+  ESP_LOGD(TAG, "WiFi begin");
+  WiFi.begin(DIYBMSSoftAP::WifiSSID(), DIYBMSSoftAP::WifiPassword());
 }
 
 void connectToMqtt()
@@ -1872,9 +1893,9 @@ bool CaptureSerialInput(HardwareSerial stream, char *buffer, int buffersize, boo
   }
 }
 
-void TerminalBasedWifiSetup()
+void TerminalBasedWifiSetup(HardwareSerial stream)
 {
-  SERIAL_DEBUG.println(F("\r\n\r\nDIYBMS CONTROLLER - Scanning Wifi"));
+  stream.println(F("\r\n\r\nDIYBMS CONTROLLER - Scanning Wifi"));
 
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
@@ -1882,50 +1903,50 @@ void TerminalBasedWifiSetup()
   int n = WiFi.scanNetworks();
 
   if (n == 0)
-    SERIAL_DEBUG.println(F("no networks found"));
+    stream.println(F("no networks found"));
   else
   {
     for (int i = 0; i < n; ++i)
     {
       if (i < 10)
       {
-        SERIAL_DEBUG.print(' ');
+        stream.print(' ');
       }
-      SERIAL_DEBUG.print(i);
-      SERIAL_DEBUG.print(':');
-      SERIAL_DEBUG.print(WiFi.SSID(i));
+      stream.print(i);
+      stream.print(':');
+      stream.print(WiFi.SSID(i));
 
       //Pad out the wifi names into 2 columns
       for (size_t spaces = WiFi.SSID(i).length(); spaces < 36; spaces++)
       {
-        SERIAL_DEBUG.print(' ');
+        stream.print(' ');
       }
 
       if ((i + 1) % 2 == 0)
       {
-        SERIAL_DEBUG.println();
+        stream.println();
       }
       delay(5);
     }
-    SERIAL_DEBUG.println();
+    stream.println();
   }
 
   WiFi.mode(WIFI_OFF);
 
-  SERIAL_DEBUG.print(F("Enter the NUMBER of the Wifi network to connect to:"));
+  stream.print(F("Enter the NUMBER of the Wifi network to connect to:"));
 
   bool result;
   char buffer[10];
-  result = CaptureSerialInput(SERIAL_DEBUG, buffer, 10, true, false);
+  result = CaptureSerialInput(stream, buffer, 10, true, false);
   if (result)
   {
     int index = String(buffer).toInt();
-    SERIAL_DEBUG.print(F("Enter the password to use when connecting to '"));
-    SERIAL_DEBUG.print(WiFi.SSID(index));
-    SERIAL_DEBUG.print("':");
+    stream.print(F("Enter the password to use when connecting to '"));
+    stream.print(WiFi.SSID(index));
+    stream.print("':");
 
     char passwordbuffer[80];
-    result = CaptureSerialInput(SERIAL_DEBUG, passwordbuffer, 80, false, true);
+    result = CaptureSerialInput(stream, passwordbuffer, 80, false, true);
 
     if (result)
     {
@@ -1937,7 +1958,7 @@ void TerminalBasedWifiSetup()
     }
   }
 
-  SERIAL_DEBUG.println(F("REBOOTING IN 5..."));
+  stream.println(F("REBOOTING IN 5..."));
   delay(5000);
   ESP.restart();
 }
@@ -2333,12 +2354,13 @@ TEST CAN BUS
       //SPACE BAR
       if (x == 32)
       {
-        TerminalBasedWifiSetup();
+        TerminalBasedWifiSetup(SERIAL_DEBUG);
       }
     }
     delay(250);
   }
   SERIAL_DEBUG.println(F("skipped"));
+  SERIAL_DEBUG.flush();
 
   //Temporarly force WIFI settings
   //wifi_eeprom_settings xxxx;
@@ -2352,8 +2374,6 @@ TEST CAN BUS
     //We have just started up and the EEPROM is empty of configuration
     SetControllerState(ControllerState::ConfigurationSoftAP);
 
-    //SERIAL_DEBUG.print(F("Clear AP settings"));
-    //SERIAL_DEBUG.println(clearAPSettings);
     ESP_LOGI(TAG, "Setup Access Point");
     //We are in initial power on mode (factory reset)
     DIYBMSSoftAP::SetupAccessPoint(&server);
@@ -2361,14 +2381,12 @@ TEST CAN BUS
   else
   {
 
-    ESP_LOGI(TAG, "Connecting to WIFI");
-
     /* Explicitly set the ESP to be a WiFi-client, otherwise by default,
       would try to act as both a client and an access-point */
 
     WiFi.onEvent(onWifiConnect, system_event_id_t::SYSTEM_EVENT_STA_GOT_IP);
     WiFi.onEvent(onWifiDisconnect, system_event_id_t::SYSTEM_EVENT_STA_DISCONNECTED);
-    //Newed IDF version will need this...
+    //Newer IDF version will need this...
     //WiFi.onEvent(onWifiConnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
     //WiFi.onEvent(onWifiDisconnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
@@ -2382,14 +2400,15 @@ TEST CAN BUS
       mqttClient.setCredentials(mysettings.mqtt_username, mysettings.mqtt_password);
     }
 
-    //Ensure we service the cell modules every 6 seconds
-    myTimer.attach(6, timerEnqueueCallback);
+    //Ensure we service the cell modules every 5 or 10 seconds, depending on number of cells being serviced
+    //slower stops the queues from overflowing when a lot of cells are being monitored
+    myTimer.attach((TotalNumberOfCells() <= maximum_cell_modules_per_packet) ? 5 : 10, timerEnqueueCallback);
 
     //Process rules every 5 seconds
     myTimerRelay.attach(5, timerProcessRules);
 
     //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
-    //and slower than it takes a single module to process a command (about 300ms)
+    //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
     myTransmitTimer.attach(1, timerTransmitCallback);
 
     //Service reply queue
@@ -2402,14 +2421,29 @@ TEST CAN BUS
     SetControllerState(ControllerState::Stabilizing);
 
     tft_display_off();
+
+    //Attempt connection in setup(), loop() will also try every 30 seconds
+    connectToWifi();
   }
 }
 
+unsigned long wifitimer = 0;
+
 void loop()
 {
-  //Allow CPU to sleep some
-  //delay(10);
-  //ESP_LOGW("LOOP","LOOP");
+  unsigned long currentMillis = millis();
+
+  if (ControlState != ControllerState::ConfigurationSoftAP)
+  {
+    //on first pass wifitimer is zero
+    if (currentMillis - wifitimer > 30000)
+    {
+      //Attempt to connect to WiFi every 30 seconds, this caters for when WiFi drops
+      //such as AP reboot, its written to return without action if we are already connected
+      connectToWifi();
+      wifitimer = currentMillis;
+    }
+  }
 
   if (touchscreen.tirqTouched())
   {
@@ -2426,11 +2460,6 @@ void loop()
       SERIAL_DEBUG.println();
       */
     }
-  }
-
-  if (WifiDisconnected && ControlState != ControllerState::ConfigurationSoftAP)
-  {
-    connectToWifi();
   }
 
   if (ResetWifi)
