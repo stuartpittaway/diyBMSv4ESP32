@@ -4,11 +4,13 @@ Version 4 of the diyBMS.  Do-it-yourself battery management system for Lithium i
 
 If you are looking for version 3 of this project take a look here https://github.com/stuartpittaway/diyBMS
 
+THIS CODE IS FOR THE NEW CONTROLLER (AFTER FEB 2021) AND ESP32 DEVKIT-C
+
 # Support the project
 
 If you find the BMS useful, please consider buying me a beer, check out [Patreon](https://www.patreon.com/StuartP) for more information.
 
-You can also send beer tokens via Paypal - [paypal.me/stuart2222](https://www.paypal.com/paypalme/my/profile)
+You can also send beer tokens via Paypal - [paypal.me/stuart2222](paypal.me/stuart2222)
 
 Any donations go towards the on going development and prototype costs of the project.
 
