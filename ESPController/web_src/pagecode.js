@@ -106,7 +106,7 @@ function configureModule(button, cellid, attempts) {
 
                 //Populate settings div
                 $('#ModuleId').val(data.settings.id);
-                $('#Version').html(data.settings.ver.toString() + ' / <a href="https://github.com/stuartpittaway/diyBMSv4Code/commit/' + data.settings.code.toString(16) + '" rel="noreferrer" target="_blank">' + data.settings.code.toString(16) + '</a>');
+                $('#Version').html(data.settings.ver.toString() + ' / <a href="https://github.com/stuartpittaway/diyBMSv4ESP32/commit/' + data.settings.code.toString(16) + '" rel="noreferrer" target="_blank">' + data.settings.code.toString(16) + '</a>');
                 $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);
                 $('#BypassThresholdmV').val(data.settings.BypassThresholdmV);
                 $('#Calib').val(data.settings.Calib.toFixed(4));
