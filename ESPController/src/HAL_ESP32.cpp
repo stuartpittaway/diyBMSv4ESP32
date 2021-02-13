@@ -110,6 +110,24 @@ void HAL_ESP32::Led(uint8_t bits)
     //TODO: Check return value
 }
 
+// Control Silent mode control input on TJA1051T/3
+// True = enable CANBUS
+void HAL_ESP32::CANBUSEnable(bool value)
+{
+    //Pin P5
+    //Low = Normal mode
+    //High = Silent
+    TCA9534APWR_Value = TCA9534APWR_Value & B11011111;
+
+    if (value == false)
+    {
+        //Set on
+        TCA9534APWR_Value = TCA9534APWR_Value | B00100000;
+    }
+
+    ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value));
+}
+
 // Control TFT backlight LED
 void HAL_ESP32::TFTScreenBacklight(bool value)
 {

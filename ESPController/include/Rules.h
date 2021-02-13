@@ -23,6 +23,8 @@ enum Rule : uint8_t
 
 };
 
+//Define a max constant for the highest value (change if you add more warnings)
+#define MAXIMUM_InternalWarningCode 5
 enum InternalWarningCode : uint8_t
 {
     NoWarning = 0,
@@ -33,6 +35,8 @@ enum InternalWarningCode : uint8_t
     LoggingEnabledNoSDCard=5
 };
 
+//Define a max constant for the highest value (change if you add more errors)
+#define MAXIMUM_InternalErrorCode 6
 enum InternalErrorCode : uint8_t
 {
     NoError = 0,
@@ -64,8 +68,8 @@ public:
     int8_t lowestExternalTemp;
     int8_t highestInternalTemp;
     int8_t lowestInternalTemp;
-    InternalErrorCode ErrorCodes[8];
-    InternalWarningCode WarningCodes[8];
+    InternalErrorCode ErrorCodes[MAXIMUM_InternalErrorCode];
+    InternalWarningCode WarningCodes[MAXIMUM_InternalWarningCode];
     bool moduleHasExternalTempSensor;
     uint8_t invalidModuleCount;
 

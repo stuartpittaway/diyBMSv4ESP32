@@ -815,6 +815,7 @@ $(function () {
                 $("#MinFreeHeap").html(data.settings.MinFreeHeap);
                 $("#FreeHeap").html(data.settings.FreeHeap);
                 $("#HeapSize").html(data.settings.HeapSize);
+                $("#SdkVersion").html(data.settings.SdkVersion);                
                 $("#HostName").html("<a href='http://" + data.settings.HostName + "'>" + data.settings.HostName + "</a>");
             }).fail(function () { }
             );

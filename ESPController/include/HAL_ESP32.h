@@ -67,6 +67,7 @@ public:
     void ConfigurePins(void (*WiFiPasswordResetInterrput)(void));
     void TFTScreenBacklight(bool Status);
     void SwapGPIO0ToOutput();
+    void CANBUSEnable(bool value);
 
     bool IsVSPIMutexAvailable()
     {

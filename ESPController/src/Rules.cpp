@@ -107,6 +107,16 @@ void Rules::ProcessBank(uint8_t bank)
 
 void Rules::SetWarning(InternalWarningCode warncode)
 {
+    if (warncode > MAXIMUM_InternalWarningCode)
+        return;
+
+    //Only set the warning once
+    if (WarningCodes[warncode] != InternalWarningCode::NoWarning)
+        return;
+
+    WarningCodes[warncode] = warncode;
+    ESP_LOGI(TAG, "Set warning %i", warncode);
+    /*
     for (size_t i = 0; i < sizeof(WarningCodes); i++)
     {
         if (WarningCodes[i] == warncode)
@@ -122,10 +132,21 @@ void Rules::SetWarning(InternalWarningCode warncode)
             break;
         }
     }
+*/
 }
 
 void Rules::SetError(InternalErrorCode err)
 {
+    if (err > MAXIMUM_InternalErrorCode)
+        return;
+
+    //Only set error once
+    if (ErrorCodes[err] != InternalErrorCode::NoError)
+        return;
+
+    ErrorCodes[err] = err;
+    ESP_LOGI(TAG, "Set error %i", err);
+    /*
     for (size_t i = 0; i < sizeof(ErrorCodes); i++)
     {
         if (ErrorCodes[i] == err)
@@ -144,6 +165,7 @@ void Rules::SetError(InternalErrorCode err)
             break;
         }
     }
+*/
 }
 
 void Rules::RunRules(

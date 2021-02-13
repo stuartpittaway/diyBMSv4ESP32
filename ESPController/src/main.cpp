@@ -41,7 +41,8 @@ static const char *TAG = "diybms";
 // Libraries for SD card
 #include "SD.h"
 #include "driver/gpio.h"
-//#include "driver/can.h"
+#include "driver/can.h"
+//#include "driver/twai.h"
 
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
@@ -1078,7 +1079,6 @@ void rules_task(void *param)
       }
     }
 
-
     uint8_t changes = 0;
     bool firePulse = false;
     for (int8_t n = 0; n < RELAY_TOTAL; n++)
@@ -2072,64 +2072,6 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
 }
 
 /*
-void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
-{
-  SERIAL_DEBUG.printf("Listing directory: %s\r\n", dirname);
-
-  File root = fs.open(dirname);
-  if (!root)
-  {
-    SERIAL_DEBUG.println("- failed to open directory");
-    return;
-  }
-  if (!root.isDirectory())
-  {
-    SERIAL_DEBUG.println(" - not a directory");
-    return;
-  }
-
-  File file = root.openNextFile();
-  while (file)
-  {
-    if (file.isDirectory())
-    {
-      SERIAL_DEBUG.print("  DIR : ");
-
-#ifdef CONFIG_LITTLEFS_FOR_IDF_3_2
-      SERIAL_DEBUG.println(file.name());
-#else
-      SERIAL_DEBUG.print(file.name());
-      time_t t = file.getLastWrite();
-      struct tm *tmstruct = localtime(&t);
-      SERIAL_DEBUG.printf("  LAST WRITE: %d-%02d-%02d %02d:%02d:%02d\n", (tmstruct->tm_year) + 1900, (tmstruct->tm_mon) + 1, tmstruct->tm_mday, tmstruct->tm_hour, tmstruct->tm_min, tmstruct->tm_sec);
-#endif
-
-      if (levels)
-      {
-        listDir(fs, file.name(), levels - 1);
-      }
-    }
-    else
-    {
-      SERIAL_DEBUG.print("  FILE: ");
-      SERIAL_DEBUG.print(file.name());
-      SERIAL_DEBUG.print("  SIZE: ");
-
-#ifdef CONFIG_LITTLEFS_FOR_IDF_3_2
-      SERIAL_DEBUG.println(file.size());
-#else
-      SERIAL_DEBUG.print(file.size());
-      time_t t = file.getLastWrite();
-      struct tm *tmstruct = localtime(&t);
-      SERIAL_DEBUG.printf("  LAST WRITE: %d-%02d-%02d %02d:%02d:%02d\n", (tmstruct->tm_year) + 1900, (tmstruct->tm_mon) + 1, tmstruct->tm_mday, tmstruct->tm_hour, tmstruct->tm_min, tmstruct->tm_sec);
-#endif
-    }
-    file = root.openNextFile();
-  }
-}
-*/
-
-/*
 static const char *ESP32_CAN_STATUS_STRINGS[] = {
     "STOPPED",               // CAN_STATE_STOPPED
     "RUNNING",               // CAN_STATE_RUNNING
@@ -2137,6 +2079,15 @@ static const char *ESP32_CAN_STATUS_STRINGS[] = {
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
 */
+
+void dumpByte(uint8_t data)
+{
+  if (data <= 0x0F)
+  {
+    SERIAL_DEBUG.print('0');
+  }
+  SERIAL_DEBUG.print(data, HEX);
+}
 
 void setup()
 {
@@ -2170,6 +2121,9 @@ void setup()
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
   hal.ConfigureVSPI();
 
+  //Switch CANBUS off, saves a couple of milliamps
+  hal.CANBUSEnable(false);
+
   SetControllerState(ControllerState::PowerUp);
 
   hal.Led(0);
@@ -2188,68 +2142,48 @@ void setup()
 
   mountSDCard();
 
-  /*
-  SERIAL_DEBUG.println("Start ATMEL ISP programming...");
-
-  hal.SwapGPIO0ToOutput();
-
-//const size_t size_file_diybms_module_firmware_400_avrbin = 7718;
-//const size_t size_file_diybms_module_firmware_blinky_avrbin = 584;
-
-  uint32_t starttime=millis();
-//  AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&hal.vspi, GPIO_NUM_0, false, VSPI_SCK);
-//  bool progresult = isp.ProgramAVRDevice((uint32_t)0x1e9315, size_file_diybms_module_firmware_blinky_avrbin, file_diybms_module_firmware_blinky_avrbin, 0b11100010, 0b11010110, 0b11111110);
-//  bool progresult = isp.ProgramAVRDevice((uint32_t)0x1e9315, size_file_diybms_module_firmware_400_avrbin, file_diybms_module_firmware_400_avrbin, 0b11100010, 0b11010110, 0b11111110);
-//328P -Uefuse:w:0xFD:m -Uhfuse:w:0xDA:m -Ulfuse:w:0xFF:m
-//  bool progresult = isp.ProgramAVRDevice((uint32_t)0x1E950F, size_file_atmega328p_fade_avrbin, file_atmega328p_fade_avrbin, 0xFF, 0xDA, 0xFD);
-
-  uint32_t endtime=millis();
-
-  SERIAL_DEBUG.println(progresult);
-  SERIAL_DEBUG.println(isp.device_signature,HEX);
-  SERIAL_DEBUG.print("Duration: ");
-  SERIAL_DEBUG.println(endtime-starttime);
-
-delay(5000);
-  //Must reconfigure SPI after using ISP Programmer (changes clock speed etc.)
-  hal.ConfigureVSPI();
-  SERIAL_DEBUG.println("FINISH");
-  SERIAL_DEBUG.flush();
-*/
-
   /* TEST RS485 */
   /*
   SERIAL_DEBUG.println("TEST RS485");
-  SERIAL_RS485.begin(38400, SERIAL_8N1, RS485_RX, RS485_TX, false, 20000UL);
+  SERIAL_RS485.begin(115200, SERIAL_8N1, RS485_RX, RS485_TX, false, 20000UL);
 
   while (1)
   {
+
+    //Empty receive buffer
+    //while (SERIAL_RS485.available())    {      SERIAL_RS485.read();    }
+
+    //Transmit character
     digitalWrite(RS485_ENABLE, HIGH);
+    delayMicroseconds(5);
     SERIAL_RS485.write((char)'A');
-    SERIAL_RS485.write((char)'B');
-    SERIAL_RS485.write((char)'C');
-    SERIAL_RS485.write((char)'D');
-    SERIAL_RS485.write((char)'E');
-    SERIAL_RS485.write((char)'F');
+    //SERIAL_RS485.write((char)'B');
+    //SERIAL_RS485.write((char)'C');
+    //SERIAL_RS485.write((char)'D');
+    //SERIAL_RS485.write((char)'E');
+    //SERIAL_RS485.write((char)'F');
     SERIAL_RS485.flush();
+    delayMicroseconds(5);
     digitalWrite(RS485_ENABLE, LOW);
+    SERIAL_DEBUG.println();
+    SERIAL_DEBUG.print(millis());
+    SERIAL_DEBUG.print('=');
 
     //Allow responses to build up in buffer
-    delay(50);
+    delay(100);
 
     while (SERIAL_RS485.available())
     {
       SERIAL_DEBUG.print((char)SERIAL_RS485.read());
     }
 
-    delay(100);
+    delay(3000);
   }
 */
 
   /*
 TEST CAN BUS
 */
-
   /*
   //Initialize configuration structures using macro initializers
   can_general_config_t g_config = CAN_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, CAN_MODE_NORMAL);
@@ -2283,10 +2217,10 @@ TEST CAN BUS
 
     //Wait for message to be received
     can_message_t message;
-    esp_err_t res = can_receive(&message, pdMS_TO_TICKS(5000));
+    esp_err_t res = can_receive(&message, pdMS_TO_TICKS(8000));
     if (res == ESP_OK)
     {
-      //SERIAL_DEBUG.println("Message received\n");
+      SERIAL_DEBUG.println("Message received\n");
 
       SERIAL_DEBUG.printf("\nID is %d=", message.identifier);
       if (!(message.flags & CAN_MSG_FLAG_RTR))
@@ -2296,7 +2230,7 @@ TEST CAN BUS
           dumpByte(message.data[i]);
         }
       }
-      //SERIAL_DEBUG.println();
+      SERIAL_DEBUG.println();
     }
     else if (res == ESP_ERR_TIMEOUT)
     {
@@ -2322,9 +2256,9 @@ TEST CAN BUS
       // when the bus is in recovery mode transmit is not possible.
       delay(200);
     }
-    delay(100);
+    //delay(100);
   }
-*/
+  */
 
   hal.ConfigureVSPI();
   init_tft_display();
@@ -2332,6 +2266,13 @@ TEST CAN BUS
   //Init the touch screen
   touchscreen.begin(hal.vspi);
   touchscreen.setRotation(3);
+
+  /*
+Used for measuring current usage of controller board, with CAN bus diabled, approx 25mA, enabled 28mA
+ESP_LOGI(TAG,"Entering deep sleep");
+esp_sleep_enable_timer_wakeup(30 * 1000000  );
+esp_deep_sleep_start();
+*/
 
   //All comms to i2c needs to go through this single task
   //to prevent issues with thread safety on the i2c hardware/libraries
@@ -2453,13 +2394,16 @@ TEST CAN BUS
     //Attempt connection in setup(), loop() will also try every 30 seconds
     connectToWifi();
   }
+
+  //SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
+  SERIAL_RS485.begin(9600, SERIAL_8N1, RS485_RX, RS485_TX);
 }
 
 unsigned long wifitimer = 0;
-char ptrTaskList[1024];
 
 void loop()
 {
+
   unsigned long currentMillis = millis();
 
   if (ControlState != ControllerState::ConfigurationSoftAP)

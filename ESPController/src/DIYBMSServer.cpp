@@ -388,7 +388,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
       {
         //The type of relay has changed - we probably need to reset something here
         ESP_LOGI(TAG, "Type of relay has changed");
-        previousRelayState[i]= RelayState::RELAY_X;
+        previousRelayState[i] = RelayState::RELAY_X;
       }
     }
   }
@@ -842,6 +842,7 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   settings["FreeHeap"] = ESP.getFreeHeap();
   settings["MinFreeHeap"] = ESP.getMinFreeHeap();
   settings["HeapSize"] = ESP.getHeapSize();
+  settings["SdkVersion"] = ESP.getSdkVersion();
 
   settings["HostName"] = WiFi.getHostname();
 
@@ -1253,30 +1254,38 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"oos\":", _receiveProc->totalOutofSequenceErrors);
 
   response->print(F("\"errors\":["));
+  uint8_t count=0;
+
   for (size_t i = 0; i < sizeof(_rules->ErrorCodes); i++)
   {
     if (_rules->ErrorCodes[i] != InternalErrorCode::NoError)
     {
       //Comma if not zero
-      if (i)
+      if (count)
+      {
         response->print(comma);
+      }
 
       response->print(_rules->ErrorCodes[i]);
+      count++;
     }
   }
-
   response->print("],");
 
   response->print(F("\"warnings\":["));
+  count=0;
   for (size_t i = 0; i < sizeof(_rules->WarningCodes); i++)
   {
     if (_rules->WarningCodes[i] != InternalWarningCode::NoWarning)
     {
       //Comma if not zero
-      if (i)
+      if (count)
+      {
         response->print(comma);
+      }
 
       response->print(_rules->WarningCodes[i]);
+      count++;
     }
   }
   response->print("],");
