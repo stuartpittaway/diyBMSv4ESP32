@@ -120,7 +120,6 @@ void PacketRequestGenerator::sendResetBalanceCurrentCounter()
   BuildAndSendRequest(COMMAND::ResetBalanceCurrentCounter);
 }
 
-
 void PacketRequestGenerator::BuildAndSendRequest(COMMAND command)
 {
   PacketStruct _packetbuffer;
