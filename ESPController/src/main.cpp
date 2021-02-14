@@ -7,9 +7,11 @@
 
   (c) 2017 to 2021 Stuart Pittaway
 
-  This is the code for the controller - it talks to the V4.X cell modules over isolated serial bus
+  This is the code for the ESP32 controller - it talks to the V4.X cell modules over isolated serial bus
 
-  This code runs on ESP32 DEVKIT-C and compiles with VS CODE and PLATFORM IO environment
+  This code runs on ESP32 DEVKIT-C and compiles with VS CODE and PLATFORM IO environment.
+
+  Unless you are making code changes, please use the pre-compiled version from GITHUB instead.
 */
 
 #if defined(ESP8266)
@@ -50,7 +52,7 @@ static const char *TAG = "diybms";
 #include <SerialEncoder.h>
 #include <cppQueue.h>
 #include <XPT2046_Touchscreen.h>
-
+#include <ArduinoJson.h>
 #include "defines.h"
 #include "HAL_ESP32.h"
 
@@ -100,15 +102,13 @@ HAL_ESP32 hal;
 XPT2046_Touchscreen touchscreen(TOUCH_CHIPSELECT, TOUCH_IRQ); // Param 2 - Touch IRQ Pin - interrupt enabled polling
 
 volatile bool emergencyStop = false;
-
-Rules rules;
-
 bool _sd_card_installed = false;
 
+Rules rules;
 diybms_eeprom_settings mysettings;
-uint16_t ConfigHasChanged = 0;
-
 uint16_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
+
+//uint16_t ConfigHasChanged = 0;
 
 bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
@@ -137,13 +137,11 @@ TaskHandle_t influxdb_task_handle = NULL;
 TaskHandle_t pulse_relay_off_task_handle = NULL;
 
 //This large array holds all the information about the modules
-//up to 4x16
 CellModuleInfo cmi[maximum_controller_cell_modules];
 
 avrprogramsettings _avrsettings;
 
 #include "crc16.h"
-
 #include "settings.h"
 #include "SoftAP.h"
 #include "DIYBMSServer.h"
@@ -151,12 +149,11 @@ avrprogramsettings _avrsettings;
 #include "PacketReceiveProcessor.h"
 
 // Instantiate queue to hold packets ready for transmission
+// TODO: Move to RTOS queues instead
 cppQueue requestQueue(sizeof(PacketStruct), 24, FIFO);
-
 cppQueue replyQueue(sizeof(PacketStruct), 8, FIFO);
 
 PacketRequestGenerator prg = PacketRequestGenerator(&requestQueue);
-
 PacketReceiveProcessor receiveProc = PacketReceiveProcessor();
 
 // Memory to hold in and out serial buffer
@@ -1213,7 +1210,8 @@ WiFi.status() only returns:
   ESP_LOGI(TAG, "Hostname: %s, current state %i", hostname, status);
 
   //ESP_LOGD(TAG, "WiFi begin");
-  WiFi.begin(DIYBMSSoftAP::WifiSSID(), DIYBMSSoftAP::WifiPassword());
+
+  WiFi.begin(DIYBMSSoftAP::Config()->wifi_ssid, DIYBMSSoftAP::Config()->wifi_passphrase);
 }
 
 void connectToMqtt()
@@ -2089,6 +2087,86 @@ void dumpByte(uint8_t data)
   SERIAL_DEBUG.print(data, HEX);
 }
 
+// CHECK HERE FOR THE PRESENCE OF A /wifi.json CONFIG FILE ON THE SD CARD TO AUTOMATICALLY CONFIGURE WIFI
+bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
+{
+  bool ret = false;
+  if (_sd_card_installed)
+  {
+    const char *wificonfigfilename = "/wifi.json";
+
+    ESP_LOGI(TAG, "Checking for %s", wificonfigfilename);
+
+    if (hal.GetVSPIMutex())
+    {
+      if (SD.exists(wificonfigfilename))
+      {
+        ESP_LOGD(TAG, "Found file %s", wificonfigfilename);
+
+        StaticJsonDocument<3000> json;
+        File file = SD.open(wificonfigfilename);
+        DeserializationError error = deserializeJson(json, file);
+        file.close();
+        //Release Mutex as quickly as possible
+        hal.ReleaseVSPIMutex();
+        if (error != DeserializationError::Ok)
+        {
+          ESP_LOGE(TAG, "Error deserialize JSON");
+        }
+        else
+        {
+          ESP_LOGD(TAG, "Deserialized %s", wificonfigfilename);
+
+          JsonObject wifi = json["wifi"];
+
+          wifi_eeprom_settings _config;
+          //Pointer to existing configuration
+          wifi_eeprom_settings *_config_existing;
+
+          _config_existing = DIYBMSSoftAP::Config();
+
+          //Clear config
+          memset(&_config, 0, sizeof(_config));
+
+          String ssid = wifi["ssid"].as<String>();
+          String password = wifi["password"].as<String>();
+          ssid.toCharArray(_config.wifi_ssid, sizeof(_config.wifi_ssid));
+          password.toCharArray(_config.wifi_passphrase, sizeof(_config.wifi_passphrase));
+
+          //Our configuration is different, so store the details in EEPROM and flash the LED a few times
+          if (existingConfigValid == false || strcmp(_config_existing->wifi_ssid, _config.wifi_ssid) != 0 || strcmp(_config_existing->wifi_passphrase, _config.wifi_passphrase) != 0)
+          {
+            ESP_LOGD(TAG, "Wifi JSON SSID=%s", _config.wifi_ssid);
+            ESP_LOGI(TAG, "Wifi config is different, saving");
+
+            Settings::WriteConfig("diybmswifi", (char *)&_config, sizeof(_config));
+
+            for (size_t i = 0; i < 5; i++)
+            {
+              QueueLED(RGBLED::Purple);
+              delay(150);
+              QueueLED(RGBLED::OFF);
+              delay(150);
+            }
+
+            ret = true;
+          }
+          else
+          {
+            ESP_LOGI(TAG, "Wifi JSON config is identical, ignoring");
+          }
+        }
+      }
+      else
+      {
+        //Didn't find the file, but still need to release mutex
+        hal.ReleaseVSPIMutex();
+      }
+    }
+  }
+  return ret;
+}
+
 void setup()
 {
   WiFi.mode(WIFI_OFF);
@@ -2347,6 +2425,15 @@ esp_deep_sleep_start();
   SERIAL_DEBUG.println(F("skipped"));
   SERIAL_DEBUG.flush();
 
+  //Retrieve the EEPROM WIFI settings
+  bool EepromConfigValid = DIYBMSSoftAP::LoadConfigFromEEPROM();
+
+  if (LoadWiFiConfigFromSDCard(EepromConfigValid))
+  {
+    //We need to reload the configuration, as it was updated...
+    EepromConfigValid = DIYBMSSoftAP::LoadConfigFromEEPROM();
+  }
+
   //Temporarly force WIFI settings
   //wifi_eeprom_settings xxxx;
   //strcpy(xxxx.wifi_ssid,"XXXXXX");
@@ -2354,7 +2441,7 @@ esp_deep_sleep_start();
   //Settings::WriteConfig("diybmswifi",(char *)&config, sizeof(config));
   //clearAPSettings = 0;
 
-  if (!DIYBMSSoftAP::LoadConfigFromEEPROM())
+  if (!EepromConfigValid)
   {
     //We have just started up and the EEPROM is empty of configuration
     SetControllerState(ControllerState::ConfigurationSoftAP);
@@ -2365,10 +2452,8 @@ esp_deep_sleep_start();
   }
   else
   {
-
     /* Explicitly set the ESP to be a WiFi-client, otherwise by default,
       would try to act as both a client and an access-point */
-
     WiFi.onEvent(onWifiConnect, system_event_id_t::SYSTEM_EVENT_STA_GOT_IP);
     WiFi.onEvent(onWifiDisconnect, system_event_id_t::SYSTEM_EVENT_STA_DISCONNECTED);
     //Newer IDF version will need this...
@@ -2453,6 +2538,7 @@ void loop()
 
     //Wipe EEPROM WIFI setting
     DIYBMSSoftAP::FactoryReset();
+    ResetWifi = false;
   }
 
   ArduinoOTA.handle();

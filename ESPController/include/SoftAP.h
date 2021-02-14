@@ -29,15 +29,19 @@ class DIYBMSSoftAP
 public:
   static void SetupAccessPoint(AsyncWebServer *webserver);
   static bool LoadConfigFromEEPROM();
-  static char *WifiSSID();
-  static char *WifiPassword();
+  
   static void FactoryReset()
   {
-    Settings::FactoryDefault("diybms");
+    Settings::FactoryDefault(_configtag);
+  }
+  static wifi_eeprom_settings *Config()
+  {
+    return &_config;
   }
 
 private:
   static AsyncWebServer *_myserver;
+  static const char *_configtag;
   static void handleNotFound(AsyncWebServerRequest *request);
 
   static void handleRoot(AsyncWebServerRequest *request);

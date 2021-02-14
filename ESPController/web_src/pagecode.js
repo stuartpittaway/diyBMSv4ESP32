@@ -815,7 +815,7 @@ $(function () {
                 $("#MinFreeHeap").html(data.settings.MinFreeHeap);
                 $("#FreeHeap").html(data.settings.FreeHeap);
                 $("#HeapSize").html(data.settings.HeapSize);
-                $("#SdkVersion").html(data.settings.SdkVersion);                
+                $("#SdkVersion").html(data.settings.SdkVersion);
                 $("#HostName").html("<a href='http://" + data.settings.HostName + "'>" + data.settings.HostName + "</a>");
             }).fail(function () { }
             );
@@ -993,6 +993,22 @@ $(function () {
             success: function (data) {
                 //Refresh the storage page
                 $("#storage").trigger("click");
+            },
+            error: function (data) {
+                $("#saveerror").show().delay(2000).fadeOut(500);
+            },
+        });
+    });
+
+
+    $("#savewifi").click(function () {
+        $.ajax({
+            type: 'post',
+            url: 'wificonfigtofile.json',
+            data: 'save=1',
+            success: function (data) {
+                //Refresh the storage page
+                $("#savesuccess").show().delay(2000).fadeOut(500);
             },
             error: function (data) {
                 $("#saveerror").show().delay(2000).fadeOut(500);

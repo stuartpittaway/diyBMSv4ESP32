@@ -41,6 +41,8 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #include <LITTLEFS.h>
 #include "SD.h"
 
+#include "SoftAP.h"
+
 AsyncWebServer *DIYBMSServer::_myserver;
 String DIYBMSServer::UUIDString;
 
@@ -130,6 +132,45 @@ void DIYBMSServer::SendSuccess(AsyncWebServerRequest *request)
 void DIYBMSServer::SendFailure(AsyncWebServerRequest *request)
 {
   request->send(500, "text/plain", "Failed");
+}
+
+void DIYBMSServer::saveWifiConfigToSDCard(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (!_sd_card_installed)
+  {
+    SendFailure(request);
+    return;
+  }
+
+  if (_hal->GetVSPIMutex())
+  {
+    const char *wificonfigfilename = "/wifi.json";
+    //Get the file
+    ESP_LOGI(TAG, "Generating SD file %s", wificonfigfilename);
+
+    StaticJsonDocument<1024> doc;
+
+    JsonObject wifi = doc.createNestedObject("wifi");
+    wifi["ssid"] = DIYBMSSoftAP::Config()->wifi_ssid;
+    wifi["password"] = DIYBMSSoftAP::Config()->wifi_passphrase;
+
+    if (_sdcard->exists(wificonfigfilename))
+    {
+      ESP_LOGI(TAG, "Delete existing file %s", wificonfigfilename);
+      _sdcard->remove(wificonfigfilename);
+    }
+
+    File file = _sdcard->open(wificonfigfilename, "w");
+    serializeJson(doc, file);
+    file.close();
+
+    _hal->ReleaseVSPIMutex();
+  }
+
+  SendSuccess(request);
 }
 
 void DIYBMSServer::avrProgrammer(AsyncWebServerRequest *request)
@@ -1254,7 +1295,7 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"oos\":", _receiveProc->totalOutofSequenceErrors);
 
   response->print(F("\"errors\":["));
-  uint8_t count=0;
+  uint8_t count = 0;
 
   for (size_t i = 0; i < sizeof(_rules->ErrorCodes); i++)
   {
@@ -1273,7 +1314,7 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   response->print("],");
 
   response->print(F("\"warnings\":["));
-  count=0;
+  count = 0;
   for (size_t i = 0; i < sizeof(_rules->WarningCodes); i++)
   {
     if (_rules->WarningCodes[i] != InternalWarningCode::NoWarning)
@@ -1762,6 +1803,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->on("/sdunmount.json", HTTP_POST, DIYBMSServer::sdUnmount);
 
   _myserver->on("/avrprog.json", HTTP_POST, DIYBMSServer::avrProgrammer);
+  _myserver->on("/wificonfigtofile.json", HTTP_POST, DIYBMSServer::saveWifiConfigToSDCard);
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();
