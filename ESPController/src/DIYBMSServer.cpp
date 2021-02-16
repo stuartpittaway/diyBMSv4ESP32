@@ -147,10 +147,13 @@ void DIYBMSServer::saveWifiConfigToSDCard(AsyncWebServerRequest *request)
 
   if (_hal->GetVSPIMutex())
   {
-    const char *wificonfigfilename = "/wifi.json";
+    const char *wificonfigfilename = "/diybms/wifi.json";
+
+    ESP_LOGI(TAG, "Creating folder");  
+    _sdcard->mkdir("/diybms");
+
     //Get the file
     ESP_LOGI(TAG, "Generating SD file %s", wificonfigfilename);
-
     StaticJsonDocument<1024> doc;
 
     JsonObject wifi = doc.createNestedObject("wifi");
@@ -1098,6 +1101,24 @@ void DIYBMSServer::downloadFile(AsyncWebServerRequest *request)
   {
     String type = request->getParam("type", false)->value();
     String file = request->getParam("file", false)->value();
+
+    //Do some really simple validation here to prevent files being downloaded,
+    //which could be a security risk.
+    //See: directory traversal vulnerability
+
+    if (file.startsWith("/") == false)
+    {
+      //All file names must start at the root
+      request->send(400); //400 bad request
+      return;
+    }
+
+    if (file.startsWith("/diybms/") == true)
+    {
+      //Prevent downloads from /diybms/ folder
+      request->send(401); //401 Unauthorized
+      return;
+    }
 
     if (type.equals("sdcard") && _sd_card_installed)
     {

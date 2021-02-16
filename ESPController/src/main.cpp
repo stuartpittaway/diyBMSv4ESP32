@@ -2093,7 +2093,7 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
   bool ret = false;
   if (_sd_card_installed)
   {
-    const char *wificonfigfilename = "/wifi.json";
+    const char *wificonfigfilename = "/diybms/wifi.json";
 
     ESP_LOGI(TAG, "Checking for %s", wificonfigfilename);
 
