@@ -149,7 +149,7 @@ void DIYBMSServer::saveWifiConfigToSDCard(AsyncWebServerRequest *request)
   {
     const char *wificonfigfilename = "/diybms/wifi.json";
 
-    ESP_LOGI(TAG, "Creating folder");  
+    ESP_LOGI(TAG, "Creating folder");
     _sdcard->mkdir("/diybms");
 
     //Get the file
@@ -922,7 +922,8 @@ void DIYBMSServer::fileSystemListDirectory(AsyncResponseStream *response, fs::FS
   {
     if (file.isDirectory())
     {
-      if (levels)
+      //Hide the diybms folder where the config files are kept
+      if (levels && String(file.name()).startsWith("/diybms") == false)
       {
         fileSystemListDirectory(response, fs, file.name(), levels - 1);
         response->print(',');
