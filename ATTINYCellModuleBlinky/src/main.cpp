@@ -8,6 +8,14 @@
 
 void setup()
 {
+  //Boot up will be in 1Mhz CKDIV8 mode, swap to /4 to change speed to 2Mhz
+  //CCP – Configuration Change Protection Register
+  CCP = 0xD8;
+  //CLKPR – Clock Prescale Register
+  CLKPR = _BV(CLKPS1);
+
+  //below 2Mhz is required for running ATTINY at low voltages (less than 2V)
+
   //PUEA – Port A Pull-Up Enable Control Register (All disabled)
   PUEA = 0;
   //PUEB – Port B Pull-Up Enable Control Register (All disabled)
@@ -26,10 +34,10 @@ void setup()
 
 void loop()
 {
-    PORTA |= _BV(PORTA6);
-    PORTA |= _BV(PORTA5);
-    delay(1000);
-    PORTA &= (~_BV(PORTA6));
-    PORTA &= (~_BV(PORTA5));
-    delay(1000);
+  PORTA |= _BV(PORTA6);
+  PORTA |= _BV(PORTA5);
+  delay(1000);
+  PORTA &= (~_BV(PORTA6));
+  PORTA &= (~_BV(PORTA5));
+  delay(1000);
 }
