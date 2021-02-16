@@ -904,6 +904,7 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
 
 void DIYBMSServer::fileSystemListDirectory(AsyncResponseStream *response, fs::FS &fs, const char *dirname, uint8_t levels)
 {
+
   File root = fs.open(dirname);
   if (!root)
   {
@@ -1107,6 +1108,13 @@ void DIYBMSServer::downloadFile(AsyncWebServerRequest *request)
     //See: directory traversal vulnerability
 
     if (file.startsWith("/") == false)
+    {
+      //All file names must start at the root
+      request->send(400); //400 bad request
+      return;
+    }
+
+    if (file.startsWith("//") == true)
     {
       //All file names must start at the root
       request->send(400); //400 bad request
