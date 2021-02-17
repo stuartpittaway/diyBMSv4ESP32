@@ -38,7 +38,7 @@ FOR MODULE VERSION 400,410,420,421....
   PA3 = DUMP LOAD ENABLE / PIN 10 /  ARDUINO PIN 7/A3 / TOCC2
   PA4 = ADC4 PIN 9 ARDUINO PIN 6/A4 = ON BOARD TEMP sensor
   PA5 = SERIAL PORT 1 TXD1 - NOT USED (BLUE LED ON <V430 BOARDS AND EXT TEMP SENSOR ON >=430)
-  PA6 = GREEN_LED / PIN 7 / ARDUINO PIN 4/A6
+  PA6 = Notification LED / PIN 7 / ARDUINO PIN 4/A6
   PA7 = ADC7 = PIN 6 = ARDUINO PIN 3/A7 = 2.048V REFERENCE ENABLE
   PB2 = ADC8 PIN 5 ARDUINO PIN 2/A8 = VOLTAGE reading
   PB0 = ADC11 PIN 2 ARDUINO PIN 0/A11 = REMOTE TEMP sensor = XTAL
@@ -46,22 +46,34 @@ FOR MODULE VERSION 400,410,420,421....
 
   ATTiny841 data sheet
   http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-8495-8-bit-AVR-Microcontrollers-ATtiny441-ATtiny841_Datasheet.pdf
+
+V440 pin mappings
+PA0 = EXT REFERENCE
+PA6 = Notification LED
+PA4 = INT THERMISTOR ADC
+PA7 = ENABLE
+
+PB2 = DUMP LOAD ENABLE
+PA3 = VOLTAGE ADC
+PA5 = EXT THERMISTOR ADC
+
+BLUE LED DOES NOT EXIST ON V440 (Well it does, but the green has been replaced with blue!)
 */
 
 #include "diybms_attiny841.h"
 
-void DiyBMSATTiny841::double_tap_green_led()
+void DiyBMSATTiny841::double_tap_Notification_led()
 {
-  GreenLedOn();
+  NotificationLedOn();
   delay(50);
-  GreenLedOff();
+  NotificationLedOff();
   delay(50);
-  GreenLedOn();
+  NotificationLedOn();
   delay(50);
-  GreenLedOff();
+  NotificationLedOff();
 }
 
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
 void DiyBMSATTiny841::double_tap_blue_led()
 {
   BlueLedOn();
@@ -81,17 +93,35 @@ void DiyBMSATTiny841::ConfigurePorts()
   //PUEB – Port B Pull-Up Enable Control Register (All disabled)
   PUEB = 0;
 
-  //DDRA – Port A Data Direction Register
-  //When DDAn is set, the pin PAn is configured as an output. When DDAn is cleared, the pin is configured as an input
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-  DDRA |= _BV(DDA3) | _BV(DDA6) | _BV(DDA7) | _BV(DDA5);
-#else
-  //4.3 boards dont have blue led, so don't configure DA5
-  DDRA |= _BV(DDA3) | _BV(DDA6) | _BV(DDA7);
-#endif
+//DDRA – Port A Data Direction Register
+//When DDAn is set, the pin PAn is configured as an output. When DDAn is cleared, the pin is configured as an input
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
+  //PA3 = dump load enable
+  //PA6 = Notification LED (green)
+  //PA7 = enable
+  //PA5 = BLUE
+  DDRA = _BV(DDA3) | _BV(DDA6) | _BV(DDA7) | _BV(DDA5);
   //DDRB – Port B Data Direction Register
   //Spare pin is output
-  DDRB |= _BV(DDB1);
+  DDRB = _BV(DDB1);
+
+  //Digital Input Disable Register 0
+  //PA4 (ADC4), PB2 (ADC8) and PB0 (ADC11) analog inputs, so disable digital pins to save power
+  DIDR0 = _BV(ADC4D);
+  DIDR1 = _BV(ADC8D) |_BV(ADC11D);
+
+#else
+  //4.4 boards don't have blue led
+  //PB2 = DUMP LOAD ENABLE
+  //PA6 = Notification LED (BLUE)
+  //PA7 = ENABLE
+  DDRA = _BV(DDA6) | _BV(DDA7);
+  DDRB = _BV(DDB2);
+
+  //Digital Input Disable Register 0
+  //PA3 (ADC3), PA4 (ADC4) and PA5 (ADC5) are analog inputs, so disable digital pins to save power
+  DIDR0 = _BV(ADC3D) | _BV(ADC4D) |_BV(ADC5D);
+#endif
 
   //Set the extra high sink capability of pin PA7 is enabled.
   PHDE |= _BV(PHDEA1);
@@ -100,10 +130,11 @@ void DiyBMSATTiny841::ConfigurePorts()
   DumpLoadOff();
   ReferenceVoltageOff();
 
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
   BlueLedOff();
 #endif
-  GreenLedOff();
+
+  NotificationLedOff();
 }
 
 void DiyBMSATTiny841::SetWatchdog8sec()
@@ -140,18 +171,20 @@ void DiyBMSATTiny841::BeginADCReading()
   //ADCSRA – ADC Control and Status Register A
   //Consider ADC sleep conversion mode?
 
+  /*
 #if !(F_CPU == 8000000)
   //prescaler of 64 = 8MHz/64 = 125KHz.
   ADCSRA |= _BV(ADPS2) | _BV(ADPS1); // | _BV(ADPS0);
 #endif
 
 #if !(F_CPU == 2000000)
+*/
+
   //prescaler of 16 = 2MHz/16 = 125000.
   ADCSRA |= _BV(ADPS2);
-#endif
 
+  //#endif
 
-  //adc_enable();
   //Bit 4 – ADIF: ADC Interrupt Flag
   //Bit 7 – ADEN: ADC Enable
   ADCSRA |= _BV(ADEN) | _BV(ADIF); // enable ADC, turn off any pending interrupt
@@ -189,7 +222,7 @@ void DiyBMSATTiny841::Sleep()
   // disable ADC
   ADCSRA = 0;
 
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 #else
   //Using an external crystal so keep it awake - consumes more power (about 0.97mA vs 0.78mA) but module wakes quicker (6 clock cycles)

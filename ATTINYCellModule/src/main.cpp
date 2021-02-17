@@ -50,7 +50,6 @@ https://trolsoft.ru/en/uart-calc
 #error Expected BAUD define
 #endif
 
-
 //Our project code includes
 #include "defines.h"
 #include "settings.h"
@@ -84,8 +83,8 @@ void DefaultConfig()
   //About 2.2007 seems about right
   myConfig.Calibration = 2.2007;
 
-  //2mV per ADC resolution
-  //myConfig.mVPerADC = 2.0; //2048.0/1024.0;
+//2mV per ADC resolution
+//myConfig.mVPerADC = 2.0; //2048.0/1024.0;
 
 #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
   //Keep temperature low for modules with R19 and R20 not swapped
@@ -133,8 +132,8 @@ void onPacketReceived()
   //A data packet has just arrived, process it and forward the results to the next module
   if (PP.onPacketReceived((PacketStruct *)SerialPacketReceiveBuffer))
   {
-    //Only light green if packet is good
-    DiyBMSATTiny841::GreenLedOn();
+    //Only light Notification if packet is good
+    DiyBMSATTiny841::NotificationLedOn();
   }
 
   //Send the packet (fixed length!) (even if it was invalid so controller can count crc errors)
@@ -144,7 +143,7 @@ void onPacketReceived()
   //Therefore we use 1.4.1 which has the correct code to wait until the buffer is empty.
   DiyBMSATTiny841::FlushSerial0();
 
-  DiyBMSATTiny841::GreenLedOff();
+  DiyBMSATTiny841::NotificationLedOff();
 
   //PacketProcessed = true;
 }
@@ -206,11 +205,7 @@ void setup()
   wdt_disable();
   wdt_reset();
 
-  //Boot up will be in 1Mhz CKDIV8 mode, swap to /4 to change speed to 2Mhz
-  //CCP – Configuration Change Protection Register
-  CCP = 0xD8;
-  //CLKPR – Clock Prescale Register  
-  CLKPR = _BV(CLKPS1);
+  DiyBMSATTiny841::SetPrescaler();
 
   //below 2Mhz is required for running ATTINY at low voltages (less than 2V)
 
@@ -235,7 +230,7 @@ void setup()
 
   ValidateConfiguration();
 
-  DiyBMSATTiny841::double_tap_green_led();
+  DiyBMSATTiny841::double_tap_Notification_led();
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
   DiyBMSATTiny841::double_tap_blue_led();
@@ -312,7 +307,7 @@ inline void identifyModule()
 {
   if (PP.identifyModule > 0)
   {
-    DiyBMSATTiny841::GreenLedOn();
+    DiyBMSATTiny841::NotificationLedOn();
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
     DiyBMSATTiny841::BlueLedOn();
 #endif
@@ -320,7 +315,7 @@ inline void identifyModule()
 
     if (PP.identifyModule == 0)
     {
-      DiyBMSATTiny841::GreenLedOff();
+      DiyBMSATTiny841::NotificationLedOff();
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
       DiyBMSATTiny841::BlueLedOff();
 #endif
@@ -361,12 +356,12 @@ void loop()
 
   if (wdt_triggered)
   {
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
     //Flash blue LED twice after a watchdog wake up
     DiyBMSATTiny841::double_tap_blue_led();
 #else
-    //Flash green LED twice after a watchdog wake up
-    DiyBMSATTiny841::double_tap_green_led();
+    //Flash Notification LED twice after a watchdog wake up
+    DiyBMSATTiny841::double_tap_Notification_led();
 #endif
 
     //If we have just woken up, we shouldn't be in balance safety check that we are not
@@ -390,10 +385,10 @@ void loop()
   //this causes the voltage and temperature to "freeze" during bypass cycles
   if (PP.bypassCountDown == 0)
   {
-//Just for debug purposes, shows when voltage is read
-//#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-//    DiyBMSATTiny841::BlueLedOn();
-//#endif    
+    //Just for debug purposes, shows when voltage is read
+    //#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+    //    DiyBMSATTiny841::BlueLedOn();
+    //#endif
 
     //External temperature
     PP.TakeAnAnalogueReading(ADC_EXTERNAL_TEMP);
@@ -401,9 +396,9 @@ void loop()
     //Do voltage reading last to give as much time for voltage to settle
     PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
 
-//#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-//    DiyBMSATTiny841::BlueLedOff();
-//#endif    
+    //#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+    //    DiyBMSATTiny841::BlueLedOff();
+    //#endif
   }
 
   //Switch balance PWM back on if needed
@@ -487,7 +482,7 @@ void loop()
         //Clear the error and stop balancing
         myPID.clear();
         StopBalance();
-        //Just for debug...
+//Just for debug...
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
         DiyBMSATTiny841::BlueLedOn();
 #endif
@@ -513,7 +508,7 @@ void loop()
     PP.bypassHasJustFinished--;
   }
 
-/*
+  /*
   if (PP.bypassCountDown > 0)
   {
     //If we are trying to drain the cell/balance, then we need
@@ -529,5 +524,5 @@ void loop()
       i--;
     }
   }
-*/  
+*/
 }
