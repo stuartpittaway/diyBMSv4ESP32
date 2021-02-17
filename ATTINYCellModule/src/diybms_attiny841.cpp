@@ -60,9 +60,11 @@ PA5 = EXT THERMISTOR ADC
 BLUE LED DOES NOT EXIST ON V440 (Well it does, but the green has been replaced with blue!)
 */
 
+#if defined(__AVR_ATtiny841__)
+
 #include "diybms_attiny841.h"
 
-void DiyBMSATTiny841::double_tap_Notification_led()
+void diyBMSHAL::double_tap_Notification_led()
 {
   NotificationLedOn();
   delay(50);
@@ -74,7 +76,7 @@ void DiyBMSATTiny841::double_tap_Notification_led()
 }
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
-void DiyBMSATTiny841::double_tap_blue_led()
+void diyBMSHAL::double_tap_blue_led()
 {
   BlueLedOn();
   delay(50);
@@ -86,7 +88,7 @@ void DiyBMSATTiny841::double_tap_blue_led()
 }
 #endif
 
-void DiyBMSATTiny841::ConfigurePorts()
+void diyBMSHAL::ConfigurePorts()
 {
   //PUEA – Port A Pull-Up Enable Control Register (All disabled)
   PUEA = 0;
@@ -137,7 +139,7 @@ void DiyBMSATTiny841::ConfigurePorts()
   NotificationLedOff();
 }
 
-void DiyBMSATTiny841::SetWatchdog8sec()
+void diyBMSHAL::SetWatchdog8sec()
 {
   //Setup a watchdog timer for 8 seconds
   MCUSR = 0;
@@ -155,14 +157,14 @@ void DiyBMSATTiny841::SetWatchdog8sec()
   wdt_reset();
 }
 
-uint16_t DiyBMSATTiny841::ReadADC()
+uint16_t diyBMSHAL::ReadADC()
 {
   // must read ADCL first
   uint8_t low = ADCL;
   return (ADCH << 8) | low;
 }
 
-void DiyBMSATTiny841::BeginADCReading()
+void diyBMSHAL::BeginADCReading()
 {
   //ADMUXB – ADC Multiplexer Selection Register
   //Select external AREF pin (internal reference turned off)
@@ -213,7 +215,7 @@ void DiyBMSATTiny841::BeginADCReading()
   ADCSRA &= (~(1 << ADEN));
 }
 
-void DiyBMSATTiny841::Sleep()
+void diyBMSHAL::Sleep()
 {
   //ATTINY841 sleep mode
   byte old_ADCSRA = ADCSRA;
@@ -259,3 +261,4 @@ void DiyBMSATTiny841::Sleep()
 
   ADCSRA = old_ADCSRA;
 }
+#endif

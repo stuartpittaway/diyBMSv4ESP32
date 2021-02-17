@@ -91,17 +91,17 @@ void PacketProcessor::TakeAnAnalogueReading(uint8_t mode)
   {
   case ADC_CELL_VOLTAGE:
   {
-    DiyBMSATTiny841::SelectCellVoltageChannel();
+    diyBMSHAL::SelectCellVoltageChannel();
     break;
   }
   case ADC_INTERNAL_TEMP:
   {
-    DiyBMSATTiny841::SelectInternalTemperatureChannel();
+    diyBMSHAL::SelectInternalTemperatureChannel();
     break;
   }
   case ADC_EXTERNAL_TEMP:
   {
-    DiyBMSATTiny841::SelectExternalTemperatureChannel();
+    diyBMSHAL::SelectExternalTemperatureChannel();
     break;
   }
   default:
@@ -109,7 +109,7 @@ void PacketProcessor::TakeAnAnalogueReading(uint8_t mode)
     return;
   }
 
-  DiyBMSATTiny841::BeginADCReading();
+  diyBMSHAL::BeginADCReading();
 }
 
 //Run when a new packet is received over serial

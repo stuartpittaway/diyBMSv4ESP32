@@ -66,12 +66,17 @@ def generatejson(target, source, env):
             del data['avrprog'][i] 
             break
 
-    efuse=hex(int(env.GetProjectOption("board_fuses.efuse"), 2)).upper()[2:4]
-    hfuse=hex(int(env.GetProjectOption("board_fuses.hfuse"), 2)).upper()[2:4]
-    lfuse=hex(int(env.GetProjectOption("board_fuses.lfuse"), 2)).upper()[2:4]
+    if env.get("BOARD")=="ATtiny1614":
+        #Add the new entry
+        data['avrprog'].append({'board': board, 'name':  newfilename, 'ver': env["git_sha_short"],'mcu':signature,'efuse':0,'hfuse':0,'lfuse':0})
 
-    #Add the new entry
-    data['avrprog'].append({'board': board, 'name':  newfilename, 'ver': env["git_sha_short"],'mcu':signature,'efuse':efuse,'hfuse':hfuse,'lfuse':lfuse})
+    if env.get("BOARD")=="attiny841":
+        efuse=hex(int(env.GetProjectOption("board_fuses.efuse"), 2)).upper()[2:4]
+        hfuse=hex(int(env.GetProjectOption("board_fuses.hfuse"), 2)).upper()[2:4]
+        lfuse=hex(int(env.GetProjectOption("board_fuses.lfuse"), 2)).upper()[2:4]
+
+        #Add the new entry
+        data['avrprog'].append({'board': board, 'name':  newfilename, 'ver': env["git_sha_short"],'mcu':signature,'efuse':efuse,'hfuse':hfuse,'lfuse':lfuse})
 
     with open(manifestjson, 'w') as outfile:
         json.dump(data, outfile, indent=4, sort_keys=True)
