@@ -66,9 +66,9 @@ void PacketProcessor::ADCReading(uint16_t value)
 #if (defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && defined(SWAPR19R20)))
     //R19 and R20 swapped on V4.2 board, invert the thermistor reading
     raw_adc_onboard_temperature = 1225 - value;
-#elif (defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 430 && defined(SWAPR19R20)))
-    //R19 and R20 swapped on V4.3 board (never publically released), invert the thermistor reading
-    raw_adc_onboard_temperature = 1000 - value;
+//#elif (defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 430 && defined(SWAPR19R20)))
+//R19 and R20 swapped on V4.3 board (never publically released), invert the thermistor reading
+//    raw_adc_onboard_temperature = 1000 - value;
 #else
     raw_adc_onboard_temperature = value;
 #endif
@@ -83,11 +83,11 @@ void PacketProcessor::ADCReading(uint16_t value)
 }
 
 //Start an ADC reading via Interrupt
-void PacketProcessor::TakeAnAnalogueReading(uint8_t mode)
+void PacketProcessor::TakeAnAnalogueReading(uint8_t _mode)
 {
-  adcmode = mode;
+  adcmode = _mode;
 
-  switch (adcmode)
+  switch (_mode)
   {
   case ADC_CELL_VOLTAGE:
   {
@@ -109,7 +109,14 @@ void PacketProcessor::TakeAnAnalogueReading(uint8_t mode)
     return;
   }
 
-  diyBMSHAL::BeginADCReading();
+
+#if defined(__AVR_ATtiny1614__)
+  //For 1614 devices we don't use the interrupt method as there is no benefit
+  //tiny841 ADC readings are less noisy when using sleep mode and interrupts
+  ADCReading(diyBMSHAL::BeginADCReading(_mode));
+#else
+  diyBMSHAL::BeginADCReading(_mode);
+#endif
 }
 
 //Run when a new packet is received over serial
@@ -126,8 +133,8 @@ bool PacketProcessor::onPacketReceived(PacketStruct *receivebuffer)
   {
 
 #if defined(FAKE_16_CELLS)
-    uint8_t start=receivebuffer->hops;
-    uint8_t end=start+16;
+    uint8_t start = receivebuffer->hops;
+    uint8_t end = start + 16;
     for (size_t i = start; i < end; i++)
     {
 #endif

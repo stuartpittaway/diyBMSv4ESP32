@@ -60,6 +60,10 @@ def generatejson(target, source, env):
     if str(env["BOARD_MCU"]).lower()=="attiny841":
         signature="1e9315"
 
+    if str(env["BOARD_MCU"]).lower()=="ATtiny1614":
+        signature="1e9422"
+        
+
     # Delete entry if it currently exists
     for i in range(len(data['avrprog'])): 
         if data['avrprog'][i]['board'] == board: 

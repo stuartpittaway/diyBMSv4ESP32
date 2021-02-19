@@ -169,13 +169,6 @@ public:
       UCSR0B |= (1 << TXEN0); // enable transmitter
    }
 
-   static void DisableSerial0()
-   {
-      //Disable serial0
-      UCSR0B &= ~_BV(RXEN0); //disable receiver
-      UCSR0B &= ~_BV(TXEN0); //disable transmitter
-   }
-
    static void EnableSerial0()
    {
       UCSR0B |= (1 << RXEN0); // enable RX Serial0
@@ -208,7 +201,7 @@ public:
 
    static uint16_t ReadADC();
 
-   static void BeginADCReading();
+   static uint16_t BeginADCReading(uint8_t mode);
 
    static void Sleep();
 

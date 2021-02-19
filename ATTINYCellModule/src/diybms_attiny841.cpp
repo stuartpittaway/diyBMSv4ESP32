@@ -110,7 +110,7 @@ void diyBMSHAL::ConfigurePorts()
   //Digital Input Disable Register 0
   //PA4 (ADC4), PB2 (ADC8) and PB0 (ADC11) analog inputs, so disable digital pins to save power
   DIDR0 = _BV(ADC4D);
-  DIDR1 = _BV(ADC8D) |_BV(ADC11D);
+  DIDR1 = _BV(ADC8D) | _BV(ADC11D);
 
 #else
   //4.4 boards don't have blue led
@@ -122,7 +122,7 @@ void diyBMSHAL::ConfigurePorts()
 
   //Digital Input Disable Register 0
   //PA3 (ADC3), PA4 (ADC4) and PA5 (ADC5) are analog inputs, so disable digital pins to save power
-  DIDR0 = _BV(ADC3D) | _BV(ADC4D) |_BV(ADC5D);
+  DIDR0 = _BV(ADC3D) | _BV(ADC4D) | _BV(ADC5D);
 #endif
 
   //Set the extra high sink capability of pin PA7 is enabled.
@@ -164,7 +164,7 @@ uint16_t diyBMSHAL::ReadADC()
   return (ADCH << 8) | low;
 }
 
-void diyBMSHAL::BeginADCReading()
+uint16_t diyBMSHAL::BeginADCReading(uint8_t mode)
 {
   //ADMUXB – ADC Multiplexer Selection Register
   //Select external AREF pin (internal reference turned off)
@@ -213,10 +213,19 @@ void diyBMSHAL::BeginADCReading()
 
   //adc_disable
   ADCSRA &= (~(1 << ADEN));
+
+  return 0;
 }
 
 void diyBMSHAL::Sleep()
 {
+
+  // Switch of TX - save power
+  diyBMSHAL::DisableSerial0TX();
+
+  // Wake up on Serial port RX
+  diyBMSHAL::EnableStartFrameDetection();
+
   //ATTINY841 sleep mode
   byte old_ADCSRA = ADCSRA;
   //For low power applications, before entering sleep, remember to turn off the ADC
@@ -243,7 +252,7 @@ void diyBMSHAL::Sleep()
   //Keep this alive
   //power_usart0_enable();
 
-  sei();
+  //sei();
   interrupts();
   sleep_enable();
   sleep_cpu();
