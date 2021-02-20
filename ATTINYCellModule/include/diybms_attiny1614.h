@@ -36,40 +36,23 @@ public:
 
   static void ResumePWM()
   {
-    // Switch ON Bit 1 – OCIE1A: Timer/Counter, Output Compare A Match Interrupt
-    // Enable
-    // TIMSK1 |= _BV(OCIE1A);
+    TCA0.SINGLE.CTRLA |=TCA_SINGLE_ENABLE_bm;
     interrupts();
   }
 
   static void StopTimer1()
   {
-    // Switch OFF Bit 1 – OCIE1A: Timer/Counter, Output Compare A Match
-    // Interrupt Enable
-    // TIMSK1 &= (~_BV(OCIE1A));
+    TCA0.SINGLE.CTRLA &= ~TCA_SINGLE_ENABLE_bm;
   }
 
   static void StartTimer1()
   {
-    // Normal port operation, OC1A/OC1B disconnected
-    // Bits 1:0 – WGMn[1:0]: Waveform Generation Mode
-    // COM1A1 COM1A0 COM1B1 COM1B0 – – WGM11 WGM10
-    //        CCCC--WW
-    // TCCR1A = B00000000;
-
-    // CTC (Clear Timer on Compare) = mode 4 = 0100
-    // TOP = OCR1A
-    // Bits 2:0 – CSn[2:0]: Clock Select = Prescale 64
-    // ICNC1 ICES1 – WGM13 WGM12 CS12 CS11 CS10
-    //        II-WWCCC
-    // TCCR1B = B00001011;
-
-    // Prescaler 8Mhz/64 = 125000 counts per second, call ISR 1000 times per
-    // second
-    // Prescaler 2Mhz/64 = 31250 counts per second, call ISR 1000 times per
-    // second - roughly, as rounding error of 31.25
-    // OCR1A = (F_CPU / 64) / 1000;
-
+    //Top value...
+    TCA0.SINGLE.PER= (F_CPU / 64) / 1000;
+    //CMP0, Compare Channel 0 interrupt = Match between the counter value and the Compare 0 register
+    //TCA0.SINGLE.CMP0=0x1000;
+    TCA0.SINGLE.INTCTRL=TCA_SINGLE_OVF_bm;
+    TCA0.SINGLE.CTRLA=TCA_SINGLE_CLKSEL_DIV64_gc;
     ResumePWM();
   }
 
@@ -114,9 +97,9 @@ public:
 
   static inline void NotificationLedOff() { PORTA.OUTCLR = PIN6_bm; }
 
-  // static void SpareOn() { PORTA.OUTSET = PIN2_bm; }
+  static void SpareOn() { PORTA.OUTSET = PIN2_bm; }
 
-  // static void SpareOff() { PORTA.OUTCLR = PIN2_bm; }
+  static void SpareOff() { PORTA.OUTCLR = PIN2_bm; }
 
   static inline void FlushSerial0() { Serial.flush(); }
 
@@ -134,28 +117,22 @@ public:
     USART0.CTRLB |= USART_TXEN_bm; /* Transmitter Enable bit mask. */
   }
 
-  static void EnableSerial0()
-  {
-    //USART0.CTRLB |= USART_RXEN_bm | USART_TXEN_bm;
-  }
-
-  static void DisableSerial1()
-  {
-    // Not applicable on TINY1614 (only 1 UART)
-  }
-
-  static void EnableSerial1()
-  {
-    // Not applicable on TINY1614 (only 1 UART)
-  }
-
   //The Start-of-Frame Detection feature enables the USART to wake up from Standby Sleep mode upon data reception.
   static inline void EnableStartFrameDetection()
   {
     USART0.CTRLB |= USART_SFDEN_bm;
   }
 
-  static void SetWatchdog8sec();
+  static void SetWatchdog8sec()
+  {
+    // Setup a watchdog timer for 8 seconds
+
+    CCP = 0xD8;
+    //8 seconds
+    WDT.CTRLA = WDT_PERIOD_8CLK_gc;
+
+    wdt_reset();
+  }
 
   static uint16_t BeginADCReading(uint8_t adcmode);
 

@@ -80,8 +80,9 @@ void diyBMSHAL::ConfigurePorts()
 
   // PA1 /8= REF_ENABLE
   // PA6 /2= NOTIFICATION LED
+  // PA2 /9 = NOT CONNECTED (SPARE)
 
-  PORTA.DIRSET = PIN1_bm | PIN6_bm;
+  PORTA.DIRSET = PIN1_bm | PIN6_bm | PIN2_bm;
 
   // Set Port B digital outputs
   // PB0 /7= ENABLE
@@ -92,11 +93,10 @@ void diyBMSHAL::ConfigurePorts()
   PORTB.DIRCLR = PIN3_bm;
 
   // Set Port A analogue inputs
-  // PA2 /9= NOT CONNECTED
   // PA3 /10= EXTERNAL TEMP SENSOR (ADC)
   // PA4 /0= VOLTAGE INPUT (ADC)
   // PA7 /3= INTERNAL TEMP SENSOR (ADC)
-  PORTA.DIRCLR = PIN2_bm | PIN3_bm | PIN4_bm | PIN7_bm;
+  PORTA.DIRCLR = PIN3_bm | PIN4_bm | PIN7_bm;
 
   /* The digital input buffer for pin n can be disabled by writing the
   INPUT_DISABLE setting to ISC. This can reduce power consumption and may reduce
@@ -154,24 +154,9 @@ void diyBMSHAL::ConfigurePorts()
   DumpLoadOff();
   ReferenceVoltageOff();
   NotificationLedOff();
-}
 
-void diyBMSHAL::SetWatchdog8sec()
-{
-  // Setup a watchdog timer for 8 seconds
-  // MCUSR = 0;
-  // Enable watchdog (to reset)
-  // WDTCSR |= bit(WDE);
-
-  // CCP = 0xD8;
-  // WDTCSR – Watchdog Timer Control and Status Register
-  // We INTERRUPT the chip after 8 seconds of sleeping (not reboot!)
-  // WDE: Watchdog Enable
-  // Bits 5, 2:0 – WDP[3:0]: Watchdog Timer Prescaler 3 - 0
-  // WDTCSR = bit(WDIE) | bit(WDP3) | bit(WDP0);
-  //| bit(WDE)
-
-  wdt_reset();
+  // More power saving changes
+  // EnableSerial0();
 }
 
 uint16_t diyBMSHAL::BeginADCReading(uint8_t mode)
@@ -218,9 +203,7 @@ uint16_t diyBMSHAL::BeginADCReading(uint8_t mode)
     value = ADC0.RES >> 4;
     ADC0.CTRLA &= ~ADC_ENABLE_bm;
   }
-
   return value;
 }
-
 
 #endif

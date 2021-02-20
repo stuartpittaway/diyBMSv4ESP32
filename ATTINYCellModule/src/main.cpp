@@ -42,7 +42,6 @@ https://trolsoft.ru/en/uart-calc
 
 */
 
-
 #define RX_BUFFER_SIZE 64
 
 #include <Arduino.h>
@@ -99,42 +98,29 @@ void DefaultConfig()
   // Using  https://www.thinksrs.com/downloads/programs/therm%20calc/ntccalibrator/ntccalculator.html
 }
 
-#if defined(__AVR_ATtiny841__)
-
-ISR(WDT_vect)
+void watchdog()
 {
-  // This is the watchdog timer - something went wrong and no serial activity
-  // received in over 8 seconds
+  // This is the watchdog timer - something went wrong and no serial activity received in over 8 seconds
   wdt_triggered = true;
   PP.IncrementWatchdogCounter();
 }
 
+#if defined(__AVR_ATtiny841__)
+ISR(USART0_START_vect)
+{
+  // Needs to be here!
+  asm("NOP");
+}
+ISR(WDT_vect)
+{
+  watchdog();
+}
 ISR(ADC_vect)
 {
   // when ADC completed, take an interrupt and process result
   PP.ADCReading(diyBMSHAL::ReadADC());
 }
 #endif
-
-
-#if defined(__AVR_ATtiny1614__)
-/*
-//We don't use ADC interrupts on ATtiny1614 as there is no benefit
-ISR(USART0_RXC_vect)
-{
-  //Clear interrupt
-  USART0.STATUS &=~USART_RXCIF_bm;
-}
-*/
-/*
-ISR(USART0_DRE_vect)
-{
-  //Clear interrupt
-  USART0.STATUS &=~USART_RXCIF_bm;
-}
-*/
-#endif
-
 
 void onPacketReceived()
 {
@@ -160,14 +146,6 @@ void onPacketReceived()
 
   diyBMSHAL::NotificationLedOff();
 }
-
-#if defined(__AVR_ATtiny841__)
-ISR(USART0_START_vect)
-{
-  // Needs to be here!
-  asm("NOP");
-}
-#endif
 
 // Kp: Determines how aggressively the PID reacts to the current amount of error
 // (Proportional)
@@ -224,9 +202,14 @@ void setup()
   wdt_disable();
   wdt_reset();
 
-  diyBMSHAL::SetPrescaler();
+  //Did we have a watchdog reboot?
+  if (RSTCTRL.RSTFR & RSTCTRL_WDRF_bm)
+  {
+    watchdog();
+  }
 
   // below 2Mhz is required for running ATTINY at low voltages (less than 2V)
+  diyBMSHAL::SetPrescaler();
 
   // 8 second between watchdogs
   diyBMSHAL::SetWatchdog8sec();
@@ -234,10 +217,7 @@ void setup()
   // Setup IO ports
   diyBMSHAL::ConfigurePorts();
 
-  // More power saving changes
-  diyBMSHAL::EnableSerial0();
-
-  diyBMSHAL::DisableSerial1();
+  diyBMSHAL::double_tap_Notification_led();
 
   // Check if setup routine needs to be run
   if (!Settings::ReadConfigFromEEPROM((uint8_t *)&myConfig, sizeof(myConfig),
@@ -251,8 +231,6 @@ void setup()
   }
 
   ValidateConfiguration();
-
-  diyBMSHAL::double_tap_Notification_led();
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
   diyBMSHAL::double_tap_blue_led();
@@ -273,12 +251,8 @@ void setup()
                        SerialPacketReceiveBuffer,
                        sizeof(SerialPacketReceiveBuffer));
 }
-
-#if defined(__AVR_ATtiny841__)
-ISR(TIMER1_COMPA_vect)
+void BalanceTimer()
 {
-  // This ISR is called every 1 millisecond when TIMER1 is enabled
-
   // when v=1, the duration between on and off is 2.019ms (1.0095ms per
   // interrupt) - on for 2.019ms off for 255.7ms, 0.7844% duty
   // when v=128 (50%), the duration between on and off is 130.8ms (1.0218ms per
@@ -337,6 +311,25 @@ ISR(TIMER1_COMPA_vect)
     PulsePeriod = 0;
   }
 }
+#if defined(__AVR_ATtiny841__)
+ISR(TIMER1_COMPA_vect)
+{
+  // This ISR is called every 1 millisecond when TIMER1 is enabled
+  BalanceTimer();
+}
+#endif
+
+#if defined(__AVR_ATtiny1614__)
+//We don't use ADC interrupts on ATtiny1614 as there is no benefit
+ISR(TCA0_OVF_vect)
+{
+  //This ISR is called every 1ms when balancing is in operation
+
+  //diyBMSHAL::SpareOn();
+  BalanceTimer();
+  //diyBMSHAL::SpareOff();
+  TCA0.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
+}
 #endif
 
 inline void identifyModule()
@@ -381,7 +374,6 @@ void loop()
 
     // Reset PID to defaults, in case we want to start balancing
     myPID.clear();
-
 
     // Program stops here until woken by watchdog or Serial port ISR
     diyBMSHAL::Sleep();

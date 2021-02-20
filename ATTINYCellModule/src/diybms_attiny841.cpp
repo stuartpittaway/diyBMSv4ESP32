@@ -137,10 +137,17 @@ void diyBMSHAL::ConfigurePorts()
 #endif
 
   NotificationLedOff();
+
+  // More power saving changes
+  EnableSerial0();
+
+  DisableSerial1();
 }
 
 void diyBMSHAL::SetWatchdog8sec()
 {
+    noInterrupts();
+
   //Setup a watchdog timer for 8 seconds
   MCUSR = 0;
   //Enable watchdog (to reset)
@@ -153,7 +160,7 @@ void diyBMSHAL::SetWatchdog8sec()
   // Bits 5, 2:0 – WDP[3:0]: Watchdog Timer Prescaler 3 - 0
   WDTCSR = bit(WDIE) | bit(WDP3) | bit(WDP0);
   //| bit(WDE)
-
+interrupts();
   wdt_reset();
 }
 
