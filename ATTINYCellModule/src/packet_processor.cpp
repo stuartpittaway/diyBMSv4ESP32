@@ -65,7 +65,8 @@ void PacketProcessor::ADCReading(uint16_t value)
   {
 #if (defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && defined(SWAPR19R20)))
     //R19 and R20 swapped on V4.2 board, invert the thermistor reading
-    raw_adc_onboard_temperature = 1225 - value;
+    //Reverted back to 1000 base value to fix issue https://github.com/stuartpittaway/diyBMSv4Code/issues/95
+    raw_adc_onboard_temperature = 1000 - value;
 #elif (defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 430 && defined(SWAPR19R20)))
     //R19 and R20 swapped on V4.3 board (never publically released), invert the thermistor reading
     raw_adc_onboard_temperature = 1000 - value;
