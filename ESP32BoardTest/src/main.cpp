@@ -467,7 +467,7 @@ void loop()
 {
     SetOutputState(output, state);
     output++;
-    if (output > 4)
+    if (output > 3)
     {
         output = 0;
         state = !state;
