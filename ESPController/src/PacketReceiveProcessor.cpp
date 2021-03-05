@@ -27,11 +27,12 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
     totalModulesFound = _packetbuffer.hops;
 
-    if (packetLastReceivedSequence > 0 && _packetbuffer.sequence != packetLastReceivedSequence + 1)
+    //Careful of overflowing the uint16_t in sequence
+    if (packetLastReceivedSequence > 0 && _packetbuffer.sequence > 0 && _packetbuffer.sequence != packetLastReceivedSequence + 1)
     {
       SERIAL_DEBUG.println();
       SERIAL_DEBUG.print(F("OOS Error, expected="));
-      SERIAL_DEBUG.print(packetLastReceivedSequence+1, HEX);
+      SERIAL_DEBUG.print(packetLastReceivedSequence + 1, HEX);
       SERIAL_DEBUG.print(", got=");
       SERIAL_DEBUG.println(_packetbuffer.sequence, HEX);
       totalOutofSequenceErrors++;
@@ -84,13 +85,12 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
         ProcessReplyBalancePower();
         break;
 
-    case COMMAND::ReadBalanceCurrentCounter:
+      case COMMAND::ReadBalanceCurrentCounter:
         ProcessReplyReadBalanceCurrentCounter();
         break;
-    case COMMAND::ReadPacketReceivedCounter:
+      case COMMAND::ReadPacketReceivedCounter:
         ProcessReplyReadPacketReceivedCounter();
         break;
-
       }
 
 #if defined(PACKET_LOGGING_RECEIVE)
@@ -115,7 +115,7 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
     SERIAL_DEBUG.println(F("*CRC Error*"));
 #endif
   }
- 
+
   return false;
 }
 
@@ -144,7 +144,6 @@ void PacketReceiveProcessor::ProcessReplyTemperature()
   }
 }
 
-
 void PacketReceiveProcessor::ProcessReplyReadBalanceCurrentCounter()
 {
   uint8_t q = 0;
@@ -163,7 +162,6 @@ void PacketReceiveProcessor::ProcessReplyReadPacketReceivedCounter()
     q++;
   }
 }
-
 
 void PacketReceiveProcessor::ProcessReplyBalancePower()
 {
@@ -249,5 +247,5 @@ void PacketReceiveProcessor::ProcessReplySettings()
   // uint16_t
   cmi[m].BoardVersionNumber = _packetbuffer.moduledata[10];
 
-  cmi[m].CodeVersionNumber = (_packetbuffer.moduledata[14] << 16) +_packetbuffer.moduledata[15];
+  cmi[m].CodeVersionNumber = (_packetbuffer.moduledata[14] << 16) + _packetbuffer.moduledata[15];
 }
