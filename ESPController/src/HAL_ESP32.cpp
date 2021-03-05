@@ -159,7 +159,8 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void))
     attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);
 
     //For touch screen
-    pinMode(GPIO_NUM_36, INPUT_PULLUP);
+    //GPIO_NUM_36 no internal PULLUP
+    pinMode(TOUCH_IRQ, INPUT);
     //attachInterrupt(GPIO_NUM_36, TFTScreenTouch, FALLING);
 
     //Configure the CHIP SELECT pins as OUTPUT and set HIGH

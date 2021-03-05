@@ -42,6 +42,7 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
     if (ReplyWasProcessedByAModule())
     {
+      //ESP_LOGD(TAG, "Hops %u,  start %u end %u", _packetbuffer.hops, _packetbuffer.start_address, _packetbuffer.end_address);
 
       switch (ReplyForCommand())
       {
@@ -64,6 +65,20 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
       }
       case COMMAND::ReadVoltageAndStatus:
         ProcessReplyVoltage();
+
+        //ESP_LOGD(TAG, "Updated volt status cells %u to %u", _packetbuffer.start_address, _packetbuffer.end_address);
+
+        if (_packetbuffer.end_address == _packetbuffer.hops - 1)
+        {
+          //We have just processed a voltage reading for the entire chain of modules (all banks)
+          //at this point we should update any display or rules logic
+          //as we have a clean snapshot of voltages and statues
+
+          if (voltageandstatussnapshot_task_handle != NULL)
+          {
+            xTaskNotify(voltageandstatussnapshot_task_handle, 0x00, eNotifyAction::eNoAction);
+          }
+        }
         break;
 
       case COMMAND::ReadBadPacketCounter:

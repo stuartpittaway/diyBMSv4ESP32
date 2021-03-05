@@ -39,6 +39,7 @@ bool Settings::ReadConfig(const char *tag, char *settings, int size)
     if (checksum == existingChecksum)
     {
       //Return TRUE
+      ESP_LOGD(TAG, "checksum verified");
       return true;
     }
   }
