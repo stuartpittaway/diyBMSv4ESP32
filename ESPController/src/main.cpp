@@ -37,6 +37,7 @@ static const char *TAG = "diybms";
 #include <SPI.h>
 #include "time.h"
 #include <esp_wifi.h>
+#include <esp_bt.h>
 #include <Preferences.h>
 #include "tft_splash_image.h"
 
@@ -44,6 +45,7 @@ static const char *TAG = "diybms";
 #include "SD.h"
 #include "driver/gpio.h"
 #include "driver/can.h"
+#include "driver/adc.h"
 //#include "driver/twai.h"
 
 #include <ESPAsyncWebServer.h>
@@ -2309,7 +2311,7 @@ void setup()
 {
   WiFi.mode(WIFI_OFF);
 
-  btStop();
+  esp_bt_controller_disable();
   esp_log_level_set("*", ESP_LOG_DEBUG);    // set all components to WARN level
   esp_log_level_set("wifi", ESP_LOG_WARN);  // enable WARN logs from WiFi stack
   esp_log_level_set("dhcpc", ESP_LOG_WARN); // enable INFO logs from DHCP client
@@ -2337,8 +2339,8 @@ void setup()
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
   hal.ConfigureVSPI();
 
-  //Touch screen IRQ is active LOW (XPT2046 chip)
-  //attachInterrupt(TOUCH_IRQ, TFTScreenTouchInterrupt, FALLING);
+  //Touch screen IRQ (GPIO_NUM_36) is active LOW (XPT2046 chip)
+  attachInterrupt(TOUCH_IRQ, TFTScreenTouchInterrupt, FALLING);
 
   //Switch CANBUS off, saves a couple of milliamps
   hal.CANBUSEnable(false);
@@ -2620,6 +2622,7 @@ esp_deep_sleep_start();
     //Attempt connection in setup(), loop() will also try every 30 seconds
     connectToWifi();
 
+    //Wake screen on power up
     xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
   }
 
