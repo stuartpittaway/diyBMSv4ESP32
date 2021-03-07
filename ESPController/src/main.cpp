@@ -39,7 +39,6 @@ static const char *TAG = "diybms";
 #include <esp_wifi.h>
 #include <esp_bt.h>
 #include <Preferences.h>
-#include "tft_splash_image.h"
 
 // Libraries for SD card
 #include "SD.h"
@@ -64,39 +63,14 @@ static const char *TAG = "diybms";
 
 #include "avrisp_programmer.h"
 
-/*
-#define USER_SETUP_LOADED
+#include "tft.h"
 
-#define USE_DMA_TO_TFT
-// Color depth has to be 16 bits if DMA is used to render image
-#define COLOR_DEPTH 16
-#define ILI9341_DRIVER
-//#define SPI_FREQUENCY 40000000
-//#define SPI_READ_FREQUENCY 20000000
-//#define SPI_TOUCH_FREQUENCY 2500000
-
-//#define LOAD_GLCD  // Font 1. Original Adafruit 8 pixel font needs ~1820 bytes in FLASH
-//#define LOAD_FONT2 // Font 2. Small 16 pixel high font, needs ~3534 bytes in FLASH, 96 characters
-//#define LOAD_FONT4 // Font 4. Medium 26 pixel high font, needs ~5848 bytes in FLASH, 96 characters
-//#define LOAD_FONT6 // Font 6. Large 48 pixel font, needs ~2666 bytes in FLASH, only characters 1234567890:-.apm
-//#define LOAD_FONT7 // Font 7. 7 segment 48 pixel font, needs ~2438 bytes in FLASH, only characters 1234567890:.
-//#define LOAD_FONT8 // Font 8. Large 75 pixel font needs ~3256 bytes in FLASH, only characters 1234567890:-.
-//#define LOAD_GFXFF // FreeFonts. Include access to the 48 Adafruit_GFX free fonts FF1 to FF48 and custom fonts
-
-//#define SMOOTH_FONT
-
-
-*/
-#include "TFT_eSPI.h"
-
-TFT_eSPI tft = TFT_eSPI();
 HAL_ESP32 hal;
 
 volatile bool emergencyStop = false;
 bool _sd_card_installed = false;
-bool _tft_screen_available = false;
-volatile bool _screen_awake = false;
-ScreenTemplateToDisplay _lastScreenToDisplay = ScreenTemplateToDisplay::NotInstalled;
+
+extern bool _tft_screen_available;
 
 Rules rules;
 diybms_eeprom_settings mysettings;
@@ -162,7 +136,7 @@ SerialEncoder myPacketSerial;
 
 uint16_t sequence = 0;
 
-ControllerState ControlState = ControllerState::Unknown;
+ControllerState _controller_state = ControllerState::Unknown;
 
 AsyncMqttClient mqttClient;
 
@@ -174,342 +148,6 @@ void QueueLED(uint8_t bits)
   //Lowest 3 bits are RGB led GREEN/RED/BLUE
   m.data = bits & B00000111;
   xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
-}
-
-void SwitchTFTBacklight(bool value)
-{
-  if (!_tft_screen_available)
-    return;
-  //Queue up i2c message
-  i2cQueueMessage m;
-  //4 = TFT backlight LED
-  m.command = 0x04;
-  //Lowest 3 bits are RGB led GREEN/RED/BLUE
-  m.data = value;
-  xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
-}
-
-void PrepareTFT_Error()
-{
-  //Assumes the Mutex is already obtained by caller
-  tft.fillScreen(TFT_BLACK);
-  // Errors have priority, draw filled red box
-  tft.fillRoundRect(16, 16, tft.width() - 32, tft.height() - 32, 8, TFT_RED);
-
-  // White outline
-  tft.drawRoundRect(16 + 2, 16 + 2, tft.width() - 36, tft.height() - 36, 8, TFT_LIGHTGREY);
-}
-
-void TFTDrawWifiDetails()
-{
-  int16_t y = tft.height() - tft.fontHeight(2);
-  tft.fillRect(0,y,tft.width(), tft.height()-y, TFT_DARKGREY);
-  tft.setTextFont(2);
-  tft.setTextColor(TFT_BLACK,TFT_DARKGREY);
-  if (WiFi.isConnected())
-  {
-    tft.drawString(WiFi.getHostname(), 2, y);
-    tft.drawString(WiFi.localIP().toString(), tft.width() / 2, y);
-  }
-  else
-  {
-    tft.drawCentreString("WIFI not connected", tft.width() / 2, y, 2);
-  }
-}
-void PrepareTFT_VoltageFourBank()
-{
-  //Assumes the Mutex is already obtained by caller
-  //Show the first 4 banks in a grid
-  tft.fillScreen(TFT_BLACK);
-  //Grid lines
-  tft.drawLine(tft.width() / 2, 0, tft.width() / 2, tft.height(), TFT_DARKGREY);
-  tft.drawLine(0, tft.height() / 2, tft.width(), tft.height() / 2, TFT_DARKGREY);
-
-  TFTDrawWifiDetails();
-}
-
-void PrepareTFT_VoltageOneBank()
-{
-  //Assumes the Mutex is already obtained by caller
-
-  tft.fillScreen(TFT_BLACK);
-  //We have a single bank/pack
-  tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-  tft.setTextFont(2);
-  //Need to think about multilingual strings in the longer term
-  tft.drawString("Bank voltage", 0, 0);
-  tft.drawString("Cell temp", 0, tft.height() / 2);
-  tft.drawString("Module temp", tft.width() / 2, tft.height() / 2);
-  tft.drawString("Cell voltage", 0, 44 + tft.height() / 2);
-
-  TFTDrawWifiDetails();
-}
-
-//Determine what screen to show on the TFT based on priority/severity
-ScreenTemplateToDisplay WhatScreenToDisplay()
-{
-  if (!_tft_screen_available)
-    return ScreenTemplateToDisplay::NotInstalled;
-
-  if (rules.numberOfActiveErrors > 0)
-    return ScreenTemplateToDisplay::Error;
-
-  if (mysettings.totalNumberOfBanks == 1)
-    return ScreenTemplateToDisplay::VoltageOneBank;
-
-  if (mysettings.totalNumberOfBanks > 1)
-    return ScreenTemplateToDisplay::VoltageFourBank;
-
-  return ScreenTemplateToDisplay::None;
-}
-
-//Put the TFT to sleep after a set period of time
-void tftsleep_task(void *param)
-{
-  for (;;)
-  {
-    //Wait until this task is triggered
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-    //Now we go back to sleep to provide a delay
-    //Delay 30 seconds, or forever if an error is active
-    do
-    {
-      vTaskDelay(30000 / portTICK_PERIOD_MS);
-    } while (WhatScreenToDisplay() == ScreenTemplateToDisplay::Error);
-
-    //Switch screen back off
-    SwitchTFTBacklight(false);
-    _screen_awake = false;
-    _lastScreenToDisplay = ScreenTemplateToDisplay::None;
-  }
-}
-//This task switches on/off the TFT screen, and triggers a redraw of its contents
-void tftwakeup_task(void *param)
-{
-  for (;;)
-  {
-    //Wait until this task is triggered
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-    if (_tft_screen_available)
-    {
-
-      if (!_screen_awake)
-      {
-        ESP_LOGI(TAG, "Wake up screen");
-
-        if (hal.GetDisplayMutex())
-        {
-          //Fill screen with a grey colour, to let user know
-          //we have responded to touch (may may be a few seconds until the display task runs)
-          tft.fillScreen(TFT_LIGHTGREY);
-          hal.ReleaseDisplayMutex();
-        }
-
-        _screen_awake = true;
-        SwitchTFTBacklight(true);
-
-        xTaskNotify(tftsleep_task_handle, 0x00, eNotifyAction::eNoAction);
-      }
-
-      //Trigger a refresh of the screen
-      xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
-    }
-  }
-}
-
-void updatetftdisplay_task(void *param)
-{
-  for (;;)
-  {
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-    if (_tft_screen_available && _screen_awake)
-    {
-      //Set default to top left
-      tft.setTextDatum(TL_DATUM);
-
-      ScreenTemplateToDisplay screenToDisplay = WhatScreenToDisplay();
-
-      if (_lastScreenToDisplay != screenToDisplay)
-      {
-        //The screen type has changed, so prepare the background
-        switch (screenToDisplay)
-        {
-        case ScreenTemplateToDisplay::NotInstalled:
-          break;
-        case ScreenTemplateToDisplay::None:
-          break;
-        case ScreenTemplateToDisplay::Error:
-          PrepareTFT_Error();
-          break;
-        case ScreenTemplateToDisplay::VoltageOneBank:
-          PrepareTFT_VoltageOneBank();
-          break;
-        case ScreenTemplateToDisplay::VoltageFourBank:
-          PrepareTFT_VoltageFourBank();
-          break;
-        }
-      }
-
-      _lastScreenToDisplay = screenToDisplay;
-
-      if (hal.GetDisplayMutex())
-      {
-        switch (screenToDisplay)
-        {
-        case ScreenTemplateToDisplay::NotInstalled:
-          break;
-        case ScreenTemplateToDisplay::None:
-          break;
-        case ScreenTemplateToDisplay::Error:
-        {
-          // Errors have priority...
-
-          tft.setTextColor(TFT_WHITE, TFT_RED);
-          //uint16_t y = 16 + 6;
-
-          for (size_t i = 0; i < sizeof(rules.ErrorCodes); i++)
-          {
-            if (rules.ErrorCodes[i] != InternalErrorCode::NoError)
-            {
-              //Centre screen
-              tft.setTextFont(2);
-              uint16_t x = tft.width() / 2;
-              uint16_t y = tft.height() / 2 - tft.fontHeight(4) * 2;
-              //Centre/middle text
-              tft.setTextDatum(TC_DATUM);
-
-              switch (rules.ErrorCodes[i])
-              {
-              case InternalErrorCode::CommunicationsError:
-              {
-                tft.drawCentreString("Module", x, y, 4);
-                y += tft.fontHeight(4);
-                tft.drawCentreString("communications", x, y, 4);
-                y += tft.fontHeight(4);
-                tft.drawCentreString("error", x, y, 4);
-                break;
-              }
-              case InternalErrorCode::ModuleCountMismatch:
-              {
-                tft.drawCentreString("Module count", x, y, 4);
-                y += tft.fontHeight(4);
-                tft.drawCentreString("mismatch", x, y, 4);
-                break;
-              }
-              case InternalErrorCode::TooManyModules:
-              {
-                tft.drawCentreString("Too many", x, y, 4);
-                y += tft.fontHeight(4);
-                tft.drawCentreString("modules", x, y, 4);
-                break;
-              }
-              case InternalErrorCode::WaitingForModulesToReply:
-              {
-                tft.drawCentreString("Waiting for", x, y, 4);
-                y += tft.fontHeight(4);
-                tft.drawCentreString("modules to", x, y, 4);
-                y += tft.fontHeight(4);
-                tft.drawCentreString("reply", x, y, 4);
-                break;
-              }
-              case InternalErrorCode::ZeroVoltModule:
-              {
-                tft.drawCentreString("Module returned", x, y, 4);
-                y += tft.fontHeight(4);
-                tft.drawCentreString("zero volt", x, y, 4);
-                y += tft.fontHeight(4);
-                tft.drawCentreString("reading", x, y, 4);
-                break;
-              }
-              case InternalErrorCode::ControllerMemoryError:
-              {
-                tft.drawCentreString("Controller", x, y, 4);
-                y += tft.fontHeight(4);
-                tft.drawCentreString("memory error", x, y, 4);
-                break;
-              }
-              default:
-                tft.drawCentreString("Error with", x, y, 4);
-                y += tft.fontHeight(4);
-                tft.drawCentreString("no text", x, y, 4);
-                break;
-              }
-
-              //Only show first error
-              break;
-            }
-          }
-          break;
-        }
-        case ScreenTemplateToDisplay::VoltageOneBank:
-        {
-          //rules.highestCellVoltage
-          //rules.highestExternalTemp
-          //rules.highestInternalTemp
-          //rules.lowestCellVoltage
-
-          //Single bank, large font
-          tft.fillRect(0, 16, tft.width(), tft.fontHeight(8), TFT_BLACK);
-          tft.setTextColor(TFT_GREEN, TFT_BLACK);
-          //Large FONT 8 - 75 pixel high (only numbers available)
-          //Top centre
-          tft.setTextDatum(TC_DATUM);
-          tft.setTextFont(8);
-          int16_t y = tft.fontHeight(2);
-          int16_t x = tft.width() / 2;
-          float value = rules.packvoltage[0] / 1000.0;
-          tft.drawFloat(value, 2, x, y);
-
-          //Top left
-          tft.setTextDatum(TL_DATUM);
-
-          //Cell temperatures
-          y = 16 + tft.height() / 2;
-          tft.fillRect(0, y, tft.width(), tft.fontHeight(4), TFT_BLACK);
-          tft.setTextFont(4);
-          x = 0;
-          x += tft.drawNumber(rules.lowestExternalTemp, x, y);
-          x += tft.drawString(" / ", x, y);
-          x += tft.drawNumber(rules.highestExternalTemp, x, y);
-
-          y = tft.fontHeight(2) + tft.height() / 2;
-          x = tft.width() / 2;
-          x = tft.drawNumber(rules.lowestInternalTemp, x, y);
-          x = tft.drawString(" / ", x, y);
-          x = tft.drawNumber(rules.highestInternalTemp, x, y);
-
-          //Cell voltage ranges
-          tft.fillRect(0, tft.fontHeight(2) + 44 + tft.height() / 2, tft.width(), tft.fontHeight(4), TFT_BLACK);
-          tft.setCursor(0, tft.fontHeight(2) + 44 + tft.height() / 2, 4);
-          value = rules.lowestCellVoltage / 1000.0;
-          tft.printf("%2.3f", value);
-          tft.print(" / ");
-          value = rules.highestCellVoltage / 1000.0;
-          tft.printf("%2.3f", value);
-          break;
-        }
-        case ScreenTemplateToDisplay::VoltageFourBank:
-        {
-
-          //Split screen for multiple banks
-          for (uint8_t i = 0; i < mysettings.totalNumberOfBanks; i++)
-          {
-            //Smaller font
-            tft.setCursor(0, 0, 7);
-            float value = rules.packvoltage[i] / 1000.0;
-            tft.printf("%2.2fV", value);
-          }
-          break;
-        }
-        }
-
-        hal.ReleaseDisplayMutex();
-      } //endif mutex
-    }
-  } //end for
 }
 
 void voltageandstatussnapshot_task(void *param)
@@ -621,7 +259,7 @@ void sdcardlog_task(void *param)
       vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
-    if (_sd_card_installed && mysettings.loggingEnabled && ControlState == ControllerState::Running && hal.IsVSPIMutexAvailable())
+    if (_sd_card_installed && mysettings.loggingEnabled && _controller_state == ControllerState::Running && hal.IsVSPIMutexAvailable())
     {
       //ESP_LOGD(TAG, "sdcardlog_task");
 
@@ -988,22 +626,6 @@ void IRAM_ATTR WifiPasswordClear()
   }
 }
 
-void IRAM_ATTR TFTScreenTouchInterrupt()
-{
-  if (!_tft_screen_available)
-    return;
-
-  if (_screen_awake)
-  {
-    ESP_LOGD(TAG, "Ignored touch, screen already on");
-  }
-  else
-  {
-    ESP_LOGD(TAG, "Touch");
-    xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
-  }
-}
-
 void IRAM_ATTR TCA6408Interrupt()
 {
   if (queue_i2c == NULL)
@@ -1116,13 +738,13 @@ const char *ControllerStateString(ControllerState value)
 
 void SetControllerState(ControllerState newState)
 {
-  if (ControlState != newState)
+  if (_controller_state != newState)
   {
-    ESP_LOGI(TAG, "** Controller changed state from %s to %s **", ControllerStateString(ControlState), ControllerStateString(newState));
+    ESP_LOGI(TAG, "** Controller changed state from %s to %s **", ControllerStateString(_controller_state), ControllerStateString(newState));
 
-    ControlState = newState;
+    _controller_state = newState;
 
-    switch (ControlState)
+    switch (_controller_state)
     {
     case ControllerState::PowerUp:
       //Purple during start up, don't use the QueueLED as thats not setup at this state
@@ -1331,7 +953,7 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::WaitingForModulesToReply);
   }
 
-  if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
+  if (_controller_state == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
   {
     rules.SetError(InternalErrorCode::ZeroVoltModule);
   }
@@ -1342,7 +964,7 @@ void ProcessRules()
       emergencyStop,
       minutesSinceMidnight());
 
-  if (ControlState == ControllerState::Stabilizing)
+  if (_controller_state == ControllerState::Stabilizing)
   {
     //Check for zero volt modules - not a problem whilst we are in stabilizing start up mode
     if (rules.zeroVoltageModuleCount == 0 && rules.invalidModuleCount == 0)
@@ -1363,7 +985,7 @@ void ProcessRules()
     //We have active errors
 
     //Wake up the screen, this will also trigger it to update the display
-    xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+    xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
   }
 }
 
@@ -1571,6 +1193,7 @@ WiFi.status() only returns:
 */
 
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
 
   char hostname[40];
 
@@ -1824,7 +1447,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   */
   if (!server_running)
   {
-    DIYBMSServer::StartServer(&server, &mysettings, &SD, &prg, &receiveProc, &ControlState, &rules, &sdcardaction_callback, &hal);
+    DIYBMSServer::StartServer(&server, &mysettings, &SD, &prg, &receiveProc, &_controller_state, &rules, &sdcardaction_callback, &hal);
     server_running = true;
   }
 
@@ -1851,7 +1474,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", WiFi.getHostname(), WiFi.localIP().toString().c_str());
 
   //Wake up the screen, this will show the IP address etc.
-  xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+  xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
 }
 
 void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
@@ -1862,7 +1485,7 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
   //ESP issues using Wifi from timers - https://github.com/espressif/arduino-esp32/issues/2686
 
   //Wake up the screen, this will also trigger it to update the display
-  xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+  xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
@@ -2303,6 +1926,7 @@ void TerminalBasedWifiSetup(HardwareSerial stream)
   stream.println(F("\r\n\r\nDIYBMS CONTROLLER - Scanning Wifi"));
 
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
   WiFi.disconnect();
 
   int n = WiFi.scanNetworks();
@@ -2366,31 +1990,6 @@ void TerminalBasedWifiSetup(HardwareSerial stream)
   stream.println(F("REBOOTING IN 5..."));
   delay(5000);
   ESP.restart();
-}
-
-void init_tft_display()
-{
-  if (!_tft_screen_available)
-    return;
-
-  tft.init();
-  tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
-  tft.getSPIinstance().setHwCs(false);
-  tft.setRotation(3);
-  tft.fillScreen(SplashLogoPalette[0]);
-
-  //SplashLogoGraphic_Height
-  tft.pushImage((int32_t)TFT_HEIGHT / 2 - SplashLogoGraphic_Width / 2, (int32_t)4, (int32_t)152, (int32_t)48, SplashLogoGraphic, false, SplashLogoPalette);
-
-  tft.setTextColor(TFT_WHITE, SplashLogoPalette[0]);
-
-  tft.setCursor(0, 48 + 16, 4);
-  tft.print(F("Ver:"));
-  tft.println(GIT_VERSION_SHORT);
-  tft.println(F("Build Date:"));
-  tft.println(COMPILE_DATE_TIME_SHORT);
-
-  hal.TFTScreenBacklight(true);
 }
 
 void createFile(fs::FS &fs, const char *path, const char *message)
@@ -2868,7 +2467,7 @@ void loop()
 
   unsigned long currentMillis = millis();
 
-  if (ControlState != ControllerState::ConfigurationSoftAP)
+  if (_controller_state != ControllerState::ConfigurationSoftAP)
   {
     //on first pass wifitimer is zero
     if (currentMillis - wifitimer > 30000)
