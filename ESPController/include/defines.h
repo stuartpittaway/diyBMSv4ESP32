@@ -234,4 +234,13 @@ struct avrprogramsettings
   size_t programsize;
 };
 
+enum ScreenTemplateToDisplay : uint8_t
+{
+  NotInstalled = 0,
+  None = 1,
+  Error = 2,
+  VoltageOneBank = 3,
+  VoltageFourBank = 4
+};
+
 #endif

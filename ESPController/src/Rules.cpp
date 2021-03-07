@@ -115,24 +115,8 @@ void Rules::SetWarning(InternalWarningCode warncode)
         return;
 
     WarningCodes[warncode] = warncode;
+    numberOfActiveWarnings++;
     ESP_LOGI(TAG, "Set warning %i", warncode);
-    /*
-    for (size_t i = 0; i < sizeof(WarningCodes); i++)
-    {
-        if (WarningCodes[i] == warncode)
-        {
-            //We already have the warning in the list, so skip
-            break;
-        }
-        //Find a free space
-        if (WarningCodes[i] == InternalWarningCode::NoWarning)
-        {
-            WarningCodes[i] = warncode;
-            //SERIAL_DEBUG.print("Added warning ");            SERIAL_DEBUG.println(warncode);
-            break;
-        }
-    }
-*/
 }
 
 void Rules::SetError(InternalErrorCode err)
@@ -145,27 +129,8 @@ void Rules::SetError(InternalErrorCode err)
         return;
 
     ErrorCodes[err] = err;
+    numberOfActiveErrors++;
     ESP_LOGI(TAG, "Set error %i", err);
-    /*
-    for (size_t i = 0; i < sizeof(ErrorCodes); i++)
-    {
-        if (ErrorCodes[i] == err)
-        {
-            //Error is already in the array
-            break;
-        }
-        //Find a free space
-        if (ErrorCodes[i] == InternalErrorCode::NoError)
-        {
-            rule_outcome[Rule::BMSError] = true;
-
-            ErrorCodes[i] = err;
-
-            ESP_LOGI(TAG, "Error state=%i", err);
-            break;
-        }
-    }
-*/
 }
 
 void Rules::RunRules(
