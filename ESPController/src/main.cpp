@@ -2352,7 +2352,7 @@ TEST CAN BUS
   xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
   xTaskCreate(avrprog_task, "avrprog", 3000, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
 
-  xTaskCreate(voltageandstatussnapshot_task, "snap", 1024, nullptr, 1, &voltageandstatussnapshot_task_handle);
+  xTaskCreate(voltageandstatussnapshot_task, "snap", 1500, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2200, nullptr, 1, &updatetftdisplay_task_handle);
   xTaskCreate(tftsleep_task, "tftslp", 1024, nullptr, 1, &tftsleep_task_handle);
 
