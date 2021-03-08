@@ -150,13 +150,13 @@ void QueueLED(uint8_t bits)
   xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
 }
 
+//When triggered, the VOLTAGE and STATUS in the CellModuleInfo structure are accurate and consistant at this point in time.
+//Good point to apply rules and update screen/statistics
 void voltageandstatussnapshot_task(void *param)
 {
   for (;;)
   {
-    //Wait until this task is triggered, when triggered
-    //it means the values in the CellModuleInfo structure
-    //are accurate and consistant at this point in time
+    //Wait until this task is triggered, when
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     ESP_LOGD(TAG, "Snap");
@@ -905,6 +905,7 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::CommunicationsError);
   }
 
+  rules.numberOfBalancingModules = 0;
   uint8_t cellid = 0;
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
   {
@@ -914,6 +915,7 @@ void ProcessRules()
 
       if (cmi[cellid].valid && cmi[cellid].settingsCached)
       {
+
         if (cmi[cellid].BypassThresholdmV != mysettings.BypassThresholdmV)
         {
           rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassVoltage);
@@ -922,6 +924,11 @@ void ProcessRules()
         if (cmi[cellid].BypassOverTempShutdown != mysettings.BypassOverTempShutdown)
         {
           rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassTemperature);
+        }
+
+        if (cmi[cellid].inBypass)
+        {
+          rules.numberOfBalancingModules++;
         }
 
         if (cmi[0].settingsCached && cmi[cellid].CodeVersionNumber != cmi[0].CodeVersionNumber)

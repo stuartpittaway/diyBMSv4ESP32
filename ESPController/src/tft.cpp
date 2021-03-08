@@ -141,6 +141,7 @@ void PrepareTFT_VoltageOneBank()
     tft.drawString("External temp", 0, tft.height() / 2);
     tft.drawString("Module temp", tft.width() / 2, tft.height() / 2);
     tft.drawString("Cell voltage", 0, 44 + tft.height() / 2);
+    tft.drawString("Modules balancing", tft.width() / 2, 44+tft.height() / 2);
 
     TFTDrawWifiDetails();
 }
@@ -200,9 +201,12 @@ void tftsleep_task(void *param)
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
         //Now we go back to sleep to provide a delay
-        //Delay 30 seconds, or forever if an error is active
+        //Delay 2 minutes, or forever if an error is active
         do
         {
+            vTaskDelay(30000 / portTICK_PERIOD_MS);
+            vTaskDelay(30000 / portTICK_PERIOD_MS);
+            vTaskDelay(30000 / portTICK_PERIOD_MS);
             vTaskDelay(30000 / portTICK_PERIOD_MS);
         } while (WhatScreenToDisplay() == ScreenTemplateToDisplay::Error);
 
@@ -460,19 +464,26 @@ void updatetftdisplay_task(void *param)
                     x += tft.drawNumber(rules.lowestInternalTemp, x, y);
                     x += tft.drawString(" / ", x, y);
                     x += tft.drawNumber(rules.highestInternalTemp, x, y);
+                    //blank out gap between numbers
                     tft.fillRect(x, y, tft.width() - x, tft.fontHeight(4), TFT_BLACK);
 
                     //Cell voltage ranges
                     y = tft.fontHeight(2) + 44 + tft.height() / 2;
                     x = 0;
-                    //tft.setCursor(x, y, 4);
                     value = rules.lowestCellVoltage / 1000.0;
                     x += tft.drawFloat(value, 3, x, y);
                     x += tft.drawString(" / ", x, y);
                     value = rules.highestCellVoltage / 1000.0;
                     x += tft.drawFloat(value, 3, x, y);
+                    //blank out gap between numbers
+                    tft.fillRect(x, y, tft.width() / 2 - x, tft.fontHeight(4), TFT_BLACK);
 
+                    y = tft.fontHeight(2) + 44 + tft.height() / 2;
+                    x = tft.width() / 2;
+                    x += tft.drawNumber(rules.numberOfBalancingModules, x, y);
+                    //blank out gap between numbers
                     tft.fillRect(x, y, tft.width() - x, tft.fontHeight(4), TFT_BLACK);
+
                     break;
                 }
                 case ScreenTemplateToDisplay::VoltageFourBank:

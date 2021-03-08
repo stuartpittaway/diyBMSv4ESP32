@@ -75,6 +75,7 @@ public:
 
     int8_t numberOfActiveErrors;
     int8_t numberOfActiveWarnings;
+    int8_t numberOfBalancingModules;
 
     void ClearValues();
     void ProcessCell(uint8_t bank, CellModuleInfo *c);
