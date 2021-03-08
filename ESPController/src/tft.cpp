@@ -78,12 +78,16 @@ void TFTDrawWifiDetails()
     tft.setTextColor(TFT_BLACK, TFT_DARKGREY);
     if (WiFi.isConnected())
     {
-        tft.drawString(WiFi.getHostname(), 2, y);
-        tft.drawString(WiFi.localIP().toString(), tft.width() / 2, y);
+        int16_t x = 2;
+        x += tft.drawString(WiFi.getHostname(), x, y);
+        x += 20;
+        x += tft.drawString(WiFi.localIP().toString(), x, y);
 
         //Draw RSSI on bottom right corner
         //Received Signal Strength in dBm
-        tft.drawNumber(WiFi.RSSI(), tft.width() - 48, y);
+        x += 20;
+        x += tft.drawNumber(WiFi.RSSI(), x, y);
+        x += tft.drawString("dBm", x, y);
     }
     else
     {
@@ -141,7 +145,7 @@ void PrepareTFT_VoltageOneBank()
     tft.drawString("External temp", 0, tft.height() / 2);
     tft.drawString("Module temp", tft.width() / 2, tft.height() / 2);
     tft.drawString("Cell voltage", 0, 44 + tft.height() / 2);
-    tft.drawString("Modules balancing", tft.width() / 2, 44+tft.height() / 2);
+    tft.drawString("Modules balancing", tft.width() / 2, 44 + tft.height() / 2);
 
     TFTDrawWifiDetails();
 }
