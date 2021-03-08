@@ -27,10 +27,9 @@ enum ScreenTemplateToDisplay : uint8_t
   None = 1,
   Error = 2,
   VoltageOneBank = 3,
-  VoltageFourBank = 4, 
-  State=5
+  VoltageFourBank = 4,
+  State = 5
 };
-
 
 void tftwakeup_task(void *param);
 void updatetftdisplay_task(void *param);
@@ -44,6 +43,9 @@ void init_tft_display();
 ScreenTemplateToDisplay WhatScreenToDisplay();
 void SwitchTFTBacklight(bool value);
 void IRAM_ATTR TFTScreenTouchInterrupt();
+void DrawTFT_ControlState();
+void DrawClock();
+
 
 //I hate EXTERN....
 extern Rules rules;

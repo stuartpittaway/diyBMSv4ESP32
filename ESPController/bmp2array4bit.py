@@ -184,9 +184,8 @@ for i in range(colorsUsed[0]):
 arraySize = (len(contents) - offset[0]) 
 outputString = "/* This was generated using a script based on the SparkFun BMPtoArray python script" + '\n'
 outputString += " See https://github.com/sparkfun/BMPtoArray for more info */" + '\n\n'
-outputString += "static uint16_t SplashLogoPalette[" + str(colorsUsed[0]) + "] = {";
+outputString += "const uint16_t SplashLogoPalette[" + str(colorsUsed[0]) + "] = {";
 for i in range(colorsUsed[0]): 
-    # print hexlify(colorIndex[i])
     if i % 4 == 0:
         outputString += "\n\t"
     outputString += "0x{:04x}, ".format(colorIndex[i])
@@ -194,9 +193,9 @@ for i in range(colorsUsed[0]):
 outputString = outputString[:-2]
 outputString += "\n};\n\n"
 outputString += "// width is " + str(width) + ", height is " + str(height) + "\n"
-outputString += "static const uint8_t SplashLogoGraphic_Width = " + str(width) + ";\n"
-outputString += "static const uint8_t SplashLogoGraphic_Height = " + str(height) + ";\n"
-outputString += "static uint8_t SplashLogoGraphic[" + str(arraySize) + "] PROGMEM = {" + '\n'
+outputString += "const uint32_t SplashLogoGraphic_Width = " + str(width) + ";\n"
+outputString += "const uint32_t SplashLogoGraphic_Height = " + str(height) + ";\n\n"
+outputString += "const uint8_t SplashLogoGraphic[" + str(arraySize) + "] PROGMEM = {" + '\n'
 
 if bitsPerPixel != 4:
     print("Expected 4 bits per pixel; found {}".format(bitsPerPixel))

@@ -783,7 +783,7 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   JsonObject root = doc.to<JsonObject>();
 
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo))
+  if (!getLocalTime(&timeinfo,100))
   {
     root["timenow"] = 0;
   }
