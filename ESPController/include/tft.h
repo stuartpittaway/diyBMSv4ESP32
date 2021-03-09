@@ -28,8 +28,11 @@ enum ScreenTemplateToDisplay : uint8_t
   Error = 2,
   VoltageOneBank = 3,
   VoltageFourBank = 4,
-  State = 5
+  State = 5,
+  AVRProgrammer=6
 };
+
+
 
 void tftwakeup_task(void *param);
 void updatetftdisplay_task(void *param);
@@ -45,6 +48,9 @@ void SwitchTFTBacklight(bool value);
 void IRAM_ATTR TFTScreenTouchInterrupt();
 void DrawTFT_ControlState();
 void DrawClock();
+void tftdisplay_avrprogrammer_start();
+void tftdisplay_avrprogrammer_progress(uint8_t programingMode,size_t current, size_t maximum);
+void tftdisplay_avrprogrammer_stop();
 
 
 //I hate EXTERN....

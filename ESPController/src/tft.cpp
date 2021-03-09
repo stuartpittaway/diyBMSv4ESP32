@@ -40,6 +40,8 @@ bool _tft_screen_available = false;
 volatile bool _screen_awake = false;
 
 ScreenTemplateToDisplay _lastScreenToDisplay = ScreenTemplateToDisplay::NotInstalled;
+int16_t fontHeight_2;
+int16_t fontHeight_4;
 
 void IRAM_ATTR TFTScreenTouchInterrupt()
 {
@@ -74,7 +76,8 @@ void TFTDrawWifiDetails()
 {
     tft.setTextDatum(TL_DATUM);
 
-    int16_t y = tft.height() - tft.fontHeight(2);
+    int16_t y = tft.height() - fontHeight_2;
+    ;
     tft.fillRect(0, y, tft.width(), tft.height() - y, TFT_DARKGREY);
     tft.setTextFont(2);
     tft.setTextColor(TFT_BLACK, TFT_DARKGREY);
@@ -112,7 +115,8 @@ void DrawClock()
         tft.setTextDatum(TL_DATUM);
 
         //Draw the time in bottom right corner of screen
-        int16_t y = tft.height() - tft.fontHeight(2);
+        int16_t y = tft.height() - fontHeight_2;
+        ;
         int16_t x = tft.width() - 38;
         if (timeinfo.tm_hour < 10)
         {
@@ -141,18 +145,6 @@ void PrepareTFT_Error()
     TFTDrawWifiDetails();
 }
 
-void PrepareTFT_VoltageFourBank()
-{
-    //Assumes the Mutex is already obtained by caller
-    //Show the first 4 banks in a grid
-    tft.fillScreen(TFT_BLACK);
-    //Grid lines
-    tft.drawLine(tft.width() / 2, 0, tft.width() / 2, tft.height(), TFT_DARKGREY);
-    tft.drawLine(0, tft.height() / 2, tft.width(), tft.height() / 2, TFT_DARKGREY);
-
-    TFTDrawWifiDetails();
-}
-
 void PrepareTFT_ControlState()
 {
     //Assumes the Mutex is already obtained by caller
@@ -161,7 +153,7 @@ void PrepareTFT_ControlState()
     tft.setTextColor(TFT_WHITE, TFT_DARKCYAN);
     tft.setTextFont(2);
     uint16_t x = tft.width() / 2;
-    uint16_t y = tft.height() / 2 - tft.fontHeight(4) * 2;
+    uint16_t y = tft.height() / 2 - fontHeight_4 * 2;
     //Centre/middle text
     tft.setTextDatum(TC_DATUM);
 
@@ -183,9 +175,9 @@ void PrepareTFT_ControlState()
         tft.fillRoundRect(16, 16, tft.width() - 32, tft.height() - 48, 8, TFT_DARKCYAN);
         tft.drawRoundRect(16 + 2, 16 + 2, tft.width() - 36, tft.height() - 52, 8, TFT_WHITE);
         tft.drawCentreString("Configure", x, y, 4);
-        y += tft.fontHeight(4);
+        y += fontHeight_4;
         tft.drawCentreString("Access", x, y, 4);
-        y += tft.fontHeight(4);
+        y += fontHeight_4;
         tft.drawCentreString("Point", x, y, 4);
         break;
     }
@@ -212,16 +204,20 @@ void PrepareTFT_ControlState()
         y = 85;
         tft.setTextColor(TFT_WHITE, SplashLogoPalette[0]);
         tft.drawCentreString("Version:", x, y, 2);
-        y += tft.fontHeight(2);
+        y += fontHeight_2;
+        ;
         tft.setTextColor(TFT_YELLOW, SplashLogoPalette[0]);
         tft.drawCentreString(GIT_VERSION_SHORT, x, y, 2);
-        y += tft.fontHeight(2);
+        y += fontHeight_2;
+        ;
         tft.setTextColor(TFT_WHITE, SplashLogoPalette[0]);
         tft.drawCentreString("Build Date:", x, y, 2);
-        y += tft.fontHeight(2);
+        y += fontHeight_2;
+        ;
         tft.setTextColor(TFT_YELLOW, SplashLogoPalette[0]);
         tft.drawCentreString(COMPILE_DATE_TIME_SHORT, x, y, 2);
-        y += tft.fontHeight(2);
+        y += fontHeight_2;
+        ;
 
         break;
     }
@@ -279,6 +275,9 @@ void init_tft_display()
     tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
     tft.getSPIinstance().setHwCs(false);
     tft.setRotation(3);
+
+    fontHeight_2 = tft.fontHeight(2);
+    fontHeight_4 = tft.fontHeight(4);
 
     PrepareTFT_ControlState();
     DrawTFT_ControlState();
@@ -388,9 +387,20 @@ void DrawTFT_ControlState()
     } //end switch
 }
 
+void PrepareTFT_VoltageFourBank()
+{
+    //Assumes the Mutex is already obtained by caller
+    //Show the first 4 banks in a grid
+    tft.fillScreen(TFT_BLACK);
+    //Grid lines
+    tft.drawLine(tft.width() / 2, 0, tft.width() / 2, tft.height(), TFT_DARKGREY);
+    tft.drawLine(0, tft.height() / 2, tft.width(), tft.height() / 2, TFT_DARKGREY);
+
+    TFTDrawWifiDetails();
+}
+
 void DrawTFT_VoltageFourBank()
 {
-
     //Split screen for multiple banks
     for (uint8_t i = 0; i < mysettings.totalNumberOfBanks; i++)
     {
@@ -409,12 +419,13 @@ void DrawTFT_VoltageOneBank()
     //Top centre
     tft.setTextDatum(TC_DATUM);
     tft.setTextFont(8);
-    int16_t y = tft.fontHeight(2);
+
+    int16_t y = fontHeight_2;
     int16_t x = tft.width() / 2;
     float value = rules.packvoltage[0] / 1000.0;
     x += tft.drawFloat(value, 2, x, y);
     //Clear right hand side of display
-    tft.fillRect(x, y, tft.width() - x, tft.fontHeight(8), TFT_BLACK);
+    tft.fillRect(x, y, tft.width() - x, tft.fontHeight(), TFT_BLACK);
 
     //Top left
     tft.setTextDatum(TL_DATUM);
@@ -427,18 +438,18 @@ void DrawTFT_VoltageOneBank()
     x += tft.drawString(" / ", x, y);
     x += tft.drawNumber(rules.highestExternalTemp, x, y);
     //blank out gap between numbers
-    tft.fillRect(x, y, (tft.width() / 2) - x, tft.fontHeight(4), TFT_BLACK);
+    tft.fillRect(x, y, (tft.width() / 2) - x, fontHeight_4, TFT_BLACK);
 
     x = tft.width() / 2;
-    y = tft.fontHeight(2) + tft.height() / 2;
+    y = fontHeight_2 + tft.height() / 2;
     x += tft.drawNumber(rules.lowestInternalTemp, x, y);
     x += tft.drawString(" / ", x, y);
     x += tft.drawNumber(rules.highestInternalTemp, x, y);
     //blank out gap between numbers
-    tft.fillRect(x, y, tft.width() - x, tft.fontHeight(4), TFT_BLACK);
+    tft.fillRect(x, y, tft.width() - x, fontHeight_4, TFT_BLACK);
 
     //Cell voltage ranges
-    y = tft.fontHeight(2) + 44 + tft.height() / 2;
+    y = fontHeight_2 + 44 + tft.height() / 2;
     x = 0;
     value = rules.lowestCellVoltage / 1000.0;
     x += tft.drawFloat(value, 3, x, y);
@@ -446,13 +457,13 @@ void DrawTFT_VoltageOneBank()
     value = rules.highestCellVoltage / 1000.0;
     x += tft.drawFloat(value, 3, x, y);
     //blank out gap between numbers
-    tft.fillRect(x, y, tft.width() / 2 - x, tft.fontHeight(4), TFT_BLACK);
+    tft.fillRect(x, y, tft.width() / 2 - x, fontHeight_4, TFT_BLACK);
 
-    y = tft.fontHeight(2) + 44 + tft.height() / 2;
+    y = fontHeight_2 + 44 + tft.height() / 2;
     x = tft.width() / 2;
     x += tft.drawNumber(rules.numberOfBalancingModules, x, y);
     //blank out gap between numbers
-    tft.fillRect(x, y, tft.width() - x, tft.fontHeight(4), TFT_BLACK);
+    tft.fillRect(x, y, tft.width() - x, fontHeight_4, TFT_BLACK);
 }
 
 void DrawTFT_Error()
@@ -467,7 +478,7 @@ void DrawTFT_Error()
             //Centre screen
             tft.setTextFont(2);
             uint16_t x = tft.width() / 2;
-            uint16_t y = tft.height() / 2 - tft.fontHeight(4) * 2;
+            uint16_t y = tft.height() / 2 - fontHeight_4 * 2;
             //Centre/middle text
             tft.setTextDatum(TC_DATUM);
 
@@ -476,54 +487,54 @@ void DrawTFT_Error()
             case InternalErrorCode::CommunicationsError:
             {
                 tft.drawCentreString("Module", x, y, 4);
-                y += tft.fontHeight(4);
+                y += fontHeight_4;
                 tft.drawCentreString("communications", x, y, 4);
-                y += tft.fontHeight(4);
+                y += fontHeight_4;
                 tft.drawCentreString("error", x, y, 4);
                 break;
             }
             case InternalErrorCode::ModuleCountMismatch:
             {
                 tft.drawCentreString("Module count", x, y, 4);
-                y += tft.fontHeight(4);
+                y += fontHeight_4;
                 tft.drawCentreString("mismatch", x, y, 4);
                 break;
             }
             case InternalErrorCode::TooManyModules:
             {
                 tft.drawCentreString("Too many", x, y, 4);
-                y += tft.fontHeight(4);
+                y += fontHeight_4;
                 tft.drawCentreString("modules", x, y, 4);
                 break;
             }
             case InternalErrorCode::WaitingForModulesToReply:
             {
                 tft.drawCentreString("Waiting for", x, y, 4);
-                y += tft.fontHeight(4);
+                y += fontHeight_4;
                 tft.drawCentreString("modules to", x, y, 4);
-                y += tft.fontHeight(4);
+                y += fontHeight_4;
                 tft.drawCentreString("reply", x, y, 4);
                 break;
             }
             case InternalErrorCode::ZeroVoltModule:
             {
                 tft.drawCentreString("Module returned", x, y, 4);
-                y += tft.fontHeight(4);
+                y += fontHeight_4;
                 tft.drawCentreString("zero volt", x, y, 4);
-                y += tft.fontHeight(4);
+                y += fontHeight_4;
                 tft.drawCentreString("reading", x, y, 4);
                 break;
             }
             case InternalErrorCode::ControllerMemoryError:
             {
                 tft.drawCentreString("Controller", x, y, 4);
-                y += tft.fontHeight(4);
+                y += fontHeight_4;
                 tft.drawCentreString("memory error", x, y, 4);
                 break;
             }
             default:
                 tft.drawCentreString("Error with", x, y, 4);
-                y += tft.fontHeight(4);
+                y += fontHeight_4;
                 tft.drawCentreString("no text", x, y, 4);
                 break;
             }
@@ -532,6 +543,70 @@ void DrawTFT_Error()
             break;
         }
     }
+}
+
+void tftdisplay_avrprogrammer_start()
+{
+    if (_tft_screen_available)
+    {
+        SwitchTFTBacklight(true);
+
+        if (hal.GetDisplayMutex())
+        {
+            tft.fillScreen(TFT_BLACK);
+
+            tft.setTextFont(2);
+            uint16_t x = tft.width() / 2;
+            uint16_t y = 32;
+            tft.setTextDatum(TL_DATUM);
+            tft.setTextColor(TFT_BLACK, TFT_LIGHTGREY);
+
+            tft.fillRoundRect(16, 16, tft.width() - 32, tft.height() - 48, 8, TFT_LIGHTGREY);
+            tft.drawRoundRect(16 + 2, 16 + 2, tft.width() - 36, tft.height() - 52, 8, TFT_DARKGREY);
+            tft.drawCentreString("AVR", x, y, 4);
+            y += fontHeight_4;
+            tft.drawCentreString("Programming", x, y, 4);
+
+            y = 140;
+            x = 58;
+            tft.drawRect(x, y, 202, 20, TFT_DARKGREY);
+            tft.drawRect(x + 1, y + 1, 202 - 2, 20 - 2, TFT_DARKGREY);
+
+            hal.ReleaseDisplayMutex();
+        }
+
+        _lastScreenToDisplay = ScreenTemplateToDisplay::AVRProgrammer;
+    }
+}
+
+void tftdisplay_avrprogrammer_progress(uint8_t programingMode, size_t current, size_t maximum)
+{
+    //programingMode=0 for programming, 1=verify
+    if (_tft_screen_available)
+    {
+        //ESP_LOGD(TAG, "%u %u", maximum, current);
+
+        uint16_t percent = round(((float)current / (float)maximum) * (float)100);
+
+        uint32_t color = programingMode == 0 ? TFT_BLUE : TFT_DARKGREEN;
+
+        if (hal.GetDisplayMutex())
+        {
+            uint16_t x = 60;
+            uint16_t y = 140 + 2;
+            tft.fillRect(x, y, 2 * percent, 16, color);
+            hal.ReleaseDisplayMutex();
+        }
+    }
+}
+
+void tftdisplay_avrprogrammer_stop()
+{
+    if (_tft_screen_available)
+    {
+        SwitchTFTBacklight(false);
+    }
+    _screen_awake = false;
 }
 
 void updatetftdisplay_task(void *param)
@@ -554,8 +629,8 @@ void updatetftdisplay_task(void *param)
                     //The screen type has changed, so prepare the background
                     switch (screenToDisplay)
                     {
+                    case ScreenTemplateToDisplay::AVRProgrammer:
                     case ScreenTemplateToDisplay::NotInstalled:
-                        break;
                     case ScreenTemplateToDisplay::None:
                         break;
                     case ScreenTemplateToDisplay::Error:
@@ -580,8 +655,8 @@ void updatetftdisplay_task(void *param)
             {
                 switch (screenToDisplay)
                 {
+                case ScreenTemplateToDisplay::AVRProgrammer:
                 case ScreenTemplateToDisplay::NotInstalled:
-                    break;
                 case ScreenTemplateToDisplay::None:
                     break;
                 case ScreenTemplateToDisplay::State:

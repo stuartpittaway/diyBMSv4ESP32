@@ -103,7 +103,6 @@ TaskHandle_t lazy_task_handle = NULL;
 TaskHandle_t rule_task_handle = NULL;
 TaskHandle_t influxdb_task_handle = NULL;
 TaskHandle_t pulse_relay_off_task_handle = NULL;
-
 TaskHandle_t voltageandstatussnapshot_task_handle = NULL;
 TaskHandle_t updatetftdisplay_task_handle = NULL;
 TaskHandle_t tftsleep_task_handle = NULL;
@@ -190,19 +189,23 @@ void avrprog_task(void *param)
     {
       File binaryfile = LITTLEFS.open(s->filename);
 
-      //void *blob = pvPortMalloc(binaryfile.size());
-      //vPortFree(blob);
-
       s->programsize = binaryfile.size();
-
-      //s->programsize = binaryfile.readBytes((char *)program, sizeof(program));
-
-      //ESP_LOGD(TAG, "Read %i bytes", s->programsize);
 
       //Reserve the SPI bus for programming purposes
       if (hal.GetVSPIMutex())
       {
+
+        //Stop tasks which may want to use something on the VSPI
+        //prevents corruption of programming or SD CARD contents
+        vTaskSuspend(sdcardlog_task_handle);
+        vTaskSuspend(sdcardlog_outputs_task_handle);
+        vTaskSuspend(tftsleep_task_handle);
+        vTaskSuspend(tftwakeup_task_handle);
+        vTaskSuspend(updatetftdisplay_task_handle);
+
         hal.SwapGPIO0ToOutput();
+
+        tftdisplay_avrprogrammer_start();
 
         //This will block for the 6 seconds it takes to program ATTINY841...
         //although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
@@ -212,7 +215,7 @@ void avrprog_task(void *param)
 
         ESP_LOGI(TAG, "Programming AVR");
         //This would be much better using a stream instead of a in ram buffer
-        s->progresult = isp.ProgramAVRDevice(s->mcu, s->programsize, binaryfile, s->lfuse, s->hfuse, s->efuse);
+        s->progresult = isp.ProgramAVRDevice(&tftdisplay_avrprogrammer_progress, s->mcu, s->programsize, binaryfile, s->lfuse, s->hfuse, s->efuse);
 
         s->duration = millis() - starttime;
 
@@ -231,6 +234,15 @@ void avrprog_task(void *param)
         }
 
         binaryfile.close();
+
+        tftdisplay_avrprogrammer_stop();
+
+        //Resume tasks after programming is complete
+        vTaskResume(sdcardlog_task_handle);
+        vTaskResume(sdcardlog_outputs_task_handle);
+        vTaskResume(tftsleep_task_handle);
+        vTaskResume(tftwakeup_task_handle);
+        vTaskResume(updatetftdisplay_task_handle);
       }
       else
       {
@@ -2348,30 +2360,28 @@ TEST CAN BUS
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
   //Create i2c task on CPU 0 (normal code runs on CPU 1)
-  xTaskCreatePinnedToCore(i2c_task, "i2c", 2048, nullptr, configMAX_PRIORITIES - 1, &i2c_task_handle, 0);
-  xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
-  xTaskCreate(avrprog_task, "avrprog", 3000, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
+  xTaskCreatePinnedToCore(i2c_task, "i2c", 1024, nullptr, configMAX_PRIORITIES - 1, &i2c_task_handle, 0);
+  xTaskCreatePinnedToCore(ledoff_task, "ledoff", 800, nullptr, 1, &ledoff_task_handle, 0);
+  xTaskCreate(avrprog_task, "avrprog", 2500, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
 
-  xTaskCreate(voltageandstatussnapshot_task, "snap", 2048, nullptr, 1, &voltageandstatussnapshot_task_handle);
-  xTaskCreate(updatetftdisplay_task, "tftupd", 2200, nullptr, 1, &updatetftdisplay_task_handle);
-  xTaskCreate(tftsleep_task, "tftslp", 1024, nullptr, 1, &tftsleep_task_handle);
-
-  xTaskCreate(tftwakeup_task, "tftwake", 2048, nullptr, 1, &tftwakeup_task_handle);
-
-  xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 1, &wifiresetdisable_task_handle);
-  xTaskCreate(sdcardlog_task, "sdlog", 4096, nullptr, 1, &sdcardlog_task_handle);
-  xTaskCreate(sdcardlog_outputs_task, "sdout", 4096, nullptr, 1, &sdcardlog_outputs_task_handle);
+  xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
+  xTaskCreate(updatetftdisplay_task, "tftupd", 1800, nullptr, 1, &updatetftdisplay_task_handle);
+  xTaskCreate(tftsleep_task, "tftslp", 900, nullptr, 1, &tftsleep_task_handle);
+  xTaskCreate(tftwakeup_task, "tftwake", 1900, nullptr, 1, &tftwakeup_task_handle);
+  xTaskCreate(wifiresetdisable_task, "wifidbl", 800, nullptr, 1, &wifiresetdisable_task_handle);
+  xTaskCreate(sdcardlog_task, "sdlog", 3600, nullptr, 1, &sdcardlog_task_handle);
+  xTaskCreate(sdcardlog_outputs_task, "sdout", 4000, nullptr, 1, &sdcardlog_outputs_task_handle);
   xTaskCreate(mqtt1, "mqtt1", 3000, nullptr, 1, &mqtt1_task_handle);
   xTaskCreate(mqtt2, "mqtt2", 3000, nullptr, 1, &mqtt2_task_handle);
 
   //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
   //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
 
-  xTaskCreate(transmit_task, "tx", 1024, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 1024, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
-  xTaskCreate(lazy_tasks, "lazyt", 1024, nullptr, 1, &lazy_task_handle);
+  xTaskCreate(transmit_task, "tx", 800, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 800, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(lazy_tasks, "lazyt", 800, nullptr, 1, &lazy_task_handle);
 
-  xTaskCreate(pulse_relay_off_task, "pulse", 1024, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
+  xTaskCreate(pulse_relay_off_task, "pulse", 800, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
   LoadConfiguration();
   ESP_LOGI("Config loaded");
@@ -2446,9 +2456,7 @@ TEST CAN BUS
     connectToMqtt();
 
     xTaskCreate(enqueue_task, "enqueue", 1024, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-
-    xTaskCreate(rules_task, "rules", 2048, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-
+    xTaskCreate(rules_task, "rules", 1800, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
     xTaskCreate(influxdb_task, "influxdb", 1500, nullptr, 1, &influxdb_task_handle);
 
     //We have just started...
@@ -2469,6 +2477,8 @@ TEST CAN BUS
 
 unsigned long wifitimer = 0;
 
+unsigned long taskinfotimer = 0;
+
 void loop()
 {
 
@@ -2486,6 +2496,56 @@ void loop()
 
       connectToMqtt();
     }
+  }
+
+  if (currentMillis > taskinfotimer)
+  {
+    //* High water mark is the minimum free stack space there has been (in bytes
+    //* rather than words as found in vanilla FreeRTOS) since the task started.
+    //* The smaller the returned number the closer the task has come to overflowing its stack.
+    ESP_LOGD(TAG, "Total number of tasks %u", uxTaskGetNumberOfTasks());
+
+    TaskHandle_t Handles[] = {i2c_task_handle,
+                              ledoff_task_handle,
+                              wifiresetdisable_task_handle,
+                              sdcardlog_task_handle,
+                              sdcardlog_outputs_task_handle,
+                              avrprog_task_handle,
+                              mqtt1_task_handle,
+                              mqtt2_task_handle,
+                              enqueue_task_handle,
+                              transmit_task_handle,
+                              replyqueue_task_handle,
+                              lazy_task_handle,
+                              rule_task_handle,
+                              influxdb_task_handle,
+                              pulse_relay_off_task_handle,
+                              voltageandstatussnapshot_task_handle,
+                              updatetftdisplay_task_handle,
+                              tftsleep_task_handle,
+                              tftwakeup_task_handle};
+
+    for (size_t i = 0; i < sizeof(Handles) / sizeof(TaskHandle_t); i++)
+    {
+      TaskHandle_t thisHandle = Handles[i];
+      UBaseType_t watermark = uxTaskGetStackHighWaterMark(thisHandle);
+      if (watermark < 128)
+      {
+        //Less than 128 bytes before stack overflow, report it...
+        char *name = pcTaskGetTaskName(thisHandle);
+        ESP_LOGW(TAG, "Watermark warn %s %u", name, watermark);
+      }
+
+      if (watermark > 512)
+      {
+        //Less than 128 bytes before stack overflow, report it...
+        char *name = pcTaskGetTaskName(thisHandle);
+        ESP_LOGI(TAG, "Excess stack %s %u", name, watermark);
+      }
+    }
+
+    //Wait 5 mins before next report
+    taskinfotimer = currentMillis + 60000 * 5;
   }
 
   /*
