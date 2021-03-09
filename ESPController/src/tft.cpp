@@ -251,6 +251,9 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
     if (!_tft_screen_available)
         return ScreenTemplateToDisplay::NotInstalled;
 
+    if (_avrsettings.inProgress)
+        return ScreenTemplateToDisplay::AVRProgrammer;
+
     if (rules.numberOfActiveErrors > 0)
         return ScreenTemplateToDisplay::Error;
 
@@ -545,38 +548,26 @@ void DrawTFT_Error()
     }
 }
 
-void tftdisplay_avrprogrammer_start()
+void PrepareTFT_AVRProgrammer()
 {
-    if (_tft_screen_available)
-    {
-        SwitchTFTBacklight(true);
+    tft.fillScreen(TFT_BLACK);
 
-        if (hal.GetDisplayMutex())
-        {
-            tft.fillScreen(TFT_BLACK);
+    tft.setTextFont(2);
+    uint16_t x = tft.width() / 2;
+    uint16_t y = 32;
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(TFT_BLACK, TFT_LIGHTGREY);
 
-            tft.setTextFont(2);
-            uint16_t x = tft.width() / 2;
-            uint16_t y = 32;
-            tft.setTextDatum(TL_DATUM);
-            tft.setTextColor(TFT_BLACK, TFT_LIGHTGREY);
+    tft.fillRoundRect(16, 16, tft.width() - 32, tft.height() - 48, 8, TFT_LIGHTGREY);
+    tft.drawRoundRect(16 + 2, 16 + 2, tft.width() - 36, tft.height() - 52, 8, TFT_DARKGREY);
+    tft.drawCentreString("AVR", x, y, 4);
+    y += fontHeight_4;
+    tft.drawCentreString("Programming", x, y, 4);
 
-            tft.fillRoundRect(16, 16, tft.width() - 32, tft.height() - 48, 8, TFT_LIGHTGREY);
-            tft.drawRoundRect(16 + 2, 16 + 2, tft.width() - 36, tft.height() - 52, 8, TFT_DARKGREY);
-            tft.drawCentreString("AVR", x, y, 4);
-            y += fontHeight_4;
-            tft.drawCentreString("Programming", x, y, 4);
-
-            y = 140;
-            x = 58;
-            tft.drawRect(x, y, 202, 20, TFT_DARKGREY);
-            tft.drawRect(x + 1, y + 1, 202 - 2, 20 - 2, TFT_DARKGREY);
-
-            hal.ReleaseDisplayMutex();
-        }
-
-        _lastScreenToDisplay = ScreenTemplateToDisplay::AVRProgrammer;
-    }
+    y = 140;
+    x = 58;
+    tft.drawRect(x, y, 202, 20, TFT_DARKGREY);
+    tft.drawRect(x + 1, y + 1, 202 - 2, 20 - 2, TFT_DARKGREY);
 }
 
 void tftdisplay_avrprogrammer_progress(uint8_t programingMode, size_t current, size_t maximum)
@@ -600,15 +591,6 @@ void tftdisplay_avrprogrammer_progress(uint8_t programingMode, size_t current, s
     }
 }
 
-void tftdisplay_avrprogrammer_stop()
-{
-    if (_tft_screen_available)
-    {
-        SwitchTFTBacklight(false);
-    }
-    _screen_awake = false;
-}
-
 void updatetftdisplay_task(void *param)
 {
     for (;;)
@@ -629,9 +611,11 @@ void updatetftdisplay_task(void *param)
                     //The screen type has changed, so prepare the background
                     switch (screenToDisplay)
                     {
-                    case ScreenTemplateToDisplay::AVRProgrammer:
                     case ScreenTemplateToDisplay::NotInstalled:
                     case ScreenTemplateToDisplay::None:
+                        break;
+                    case ScreenTemplateToDisplay::AVRProgrammer:
+                        PrepareTFT_AVRProgrammer();
                         break;
                     case ScreenTemplateToDisplay::Error:
                         PrepareTFT_Error();
@@ -656,6 +640,8 @@ void updatetftdisplay_task(void *param)
                 switch (screenToDisplay)
                 {
                 case ScreenTemplateToDisplay::AVRProgrammer:
+                    //Update is done via call back, so don't do anything here
+                    break;
                 case ScreenTemplateToDisplay::NotInstalled:
                 case ScreenTemplateToDisplay::None:
                     break;

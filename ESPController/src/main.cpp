@@ -176,11 +176,12 @@ void avrprog_task(void *param)
     //Wait until this task is triggered
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
+    //Wake up the display
+    xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
+
     //TODO: This needs to be passed into this as a parameter
     avrprogramsettings *s;
     s = (avrprogramsettings *)param;
-
-    //memset(program, 0, sizeof(program));
 
     ESP_LOGI(TAG, "AVR setting e=%02X h=%02X l=%02X mcu=%08X file=%s", s->efuse, s->hfuse, s->lfuse, s->mcu, s->filename);
 
@@ -194,18 +195,12 @@ void avrprog_task(void *param)
       //Reserve the SPI bus for programming purposes
       if (hal.GetVSPIMutex())
       {
-
         //Stop tasks which may want to use something on the VSPI
         //prevents corruption of programming or SD CARD contents
         vTaskSuspend(sdcardlog_task_handle);
         vTaskSuspend(sdcardlog_outputs_task_handle);
-        vTaskSuspend(tftsleep_task_handle);
-        vTaskSuspend(tftwakeup_task_handle);
-        vTaskSuspend(updatetftdisplay_task_handle);
 
         hal.SwapGPIO0ToOutput();
-
-        tftdisplay_avrprogrammer_start();
 
         //This will block for the 6 seconds it takes to program ATTINY841...
         //although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
@@ -235,14 +230,9 @@ void avrprog_task(void *param)
 
         binaryfile.close();
 
-        tftdisplay_avrprogrammer_stop();
-
         //Resume tasks after programming is complete
         vTaskResume(sdcardlog_task_handle);
         vTaskResume(sdcardlog_outputs_task_handle);
-        vTaskResume(tftsleep_task_handle);
-        vTaskResume(tftwakeup_task_handle);
-        vTaskResume(updatetftdisplay_task_handle);
       }
       else
       {
@@ -255,6 +245,9 @@ void avrprog_task(void *param)
     }
 
     s->inProgress = false;
+
+    //Refresh the display, after programming is complete
+    xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
 
   } //end for
 }

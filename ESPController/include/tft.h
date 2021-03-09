@@ -48,7 +48,7 @@ void SwitchTFTBacklight(bool value);
 void IRAM_ATTR TFTScreenTouchInterrupt();
 void DrawTFT_ControlState();
 void DrawClock();
-void tftdisplay_avrprogrammer_start();
+void PrepareTFT_AVRProgrammer();
 void tftdisplay_avrprogrammer_progress(uint8_t programingMode,size_t current, size_t maximum);
 void tftdisplay_avrprogrammer_stop();
 
@@ -62,4 +62,5 @@ extern TaskHandle_t tftsleep_task_handle;
 extern TaskHandle_t updatetftdisplay_task_handle;
 extern QueueHandle_t queue_i2c;
 extern TaskHandle_t tftwakeup_task_handle;
+extern avrprogramsettings _avrsettings;
 #endif
