@@ -101,6 +101,9 @@ private:
     static String uuidToString(uint8_t *uuidLocation);
     static void SetCacheAndETagGzip(AsyncWebServerResponse *response, String ETag);
     static void SetCacheAndETag(AsyncWebServerResponse *response, String ETag);
+
+    static void enableAVRprog(AsyncWebServerRequest *request);
+    static void disableAVRprog(AsyncWebServerRequest *request);
 };
 
 //TODO: Remove this

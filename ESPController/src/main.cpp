@@ -169,6 +169,64 @@ void voltageandstatussnapshot_task(void *param)
   } //end for
 }
 
+void mountSDCard()
+{
+  if (_avrsettings.programmingModeEnabled)
+  {
+    ESP_LOGW(TAG, "Attempt to mount sd but AVR prog mode enabled");
+    return;
+  }
+
+  ESP_LOGI(TAG, "Mounting SD card");
+  if (hal.GetVSPIMutex())
+  {
+    // Initialize SD card
+    if (SD.begin(SDCARD_CHIPSELECT, hal.vspi))
+    {
+      uint8_t cardType = SD.cardType();
+      if (cardType == CARD_NONE)
+      {
+        ESP_LOGW(TAG, "No SD card attached");
+      }
+      else
+      {
+        ESP_LOGI(TAG, "SD card available");
+        _sd_card_installed = true;
+      }
+    }
+    else
+    {
+      ESP_LOGE(TAG, "Card Mount Failed");
+    }
+    hal.ReleaseVSPIMutex();
+  }
+}
+
+void unmountSDCard()
+{
+  if (_sd_card_installed == false)
+    return;
+
+  ESP_LOGI(TAG, "Unmounting SD card");
+  if (hal.GetVSPIMutex())
+  {
+    SD.end();
+    hal.ReleaseVSPIMutex();
+    _sd_card_installed = false;
+  }
+}
+void sdcardaction_callback(uint8_t action)
+{
+  if (action == 0)
+  {
+    unmountSDCard();
+  }
+  else
+  {
+    mountSDCard();
+  }
+}
+
 void avrprog_task(void *param)
 {
   for (;;)
@@ -185,6 +243,14 @@ void avrprog_task(void *param)
 
     ESP_LOGI(TAG, "AVR setting e=%02X h=%02X l=%02X mcu=%08X file=%s", s->efuse, s->hfuse, s->lfuse, s->mcu, s->filename);
 
+    bool old_sd_card_installed = _sd_card_installed;
+
+    if (_sd_card_installed)
+    {
+      //Unmount SD card so we don't have issues on SPI bus
+      unmountSDCard();
+    }
+
     //Now we load the file into program array, from LITTLEFS (SPIFF)
     if (LITTLEFS.exists(s->filename))
     {
@@ -197,8 +263,8 @@ void avrprog_task(void *param)
       {
         //Stop tasks which may want to use something on the VSPI
         //prevents corruption of programming or SD CARD contents
-        vTaskSuspend(sdcardlog_task_handle);
-        vTaskSuspend(sdcardlog_outputs_task_handle);
+        //vTaskSuspend(sdcardlog_task_handle);
+        //vTaskSuspend(sdcardlog_outputs_task_handle);
 
         hal.SwapGPIO0ToOutput();
 
@@ -231,8 +297,8 @@ void avrprog_task(void *param)
         binaryfile.close();
 
         //Resume tasks after programming is complete
-        vTaskResume(sdcardlog_task_handle);
-        vTaskResume(sdcardlog_outputs_task_handle);
+        //vTaskResume(sdcardlog_task_handle);
+        //vTaskResume(sdcardlog_outputs_task_handle);
       }
       else
       {
@@ -249,6 +315,12 @@ void avrprog_task(void *param)
     //Refresh the display, after programming is complete
     xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
 
+    //If we unmounted the SD card, remount it here
+    if (old_sd_card_installed)
+    {
+      mountSDCard();
+    }
+
   } //end for
 }
 
@@ -264,7 +336,7 @@ void sdcardlog_task(void *param)
       vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
-    if (_sd_card_installed && mysettings.loggingEnabled && _controller_state == ControllerState::Running && hal.IsVSPIMutexAvailable())
+    if (_sd_card_installed && !_avrsettings.programmingModeEnabled && mysettings.loggingEnabled && _controller_state == ControllerState::Running && hal.IsVSPIMutexAvailable())
     {
       //ESP_LOGD(TAG, "sdcardlog_task");
 
@@ -398,7 +470,7 @@ void sdcardlog_outputs_task(void *param)
     //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    if (_sd_card_installed && mysettings.loggingEnabled)
+    if (_sd_card_installed && !_avrsettings.programmingModeEnabled && mysettings.loggingEnabled)
     {
       ESP_LOGD(TAG, "sdcardlog_outputs_task");
 
@@ -954,9 +1026,14 @@ void ProcessRules()
     rules.ProcessBank(bank);
   }
 
-  if (mysettings.loggingEnabled && !_sd_card_installed)
+  if (mysettings.loggingEnabled && !_sd_card_installed && !_avrsettings.programmingModeEnabled)
   {
     rules.SetWarning(InternalWarningCode::LoggingEnabledNoSDCard);
+  }
+
+  if (_avrsettings.programmingModeEnabled)
+  {
+    rules.SetWarning(InternalWarningCode::AVRProgrammingMode);
   }
 
   if (rules.invalidModuleCount > 0)
@@ -1388,55 +1465,6 @@ void SetupOTA()
   ArduinoOTA.setHostname(WiFi.getHostname());
   ArduinoOTA.setMdnsEnabled(true);
   ArduinoOTA.begin();
-}
-
-void mountSDCard()
-{
-  /*
-SD CARD TEST
-*/
-  ESP_LOGI(TAG, "Mounting SD card");
-
-  hal.GetVSPIMutex();
-  // Initialize SD card
-  //SD.begin(SDCARD_CHIPSELECT, hal.vspi);
-
-  if (SD.begin(SDCARD_CHIPSELECT, hal.vspi))
-  {
-    uint8_t cardType = SD.cardType();
-    if (cardType == CARD_NONE)
-    {
-      ESP_LOGI(TAG, "No SD card attached");
-    }
-    else
-    {
-      ESP_LOGI(TAG, "SD card available");
-      _sd_card_installed = true;
-    }
-  }
-  else
-  {
-    ESP_LOGE(TAG, "Card Mount Failed");
-  }
-  hal.ReleaseVSPIMutex();
-}
-
-void sdcardaction_callback(uint8_t action)
-{
-  switch (action)
-  {
-  case 0:
-    //Unmount
-    ESP_LOGI(TAG, "Unmounting SD card");
-    hal.GetVSPIMutex();
-    SD.end();
-    hal.ReleaseVSPIMutex();
-    _sd_card_installed = false;
-    break;
-  case 1:
-    mountSDCard();
-    break;
-  }
 }
 
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
@@ -2176,6 +2204,9 @@ void setup()
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
   hal.ConfigureVSPI();
 
+  _avrsettings.inProgress = false;
+  _avrsettings.programmingModeEnabled = false;
+
   //See if we can get a sensible reading from the TFT touch chip XPT2046
   //if we can, then a screen is fitted, so enable it
   _tft_screen_available = hal.IsScreenAttached();
@@ -2358,7 +2389,7 @@ TEST CAN BUS
   xTaskCreate(avrprog_task, "avrprog", 2500, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
-  xTaskCreate(updatetftdisplay_task, "tftupd", 1800, nullptr, 1, &updatetftdisplay_task_handle);
+  xTaskCreate(updatetftdisplay_task, "tftupd", 2048, nullptr, 1, &updatetftdisplay_task_handle);
   xTaskCreate(tftsleep_task, "tftslp", 900, nullptr, 1, &tftsleep_task_handle);
   xTaskCreate(tftwakeup_task, "tftwake", 1900, nullptr, 1, &tftwakeup_task_handle);
   xTaskCreate(wifiresetdisable_task, "wifidbl", 800, nullptr, 1, &wifiresetdisable_task_handle);

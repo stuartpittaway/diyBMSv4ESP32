@@ -4,7 +4,8 @@ const INTERNALWARNINGCODE = {
     ModuleInconsistantBypassTemperature: 2,
     ModuleInconsistantCodeVersion: 3,
     ModuleInconsistantBoardRevision: 4,
-    LoggingEnabledNoSDCard: 5
+    LoggingEnabledNoSDCard: 5,
+    AVRProgrammingMode: 6
 }
 Object.freeze(INTERNALWARNINGCODE);
 
@@ -254,7 +255,7 @@ function queryBMS() {
 
         //Needs increasing when more warnings are added
         if (jsondata.warnings) {
-            for (let warning = 1; warning <= 5; warning++) {
+            for (let warning = 1; warning <= 6; warning++) {
                 if (jsondata.warnings.includes(warning)) {
                     $("#warning" + warning).show();
                 } else {
@@ -1031,10 +1032,59 @@ $(function () {
         });
     });
 
+
+    $("#AVRProgDisable").click(function () {
+        $.ajax({
+            type: 'post',
+            url: 'disableavrprog.json',
+            data: { 'enable': 0 },
+            timeout: 10000
+        })
+            .done(
+                function (data) {
+                    $("#AVRProgEnable").prop('disabled', false).css({ opacity: 1.0 });
+                    $("#AVRProgDisable").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
+                })
+            .fail(function (data) {
+                $("#avrinfo").html("Failed");
+            })
+            .always(function (data) {
+                //$("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
+                //$("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+            });
+
+        return true;
+    });
+    $("#AVRProgEnable").click(function () {
+        $.ajax({
+            type: 'post',
+            url: 'enableavrprog.json',
+            data: { 'enable': 1 },
+            timeout: 10000
+        })
+            .done(
+                function (data) {
+                    $("#AVRProgEnable").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#AVRProgDisable").prop('disabled', false).css({ opacity: 1.0 });
+                    $("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
+                    $("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+                })
+            .fail(function (data) {
+                $("#avrinfo").html("Failed");
+            })
+            .always(function (data) {
+                //$("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
+                //$("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+            });
+
+        return true;
+    });
+
     $("#ProgAVRCancel").click(function () {
         $("#avrprogconfirm").hide();
         $("#avrinfo").empty();
-
         return true;
     });
 
@@ -1042,7 +1092,6 @@ $(function () {
         $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
         $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
         $("#avrinfo").empty();
-
 
         $.ajax({
             type: 'post',
@@ -1054,11 +1103,9 @@ $(function () {
             .done(
                 function (data) {
                     $("#avrinfo").html(data.message);
-
                     if (data.started) {
                         setTimeout(avrProgrammingStatsUpdate, 250, 20);
                     }
-
                 })
             .fail(function (data) {
                 $("#avrinfo").html("Failed");
@@ -1082,6 +1129,21 @@ $(function () {
                 $("#avrprog").empty();
                 $("#avrprogconfirm").hide();
                 $("#selectedavrindex").val("");
+
+                if (data.ProgModeEnabled == 1) {
+                    //Programming mode enabled
+                    $("#AVRProgEnable").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#AVRProgDisable").prop('disabled', false).css({ opacity: 1.0 });
+
+                    $("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
+                    $("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+                } else {
+                    $("#AVRProgEnable").prop('disabled', false).css({ opacity: 1.0 });
+                    $("#AVRProgDisable").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
+                }
+
                 if (data.avrprog.avrprog) {
                     $.each(data.avrprog.avrprog, function (index, value) {
 

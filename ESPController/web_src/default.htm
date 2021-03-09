@@ -70,6 +70,7 @@
         <div id='warning3' class='warning'>Warning: Modules have mixed versions of code, may cause instability</div>
         <div id='warning4' class='warning'>Warning: Modules have mixed versions of hardware/boards</div>
         <div id='warning5' class='warning'>Warning: Logging enabled but SD card not installed/found</div>
+        <div id='warning6' class='warning'>Some features disabled whilst AVR programming mode enabled</div>
     </div>
     <div id="info" class="info">
         <div id="current" class="stat"><span class="x t">Current:</span><span class="x v"></span></div>
@@ -629,22 +630,38 @@
     <div class="page" id="avrprogPage">
         <h1>AVR Programmer</h1>
         <div class="region">
-            <p>Controller can program modules and devices using the files below.</p>
+            <p>Controller can program modules and devices using the files below. <strong>Do not connect</strong> a
+                device to be programmed before enabling programming mode.</p>
+            <p>Instructions:
+                <ol>
+                    <li>"Enable programming mode", this will stop SD card logging and TFT touch screen response.</li>
+                    <li>Select the relevant file to program</li>
+                    <li>Read the warnings</li>
+                    <li>Attach/connect device to be programmed to the ISP connector on the controller</li>
+                    <li>Select "Program Device"</li>
+                    <li>When complete, remove the device</li>
+                    <li>Program other devices as needed</li>
+                    <li>Disable programming mode</li>
+                </ol>
+            </p>
             <ul id="avrprog">
 
             </ul>
+            <div>
+                <button type="button" id="AVRProgEnable">Enable programming mode</button>
+                <button type="button" id="AVRProgDisable">Disable programming mode</button>
+            </div>
             <div id="avrprogconfirm">
                 <input type="hidden" value="" id="selectedavrindex" />
                 <img class="warnicon" src="warning.png" width="48" height="41" alt="Warning" />
                 <ul>
                     <li>Ensure you disconnect all battery and communication cables from the module/device before
                         programming.</li>
-                    <li>Connect the module to the ISP port on the controller using a ribbon cable, ensure the notch
-                        is aligned with pin 1 on the module.</li>
-                    <li>Unmount SD Card before programming (if installed)</li>
+                    <li>Connect the module to the ISP port on the controller using a ribbon cable or adapter, ensure the notch is
+                        aligned with pin 1 on the module.</li>
                     <li>Click 'Program Device' to start programming</li>
+                    <li>Remove cable as soon as programming is complete</li>
                 </ul>
-
                 <button type="button" id="ProgAVR">Program Device</button>
                 <button type="button" id="ProgAVRCancel">Cancel</button>
                 <p id='avrinfo'></p>

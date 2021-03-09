@@ -24,7 +24,7 @@ enum Rule : uint8_t
 };
 
 //Define a max constant for the highest value (change if you add more warnings)
-#define MAXIMUM_InternalWarningCode 5
+#define MAXIMUM_InternalWarningCode 6
 enum InternalWarningCode : uint8_t
 {
     NoWarning = 0,
@@ -32,7 +32,8 @@ enum InternalWarningCode : uint8_t
     ModuleInconsistantBypassTemperature = 2,
     ModuleInconsistantCodeVersion = 3,
     ModuleInconsistantBoardRevision = 4,
-    LoggingEnabledNoSDCard = 5
+    LoggingEnabledNoSDCard = 5,
+    AVRProgrammingMode =6
 };
 
 //Define a max constant for the highest value (change if you add more errors)
