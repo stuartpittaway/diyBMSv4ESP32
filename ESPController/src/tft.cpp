@@ -423,7 +423,7 @@ void PrepareTFT_VoltageFourBank()
     tft.drawString("Cell voltages", 0, fontHeight_2 + fontHeight_2 + h + 2);
     tft.drawString("Modules balancing", 2 + w / 2, fontHeight_2 + fontHeight_2 + h + 2);
 
-    uint8_t banks = 4; //mysettings.totalNumberOfBanks> 3 ? 3 : mysettings.totalNumberOfBanks;
+    uint8_t banks = mysettings.totalNumberOfBanks> 4 ? 4 : mysettings.totalNumberOfBanks;
 
     for (uint8_t i = 0; i < banks; i++)
     {
@@ -456,7 +456,7 @@ void DrawTFT_VoltageFourBank()
     int16_t h = tft.height() - fontHeight_2 - 68;
     int16_t halfway = h / 2;
 
-    uint8_t banks = 4; //mysettings.totalNumberOfBanks> 4 ? 4 : mysettings.totalNumberOfBanks;
+    uint8_t banks = mysettings.totalNumberOfBanks> 4 ? 4 : mysettings.totalNumberOfBanks;
 
     for (uint8_t i = 0; i < banks; i++)
     {
