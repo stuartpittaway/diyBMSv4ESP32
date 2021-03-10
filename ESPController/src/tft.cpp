@@ -234,13 +234,20 @@ void PrepareTFT_VoltageOneBank()
     tft.fillScreen(TFT_BLACK);
     //We have a single bank/pack
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+
+    int16_t w = tft.width();
+    //Take off the wifi banner height
+    int16_t h = tft.height() - fontHeight_2 - 100;
+
+    const int16_t xoffset = 32;
+
     tft.setTextFont(2);
     //Need to think about multilingual strings in the longer term
-    tft.drawString("Bank voltage", 0, 0);
-    tft.drawString("External temp", 0, tft.height() / 2);
-    tft.drawString("Module temp", tft.width() / 2, tft.height() / 2);
-    tft.drawString("Cell voltage", 0, 44 + tft.height() / 2);
-    tft.drawString("Modules balancing", tft.width() / 2, 44 + tft.height() / 2);
+    tft.drawString("Bank voltage", xoffset + 0, 0);
+    tft.drawString("External temp", xoffset + 0, h);
+    tft.drawString("Module temp", xoffset + w / 2, h);
+    tft.drawString("Cell voltage", xoffset + 0, 44 + h);
+    tft.drawString("Modules balancing", xoffset + w / 2, 44 + h);
 
     TFTDrawWifiDetails();
 }
@@ -392,26 +399,138 @@ void DrawTFT_ControlState()
 
 void PrepareTFT_VoltageFourBank()
 {
-    //Assumes the Mutex is already obtained by caller
-    //Show the first 4 banks in a grid
+
     tft.fillScreen(TFT_BLACK);
+
+    int16_t w = tft.width();
+    //Take off the wifi banner height
+    int16_t h = tft.height() - fontHeight_2 - 68;
+    int16_t yhalfway = h / 2;
+
     //Grid lines
-    tft.drawLine(tft.width() / 2, 0, tft.width() / 2, tft.height(), TFT_DARKGREY);
-    tft.drawLine(0, tft.height() / 2, tft.width(), tft.height() / 2, TFT_DARKGREY);
+    tft.drawLine(w / 2, 0, w / 2, h, TFT_DARKGREY);
+
+    tft.drawLine(0, yhalfway, w, yhalfway, TFT_DARKGREY);
+
+    tft.drawLine(0, h, w, h, TFT_DARKGREY);
+
+    tft.setTextFont(2);
+    //Need to think about multilingual strings in the longer term
+    tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    tft.drawString("Bank voltage", 0, 0);
+    tft.drawString("External temp", 0, h + 2);
+    tft.drawString("Module temp", 2 + w / 2, h + 2);
+    tft.drawString("Cell voltages", 0, fontHeight_2 + fontHeight_2 + h + 2);
+    tft.drawString("Modules balancing", 2 + w / 2, fontHeight_2 + fontHeight_2 + h + 2);
+
+    uint8_t banks = 4; //mysettings.totalNumberOfBanks> 3 ? 3 : mysettings.totalNumberOfBanks;
+
+    for (uint8_t i = 0; i < banks; i++)
+    {
+        int16_t y = 0;
+        int16_t x = 0;
+
+        if (i == 1 || i == 3)
+        {
+            x += 4 + w / 2;
+        }
+
+        if (i > 1)
+        {
+            y += 2 + yhalfway;
+        }
+
+        //Need to think about multilingual strings in the longer term
+        x += tft.drawString("Bank voltage ", x, y);
+        x += tft.drawNumber(i, x, y);
+    }
 
     TFTDrawWifiDetails();
 }
 
 void DrawTFT_VoltageFourBank()
 {
-    //Split screen for multiple banks
-    for (uint8_t i = 0; i < mysettings.totalNumberOfBanks; i++)
+    //Split screen for multiple banks, maximum of 4 banks on the display
+
+    int16_t w = tft.width();
+    int16_t h = tft.height() - fontHeight_2 - 68;
+    int16_t halfway = h / 2;
+
+    uint8_t banks = 4; //mysettings.totalNumberOfBanks> 4 ? 4 : mysettings.totalNumberOfBanks;
+
+    for (uint8_t i = 0; i < banks; i++)
     {
-        //Smaller font
-        tft.setCursor(0, 0, 7);
+        ESP_LOGD(TAG, "Drawing bank %u", i);
+
+        //We could probably do this with tft.setViewport...
+
+        tft.setTextDatum(TL_DATUM);
+
+        int16_t y = 1 + fontHeight_2;
+        int16_t x = 0;
+
+        //Half way across screen, minus vertical line
+        int16_t limitx = (w / 2) - 1;
+
+        if (i == 1 || i == 3)
+        {
+            x += 4 + w / 2;
+            limitx = w;
+        }
+
+        if (i > 1)
+        {
+            y += halfway;
+        }
+
+        tft.setTextColor(TFT_GREEN, TFT_BLACK);
+        tft.setTextFont(7);
         float value = rules.packvoltage[i] / 1000.0;
-        tft.printf("%2.2fV", value);
+        x += tft.drawFloat(value, 2, x, y);
+
+        //Clear right hand side of display
+        tft.fillRect(x, y, limitx - x, tft.fontHeight(), TFT_BLACK);
     }
+
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    //Tiny font
+    tft.setTextFont(2);
+
+    int16_t x = 0;
+    int16_t y = fontHeight_2 + h + 2;
+    if (rules.moduleHasExternalTempSensor)
+    {
+        x += tft.drawNumber(rules.lowestExternalTemp, x, y);
+        x += tft.drawString(" / ", x, y);
+        x += tft.drawNumber(rules.highestExternalTemp, x, y);
+    }
+    else
+    {
+        x += tft.drawString("Not fitted", x, y);
+    }
+    //blank out gap between numbers
+    tft.fillRect(x, y, (w / 2) - 1 - x, fontHeight_2, TFT_BLACK);
+
+    x = 2 + w / 2;
+    y = fontHeight_2 + h + 2;
+    x += tft.drawNumber(rules.lowestInternalTemp, x, y);
+    x += tft.drawString(" / ", x, y);
+    x += tft.drawNumber(rules.highestInternalTemp, x, y);
+    tft.fillRect(x, y, w - x, fontHeight_2, TFT_BLACK);
+
+    x = 0;
+    y = fontHeight_2 + fontHeight_2 + fontHeight_2 + h + 2;
+    float value = rules.lowestCellVoltage / 1000.0;
+    x += tft.drawFloat(value, 3, x, y);
+    x += tft.drawString(" / ", x, y);
+    value = rules.highestCellVoltage / 1000.0;
+    x += tft.drawFloat(value, 3, x, y);
+    tft.fillRect(x, y, (w / 2) - 1 - x, fontHeight_2, TFT_BLACK);
+
+    x = 2 + w / 2;
+    y = fontHeight_2 + fontHeight_2 + fontHeight_2 + h + 2;
+    x += tft.drawNumber(rules.numberOfBalancingModules, x, y);
+    tft.fillRect(x, y, w - x, fontHeight_2, TFT_BLACK);
 }
 
 void DrawTFT_VoltageOneBank()
@@ -423,6 +542,7 @@ void DrawTFT_VoltageOneBank()
     tft.setTextDatum(TC_DATUM);
     tft.setTextFont(8);
 
+    const int16_t xoffset = 32;
     int16_t y = fontHeight_2;
     int16_t x = tft.width() / 2;
     float value = rules.packvoltage[0] / 1000.0;
@@ -434,17 +554,26 @@ void DrawTFT_VoltageOneBank()
     tft.setTextDatum(TL_DATUM);
     tft.setTextFont(4);
 
-    //Cell temperatures
-    y = 16 + tft.height() / 2;
-    x = 0;
-    x += tft.drawNumber(rules.lowestExternalTemp, x, y);
-    x += tft.drawString(" / ", x, y);
-    x += tft.drawNumber(rules.highestExternalTemp, x, y);
+    //Cell temperatures and stuff
+    int16_t h = tft.height() - fontHeight_2 - 100;
+
+    y = h;
+    x = xoffset + 0;
+    if (rules.moduleHasExternalTempSensor)
+    {
+        x += tft.drawNumber(rules.lowestExternalTemp, x, y);
+        x += tft.drawString(" / ", x, y);
+        x += tft.drawNumber(rules.highestExternalTemp, x, y);
+    }
+    else
+    {
+        x += tft.drawString("Not fitted", x, y);
+    }
     //blank out gap between numbers
     tft.fillRect(x, y, (tft.width() / 2) - x, fontHeight_4, TFT_BLACK);
 
-    x = tft.width() / 2;
-    y = fontHeight_2 + tft.height() / 2;
+    x = xoffset + tft.width() / 2;
+    y = h + fontHeight_2;
     x += tft.drawNumber(rules.lowestInternalTemp, x, y);
     x += tft.drawString(" / ", x, y);
     x += tft.drawNumber(rules.highestInternalTemp, x, y);
@@ -452,8 +581,8 @@ void DrawTFT_VoltageOneBank()
     tft.fillRect(x, y, tft.width() - x, fontHeight_4, TFT_BLACK);
 
     //Cell voltage ranges
-    y = fontHeight_2 + 44 + tft.height() / 2;
-    x = 0;
+    y = h + fontHeight_4 + fontHeight_2 + fontHeight_2 + 2;
+    x = xoffset + 0;
     value = rules.lowestCellVoltage / 1000.0;
     x += tft.drawFloat(value, 3, x, y);
     x += tft.drawString(" / ", x, y);
@@ -462,8 +591,8 @@ void DrawTFT_VoltageOneBank()
     //blank out gap between numbers
     tft.fillRect(x, y, tft.width() / 2 - x, fontHeight_4, TFT_BLACK);
 
-    y = fontHeight_2 + 44 + tft.height() / 2;
-    x = tft.width() / 2;
+    y = h + fontHeight_4 + fontHeight_2;
+    x = xoffset + tft.width() / 2;
     x += tft.drawNumber(rules.numberOfBalancingModules, x, y);
     //blank out gap between numbers
     tft.fillRect(x, y, tft.width() - x, fontHeight_4, TFT_BLACK);
