@@ -232,7 +232,7 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
         Halt(RGBLED::Purple);
     }
 
-    //0×03 Configuration, P7/P6/P4 as input, others outputs (0=OUTPUT)
+    //0×03 Configuration, P7 (estop) and P4 (remote touch) as input, others outputs (0=OUTPUT)
     ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, TCA9534APWR_INPUTMASK);
 
     //0×02 Polarity Inversion, zero = off
