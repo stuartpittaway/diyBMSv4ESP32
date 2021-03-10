@@ -639,8 +639,6 @@ void i2c_task(void *param)
         InputState[2] = (v & B00000100) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
         //P3=D
         InputState[3] = (v & B00001000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-        //P7=E
-        InputState[4] = (v & B10000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
       }
 
       if (m.command == 0x02)
@@ -648,6 +646,10 @@ void i2c_task(void *param)
         //Read ports
         //The 9534 deals with internal LED outputs and spare IO on J10
         uint8_t v = hal.ReadTCA9534InputRegisters();
+
+        //P4= J13 PIN 1 = WAKE UP TFT FOR DISPLAYS WITHOUT TOUCH
+        InputState[4] = (v & B00010000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+
         //P6 = spare I/O (on PCB pin)
         InputState[5] = (v & B01000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
         //P7 = Emergency Stop
@@ -657,6 +659,12 @@ void i2c_task(void *param)
         if (InputState[6] == enumInputState::INPUT_LOW)
         {
           emergencyStop = true;
+        }
+
+        if (InputState[4] == enumInputState::INPUT_LOW)
+        {
+          //Wake screen on pin going low
+          xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
         }
       }
 
@@ -703,6 +711,7 @@ void IRAM_ATTR WifiPasswordClear()
   }
 }
 
+//Triggered when TCA6408 INT pin goes LOW
 void IRAM_ATTR TCA6408Interrupt()
 {
   if (queue_i2c == NULL)
@@ -713,6 +722,7 @@ void IRAM_ATTR TCA6408Interrupt()
   xQueueSendToBackFromISR(queue_i2c, &m, NULL);
 }
 
+//Triggered when TCA9534A INT pin goes LOW
 void IRAM_ATTR TCA9534AInterrupt()
 {
   if (queue_i2c == NULL)
