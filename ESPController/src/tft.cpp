@@ -460,7 +460,7 @@ void DrawTFT_VoltageFourBank()
 
     for (uint8_t i = 0; i < banks; i++)
     {
-        ESP_LOGD(TAG, "Drawing bank %u", i);
+        //ESP_LOGD(TAG, "Drawing bank %u", i);
 
         //We could probably do this with tft.setViewport...
 
