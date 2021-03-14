@@ -37,13 +37,14 @@ static const char *TAG = "diybms";
 #include <SPI.h>
 #include "time.h"
 #include <esp_wifi.h>
+#include <esp_bt.h>
 #include <Preferences.h>
-#include "tft_splash_image.h"
 
 // Libraries for SD card
 #include "SD.h"
 #include "driver/gpio.h"
 #include "driver/can.h"
+#include "driver/adc.h"
 //#include "driver/twai.h"
 
 #include <ESPAsyncWebServer.h>
@@ -51,7 +52,7 @@ static const char *TAG = "diybms";
 #include <ArduinoOTA.h>
 #include <SerialEncoder.h>
 #include <cppQueue.h>
-#include <XPT2046_Touchscreen.h>
+
 #include <ArduinoJson.h>
 #include "defines.h"
 #include "HAL_ESP32.h"
@@ -62,47 +63,14 @@ static const char *TAG = "diybms";
 
 #include "avrisp_programmer.h"
 
-/*
-#define USER_SETUP_LOADED
+#include "tft.h"
 
-#define USE_DMA_TO_TFT
-// Color depth has to be 16 bits if DMA is used to render image
-#define COLOR_DEPTH 16
-#define ILI9341_DRIVER
-//#define SPI_FREQUENCY 40000000
-//#define SPI_READ_FREQUENCY 20000000
-//#define SPI_TOUCH_FREQUENCY 2500000
-
-#define LOAD_GLCD  // Font 1. Original Adafruit 8 pixel font needs ~1820 bytes in FLASH
-#define LOAD_FONT2 // Font 2. Small 16 pixel high font, needs ~3534 bytes in FLASH, 96 characters
-#define LOAD_FONT4 // Font 4. Medium 26 pixel high font, needs ~5848 bytes in FLASH, 96 characters
-#define LOAD_FONT6 // Font 6. Large 48 pixel font, needs ~2666 bytes in FLASH, only characters 1234567890:-.apm
-#define LOAD_FONT7 // Font 7. 7 segment 48 pixel font, needs ~2438 bytes in FLASH, only characters 1234567890:.
-#define LOAD_FONT8 // Font 8. Large 75 pixel font needs ~3256 bytes in FLASH, only characters 1234567890:-.
-#define LOAD_GFXFF // FreeFonts. Include access to the 48 Adafruit_GFX free fonts FF1 to FF48 and custom fonts
-
-//#define SMOOTH_FONT
-
-//#define TFT_MISO 12
-//#define TFT_MOSI 13
-//#define TFT_SCLK 14
-#define TFT_DC 15  // Data Command control pin
-#define TFT_RST -1 // Reset pin (could connect to RST pin)
-
-#define USE_HSPI_PORT
-#define SUPPORT_TRANSACTIONS
-
-//Our CS pin is directly connected to ground as the TFT display is the only item on the HSPI bus
-#undef TFT_CS
-*/
-#include "TFT_eSPI.h"
-
-TFT_eSPI tft = TFT_eSPI();
 HAL_ESP32 hal;
-XPT2046_Touchscreen touchscreen(TOUCH_CHIPSELECT, TOUCH_IRQ); // Param 2 - Touch IRQ Pin - interrupt enabled polling
 
 volatile bool emergencyStop = false;
 bool _sd_card_installed = false;
+
+extern bool _tft_screen_available;
 
 Rules rules;
 diybms_eeprom_settings mysettings;
@@ -135,6 +103,10 @@ TaskHandle_t lazy_task_handle = NULL;
 TaskHandle_t rule_task_handle = NULL;
 TaskHandle_t influxdb_task_handle = NULL;
 TaskHandle_t pulse_relay_off_task_handle = NULL;
+TaskHandle_t voltageandstatussnapshot_task_handle = NULL;
+TaskHandle_t updatetftdisplay_task_handle = NULL;
+TaskHandle_t tftsleep_task_handle = NULL;
+TaskHandle_t tftwakeup_task_handle = NULL;
 
 //This large array holds all the information about the modules
 CellModuleInfo cmi[maximum_controller_cell_modules];
@@ -163,7 +135,7 @@ SerialEncoder myPacketSerial;
 
 uint16_t sequence = 0;
 
-ControllerState ControlState = ControllerState::Unknown;
+ControllerState _controller_state = ControllerState::Unknown;
 
 AsyncMqttClient mqttClient;
 
@@ -177,9 +149,83 @@ void QueueLED(uint8_t bits)
   xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
 }
 
-//Very wasteful of 8K of precious memory, AVR Programmer won't be used much
-//so move to malloc ?
-//uint8_t program[8192];
+//When triggered, the VOLTAGE and STATUS in the CellModuleInfo structure are accurate and consistant at this point in time.
+//Good point to apply rules and update screen/statistics
+void voltageandstatussnapshot_task(void *param)
+{
+  for (;;)
+  {
+    //Wait until this task is triggered, when
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    ESP_LOGD(TAG, "Snap");
+
+    if (_tft_screen_available)
+    {
+      //Refresh the TFT display
+      xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
+    }
+
+  } //end for
+}
+
+void mountSDCard()
+{
+  if (_avrsettings.programmingModeEnabled)
+  {
+    ESP_LOGW(TAG, "Attempt to mount sd but AVR prog mode enabled");
+    return;
+  }
+
+  ESP_LOGI(TAG, "Mounting SD card");
+  if (hal.GetVSPIMutex())
+  {
+    // Initialize SD card
+    if (SD.begin(SDCARD_CHIPSELECT, hal.vspi))
+    {
+      uint8_t cardType = SD.cardType();
+      if (cardType == CARD_NONE)
+      {
+        ESP_LOGW(TAG, "No SD card attached");
+      }
+      else
+      {
+        ESP_LOGI(TAG, "SD card available");
+        _sd_card_installed = true;
+      }
+    }
+    else
+    {
+      ESP_LOGE(TAG, "Card Mount Failed");
+    }
+    hal.ReleaseVSPIMutex();
+  }
+}
+
+void unmountSDCard()
+{
+  if (_sd_card_installed == false)
+    return;
+
+  ESP_LOGI(TAG, "Unmounting SD card");
+  if (hal.GetVSPIMutex())
+  {
+    SD.end();
+    hal.ReleaseVSPIMutex();
+    _sd_card_installed = false;
+  }
+}
+void sdcardaction_callback(uint8_t action)
+{
+  if (action == 0)
+  {
+    unmountSDCard();
+  }
+  else
+  {
+    mountSDCard();
+  }
+}
 
 void avrprog_task(void *param)
 {
@@ -188,31 +234,38 @@ void avrprog_task(void *param)
     //Wait until this task is triggered
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
+    //Wake up the display
+    xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
+
     //TODO: This needs to be passed into this as a parameter
     avrprogramsettings *s;
     s = (avrprogramsettings *)param;
 
-    //memset(program, 0, sizeof(program));
-
     ESP_LOGI(TAG, "AVR setting e=%02X h=%02X l=%02X mcu=%08X file=%s", s->efuse, s->hfuse, s->lfuse, s->mcu, s->filename);
+
+    bool old_sd_card_installed = _sd_card_installed;
+
+    if (_sd_card_installed)
+    {
+      //Unmount SD card so we don't have issues on SPI bus
+      unmountSDCard();
+    }
 
     //Now we load the file into program array, from LITTLEFS (SPIFF)
     if (LITTLEFS.exists(s->filename))
     {
       File binaryfile = LITTLEFS.open(s->filename);
 
-      //void *blob = pvPortMalloc(binaryfile.size());
-      //vPortFree(blob);
-
       s->programsize = binaryfile.size();
-
-      //s->programsize = binaryfile.readBytes((char *)program, sizeof(program));
-
-      //ESP_LOGD(TAG, "Read %i bytes", s->programsize);
 
       //Reserve the SPI bus for programming purposes
       if (hal.GetVSPIMutex())
       {
+        //Stop tasks which may want to use something on the VSPI
+        //prevents corruption of programming or SD CARD contents
+        //vTaskSuspend(sdcardlog_task_handle);
+        //vTaskSuspend(sdcardlog_outputs_task_handle);
+
         hal.SwapGPIO0ToOutput();
 
         //This will block for the 6 seconds it takes to program ATTINY841...
@@ -223,7 +276,7 @@ void avrprog_task(void *param)
 
         ESP_LOGI(TAG, "Programming AVR");
         //This would be much better using a stream instead of a in ram buffer
-        s->progresult = isp.ProgramAVRDevice(s->mcu, s->programsize, binaryfile, s->lfuse, s->hfuse, s->efuse);
+        s->progresult = isp.ProgramAVRDevice(&tftdisplay_avrprogrammer_progress, s->mcu, s->programsize, binaryfile, s->lfuse, s->hfuse, s->efuse);
 
         s->duration = millis() - starttime;
 
@@ -242,6 +295,10 @@ void avrprog_task(void *param)
         }
 
         binaryfile.close();
+
+        //Resume tasks after programming is complete
+        //vTaskResume(sdcardlog_task_handle);
+        //vTaskResume(sdcardlog_outputs_task_handle);
       }
       else
       {
@@ -254,6 +311,15 @@ void avrprog_task(void *param)
     }
 
     s->inProgress = false;
+
+    //Refresh the display, after programming is complete
+    xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
+
+    //If we unmounted the SD card, remount it here
+    if (old_sd_card_installed)
+    {
+      mountSDCard();
+    }
 
   } //end for
 }
@@ -270,7 +336,7 @@ void sdcardlog_task(void *param)
       vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
-    if (_sd_card_installed && mysettings.loggingEnabled && ControlState == ControllerState::Running && hal.IsVSPIMutexAvailable())
+    if (_sd_card_installed && !_avrsettings.programmingModeEnabled && mysettings.loggingEnabled && _controller_state == ControllerState::Running && hal.IsVSPIMutexAvailable())
     {
       //ESP_LOGD(TAG, "sdcardlog_task");
 
@@ -404,7 +470,7 @@ void sdcardlog_outputs_task(void *param)
     //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    if (_sd_card_installed && mysettings.loggingEnabled)
+    if (_sd_card_installed && !_avrsettings.programmingModeEnabled && mysettings.loggingEnabled)
     {
       ESP_LOGD(TAG, "sdcardlog_outputs_task");
 
@@ -573,8 +639,6 @@ void i2c_task(void *param)
         InputState[2] = (v & B00000100) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
         //P3=D
         InputState[3] = (v & B00001000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-        //P7=E
-        InputState[4] = (v & B10000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
       }
 
       if (m.command == 0x02)
@@ -582,6 +646,10 @@ void i2c_task(void *param)
         //Read ports
         //The 9534 deals with internal LED outputs and spare IO on J10
         uint8_t v = hal.ReadTCA9534InputRegisters();
+
+        //P4= J13 PIN 1 = WAKE UP TFT FOR DISPLAYS WITHOUT TOUCH
+        InputState[4] = (v & B00010000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+
         //P6 = spare I/O (on PCB pin)
         InputState[5] = (v & B01000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
         //P7 = Emergency Stop
@@ -591,6 +659,12 @@ void i2c_task(void *param)
         if (InputState[6] == enumInputState::INPUT_LOW)
         {
           emergencyStop = true;
+        }
+
+        if (InputState[4] == enumInputState::INPUT_LOW)
+        {
+          //Wake screen on pin going low
+          xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
         }
       }
 
@@ -637,6 +711,7 @@ void IRAM_ATTR WifiPasswordClear()
   }
 }
 
+//Triggered when TCA6408 INT pin goes LOW
 void IRAM_ATTR TCA6408Interrupt()
 {
   if (queue_i2c == NULL)
@@ -647,6 +722,7 @@ void IRAM_ATTR TCA6408Interrupt()
   xQueueSendToBackFromISR(queue_i2c, &m, NULL);
 }
 
+//Triggered when TCA9534A INT pin goes LOW
 void IRAM_ATTR TCA9534AInterrupt()
 {
   if (queue_i2c == NULL)
@@ -749,13 +825,13 @@ const char *ControllerStateString(ControllerState value)
 
 void SetControllerState(ControllerState newState)
 {
-  if (ControlState != newState)
+  if (_controller_state != newState)
   {
-    ESP_LOGI(TAG, "** Controller changed state from %s to %s **", ControllerStateString(ControlState), ControllerStateString(newState));
+    ESP_LOGI(TAG, "** Controller changed state from %s to %s **", ControllerStateString(_controller_state), ControllerStateString(newState));
 
-    ControlState = newState;
+    _controller_state = newState;
 
-    switch (ControlState)
+    switch (_controller_state)
     {
     case ControllerState::PowerUp:
       //Purple during start up, don't use the QueueLED as thats not setup at this state
@@ -916,6 +992,7 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::CommunicationsError);
   }
 
+  rules.numberOfBalancingModules = 0;
   uint8_t cellid = 0;
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
   {
@@ -925,6 +1002,7 @@ void ProcessRules()
 
       if (cmi[cellid].valid && cmi[cellid].settingsCached)
       {
+
         if (cmi[cellid].BypassThresholdmV != mysettings.BypassThresholdmV)
         {
           rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassVoltage);
@@ -933,6 +1011,11 @@ void ProcessRules()
         if (cmi[cellid].BypassOverTempShutdown != mysettings.BypassOverTempShutdown)
         {
           rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassTemperature);
+        }
+
+        if (cmi[cellid].inBypass)
+        {
+          rules.numberOfBalancingModules++;
         }
 
         if (cmi[0].settingsCached && cmi[cellid].CodeVersionNumber != cmi[0].CodeVersionNumber)
@@ -953,9 +1036,14 @@ void ProcessRules()
     rules.ProcessBank(bank);
   }
 
-  if (mysettings.loggingEnabled && !_sd_card_installed)
+  if (mysettings.loggingEnabled && !_sd_card_installed && !_avrsettings.programmingModeEnabled)
   {
     rules.SetWarning(InternalWarningCode::LoggingEnabledNoSDCard);
+  }
+
+  if (_avrsettings.programmingModeEnabled)
+  {
+    rules.SetWarning(InternalWarningCode::AVRProgrammingMode);
   }
 
   if (rules.invalidModuleCount > 0)
@@ -964,7 +1052,7 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::WaitingForModulesToReply);
   }
 
-  if (ControlState == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
+  if (_controller_state == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
   {
     rules.SetError(InternalErrorCode::ZeroVoltModule);
   }
@@ -975,7 +1063,7 @@ void ProcessRules()
       emergencyStop,
       minutesSinceMidnight());
 
-  if (ControlState == ControllerState::Stabilizing)
+  if (_controller_state == ControllerState::Stabilizing)
   {
     //Check for zero volt modules - not a problem whilst we are in stabilizing start up mode
     if (rules.zeroVoltageModuleCount == 0 && rules.invalidModuleCount == 0)
@@ -989,6 +1077,14 @@ void ProcessRules()
   {
     //Lowest 3 bits are RGB led GREEN/RED/BLUE
     QueueLED(RGBLED::Red);
+  }
+
+  if (rules.numberOfActiveErrors > 0 && _tft_screen_available)
+  {
+    //We have active errors
+
+    //Wake up the screen, this will also trigger it to update the display
+    xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
   }
 }
 
@@ -1196,6 +1292,7 @@ WiFi.status() only returns:
 */
 
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
 
   char hostname[40];
 
@@ -1258,14 +1355,14 @@ void setupInfluxClient()
                    NULL);
 
   aClient->onConnect([](void *arg, AsyncClient *client) {
-    ESP_LOGI("Influx connected");
+    ESP_LOGI(TAG, "Influx connected");
 
     //Send the packet here
 
     aClient->onError(NULL, NULL);
 
     client->onDisconnect([](void *arg, AsyncClient *c) {
-      ESP_LOGI("Influx disconnected");
+      ESP_LOGI(TAG, "Influx disconnected");
       aClient = NULL;
       delete c;
     },
@@ -1273,7 +1370,7 @@ void setupInfluxClient()
 
     client->onData([](void *arg, AsyncClient *c, void *data, size_t len) {
       //Data received
-      ESP_LOGD("Influx data received");
+      ESP_LOGD(TAG, "Influx data received");
       //SERIAL_DEBUG.print(F("\r\nData: "));
       //SERIAL_DEBUG.println(len);
       //uint8_t* d = (uint8_t*)data;
@@ -1308,7 +1405,7 @@ void setupInfluxClient()
     client->write(header.c_str());
     client->write(poststring.c_str());
 
-    ESP_LOGD("Influx data sent");
+    ESP_LOGD(TAG, "Influx data sent");
   },
                      NULL);
 }
@@ -1322,7 +1419,7 @@ void influxdb_task(void *param)
 
     if (mysettings.influxdb_enabled && WiFi.isConnected())
     {
-      ESP_LOGI("Send Influxdb data");
+      ESP_LOGI(TAG, "Send Influxdb data");
 
       setupInfluxClient();
 
@@ -1380,55 +1477,6 @@ void SetupOTA()
   ArduinoOTA.begin();
 }
 
-void mountSDCard()
-{
-  /*
-SD CARD TEST
-*/
-  ESP_LOGI(TAG, "Mounting SD card");
-
-  hal.GetVSPIMutex();
-  // Initialize SD card
-  //SD.begin(SDCARD_CHIPSELECT, hal.vspi);
-
-  if (SD.begin(SDCARD_CHIPSELECT, hal.vspi))
-  {
-    uint8_t cardType = SD.cardType();
-    if (cardType == CARD_NONE)
-    {
-      ESP_LOGI(TAG, "No SD card attached");
-    }
-    else
-    {
-      ESP_LOGI(TAG, "SD card available");
-      _sd_card_installed = true;
-    }
-  }
-  else
-  {
-    ESP_LOGE(TAG, "Card Mount Failed");
-  }
-  hal.ReleaseVSPIMutex();
-}
-
-void sdcardaction_callback(uint8_t action)
-{
-  switch (action)
-  {
-  case 0:
-    //Unmount
-    ESP_LOGI(TAG, "Unmounting SD card");
-    hal.GetVSPIMutex();
-    SD.end();
-    hal.ReleaseVSPIMutex();
-    _sd_card_installed = false;
-    break;
-  case 1:
-    mountSDCard();
-    break;
-  }
-}
-
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
 
@@ -1449,7 +1497,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   */
   if (!server_running)
   {
-    DIYBMSServer::StartServer(&server, &mysettings, &SD, &prg, &receiveProc, &ControlState, &rules, &sdcardaction_callback, &hal);
+    DIYBMSServer::StartServer(&server, &mysettings, &SD, &prg, &receiveProc, &_controller_state, &rules, &sdcardaction_callback, &hal);
     server_running = true;
   }
 
@@ -1474,6 +1522,9 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   }
 
   ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", WiFi.getHostname(), WiFi.localIP().toString().c_str());
+
+  //Wake up the screen, this will show the IP address etc.
+  xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
 }
 
 void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
@@ -1482,6 +1533,9 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
   //Indicate to loop() to reconnect, seems to be
   //ESP issues using Wifi from timers - https://github.com/espressif/arduino-esp32/issues/2686
+
+  //Wake up the screen, this will also trigger it to update the display
+  xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
@@ -1645,11 +1699,7 @@ void mqtt1(void *param)
 
 void onMqttConnect(bool sessionPresent)
 {
-  ESP_LOGI("Connected to MQTT");
-  //myTimerSendMqttPacket.detach();
-  //myTimerSendMqttStatus.detach();
-  //myTimerSendMqttPacket.attach(5, sendMqttPacket);
-  //myTimerSendMqttStatus.attach(25, sendMqttStatus);
+  ESP_LOGI(TAG, "Connected to MQTT");
 }
 
 void LoadConfiguration()
@@ -1657,7 +1707,7 @@ void LoadConfiguration()
   if (Settings::ReadConfig("diybms", (char *)&mysettings, sizeof(mysettings)))
     return;
 
-  ESP_LOGI("Apply default config");
+  ESP_LOGI(TAG, "Apply default config");
 
   //Zero all the bytes
   memset(&mysettings, 0, sizeof(mysettings));
@@ -1926,6 +1976,7 @@ void TerminalBasedWifiSetup(HardwareSerial stream)
   stream.println(F("\r\n\r\nDIYBMS CONTROLLER - Scanning Wifi"));
 
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
   WiFi.disconnect();
 
   int n = WiFi.scanNetworks();
@@ -1989,42 +2040,6 @@ void TerminalBasedWifiSetup(HardwareSerial stream)
   stream.println(F("REBOOTING IN 5..."));
   delay(5000);
   ESP.restart();
-}
-
-void tft_display_off()
-{
-  tft.fillScreen(TFT_BLACK);
-  //hal.TFTScreenBacklight(true);
-
-  //Queue up i2c message
-  i2cQueueMessage m;
-  //4 = TFT backlight LED
-  m.command = 0x04;
-  //Lowest 3 bits are RGB led GREEN/RED/BLUE
-  m.data = false;
-  xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
-}
-
-void init_tft_display()
-{
-  tft.init();
-  tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
-  tft.getSPIinstance().setHwCs(false);
-  tft.setRotation(3);
-  tft.fillScreen(SplashLogoPalette[0]);
-
-  //SplashLogoGraphic_Height
-  tft.pushImage((int32_t)TFT_HEIGHT / 2 - SplashLogoGraphic_Width / 2, (int32_t)4, (int32_t)152, (int32_t)48, SplashLogoGraphic, false, SplashLogoPalette);
-
-  tft.setTextColor(TFT_WHITE, SplashLogoPalette[0]);
-
-  tft.setCursor(0, 48 + 16, 4);
-  tft.print(F("Ver:"));
-  tft.println(GIT_VERSION_SHORT);
-  tft.println(F("Build Date:"));
-  tft.println(COMPILE_DATE_TIME_SHORT);
-
-  hal.TFTScreenBacklight(true);
 }
 
 void createFile(fs::FS &fs, const char *path, const char *message)
@@ -2171,7 +2186,7 @@ void setup()
 {
   WiFi.mode(WIFI_OFF);
 
-  btStop();
+  esp_bt_controller_disable();
   esp_log_level_set("*", ESP_LOG_DEBUG);    // set all components to WARN level
   esp_log_level_set("wifi", ESP_LOG_WARN);  // enable WARN logs from WiFi stack
   esp_log_level_set("dhcpc", ESP_LOG_WARN); // enable INFO logs from DHCP client
@@ -2198,6 +2213,25 @@ void setup()
   hal.ConfigurePins(WifiPasswordClear);
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
   hal.ConfigureVSPI();
+
+  _avrsettings.inProgress = false;
+  _avrsettings.programmingModeEnabled = false;
+
+  //See if we can get a sensible reading from the TFT touch chip XPT2046
+  //if we can, then a screen is fitted, so enable it
+  _tft_screen_available = hal.IsScreenAttached();
+
+  if (_tft_screen_available)
+  {
+    ESP_LOGI(TAG, "TFT screen is INSTALLED");
+    //Only attach, if device is fitted otherwise false triggers may occur
+    //Touch screen IRQ (GPIO_NUM_36) is active LOW (XPT2046 chip)
+    attachInterrupt(TOUCH_IRQ, TFTScreenTouchInterrupt, FALLING);
+  }
+  else
+  {
+    ESP_LOGI(TAG, "TFT screen is NOT installed");
+  }
 
   //Switch CANBUS off, saves a couple of milliamps
   hal.CANBUSEnable(false);
@@ -2341,43 +2375,9 @@ TEST CAN BUS
   hal.ConfigureVSPI();
   init_tft_display();
 
-  //Init the touch screen
-  touchscreen.begin(hal.vspi);
-  touchscreen.setRotation(3);
-
-  /*
-Used for measuring current usage of controller board, with CAN bus diabled, approx 25mA, enabled 28mA
-ESP_LOGI(TAG,"Entering deep sleep");
-esp_sleep_enable_timer_wakeup(30 * 1000000  );
-esp_deep_sleep_start();
-*/
-
   //All comms to i2c needs to go through this single task
   //to prevent issues with thread safety on the i2c hardware/libraries
   queue_i2c = xQueueCreate(10, sizeof(i2cQueueMessage));
-
-  //Create i2c task on CPU 0 (normal code runs on CPU 1)
-  xTaskCreatePinnedToCore(i2c_task, "i2c", 2048, nullptr, configMAX_PRIORITIES - 1, &i2c_task_handle, 0);
-  xTaskCreatePinnedToCore(ledoff_task, "ledoff", 1048, nullptr, 1, &ledoff_task_handle, 0);
-
-  xTaskCreate(avrprog_task, "avrprog", 3000, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
-
-  xTaskCreate(wifiresetdisable_task, "wifidbl", 1048, nullptr, 1, &wifiresetdisable_task_handle);
-
-  xTaskCreate(sdcardlog_task, "sdlog", 4096, nullptr, 1, &sdcardlog_task_handle);
-  xTaskCreate(sdcardlog_outputs_task, "sdout", 4096, nullptr, 1, &sdcardlog_outputs_task_handle);
-
-  xTaskCreate(mqtt1, "mqtt1", 3000, nullptr, 1, &mqtt1_task_handle);
-  xTaskCreate(mqtt2, "mqtt2", 3000, nullptr, 1, &mqtt2_task_handle);
-
-  //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
-  //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
-
-  xTaskCreate(transmit_task, "tx", 1024, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 1024, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
-  xTaskCreate(lazy_tasks, "lazyt", 1024, nullptr, 1, &lazy_task_handle);
-
-  xTaskCreate(pulse_relay_off_task, "pulse", 1024, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
@@ -2393,8 +2393,32 @@ esp_deep_sleep_start();
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
-  LoadConfiguration();
+  //Create i2c task on CPU 0 (normal code runs on CPU 1)
+  xTaskCreatePinnedToCore(i2c_task, "i2c", 1024, nullptr, configMAX_PRIORITIES - 1, &i2c_task_handle, 0);
+  xTaskCreatePinnedToCore(ledoff_task, "ledoff", 800, nullptr, 1, &ledoff_task_handle, 0);
+  xTaskCreate(avrprog_task, "avrprog", 2500, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
 
+  xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
+  xTaskCreate(updatetftdisplay_task, "tftupd", 2048, nullptr, 1, &updatetftdisplay_task_handle);
+  xTaskCreate(tftsleep_task, "tftslp", 900, nullptr, 1, &tftsleep_task_handle);
+  xTaskCreate(tftwakeup_task, "tftwake", 1900, nullptr, 1, &tftwakeup_task_handle);
+  xTaskCreate(wifiresetdisable_task, "wifidbl", 800, nullptr, 1, &wifiresetdisable_task_handle);
+  xTaskCreate(sdcardlog_task, "sdlog", 3600, nullptr, 1, &sdcardlog_task_handle);
+  xTaskCreate(sdcardlog_outputs_task, "sdout", 4000, nullptr, 1, &sdcardlog_outputs_task_handle);
+  xTaskCreate(mqtt1, "mqtt1", 3000, nullptr, 1, &mqtt1_task_handle);
+  xTaskCreate(mqtt2, "mqtt2", 3000, nullptr, 1, &mqtt2_task_handle);
+
+  //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
+  //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
+
+  xTaskCreate(transmit_task, "tx", 800, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 800, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(lazy_tasks, "lazyt", 800, nullptr, 1, &lazy_task_handle);
+
+  xTaskCreate(pulse_relay_off_task, "pulse", 800, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
+
+  LoadConfiguration();
+  ESP_LOGI("Config loaded");
   //Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
   {
@@ -2466,32 +2490,35 @@ esp_deep_sleep_start();
     connectToMqtt();
 
     xTaskCreate(enqueue_task, "enqueue", 1024, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-
-    xTaskCreate(rules_task, "rules", 2048, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-
-    xTaskCreate(influxdb_task, "influxdb", 1500, nullptr, configMAX_PRIORITIES - 5, &influxdb_task_handle);
+    xTaskCreate(rules_task, "rules", 1800, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+    xTaskCreate(influxdb_task, "influxdb", 1500, nullptr, 1, &influxdb_task_handle);
 
     //We have just started...
     SetControllerState(ControllerState::Stabilizing);
 
-    tft_display_off();
+    SwitchTFTBacklight(false);
 
     //Attempt connection in setup(), loop() will also try every 30 seconds
     connectToWifi();
+
+    //Wake screen on power up
+    xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
   }
 
   //SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
-  SERIAL_RS485.begin(9600, SERIAL_8N1, RS485_RX, RS485_TX);
+  //SERIAL_RS485.begin(9600, SERIAL_8N1, RS485_RX, RS485_TX);
 }
 
 unsigned long wifitimer = 0;
+
+unsigned long taskinfotimer = 0;
 
 void loop()
 {
 
   unsigned long currentMillis = millis();
 
-  if (ControlState != ControllerState::ConfigurationSoftAP)
+  if (_controller_state != ControllerState::ConfigurationSoftAP)
   {
     //on first pass wifitimer is zero
     if (currentMillis - wifitimer > 30000)
@@ -2503,6 +2530,56 @@ void loop()
 
       connectToMqtt();
     }
+  }
+
+  if (currentMillis > taskinfotimer)
+  {
+    //* High water mark is the minimum free stack space there has been (in bytes
+    //* rather than words as found in vanilla FreeRTOS) since the task started.
+    //* The smaller the returned number the closer the task has come to overflowing its stack.
+    ESP_LOGD(TAG, "Total number of tasks %u", uxTaskGetNumberOfTasks());
+
+    TaskHandle_t Handles[] = {i2c_task_handle,
+                              ledoff_task_handle,
+                              wifiresetdisable_task_handle,
+                              sdcardlog_task_handle,
+                              sdcardlog_outputs_task_handle,
+                              avrprog_task_handle,
+                              mqtt1_task_handle,
+                              mqtt2_task_handle,
+                              enqueue_task_handle,
+                              transmit_task_handle,
+                              replyqueue_task_handle,
+                              lazy_task_handle,
+                              rule_task_handle,
+                              influxdb_task_handle,
+                              pulse_relay_off_task_handle,
+                              voltageandstatussnapshot_task_handle,
+                              updatetftdisplay_task_handle,
+                              tftsleep_task_handle,
+                              tftwakeup_task_handle};
+
+    for (size_t i = 0; i < sizeof(Handles) / sizeof(TaskHandle_t); i++)
+    {
+      TaskHandle_t thisHandle = Handles[i];
+      UBaseType_t watermark = uxTaskGetStackHighWaterMark(thisHandle);
+      if (watermark < 128)
+      {
+        //Less than 128 bytes before stack overflow, report it...
+        char *name = pcTaskGetTaskName(thisHandle);
+        ESP_LOGW(TAG, "Watermark warn %s %u", name, watermark);
+      }
+
+      if (watermark > 512)
+      {
+        //Less than 128 bytes before stack overflow, report it...
+        char *name = pcTaskGetTaskName(thisHandle);
+        ESP_LOGI(TAG, "Excess stack %s %u", name, watermark);
+      }
+    }
+
+    //Wait 5 mins before next report
+    taskinfotimer = currentMillis + 60000 * 5;
   }
 
   /*

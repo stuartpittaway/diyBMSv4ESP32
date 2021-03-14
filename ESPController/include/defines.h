@@ -232,6 +232,9 @@ struct avrprogramsettings
   char filename[64];
   uint8_t progresult;
   size_t programsize;
+
+  bool programmingModeEnabled;
 };
+
 
 #endif

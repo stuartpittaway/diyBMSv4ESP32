@@ -39,15 +39,21 @@ uint8_t AVRISP_PROGRAMMER::TransferByte3(uint8_t a, uint8_t b, uint8_t c, uint8_
     return replyc;
 }
 
-AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, uint32_t byteLength, File &file, uint8_t fuse, uint8_t fusehigh, uint8_t fuseext)
+AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(void (*avrprogrammer_progress_callback)(uint8_t, size_t, size_t),
+                                                             uint32_t deviceid,
+                                                             uint32_t byteLength,
+                                                             File &file,
+                                                             uint8_t fuse,
+                                                             uint8_t fusehigh,
+                                                             uint8_t fuseext)
+
 {
-    //May need a slower frequency for different devices
-    //200khz
-    _freq = 200000;
 
     WD_FLASH = pdMS_TO_TICKS(25);
     WD_ERASE = pdMS_TO_TICKS(25);
     WD_EEPROM = pdMS_TO_TICKS(25);
+
+    avrprogrammer_progress_callback(0, 0, byteLength);
 
     //ATTINY841
     if (deviceid == 0x1e9315)
@@ -191,6 +197,8 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
 
         //Delay (as per data sheet) to allow FLASH to program....
         vTaskDelay(WD_FLASH);
+
+        avrprogrammer_progress_callback(0, byteCounter, byteLength);
     }
 
     //Now verify the program was written correctly...
@@ -199,6 +207,7 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
 
     ESP_LOGI(TAG, "Chip verify");
     byteCounter = 0;
+    avrprogrammer_progress_callback(1, 0, byteLength);
     for (size_t wordPtr = 0; wordPtr < NUMBER_OF_PAGES * PAGE_SIZE_WORDS; wordPtr++)
     {
         uint8_t MSB = (wordPtr >> 8) & 0xFF;
@@ -228,6 +237,11 @@ AVRISP_PROGRAMMER_RESULT AVRISP_PROGRAMMER::ProgramAVRDevice(uint32_t deviceid, 
 
         if (byteCounter >= byteLength)
             break;
+
+        if (byteCounter % PAGE_SIZE_WORDS == 0)
+        {
+            avrprogrammer_progress_callback(1, byteCounter, byteLength);
+        }
     }
 
     //Read Fuse bytes

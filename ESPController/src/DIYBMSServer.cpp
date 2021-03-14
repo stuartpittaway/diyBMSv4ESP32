@@ -199,7 +199,15 @@ void DIYBMSServer::avrProgrammer(AsyncWebServerRequest *request)
 
   if (_sd_card_installed)
   {
-    doc["message"] = "Failed: Unable to program AVR whilst SD Card is mounted. Unmount it first.";
+    doc["message"] = "Failed: Unable to program AVR whilst SD Card is mounted";
+    serializeJson(doc, *response);
+    request->send(response);
+    return;
+  }
+
+  if (!_avrsettings.programmingModeEnabled)
+  {
+    doc["message"] = "Failed: Programming mode not enabled";
     serializeJson(doc, *response);
     request->send(response);
     return;
@@ -283,23 +291,63 @@ void DIYBMSServer::avrstatus(AsyncWebServerRequest *request)
   request->send(response);
 }
 
-void DIYBMSServer::sdMount(AsyncWebServerRequest *request)
-{
-  if (!validateXSS(request))
-    return;
-
-  (*DIYBMSServer::_sdcardaction_callback)(1);
-
-  SendSuccess(request);
-}
-void DIYBMSServer::sdUnmount(AsyncWebServerRequest *request)
+void DIYBMSServer::enableAVRprog(AsyncWebServerRequest *request)
 {
   if (!validateXSS(request))
     return;
 
   (*DIYBMSServer::_sdcardaction_callback)(0);
 
+  _avrsettings.programmingModeEnabled = true;
+
   SendSuccess(request);
+}
+
+void DIYBMSServer::disableAVRprog(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  _avrsettings.programmingModeEnabled = false;
+
+  //Try and remount the SD card
+  (*DIYBMSServer::_sdcardaction_callback)(1);
+
+  SendSuccess(request);
+}
+
+void DIYBMSServer::sdMount(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (_avrsettings.programmingModeEnabled)
+  {
+    SendFailure(request);
+  }
+  else
+  {
+
+    (*DIYBMSServer::_sdcardaction_callback)(1);
+
+    SendSuccess(request);
+  }
+}
+void DIYBMSServer::sdUnmount(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (_avrsettings.programmingModeEnabled)
+  {
+    SendFailure(request);
+  }
+  else
+  {
+    (*DIYBMSServer::_sdcardaction_callback)(0);
+
+    SendSuccess(request);
+  }
 }
 
 void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
@@ -489,7 +537,8 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
       if (request->hasParam(name, true))
       {
         AsyncWebParameter *p1 = request->getParam(name, true);
-        _mysettings->rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RelayState::RELAY_ON : RelayState::RELAY_OFF;
+        _mysettings->rulerelaystate[rule][i] = p1->value().equals("X") ? RELAY_X : p1->value().equals("On") ? RelayState::RELAY_ON
+                                                                                                            : RelayState::RELAY_OFF;
       }
     }
 
@@ -783,7 +832,7 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   JsonObject root = doc.to<JsonObject>();
 
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo))
+  if (!getLocalTime(&timeinfo, 100))
   {
     root["timenow"] = 0;
   }
@@ -949,8 +998,14 @@ void DIYBMSServer::avrstorage(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response = request->beginResponseStream("application/json");
 
+  //{"avrprog":{"avrprog":[{"board":"V400","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V400_ca58bde0.bin","ver":"ca58bde0"},{"board":"V410","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V410_ca58bde0.bin","ver":"ca58bde0"},{"board":"V420","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V420_ca58bde0.bin","ver":"ca58bde0"},{"board":"V420_SWAPR19R20","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V420_SWAPR19R20_ca58bde0.bin","ver":"ca58bde0"},{"board":"V421","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V421_ca58bde0.bin","ver":"ca58bde0"},{"board":"V421_LTO","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V421_LTO_ca58bde0.bin","ver":"ca58bde0"}]}}
   //See if we can open and process the AVR PROGRAMMER manifest file
-  response->print("{\"avrprog\":");
+  response->print("{");
+  response->print("\"ProgModeEnabled\":");
+  response->print(_avrsettings.programmingModeEnabled ? "1" : "0");
+  response->print(",\"InProgress\":");
+  response->print(_avrsettings.inProgress ? "1" : "0");
+  response->print(",\"avrprog\":");
   String manifest = String("/avr/manifest.json");
   if (LITTLEFS.exists(manifest))
   {
@@ -1831,6 +1886,9 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/sdmount.json", HTTP_POST, DIYBMSServer::sdMount);
   _myserver->on("/sdunmount.json", HTTP_POST, DIYBMSServer::sdUnmount);
+
+  _myserver->on("/enableavrprog.json", HTTP_POST, DIYBMSServer::enableAVRprog);
+  _myserver->on("/disableavrprog.json", HTTP_POST, DIYBMSServer::disableAVRprog);
 
   _myserver->on("/avrprog.json", HTTP_POST, DIYBMSServer::avrProgrammer);
   _myserver->on("/wificonfigtofile.json", HTTP_POST, DIYBMSServer::saveWifiConfigToSDCard);

@@ -24,7 +24,7 @@ enum Rule : uint8_t
 };
 
 //Define a max constant for the highest value (change if you add more warnings)
-#define MAXIMUM_InternalWarningCode 5
+#define MAXIMUM_InternalWarningCode 6
 enum InternalWarningCode : uint8_t
 {
     NoWarning = 0,
@@ -32,7 +32,8 @@ enum InternalWarningCode : uint8_t
     ModuleInconsistantBypassTemperature = 2,
     ModuleInconsistantCodeVersion = 3,
     ModuleInconsistantBoardRevision = 4,
-    LoggingEnabledNoSDCard=5
+    LoggingEnabledNoSDCard = 5,
+    AVRProgrammingMode =6
 };
 
 //Define a max constant for the highest value (change if you add more errors)
@@ -68,10 +69,14 @@ public:
     int8_t lowestExternalTemp;
     int8_t highestInternalTemp;
     int8_t lowestInternalTemp;
-    InternalErrorCode ErrorCodes[1+MAXIMUM_InternalErrorCode];
-    InternalWarningCode WarningCodes[1+MAXIMUM_InternalWarningCode];
+    InternalErrorCode ErrorCodes[1 + MAXIMUM_InternalErrorCode];
+    InternalWarningCode WarningCodes[1 + MAXIMUM_InternalWarningCode];
     bool moduleHasExternalTempSensor;
     uint8_t invalidModuleCount;
+
+    int8_t numberOfActiveErrors;
+    int8_t numberOfActiveWarnings;
+    int8_t numberOfBalancingModules;
 
     void ClearValues();
     void ProcessCell(uint8_t bank, CellModuleInfo *c);
@@ -81,11 +86,13 @@ public:
     void ClearWarnings()
     {
         memset(&WarningCodes, 0, sizeof(WarningCodes));
+        numberOfActiveWarnings = 0;
     }
 
     void ClearErrors()
     {
         memset(&ErrorCodes, 0, sizeof(ErrorCodes));
+        numberOfActiveErrors = 0;
     }
 
     void SetError(InternalErrorCode err);

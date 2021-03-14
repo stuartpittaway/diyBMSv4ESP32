@@ -159,7 +159,8 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void))
     attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);
 
     //For touch screen
-    pinMode(GPIO_NUM_36, INPUT_PULLUP);
+    //GPIO_NUM_36 no internal PULLUP
+    pinMode(TOUCH_IRQ, INPUT);
     //attachInterrupt(GPIO_NUM_36, TFTScreenTouch, FALLING);
 
     //Configure the CHIP SELECT pins as OUTPUT and set HIGH
@@ -231,7 +232,7 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
         Halt(RGBLED::Purple);
     }
 
-    //0×03 Configuration, P7 as input, others outputs (0=OUTPUT)
+    //0×03 Configuration, P7 (estop) and P4 (remote touch) as input, others outputs (0=OUTPUT)
     ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, TCA9534APWR_INPUTMASK);
 
     //0×02 Polarity Inversion, zero = off
