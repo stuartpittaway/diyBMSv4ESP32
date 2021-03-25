@@ -17,8 +17,8 @@ const INTERNALERRORCODE =
     TooManyModules: 3,
     WaitingForModulesToReply: 4,
     ZeroVoltModule: 5,
-    ControllerMemoryError: 6
-
+    ControllerMemoryError: 6,
+    EmergencyStop: 7
 };
 Object.freeze(INTERNALERRORCODE);
 
@@ -266,7 +266,7 @@ function queryBMS() {
 
         //Needs increasing when more errors are added
         if (jsondata.errors) {
-            for (let error = 1; error <= 6; error++) {
+            for (let error = 1; error <= 7; error++) {
                 if (jsondata.errors.includes(error)) {
                     $("#error" + error).show();
 

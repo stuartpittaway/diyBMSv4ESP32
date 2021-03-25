@@ -86,8 +86,6 @@ volatile enumInputState InputState[INPUTS_TOTAL];
 
 AsyncWebServer server(80);
 
-QueueHandle_t queue_i2c = NULL;
-
 TaskHandle_t i2c_task_handle = NULL;
 TaskHandle_t ledoff_task_handle = NULL;
 TaskHandle_t wifiresetdisable_task_handle = NULL;
@@ -107,6 +105,9 @@ TaskHandle_t voltageandstatussnapshot_task_handle = NULL;
 TaskHandle_t updatetftdisplay_task_handle = NULL;
 TaskHandle_t tftsleep_task_handle = NULL;
 TaskHandle_t tftwakeup_task_handle = NULL;
+
+TaskHandle_t tca6408_isr_task_handle = NULL;
+TaskHandle_t tca9534_isr_task_handle = NULL;
 
 //This large array holds all the information about the modules
 CellModuleInfo cmi[maximum_controller_cell_modules];
@@ -139,14 +140,9 @@ ControllerState _controller_state = ControllerState::Unknown;
 
 AsyncMqttClient mqttClient;
 
-void QueueLED(uint8_t bits)
+void LED(uint8_t bits)
 {
-  i2cQueueMessage m;
-  //3 = LED
-  m.command = 0x03;
-  //Lowest 3 bits are RGB led GREEN/RED/BLUE
-  m.data = bits & B00000111;
-  xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
+  hal.Led(bits);
 }
 
 //When triggered, the VOLTAGE and STATUS in the CellModuleInfo structure are accurate and consistant at this point in time.
@@ -612,77 +608,63 @@ void ledoff_task(void *param)
     //Wait 100ms
     vTaskDelay(100 / portTICK_PERIOD_MS);
     //LED OFF
-    QueueLED(RGBLED::OFF);
+    //ESP_LOGD(TAG, "Led off")
+    LED(RGBLED::OFF);
   }
 }
 
-// Handle all calls to i2c devices in this single task
-// Provides thread safe mechanism to talk to i2c
-void i2c_task(void *param)
+void tca6408_isr_task(void *param)
 {
   for (;;)
   {
-    i2cQueueMessage m;
+    //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    if (xQueueReceive(queue_i2c, &m, portMAX_DELAY) == pdPASS)
+    ESP_LOGD(TAG, "tca6408_isr");
+
+    // Read ports A/B/C/D inputs (on TCA6408)
+    uint8_t v = hal.ReadTCA6408InputRegisters();
+    //P0=A
+    InputState[0] = (v & B00000001) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+    //P1=B
+    InputState[1] = (v & B00000010) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+    //P2=C
+    InputState[2] = (v & B00000100) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+    //P3=D
+    InputState[3] = (v & B00001000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+  }
+}
+
+void tca9534_isr_task(void *param)
+{
+  for (;;)
+  {
+    //Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    ESP_LOGD(TAG, "tca9534_isr");
+
+    //Read ports
+    //The 9534 deals with internal LED outputs and spare IO on J10
+    uint8_t v = hal.ReadTCA9534InputRegisters();
+
+    //P4= J13 PIN 1 = WAKE UP TFT FOR DISPLAYS WITHOUT TOUCH
+    InputState[4] = (v & B00010000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+    //P6 = spare I/O (on PCB pin)
+    InputState[5] = (v & B01000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+    //P7 = Emergency Stop
+    InputState[6] = (v & B10000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+
+    //Emergency Stop (J1) has triggered
+    if (InputState[6] == enumInputState::INPUT_LOW)
     {
-      // do some i2c task
-      if (m.command == 0x01)
-      {
-        // Read ports A/B/C/D inputs (on TCA6408)
-        uint8_t v = hal.ReadTCA6408InputRegisters();
-        //P0=A
-        InputState[0] = (v & B00000001) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-        //P1=B
-        InputState[1] = (v & B00000010) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-        //P2=C
-        InputState[2] = (v & B00000100) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-        //P3=D
-        InputState[3] = (v & B00001000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-      }
+      emergencyStop = true;
+    }
 
-      if (m.command == 0x02)
-      {
-        //Read ports
-        //The 9534 deals with internal LED outputs and spare IO on J10
-        uint8_t v = hal.ReadTCA9534InputRegisters();
-
-        //P4= J13 PIN 1 = WAKE UP TFT FOR DISPLAYS WITHOUT TOUCH
-        InputState[4] = (v & B00010000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-
-        //P6 = spare I/O (on PCB pin)
-        InputState[5] = (v & B01000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-        //P7 = Emergency Stop
-        InputState[6] = (v & B10000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-
-        //Emergency Stop (J1) has triggered
-        if (InputState[6] == enumInputState::INPUT_LOW)
-        {
-          emergencyStop = true;
-        }
-
-        if (InputState[4] == enumInputState::INPUT_LOW)
-        {
-          //Wake screen on pin going low
-          xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
-        }
-      }
-
-      if (m.command == 0x03)
-      {
-        hal.Led(m.data);
-      }
-
-      if (m.command == 0x04)
-      {
-        hal.TFTScreenBacklight(m.data);
-      }
-
-      if (m.command >= 0xE0 && m.command <= 0xE0 + RELAY_TOTAL)
-      {
-        //Set state of relays
-        hal.SetOutputState(m.command - 0xe0, (RelayState)m.data);
-      }
+    if (InputState[4] == enumInputState::INPUT_LOW)
+    {
+      //Wake screen on pin going low
+      xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
     }
   }
 }
@@ -714,23 +696,13 @@ void IRAM_ATTR WifiPasswordClear()
 //Triggered when TCA6408 INT pin goes LOW
 void IRAM_ATTR TCA6408Interrupt()
 {
-  if (queue_i2c == NULL)
-    return;
-  i2cQueueMessage m;
-  m.command = 0x01;
-  m.data = 0;
-  xQueueSendToBackFromISR(queue_i2c, &m, NULL);
+  xTaskNotifyFromISR(tca6408_isr_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
 }
 
 //Triggered when TCA9534A INT pin goes LOW
 void IRAM_ATTR TCA9534AInterrupt()
 {
-  if (queue_i2c == NULL)
-    return;
-  i2cQueueMessage m;
-  m.command = 0x02;
-  m.data = 0;
-  xQueueSendToBackFromISR(queue_i2c, &m, NULL);
+  xTaskNotifyFromISR(tca9534_isr_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
 }
 
 /*
@@ -834,18 +806,18 @@ void SetControllerState(ControllerState newState)
     switch (_controller_state)
     {
     case ControllerState::PowerUp:
-      //Purple during start up, don't use the QueueLED as thats not setup at this state
+      //Purple during start up, don't use the LED as thats not setup at this state
       hal.Led(RGBLED::Purple);
       break;
     case ControllerState::ConfigurationSoftAP:
-      //Don't use the QueueLED as thats not setup at this state
+      //Don't use the LED as thats not setup at this state
       hal.Led(RGBLED::White);
       break;
     case ControllerState::Stabilizing:
-      QueueLED(RGBLED::Yellow);
+      LED(RGBLED::Yellow);
       break;
     case ControllerState::Running:
-      QueueLED(RGBLED::Green);
+      LED(RGBLED::Green);
       //Fire task to switch off BOOT button after 30 seconds
       xTaskNotify(wifiresetdisable_task_handle, 0x00, eNotifyAction::eNoAction);
       break;
@@ -889,7 +861,7 @@ void replyqueue_task(void *param)
       if (!receiveProc.ProcessReply(&ps))
       {
         //Error blue
-        QueueLED(RGBLED::Blue);
+        LED(RGBLED::Blue);
 
         ESP_LOGE(TAG, "Packet Failed");
 
@@ -993,6 +965,12 @@ void ProcessRules()
     rules.rule_outcome[Rule::BMSError] = true;
   }
 
+  if (rules.rule_outcome[Rule::EmergencyStop])
+  {
+    //Lowest 3 bits are RGB led GREEN/RED/BLUE
+    rules.SetError(InternalErrorCode::ErrorEmergencyStop);
+  }
+
   rules.numberOfBalancingModules = 0;
   uint8_t cellid = 0;
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
@@ -1075,10 +1053,10 @@ void ProcessRules()
     }
   }
 
-  if (emergencyStop)
+  if (rules.rule_outcome[Rule::EmergencyStop])
   {
     //Lowest 3 bits are RGB led GREEN/RED/BLUE
-    QueueLED(RGBLED::Red);
+    LED(RGBLED::Red);
   }
 
   if (rules.numberOfActiveErrors > 0 && _tft_screen_available)
@@ -1107,12 +1085,7 @@ void pulse_relay_off_task(void *param)
         //We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
         //However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
         //to prevent multiple pulses being sent on each rule refresh
-
-        i2cQueueMessage m;
-        //Different command for each relay
-        m.command = 0xE0 + y;
-        m.data = previousRelayState[y] == RelayState::RELAY_ON ? RelayState::RELAY_OFF : RelayState::RELAY_ON;
-        xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
+        hal.SetOutputState(y, previousRelayState[y] == RelayState::RELAY_ON ? RelayState::RELAY_OFF : RelayState::RELAY_ON);
 
         previousRelayPulse[y] = false;
       }
@@ -1187,11 +1160,7 @@ void rules_task(void *param)
 
         //This would be better if we worked out the bit pattern first and then just submitted that as a single i2c read/write transaction
 
-        i2cQueueMessage m;
-        //Different command for each relay
-        m.command = 0xE0 + n;
-        m.data = relay[n];
-        xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
+        hal.SetOutputState(n, relay[n]);
 
         previousRelayState[n] = relay[n];
 
@@ -1226,7 +1195,7 @@ void enqueue_task(void *param)
     //slower stops the queues from overflowing when a lot of cells are being monitored
     vTaskDelay(pdMS_TO_TICKS((TotalNumberOfCells() <= maximum_cell_modules_per_packet) ? 5000 : 10000));
 
-    QueueLED(RGBLED::Green);
+    LED(RGBLED::Green);
     //Fire task to switch off LED in a few ms
     xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
 
@@ -2160,9 +2129,9 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
 
             for (size_t i = 0; i < 5; i++)
             {
-              QueueLED(RGBLED::Purple);
+              LED(RGBLED::Purple);
               delay(150);
-              QueueLED(RGBLED::OFF);
+              LED(RGBLED::OFF);
               delay(150);
             }
 
@@ -2377,10 +2346,6 @@ TEST CAN BUS
   hal.ConfigureVSPI();
   init_tft_display();
 
-  //All comms to i2c needs to go through this single task
-  //to prevent issues with thread safety on the i2c hardware/libraries
-  queue_i2c = xQueueCreate(10, sizeof(i2cQueueMessage));
-
   //Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
   for (size_t i = 0; i < maximum_controller_cell_modules; i++)
@@ -2395,15 +2360,17 @@ TEST CAN BUS
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
-  //Create i2c task on CPU 0 (normal code runs on CPU 1)
-  xTaskCreate(i2c_task, "i2c", 1500, nullptr, configMAX_PRIORITIES - 1, &i2c_task_handle);
-  xTaskCreate(ledoff_task, "ledoff", 800, nullptr, 1, &ledoff_task_handle);
+  xTaskCreate(ledoff_task, "ledoff", 1500, nullptr, 1, &ledoff_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2500, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2048, nullptr, 1, &updatetftdisplay_task_handle);
   xTaskCreate(tftsleep_task, "tftslp", 900, nullptr, 1, &tftsleep_task_handle);
   xTaskCreate(tftwakeup_task, "tftwake", 1900, nullptr, 1, &tftwakeup_task_handle);
+
+  xTaskCreate(tca6408_isr_task, "tca6408", 2048, nullptr, configMAX_PRIORITIES - 3, &tca6408_isr_task_handle);
+  xTaskCreate(tca9534_isr_task, "tca9534", 2048, nullptr, configMAX_PRIORITIES - 3, &tca9534_isr_task_handle);
+
   xTaskCreate(wifiresetdisable_task, "wifidbl", 800, nullptr, 1, &wifiresetdisable_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 3600, nullptr, 1, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 4000, nullptr, 1, &sdcardlog_outputs_task_handle);
@@ -2498,13 +2465,13 @@ TEST CAN BUS
     //We have just started...
     SetControllerState(ControllerState::Stabilizing);
 
-    SwitchTFTBacklight(false);
+    hal.TFTScreenBacklight(false);
 
     //Attempt connection in setup(), loop() will also try every 30 seconds
     connectToWifi();
 
     //Wake screen on power up
-    xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+    xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
   }
 
   //SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
@@ -2613,7 +2580,7 @@ void loop()
   if (ResetWifi)
   {
     //Password reset, turn LED CYAN
-    QueueLED(RGBLED::Cyan);
+    LED(RGBLED::Cyan);
 
     //Wipe EEPROM WIFI setting
     DIYBMSSoftAP::FactoryReset();

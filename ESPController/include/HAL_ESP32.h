@@ -133,8 +133,8 @@ public:
         if (xi2cMutex == NULL)
             return false;
 
-        //Wait 50ms max
-        bool reply = (xSemaphoreTake(xi2cMutex, (TickType_t)50 / portTICK_PERIOD_MS) == pdTRUE);
+        //Wait 100ms max
+        bool reply = (xSemaphoreTake(xi2cMutex, (TickType_t)100 / portTICK_PERIOD_MS) == pdTRUE);
         if (!reply)
         {
             ESP_LOGE(TAG, "Unable to get I2C mutex");

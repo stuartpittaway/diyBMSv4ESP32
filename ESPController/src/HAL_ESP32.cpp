@@ -47,8 +47,14 @@ esp_err_t HAL_ESP32::writeByte(i2c_port_t i2c_num, uint8_t deviceAddress, uint8_
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();
         i2c_master_start(cmd);
         i2c_master_write_byte(cmd, (deviceAddress << 1) | I2C_MASTER_WRITE, true);
-        i2c_master_write_byte(cmd, i2cregister, true);
-        i2c_master_write_byte(cmd, data, true);
+
+        uint8_t buffer[2];
+        buffer[0] = i2cregister;
+        buffer[1] = data;
+        i2c_master_write(cmd, buffer, 2, true);
+
+        //i2c_master_write_byte(cmd, i2cregister, true);
+        //i2c_master_write_byte(cmd, data, true);
         i2c_master_stop(cmd);
 
         esp_err_t ret = ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
@@ -90,8 +96,8 @@ void HAL_ESP32::SetOutputState(uint8_t outputId, RelayState state)
         TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
         uint8_t bit = outputId + 4;
         TCA6408_Value = (state == RelayState::RELAY_ON) ? (TCA6408_Value | (1 << bit)) : (TCA6408_Value & ~(1 << bit));
-        esp_err_t ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
-        ESP_LOGD(TAG, "TCA6408 reply %i", ret);
+        ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value));
+        //ESP_LOGD(TAG, "TCA6408 reply %i", ret);
         //TODO: Check return value
         TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
     }
@@ -196,13 +202,14 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
     conf.mode = I2C_MODE_MASTER;
     conf.sda_io_num = gpio_num_t::GPIO_NUM_27;
     conf.scl_io_num = gpio_num_t::GPIO_NUM_26;
-    //conf.sda_pullup_en = GPIO_PULLUP_DISABLE;
-    //conf.scl_pullup_en = GPIO_PULLUP_DISABLE;
-    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.sda_pullup_en = GPIO_PULLUP_DISABLE;
+    conf.scl_pullup_en = GPIO_PULLUP_DISABLE;
+    //conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
+    //conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
+
     conf.master.clk_speed = 400000;
-    i2c_param_config(I2C_NUM_0, &conf);
-    i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0);
+    ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &conf));
+    ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0));
 
     // https://datasheet.lcsc.com/szlcsc/1809041633_Texas-Instruments-TCA9534APWR_C206010.pdf
     // TCA9534APWR Remote 8-Bit I2C and Low-Power I/O Expander With Interrupt Output and Configuration Registers

@@ -59,19 +59,6 @@ void IRAM_ATTR TFTScreenTouchInterrupt()
     }
 }
 
-void SwitchTFTBacklight(bool value)
-{
-    if (!_tft_screen_available)
-        return;
-    //Queue up i2c message
-    i2cQueueMessage m;
-    //4 = TFT backlight LED
-    m.command = 0x04;
-    //Lowest 3 bits are RGB led GREEN/RED/BLUE
-    m.data = value;
-    xQueueSendToBack(queue_i2c, &m, 10 / portTICK_PERIOD_MS);
-}
-
 void TFTDrawWifiDetails()
 {
     tft.setTextDatum(TL_DATUM);
@@ -314,7 +301,7 @@ void tftsleep_task(void *param)
         } while (WhatScreenToDisplay() == ScreenTemplateToDisplay::Error);
 
         //Switch screen back off
-        SwitchTFTBacklight(false);
+        hal.TFTScreenBacklight(false);
         _screen_awake = false;
         _lastScreenToDisplay = ScreenTemplateToDisplay::None;
     }
@@ -344,7 +331,7 @@ void tftwakeup_task(void *param)
                 }
 
                 _screen_awake = true;
-                SwitchTFTBacklight(true);
+                hal.TFTScreenBacklight(true);
 
                 xTaskNotify(tftsleep_task_handle, 0, eNotifyAction::eNoAction);
             }
@@ -423,7 +410,7 @@ void PrepareTFT_VoltageFourBank()
     tft.drawString("Cell voltages", 0, fontHeight_2 + fontHeight_2 + h + 2);
     tft.drawString("Modules balancing", 2 + w / 2, fontHeight_2 + fontHeight_2 + h + 2);
 
-    uint8_t banks = mysettings.totalNumberOfBanks> 4 ? 4 : mysettings.totalNumberOfBanks;
+    uint8_t banks = mysettings.totalNumberOfBanks > 4 ? 4 : mysettings.totalNumberOfBanks;
 
     for (uint8_t i = 0; i < banks; i++)
     {
@@ -456,7 +443,7 @@ void DrawTFT_VoltageFourBank()
     int16_t h = tft.height() - fontHeight_2 - 68;
     int16_t halfway = h / 2;
 
-    uint8_t banks = mysettings.totalNumberOfBanks> 4 ? 4 : mysettings.totalNumberOfBanks;
+    uint8_t banks = mysettings.totalNumberOfBanks > 4 ? 4 : mysettings.totalNumberOfBanks;
 
     for (uint8_t i = 0; i < banks; i++)
     {
@@ -662,6 +649,13 @@ void DrawTFT_Error()
                 tft.drawCentreString("Controller", x, y, 4);
                 y += fontHeight_4;
                 tft.drawCentreString("memory error", x, y, 4);
+                break;
+            }
+            case InternalErrorCode::ErrorEmergencyStop:
+            {
+                tft.drawCentreString("Emergency", x, y, 4);
+                y += fontHeight_4;
+                tft.drawCentreString("STOP", x, y, 4);
                 break;
             }
             default:
