@@ -2396,8 +2396,8 @@ TEST CAN BUS
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
   //Create i2c task on CPU 0 (normal code runs on CPU 1)
-  xTaskCreatePinnedToCore(i2c_task, "i2c", 1024, nullptr, configMAX_PRIORITIES - 1, &i2c_task_handle, 0);
-  xTaskCreatePinnedToCore(ledoff_task, "ledoff", 800, nullptr, 1, &ledoff_task_handle, 0);
+  xTaskCreate(i2c_task, "i2c", 1500, nullptr, configMAX_PRIORITIES - 1, &i2c_task_handle);
+  xTaskCreate(ledoff_task, "ledoff", 800, nullptr, 1, &ledoff_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2500, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
@@ -2413,9 +2413,9 @@ TEST CAN BUS
   //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
   //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
 
-  xTaskCreate(transmit_task, "tx", 800, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 800, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
-  xTaskCreate(lazy_tasks, "lazyt", 800, nullptr, 1, &lazy_task_handle);
+  xTaskCreate(transmit_task, "tx", 1024, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 1024, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(lazy_tasks, "lazyt", 1024, nullptr, 1, &lazy_task_handle);
 
   xTaskCreate(pulse_relay_off_task, "pulse", 800, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
@@ -2533,12 +2533,12 @@ void loop()
       connectToMqtt();
     }
   }
-
+  /*
   if (currentMillis > taskinfotimer)
   {
-    //* High water mark is the minimum free stack space there has been (in bytes
-    //* rather than words as found in vanilla FreeRTOS) since the task started.
-    //* The smaller the returned number the closer the task has come to overflowing its stack.
+    // High water mark is the minimum free stack space there has been (in bytes
+    // rather than words as found in vanilla FreeRTOS) since the task started.
+    // The smaller the returned number the closer the task has come to overflowing its stack.
     ESP_LOGD(TAG, "Total number of tasks %u", uxTaskGetNumberOfTasks());
 
     TaskHandle_t Handles[] = {i2c_task_handle,
@@ -2583,7 +2583,7 @@ void loop()
     //Wait 5 mins before next report
     taskinfotimer = currentMillis + 60000 * 5;
   }
-
+*/
   /*
   if (touchscreen.tirqTouched())
   {
