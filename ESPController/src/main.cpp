@@ -231,7 +231,10 @@ void avrprog_task(void *param)
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     //Wake up the display
-    xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
+    if (tftwakeup_task_handle != NULL)
+    {
+      xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
+    }
 
     //TODO: This needs to be passed into this as a parameter
     avrprogramsettings *s;
@@ -664,7 +667,10 @@ void tca9534_isr_task(void *param)
     if (InputState[4] == enumInputState::INPUT_LOW)
     {
       //Wake screen on pin going low
-      xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
+      if (tftwakeup_task_handle != NULL)
+      {
+        xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
+      }
     }
   }
 }
@@ -696,13 +702,19 @@ void IRAM_ATTR WifiPasswordClear()
 //Triggered when TCA6408 INT pin goes LOW
 void IRAM_ATTR TCA6408Interrupt()
 {
-  xTaskNotifyFromISR(tca6408_isr_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+  if (tca6408_isr_task_handle != NULL)
+  {
+    xTaskNotifyFromISR(tca6408_isr_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+  }
 }
 
 //Triggered when TCA9534A INT pin goes LOW
 void IRAM_ATTR TCA9534AInterrupt()
 {
-  xTaskNotifyFromISR(tca9534_isr_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+  if (tca9534_isr_task_handle != NULL)
+  {
+    xTaskNotifyFromISR(tca9534_isr_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+  }
 }
 
 /*
@@ -1064,7 +1076,10 @@ void ProcessRules()
     //We have active errors
 
     //Wake up the screen, this will also trigger it to update the display
-    xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
+    if (tftwakeup_task_handle != NULL)
+    {
+      xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
+    }
   }
 }
 
@@ -1495,7 +1510,10 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", WiFi.getHostname(), WiFi.localIP().toString().c_str());
 
   //Wake up the screen, this will show the IP address etc.
-  xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
+  if (tftwakeup_task_handle != NULL)
+  {
+    xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
+  }
 }
 
 void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
@@ -1506,7 +1524,10 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
   //ESP issues using Wifi from timers - https://github.com/espressif/arduino-esp32/issues/2686
 
   //Wake up the screen, this will also trigger it to update the display
-  xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
+  if (tftwakeup_task_handle != NULL)
+  {
+    xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
+  }
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
@@ -2361,12 +2382,12 @@ TEST CAN BUS
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
   xTaskCreate(ledoff_task, "ledoff", 1500, nullptr, 1, &ledoff_task_handle);
-  xTaskCreate(avrprog_task, "avrprog", 2500, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
+  xTaskCreate(tftwakeup_task, "tftwake", 1900, nullptr, 1, &tftwakeup_task_handle);
+  xTaskCreate(tftsleep_task, "tftslp", 900, nullptr, 1, &tftsleep_task_handle);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2048, nullptr, 1, &updatetftdisplay_task_handle);
-  xTaskCreate(tftsleep_task, "tftslp", 900, nullptr, 1, &tftsleep_task_handle);
-  xTaskCreate(tftwakeup_task, "tftwake", 1900, nullptr, 1, &tftwakeup_task_handle);
+  xTaskCreate(avrprog_task, "avrprog", 2500, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
 
   xTaskCreate(tca6408_isr_task, "tca6408", 2048, nullptr, configMAX_PRIORITIES - 3, &tca6408_isr_task_handle);
   xTaskCreate(tca9534_isr_task, "tca9534", 2048, nullptr, configMAX_PRIORITIES - 3, &tca9534_isr_task_handle);
@@ -2380,11 +2401,10 @@ TEST CAN BUS
   //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
   //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
 
-  xTaskCreate(transmit_task, "tx", 1024, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 1024, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
-  xTaskCreate(lazy_tasks, "lazyt", 1024, nullptr, 1, &lazy_task_handle);
-
-  xTaskCreate(pulse_relay_off_task, "pulse", 800, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
+  xTaskCreate(transmit_task, "tx", 2048, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 2048, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(lazy_tasks, "lazyt", 2048, nullptr, 1, &lazy_task_handle);
+  xTaskCreate(pulse_relay_off_task, "pulse", 1024, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
   LoadConfiguration();
   ESP_LOGI("Config loaded");
