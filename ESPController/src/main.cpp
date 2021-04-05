@@ -1471,7 +1471,8 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   ESP_LOGI(TAG, "Request NTP from %s", mysettings.ntpServer);
 
   //Use native ESP32 code
-  configTime(mysettings.minutesTimeZone * 60, mysettings.daylight * 60, mysettings.ntpServer);
+  configTime( mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
+
 
   /*
   TODO: CHECK ERROR CODES BETTER!
