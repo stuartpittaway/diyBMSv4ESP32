@@ -30,6 +30,8 @@ static const char *TAG = "diybms";
 //#define RULES_LOGGING
 //#define MQTT_LOGGING
 
+const uint8_t diyBMSCurrentMonitorModbusAddress = 90;
+
 #include "FS.h"
 #include <LITTLEFS.h>
 #include <WiFi.h>
@@ -46,6 +48,7 @@ static const char *TAG = "diybms";
 #include "driver/can.h"
 #include "driver/adc.h"
 //#include "driver/twai.h"
+#include <driver/uart.h>
 
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
@@ -57,13 +60,13 @@ static const char *TAG = "diybms";
 #include "defines.h"
 #include "HAL_ESP32.h"
 
-//SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
-
 #include "Rules.h"
 
 #include "avrisp_programmer.h"
 
 #include "tft.h"
+
+const uart_port_t rs485_uart_num = uart_port_t::UART_NUM_1;
 
 HAL_ESP32 hal;
 
@@ -75,8 +78,6 @@ extern bool _tft_screen_available;
 Rules rules;
 diybms_eeprom_settings mysettings;
 uint16_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
-
-//uint16_t ConfigHasChanged = 0;
 
 bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
@@ -108,6 +109,9 @@ TaskHandle_t tftwakeup_task_handle = NULL;
 
 TaskHandle_t tca6408_isr_task_handle = NULL;
 TaskHandle_t tca9534_isr_task_handle = NULL;
+
+TaskHandle_t rs485_tx_task_handle = NULL;
+TaskHandle_t rs485_rx_task_handle = NULL;
 
 //This large array holds all the information about the modules
 CellModuleInfo cmi[maximum_controller_cell_modules];
@@ -163,6 +167,32 @@ void voltageandstatussnapshot_task(void *param)
     }
 
   } //end for
+}
+
+void ConfigureRS485()
+{
+  /* TEST RS485 */
+
+  uart_config_t uart_config = {
+      .baud_rate = 19200,
+      .data_bits = UART_DATA_8_BITS,
+      .parity = UART_PARITY_DISABLE,
+      .stop_bits = UART_STOP_BITS_1,
+      .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+      .rx_flow_ctrl_thresh = 122,
+  };
+
+  // Configure UART parameters
+  ESP_ERROR_CHECK(uart_param_config(rs485_uart_num, &uart_config));
+
+  // Set UART1 pins(TX: IO23, RX: I022, RTS: IO18, CTS: Not used)
+  ESP_ERROR_CHECK(uart_set_pin(rs485_uart_num, RS485_TX, RS485_RX, RS485_ENABLE, UART_PIN_NO_CHANGE));
+
+  // Install UART driver (we don't need an event queue here)
+  ESP_ERROR_CHECK(uart_driver_install(rs485_uart_num, 256, 256, 0, NULL, 0));
+
+  // Set RS485 half duplex mode
+  ESP_ERROR_CHECK(uart_set_mode(rs485_uart_num, uart_mode_t::UART_MODE_RS485_HALF_DUPLEX));
 }
 
 void mountSDCard()
@@ -716,17 +746,6 @@ void IRAM_ATTR TCA9534AInterrupt()
     xTaskNotifyFromISR(tca9534_isr_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
   }
 }
-
-/*
-void dumpByte(uint8_t data)
-{
-  if (data <= 0x0F)
-  {
-    SERIAL_DEBUG.print('0');
-  }
-  SERIAL_DEBUG.print(data, HEX);
-}
-*/
 
 const char *packetType(uint8_t cmd)
 {
@@ -1471,8 +1490,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   ESP_LOGI(TAG, "Request NTP from %s", mysettings.ntpServer);
 
   //Use native ESP32 code
-  configTime( mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
-
+  configTime(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
 
   /*
   TODO: CHECK ERROR CODES BETTER!
@@ -1613,6 +1631,150 @@ void mqtt2(void *param)
       ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
 #endif
       mqttClient.publish(topic, 0, false, jsonbuffer);
+    }
+  }
+}
+
+uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
+{
+  uint16_t flag;
+  uint16_t temp;
+  temp = 0xFFFF;
+  for (unsigned char i = 0; i < bufferSize; i++)
+  {
+    temp = temp ^ frame[i];
+    for (unsigned char j = 1; j <= 8; j++)
+    {
+      flag = temp & 0x0001;
+      temp >>= 1;
+      if (flag)
+        temp ^= 0xA001;
+    }
+  }
+
+  return temp;
+  /*
+  // Reverse byte order.
+	uint16_t temp2 = temp >> 8;
+	temp = (temp << 8) | temp2;
+	temp &= 0xFFFF;
+	// the returned value is already swapped
+	// crcLo byte is first & crcHi byte is last
+	return temp;
+  */
+}
+
+//RS485 receive
+void rs485_rx(void *param)
+{
+  for (;;)
+  {
+    //Wait until this task is triggered, when
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    //Delay 50ms for the data to arrive
+    vTaskDelay(pdMS_TO_TICKS(50));
+
+    uint8_t frame[256];
+
+    //Wait 200ms before timeout
+    int len = uart_read_bytes(rs485_uart_num, frame, sizeof(frame), (200 / portTICK_RATE_MS));
+
+    //Min packet length of 8 bytes
+    if (len > 7)
+    {
+      //ESP_LOGD(TAG, "Rec %i bytes", len);
+
+      uint8_t id = frame[0];
+
+      uint16_t crc = ((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
+
+      //uint16_t temp = CRC16.modbus(frame, len - 2);
+      uint16_t temp = calculateCRC(frame, len - 2);
+      //Swap bytes to match MODBUS ordering
+      uint16_t calculatedCRC = (temp << 8) | (temp >> 8);
+
+      if (calculatedCRC == crc)
+      {
+        //83 bytes
+        // if the calculated crc matches the recieved crc continue
+        uint8_t RS485Error = frame[1] & B10000000;
+        if (RS485Error == 0)
+        {
+          uint8_t cmd = frame[1] & B01111111;
+          uint8_t length = frame[2];
+
+          ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
+
+          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3)
+          {
+            //Length is in bytes, but the registers are returned in 16 bit words
+            uint8_t ptr = 3;
+            uint16_t reg=0;
+            for (size_t i = 0; i < length / 2; i++)
+            {
+                  uint16_t data = ((frame[ptr] << 8) | frame[ptr+1]); // combine the starting address bytes
+                  ptr+=2;
+                  reg++;
+
+                  ESP_LOGD(TAG, "%u = %x",reg, data);
+            }
+          }
+        }
+        else
+        {
+          ESP_LOGE(TAG, "RS485 error");
+        }
+      }
+      else
+      {
+        ESP_LOGE(TAG, "CRC error");
+      }
+    }
+    else
+    {
+      ESP_LOGE(TAG, "Short packet %i bytes", len);
+    }
+    //for (int i = 0; i < len; i++)    {      dumpByte(data[i]);    }
+  }
+}
+
+//This is the request we send to diyBMS current monitor, it pulls back 39 registers
+//Holding Registers = 3
+uint8_t cmd[] = {diyBMSCurrentMonitorModbusAddress, 3, 0, 0, 0, 39, 0, 0};
+
+//RS485 transmit
+void rs485_tx(void *param)
+{
+  for (;;)
+  {
+    //Delay 5 seconds
+    vTaskDelay(pdMS_TO_TICKS(5000));
+
+    //ESP_LOGD(TAG, "RS485 TX");
+
+    //Ensure we have empty receive buffer
+    uart_flush_input(rs485_uart_num);
+
+    //Only calculate the CRC if we need to...
+    if (cmd[sizeof(cmd) - 2] == 0 && cmd[sizeof(cmd) - 1] == 0)
+    {
+      uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+      //Byte swap the Hi and Lo bytes
+      uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+      cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+      cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+    }
+
+    //Send the bytes (actually just put them into the TX FIFO buffer)
+    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+    //Notify the receive task that a packet should be on its way
+    if (rs485_rx_task_handle != NULL)
+    {
+      xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
     }
   }
 }
@@ -2247,44 +2409,7 @@ void setup()
 
   mountSDCard();
 
-  /* TEST RS485 */
-  /*
-  SERIAL_DEBUG.println("TEST RS485");
-  SERIAL_RS485.begin(115200, SERIAL_8N1, RS485_RX, RS485_TX, false, 20000UL);
-
-  while (1)
-  {
-
-    //Empty receive buffer
-    //while (SERIAL_RS485.available())    {      SERIAL_RS485.read();    }
-
-    //Transmit character
-    digitalWrite(RS485_ENABLE, HIGH);
-    delayMicroseconds(5);
-    SERIAL_RS485.write((char)'A');
-    //SERIAL_RS485.write((char)'B');
-    //SERIAL_RS485.write((char)'C');
-    //SERIAL_RS485.write((char)'D');
-    //SERIAL_RS485.write((char)'E');
-    //SERIAL_RS485.write((char)'F');
-    SERIAL_RS485.flush();
-    delayMicroseconds(5);
-    digitalWrite(RS485_ENABLE, LOW);
-    SERIAL_DEBUG.println();
-    SERIAL_DEBUG.print(millis());
-    SERIAL_DEBUG.print('=');
-
-    //Allow responses to build up in buffer
-    delay(100);
-
-    while (SERIAL_RS485.available())
-    {
-      SERIAL_DEBUG.print((char)SERIAL_RS485.read());
-    }
-
-    delay(3000);
-  }
-*/
+  ConfigureRS485();
 
   /*
 TEST CAN BUS
@@ -2398,6 +2523,9 @@ TEST CAN BUS
   xTaskCreate(sdcardlog_outputs_task, "sdout", 4000, nullptr, 1, &sdcardlog_outputs_task_handle);
   xTaskCreate(mqtt1, "mqtt1", 3000, nullptr, 1, &mqtt1_task_handle);
   xTaskCreate(mqtt2, "mqtt2", 3000, nullptr, 1, &mqtt2_task_handle);
+
+  xTaskCreate(rs485_tx, "RS485TX", 3000, nullptr, 1, &rs485_tx_task_handle);
+  xTaskCreate(rs485_rx, "RS485RX", 3000, nullptr, 1, &rs485_rx_task_handle);
 
   //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
   //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
