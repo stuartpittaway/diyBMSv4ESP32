@@ -17,6 +17,12 @@
 //Total number of cells a single controler can handle (memory limitation)
 #define maximum_controller_cell_modules 128
 
+typedef union
+{
+  float value;
+  uint16_t word[2];
+} FloatUnionType;
+
 enum RGBLED : uint8_t
 {
   OFF = 0,
@@ -120,7 +126,8 @@ struct diybms_eeprom_settings
   char influxdb_password[32 + 1];
 };
 
-typedef union {
+typedef union
+{
   float number;
   uint8_t bytes[4];
   uint16_t word[2];
@@ -236,5 +243,24 @@ struct avrprogramsettings
   bool programmingModeEnabled;
 };
 
+struct currentmonitoring_struct
+{
+  //Uses float as these are 4 bytes on ESP32
+  int64_t timestamp;
+  float voltage;
+  float current;
+  float amphour_out;
+  float amphour_in;
+  int16_t temperature;
+  uint16_t watchdogcounter;
+  float power;
+  float shuntmV;
+  float currentlsb;
+  float shuntresistance;
+  uint16_t shuntmaxcurrent;
+  uint16_t shuntmillivolt;
+  uint16_t shuntcal;
+  int16_t temperaturelimit;
+};
 
 #endif

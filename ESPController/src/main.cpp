@@ -85,6 +85,8 @@ bool previousRelayPulse[RELAY_TOTAL];
 
 volatile enumInputState InputState[INPUTS_TOTAL];
 
+currentmonitoring_struct currentMonitor;
+
 AsyncWebServer server(80);
 
 TaskHandle_t i2c_task_handle = NULL;
@@ -1708,18 +1710,142 @@ void rs485_rx(void *param)
 
           if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3)
           {
+
+            FloatUnionType v;
+
             //Length is in bytes, but the registers are returned in 16 bit words
             uint8_t ptr = 3;
-            uint16_t reg=0;
+            uint16_t reg = 0;
             for (size_t i = 0; i < length / 2; i++)
             {
-                  uint16_t data = ((frame[ptr] << 8) | frame[ptr+1]); // combine the starting address bytes
-                  ptr+=2;
-                  reg++;
+              uint16_t data = ((frame[ptr] << 8) | frame[ptr + 1]); // combine the starting address bytes
+              ptr += 2;
+              reg++;
 
-                  ESP_LOGD(TAG, "%u = %x",reg, data);
-            }
-          }
+              currentMonitor.timestamp = esp_timer_get_time();
+
+              switch (reg)
+              {
+
+              case 1:
+              case 3:
+              case 5:
+              case 7:
+              case 11:
+              case 13:
+              case 15:
+              case 17:
+              {
+                v.word[0] = data;
+                break;
+              }
+
+              case 2:
+              {
+                v.word[1] = data;
+                currentMonitor.voltage = v.value;
+                break;
+              }
+
+              case 4:
+              {
+                v.word[1] = data;
+                currentMonitor.current = v.value;
+                break;
+              }
+
+              case 6:
+              {
+                v.word[1] = data;
+                currentMonitor.amphour_out = v.value;
+                break;
+              }
+
+              case 8:
+              {
+                v.word[1] = data;
+                currentMonitor.amphour_in = v.value;
+                break;
+              }
+
+              case 9:
+              {
+                currentMonitor.temperature = (int16_t)data;
+                break;
+              }
+
+              case 10:
+              {
+                currentMonitor.watchdogcounter = data;
+                break;
+              }
+
+              case 12:
+              {
+                v.word[1] = data;
+                currentMonitor.power = v.value;
+                break;
+              }
+
+              case 14:
+              {
+                v.word[1] = data;
+                currentMonitor.shuntmV = v.value;
+                break;
+              }
+
+              case 16:
+              {
+                v.word[1] = data;
+                currentMonitor.currentlsb = v.value;
+                break;
+              }
+
+              case 18:
+              {
+                v.word[1] = data;
+                currentMonitor.shuntresistance = v.value;
+                break;
+              }
+
+              case 19:
+              {
+                currentMonitor.shuntmaxcurrent = data;
+                break;
+              }
+
+              case 20:
+              {
+                currentMonitor.shuntmillivolt = data;
+                break;
+              }
+              case 21:
+              {
+                currentMonitor.shuntcal = data;
+                break;
+              }
+
+              case 22:
+              {
+                currentMonitor.temperaturelimit = (int16_t)data;
+                break;
+              }
+
+              } //end switch
+
+              //ESP_LOGD(TAG, "%u = %x", reg, data);
+            } //end for
+
+            ESP_LOGD(TAG, "Volt = %f", currentMonitor.voltage);
+            ESP_LOGD(TAG, "Curr = %f", currentMonitor.current);
+            ESP_LOGD(TAG, "Temp = %i", currentMonitor.temperature);
+
+            ESP_LOGD(TAG, "Out = %f", currentMonitor.amphour_out);
+            ESP_LOGD(TAG, "In = %f", currentMonitor.amphour_in);
+
+            ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
+
+          } //end diybms current monitor command 3
         }
         else
         {
