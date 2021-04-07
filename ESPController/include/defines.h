@@ -261,6 +261,14 @@ struct currentmonitoring_struct
   uint16_t shuntmillivolt;
   uint16_t shuntcal;
   int16_t temperaturelimit;
+  float overvoltagelimit;
+  float overcurrentlimit;
+  float undercurrentlimit;
+  float overpowerlimit;
+  uint16_t shunttempcoefficient;
+  uint16_t modelnumber;
+  uint32_t firmwareversion;
+  uint32_t firmwaredatetime;
 };
 
 #endif

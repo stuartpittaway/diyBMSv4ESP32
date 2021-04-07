@@ -1735,6 +1735,13 @@ void rs485_rx(void *param)
               case 13:
               case 15:
               case 17:
+              case 23:
+              case 25:
+              case 27:
+              case 29:
+              case 31:
+              case 35:
+              case 37:
               {
                 v.word[0] = data;
                 break;
@@ -1831,6 +1838,57 @@ void rs485_rx(void *param)
                 break;
               }
 
+              case 24:
+              {
+                //Bus Overvoltage (overvoltage protection)
+                v.word[1] = data;
+                currentMonitor.overvoltagelimit = v.value;
+                break;
+              }
+
+              case 28:
+              {
+                v.word[1] = data;
+                currentMonitor.overcurrentlimit = v.value;
+                break;
+              }
+
+              case 30:
+              {
+                v.word[1] = data;
+                currentMonitor.undercurrentlimit = v.value;
+                break;
+              }
+
+              case 32:
+              {
+                v.word[1] = data;
+                currentMonitor.overpowerlimit = v.value;
+                break;
+              }
+
+              case 33:
+              {
+                currentMonitor.shunttempcoefficient = data;
+                break;
+              }
+              case 34:
+              {
+                currentMonitor.modelnumber = data;
+                break;
+              }
+
+              case 36:
+              {
+                currentMonitor.firmwareversion = (v.word[0] << 16) | data;
+                break;
+              }
+              case 38:
+              {
+                currentMonitor.firmwaredatetime = (v.word[0] << 16) | data;
+                break;
+              }
+
               } //end switch
 
               //ESP_LOGD(TAG, "%u = %x", reg, data);
@@ -1844,6 +1902,9 @@ void rs485_rx(void *param)
             ESP_LOGD(TAG, "In = %f", currentMonitor.amphour_in);
 
             ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
+
+            ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
+            ESP_LOGD(TAG, "Date = %x", currentMonitor.firmwaredatetime);
 
           } //end diybms current monitor command 3
         }
@@ -1865,9 +1926,10 @@ void rs485_rx(void *param)
   }
 }
 
-//This is the request we send to diyBMS current monitor, it pulls back 39 registers
+//This is the request we send to diyBMS current monitor, it pulls back 38 registers
+//this is all the registers diyBMS current monitor has
 //Holding Registers = 3
-uint8_t cmd[] = {diyBMSCurrentMonitorModbusAddress, 3, 0, 0, 0, 39, 0, 0};
+uint8_t cmd[] = {diyBMSCurrentMonitorModbusAddress, 3, 0, 0, 0, 38, 0, 0};
 
 //RS485 transmit
 void rs485_tx(void *param)
