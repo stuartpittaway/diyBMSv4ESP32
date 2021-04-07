@@ -1716,13 +1716,15 @@ void rs485_rx(void *param)
             //Length is in bytes, but the registers are returned in 16 bit words
             uint8_t ptr = 3;
             uint16_t reg = 0;
+            //Last time we updated the structure
+            currentMonitor.timestamp = esp_timer_get_time();
             for (size_t i = 0; i < length / 2; i++)
             {
               uint16_t data = ((frame[ptr] << 8) | frame[ptr + 1]); // combine the starting address bytes
               ptr += 2;
               reg++;
 
-              currentMonitor.timestamp = esp_timer_get_time();
+              //ESP_LOGD(TAG, "reg=%x", data);
 
               switch (reg)
               {
@@ -1880,12 +1882,12 @@ void rs485_rx(void *param)
 
               case 36:
               {
-                currentMonitor.firmwareversion = (v.word[0] << 16) | data;
+                currentMonitor.firmwareversion = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
                 break;
               }
               case 38:
               {
-                currentMonitor.firmwaredatetime = (v.word[0] << 16) | data;
+                currentMonitor.firmwaredatetime = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
                 break;
               }
 
@@ -1904,7 +1906,7 @@ void rs485_rx(void *param)
             ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
 
             ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
-            ESP_LOGD(TAG, "Date = %x", currentMonitor.firmwaredatetime);
+            ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
 
           } //end diybms current monitor command 3
         }
@@ -1928,7 +1930,7 @@ void rs485_rx(void *param)
 
 //This is the request we send to diyBMS current monitor, it pulls back 38 registers
 //this is all the registers diyBMS current monitor has
-//Holding Registers = 3
+//Holding Registers = command 3
 uint8_t cmd[] = {diyBMSCurrentMonitorModbusAddress, 3, 0, 0, 0, 38, 0, 0};
 
 //RS485 transmit
