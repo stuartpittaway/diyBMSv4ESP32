@@ -54,8 +54,13 @@ void IRAM_ATTR TFTScreenTouchInterrupt()
     }
     else
     {
-        ESP_LOGD(TAG, "Touch");
-        xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+        if (tftwakeup_task_handle != NULL)
+        {
+            ESP_LOGD(TAG, "Touch");
+            xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+        } else {
+            ESP_LOGE(TAG, "tftwakeup_task_handle=NULL");
+        }
     }
 }
 
