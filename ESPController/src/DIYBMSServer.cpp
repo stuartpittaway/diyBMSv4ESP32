@@ -1096,7 +1096,11 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   response->print("{");
 
   PrintStreamCommaBoolean(response, "\"enabled\":", _mysettings->currentMonitoringEnabled);
-  PrintStream(response, "\"address\":", _mysettings->currentMonitoringModBusAddress);
+  PrintStreamComma(response, "\"address\":", _mysettings->currentMonitoringModBusAddress);
+
+  //These values from read directly from the device
+  PrintStreamComma(response, "\"shuntmv\":", currentMonitor.shuntmillivolt);
+  PrintStream(response, "\"shuntmaxcur\":", currentMonitor.shuntmaxcurrent);
 
   //The END...
   response->print('}');

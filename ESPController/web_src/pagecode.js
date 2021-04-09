@@ -987,9 +987,11 @@ $(function () {
 
         $.getJSON("currentmonitor.json",
             function (data) {
-
                 $("#CurrentMonEnabled").prop("checked", data.enabled);
+                $("#modbusAddress").val(data.address);
 
+                $("#shuntmaxcur").val(data.shuntmaxcur);
+                $("#shuntmv").val(data.shuntmv);
             }).fail(function () { }
             );
 

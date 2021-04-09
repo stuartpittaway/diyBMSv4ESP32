@@ -514,10 +514,10 @@
     </div>
 
     <div class="page" id="diybmsCurrentMonitorPage">
-        <h1>diyBMS Current Monitor</h1>
+        <h1>diyBMS Current &amp; Voltage Monitor</h1>
         <div class="region">
             <h2>Settings</h2>
-            <p>XXX</p>
+            <p>Configure the current monitor using the settings below.  For the current shunt settings, ensure these match the data sheet for your particular shunt resistor.</p>
             <form id="diybmsCurrentMonitorForm" method="POST" action="savecurrentmon.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -531,6 +531,32 @@
                             <option value="98">98</option>
                         </select>
                     </div>
+
+                    <div>
+                        <label for="shuntmaxcur">Shunt maximum current</label>
+                        <select name="shuntmaxcur" id="shuntmaxcur">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="150">150</option>
+                            <option value="200">200</option>
+                            <option value="300">300</option>
+                            <option value="500">500</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="shuntmaxcur">Shunt output voltage (mV)</label>
+                        <select name="shuntmv" id="shuntmv">
+                            <option value="50">50</option>
+                            <option value="75">75</option>
+                            <option value="100">100</option>
+                            <option value="150">150</option>
+                        </select>
+                    </div>
+
                     <input type="submit" value="Save settings" />
                 </div>
             </form>
