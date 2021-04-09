@@ -462,6 +462,11 @@ void DIYBMSServer::saveCurrentMonSettings(AsyncWebServerRequest *request)
     AsyncWebParameter *p1 = request->getParam("CurrentMonEnabled", true);
     _mysettings->currentMonitoringEnabled = p1->value().equals("on") ? true : false;
   }
+  else
+  {
+    //If the parameter isn't there its FALSE/unchecked
+    _mysettings->currentMonitoringEnabled = false;
+  }
 
   if (request->hasParam("modbusAddress", true))
   {
@@ -622,6 +627,11 @@ void DIYBMSServer::saveStorage(AsyncWebServerRequest *request)
     AsyncWebParameter *p1 = request->getParam("loggingEnabled", true);
     _mysettings->loggingEnabled = p1->value().equals("on") ? true : false;
   }
+  else
+  {
+    //Switch off logging
+    _mysettings->loggingEnabled = false;
+  }
 
   if (request->hasParam("loggingFreq", true))
   {
@@ -667,6 +677,10 @@ void DIYBMSServer::saveNTP(AsyncWebServerRequest *request)
   {
     AsyncWebParameter *p1 = request->getParam("NTPDST", true);
     _mysettings->daylight = p1->value().equals("on") ? true : false;
+  }
+  else
+  {
+    _mysettings->daylight = false;
   }
 
   saveConfiguration();
