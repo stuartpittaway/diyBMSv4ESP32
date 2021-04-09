@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+#include <driver/uart.h>
+
 #include "EmbeddedFiles_Defines.h"
 
 #include "EmbeddedFiles_Integrity.h"
@@ -109,6 +111,14 @@ struct diybms_eeprom_settings
 
   bool loggingEnabled;
   uint16_t loggingFrequencySeconds;
+
+  bool currentMonitoringEnabled;
+  uint8_t currentMonitoringModBusAddress;
+
+  int rs485baudrate;
+  uart_word_length_t rs485databits;
+  uart_parity_t rs485parity;
+  uart_stop_bits_t rs485stopbits;
 
   //NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
@@ -246,7 +256,6 @@ struct avrprogramsettings
 struct currentmonitoring_struct
 {
   //Uses float as these are 4 bytes on ESP32
-  bool enabled;
   int64_t timestamp;
   float voltage;
   float current;

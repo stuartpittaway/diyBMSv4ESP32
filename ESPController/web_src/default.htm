@@ -29,7 +29,7 @@
         <!-- Overlay content -->
         <div class="overlay-content">
             <a id="integration" href="#integration">Integration</a>
-            <a id="currentmonitor" href="#currentmonitor">diyBMS Current Monitor</a>            
+            <a id="currentmonitor" href="#currentmonitor">diyBMS Current Monitor</a>
             <a id="storage" href="#storage">Storage</a>
             <a id="avrprogrammer" href="#avrprogrammer">AVR Programmer</a>
             <a id="about" href="#about">About</a>
@@ -531,23 +531,54 @@
                             <option value="98">98</option>
                         </select>
                     </div>
-                    <div>
-                        <label for="rs485baudrate">RS485 baud rate</label>
-                        <select name="rs485baudrate" id="rs485baudrate">
-                            <option value="19200">19200 [default]</option>
-                            <option value="9600">9600</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="rs485setting">RS485 serial protocol</label>
-                        <select name="rs485setting" id="rs485setting">
-                            <option value="8N1">8N1</option>
-                        </select>
-                    </div>
                     <input type="submit" value="Save settings" />
                 </div>
             </form>
         </div>
+
+        <div class="region">
+            <h2>RS485</h2>
+            <p>Configuration options for RS485 interface. Communication is half-duplex.</p>
+            <form id="RS485Form" method="POST" action="savers485settings.json" autocomplete="off">
+                <div class="settings">
+                    <div>
+                        <label for="rs485baudrate">Baud rate</label>
+                        <select name="rs485baudrate" id="rs485baudrate">
+                            <option value="9600">9600</option>
+                            <option value="19200">19200</option>
+                            <option value="38400">38400</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="rs485databit">Data bits</label>
+                        <select name="rs485databit" id="rs485databit">
+                            <option value="0">5</option>
+                            <option value="1">6</option>
+                            <option value="2">7</option>
+                            <option value="3">8</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="rs485parity">Data bits</label>
+                        <select name="rs485parity" id="rs485parity">
+                            <option value="3">Odd</option>
+                            <option value="2">Even</option>
+                            <option value="0">None</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="rs485stopbit">Stop bits</label>
+                        <select name="rs485stopbit" id="rs485stopbit">
+                            <option value="1">1</option>
+                            <option value="2">1.5</option>
+                            <option value="3">2</option>
+                        </select>
+                    </div>
+                    <input type="submit" value="Save RS485 settings" />
+                </div>
+            </form>
+        </div>
+
     </div>
 
 

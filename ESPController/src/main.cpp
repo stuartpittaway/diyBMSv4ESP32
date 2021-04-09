@@ -171,19 +171,32 @@ void voltageandstatussnapshot_task(void *param)
   } //end for
 }
 
+// Sets the RS485 serial parameters after they have been changed
 void ConfigureRS485()
 {
+  ESP_LOGD(TAG, "Configure RS485");
+  ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_parity(rs485_uart_num, mysettings.rs485parity));
+  ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_stop_bits(rs485_uart_num, mysettings.rs485stopbits));
+  ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_baudrate(rs485_uart_num, mysettings.rs485baudrate));
+  ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_word_length(rs485_uart_num, mysettings.rs485databits));
+}
+
+void SetupRS485()
+{
+  ESP_LOGD(TAG, "Setup RS485");
   /* TEST RS485 */
 
   //Zero all data to start with
   memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
-  currentMonitor.enabled = true;
+
+  //if (mysettings.currentMonitoringEnabled) {
+  //}
 
   uart_config_t uart_config = {
-      .baud_rate = 19200,
-      .data_bits = UART_DATA_8_BITS,
-      .parity = UART_PARITY_DISABLE,
-      .stop_bits = UART_STOP_BITS_1,
+      .baud_rate = mysettings.rs485baudrate,
+      .data_bits = mysettings.rs485databits,
+      .parity = mysettings.rs485parity,
+      .stop_bits = mysettings.rs485stopbits,
       .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
       .rx_flow_ctrl_thresh = 122,
   };
@@ -199,6 +212,8 @@ void ConfigureRS485()
 
   // Set RS485 half duplex mode
   ESP_ERROR_CHECK(uart_set_mode(rs485_uart_num, uart_mode_t::UART_MODE_RS485_HALF_DUPLEX));
+
+  ConfigureRS485();
 }
 
 void mountSDCard()
@@ -1948,7 +1963,7 @@ void rs485_tx(void *param)
     //Delay 5 seconds
     vTaskDelay(pdMS_TO_TICKS(5000));
 
-    if (currentMonitor.enabled == true)
+    if (mysettings.currentMonitoringEnabled == true)
     {
       //ESP_LOGD(TAG, "RS485 TX");
 
@@ -2082,6 +2097,14 @@ void LoadConfiguration()
 
   mysettings.loggingEnabled = false;
   mysettings.loggingFrequencySeconds = 15;
+
+  mysettings.currentMonitoringEnabled = false;
+  mysettings.currentMonitoringModBusAddress = 90;
+
+  mysettings.rs485baudrate = 19200;
+  mysettings.rs485databits = uart_word_length_t::UART_DATA_8_BITS;
+  mysettings.rs485parity = uart_parity_t::UART_PARITY_DISABLE;
+  mysettings.rs485stopbits = uart_stop_bits_t::UART_STOP_BITS_1;
 
   //Default to EMONPI default MQTT settings
   strcpy(mysettings.mqtt_topic, "emon/diybms");
@@ -2597,7 +2620,7 @@ void setup()
 
   if (!LITTLEFS.begin(false))
   {
-    ESP_LOGE(TAG, "LITTLEFS mount failed, did you upload file system image? - SYSTEM HALTED");
+    ESP_LOGE(TAG, "LITTLEFS mount failed, did you upload file system image?");
 
     hal.Halt(RGBLED::White);
   }
@@ -2608,8 +2631,6 @@ void setup()
   }
 
   mountSDCard();
-
-  ConfigureRS485();
 
   /*
 TEST CAN BUS
@@ -2702,10 +2723,15 @@ TEST CAN BUS
 
   resetAllRules();
 
+  LoadConfiguration();
+  ESP_LOGI("Config loaded");
+
   //Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
   SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1, 2, 32); // Serial for comms to modules
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
+
+  SetupRS485();
 
   xTaskCreate(ledoff_task, "ledoff", 1500, nullptr, 1, &ledoff_task_handle);
   xTaskCreate(tftwakeup_task, "tftwake", 1900, nullptr, 1, &tftwakeup_task_handle);
@@ -2735,8 +2761,6 @@ TEST CAN BUS
   xTaskCreate(lazy_tasks, "lazyt", 2048, nullptr, 1, &lazy_task_handle);
   xTaskCreate(pulse_relay_off_task, "pulse", 1024, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
-  LoadConfiguration();
-  ESP_LOGI("Config loaded");
   //Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
   {

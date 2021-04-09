@@ -152,6 +152,8 @@ public:
     //Infinite loop flashing the LED RED/WHITE
     void Halt(RGBLED colour)
     {
+        ESP_LOGE(TAG, "SYSTEM HALTED");
+
         while (true)
         {
             Led(RGBLED::Red);

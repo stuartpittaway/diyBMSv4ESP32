@@ -249,22 +249,23 @@ function queryBMS() {
                 $("#shuntv").hide();
                 $("#amphout").hide();
                 $("#amphin").hide();
+                $("#power").hide();
             } else {
                 var data = jsondata.current[0];
 
-                $("#current .v").html(parseFloat(data.c).toFixed(2)+"A");
+                $("#current .v").html(parseFloat(data.c).toFixed(2) + "A");
                 $("#current").show();
 
-                $("#shuntv .v").html(parseFloat(data.v).toFixed(2)+"V");
+                $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
                 $("#shuntv").show();
 
-                $("#power .v").html(parseFloat(data.p)+"W");
+                $("#power .v").html(parseFloat(data.p) + "W");
                 $("#power").show();
 
-                $("#amphout .v").html((parseFloat(data.mahout)/1000).toFixed(3));
+                $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
                 $("#amphout").show();
 
-                $("#amphin .v").html((parseFloat(data.mahin)/1000).toFixed(3));
+                $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
                 $("#amphin").show();
             }
         }
@@ -972,6 +973,26 @@ $(function () {
         $(this).addClass("active");
 
         switchPage("#diybmsCurrentMonitorPage");
+
+
+        $.getJSON("rs485settings.json",
+            function (data) {
+                $("#rs485baudrate").val(data.baudrate);
+                $("#rs485databit").val(data.databits);
+                $("#rs485parity").val(data.parity);
+                $("#rs485stopbit").val(data.stopbits);
+            }).fail(function () { }
+            );
+
+
+        $.getJSON("currentmonitor.json",
+            function (data) {
+
+                $("#CurrentMonEnabled").prop("checked", data.enabled);
+
+            }).fail(function () { }
+            );
+
 
         return true;
     });

@@ -452,6 +452,64 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
   SendSuccess(request);
 }
 
+void DIYBMSServer::saveCurrentMonSettings(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (request->hasParam("CurrentMonEnabled", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("CurrentMonEnabled", true);
+    _mysettings->currentMonitoringEnabled = p1->value().equals("on") ? true : false;
+  }
+
+  if (request->hasParam("modbusAddress", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("modbusAddress", true);
+    _mysettings->currentMonitoringModBusAddress = p1->value().toInt();
+  }
+
+  saveConfiguration();
+
+  SendSuccess(request);
+}
+
+void DIYBMSServer::saveRS485Settings(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (request->hasParam("rs485baudrate", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("rs485baudrate", true);
+    _mysettings->rs485baudrate = p1->value().toInt();
+  }
+
+  if (request->hasParam("rs485databit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("rs485databit", true);
+    _mysettings->rs485databits = (uart_word_length_t)(p1->value().toInt());
+  }
+
+  if (request->hasParam("rs485parity", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("rs485parity", true);
+    _mysettings->rs485parity = (uart_parity_t)(p1->value().toInt());
+  }
+
+  if (request->hasParam("rs485stopbit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("rs485stopbit", true);
+    _mysettings->rs485stopbits = (uart_stop_bits_t)(p1->value().toInt());
+  }
+
+  saveConfiguration();
+
+  //TODO: Need to RECONFIG RS485 here
+  ConfigureRS485();
+  SendSuccess(request);
+}
+
 void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
 {
   if (!validateXSS(request))
@@ -992,6 +1050,45 @@ void DIYBMSServer::fileSystemListDirectory(AsyncResponseStream *response, fs::FS
 
   //Trailing null to cope with trailing ','
   response->print("null");
+}
+
+void DIYBMSServer::rs485settings(AsyncWebServerRequest *request)
+{
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+  response->print("{");
+
+  response->print("\"baudrate\":");
+  response->print(_mysettings->rs485baudrate);
+
+  response->print(",\"databits\":");
+  response->print(_mysettings->rs485databits);
+
+  response->print(",\"parity\":");
+  response->print(_mysettings->rs485parity);
+
+  response->print(",\"stopbits\":");
+  response->print(_mysettings->rs485stopbits);
+
+  //The END...
+  response->print('}');
+
+  response->addHeader("Cache-Control", "no-store");
+  request->send(response);
+}
+
+void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
+{
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+  response->print("{");
+
+  PrintStreamCommaBoolean(response, "\"enabled\":", _mysettings->currentMonitoringEnabled);
+  PrintStream(response, "\"address\":", _mysettings->currentMonitoringModBusAddress);
+
+  //The END...
+  response->print('}');
+
+  response->addHeader("Cache-Control", "no-store");
+  request->send(response);
 }
 
 void DIYBMSServer::avrstorage(AsyncWebServerRequest *request)
@@ -1623,19 +1720,19 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
   response->print(comma);
   response->print(F("\"current\":["));
-  if (currentMonitor.enabled)
+  if (_mysettings->currentMonitoringEnabled)
   {
     //Output current monitor values, this is inside an array, so could be more than 1
     response->print(F("{\"c\":"));
-    response->print(currentMonitor.current,4);
+    response->print(currentMonitor.current, 4);
     response->print(F(",\"v\":"));
-    response->print(currentMonitor.voltage,4);
+    response->print(currentMonitor.voltage, 4);
     response->print(F(",\"mahout\":"));
     response->print(currentMonitor.milliamphour_out);
     response->print(F(",\"mahin\":"));
     response->print(currentMonitor.milliamphour_in);
     response->print(F(",\"p\":"));
-    response->print(currentMonitor.power,2);
+    response->print(currentMonitor.power, 2);
     response->print("}");
   }
   else
@@ -1889,6 +1986,9 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->on("/download", HTTP_GET, DIYBMSServer::downloadFile);
   _myserver->on("/avrstatus.json", HTTP_GET, DIYBMSServer::avrstatus);
 
+  _myserver->on("/currentmonitor.json", HTTP_GET, DIYBMSServer::currentmonitor);
+  _myserver->on("/rs485settings.json", HTTP_GET, DIYBMSServer::rs485settings);
+
   //POST method endpoints
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);
   _myserver->on("/saveglobalsetting.json", HTTP_POST, DIYBMSServer::saveGlobalSetting);
@@ -1911,6 +2011,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/avrprog.json", HTTP_POST, DIYBMSServer::avrProgrammer);
   _myserver->on("/wificonfigtofile.json", HTTP_POST, DIYBMSServer::saveWifiConfigToSDCard);
+  _myserver->on("/savers485settings.json", HTTP_POST, DIYBMSServer::saveRS485Settings);
+  _myserver->on("/savecurrentmon.json", HTTP_POST, DIYBMSServer::saveCurrentMonSettings);
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();
