@@ -246,11 +246,12 @@ struct avrprogramsettings
 struct currentmonitoring_struct
 {
   //Uses float as these are 4 bytes on ESP32
+  bool enabled;
   int64_t timestamp;
   float voltage;
   float current;
-  float amphour_out;
-  float amphour_in;
+  uint32_t milliamphour_out;
+  uint32_t milliamphour_in;
   int16_t temperature;
   uint16_t watchdogcounter;
   float power;

@@ -29,6 +29,7 @@
         <!-- Overlay content -->
         <div class="overlay-content">
             <a id="integration" href="#integration">Integration</a>
+            <a id="currentmonitor" href="#currentmonitor">diyBMS Current Monitor</a>            
             <a id="storage" href="#storage">Storage</a>
             <a id="avrprogrammer" href="#avrprogrammer">AVR Programmer</a>
             <a id="about" href="#about">About</a>
@@ -74,6 +75,11 @@
     </div>
     <div id="info" class="info">
         <div id="current" class="stat"><span class="x t">Current:</span><span class="x v"></span></div>
+        <div id="shuntv" class="stat"><span class="x t">Shunt voltage:</span><span class="x v"></span></div>
+        <div id="power" class="stat"><span class="x t">Power:</span><span class="x v"></span></div>
+        <div id="amphout" class="stat"><span class="x t">Ah out:</span><span class="x v"></span></div>
+        <div id="amphin" class="stat"><span class="x t">Ah in:</span><span class="x v"></span></div>
+
         <div id="sent" class="stat"><span class="x t">Packets sent:</span><span class="x v"></span></div>
         <div id="received" class="stat"><span class="x t">Packets rec'd:</span><span class="x v"></span></div>
         <div id="oos" class="stat"><span class="x t" title="Out of sequence error">OOS errors:</span><span
@@ -507,6 +513,44 @@
         </div>
     </div>
 
+    <div class="page" id="diybmsCurrentMonitorPage">
+        <h1>diyBMS Current Monitor</h1>
+        <div class="region">
+            <h2>Settings</h2>
+            <p>XXX</p>
+            <form id="diybmsCurrentMonitorForm" method="POST" action="savecurrentmon.json" autocomplete="off">
+                <div class="settings">
+                    <div>
+                        <label for="CurrentMonEnabled">Enabled</label>
+                        <input type="checkbox" name="CurrentMonEnabled" id="CurrentMonEnabled">
+                    </div>
+                    <div>
+                        <label for="modbusAddress">Modbus address</label>
+                        <select name="modbusAddress" id="modbusAddress">
+                            <option value="90">90 [default]</option>
+                            <option value="98">98</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="rs485baudrate">RS485 baud rate</label>
+                        <select name="rs485baudrate" id="rs485baudrate">
+                            <option value="19200">19200 [default]</option>
+                            <option value="9600">9600</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="rs485setting">RS485 serial protocol</label>
+                        <select name="rs485setting" id="rs485setting">
+                            <option value="8N1">8N1</option>
+                        </select>
+                    </div>
+                    <input type="submit" value="Save settings" />
+                </div>
+            </form>
+        </div>
+    </div>
+
+
     <div class="page" id="settingsPage">
         <h1>Controller Settings</h1>
         <div class="region">
@@ -657,7 +701,8 @@
                 <ul>
                     <li>Ensure you disconnect all battery and communication cables from the module/device before
                         programming.</li>
-                    <li>Connect the module to the ISP port on the controller using a ribbon cable or adapter, ensure the notch is
+                    <li>Connect the module to the ISP port on the controller using a ribbon cable or adapter, ensure the
+                        notch is
                         aligned with pin 1 on the module.</li>
                     <li>Click 'Program Device' to start programming</li>
                     <li>Remove cable as soon as programming is complete</li>

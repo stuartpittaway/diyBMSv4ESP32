@@ -175,6 +175,10 @@ void ConfigureRS485()
 {
   /* TEST RS485 */
 
+  //Zero all data to start with
+  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  currentMonitor.enabled = true;
+
   uart_config_t uart_config = {
       .baud_rate = 19200,
       .data_bits = UART_DATA_8_BITS,
@@ -1706,7 +1710,7 @@ void rs485_rx(void *param)
           uint8_t cmd = frame[1] & B01111111;
           uint8_t length = frame[2];
 
-          ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
+          //ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
 
           if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3)
           {
@@ -1745,6 +1749,7 @@ void rs485_rx(void *param)
               case 35:
               case 37:
               {
+                //This stores the first half of the 32 bit register value
                 v.word[0] = data;
                 break;
               }
@@ -1765,15 +1770,17 @@ void rs485_rx(void *param)
 
               case 6:
               {
-                v.word[1] = data;
-                currentMonitor.amphour_out = v.value;
+                //v.word[1] = data;
+                uint32_t milliamph = v.word[0] << 16 | data;
+                currentMonitor.milliamphour_out = milliamph;
                 break;
               }
 
               case 8:
               {
-                v.word[1] = data;
-                currentMonitor.amphour_in = v.value;
+                //v.word[1] = data;
+                uint32_t milliamph = v.word[0] << 16 | data;
+                currentMonitor.milliamphour_in = milliamph;
                 break;
               }
 
@@ -1896,17 +1903,17 @@ void rs485_rx(void *param)
               //ESP_LOGD(TAG, "%u = %x", reg, data);
             } //end for
 
-            ESP_LOGD(TAG, "Volt = %f", currentMonitor.voltage);
-            ESP_LOGD(TAG, "Curr = %f", currentMonitor.current);
-            ESP_LOGD(TAG, "Temp = %i", currentMonitor.temperature);
+            //ESP_LOGD(TAG, "Volt = %f", currentMonitor.voltage);
+            //ESP_LOGD(TAG, "Curr = %f", currentMonitor.current);
+            //ESP_LOGD(TAG, "Temp = %i", currentMonitor.temperature);
 
-            ESP_LOGD(TAG, "Out = %f", currentMonitor.amphour_out);
-            ESP_LOGD(TAG, "In = %f", currentMonitor.amphour_in);
+            //ESP_LOGD(TAG, "Out = %f", currentMonitor.amphour_out);
+            //ESP_LOGD(TAG, "In = %f", currentMonitor.amphour_in);
 
-            ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
+            //ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
 
-            ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
-            ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
+            //ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
+            //ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
 
           } //end diybms current monitor command 3
         }
@@ -1941,31 +1948,34 @@ void rs485_tx(void *param)
     //Delay 5 seconds
     vTaskDelay(pdMS_TO_TICKS(5000));
 
-    //ESP_LOGD(TAG, "RS485 TX");
-
-    //Ensure we have empty receive buffer
-    uart_flush_input(rs485_uart_num);
-
-    //Only calculate the CRC if we need to...
-    if (cmd[sizeof(cmd) - 2] == 0 && cmd[sizeof(cmd) - 1] == 0)
+    if (currentMonitor.enabled == true)
     {
-      uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+      //ESP_LOGD(TAG, "RS485 TX");
 
-      //Byte swap the Hi and Lo bytes
-      uint16_t crc16 = (temp << 8) | (temp >> 8);
+      //Ensure we have empty receive buffer
+      uart_flush_input(rs485_uart_num);
 
-      cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
-      cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
-    }
+      //Only calculate the CRC if we need to...
+      if (cmd[sizeof(cmd) - 2] == 0 && cmd[sizeof(cmd) - 1] == 0)
+      {
+        uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
 
-    //Send the bytes (actually just put them into the TX FIFO buffer)
-    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+        //Byte swap the Hi and Lo bytes
+        uint16_t crc16 = (temp << 8) | (temp >> 8);
 
-    //Notify the receive task that a packet should be on its way
-    if (rs485_rx_task_handle != NULL)
-    {
-      xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
-    }
+        cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+        cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+      }
+
+      //Send the bytes (actually just put them into the TX FIFO buffer)
+      uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+      //Notify the receive task that a packet should be on its way
+      if (rs485_rx_task_handle != NULL)
+      {
+        xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+      }
+    } //end if
   }
 }
 

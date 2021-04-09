@@ -1623,7 +1623,26 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
   response->print(comma);
   response->print(F("\"current\":["));
-  response->print(null);
+  if (currentMonitor.enabled)
+  {
+    //Output current monitor values, this is inside an array, so could be more than 1
+    response->print(F("{\"c\":"));
+    response->print(currentMonitor.current,4);
+    response->print(F(",\"v\":"));
+    response->print(currentMonitor.voltage,4);
+    response->print(F(",\"mahout\":"));
+    response->print(currentMonitor.milliamphour_out);
+    response->print(F(",\"mahin\":"));
+    response->print(currentMonitor.milliamphour_in);
+    response->print(F(",\"p\":"));
+    response->print(currentMonitor.power,2);
+    response->print("}");
+  }
+  else
+  {
+    response->print(null);
+  }
+
   response->print("]");
 
   //The END...

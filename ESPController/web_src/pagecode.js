@@ -243,13 +243,29 @@ function queryBMS() {
             }
         }
 
-        //Not currently supported
         if (jsondata.current) {
             if (jsondata.current[0] == null) {
                 $("#current").hide();
+                $("#shuntv").hide();
+                $("#amphout").hide();
+                $("#amphin").hide();
             } else {
-                $("#current .v").html((parseFloat(jsondata.current[0]) / 1000.0).toFixed(2));
+                var data = jsondata.current[0];
+
+                $("#current .v").html(parseFloat(data.c).toFixed(2)+"A");
                 $("#current").show();
+
+                $("#shuntv .v").html(parseFloat(data.v).toFixed(2)+"V");
+                $("#shuntv").show();
+
+                $("#power .v").html(parseFloat(data.p)+"W");
+                $("#power").show();
+
+                $("#amphout .v").html((parseFloat(data.mahout)/1000).toFixed(3));
+                $("#amphout").show();
+
+                $("#amphin .v").html((parseFloat(data.mahin)/1000).toFixed(3));
+                $("#amphin").show();
             }
         }
 
@@ -950,6 +966,16 @@ $(function () {
 
         return true;
     });
+
+    $("#currentmonitor").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+
+        switchPage("#diybmsCurrentMonitorPage");
+
+        return true;
+    });
+
 
     $("#integration").click(function () {
         $(".header-right a").removeClass("active");

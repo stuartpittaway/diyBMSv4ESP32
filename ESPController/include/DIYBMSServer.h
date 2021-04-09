@@ -111,5 +111,5 @@ extern bool _sd_card_installed;
 extern TaskHandle_t avrprog_task_handle;
 extern avrprogramsettings _avrsettings;
 extern RelayState previousRelayState[RELAY_TOTAL];
-
+extern currentmonitoring_struct currentMonitor;
 #endif
