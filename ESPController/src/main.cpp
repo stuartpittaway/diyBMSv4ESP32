@@ -1934,6 +1934,8 @@ void rs485_rx(void *param)
             {
               xTaskNotify(voltageandstatussnapshot_task_handle, 0x00, eNotifyAction::eNoAction);
             }*/
+            currentMonitor.validReadings = true;
+
             if (_tft_screen_available)
             {
               //Refresh the TFT display
@@ -1954,6 +1956,10 @@ void rs485_rx(void *param)
     }
     else
     {
+
+      //Should we set this to false?
+      //currentMonitor.validReadings=false;
+
       ESP_LOGE(TAG, "Short packet %i bytes", len);
     }
     //for (int i = 0; i < len; i++)    {      dumpByte(data[i]);    }

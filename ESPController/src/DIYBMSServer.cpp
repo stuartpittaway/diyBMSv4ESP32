@@ -1738,7 +1738,7 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
   response->print(comma);
   response->print(F("\"current\":["));
-  if (_mysettings->currentMonitoringEnabled)
+  if (_mysettings->currentMonitoringEnabled && currentMonitor.validReadings)
   {
     //Output current monitor values, this is inside an array, so could be more than 1
     response->print(F("{\"c\":"));

@@ -281,7 +281,7 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
             _ScreenPageCounter = 0;
         }
 
-        if (_ScreenPageCounter == 1 && mysettings.currentMonitoringEnabled == false)
+        if (_ScreenPageCounter == 1 && mysettings.currentMonitoringEnabled == false && currentMonitor.validReadings)
         {
             //Don't show current if its not fitted/installed
             _ScreenPageCounter = 0;
