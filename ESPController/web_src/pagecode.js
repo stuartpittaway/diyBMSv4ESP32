@@ -992,6 +992,43 @@ $(function () {
 
                 $("#shuntmaxcur").val(data.shuntmaxcur);
                 $("#shuntmv").val(data.shuntmv);
+
+                $("#cmvalid").val(data.valid);
+                $("#cmtimestampage").val(data.timestampage);
+                $("#cmtemperature").val(data.temperature);
+                $("#cmwatchdog").val(data.watchdog);
+                $("#cmactualshuntmv").val(data.actualshuntmv);
+                $("#cmcurrentlsb").val(data.currentlsb);
+                $("#cmresistance").val(data.resistance);
+                $("#cmcalibration").val(data.calibration);
+
+                $("#cmtemplimit").val(data.templimit);
+
+                $("#cmundervlimit").val(data.undervlimit);
+                $("#cmovervlimit").val(data.overvlimit);
+
+                $("#cmoverclimit").val(data.overclimit);
+                $("#cmunderclimit").val(data.underclimit);
+
+                $("#cmoverplimit").val(data.overplimit);
+                //Temperature coefficient
+                $("#cmtempcoeff").val(data.tempcoeff);
+
+                $("#cmmodel").val(data.model.toString(16));
+                $("#cmfirmwarev").val(data.firmwarev.toString(16));
+
+                var d = new Date(data.firmwaredate * 1000);
+                $("#cmfirmwaredate").val(d.toString());
+
+
+                if (data.enabled) {
+                    $("#currentmonadvanced").show();
+                    $("#currentmonbasic").show();
+                } else {
+                    $("#currentmonadvanced").hide();
+                    $("#currentmonbasic").hide();
+                }
+
             }).fail(function () { }
             );
 
@@ -1290,6 +1327,32 @@ $(function () {
             },
         });
     });
+
+
+    $("#diybmsCurrentMonitorForm1").unbind('submit').submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+            type: $(this).attr('method'),
+            url: $(this).attr('action'),
+            data: $(this).serialize(),
+            success: function (data) {
+                $("#currentmonadvanced").hide();
+                $("#currentmonbasic").hide();
+
+                $("#savesuccess").show().delay(2000).fadeOut(500);
+                
+                //Show spinner for 6 seconds, then refresh page
+                $("#loading").show().delay(6000).hide("fast", function () {
+                    $("#currentmonitor").click();
+                });
+            },
+            error: function (data) {
+                $("#saveerror").show().delay(2000).fadeOut(500);
+            },
+        });
+    });
+
 
     $("#settingsForm").unbind('submit').submit(function (e) {
         e.preventDefault();

@@ -1918,6 +1918,9 @@ void rs485_rx(void *param)
               case 38:
               {
                 currentMonitor.firmwaredatetime = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
+                //If we have received the firmware settings, it means we have asked and got a full dump of all the registers
+                //so record it as valid
+                currentMonitor.validReadings = true;
                 break;
               }
 
@@ -1942,7 +1945,6 @@ void rs485_rx(void *param)
             {
               xTaskNotify(voltageandstatussnapshot_task_handle, 0x00, eNotifyAction::eNoAction);
             }*/
-            currentMonitor.validReadings = true;
 
             if (_tft_screen_available)
             {
@@ -1994,17 +1996,38 @@ void rs485_tx(void *param)
       //Ensure we have empty receive buffer
       uart_flush_input(rs485_uart_num);
 
-      //Only calculate the CRC if we need to...
-      if (cmd[sizeof(cmd) - 2] == 0 && cmd[sizeof(cmd) - 1] == 0)
+      //Ideally we poll the current monitor and only ask it for a small subset of registers
+      //the first 12 registers are the most useful, so only need the others
+      //when we want to get the configuration data
+      /*
+      if (currentMonitor.validReadings == false && cmd[5] != 38)
       {
-        uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
-
-        //Byte swap the Hi and Lo bytes
-        uint16_t crc16 = (temp << 8) | (temp >> 8);
-
-        cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
-        cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+        //Ask for all the registers (38 of them)
+        cmd[5] = 38;
+        //clear CRC
+        cmd[sizeof(cmd) - 2] = 0;
+        cmd[sizeof(cmd) - 1] = 0;
       }
+      else
+      {
+        //Just get the short version
+        cmd[5] = 12;
+        //clear CRC
+        cmd[sizeof(cmd) - 2] = 0;
+        cmd[sizeof(cmd) - 1] = 0;
+      }
+*/
+      //Only calculate the CRC if we need to...
+      //if (cmd[sizeof(cmd) - 2] == 0 && cmd[sizeof(cmd) - 1] == 0)
+      //{
+      uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+      //Byte swap the Hi and Lo bytes
+      uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+      cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+      cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+      //}
 
       //Send the bytes (actually just put them into the TX FIFO buffer)
       uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));

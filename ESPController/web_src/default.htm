@@ -160,8 +160,8 @@
                         <th>Voltage</th>
                         <th class='hide'>V. Min</th>
                         <th class='hide'>V. Max</th>
-                        <th class='hide'>Temp Int °C</th>
-                        <th class='hide'>Temp Ext °C</th>
+                        <th class='hide'>Temp Int &deg;C</th>
+                        <th class='hide'>Temp Ext &deg;C</th>
                         <th class='hide'>Bypass PWM %</th>
                         <th class='hide'>Bad packet count</th>
                         <th class='hide'>Packets received</th>
@@ -398,7 +398,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule5value">Module over temperature (internal) °C</label></td>
+                                <td><label for="rule5value">Module over temperature (internal) &deg;C</label></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule5value" id="rule5value"
                                         value="60" required=""></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule5hysteresis"
@@ -406,7 +406,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule6value">Module under temperature (internal) °C</label></td>
+                                <td><label for="rule6value">Module under temperature (internal) &deg;C</label></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule6value" id="rule6value"
                                         value="5" required=""></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule6hysteresis"
@@ -414,7 +414,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule7value">Cell over temperature (external) °C</label></td>
+                                <td><label for="rule7value">Cell over temperature (external) &deg;C</label></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule7value" id="rule7value"
                                         value="45" required=""></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule7hysteresis"
@@ -422,7 +422,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule8value">Cell under temperature (external) °C</label></td>
+                                <td><label for="rule8value">Cell under temperature (external) &deg;C</label></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule8value" id="rule8value"
                                         value="5" required=""></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule8hysteresis"
@@ -515,10 +515,11 @@
 
     <div class="page" id="diybmsCurrentMonitorPage">
         <h1>diyBMS Current &amp; Voltage Monitor</h1>
+
         <div class="region">
-            <h2>Settings</h2>
-            <p>Configure the current monitor using the settings below.  For the current shunt settings, ensure these match the data sheet for your particular shunt resistor.</p>
-            <form id="diybmsCurrentMonitorForm" method="POST" action="savecurrentmon.json" autocomplete="off">
+            <h2>Connection</h2>
+            <p>Configure the MODBUS connection to the current monitor using the settings below.</p>
+            <form id="diybmsCurrentMonitorForm1" method="POST" action="savecurrentmon.json" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="CurrentMonEnabled">Enabled</label>
@@ -532,35 +533,12 @@
                         </select>
                     </div>
 
-                    <div>
-                        <label for="shuntmaxcur">Shunt maximum current</label>
-                        <select name="shuntmaxcur" id="shuntmaxcur">
-                            <option value="5">5</option>
-                            <option value="10">10</option>
-                            <option value="20">20</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                            <option value="150">150</option>
-                            <option value="200">200</option>
-                            <option value="300">300</option>
-                            <option value="500">500</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label for="shuntmaxcur">Shunt output voltage (mV)</label>
-                        <select name="shuntmv" id="shuntmv">
-                            <option value="50">50</option>
-                            <option value="75">75</option>
-                            <option value="100">100</option>
-                            <option value="150">150</option>
-                        </select>
-                    </div>
-
-                    <input type="submit" value="Save settings" />
+                    <input type="submit" value="Save connection settings" />
                 </div>
             </form>
         </div>
+
+        
 
         <div class="region">
             <h2>RS485</h2>
@@ -605,252 +583,385 @@
             </form>
         </div>
 
-    </div>
 
-
-    <div class="page" id="settingsPage">
-        <h1>Controller Settings</h1>
-        <div class="region">
-            <h2>Modules &amp; Banks</h2>
-            <p>DIYBMS supports up to 100 modules in total. These modules can be split into banks to support parallel
-                configurations.</p>
-            <p>Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).</p>
-            <form id="banksForm" method="POST" action="savebankconfig.json" autocomplete="off">
+        <div class="region" id="currentmonbasic">
+            <h2>Basic Settings</h2>
+            <p>Ensure the current shunt parameters match the data sheet for your particular shunt resistor.</p>
+            <form id="diybmsCurrentMonitorForm2" method="POST" action="savecmbasic.json" autocomplete="off">
                 <div class="settings">
+
                     <div>
-                        <label for="totalSeriesModules">Number of series cells (eg. 8S)</label>
-                        <select name="totalSeriesModules" id="totalSeriesModules">
+                        <label for="shuntmaxcur">Shunt maximum current</label>
+                        <select name="shuntmaxcur" id="shuntmaxcur">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="150">150</option>
+                            <option value="200">200</option>
+                            <option value="300">300</option>
+                            <option value="500">500</option>
                         </select>
                     </div>
+
                     <div>
-                        <label for="totalBanks">Number of parallel banks (eg. 2P)</label>
-                        <select name="totalBanks" id="totalBanks">
+                        <label for="shuntmaxcur">Shunt output voltage (mV)</label>
+                        <select name="shuntmv" id="shuntmv">
+                            <option value="50">50</option>
+                            <option value="75">75</option>
+                            <option value="100">100</option>
+                            <option value="150">150</option>
                         </select>
                     </div>
-                    <input type="submit" value="Save module &amp; bank settings" />
+
+                    <div>
+                        <label for="cmvalid">Values valid?</label>
+                        <input id="cmvalid" name="cmvalid" value="" readonly="">
+                    </div>
+                    <div>
+                        <label for="cmtimestampage">Last communication (milliseconds)</label>
+                        <input id="cmtimestampage" name="cmtimestampage" value="" readonly="">
+                    </div>
+                    <div>
+                        <label for="cmwatchdog">Watchdog counter</label>
+                        <input id="cmwatchdog" name="cmwatchdog" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmtemperature">Die temperature &deg;C</label>
+                        <input id="cmtemperature" name="cmtemperature" value="" readonly="">
+                    </div>
+                    <div>
+                        <label for="cmactualshuntmv">Actual shunt mV reading</label>
+                        <input id="cmactualshuntmv" name="cmactualshuntmv" value="" readonly="">
+                    </div>
+                    <div>
+                        <label for="cmcurrentlsb">Current LSB size</label>
+                        <input id="cmcurrentlsb" name="cmcurrentlsb" value="" readonly="">
+                    </div>
+                    <div>
+                        <label for="cmresistance">Shunt resistance</label>
+                        <input id="cmresistance" name="cmresistance" value="" readonly="">
+                    </div>
+                    <div>
+                        <label for="cmmodel">Sensor model</label>
+                        <input id="cmmodel" name="cmmodel" value="" readonly="">
+                    </div>
+                    <div>
+                        <label for="cmfirmwarev">Firmware version</label>
+                        <input id="cmfirmwarev" name="cmfirmwarev" value="" readonly="">
+                    </div>
+                    <div>
+                        <label for="cmfirmwaredate">Firmware date</label>
+                        <input id="cmfirmwaredate" name="cmfirmwaredate" value="" readonly="">
+                    </div>
+
+                    <input type="submit" value="Save basic settings" />
                 </div>
             </form>
         </div>
 
-        <div class="region">
-            <h2>Network Time Protocol</h2>
-            <p>Time is set via NTP, if your controller is not connected to the Internet. Time based rules will be
-                incorrect. This does not automatically correct for daylight saving.</p>
-            <p>Time now is <span id="timenow"></span></p>
-            <form id="ntpForm" method="POST" action="saventp.json" autocomplete="off">
+
+
+        <div class="region"  id="currentmonadvanced">
+            <h2>Advanced Current Monitor Settings</h2>
+            <p>If you wish to use the relay control on the shunt monitor, set the parameters here. You should not
+                normally need to change the calibration value.</p>
+            <p>Current limit is for use whilst discharging the battery, under current limit is used when charging, so
+                different discharge/charge current limits can be used.</p>
+            <p>Temperature limit is based on the chip die temperature, which may not match the shunt temperature.</p>
+
+            <form id="diybmsCurrentMonitorForm3" method="POST" action="savecmadvanced.json" autocomplete="off">
                 <div class="settings">
                     <div>
-                        <label for="NTPServer">NTP Server</label>
-                        <input type="input" name="NTPServer" id="NTPServer" value="" required="" maxlength="64">
+                        <label for="cmcalibration">Calibration</label>
+                        <input id="cmcalibration" name="cmcalibration" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmtemplimit">Temperature limit</label>
+                        <input id="cmtemplimit" name="cmtemplimit" value="" readonly="">
                     </div>
                     <div>
-                        <label for="NTPZoneHour">Timezone (hour)</label>
-                        <input type="number" min="-23" max="23" step="1" name="NTPZoneHour" id="NTPZoneHour" value="0"
-                            required="">
+                        <label for="cmundervlimit">Under voltage limit</label>
+                        <input id="cmundervlimit" name="cmundervlimit" value="" readonly="">
                     </div>
                     <div>
-                        <label for="NTPZoneMin">Timezone (minute)</label>
-                        <input type="number" min="0" max="59" step="1" name="NTPZoneMin" id="NTPZoneMin" value="0"
-                            required="">
+                        <label for="cmovervlimit">Over voltage limit</label>
+                        <input id="cmovervlimit" name="cmovervlimit" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmoverclimit">Over current limit</label>
+                        <input id="cmoverclimit" name="cmoverclimit" value="" readonly="">
                     </div>
                     <div>
-                        <label for="NTPDST">Daylight Saving Enabled</label>
-                        <input type="checkbox" name="NTPDST" id="NTPDST">
+                        <label for="cmunderclimit">Under current limit</label>
+                        <input id="cmunderclimit" name="cmunderclimit" value="" readonly="">
                     </div>
-                    <input type="submit" value="Save NTP settings" />
+                    <div>
+                        <label for="cmoverplimit">Over power limit</label>
+                        <input id="cmoverplimit" name="cmoverplimit" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmtempcoeff">Temperature coefficient ppm/&deg;C</label>
+                        <input id="cmtempcoeff" name="cmtempcoeff" value="" readonly="">
+                    </div>
+                    <input type="submit" value="Save advanced settings" />
                 </div>
             </form>
+            <!-- End of page-->
         </div>
 
-        <div class="region">
-            <h2>Display Settings</h2>
-            <form id="displaySettingForm" method="POST" action="savedisplaysetting.json" autocomplete="off">
-                <div class="settings">
-                    <div>
-                        <label for="VoltageHigh">Graph voltage scale (high)</label>
-                        <select name="VoltageHigh" id="VoltageHigh">
-                            <option>4.50</option>
-                            <option>4.25</option>
-                            <option>4.00</option>
-                            <option>3.75</option>
-                            <option>3.50</option>
-                            <option>3.25</option>
-                            <option>3.00</option>
-                            <option>2.75</option>
-                            <option>2.50</option>
-                            <option>2.25</option>
-                            <option>2.00</option>
-                        </select>
+
+        <div class="page" id="settingsPage">
+            <h1>Controller Settings</h1>
+            <div class="region">
+                <h2>Modules &amp; Banks</h2>
+                <p>DIYBMS supports up to 100 modules in total. These modules can be split into banks to support parallel
+                    configurations.</p>
+                <p>Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).</p>
+                <form id="banksForm" method="POST" action="savebankconfig.json" autocomplete="off">
+                    <div class="settings">
+                        <div>
+                            <label for="totalSeriesModules">Number of series cells (eg. 8S)</label>
+                            <select name="totalSeriesModules" id="totalSeriesModules">
+                            </select>
+                        </div>
+                        <div>
+                            <label for="totalBanks">Number of parallel banks (eg. 2P)</label>
+                            <select name="totalBanks" id="totalBanks">
+                            </select>
+                        </div>
+                        <input type="submit" value="Save module &amp; bank settings" />
                     </div>
-                    <div>
-                        <label for="VoltageLow">Graph voltage scale (low)</label>
-                        <select name="VoltageLow" id="VoltageLow">
-                            <option>4.50</option>
-                            <option>4.25</option>
-                            <option>4.00</option>
-                            <option>3.75</option>
-                            <option>3.50</option>
-                            <option>3.25</option>
-                            <option>3.00</option>
-                            <option>2.75</option>
-                            <option>2.50</option>
-                            <option>2.25</option>
-                            <option>1.75</option>
-                            <option>1.50</option>
-                            <option>1.25</option>
-                            <option>1.00</option>
-                            <option>0.50</option>
-                            <option>0.00</option>
-                        </select>
-                    </div>
-                    <input type="submit" value="Save display settings" />
-                </div>
-            </form>
-        </div>
-
-        <div class="region">
-            <h2>Reset Counters</h2>
-            <form id="resetCountersForm" method="POST" action="resetcounters.json" autocomplete="off">
-                <div class="settings">
-                    <input name="resetCounters" id="resetCounters" type="hidden" value="0">
-                    <input type="submit" value="Reset counters" />
-                </div>
-            </form>
-        </div>
-        <div class="region">
-            <h2>Restart Controller</h2>
-            <form id="restartControllerForm" method="POST" action="restartcontroller.json" autocomplete="off">
-                <div class="settings">
-                    <input name="handleRestartController" id="handleRestartController" type="hidden" value="0">
-                    <input type="submit" value="Restart Controller" />
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="page" id="avrprogPage">
-        <h1>AVR Programmer</h1>
-        <div class="region">
-            <p>Controller can program modules and devices using the files below. <strong>Do not connect</strong> a
-                device to be programmed before enabling programming mode.</p>
-            <p>Instructions:
-                <ol>
-                    <li>"Enable programming mode", this will stop SD card logging and TFT touch screen response.</li>
-                    <li>Select the relevant file to program</li>
-                    <li>Read the warnings</li>
-                    <li>Attach/connect device to be programmed to the ISP connector on the controller</li>
-                    <li>Select "Program Device"</li>
-                    <li>When complete, remove the device</li>
-                    <li>Program other devices as needed</li>
-                    <li>Disable programming mode</li>
-                </ol>
-            </p>
-            <ul id="avrprog">
-
-            </ul>
-            <div>
-                <button type="button" id="AVRProgEnable">Enable programming mode</button>
-                <button type="button" id="AVRProgDisable">Disable programming mode</button>
+                </form>
             </div>
-            <div id="avrprogconfirm">
-                <input type="hidden" value="" id="selectedavrindex" />
-                <img class="warnicon" src="warning.png" width="48" height="41" alt="Warning" />
-                <ul>
-                    <li>Ensure you disconnect all battery and communication cables from the module/device before
-                        programming.</li>
-                    <li>Connect the module to the ISP port on the controller using a ribbon cable or adapter, ensure the
-                        notch is
-                        aligned with pin 1 on the module.</li>
-                    <li>Click 'Program Device' to start programming</li>
-                    <li>Remove cable as soon as programming is complete</li>
+
+            <div class="region">
+                <h2>Network Time Protocol</h2>
+                <p>Time is set via NTP, if your controller is not connected to the Internet. Time based rules will be
+                    incorrect. This does not automatically correct for daylight saving.</p>
+                <p>Time now is <span id="timenow"></span></p>
+                <form id="ntpForm" method="POST" action="saventp.json" autocomplete="off">
+                    <div class="settings">
+                        <div>
+                            <label for="NTPServer">NTP Server</label>
+                            <input type="input" name="NTPServer" id="NTPServer" value="" required="" maxlength="64">
+                        </div>
+                        <div>
+                            <label for="NTPZoneHour">Timezone (hour)</label>
+                            <input type="number" min="-23" max="23" step="1" name="NTPZoneHour" id="NTPZoneHour"
+                                value="0" required="">
+                        </div>
+                        <div>
+                            <label for="NTPZoneMin">Timezone (minute)</label>
+                            <input type="number" min="0" max="59" step="1" name="NTPZoneMin" id="NTPZoneMin" value="0"
+                                required="">
+                        </div>
+                        <div>
+                            <label for="NTPDST">Daylight Saving Enabled</label>
+                            <input type="checkbox" name="NTPDST" id="NTPDST">
+                        </div>
+                        <input type="submit" value="Save NTP settings" />
+                    </div>
+                </form>
+            </div>
+
+            <div class="region">
+                <h2>Display Settings</h2>
+                <form id="displaySettingForm" method="POST" action="savedisplaysetting.json" autocomplete="off">
+                    <div class="settings">
+                        <div>
+                            <label for="VoltageHigh">Graph voltage scale (high)</label>
+                            <select name="VoltageHigh" id="VoltageHigh">
+                                <option>4.50</option>
+                                <option>4.25</option>
+                                <option>4.00</option>
+                                <option>3.75</option>
+                                <option>3.50</option>
+                                <option>3.25</option>
+                                <option>3.00</option>
+                                <option>2.75</option>
+                                <option>2.50</option>
+                                <option>2.25</option>
+                                <option>2.00</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="VoltageLow">Graph voltage scale (low)</label>
+                            <select name="VoltageLow" id="VoltageLow">
+                                <option>4.50</option>
+                                <option>4.25</option>
+                                <option>4.00</option>
+                                <option>3.75</option>
+                                <option>3.50</option>
+                                <option>3.25</option>
+                                <option>3.00</option>
+                                <option>2.75</option>
+                                <option>2.50</option>
+                                <option>2.25</option>
+                                <option>1.75</option>
+                                <option>1.50</option>
+                                <option>1.25</option>
+                                <option>1.00</option>
+                                <option>0.50</option>
+                                <option>0.00</option>
+                            </select>
+                        </div>
+                        <input type="submit" value="Save display settings" />
+                    </div>
+                </form>
+            </div>
+
+            <div class="region">
+                <h2>Reset Counters</h2>
+                <form id="resetCountersForm" method="POST" action="resetcounters.json" autocomplete="off">
+                    <div class="settings">
+                        <input name="resetCounters" id="resetCounters" type="hidden" value="0">
+                        <input type="submit" value="Reset counters" />
+                    </div>
+                </form>
+            </div>
+            <div class="region">
+                <h2>Restart Controller</h2>
+                <form id="restartControllerForm" method="POST" action="restartcontroller.json" autocomplete="off">
+                    <div class="settings">
+                        <input name="handleRestartController" id="handleRestartController" type="hidden" value="0">
+                        <input type="submit" value="Restart Controller" />
+                    </div>
+                </form>
+            </div>
+            <!-- End of page-->
+        </div>
+
+        <div class="page" id="avrprogPage">
+            <h1>AVR Programmer</h1>
+            <div class="region">
+                <p>Controller can program modules and devices using the files below. <strong>Do not connect</strong> a
+                    device to be programmed before enabling programming mode.</p>
+                <p>Instructions:
+                    <ol>
+                        <li>"Enable programming mode", this will stop SD card logging and TFT touch screen response.
+                        </li>
+                        <li>Select the relevant file to program</li>
+                        <li>Read the warnings</li>
+                        <li>Attach/connect device to be programmed to the ISP connector on the controller</li>
+                        <li>Select "Program Device"</li>
+                        <li>When complete, remove the device</li>
+                        <li>Program other devices as needed</li>
+                        <li>Disable programming mode</li>
+                    </ol>
+                </p>
+                <ul id="avrprog">
+
                 </ul>
-                <button type="button" id="ProgAVR">Program Device</button>
-                <button type="button" id="ProgAVRCancel">Cancel</button>
-                <p id='avrinfo'></p>
+                <div>
+                    <button type="button" id="AVRProgEnable">Enable programming mode</button>
+                    <button type="button" id="AVRProgDisable">Disable programming mode</button>
+                </div>
+                <div id="avrprogconfirm">
+                    <input type="hidden" value="" id="selectedavrindex" />
+                    <img class="warnicon" src="warning.png" width="48" height="41" alt="Warning" />
+                    <ul>
+                        <li>Ensure you disconnect all battery and communication cables from the module/device before
+                            programming.</li>
+                        <li>Connect the module to the ISP port on the controller using a ribbon cable or adapter, ensure
+                            the
+                            notch is
+                            aligned with pin 1 on the module.</li>
+                        <li>Click 'Program Device' to start programming</li>
+                        <li>Remove cable as soon as programming is complete</li>
+                    </ul>
+                    <button type="button" id="ProgAVR">Program Device</button>
+                    <button type="button" id="ProgAVRCancel">Cancel</button>
+                    <p id='avrinfo'></p>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="page" id="storagePage">
-        <h1>Storage</h1>
-        <div class="region">
-            <h2>SD Card</h2>
-            <p id='sdcardmissing' class="warning">SD card not installed</p>
-            Used <span id="sdcard_used"></span>KiB (<span id="sdcard_used_percent"></span>%%) of <span
-                id="sdcard_total"></span>KiB
-            <p>
-                <button type="button" id="unmount">Unmount</button>
-                <button type="button" id="mount">Mount</button>
-                <button type="button" id="savewifi">Save Wifi</button>
-            </p>
-            <ul id="sdcardfiles"></ul>
-        </div>
-        <div class="region">
-            <h2>Flash Memory</h2>
-            <p>Used <span id="flash_used"></span>KiB (<span id="flash_used_percent"></span>%%) of <span
-                    id="flash_total"></span>KiB</p>
-            <ul id="flashfiles"></ul>
-        </div>
+        <div class="page" id="storagePage">
+            <h1>Storage</h1>
+            <div class="region">
+                <h2>SD Card</h2>
+                <p id='sdcardmissing' class="warning">SD card not installed</p>
+                Used <span id="sdcard_used"></span>KiB (<span id="sdcard_used_percent"></span>%%) of <span
+                    id="sdcard_total"></span>KiB
+                <p>
+                    <button type="button" id="unmount">Unmount</button>
+                    <button type="button" id="mount">Mount</button>
+                    <button type="button" id="savewifi">Save Wifi</button>
+                </p>
+                <ul id="sdcardfiles"></ul>
+            </div>
+            <div class="region">
+                <h2>Flash Memory</h2>
+                <p>Used <span id="flash_used"></span>KiB (<span id="flash_used_percent"></span>%%) of <span
+                        id="flash_total"></span>KiB</p>
+                <ul id="flashfiles"></ul>
+            </div>
 
-        <div class="region">
-            <h2>Logging</h2>
-            <p>Cell data and output states can be stored as log files using an SD card.</p>
-            <form id="loggingForm" method="POST" action="savestorage.json" autocomplete="off">
-                <div class="settings">
-                    <div>
-                        <label for="loggingEnabled">SD card logging enabled</label>
-                        <input type="checkbox" name="loggingEnabled" id="loggingEnabled">
+            <div class="region">
+                <h2>Logging</h2>
+                <p>Cell data and output states can be stored as log files using an SD card.</p>
+                <form id="loggingForm" method="POST" action="savestorage.json" autocomplete="off">
+                    <div class="settings">
+                        <div>
+                            <label for="loggingEnabled">SD card logging enabled</label>
+                            <input type="checkbox" name="loggingEnabled" id="loggingEnabled">
+                        </div>
+                        <div>
+                            <label for="loggingFreq">Cell data logging frequency (seconds)</label>
+                            <select name="loggingFreq" id="loggingFreq">
+                                <option>15</option>
+                                <option>30</option>
+                                <option>60</option>
+                                <option>90</option>
+                                <option>120</option>
+                                <option>300</option>
+                            </select>
+                        </div>
+                        <input type="submit" value="Save logging settings" />
                     </div>
-                    <div>
-                        <label for="loggingFreq">Cell data logging frequency (seconds)</label>
-                        <select name="loggingFreq" id="loggingFreq">
-                            <option>15</option>
-                            <option>30</option>
-                            <option>60</option>
-                            <option>90</option>
-                            <option>120</option>
-                            <option>300</option>
-                        </select>
-                    </div>
-                    <input type="submit" value="Save logging settings" />
-                </div>
-            </form>
+                </form>
+            </div>
+
         </div>
 
-    </div>
+        <script type="text/javascript">
+            var g1 = null;
+            var g2 = null;
+            var g3 = null;
 
-    <script type="text/javascript">
-        var g1 = null;
-        var g2 = null;
-        var g3 = null;
+            jQuery.cachedScript = function (url, options) {
+                options = $.extend(options || {}, {
+                    dataType: "script",
+                    cache: true,
+                    url: url
+                });
+                return jQuery.ajax(options);
+            };
 
-        jQuery.cachedScript = function (url, options) {
-            options = $.extend(options || {}, {
-                dataType: "script",
-                cache: true,
-                url: url
-            });
-            return jQuery.ajax(options);
-        };
-
-        $(document).ready(function () {
-            $.cachedScript("echarts.min.js").done(function (script, textStatus) {
-                    $.cachedScript("echarts_gl.min.js").done(function (script, textStatus) {
-                            $.cachedScript("pagecode.js").done(function (script, textStatus) {
-                                //All done
-                            }).fail(function (jqxhr, settings, exception) {
+            $(document).ready(function () {
+                $.cachedScript("echarts.min.js").done(function (script, textStatus) {
+                        $.cachedScript("echarts_gl.min.js").done(function (script, textStatus) {
+                                $.cachedScript("pagecode.js").done(function (script, textStatus) {
+                                    //All done
+                                }).fail(function (jqxhr, settings, exception) {
+                                    $("#jslibrary").show();
+                                });
+                            })
+                            .fail(function (jqxhr, settings, exception) {
                                 $("#jslibrary").show();
                             });
-                        })
-                        .fail(function (jqxhr, settings, exception) {
-                            $("#jslibrary").show();
-                        });
-                })
-                .fail(function (jqxhr, settings, exception) {
-                    $("#jslibrary").show();
-                });
-        });
-    </script>
+                    })
+                    .fail(function (jqxhr, settings, exception) {
+                        $("#jslibrary").show();
+                    });
+            });
+        </script>
 </body>
 
 </html>

@@ -474,6 +474,13 @@ void DIYBMSServer::saveCurrentMonSettings(AsyncWebServerRequest *request)
     _mysettings->currentMonitoringModBusAddress = p1->value().toInt();
   }
 
+  if (_mysettings->currentMonitoringEnabled == false)
+  {
+    //Switch off current monitor, clear out the values
+    memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+    currentMonitor.validReadings = false;
+  }
+
   saveConfiguration();
 
   SendSuccess(request);
@@ -1098,7 +1105,13 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   PrintStreamCommaBoolean(response, "\"enabled\":", _mysettings->currentMonitoringEnabled);
   PrintStreamComma(response, "\"address\":", _mysettings->currentMonitoringModBusAddress);
 
-  PrintStreamComma(response, "\"timestampage\":", esp_timer_get_time() - currentMonitor.timestamp);
+  //Convert to milliseconds
+  uint32_t x = 0;
+  if (currentMonitor.validReadings)
+  {
+    x = (esp_timer_get_time() - currentMonitor.timestamp) / 1000;
+  }
+  PrintStreamComma(response, "\"timestampage\":", x);
   PrintStreamCommaBoolean(response, "\"valid\":", currentMonitor.validReadings);
 
   PrintStreamCommaFloat(response, "\"voltage\":", currentMonitor.voltage);
@@ -1120,7 +1133,7 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   PrintStreamCommaFloat(response, "\"overplimit\":", currentMonitor.overpowerlimit);
   PrintStreamComma(response, "\"tempcoeff\":", currentMonitor.shunttempcoefficient);
   PrintStreamComma(response, "\"model\":", currentMonitor.modelnumber);
-  
+
   PrintStreamComma(response, "\"firmwarev\":", currentMonitor.firmwareversion);
   PrintStreamComma(response, "\"firmwaredate\":", currentMonitor.firmwaredatetime);
 
