@@ -57,7 +57,9 @@ private:
     {
         Settings::WriteConfig("diybms", (char *)_mysettings, sizeof(diybms_eeprom_settings));
     }
+    static void PrintStreamCommaFloat(AsyncResponseStream *response, const char *text, float value);
     static void PrintStreamComma(AsyncResponseStream *response, const char *text, uint32_t value);
+    static void PrintStreamCommaInt16(AsyncResponseStream *response, const char *text, int16_t value);
     static void PrintStream(AsyncResponseStream *response, const char *text, uint32_t value);
     static void PrintStreamCommaBoolean(AsyncResponseStream *response, const char *text, bool value);
     static void fileSystemListDirectory(AsyncResponseStream *response, fs::FS &fs, const char *dirname, uint8_t levels);

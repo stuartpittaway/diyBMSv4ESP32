@@ -1785,7 +1785,6 @@ void rs485_rx(void *param)
 
               case 6:
               {
-                //v.word[1] = data;
                 uint32_t milliamph = v.word[0] << 16 | data;
                 currentMonitor.milliamphour_out = milliamph;
                 break;
@@ -1793,7 +1792,6 @@ void rs485_rx(void *param)
 
               case 8:
               {
-                //v.word[1] = data;
                 uint32_t milliamph = v.word[0] << 16 | data;
                 currentMonitor.milliamphour_in = milliamph;
                 break;
@@ -1870,8 +1868,17 @@ void rs485_rx(void *param)
                 break;
               }
 
+              case 26:
+              {
+                //Bus Undervoltage (under voltage protection)
+                v.word[1] = data;
+                currentMonitor.undervoltagelimit = v.value;
+                break;
+              }
+
               case 28:
               {
+                //Over current
                 v.word[1] = data;
                 currentMonitor.overcurrentlimit = v.value;
                 break;
@@ -1879,6 +1886,7 @@ void rs485_rx(void *param)
 
               case 30:
               {
+                //Under current
                 v.word[1] = data;
                 currentMonitor.undercurrentlimit = v.value;
                 break;

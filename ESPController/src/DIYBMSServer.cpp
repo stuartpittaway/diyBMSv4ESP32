@@ -1098,7 +1098,32 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   PrintStreamCommaBoolean(response, "\"enabled\":", _mysettings->currentMonitoringEnabled);
   PrintStreamComma(response, "\"address\":", _mysettings->currentMonitoringModBusAddress);
 
-  //These values from read directly from the device
+  PrintStreamComma(response, "\"timestampage\":", esp_timer_get_time() - currentMonitor.timestamp);
+  PrintStreamCommaBoolean(response, "\"valid\":", currentMonitor.validReadings);
+
+  PrintStreamCommaFloat(response, "\"voltage\":", currentMonitor.voltage);
+  PrintStreamCommaFloat(response, "\"current\":", currentMonitor.current);
+  PrintStreamComma(response, "\"mahout\":", currentMonitor.milliamphour_out);
+  PrintStreamComma(response, "\"mahin\":", currentMonitor.milliamphour_in);
+  PrintStreamCommaInt16(response, "\"temperature\":", currentMonitor.temperature);
+  PrintStreamComma(response, "\"watchdog\":", currentMonitor.watchdogcounter);
+  PrintStreamCommaFloat(response, "\"power\":", currentMonitor.power);
+  PrintStreamCommaFloat(response, "\"actualshuntmv\":", currentMonitor.shuntmV);
+  PrintStreamCommaFloat(response, "\"currentlsb\":", currentMonitor.currentlsb);
+  PrintStreamCommaFloat(response, "\"resistance\":", currentMonitor.shuntresistance);
+  PrintStreamComma(response, "\"calibration\":", currentMonitor.shuntcal);
+  PrintStreamCommaInt16(response, "\"templimit\":", currentMonitor.temperaturelimit);
+  PrintStreamCommaFloat(response, "\"undervlimit\":", currentMonitor.undervoltagelimit);
+  PrintStreamCommaFloat(response, "\"overvlimit\":", currentMonitor.overvoltagelimit);
+  PrintStreamCommaFloat(response, "\"overclimit\":", currentMonitor.overcurrentlimit);
+  PrintStreamCommaFloat(response, "\"underclimit\":", currentMonitor.undercurrentlimit);
+  PrintStreamCommaFloat(response, "\"overplimit\":", currentMonitor.overpowerlimit);
+  PrintStreamComma(response, "\"tempcoeff\":", currentMonitor.shunttempcoefficient);
+  PrintStreamComma(response, "\"model\":", currentMonitor.modelnumber);
+  
+  PrintStreamComma(response, "\"firmwarev\":", currentMonitor.firmwareversion);
+  PrintStreamComma(response, "\"firmwaredate\":", currentMonitor.firmwaredatetime);
+
   PrintStreamComma(response, "\"shuntmv\":", currentMonitor.shuntmillivolt);
   PrintStream(response, "\"shuntmaxcur\":", currentMonitor.shuntmaxcurrent);
 
@@ -1466,12 +1491,29 @@ void DIYBMSServer::PrintStreamCommaBoolean(AsyncResponseStream *response, const 
   }
   response->print(',');
 }
+
+void DIYBMSServer::PrintStreamCommaFloat(AsyncResponseStream *response, const char *text, float value)
+{
+  response->print(text);
+  //Print value to 6 decimal places
+  response->print(value, 6);
+  response->print(',');
+}
+
 void DIYBMSServer::PrintStreamComma(AsyncResponseStream *response, const char *text, uint32_t value)
 {
   response->print(text);
   response->print(value);
   response->print(',');
 }
+
+void DIYBMSServer::PrintStreamCommaInt16(AsyncResponseStream *response, const char *text, int16_t value)
+{
+  response->print(text);
+  response->print(value);
+  response->print(',');
+}
+
 void DIYBMSServer::PrintStream(AsyncResponseStream *response, const char *text, uint32_t value)
 {
   response->print(text);
