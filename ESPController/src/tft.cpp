@@ -583,7 +583,7 @@ void DrawTFT_VoltageOneBank()
     //blank out gap between numbers
     tft.fillRect(x, y, tft.width() / 2 - x, fontHeight_4, TFT_BLACK);
 
-    y = h + fontHeight_4 + fontHeight_2;
+    y = h + fontHeight_4 + fontHeight_2 + fontHeight_2 + 2;
     x = xoffset + tft.width() / 2;
     x += tft.drawNumber(rules.numberOfBalancingModules, x, y);
     //blank out gap between numbers
