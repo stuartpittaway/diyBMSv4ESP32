@@ -1929,6 +1929,16 @@ void rs485_rx(void *param)
 
             //ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
             //ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
+            /*
+            if (voltageandstatussnapshot_task_handle != NULL)
+            {
+              xTaskNotify(voltageandstatussnapshot_task_handle, 0x00, eNotifyAction::eNoAction);
+            }*/
+            if (_tft_screen_available)
+            {
+              //Refresh the TFT display
+              xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
+            }
 
           } //end diybms current monitor command 3
         }
