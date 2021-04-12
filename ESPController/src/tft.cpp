@@ -549,7 +549,7 @@ void DrawTFT_VoltageOneBank()
     //Cell temperatures and stuff
     int16_t h = tft.height() - fontHeight_2 - 100;
 
-    y = h;
+    y = h + fontHeight_2;
     x = xoffset + 0;
     if (rules.moduleHasExternalTempSensor)
     {
