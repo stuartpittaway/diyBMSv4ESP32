@@ -93,6 +93,8 @@ private:
     static void saveGlobalSetting(AsyncWebServerRequest *request);
     static void saveBankConfiguration(AsyncWebServerRequest *request);
     static void saveRuleConfiguration(AsyncWebServerRequest *request);
+    static void saveCurrentMonBasic(AsyncWebServerRequest *request);
+    static void saveCurrentMonAdvanced(AsyncWebServerRequest *request);
     static void saveRS485Settings(AsyncWebServerRequest *request);
     static void saveCurrentMonSettings(AsyncWebServerRequest *request);
     static void saveNTP(AsyncWebServerRequest *request);
@@ -120,4 +122,5 @@ extern avrprogramsettings _avrsettings;
 extern RelayState previousRelayState[RELAY_TOTAL];
 extern currentmonitoring_struct currentMonitor;
 extern void ConfigureRS485();
+extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur);
 #endif

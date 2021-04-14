@@ -452,6 +452,42 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
   SendSuccess(request);
 }
 
+void DIYBMSServer::saveCurrentMonAdvanced(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+  /*
+  if (request->hasParam("shuntmaxcur", true) && request->hasParam("shuntmv", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("shuntmaxcur", true);
+    int shuntmaxcur = p1->value().toInt();
+
+    AsyncWebParameter *p2 = request->getParam("shuntmv", true);
+    int shuntmv = p2->value().toInt();
+  }
+*/
+  SendSuccess(request);
+}
+
+void DIYBMSServer::saveCurrentMonBasic(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (request->hasParam("shuntmaxcur", true) && request->hasParam("shuntmv", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("shuntmaxcur", true);
+    int shuntmaxcur = p1->value().toInt();
+
+    AsyncWebParameter *p2 = request->getParam("shuntmv", true);
+    int shuntmv = p2->value().toInt();
+
+    CurrentMonitorSetBasicSettings(shuntmv, shuntmaxcur);
+  }
+
+  SendSuccess(request);
+}
+
 void DIYBMSServer::saveCurrentMonSettings(AsyncWebServerRequest *request)
 {
   if (!validateXSS(request))
@@ -517,7 +553,6 @@ void DIYBMSServer::saveRS485Settings(AsyncWebServerRequest *request)
 
   saveConfiguration();
 
-  //TODO: Need to RECONFIG RS485 here
   ConfigureRS485();
   SendSuccess(request);
 }
@@ -2084,8 +2119,12 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/avrprog.json", HTTP_POST, DIYBMSServer::avrProgrammer);
   _myserver->on("/wificonfigtofile.json", HTTP_POST, DIYBMSServer::saveWifiConfigToSDCard);
+
+  //Current monitor services/settings
   _myserver->on("/savers485settings.json", HTTP_POST, DIYBMSServer::saveRS485Settings);
   _myserver->on("/savecurrentmon.json", HTTP_POST, DIYBMSServer::saveCurrentMonSettings);
+  _myserver->on("/savecmbasic.json", HTTP_POST, DIYBMSServer::saveCurrentMonBasic);
+  _myserver->on("/savecmadvanced.json", HTTP_POST, DIYBMSServer::saveCurrentMonAdvanced);
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();

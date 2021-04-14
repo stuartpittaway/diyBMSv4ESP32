@@ -282,6 +282,23 @@ struct currentmonitoring_struct
   uint16_t modelnumber;
   uint32_t firmwareversion;
   uint32_t firmwaredatetime;
+
+  bool TMPOL;
+  bool SHNTOL;
+  bool SHNTUL;
+  bool BUSOL;
+  bool BUSUL;
+  bool POL;
+  bool TempCompEnabled;
+  bool ADCRange4096mV;
+
+  bool RelayTriggerTMPOL;
+  bool RelayTriggerSHNTOL;
+  bool RelayTriggerSHNTUL;
+  bool RelayTriggerBUSOL;
+  bool RelayTriggerBUSUL;
+  bool RelayTriggerPOL;
+  bool RelayState;
 };
 
 #endif

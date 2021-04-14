@@ -113,4 +113,4 @@ Connected to VSPI interface and uses P4 output on  TCA9534A to drive reset line.
 VSPI should be disabled/not used whilst IVR programmer in use
 
 ### TX2/RX2 
-Copy of TX1/RX1 circuit
+Removed in newer revision of board

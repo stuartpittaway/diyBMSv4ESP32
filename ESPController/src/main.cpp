@@ -175,10 +175,14 @@ void voltageandstatussnapshot_task(void *param)
 void ConfigureRS485()
 {
   ESP_LOGD(TAG, "Configure RS485");
-  ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_parity(rs485_uart_num, mysettings.rs485parity));
-  ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_stop_bits(rs485_uart_num, mysettings.rs485stopbits));
-  ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_baudrate(rs485_uart_num, mysettings.rs485baudrate));
-  ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_word_length(rs485_uart_num, mysettings.rs485databits));
+  if (hal.GetRS485Mutex())
+  {
+    ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_parity(rs485_uart_num, mysettings.rs485parity));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_stop_bits(rs485_uart_num, mysettings.rs485stopbits));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_baudrate(rs485_uart_num, mysettings.rs485baudrate));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_word_length(rs485_uart_num, mysettings.rs485databits));
+    hal.ReleaseRS485Mutex();
+  }
 }
 
 void SetupRS485()
@@ -1685,6 +1689,288 @@ uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
   */
 }
 
+void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur)
+{
+
+  //Its possible that the RS485_TX task may have already requested some data
+  //at the exact split second of this call, but we ignore that
+  //given this infreqent usage of this function
+
+  //	Write Multiple Holding Registers
+  uint8_t cmd[] = {
+      //The Slave Address
+      diyBMSCurrentMonitorModbusAddress,
+      //The Function Code 16
+      16,
+      //Data Address of the first register
+      0, 18,
+      //number of registers to write
+      0, 2,
+      //number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
+      4,
+      //value to write to register 40018
+      (uint8_t)(shuntmaxcur >> 8), (uint8_t)(shuntmaxcur & 0xFF),
+      //value to write to register 40019
+      (uint8_t)(shuntmv >> 8), (uint8_t)(shuntmv & 0xFF),
+      //CRC
+      0, 0};
+
+  //Register 18 = shunt_max_current
+  //Register 19 = shunt_millivolt
+
+  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+  //Byte swap the Hi and Lo bytes
+  uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+  cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+  cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+  if (hal.GetRS485Mutex())
+  {
+    //Ensure we have empty receive buffer
+    uart_flush_input(rs485_uart_num);
+
+    //Send the bytes (actually just put them into the TX FIFO buffer)
+    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+    hal.ReleaseRS485Mutex();
+  }
+
+  ESP_LOGD(TAG, "Send MODBUS request");
+
+  //Zero all data
+  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  currentMonitor.validReadings = false;
+
+  //Notify the receive task that a packet should be on its way
+  if (rs485_rx_task_handle != NULL)
+  {
+    xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+  }
+}
+
+uint8_t frame[256];
+
+void ProcessCurrentMonitorRegisterReply(uint8_t length)
+{
+
+  FloatUnionType v;
+
+  //Length is in bytes, but the registers are returned in 16 bit words
+  uint8_t ptr = 3;
+  uint16_t reg = 0;
+  //Last time we updated the structure
+  currentMonitor.timestamp = esp_timer_get_time();
+  for (size_t i = 0; i < length / 2; i++)
+  {
+    uint16_t data = ((frame[ptr] << 8) | frame[ptr + 1]); // combine the starting address bytes
+    ptr += 2;
+    reg++;
+
+    //ESP_LOGD(TAG, "reg=%x", data);
+
+    switch (reg)
+    {
+
+    case 1:
+    case 3:
+    case 5:
+    case 7:
+    case 11:
+    case 13:
+    case 15:
+    case 17:
+    case 23:
+    case 25:
+    case 27:
+    case 29:
+    case 31:
+    case 35:
+    case 37:
+    {
+      //This stores the first half of the 32 bit register value
+      v.word[0] = data;
+      break;
+    }
+
+    case 2:
+    {
+      v.word[1] = data;
+      currentMonitor.voltage = v.value;
+      break;
+    }
+
+    case 4:
+    {
+      v.word[1] = data;
+      currentMonitor.current = v.value;
+      break;
+    }
+
+    case 6:
+    {
+      uint32_t milliamph = v.word[0] << 16 | data;
+      currentMonitor.milliamphour_out = milliamph;
+      break;
+    }
+
+    case 8:
+    {
+      uint32_t milliamph = v.word[0] << 16 | data;
+      currentMonitor.milliamphour_in = milliamph;
+      break;
+    }
+
+    case 9:
+    {
+      currentMonitor.temperature = (int16_t)data;
+      break;
+    }
+
+    case 10:
+    {
+      currentMonitor.watchdogcounter = data;
+      break;
+    }
+
+    case 12:
+    {
+      v.word[1] = data;
+      currentMonitor.power = v.value;
+      break;
+    }
+
+    case 14:
+    {
+      v.word[1] = data;
+      currentMonitor.shuntmV = v.value;
+      break;
+    }
+
+    case 16:
+    {
+      v.word[1] = data;
+      currentMonitor.currentlsb = v.value;
+      break;
+    }
+
+    case 18:
+    {
+      v.word[1] = data;
+      currentMonitor.shuntresistance = v.value;
+      break;
+    }
+
+    case 19:
+    {
+      currentMonitor.shuntmaxcurrent = data;
+      break;
+    }
+
+    case 20:
+    {
+      currentMonitor.shuntmillivolt = data;
+      break;
+    }
+    case 21:
+    {
+      currentMonitor.shuntcal = data;
+      break;
+    }
+
+    case 22:
+    {
+      currentMonitor.temperaturelimit = (int16_t)data;
+      break;
+    }
+
+    case 24:
+    {
+      //Bus Overvoltage (overvoltage protection)
+      v.word[1] = data;
+      currentMonitor.overvoltagelimit = v.value;
+      break;
+    }
+
+    case 26:
+    {
+      //Bus Undervoltage (under voltage protection)
+      v.word[1] = data;
+      currentMonitor.undervoltagelimit = v.value;
+      break;
+    }
+
+    case 28:
+    {
+      //Over current
+      v.word[1] = data;
+      currentMonitor.overcurrentlimit = v.value;
+      break;
+    }
+
+    case 30:
+    {
+      //Under current
+      v.word[1] = data;
+      currentMonitor.undercurrentlimit = v.value;
+      break;
+    }
+
+    case 32:
+    {
+      v.word[1] = data;
+      currentMonitor.overpowerlimit = v.value;
+      break;
+    }
+
+    case 33:
+    {
+      currentMonitor.shunttempcoefficient = data;
+      break;
+    }
+    case 34:
+    {
+      currentMonitor.modelnumber = data;
+      break;
+    }
+
+    case 36:
+    {
+      currentMonitor.firmwareversion = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
+      break;
+    }
+    case 38:
+    {
+      currentMonitor.firmwaredatetime = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
+      //If we have received the firmware settings, it means we have asked and got a full dump of all the registers
+      //so record it as valid
+      currentMonitor.validReadings = true;
+      break;
+    }
+
+    } //end switch
+
+    //ESP_LOGD(TAG, "%u = %x", reg, data);
+  } //end for
+
+  //ESP_LOGD(TAG, "Volt = %f", currentMonitor.voltage);
+  //ESP_LOGD(TAG, "Curr = %f", currentMonitor.current);
+  //ESP_LOGD(TAG, "Temp = %i", currentMonitor.temperature);
+
+  //ESP_LOGD(TAG, "Out = %f", currentMonitor.amphour_out);
+  //ESP_LOGD(TAG, "In = %f", currentMonitor.amphour_in);
+
+  //ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
+
+  //ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
+  //ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
+  /*
+            if (voltageandstatussnapshot_task_handle != NULL)
+            {
+              xTaskNotify(voltageandstatussnapshot_task_handle, 0x00, eNotifyAction::eNoAction);
+            }*/
+}
 //RS485 receive
 void rs485_rx(void *param)
 {
@@ -1696,16 +1982,18 @@ void rs485_rx(void *param)
     //Delay 50ms for the data to arrive
     vTaskDelay(pdMS_TO_TICKS(50));
 
-    uint8_t frame[256];
+    int len = 0;
 
-    //Wait 200ms before timeout
-    int len = uart_read_bytes(rs485_uart_num, frame, sizeof(frame), (200 / portTICK_RATE_MS));
+    if (hal.GetRS485Mutex())
+    {
+      //Wait 200ms before timeout
+      len = uart_read_bytes(rs485_uart_num, frame, sizeof(frame), (200 / portTICK_RATE_MS));
+      hal.ReleaseRS485Mutex();
+    }
 
     //Min packet length of 8 bytes
     if (len > 7)
     {
-      //ESP_LOGD(TAG, "Rec %i bytes", len);
-
       uint8_t id = frame[0];
 
       uint16_t crc = ((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
@@ -1714,6 +2002,8 @@ void rs485_rx(void *param)
       uint16_t temp = calculateCRC(frame, len - 2);
       //Swap bytes to match MODBUS ordering
       uint16_t calculatedCRC = (temp << 8) | (temp >> 8);
+
+      ESP_LOGD(TAG, "Rec %i bytes, id=%u", len, id);
 
       if (calculatedCRC == crc)
       {
@@ -1729,222 +2019,7 @@ void rs485_rx(void *param)
 
           if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3)
           {
-
-            FloatUnionType v;
-
-            //Length is in bytes, but the registers are returned in 16 bit words
-            uint8_t ptr = 3;
-            uint16_t reg = 0;
-            //Last time we updated the structure
-            currentMonitor.timestamp = esp_timer_get_time();
-            for (size_t i = 0; i < length / 2; i++)
-            {
-              uint16_t data = ((frame[ptr] << 8) | frame[ptr + 1]); // combine the starting address bytes
-              ptr += 2;
-              reg++;
-
-              //ESP_LOGD(TAG, "reg=%x", data);
-
-              switch (reg)
-              {
-
-              case 1:
-              case 3:
-              case 5:
-              case 7:
-              case 11:
-              case 13:
-              case 15:
-              case 17:
-              case 23:
-              case 25:
-              case 27:
-              case 29:
-              case 31:
-              case 35:
-              case 37:
-              {
-                //This stores the first half of the 32 bit register value
-                v.word[0] = data;
-                break;
-              }
-
-              case 2:
-              {
-                v.word[1] = data;
-                currentMonitor.voltage = v.value;
-                break;
-              }
-
-              case 4:
-              {
-                v.word[1] = data;
-                currentMonitor.current = v.value;
-                break;
-              }
-
-              case 6:
-              {
-                uint32_t milliamph = v.word[0] << 16 | data;
-                currentMonitor.milliamphour_out = milliamph;
-                break;
-              }
-
-              case 8:
-              {
-                uint32_t milliamph = v.word[0] << 16 | data;
-                currentMonitor.milliamphour_in = milliamph;
-                break;
-              }
-
-              case 9:
-              {
-                currentMonitor.temperature = (int16_t)data;
-                break;
-              }
-
-              case 10:
-              {
-                currentMonitor.watchdogcounter = data;
-                break;
-              }
-
-              case 12:
-              {
-                v.word[1] = data;
-                currentMonitor.power = v.value;
-                break;
-              }
-
-              case 14:
-              {
-                v.word[1] = data;
-                currentMonitor.shuntmV = v.value;
-                break;
-              }
-
-              case 16:
-              {
-                v.word[1] = data;
-                currentMonitor.currentlsb = v.value;
-                break;
-              }
-
-              case 18:
-              {
-                v.word[1] = data;
-                currentMonitor.shuntresistance = v.value;
-                break;
-              }
-
-              case 19:
-              {
-                currentMonitor.shuntmaxcurrent = data;
-                break;
-              }
-
-              case 20:
-              {
-                currentMonitor.shuntmillivolt = data;
-                break;
-              }
-              case 21:
-              {
-                currentMonitor.shuntcal = data;
-                break;
-              }
-
-              case 22:
-              {
-                currentMonitor.temperaturelimit = (int16_t)data;
-                break;
-              }
-
-              case 24:
-              {
-                //Bus Overvoltage (overvoltage protection)
-                v.word[1] = data;
-                currentMonitor.overvoltagelimit = v.value;
-                break;
-              }
-
-              case 26:
-              {
-                //Bus Undervoltage (under voltage protection)
-                v.word[1] = data;
-                currentMonitor.undervoltagelimit = v.value;
-                break;
-              }
-
-              case 28:
-              {
-                //Over current
-                v.word[1] = data;
-                currentMonitor.overcurrentlimit = v.value;
-                break;
-              }
-
-              case 30:
-              {
-                //Under current
-                v.word[1] = data;
-                currentMonitor.undercurrentlimit = v.value;
-                break;
-              }
-
-              case 32:
-              {
-                v.word[1] = data;
-                currentMonitor.overpowerlimit = v.value;
-                break;
-              }
-
-              case 33:
-              {
-                currentMonitor.shunttempcoefficient = data;
-                break;
-              }
-              case 34:
-              {
-                currentMonitor.modelnumber = data;
-                break;
-              }
-
-              case 36:
-              {
-                currentMonitor.firmwareversion = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
-                break;
-              }
-              case 38:
-              {
-                currentMonitor.firmwaredatetime = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
-                //If we have received the firmware settings, it means we have asked and got a full dump of all the registers
-                //so record it as valid
-                currentMonitor.validReadings = true;
-                break;
-              }
-
-              } //end switch
-
-              //ESP_LOGD(TAG, "%u = %x", reg, data);
-            } //end for
-
-            //ESP_LOGD(TAG, "Volt = %f", currentMonitor.voltage);
-            //ESP_LOGD(TAG, "Curr = %f", currentMonitor.current);
-            //ESP_LOGD(TAG, "Temp = %i", currentMonitor.temperature);
-
-            //ESP_LOGD(TAG, "Out = %f", currentMonitor.amphour_out);
-            //ESP_LOGD(TAG, "In = %f", currentMonitor.amphour_in);
-
-            //ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
-
-            //ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
-            //ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
-            /*
-            if (voltageandstatussnapshot_task_handle != NULL)
-            {
-              xTaskNotify(voltageandstatussnapshot_task_handle, 0x00, eNotifyAction::eNoAction);
-            }*/
+            ProcessCurrentMonitorRegisterReply(length);
 
             if (_tft_screen_available)
             {
@@ -1953,6 +2028,45 @@ void rs485_rx(void *param)
             }
 
           } //end diybms current monitor command 3
+
+          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3)
+          {
+            ESP_LOGI(TAG, "Read input status");
+            if (frame[2] == 2)
+            {
+              //Received two bytes containing the 16 bits/boolean values of the "discrete inputs"
+
+              uint8_t v = frame[3];
+
+              currentMonitor.TMPOL = (v & B00000001);
+              currentMonitor.SHNTOL = (v & B00000010);
+              currentMonitor.SHNTUL = (v & B00000100);
+              currentMonitor.BUSOL = (v & B00001000);
+              currentMonitor.BUSUL = (v & B00010000);
+              currentMonitor.POL = (v & B00100000);
+              currentMonitor.TempCompEnabled = (v & B01000000);
+              currentMonitor.ADCRange4096mV = (v & B10000000);
+
+              v = frame[4];
+
+              currentMonitor.RelayTriggerTMPOL = (v & B00000001);
+              currentMonitor.RelayTriggerSHNTOL = (v & B00000010);
+              currentMonitor.RelayTriggerSHNTUL = (v & B00000100);
+              currentMonitor.RelayTriggerBUSOL = (v & B00001000);
+              currentMonitor.RelayTriggerBUSUL = (v & B00010000);
+              currentMonitor.RelayTriggerPOL = (v & B00100000);
+              currentMonitor.RelayState = (v & B01000000);
+
+              //Register zero is in the LSB of frame[3] (8 to 1)
+              //Register zero is in the LSB of frame[4] (16 to 9)
+            }
+          }
+
+          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 16)
+          {
+
+            ESP_LOGI(TAG, "Write multiple regs, success");
+          }
         }
         else
         {
@@ -1979,47 +2093,44 @@ void rs485_rx(void *param)
 //This is the request we send to diyBMS current monitor, it pulls back 38 registers
 //this is all the registers diyBMS current monitor has
 //Holding Registers = command 3
-uint8_t cmd[] = {diyBMSCurrentMonitorModbusAddress, 3, 0, 0, 0, 38, 0, 0};
 
 //RS485 transmit
 void rs485_tx(void *param)
 {
+  bool typeOfRequest = true;
+
+  //8 byte request
+  uint8_t cmd[] = {0, 0, 0, 0, 0, 0, 0, 0};
+
   for (;;)
   {
     //Delay 5 seconds
-    vTaskDelay(pdMS_TO_TICKS(5000));
+    vTaskDelay(pdMS_TO_TICKS(2000));
 
     if (mysettings.currentMonitoringEnabled == true)
     {
       //ESP_LOGD(TAG, "RS485 TX");
+      cmd[0] = diyBMSCurrentMonitorModbusAddress;
 
-      //Ensure we have empty receive buffer
-      uart_flush_input(rs485_uart_num);
+      if (typeOfRequest)
+      {
+        //Input registers - 38 of them!
+        cmd[1] = 3;
+        cmd[5] = 38;
+        typeOfRequest = false;
+      }
+      else
+      {
+        //Coil status - 16 of them (2 bytes)
+        cmd[1] = 2;
+        cmd[5] = 16;
+        typeOfRequest = true;
+      }
 
       //Ideally we poll the current monitor and only ask it for a small subset of registers
       //the first 12 registers are the most useful, so only need the others
       //when we want to get the configuration data
-      /*
-      if (currentMonitor.validReadings == false && cmd[5] != 38)
-      {
-        //Ask for all the registers (38 of them)
-        cmd[5] = 38;
-        //clear CRC
-        cmd[sizeof(cmd) - 2] = 0;
-        cmd[sizeof(cmd) - 1] = 0;
-      }
-      else
-      {
-        //Just get the short version
-        cmd[5] = 12;
-        //clear CRC
-        cmd[sizeof(cmd) - 2] = 0;
-        cmd[sizeof(cmd) - 1] = 0;
-      }
-*/
-      //Only calculate the CRC if we need to...
-      //if (cmd[sizeof(cmd) - 2] == 0 && cmd[sizeof(cmd) - 1] == 0)
-      //{
+
       uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
 
       //Byte swap the Hi and Lo bytes
@@ -2027,10 +2138,17 @@ void rs485_tx(void *param)
 
       cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
       cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
-      //}
 
-      //Send the bytes (actually just put them into the TX FIFO buffer)
-      uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+      if (hal.GetRS485Mutex())
+      {
+        //Ensure we have empty receive buffer
+        uart_flush_input(rs485_uart_num);
+
+        //Send the bytes (actually just put them into the TX FIFO buffer)
+        uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+        hal.ReleaseRS485Mutex();
+      }
 
       //Notify the receive task that a packet should be on its way
       if (rs485_rx_task_handle != NULL)
@@ -2893,9 +3011,6 @@ TEST CAN BUS
     //Wake screen on power up
     xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
   }
-
-  //SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
-  //SERIAL_RS485.begin(9600, SERIAL_8N1, RS485_RX, RS485_TX);
 }
 
 unsigned long wifitimer = 0;
