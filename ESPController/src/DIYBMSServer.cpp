@@ -1172,6 +1172,25 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"firmwarev\":", currentMonitor.firmwareversion);
   PrintStreamComma(response, "\"firmwaredate\":", currentMonitor.firmwaredatetime);
 
+//Boolean flag values
+  PrintStreamCommaBoolean(response, "\"TMPOL\":", currentMonitor.TemperatureOverLimit);
+  PrintStreamCommaBoolean(response, "\"CURROL\":", currentMonitor.CurrentOverLimit);
+  PrintStreamCommaBoolean(response, "\"CURRUL\":", currentMonitor.CurrentUnderLimit);
+  PrintStreamCommaBoolean(response, "\"VOLTOL\":", currentMonitor.VoltageOverlimit);
+  PrintStreamCommaBoolean(response, "\"VOLTUL\":", currentMonitor.VoltageUnderlimit);
+  PrintStreamCommaBoolean(response, "\"POL\":", currentMonitor.PowerOverLimit);
+  PrintStreamCommaBoolean(response, "\"TempCompEnabled\":", currentMonitor.TempCompEnabled);
+  PrintStreamCommaBoolean(response, "\"ADCRange4096mV\":", currentMonitor.ADCRange4096mV);
+
+  //Trigger values
+  PrintStreamCommaBoolean(response, "\"T_TMPOL\":", currentMonitor.RelayTriggerTemperatureOverLimit);
+  PrintStreamCommaBoolean(response, "\"T_CURROL\":", currentMonitor.RelayTriggerCurrentOverLimit);
+  PrintStreamCommaBoolean(response, "\"T_CURRUL\":", currentMonitor.RelayTriggerCurrentUnderLimit);
+  PrintStreamCommaBoolean(response, "\"T_VOLTOL\":", currentMonitor.RelayTriggerVoltageOverlimit);
+  PrintStreamCommaBoolean(response, "\"T_VOLTUL\":", currentMonitor.RelayTriggerVoltageUnderlimit);
+  PrintStreamCommaBoolean(response, "\"T_POL\":", currentMonitor.RelayTriggerPowerOverLimit);
+  PrintStreamCommaBoolean(response, "\"RelayState\":", currentMonitor.RelayState);
+
   PrintStreamComma(response, "\"shuntmv\":", currentMonitor.shuntmillivolt);
   PrintStream(response, "\"shuntmaxcur\":", currentMonitor.shuntmaxcurrent);
 

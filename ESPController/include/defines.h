@@ -283,22 +283,22 @@ struct currentmonitoring_struct
   uint32_t firmwareversion;
   uint32_t firmwaredatetime;
 
-  bool TMPOL;
-  bool SHNTOL;
-  bool SHNTUL;
-  bool BUSOL;
-  bool BUSUL;
-  bool POL;
-  bool TempCompEnabled;
-  bool ADCRange4096mV;
+  bool TemperatureOverLimit : 1;
+  bool CurrentOverLimit : 1;
+  bool CurrentUnderLimit : 1;
+  bool VoltageOverlimit : 1;
+  bool VoltageUnderlimit : 1;
+  bool PowerOverLimit : 1;
+  bool TempCompEnabled : 1;
+  bool ADCRange4096mV : 1;
 
-  bool RelayTriggerTMPOL;
-  bool RelayTriggerSHNTOL;
-  bool RelayTriggerSHNTUL;
-  bool RelayTriggerBUSOL;
-  bool RelayTriggerBUSUL;
-  bool RelayTriggerPOL;
-  bool RelayState;
+  bool RelayTriggerTemperatureOverLimit : 1;
+  bool RelayTriggerCurrentOverLimit : 1;
+  bool RelayTriggerCurrentUnderLimit : 1;
+  bool RelayTriggerVoltageOverlimit : 1;
+  bool RelayTriggerVoltageUnderlimit : 1;
+  bool RelayTriggerPowerOverLimit : 1;
+  bool RelayState : 1;
 };
 
 #endif

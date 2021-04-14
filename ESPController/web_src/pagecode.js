@@ -70,6 +70,25 @@ function refreshCurrentMonitorValues() {
             $("#cmfirmwaredate").val(d.toString());
 
 
+            $("#TempCompEnabled").prop("checked", data.TempCompEnabled);
+            $("#cmTemperatureOverLimit").val(data.TMPOL);
+
+            $("#cmCurrentOverLimit").val(data.CURROL);
+            $("#cmCurrentUnderLimit").val(data.CURRUL);
+            $("#cmVoltageOverLimit").val(data.VOLTOL);
+            $("#cmVoltageUnderLimit").val(data.VOLTUL);
+            $("#cmPowerOverLimit").val(data.POL);
+
+            $("#cmRelayState").val(data.RelayState ? "CLOSED" : "OPEN");
+
+            $("#cmTMPOL").prop("checked", data.T_TMPOL);
+            $("#cmCURROL").prop("checked", data.T_CURROL);
+            $("#cmCURRUL").prop("checked", data.T_CURRUL);
+            $("#cmVOLTOL").prop("checked", data.T_VOLTOL);
+            $("#cmVOLTUL").prop("checked", data.T_VOLTUL);
+            $("#cmPOL").prop("checked", data.T_POL);
+
+
             if (data.enabled) {
                 $("#currentmonadvanced").show();
                 $("#currentmonbasic").show();

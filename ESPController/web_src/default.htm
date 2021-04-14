@@ -595,11 +595,14 @@
                             <option value="5">5</option>
                             <option value="10">10</option>
                             <option value="20">20</option>
+                            <option value="30">30</option>
+                            <option value="40">40</option>
                             <option value="50">50</option>
                             <option value="100">100</option>
                             <option value="150">150</option>
                             <option value="200">200</option>
                             <option value="300">300</option>
+                            <option value="300">400</option>
                             <option value="500">500</option>
                         </select>
                     </div>
@@ -608,6 +611,7 @@
                         <label for="shuntmv">Shunt output voltage (mV)</label>
                         <select name="shuntmv" id="shuntmv">
                             <option value="50">50</option>
+                            <option value="60">60</option>
                             <option value="75">75</option>
                             <option value="100">100</option>
                             <option value="150">150</option>
@@ -655,6 +659,42 @@
                         <label for="cmfirmwaredate">Firmware date</label>
                         <input id="cmfirmwaredate" name="cmfirmwaredate" value="" readonly="">
                     </div>
+
+                    <div>
+                        <label for="cmRelayState">Relay state</label>
+                        <input id="cmRelayState" name="cmRelayState" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmTemperatureOverLimit">Temperature over limit</label>
+                        <input id="cmTemperatureOverLimit" name="cmTemperatureOverLimit" value="" readonly="">
+                    </div>
+                    <div>
+                        <label for="cmCurrentOverLimit">Current over limit</label>
+                        <input id="cmCurrentOverLimit" name="cmCurrentOverLimit" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmCurrentUnderLimit">Current under limit</label>
+                        <input id="cmCurrentUnderLimit" name="cmCurrentUnderLimit" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmVoltageOverLimit">Voltage over limit</label>
+                        <input id="cmVoltageOverLimit" name="cmVoltageOverLimit" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmVoltageUnderLimit">Voltage under limit</label>
+                        <input id="cmVoltageUnderLimit" name="cmVoltageUnderLimit" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmPowerOverLimit">Power over limit</label>
+                        <input id="cmPowerOverLimit" name="cmPowerOverLimit" value="" readonly="">
+                    </div>
+
+
 
                     <input type="submit" value="Save basic settings" />
 
@@ -704,11 +744,42 @@
                         <label for="cmoverplimit">Over power limit</label>
                         <input id="cmoverplimit" name="cmoverplimit" value="" readonly="">
                     </div>
+                    <div>
+                        <label for="TempCompEnabled">Temperature coefficient enabled</label>
+                        <input type="checkbox" name="TempCompEnabled" id="TempCompEnabled">
+                    </div>
 
                     <div>
                         <label for="cmtempcoeff">Temperature coefficient ppm/&deg;C</label>
                         <input id="cmtempcoeff" name="cmtempcoeff" value="" readonly="">
                     </div>
+
+                    <div>
+                        <label for="cmTMPOL">Relay Trigger: Temperature</label>
+                        <input type="checkbox" name="cmTMPOL" id="cmTMPOL">
+                    </div>
+                    <div>
+                        <label for="cmCURROL">Relay Trigger: Current over</label>
+                        <input type="checkbox" name="cmCURROL" id="cmCURROL">
+                    </div>
+                    <div>
+                        <label for="cmCURRUL">Relay Trigger: Current under</label>
+                        <input type="checkbox" name="cmCURRUL" id="cmCURRUL">
+                    </div>
+                    <div>
+                        <label for="cmVOLTOL">Relay Trigger: Voltage over</label>
+                        <input type="checkbox" name="cmVOLTOL" id="cmVOLTOL">
+                    </div>
+                    <div>
+                        <label for="cmVOLTUL">Relay Trigger: Voltage under</label>
+                        <input type="checkbox" name="cmVOLTUL" id="cmVOLTUL">
+                    </div>
+                    <div>
+                        <label for="cmPOL">Relay Trigger: Power</label>
+                        <input type="checkbox" name="cmPOL" id="cmPOL">
+                    </div>
+
+
                     <input type="submit" value="Save advanced settings" />
                 </div>
             </form>

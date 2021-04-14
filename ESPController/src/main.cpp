@@ -1991,8 +1991,8 @@ void rs485_rx(void *param)
       hal.ReleaseRS485Mutex();
     }
 
-    //Min packet length of 8 bytes
-    if (len > 7)
+    //Min packet length of 5 bytes
+    if (len > 5)
     {
       uint8_t id = frame[0];
 
@@ -2029,36 +2029,40 @@ void rs485_rx(void *param)
 
           } //end diybms current monitor command 3
 
-          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3)
+          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 2)
           {
-            ESP_LOGI(TAG, "Read input status");
-            if (frame[2] == 2)
+            //ESP_LOGD(TAG, "Read input status Id=%u F=%u L=%u", id, cmd, length);
+
+            //Check frame length
+            if (length == 2)
             {
               //Received two bytes containing the 16 bits/boolean values of the "discrete inputs"
-
               uint8_t v = frame[3];
 
-              currentMonitor.TMPOL = (v & B00000001);
-              currentMonitor.SHNTOL = (v & B00000010);
-              currentMonitor.SHNTUL = (v & B00000100);
-              currentMonitor.BUSOL = (v & B00001000);
-              currentMonitor.BUSUL = (v & B00010000);
-              currentMonitor.POL = (v & B00100000);
-              currentMonitor.TempCompEnabled = (v & B01000000);
-              currentMonitor.ADCRange4096mV = (v & B10000000);
+              //ESP_LOGI(TAG, "V=%u", v);
 
+              //Register 1 is in the LSB of frame[3] (8 to 1)
+              currentMonitor.TemperatureOverLimit = (v & B00000001) != 0;
+              currentMonitor.CurrentOverLimit = (v & B00000010) != 0;
+              currentMonitor.CurrentUnderLimit = (v & B00000100) != 0;
+              currentMonitor.VoltageOverlimit = (v & B00001000) != 0;
+              currentMonitor.VoltageUnderlimit = (v & B00010000) != 0;
+              currentMonitor.PowerOverLimit = (v & B00100000) != 0;
+              currentMonitor.TempCompEnabled = (v & B01000000) != 0;
+              currentMonitor.ADCRange4096mV = (v & B10000000) != 0;
+
+              //Register 9 is in the LSB of frame[4] (16 to 9)
               v = frame[4];
+              //ESP_LOGI(TAG, "V=%u", v);
 
-              currentMonitor.RelayTriggerTMPOL = (v & B00000001);
-              currentMonitor.RelayTriggerSHNTOL = (v & B00000010);
-              currentMonitor.RelayTriggerSHNTUL = (v & B00000100);
-              currentMonitor.RelayTriggerBUSOL = (v & B00001000);
-              currentMonitor.RelayTriggerBUSUL = (v & B00010000);
-              currentMonitor.RelayTriggerPOL = (v & B00100000);
-              currentMonitor.RelayState = (v & B01000000);
-
-              //Register zero is in the LSB of frame[3] (8 to 1)
-              //Register zero is in the LSB of frame[4] (16 to 9)
+              currentMonitor.RelayTriggerTemperatureOverLimit = (v & B00000001) != 0;
+              currentMonitor.RelayTriggerCurrentOverLimit = (v & B00000010) != 0;
+              currentMonitor.RelayTriggerCurrentUnderLimit = (v & B00000100) != 0;
+              currentMonitor.RelayTriggerVoltageOverlimit = (v & B00001000) != 0;
+              currentMonitor.RelayTriggerVoltageUnderlimit = (v & B00010000) != 0;
+              currentMonitor.RelayTriggerPowerOverLimit = (v & B00100000) != 0;
+              currentMonitor.RelayState = (v & B01000000) != 0;
+              //Bit 7 (register 16) is always ZERO/FALSE
             }
           }
 
@@ -2123,7 +2127,7 @@ void rs485_tx(void *param)
       {
         //Coil status - 16 of them (2 bytes)
         cmd[1] = 2;
-        cmd[5] = 16;
+        cmd[5] = 15;
         typeOfRequest = true;
       }
 
