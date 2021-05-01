@@ -2008,10 +2008,6 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       uint8_t flag1 = data >> 8;
       uint8_t flag2 = data;
 
-      //currentMonitor.watchdogcounter = data;
-      //data
-      //FLAGS
-
       /*
 16|TMPOL|Read only
 15|SHNTOL|Read only
@@ -2021,7 +2017,6 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
 11|POL|Read only
 10|Temperature compensation enabled|Read write
 9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
-
 */
 
       currentMonitor.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
@@ -2174,6 +2169,13 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
     case 39:
     {
       currentMonitor.watchdogcounter = data;
+      ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
+      break;
+    }
+
+    default:
+    {
+      ESP_LOGE(TAG, "Unprocessed register %u = %x", reg, data);
       break;
     }
 
@@ -2259,7 +2261,6 @@ void rs485_rx(void *param)
 
           if (id == diyBMSCurrentMonitorModbusAddress && cmd == 16)
           {
-
             ESP_LOGI(TAG, "Write multiple regs, success");
           }
         }
@@ -2305,13 +2306,12 @@ void rs485_tx(void *param)
       //ESP_LOGD(TAG, "RS485 TX");
       cmd[0] = diyBMSCurrentMonitorModbusAddress;
 
-      //Input registers - 38 of them!
+      //Input registers - 39 of them (78 bytes + headers + crc = 83 byte reply)
       cmd[1] = 3;
-      cmd[5] = 38;
+      cmd[5] = 39;
 
       //Ideally we poll the current monitor and only ask it for a small subset of registers
-      //the first 12 registers are the most useful, so only need the others
-      //when we want to get the configuration data
+      //the first 12 registers are the most useful, so only need the others when we want to get the configuration data
 
       uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
 
