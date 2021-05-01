@@ -1752,6 +1752,181 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur)
 
 uint8_t frame[256];
 
+//Save the current monitor advanced settings back to the device over MODBUS/RS485
+void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues)
+{
+  uint8_t flag1 = 0;
+  uint8_t flag2 = 0;
+
+  newvalues.ADCRange4096mV = true;
+  //Always true
+  flag1 += newvalues.TempCompEnabled ? B01000000 : 0;
+  flag1 += newvalues.ADCRange4096mV ? B10000000 : 0;
+
+  //Set the bitmaps for the first register byte
+  flag2 += newvalues.RelayTriggerTemperatureOverLimit ? B00000001 : 0;
+  flag2 += newvalues.RelayTriggerCurrentOverLimit ? B00000010 : 0;
+  flag2 += newvalues.RelayTriggerCurrentUnderLimit ? B00000100 : 0;
+  flag2 += newvalues.RelayTriggerVoltageOverlimit ? B00001000 : 0;
+  flag2 += newvalues.RelayTriggerVoltageUnderlimit ? B00010000 : 0;
+  flag2 += newvalues.RelayTriggerPowerOverLimit ? B00100000 : 0;
+
+  //	Write Multiple Holding Registers
+  uint8_t cmd[] = {
+      //The Slave Address
+      diyBMSCurrentMonitorModbusAddress,
+      //The Function Code 16
+      16,
+      //Data Address of the first register
+      0, 10,
+      //number of registers to write
+      0, 1,
+      //number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
+      2,
+      //value to write to register 40010
+      flag1, flag2,
+      //CRC
+      0, 0};
+
+  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+  //Byte swap the Hi and Lo bytes
+  uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+  cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+  cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+  if (hal.GetRS485Mutex())
+  {
+    //Ensure we have empty receive buffer
+    uart_flush_input(rs485_uart_num);
+
+    //Send the bytes (actually just put them into the TX FIFO buffer)
+    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+    hal.ReleaseRS485Mutex();
+  }
+
+  ESP_LOGD(TAG, "Save relay trigger settings");
+
+  //Zero all data
+  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  currentMonitor.validReadings = false;
+
+  //Notify the receive task that a packet should be on its way
+  if (rs485_rx_task_handle != NULL)
+  {
+    xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+  }
+}
+
+uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
+{
+  FloatUnionType fut;
+  fut.value = value;
+  //4 bytes
+  cmd[ptr] = (uint8_t)(fut.word[0] >> 8);
+  ptr++;
+  cmd[ptr] = (uint8_t)(fut.word[0] & 0xFF);
+  ptr++;
+  cmd[ptr] = (uint8_t)(fut.word[1] >> 8);
+  ptr++;
+  cmd[ptr] = (uint8_t)(fut.word[1] & 0xFF);
+  ptr++;
+
+  return ptr;
+}
+//Save the current monitor advanced settings back to the device over MODBUS/RS485
+void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
+{
+  //	Write Multiple Holding Registers
+  uint8_t cmd[] = {
+      //The Slave Address
+      diyBMSCurrentMonitorModbusAddress,
+      //The Function Code 16
+      16,
+      //Data Address of the first register
+      0, 20,
+      //number of registers to write
+      0, 13,
+      //number of data bytes to follow (2 registers x 6 bytes each)
+      2 * 13,
+      //value to write to register 40021
+      //21 = shuntcal
+      (uint8_t)(newvalues.shuntcal >> 8), (uint8_t)(newvalues.shuntcal & 0xFF),
+      //value to write to register 40022
+      //22 = temperaturelimit
+      (uint8_t)(newvalues.temperaturelimit >> 8), (uint8_t)(newvalues.temperaturelimit & 0xFF),
+      //23/24 = overvoltagelimit 40023
+      0, 0, 0, 0,
+      //25/26 = undervoltagelimit 40025
+      0, 0, 0, 0,
+      //27/28 = overcurrentlimit 40027
+      0, 0, 0, 0,
+      //29/30 = undercurrentlimit 40029
+      0, 0, 0, 0,
+      //31/32 = overpowerlimit 40031
+      0, 0, 0, 0,
+      //33 = shunttempcoefficient
+      (uint8_t)(newvalues.shunttempcoefficient >> 8), (uint8_t)(newvalues.shunttempcoefficient & 0xFF),
+      //CRC
+      0, 0};
+
+  //ESP_LOGD(TAG, "temp limit=%i", newvalues.temperaturelimit);
+  //ESP_LOGD(TAG, "shuntcal=%u", newvalues.shuntcal);
+
+  //Register 18 = shunt_max_current
+  //Register 19 = shunt_millivolt
+
+  uint8_t ptr = SetMobusRegistersFromFloat(cmd, 11, newvalues.overvoltagelimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.undervoltagelimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.overcurrentlimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.undercurrentlimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.overpowerlimit);
+
+  /*
+    newvalues.shuntcal = p1->value().toInt();
+    newvalues.temperaturelimit = p1->value().toInt();
+    newvalues.overvoltagelimit = p1->value().toFloat();
+    newvalues.undervoltagelimit = p1->value().toFloat();
+    newvalues.overcurrentlimit = p1->value().toFloat();
+    newvalues.undercurrentlimit = p1->value().toFloat();
+    newvalues.overpowerlimit = p1->value().toFloat();
+    newvalues.shunttempcoefficient = p1->value().toInt();
+*/
+
+  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+  //Byte swap the Hi and Lo bytes
+  uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+  cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+  cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+  if (hal.GetRS485Mutex())
+  {
+    //Ensure we have empty receive buffer
+    uart_flush_input(rs485_uart_num);
+
+    //Send the bytes (actually just put them into the TX FIFO buffer)
+    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+    hal.ReleaseRS485Mutex();
+  }
+
+  ESP_LOGD(TAG, "Advanced save settings");
+
+  //Zero all data
+  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  currentMonitor.validReadings = false;
+
+  //Notify the receive task that a packet should be on its way
+  if (rs485_rx_task_handle != NULL)
+  {
+    xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+  }
+}
+
 void ProcessCurrentMonitorRegisterReply(uint8_t length)
 {
 
@@ -1830,7 +2005,54 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
 
     case 10:
     {
-      currentMonitor.watchdogcounter = data;
+      uint8_t flag1 = data >> 8;
+      uint8_t flag2 = data;
+
+      //currentMonitor.watchdogcounter = data;
+      //data
+      //FLAGS
+
+      /*
+16|TMPOL|Read only
+15|SHNTOL|Read only
+14|SHNTUL|Read only
+13|BUSOL|Read only
+12|BUSUL|Read only
+11|POL|Read only
+10|Temperature compensation enabled|Read write
+9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
+
+*/
+
+      currentMonitor.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
+      currentMonitor.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
+      currentMonitor.CurrentUnderLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTUL);
+      currentMonitor.VoltageOverlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSOL);
+      currentMonitor.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
+      currentMonitor.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
+
+      currentMonitor.TempCompEnabled = flag1 & B01000000;
+      currentMonitor.ADCRange4096mV = flag1 & B10000000;
+
+      /*
+8|Relay Trigger on TMPOL|Read write
+7|Relay Trigger on SHNTOL|Read write
+6|Relay Trigger on SHNTUL|Read write
+5|Relay Trigger on BUSOL|Read write
+4|Relay Trigger on BUSUL|Read write
+3|Relay Trigger on POL|Read write
+2|Existing Relay state (0=off)|Read write
+1|Factory reset bit (always 0 when read)|Read write
+*/
+      currentMonitor.RelayTriggerTemperatureOverLimit = flag2 & bit(DIAG_ALRT_FIELD::TMPOL);
+      currentMonitor.RelayTriggerCurrentOverLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTOL);
+      currentMonitor.RelayTriggerCurrentUnderLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTUL);
+      currentMonitor.RelayTriggerVoltageOverlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSOL);
+      currentMonitor.RelayTriggerVoltageUnderlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSUL);
+      currentMonitor.RelayTriggerPowerOverLimit = flag2 & bit(DIAG_ALRT_FIELD::POL);
+      currentMonitor.RelayState = flag1 & B01000000;
+      //Last bit is for factory reset (always zero)
+
       break;
     }
 
@@ -1949,6 +2171,12 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       break;
     }
 
+    case 39:
+    {
+      currentMonitor.watchdogcounter = data;
+      break;
+    }
+
     } //end switch
 
     //ESP_LOGD(TAG, "%u = %x", reg, data);
@@ -2029,43 +2257,6 @@ void rs485_rx(void *param)
 
           } //end diybms current monitor command 3
 
-          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 2)
-          {
-            //ESP_LOGD(TAG, "Read input status Id=%u F=%u L=%u", id, cmd, length);
-
-            //Check frame length
-            if (length == 2)
-            {
-              //Received two bytes containing the 16 bits/boolean values of the "discrete inputs"
-              uint8_t v = frame[3];
-
-              //ESP_LOGI(TAG, "V=%u", v);
-
-              //Register 1 is in the LSB of frame[3] (8 to 1)
-              currentMonitor.TemperatureOverLimit = (v & B00000001) != 0;
-              currentMonitor.CurrentOverLimit = (v & B00000010) != 0;
-              currentMonitor.CurrentUnderLimit = (v & B00000100) != 0;
-              currentMonitor.VoltageOverlimit = (v & B00001000) != 0;
-              currentMonitor.VoltageUnderlimit = (v & B00010000) != 0;
-              currentMonitor.PowerOverLimit = (v & B00100000) != 0;
-              currentMonitor.TempCompEnabled = (v & B01000000) != 0;
-              currentMonitor.ADCRange4096mV = (v & B10000000) != 0;
-
-              //Register 9 is in the LSB of frame[4] (16 to 9)
-              v = frame[4];
-              //ESP_LOGI(TAG, "V=%u", v);
-
-              currentMonitor.RelayTriggerTemperatureOverLimit = (v & B00000001) != 0;
-              currentMonitor.RelayTriggerCurrentOverLimit = (v & B00000010) != 0;
-              currentMonitor.RelayTriggerCurrentUnderLimit = (v & B00000100) != 0;
-              currentMonitor.RelayTriggerVoltageOverlimit = (v & B00001000) != 0;
-              currentMonitor.RelayTriggerVoltageUnderlimit = (v & B00010000) != 0;
-              currentMonitor.RelayTriggerPowerOverLimit = (v & B00100000) != 0;
-              currentMonitor.RelayState = (v & B01000000) != 0;
-              //Bit 7 (register 16) is always ZERO/FALSE
-            }
-          }
-
           if (id == diyBMSCurrentMonitorModbusAddress && cmd == 16)
           {
 
@@ -2101,35 +2292,22 @@ void rs485_rx(void *param)
 //RS485 transmit
 void rs485_tx(void *param)
 {
-  bool typeOfRequest = true;
-
   //8 byte request
   uint8_t cmd[] = {0, 0, 0, 0, 0, 0, 0, 0};
 
   for (;;)
   {
     //Delay 5 seconds
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    vTaskDelay(pdMS_TO_TICKS(5000));
 
     if (mysettings.currentMonitoringEnabled == true)
     {
       //ESP_LOGD(TAG, "RS485 TX");
       cmd[0] = diyBMSCurrentMonitorModbusAddress;
 
-      if (typeOfRequest)
-      {
-        //Input registers - 38 of them!
-        cmd[1] = 3;
-        cmd[5] = 38;
-        typeOfRequest = false;
-      }
-      else
-      {
-        //Coil status - 16 of them (2 bytes)
-        cmd[1] = 2;
-        cmd[5] = 15;
-        typeOfRequest = true;
-      }
+      //Input registers - 38 of them!
+      cmd[1] = 3;
+      cmd[5] = 38;
 
       //Ideally we poll the current monitor and only ask it for a small subset of registers
       //the first 12 registers are the most useful, so only need the others

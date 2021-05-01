@@ -92,9 +92,11 @@ function refreshCurrentMonitorValues() {
             if (data.enabled) {
                 $("#currentmonadvanced").show();
                 $("#currentmonbasic").show();
+                $("#currentmonrelay").show();
             } else {
                 $("#currentmonadvanced").hide();
                 $("#currentmonbasic").hide();
+                $("#currentmonrelay").hide();
             }
 
         }).fail(function () { }
@@ -110,6 +112,7 @@ function currentmonitorSubmitForm(form) {
         success: function (data) {
             $("#currentmonadvanced").hide();
             $("#currentmonbasic").hide();
+            $("#currentmonrelay").hide();
 
             $("#savesuccess").show().delay(2000).fadeOut(500);
 
@@ -1387,6 +1390,11 @@ $(function () {
         e.preventDefault();
         currentmonitorSubmitForm(this);
     });
+    $("#diybmsCurrentMonitorForm4").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        currentmonitorSubmitForm(this);
+    });
+
 
     $("#diybmsCurrentMonitorForm1").unbind('submit').submit(function (e) {
         e.preventDefault();

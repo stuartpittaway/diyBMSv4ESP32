@@ -301,4 +301,25 @@ struct currentmonitoring_struct
   bool RelayState : 1;
 };
 
+
+enum DIAG_ALRT_FIELD : uint16_t
+{
+  ALATCH = 15,
+  CNVR = 14,
+  SLOWALERT = 13,
+  APOL = 12,
+  ENERGYOF = 11,
+  CHARGEOF = 10,
+  MATHOF = 9,
+  RESERVED = 8,
+  TMPOL = 7,
+  SHNTOL = 6,
+  SHNTUL = 5,
+  BUSOL = 4,
+  BUSUL = 3,
+  POL = 2,
+  CNVRF = 1,
+  MEMSTAT = 0
+};
+
 #endif

@@ -95,6 +95,7 @@ private:
     static void saveRuleConfiguration(AsyncWebServerRequest *request);
     static void saveCurrentMonBasic(AsyncWebServerRequest *request);
     static void saveCurrentMonAdvanced(AsyncWebServerRequest *request);
+    static void saveCurrentMonRelay(AsyncWebServerRequest *request);
     static void saveRS485Settings(AsyncWebServerRequest *request);
     static void saveCurrentMonSettings(AsyncWebServerRequest *request);
     static void saveNTP(AsyncWebServerRequest *request);
@@ -123,4 +124,6 @@ extern RelayState previousRelayState[RELAY_TOTAL];
 extern currentmonitoring_struct currentMonitor;
 extern void ConfigureRS485();
 extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur);
+extern void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues);
+extern void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues);
 #endif

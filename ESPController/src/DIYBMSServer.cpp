@@ -452,20 +452,105 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
   SendSuccess(request);
 }
 
+void DIYBMSServer::saveCurrentMonRelay(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+  currentmonitoring_struct newvalues;
+  //Set everything to zero/false
+  memset(&newvalues, 0, sizeof(currentmonitoring_struct));
+  if (request->hasParam("cmTMPOL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmTMPOL", true);
+    newvalues.RelayTriggerTemperatureOverLimit = p1->value().equals("on") ? true : false;
+  }
+  if (request->hasParam("cmCURROL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmCURROL", true);
+    newvalues.RelayTriggerCurrentOverLimit = p1->value().equals("on") ? true : false;
+  }
+  if (request->hasParam("cmCURRUL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmCURRUL", true);
+    newvalues.RelayTriggerCurrentUnderLimit = p1->value().equals("on") ? true : false;
+  }
+  if (request->hasParam("cmVOLTOL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmVOLTOL", true);
+    newvalues.RelayTriggerVoltageOverlimit = p1->value().equals("on") ? true : false;
+  }
+  if (request->hasParam("cmVOLTUL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmVOLTUL", true);
+    newvalues.RelayTriggerVoltageUnderlimit = p1->value().equals("on") ? true : false;
+  }
+  if (request->hasParam("cmPOL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmPOL", true);
+    newvalues.RelayTriggerPowerOverLimit = p1->value().equals("on") ? true : false;
+  }
+
+  CurrentMonitorSetRelaySettings(newvalues);
+
+  SendSuccess(request);
+}
 void DIYBMSServer::saveCurrentMonAdvanced(AsyncWebServerRequest *request)
 {
   if (!validateXSS(request))
     return;
-  /*
-  if (request->hasParam("shuntmaxcur", true) && request->hasParam("shuntmv", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("shuntmaxcur", true);
-    int shuntmaxcur = p1->value().toInt();
 
-    AsyncWebParameter *p2 = request->getParam("shuntmv", true);
-    int shuntmv = p2->value().toInt();
+  currentmonitoring_struct newvalues;
+  //Set everything to zero/false
+  memset(&newvalues, 0, sizeof(currentmonitoring_struct));
+
+  if (request->hasParam("TempCompEnabled", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("TempCompEnabled", true);
+    newvalues.TempCompEnabled = p1->value().equals("on") ? true : false;
   }
-*/
+  if (request->hasParam("cmcalibration", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmcalibration", true);
+    newvalues.shuntcal = p1->value().toInt();
+  }
+  if (request->hasParam("cmtemplimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmtemplimit", true);
+    newvalues.temperaturelimit = (int16_t)(p1->value().toInt());
+  }
+  if (request->hasParam("cmundervlimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmundervlimit", true);
+    newvalues.undervoltagelimit = p1->value().toFloat();
+  }
+  if (request->hasParam("cmovervlimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmovervlimit", true);
+    newvalues.overvoltagelimit = p1->value().toFloat();
+  }
+  if (request->hasParam("cmoverclimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmoverclimit", true);
+    newvalues.overcurrentlimit = p1->value().toFloat();
+  }
+  if (request->hasParam("cmunderclimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmunderclimit", true);
+    newvalues.undercurrentlimit = p1->value().toFloat();
+  }
+  if (request->hasParam("cmoverplimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmoverplimit", true);
+    newvalues.overpowerlimit = p1->value().toFloat();
+  }
+  if (request->hasParam("cmtempcoeff", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmtempcoeff", true);
+    newvalues.shunttempcoefficient = p1->value().toInt();
+  }
+
+  CurrentMonitorSetAdvancedSettings(newvalues);
+
   SendSuccess(request);
 }
 
@@ -1172,7 +1257,7 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"firmwarev\":", currentMonitor.firmwareversion);
   PrintStreamComma(response, "\"firmwaredate\":", currentMonitor.firmwaredatetime);
 
-//Boolean flag values
+  //Boolean flag values
   PrintStreamCommaBoolean(response, "\"TMPOL\":", currentMonitor.TemperatureOverLimit);
   PrintStreamCommaBoolean(response, "\"CURROL\":", currentMonitor.CurrentOverLimit);
   PrintStreamCommaBoolean(response, "\"CURRUL\":", currentMonitor.CurrentUnderLimit);
@@ -2144,6 +2229,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->on("/savecurrentmon.json", HTTP_POST, DIYBMSServer::saveCurrentMonSettings);
   _myserver->on("/savecmbasic.json", HTTP_POST, DIYBMSServer::saveCurrentMonBasic);
   _myserver->on("/savecmadvanced.json", HTTP_POST, DIYBMSServer::saveCurrentMonAdvanced);
+  _myserver->on("/savecmrelay.json", HTTP_POST, DIYBMSServer::saveCurrentMonRelay);
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();
