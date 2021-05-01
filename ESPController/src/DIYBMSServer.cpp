@@ -456,6 +456,7 @@ void DIYBMSServer::saveCurrentMonRelay(AsyncWebServerRequest *request)
 {
   if (!validateXSS(request))
     return;
+    
   currentmonitoring_struct newvalues;
   //Set everything to zero/false
   memset(&newvalues, 0, sizeof(currentmonitoring_struct));

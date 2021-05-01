@@ -1758,18 +1758,32 @@ void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues)
   uint8_t flag1 = 0;
   uint8_t flag2 = 0;
 
-  newvalues.ADCRange4096mV = true;
-  //Always true
-  flag1 += newvalues.TempCompEnabled ? B01000000 : 0;
-  flag1 += newvalues.ADCRange4096mV ? B10000000 : 0;
+  //Use the previous values for setting the TempCompEnabled flag
+  //as this is part of a different set of web server processes
+  flag1 += currentMonitor.TempCompEnabled ? B00000010 : 0;
+  flag1 += currentMonitor.ADCRange4096mV ? B00000001 : 0;
 
   //Set the bitmaps for the first register byte
-  flag2 += newvalues.RelayTriggerTemperatureOverLimit ? B00000001 : 0;
-  flag2 += newvalues.RelayTriggerCurrentOverLimit ? B00000010 : 0;
-  flag2 += newvalues.RelayTriggerCurrentUnderLimit ? B00000100 : 0;
-  flag2 += newvalues.RelayTriggerVoltageOverlimit ? B00001000 : 0;
-  flag2 += newvalues.RelayTriggerVoltageUnderlimit ? B00010000 : 0;
-  flag2 += newvalues.RelayTriggerPowerOverLimit ? B00100000 : 0;
+  flag2 += newvalues.RelayTriggerTemperatureOverLimit ? bit(DIAG_ALRT_FIELD::TMPOL) : 0;
+  flag2 += newvalues.RelayTriggerCurrentOverLimit ? bit(DIAG_ALRT_FIELD::SHNTOL) : 0;
+  flag2 += newvalues.RelayTriggerCurrentUnderLimit ? bit(DIAG_ALRT_FIELD::SHNTUL) : 0;
+  flag2 += newvalues.RelayTriggerVoltageOverlimit ? bit(DIAG_ALRT_FIELD::BUSOL) : 0;
+  flag2 += newvalues.RelayTriggerVoltageUnderlimit ? bit(DIAG_ALRT_FIELD::BUSUL) : 0;
+  flag2 += newvalues.RelayTriggerPowerOverLimit ? bit(DIAG_ALRT_FIELD::POL) : 0;
+
+/*
+Flag 1
+10|Temperature compensation enabled|Read write
+9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
+
+Flag 2
+8|Relay Trigger on TMPOL|Read write
+7|Relay Trigger on SHNTOL|Read write
+6|Relay Trigger on SHNTUL|Read write
+5|Relay Trigger on BUSOL|Read write
+4|Relay Trigger on BUSUL|Read write
+3|Relay Trigger on POL|Read write
+*/
 
   //	Write Multiple Holding Registers
   uint8_t cmd[] = {
@@ -1778,7 +1792,7 @@ void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues)
       //The Function Code 16
       16,
       //Data Address of the first register
-      0, 10,
+      0, 9,
       //number of registers to write
       0, 1,
       //number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
@@ -1807,7 +1821,7 @@ void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues)
     hal.ReleaseRS485Mutex();
   }
 
-  ESP_LOGD(TAG, "Save relay trigger settings");
+  ESP_LOGD(TAG, "Save relay trigger settings %u %u", flag1, flag2);
 
   //Zero all data
   memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
@@ -2008,6 +2022,8 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       uint8_t flag1 = data >> 8;
       uint8_t flag2 = data;
 
+      ESP_LOGD(TAG, "Read relay trigger settings %u %u", flag1, flag2);
+
       /*
 16|TMPOL|Read only
 15|SHNTOL|Read only
@@ -2026,8 +2042,8 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       currentMonitor.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
       currentMonitor.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
 
-      currentMonitor.TempCompEnabled = flag1 & B01000000;
-      currentMonitor.ADCRange4096mV = flag1 & B10000000;
+      currentMonitor.TempCompEnabled = flag1 & B00000010;
+      currentMonitor.ADCRange4096mV = flag1 & B00000001;
 
       /*
 8|Relay Trigger on TMPOL|Read write
@@ -2045,7 +2061,7 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       currentMonitor.RelayTriggerVoltageOverlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSOL);
       currentMonitor.RelayTriggerVoltageUnderlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSUL);
       currentMonitor.RelayTriggerPowerOverLimit = flag2 & bit(DIAG_ALRT_FIELD::POL);
-      currentMonitor.RelayState = flag1 & B01000000;
+      currentMonitor.RelayState = flag2 & B00000010;
       //Last bit is for factory reset (always zero)
 
       break;
@@ -2169,7 +2185,7 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
     case 39:
     {
       currentMonitor.watchdogcounter = data;
-      ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
+      //ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
       break;
     }
 
@@ -2191,15 +2207,8 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
   //ESP_LOGD(TAG, "Out = %f", currentMonitor.amphour_out);
   //ESP_LOGD(TAG, "In = %f", currentMonitor.amphour_in);
 
-  //ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
-
   //ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
   //ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
-  /*
-            if (voltageandstatussnapshot_task_handle != NULL)
-            {
-              xTaskNotify(voltageandstatussnapshot_task_handle, 0x00, eNotifyAction::eNoAction);
-            }*/
 }
 //RS485 receive
 void rs485_rx(void *param)
