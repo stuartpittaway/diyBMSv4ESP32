@@ -1758,12 +1758,12 @@ void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues)
   uint8_t flag1 = 0;
   uint8_t flag2 = 0;
 
-  //Use the previous values for setting the TempCompEnabled flag
-  //as this is part of a different set of web server processes
-  flag1 += currentMonitor.TempCompEnabled ? B00000010 : 0;
+  flag1 += newvalues.TempCompEnabled ? B00000010 : 0;
+
+  //Use the previous value for setting the ADCRange4096mV flag
   flag1 += currentMonitor.ADCRange4096mV ? B00000001 : 0;
 
-  //Set the bitmaps for the first register byte
+  //Apply new settings
   flag2 += newvalues.RelayTriggerTemperatureOverLimit ? bit(DIAG_ALRT_FIELD::TMPOL) : 0;
   flag2 += newvalues.RelayTriggerCurrentOverLimit ? bit(DIAG_ALRT_FIELD::SHNTOL) : 0;
   flag2 += newvalues.RelayTriggerCurrentUnderLimit ? bit(DIAG_ALRT_FIELD::SHNTUL) : 0;
@@ -1771,7 +1771,7 @@ void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues)
   flag2 += newvalues.RelayTriggerVoltageUnderlimit ? bit(DIAG_ALRT_FIELD::BUSUL) : 0;
   flag2 += newvalues.RelayTriggerPowerOverLimit ? bit(DIAG_ALRT_FIELD::POL) : 0;
 
-/*
+  /*
 Flag 1
 10|Temperature compensation enabled|Read write
 9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
@@ -1821,7 +1821,7 @@ Flag 2
     hal.ReleaseRS485Mutex();
   }
 
-  ESP_LOGD(TAG, "Save relay trigger settings %u %u", flag1, flag2);
+  ESP_LOGD(TAG, "Write register 10 = %u %u", flag1, flag2);
 
   //Zero all data
   memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));

@@ -456,10 +456,21 @@ void DIYBMSServer::saveCurrentMonRelay(AsyncWebServerRequest *request)
 {
   if (!validateXSS(request))
     return;
-    
+
   currentmonitoring_struct newvalues;
   //Set everything to zero/false
   memset(&newvalues, 0, sizeof(currentmonitoring_struct));
+
+  if (request->hasParam("TempCompEnabled", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("TempCompEnabled", true);
+    newvalues.TempCompEnabled = p1->value().equals("on") ? true : false;
+  }
+  else
+  {
+    newvalues.TempCompEnabled = false;
+  }
+
   if (request->hasParam("cmTMPOL", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmTMPOL", true);
@@ -504,11 +515,6 @@ void DIYBMSServer::saveCurrentMonAdvanced(AsyncWebServerRequest *request)
   //Set everything to zero/false
   memset(&newvalues, 0, sizeof(currentmonitoring_struct));
 
-  if (request->hasParam("TempCompEnabled", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("TempCompEnabled", true);
-    newvalues.TempCompEnabled = p1->value().equals("on") ? true : false;
-  }
   if (request->hasParam("cmcalibration", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmcalibration", true);

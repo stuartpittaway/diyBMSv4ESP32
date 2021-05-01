@@ -708,8 +708,8 @@
 
         <div class="region" id="currentmonadvanced">
             <h2>Advanced Current Monitor Settings</h2>
-            <p>If you wish to use the relay control on the shunt monitor, set the parameters here. You should not
-                normally need to change the calibration value.</p>
+            <p>If you wish to use the relay control on the shunt monitor, set the parameters here. <u>You should not
+                normally need to change the calibration value.</u></p>
             <p>Current limit is for use whilst discharging the battery, under current limit is used when charging, so
                 different discharge/charge current limits can be used.</p>
             <p>Temperature limit is based on the chip die temperature, which may not match the shunt temperature. Only
@@ -746,10 +746,6 @@
                         <input id="cmoverplimit" name="cmoverplimit" value="">
                     </div>
                     <div>
-                        <label for="TempCompEnabled">Temperature coefficient enabled</label>
-                        <input type="checkbox" name="TempCompEnabled" id="TempCompEnabled">
-                    </div>
-                    <div>
                         <label for="cmtempcoeff">Temperature coefficient ppm/&deg;C</label>
                         <input id="cmtempcoeff" name="cmtempcoeff" value="">
                     </div>
@@ -762,10 +758,14 @@
 
 
         <div class="region" id="currentmonrelay">
-            <h2>Current Monitor Relay Settings</h2>
+            <h2>Current Monitor Relay Settings &amp; Temperature coefficient</h2>
             <p>Relay triggers define which rules are used to trigger the relay into a closed state.</p>
             <form id="diybmsCurrentMonitorForm4" method="POST" action="savecmrelay.json" autocomplete="off">
                 <div class="settings">
+                    <div>
+                        <label for="TempCompEnabled">Temperature coefficient enabled</label>
+                        <input type="checkbox" name="TempCompEnabled" id="TempCompEnabled">
+                    </div>
 
                     <div>
                         <label for="cmTMPOL">Relay Trigger: Temperature</label>
