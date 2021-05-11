@@ -1788,8 +1788,8 @@ void lazy_tasks(void *param)
 {
   for (;;)
   {
-    //Delay 8 seconds
-    vTaskDelay(pdMS_TO_TICKS(7000));
+    //Delay 6.5 seconds
+    vTaskDelay(pdMS_TO_TICKS(6500));
 
     if (requestQueue.getRemainingCount() > 6)
     {
@@ -1876,7 +1876,6 @@ void lazy_tasks(void *param)
     {
       //Exit here to avoid overflowing the queue
       ESP_LOGE(TAG, "ERR: Lazy overflow Q=%i", requestQueue.getRemainingCount());
-      return;
     }
   } //end for
 }
