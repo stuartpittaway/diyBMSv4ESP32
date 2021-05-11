@@ -9,7 +9,7 @@ on:
   pull_request:
     branches:
       - master
-	  
+
 jobs:
   job_build_modulecode:
     runs-on: ubuntu-latest
