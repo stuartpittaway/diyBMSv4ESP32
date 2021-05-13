@@ -271,6 +271,7 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
     {
         if (_ScreenToDisplayCounter > 5)
         {
+            //Move to the next page after the "_ScreenToDisplayCounter" delay 
             _ScreenPageCounter++;
             _ScreenToDisplayCounter = 0;
         }
@@ -281,7 +282,7 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
             _ScreenPageCounter = 0;
         }
 
-        if (_ScreenPageCounter == 1 && mysettings.currentMonitoringEnabled == false && currentMonitor.validReadings)
+        if (_ScreenPageCounter == 1 && mysettings.currentMonitoringEnabled == false)
         {
             //Don't show current if its not fitted/installed
             _ScreenPageCounter = 0;
@@ -302,6 +303,7 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
 
         if (_ScreenPageCounter == 1)
         {
+            //Show the current monitor
             reply = ScreenTemplateToDisplay::CurrentMonitor;
         }
     }
