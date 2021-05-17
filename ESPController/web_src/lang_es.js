@@ -47,3 +47,5 @@ $("#warning4").text("Advertencia: los módulos tienen versiones mixtas de hardwa
 $("#warning5").text("Advertencia: registro habilitado pero tarjeta SD no instalada / encontrada");
 $("#warning6").text("Algunas funciones están deshabilitadas mientras el modo de programación AVR está habilitado");
 
+$("label[for='NTPServer']").text("NTP Server");
+$("label[for='NTPZoneHour']").text("Timezone (hour)");

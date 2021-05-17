@@ -101,16 +101,16 @@
     <div class="page" id="aboutPage">
         <h1>About</h1>
         <div class="region">
-            <h2>Source Code &amp; Hardware</h2>
+            <h2 id="ap1">Source Code &amp; Hardware</h2>
             <p>Code:<a href="https://github.com/stuartpittaway/diyBMSv4ESP32" rel="noreferrer"
                     target="_blank">https://github.com/stuartpittaway/diyBMSv4ESP32</a></p>
             <p>Hardware: <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer"
                     target="_blank">https://github.com/stuartpittaway/diyBMSv4</a></p>
-            <h2>Videos</h2>
+            <h2 id="ap2">Videos</h2>
             <a href="https://youtube.com/playlist?list=PLHhwQCDPuRcZW3u0jJucsiCCsUbNbMy-c" rel="noreferrer"
                 target="_blank">YouTube videos on installation and configuration</a>
-            <h2>Patreon</h2>
-            <p>Remember, this product is free for personal use, if you would like to make a regular donation to keep the
+            <h2 id="ap3">Patreon</h2>
+            <p id="ap4">Remember, this product is free for personal use, if you would like to make a regular donation to keep the
                 features and improvements flowing, use the Patreon link below. Even just a coffee/beer a month makes a
                 difference. Thank you!
                 <a href="https://www.patreon.com/StuartP" rel="noreferrer" target="_blank"><img src="patron.png"
@@ -118,23 +118,23 @@
             </p>
         </div>
         <div class="region">
-            <h2>WARNING</h2>
-            <p>This is a DIY product/solution so don’t use this for safety critical systems or in any situation where
+            <h2 id="ap5">WARNING</h2>
+            <p id="ap6">This is a DIY product/solution so don’t use this for safety critical systems or in any situation where
                 there could be a risk to life.</p>
-            <p>There is no warranty, it may not work as expected or at all.</p>
-            <p>The use of this project is done so entirely at your own risk. It may involve electrical voltages which
+            <p id="ap7">There is no warranty, it may not work as expected or at all.</p>
+            <p id="ap8">The use of this project is done so entirely at your own risk. It may involve electrical voltages which
                 could kill - if in doubt, seek help.</p>
             <p>The use of this project may not be compliant with local laws or regulations - if in doubt, seek help.</p>
         </div>
         <div class="region">
-            <h2>License</h2>
-            <p>This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 2.0 UK: England &
+            <h2 id="ap9">License</h2>
+            <p id="ap10">This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 2.0 UK: England &
                 Wales License.</p>
             <a href="https://creativecommons.org/licenses/by-nc-sa/2.0/uk/" rel="noreferrer"
                 target="_blank">https://creativecommons.org/licenses/by-nc-sa/2.0/uk/</a>
         </div>
         <div class="region">
-            <h2>Platform &amp; Version</h2>
+            <h2 id="ap11">Platform &amp; Version</h2>
             <p>Host name:<span id="HostName"></span></p>
             <p>Processor: %PLATFORM%</p>
             <p>Version: <a href="https://github.com/stuartpittaway/diyBMSv4ESP32/commit/%GIT_VERSION%" rel="noreferrer"
@@ -231,7 +231,7 @@
         </div>
         <div id="globalConfig" class="region">
             <h2>Global Settings</h2>
-            <p>Configure all modules to use following parameters:</p>
+            <p id="gc1">Configure all modules to use following parameters:</p>
             <form id="globalSettingsForm" method="POST" action="saveglobalsetting.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -252,10 +252,10 @@
 
 
     <div class="page" id="integrationPage">
-        <h1>Integration</h1>
-        <p>For security, you will need to re-enter the password for the service(s) you want to enable or modify, before
+        <h1 id="ip1">Integration</h1>
+        <p id="ip2">For security, you will need to re-enter the password for the service(s) you want to enable or modify, before
             you save.</p>
-        <p>After changes are made, the controller will need to be rebooted, do this manually.</p>
+        <p id="ip3">After changes are made, the controller will need to be rebooted, do this manually.</p>
         <div class="region">
             <h2>MQTT</h2>
             <form id="mqttForm" method="POST" action="savemqtt.json" autocomplete="off">
