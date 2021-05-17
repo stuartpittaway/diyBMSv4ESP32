@@ -2462,6 +2462,10 @@ void LoadConfiguration()
   mysettings.rs485parity = uart_parity_t::UART_PARITY_DISABLE;
   mysettings.rs485stopbits = uart_stop_bits_t::UART_STOP_BITS_1;
 
+  mysettings.currentMonitoringEnabled=false;
+
+  strcpy(mysettings.language,"en");
+
   //Default to EMONPI default MQTT settings
   strcpy(mysettings.mqtt_topic, "emon/diybms");
   strcpy(mysettings.mqtt_server, "192.168.0.26");

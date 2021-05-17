@@ -120,6 +120,8 @@ struct diybms_eeprom_settings
   uart_parity_t rs485parity;
   uart_stop_bits_t rs485stopbits;
 
+  char language[2+1];
+
   //NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
   uint16_t mqtt_port;

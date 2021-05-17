@@ -396,6 +396,13 @@ void DIYBMSServer::saveDisplaySetting(AsyncWebServerRequest *request)
     _mysettings->graph_voltagelow = 0;
   }
 
+  if (request->hasParam("Language", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("Language", true);
+    p1->value().toCharArray(_mysettings->language, sizeof(_mysettings->language));
+  }
+
+
   saveConfiguration();
 
   SendSuccess(request);
@@ -1975,15 +1982,13 @@ String DIYBMSServer::TemplateProcessor(const String &var)
   if (var == "XSS_KEY")
     return DIYBMSServer::UUIDString;
 
-#if defined(ESP8266)
-  if (var == "PLATFORM")
-    return String("ESP8266");
-#endif
-
 #if defined(ESP32)
   if (var == "PLATFORM")
     return String("ESP32");
 #endif
+
+  if (var == "LANGUAGE")
+    return String(_mysettings->language);
 
   if (var == "GIT_VERSION")
     return String(GIT_VERSION);
@@ -2043,17 +2048,20 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   cookieValue += String("; path=/; HttpOnly");
   DefaultHeaders::Instance().addHeader("Set-Cookie", cookieValue);
 
-  _myserver->on("/", HTTP_GET, [](AsyncWebServerRequest *request) { request->redirect("/default.htm"); });
+  _myserver->on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+                { request->redirect("/default.htm"); });
 
   _myserver->on("/default.htm", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", (char *)file_default_htm, DIYBMSServer::TemplateProcessor);
                   response->addHeader("Cache-Control", "no-store");
                   request->send(response);
                 });
 
   _myserver->on("/pagecode.js", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_pagecode_js_gz)))
                   {
                     request->send(304);
@@ -2067,7 +2075,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/favicon.ico", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_favicon_ico_gz)))
                   {
                     request->send(304);
@@ -2081,7 +2090,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/logo.png", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_logo_png)))
                   {
                     request->send(304);
@@ -2095,7 +2105,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/wait.png", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_wait_png)))
                   {
                     request->send(304);
@@ -2109,7 +2120,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/patron.png", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_patron_png)))
                   {
                     request->send(304);
@@ -2123,7 +2135,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/warning.png", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_warning_png)))
                   {
                     request->send(304);
@@ -2137,7 +2150,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/jquery.js", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_jquery_js_gz)))
                   {
                     request->send(304);
@@ -2150,8 +2164,39 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                   }
                 });
 
+  _myserver->on("/lang_en.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_lang_en_js_gz)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_lang_en_js_gz, size_file_lang_en_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_lang_en_js_gz));
+                    request->send(response);
+                  }
+                });
+
+  _myserver->on("/lang_es.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_lang_es_js_gz)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_lang_es_js_gz, size_file_lang_es_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_lang_es_js_gz));
+                    request->send(response);
+                  }
+                });
+
   _myserver->on("/echarts.min.js", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_echarts_min_js_gz)))
                   {
                     request->send(304);
@@ -2165,7 +2210,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/echarts_gl.min.js", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_echarts_gl_min_js_gz)))
                   {
                     request->send(304);
@@ -2179,7 +2225,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/style.css", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_style_css_gz)))
                   {
                     request->send(304);
