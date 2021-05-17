@@ -153,17 +153,17 @@
             <table id="modulesTable">
                 <thead>
                     <tr>
-                        <th>Bank</th>
-                        <th>Module</th>
-                        <th>Voltage</th>
-                        <th class='hide'>V. Min</th>
-                        <th class='hide'>V. Max</th>
-                        <th class='hide'>Temp Int &deg;C</th>
-                        <th class='hide'>Temp Ext &deg;C</th>
-                        <th class='hide'>Bypass PWM %</th>
-                        <th class='hide'>Bad packet count</th>
-                        <th class='hide'>Packets received</th>
-                        <th class='hide'>Balance energy used (mAh)</th>
+                        <th id="mpBank">Bank</th>
+                        <th id="mpModule">Module</th>
+                        <th id="mpVoltage">Voltage</th>
+                        <th id="mpvmin" class='hide'>V. Min</th>
+                        <th id="mpvmax" class='hide'>V. Max</th>
+                        <th id="mptint" class='hide'>Temp Int &deg;C</th>
+                        <th id="mptext" class='hide'>Temp Ext &deg;C</th>
+                        <th id="mpbypass" class='hide'>Bypass PWM %</th>
+                        <th id="mpbpc" class='hide'>Bad packet count</th>
+                        <th id="mppktr" class='hide'>Packets received</th>
+                        <th id="mpbal" class='hide'>Balance energy used (mAh)</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -882,7 +882,7 @@
                             <option>2.00</option>
                         </select>
                     </div>
-                    
+
                     <div>
                         <label for="VoltageLow">Graph voltage scale (low)</label>
                         <select name="VoltageLow" id="VoltageLow">
