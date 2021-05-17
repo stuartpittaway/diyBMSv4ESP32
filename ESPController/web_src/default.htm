@@ -1039,6 +1039,10 @@
 
         $(document).ready(function () {
             var lang = $("html").attr("lang");
+
+            $("#Language").val(lang);
+          
+
             //Load language javascript
             $.cachedScript("lang_" + lang + ".js").done(function (script, textStatus) {
                     $.cachedScript("echarts.min.js").done(function (script, textStatus) {
