@@ -5,10 +5,10 @@ $("#home").text("Home");
 $("#modules").text("Module");
 $("#settings").text("Einstellungen");
 $("#rules").text("Regeln");
-$("#more").text("mehr");
+$("#more").text("Mehr");
 
 $("#integration").text("Einbindung");
-$("#currentmonitor").text("diyBMS Amperemeter");
+$("#currentmonitor").text("DIYBMS Amperemeter");
 $("#storage").text("Speicher");
 $("#avrprogrammer").text("AVR-Programmierer");
 $("#about").text("Informationen");
@@ -19,9 +19,10 @@ $("#globalConfig > h2").text("Globale Einstellungen");
 $("#globalConfig > p").text("Konfigurieren Sie alle Module so, dass sie die folgenden Parameter verwenden:");
 
 $("#mpBank").text("Gruppe");
-$("#mpModule").text("Module");
+$("#mpModule").text("Modul");
 $("#mpVoltage").text("Volt");
 $("#mpvmin").text("V. Minimum ");
+//$ ("# mpvmax"). text ("V. Maximum");     Is that missing here?
 $("#mptint").text("Temp intern °C");
 $("#mptext").text("Temp extern °C");
 $("#mpbypass").text("Bypass %");
