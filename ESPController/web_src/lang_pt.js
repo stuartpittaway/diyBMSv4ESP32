@@ -1,4 +1,4 @@
-// This file is for SPANISH language translation
+// This file is for Portuguese language translation
 // w3schools.com/tags/ref_language_codes.asp
 
 $("#home").text("Home"); //For me is better not translate "Home"
