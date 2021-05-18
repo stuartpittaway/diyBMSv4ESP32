@@ -718,7 +718,7 @@ function queryBMS() {
 
             }
 
-            if (window.g2 == null && $('#graph2').css('display') != 'none') {
+            if (window.g2 == null && $('#graph2').css('display') != 'none' && window.Graph3DAvailable===true) {
                 window.g2 = echarts.init(document.getElementById('graph2'));
 
                 var Option3dBar = {
@@ -886,15 +886,9 @@ $(function () {
         if ($(event.target).text() == "2D") {
             $("#graph1").show();
             $("#graph2").hide();
-
-            //Hide 3d graph
-            //if (window.g2 != null) {window.g2.clear();            }
         } else {
             $("#graph1").hide();
             $("#graph2").show();
-
-            //Hide 2d graph
-            //if (window.g1 != null) {window.g1.clear();            }
         }
         $(window).trigger('resize');
     });

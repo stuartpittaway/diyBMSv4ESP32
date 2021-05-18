@@ -402,7 +402,6 @@ void DIYBMSServer::saveDisplaySetting(AsyncWebServerRequest *request)
     p1->value().toCharArray(_mysettings->language, sizeof(_mysettings->language));
   }
 
-
   saveConfiguration();
 
   SendSuccess(request);
@@ -2194,6 +2193,51 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                   }
                 });
 
+  _myserver->on("/lang_de.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_lang_de_js_gz)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_lang_de_js_gz, size_file_lang_de_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_lang_de_js_gz));
+                    request->send(response);
+                  }
+                });
+
+  _myserver->on("/lang_pt.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_lang_pt_js_gz)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_lang_pt_js_gz, size_file_lang_pt_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_lang_pt_js_gz));
+                    request->send(response);
+                  }
+                });
+
+  _myserver->on("/lang_nl.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_lang_nl_js_gz)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_lang_nl_js_gz, size_file_lang_nl_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_lang_nl_js_gz));
+                    request->send(response);
+                  }
+                });
+
   _myserver->on("/echarts.min.js", HTTP_GET,
                 [](AsyncWebServerRequest *request)
                 {
@@ -2209,6 +2253,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                   }
                 });
 
+  /*
   _myserver->on("/echarts_gl.min.js", HTTP_GET,
                 [](AsyncWebServerRequest *request)
                 {
@@ -2223,7 +2268,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                     request->send(response);
                   }
                 });
-
+*/
   _myserver->on("/style.css", HTTP_GET,
                 [](AsyncWebServerRequest *request)
                 {
