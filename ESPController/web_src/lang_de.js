@@ -28,7 +28,7 @@ $("#mptext").text("Temp extern °C");
 $("#mpbypass").text("Bypass %");
 $("#mpbpc").text("Falsche Paketanzahl");
 $("#mppktr").text("Erhaltene Pakete");
-$("#mpbal").text("Gleichen Sie den Energieverbrauch aus (mAh)");
+$("#mpbal").text("Verbrauchte Ausgleichsenergie (mAh)");
 
 $("#error1").text("Der Controller hat Probleme mit der Kommunikation der Überwachungsmodule.");
 $("#error3").text("Der Controller ist so konfiguriert, dass mehr Module verwendet werden, als er unterstützen kann.");
@@ -127,6 +127,10 @@ $("#ip2").text("Aus Sicherheitsgründen müssen Sie vor dem Speichern das Kennwo
 //After changes are made, the controller will need to be rebooted, do this manually.
 $("#ip3").text("Nachdem Änderungen vorgenommen wurden, muss der Controller neu gestartet werden. Führen Sie dieses manuell durch.");
 
+//PATREON
+//Remember, this product is free for personal use, if you would like to make a regular donation to keep the features and improvements flowing, use the Patreon link below. Even just a coffee/beer a month makes a difference. Thank you!
+$("#ap4").text("Denken Sie daran, dass dieses Produkt für den persönlichen Gebrauch kostenlos ist. Wenn Sie regelmäßig spenden möchten, um die Funktionen und Verbesserungen aufrechtzuerhalten, verwenden Sie den unten stehenden Patreon-Link. Schon ein Kaffee / Bier im Monat macht den Unterschied. Vielen Dank!");
+
 //WARNING
 $("#ap5").text("WARNUNG");
 //This is a DIY product/solution so don’t use this for safety critical systems or in any situation where there could be a risk to life.
@@ -145,4 +149,149 @@ $("#mb2").text("DIYBMS unterstützt insgesamt bis zu 100 Module. Diese Module k�
 //Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).
 $("#mb3").text("Beispiel: Sie haben 16 Zellen, die als 8 in einer Reihe und 2 parallel zusammengestellt sind (8S2P)..");
 
+//diybmsCurrentMonitorPage
 
+//<h1>diyBMS Current &amp; Voltage Monitor</h1>
+//diyBMS Ampere & Spannungsüberwachung
+
+//<p>Configure the MODBUS connection to the current monitor using the settings below.</p>
+//Konfigurieren Sie die MODBUS-Verbindung zum aktuellen Monitor mit den folgenden Einstellungen.
+
+//<label for="CurrentMonEnabled">Enabled</label>
+$("label[for='CurrentMonEnabled']").text("aktiviert");
+
+//<p>Configuration options for RS485 interface. Communication is half-duplex.</p>
+//Konfigurationsoptionen für die RS485-Schnittstelle. Die Kommunikation erfolgt im Halbduplexbereich.
+
+//<h2>Basic Settings</h2>
+//Grundeinstellungen
+
+//<p>Ensure the current shunt parameters match the data sheet for your particular shunt resistor.</p>
+//Stellen Sie sicher, dass die aktuellen Shunt-Parameter mit dem Datenblatt für Ihren speziellen Shunt-Widerstand übereinstimmen.
+
+//<p>The current monitor uses a 40.96mV maximum scale, so shunt voltages over this will be scaled down proportionally.</p>
+//Der aktuelle Monitor verwendet eine maximale Skalierung von 40,96 mV, sodass die darüber liegenden Shuntspannungen proportional verkleinert werden.
+
+//<label for="shuntmaxcur">Shunt maximum current</label>
+$("label[for='shuntmaxcur']").text("Shunt maximaler Strom");
+
+//<label for="shuntmv">Shunt output voltage (mV)</label>
+$("label[for='shuntmv']").text("Shunt-Ausgangsspannung (mV)");
+
+//<label for="cmvalid">Values valid?</label>
+$("label[for='cmvalid']").text("Werte gültig?");
+
+//<label for="cmtimestampage">Last communication (milliseconds)</label>
+$("label[for='cmtimestampage']").text("Letzte Verbindung (Millisekunden)");
+
+//<label for="cmwatchdog">Watchdog counter</label>
+$("label[for='cmwatchdog']").text("Watchdog-Zähler");
+
+//<label for="cmtemperature">Die temperature &deg;C</label>
+$("label[for='cmtemperature']").text("CPU-Kern Temperatur");
+
+//<label for="cmactualshuntmv">Actual shunt mV reading</label>
+$("label[for='cmactualshuntmv']").text("Tatsächlicher Shunt-MV-Messwert");
+
+//<label for="cmcurrentlsb">Current LSB size</label>
+$("label[for='cmcurrentlsb']").text("Aktuelle LSB-Größe");
+
+//<label for="cmresistance">Shunt resistance</label>
+$("label[for='cmresistance']").text("Shunt-Widerstand");
+
+//<label for="cmmodel">Sensor model</label>
+$("label[for='cmmodel']").text("Sensormodell");
+
+//<label for="cmfirmwarev">Firmware version</label>
+$("label[for='cmfirmwarev']").text("Firmware version");
+
+//<label for="cmfirmwaredate">Firmware date</label>
+$("label[for='cmfirmwaredate']").text("Firmware Datum");
+
+//<label for="cmRelayState">Relay state</label>
+$("label[for='cmRelayState']").text("Relaisstatus");
+
+//<label for="cmTemperatureOverLimit">Temperature over limit</label>
+$("label[for='cmTemperatureOverLimit']").text("Temperatur über dem Grenzwert");
+
+//<label for="cmCurrentOverLimit">Current over limit</label>
+$("label[for='cmCurrentOverLimit']").text("Strom über dem Grenzwert");
+
+//<label for="cmCurrentUnderLimit">Current under limit</label>
+$("label[for='cmCurrentUnderLimit']").text("Strom unter dem Grenzwert");
+
+//<label for="cmVoltageOverLimit">Voltage over limit</label>
+$("label[for='cmVoltageOverLimit']").text("Spannung über dem Grenzwert");
+
+//<label for="cmVoltageUnderLimit">Voltage under limit</label>
+$("label[for='cmVoltageUnderLimit']").text("Spannung unter dem Grenzwert");
+
+//<label for="cmPowerOverLimit">Power over limit</label>
+$("label[for='cmPowerOverLimit']").text("Leistungsgrenze");
+
+
+//<h2>Advanced Current Monitor Settings</h2>
+//Erweiterte Stromüberwachungs einstellungen
+
+//<p>If you wish to use the relay control on the shunt monitor, set the parameters here. <u>You should not normally need to change the calibration value.</u></p>
+//Wenn Sie die Relaissteuerung am Shunt-Monitor verwenden möchten, stellen Sie hier die Parameter ein. Normalerweise sollten Sie den Kalibrierungswert nicht ändern müssen.
+
+//<p>Current limit is for use whilst discharging the battery, under current limit is used when charging, so different discharge/charge current limits can be used.</u></p>
+// I cannot translate meaningfully
+
+//<p>Temperature limit is based on the chip die temperature, which may not match the shunt temperature. Only positive temperature coefficient is supported.</u></p>
+// Die Temperaturgrenze basiert auf der CPU-Kern Temperatur, die möglicherweise nicht mit der Shunt-Temperatur übereinstimmt. Es wird nur ein positiver Temperaturkoeffizient unterstützt.
+
+//<p>Relay triggers define which rules are used to trigger the relay into a closed state.</u></p>
+//Relaisauslöser definieren, welche Regeln verwendet werden, um das Relais in einen geschlossenen Zustand zu versetzen.
+
+//<label for="cmcalibration">Calibration</label>
+$("label[for='cmcalibration']").text("Kalibrierung");
+
+//<label for="cmtemplimit">Temperature limit</label>
+$("label[for='cmtemplimit']").text("Temperaturgrenze");
+
+//<label for="cmundervlimit">Under voltage limit</label>
+$("label[for='cmundervlimit']").text("Unterspannungsgrenze");
+
+//<label for="cmovervlimit">Over voltage limit</label>
+$("label[for='cmovervlimit']").text("Überspannungsgrenze");
+
+//<label for="cmoverclimit">Over current limit</label>
+$("label[for='cmoverclimit']").text("Überstrombegrenzung");
+
+//<label for="cmunderclimit">Under current limit</label>
+$("label[for='cmunderclimit']").text("Unterstrombegrenzung");
+
+//<label for="cmoverplimit">Over power limit</label>
+$("label[for='cmoverplimit']").text("Leistungsgrenze");
+
+//<label for="cmtempcoeff">Temperature coefficient ppm/&deg;C</label>
+$("label[for='cmtempcoeff']").text("Temperaturkoeffizient");
+
+//<h2>Current Monitor Relay Settings &amp; Temperature coefficient</h2>
+// Strom Überwachungsrelais Einstellungen und Temperaturkoeffizient
+
+//Relay triggers define which rules are used to trigger the relay into a closed state.
+//Relaisauslöser definieren, welche Regeln werden verwendet, um das Relais in einen geschlossenen Zustand zu versetzen.
+
+//<label for="TempCompEnabled">Temperature coefficient enabled</label>
+$("label[for='TempCompEnabled']").text("Temperaturkoeffizient aktiviert");
+
+//<label for="cmTMPOL">Relay Trigger: Temperature</label>
+$("label[for='cmTMPOL']").text("Relaisauslöser: Temperatur");
+
+//<label for="cmCURROL">Relay Trigger: Current over</label>
+$("label[for='cmCURROL']").text("Relaisauslöser: Überstrom");
+
+//<label for="cmCURRUL">Relay Trigger: Current under</label>
+$("label[for='cmCURRUL']").text("Relaisauslöser: Unterstrom");
+
+//<label for="cmVOLTOL">Relay Trigger: Voltage over</label>
+$("label[for='cmVOLTOL']").text("Relaisauslöser: Überspannung");
+
+//<label for="cmVOLTUL">Relay Trigger: Voltage under</label>
+$("label[for='cmVOLTUL']").text("Relaisauslöser: Unterspannung");
+
+//<label for="cmPOL">Relay Trigger: Power</label>
+$("label[for='cmPOL']").text("Relaisauslöser: Stromversorgung");
