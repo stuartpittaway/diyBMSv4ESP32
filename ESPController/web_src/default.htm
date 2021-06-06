@@ -1040,6 +1040,15 @@
         var g3 = null;
         var Graph3DAvailable = false;
 
+        function dumpTextElementsForLanguageTranslation() {
+            $('.warning').each(function(index, value){  console.log( "$(\"#"+$(this).attr("id")+"\").text(\""+ $(this).text()+"\");");});
+            $('.error').each(function(index, value){  console.log( "$(\"#"+$(this).attr("id")+"\").text(\""+ $(this).text()+"\");");});
+            $('label').each(function(index, value){  console.log( "$(\"label[for='"+$(this).attr("for")+"').text(\""+ $(this).text()+"\");");});            
+            $('p').each(function(index, value){  console.log( "$(\"#"+$(this).attr("id")+").text(\""+ $(this).text()+"\");");});
+            $('.stat').each(function(index, value){  console.log( "$(\"#"+$(this).attr("id")+" span .x\").text(\""+ $(this).text()+"\");");});
+            $('a').each(function(index, value){  console.log( "$(\"#"+$(this).attr("id")+"\").text(\""+ $(this).text()+"\");");});
+        }
+
         jQuery.cachedScript = function (url, options) {
             options = $.extend(options || {}, {
                 dataType: "script",

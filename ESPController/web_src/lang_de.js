@@ -152,8 +152,7 @@ $("#mb3").text("Beispiel: Sie haben 16 Zellen, die als 8 in einer Reihe und 2 pa
 //diybmsCurrentMonitorPage
 
 //<h1>diyBMS Current &amp; Voltage Monitor</h1>
-//diyBMS Ampere & Spannungsüberwachung
-
+$("#diybmsCurrentMonitorPage > h1").text("diyBMS Ampere & Spannungsüberwachung");
 //<p>Configure the MODBUS connection to the current monitor using the settings below.</p>
 //Konfigurieren Sie die MODBUS-Verbindung zum aktuellen Monitor mit den folgenden Einstellungen.
 
