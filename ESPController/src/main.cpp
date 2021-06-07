@@ -1376,67 +1376,71 @@ void setupInfluxClient()
   if (!aClient) //could not allocate client
     return;
 
-  aClient->onError([](void *arg, AsyncClient *client, err_t error) {
-    ESP_LOGE(TAG, "Influx connect error");
+  aClient->onError([](void *arg, AsyncClient *client, err_t error)
+                   {
+                     ESP_LOGE(TAG, "Influx connect error");
 
-    aClient = NULL;
-    delete client;
-  },
+                     aClient = NULL;
+                     delete client;
+                   },
                    NULL);
 
-  aClient->onConnect([](void *arg, AsyncClient *client) {
-    ESP_LOGI(TAG, "Influx connected");
+  aClient->onConnect([](void *arg, AsyncClient *client)
+                     {
+                       ESP_LOGI(TAG, "Influx connected");
 
-    //Send the packet here
+                       //Send the packet here
 
-    aClient->onError(NULL, NULL);
+                       aClient->onError(NULL, NULL);
 
-    client->onDisconnect([](void *arg, AsyncClient *c) {
-      ESP_LOGI(TAG, "Influx disconnected");
-      aClient = NULL;
-      delete c;
-    },
-                         NULL);
+                       client->onDisconnect([](void *arg, AsyncClient *c)
+                                            {
+                                              ESP_LOGI(TAG, "Influx disconnected");
+                                              aClient = NULL;
+                                              delete c;
+                                            },
+                                            NULL);
 
-    client->onData([](void *arg, AsyncClient *c, void *data, size_t len) {
-      //Data received
-      ESP_LOGD(TAG, "Influx data received");
-      //SERIAL_DEBUG.print(F("\r\nData: "));
-      //SERIAL_DEBUG.println(len);
-      //uint8_t* d = (uint8_t*)data;
-      //for (size_t i = 0; i < len; i++) {SERIAL_DEBUG.write(d[i]);}
-    },
-                   NULL);
+                       client->onData([](void *arg, AsyncClient *c, void *data, size_t len)
+                                      {
+                                        //Data received
+                                        ESP_LOGD(TAG, "Influx data received");
+                                        //SERIAL_DEBUG.print(F("\r\nData: "));
+                                        //SERIAL_DEBUG.println(len);
+                                        //uint8_t* d = (uint8_t*)data;
+                                        //for (size_t i = 0; i < len; i++) {SERIAL_DEBUG.write(d[i]);}
+                                      },
+                                      NULL);
 
-    //send the request
+                       //send the request
 
-    //Construct URL for the influxdb
-    //See API at https://docs.influxdata.com/influxdb/v1.7/tools/api/#write-http-endpoint
+                       //Construct URL for the influxdb
+                       //See API at https://docs.influxdata.com/influxdb/v1.7/tools/api/#write-http-endpoint
 
-    String poststring;
+                       String poststring;
 
-    for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
-    {
-      //TODO: We should send a request per bank not just a single POST as we are likely to exceed capabilities of ESP
-      for (uint8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
-      {
-        //Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v1.7/write_protocols/line_protocol_tutorial/
-        poststring = poststring + "cells," + "cell=" + String(bank) + "_" + String(i) + " v=" + String((float)cmi[i].voltagemV / 1000.0, 3) + ",i=" + String(cmi[i].internalTemp) + "i" + ",e=" + String(cmi[i].externalTemp) + "i" + ",b=" + (cmi[i].inBypass ? String("true") : String("false")) + "\n";
-      }
-    }
+                       for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
+                       {
+                         //TODO: We should send a request per bank not just a single POST as we are likely to exceed capabilities of ESP
+                         for (uint8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
+                         {
+                           //Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v1.7/write_protocols/line_protocol_tutorial/
+                           poststring = poststring + "cells," + "cell=" + String(bank) + "_" + String(i) + " v=" + String((float)cmi[i].voltagemV / 1000.0, 3) + ",i=" + String(cmi[i].internalTemp) + "i" + ",e=" + String(cmi[i].externalTemp) + "i" + ",b=" + (cmi[i].inBypass ? String("true") : String("false")) + "\n";
+                         }
+                       }
 
-    //TODO: Need to URLEncode these values
-    String url = "/write?db=" + String(mysettings.influxdb_database) + "&u=" + String(mysettings.influxdb_user) + "&p=" + String(mysettings.influxdb_password);
-    String header = "POST " + url + " HTTP/1.1\r\n" + "Host: " + String(mysettings.influxdb_host) + "\r\n" + "Connection: close\r\n" + "Content-Length: " + poststring.length() + "\r\n" + "Content-Type: text/plain\r\n" + "\r\n";
+                       //TODO: Need to URLEncode these values
+                       String url = "/write?db=" + String(mysettings.influxdb_database) + "&u=" + String(mysettings.influxdb_user) + "&p=" + String(mysettings.influxdb_password);
+                       String header = "POST " + url + " HTTP/1.1\r\n" + "Host: " + String(mysettings.influxdb_host) + "\r\n" + "Connection: close\r\n" + "Content-Length: " + poststring.length() + "\r\n" + "Content-Type: text/plain\r\n" + "\r\n";
 
-    //SERIAL_DEBUG.println(header.c_str());
-    //SERIAL_DEBUG.println(poststring.c_str());
+                       //SERIAL_DEBUG.println(header.c_str());
+                       //SERIAL_DEBUG.println(poststring.c_str());
 
-    client->write(header.c_str());
-    client->write(poststring.c_str());
+                       client->write(header.c_str());
+                       client->write(poststring.c_str());
 
-    ESP_LOGD(TAG, "Influx data sent");
-  },
+                       ESP_LOGD(TAG, "Influx data sent");
+                     },
                      NULL);
 }
 
@@ -1472,35 +1476,35 @@ void SetupOTA()
   ArduinoOTA.setPassword("1jiOOx12AQgEco4e");
 
   ArduinoOTA
-      .onStart([]() {
-        String type;
-        if (ArduinoOTA.getCommand() == U_FLASH)
-          type = "sketch";
-        else // U_SPIFFS
-          type = "filesystem";
+      .onStart([]()
+               {
+                 String type;
+                 if (ArduinoOTA.getCommand() == U_FLASH)
+                   type = "sketch";
+                 else // U_SPIFFS
+                   type = "filesystem";
 
-        // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-        ESP_LOGI(TAG, "Start updating %s", type);
-      });
-  ArduinoOTA.onEnd([]() {
-    ESP_LOGD(TAG, "\nEnd");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    ESP_LOGD(TAG, "Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    ESP_LOGD(TAG, "Error [%u]: ", error);
-    if (error == OTA_AUTH_ERROR)
-      ESP_LOGE(TAG, "Auth Failed");
-    else if (error == OTA_BEGIN_ERROR)
-      ESP_LOGE(TAG, "Begin Failed");
-    else if (error == OTA_CONNECT_ERROR)
-      ESP_LOGE(TAG, "Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR)
-      ESP_LOGE(TAG, "Receive Failed");
-    else if (error == OTA_END_ERROR)
-      ESP_LOGE(TAG, "End Failed");
-  });
+                 // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+                 ESP_LOGI(TAG, "Start updating %s", type);
+               });
+  ArduinoOTA.onEnd([]()
+                   { ESP_LOGD(TAG, "\nEnd"); });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+                        { ESP_LOGD(TAG, "Progress: %u%%\r", (progress / (total / 100))); });
+  ArduinoOTA.onError([](ota_error_t error)
+                     {
+                       ESP_LOGD(TAG, "Error [%u]: ", error);
+                       if (error == OTA_AUTH_ERROR)
+                         ESP_LOGE(TAG, "Auth Failed");
+                       else if (error == OTA_BEGIN_ERROR)
+                         ESP_LOGE(TAG, "Begin Failed");
+                       else if (error == OTA_CONNECT_ERROR)
+                         ESP_LOGE(TAG, "Connect Failed");
+                       else if (error == OTA_RECEIVE_ERROR)
+                         ESP_LOGE(TAG, "Receive Failed");
+                       else if (error == OTA_END_ERROR)
+                         ESP_LOGE(TAG, "End Failed");
+                     });
 
   ArduinoOTA.setHostname(WiFi.getHostname());
   ArduinoOTA.setMdnsEnabled(true);
@@ -1656,8 +1660,39 @@ void mqtt2(void *param)
       ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
 #endif
       mqttClient.publish(topic, 0, false, jsonbuffer);
-    }
-  }
+
+      if (mysettings.currentMonitoringEnabled)
+      {
+        //Send current monitor data
+        doc.clear(); // Need to clear the json object for next message
+        sprintf(topic, "%s/modbus/A%u", mysettings.mqtt_topic, mysettings.currentMonitoringModBusAddress);
+
+        doc["valid"] = currentMonitor.validReadings ? 1 : 0;
+
+        //30 seconds (in microseconds)
+        int64_t currentTime = esp_timer_get_time() - ((int64_t)30 * (int64_t)1000000);
+        if (currentMonitor.validReadings && currentMonitor.timestamp > currentTime)
+        {
+          //Send current monitor data if its valid and less than 30 seconds old.
+          doc["voltage"] = currentMonitor.voltage;
+          doc["current"] = currentMonitor.current;
+          doc["mAhIn"] = currentMonitor.milliamphour_in;
+          doc["mAhOut"] = currentMonitor.milliamphour_out;
+          doc["power"] = currentMonitor.power;
+          doc["temperature"] = currentMonitor.temperature;
+          doc["shuntmV"] = currentMonitor.shuntmV;
+          doc["relayState"] = currentMonitor.RelayState ? 1 : 0;
+        }
+
+        serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+#if defined(MQTT_LOGGING)
+        ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+#endif
+        mqttClient.publish(topic, 0, false, jsonbuffer);
+      }
+
+    } //end if
+  }   //end for
 }
 
 uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
@@ -2462,9 +2497,9 @@ void LoadConfiguration()
   mysettings.rs485parity = uart_parity_t::UART_PARITY_DISABLE;
   mysettings.rs485stopbits = uart_stop_bits_t::UART_STOP_BITS_1;
 
-  mysettings.currentMonitoringEnabled=false;
+  mysettings.currentMonitoringEnabled = false;
 
-  strcpy(mysettings.language,"en");
+  strcpy(mysettings.language, "en");
 
   //Default to EMONPI default MQTT settings
   strcpy(mysettings.mqtt_topic, "emon/diybms");
