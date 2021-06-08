@@ -501,6 +501,73 @@ void sdcardlog_task(void *param)
             //We had an error opening the file, so switch off logging
             //mysettings.loggingEnabled = false;
           }
+
+          //Now log the current monitor
+          if (mysettings.currentMonitoringEnabled)
+          {
+            char cmon_filename[32];
+            sprintf(cmon_filename, "/modbus%02u_%04u%02u%02u.csv",mysettings.currentMonitoringModBusAddress, timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
+
+            File file;
+
+            if (SD.exists(cmon_filename))
+            {
+              //Open existing file (assumes there is enough SD card space to log)
+              file = SD.open(cmon_filename, FILE_APPEND);
+              //ESP_LOGD(TAG, "Open log %s", filename);
+            }
+            else
+            {
+              //Create a new file
+              uint64_t freeSpace = SD.totalBytes() - SD.usedBytes();
+
+              //Ensure there is more than 25MB of free space on SD card before creating a file
+              if (freeSpace > (uint64_t)(25 * 1024 * 1024))
+              {
+                //Create the file
+                File file = SD.open(cmon_filename, FILE_WRITE);
+                if (file)
+                {
+                  ESP_LOGI(TAG, "Create log %s", cmon_filename);
+                  file.println("DateTime,valid,voltage,current,mAhIn,mAhOut,power,temperature,shuntmV,relayState");
+                }
+              }
+              else
+              {
+                ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
+                //We had an error, so switch off logging (this is only in memory so not written perm.)
+                mysettings.loggingEnabled = false;
+              }
+            }
+
+            if (file && mysettings.loggingEnabled)
+            {
+              char dataMessage[255];
+
+              sprintf(dataMessage, "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+              file.print(dataMessage);
+
+              sprintf(dataMessage, "%i,%.3f,%.3f,%u,%u,%.3f,%i,%.3f,%i",
+                      currentMonitor.validReadings ? 1 : 0,
+                      currentMonitor.voltage, currentMonitor.current,
+                      currentMonitor.milliamphour_in, currentMonitor.milliamphour_out,
+                      currentMonitor.power, currentMonitor.temperature,
+                      currentMonitor.shuntmV, currentMonitor.RelayState ? 1 : 0);
+              file.print(dataMessage);
+
+              file.println();
+              file.close();
+
+              ESP_LOGD(TAG, "Wrote current monitor data to SD log");
+            }
+            else
+            {
+              ESP_LOGE(TAG, "Failed to create/append SD logging file");
+              //We had an error opening the file, so switch off logging
+              //mysettings.loggingEnabled = false;
+            }
+          }//end of logging for current monitor
+
         }
         else
         {
