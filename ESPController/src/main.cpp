@@ -1661,36 +1661,6 @@ void mqtt2(void *param)
 #endif
       mqttClient.publish(topic, 0, false, jsonbuffer);
 
-      if (mysettings.currentMonitoringEnabled)
-      {
-        //Send current monitor data
-        doc.clear(); // Need to clear the json object for next message
-        sprintf(topic, "%s/modbus/A%u", mysettings.mqtt_topic, mysettings.currentMonitoringModBusAddress);
-
-        doc["valid"] = currentMonitor.validReadings ? 1 : 0;
-
-        //30 seconds (in microseconds)
-        int64_t currentTime = esp_timer_get_time() - ((int64_t)30 * (int64_t)1000000);
-        if (currentMonitor.validReadings && currentMonitor.timestamp > currentTime)
-        {
-          //Send current monitor data if its valid and less than 30 seconds old.
-          doc["voltage"] = currentMonitor.voltage;
-          doc["current"] = currentMonitor.current;
-          doc["mAhIn"] = currentMonitor.milliamphour_in;
-          doc["mAhOut"] = currentMonitor.milliamphour_out;
-          doc["power"] = currentMonitor.power;
-          doc["temperature"] = currentMonitor.temperature;
-          doc["shuntmV"] = currentMonitor.shuntmV;
-          doc["relayState"] = currentMonitor.RelayState ? 1 : 0;
-        }
-
-        serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-#if defined(MQTT_LOGGING)
-        ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-#endif
-        mqttClient.publish(topic, 0, false, jsonbuffer);
-      }
-
     } //end if
   }   //end for
 }
@@ -2389,6 +2359,7 @@ void mqtt1(void *param)
 {
   //Send a few MQTT packets and keep track so we send the next batch on following calls
   static uint8_t mqttStartModule = 0;
+  static int64_t lastcurrentMonitortimestamp = 0;
 
   for (;;)
   {
@@ -2453,6 +2424,36 @@ void mqtt1(void *param)
         //After transmitting this many packets over MQTT, store our current state and exit the function.
         //this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
         mqttStartModule = i + 1;
+      }
+
+      if (mysettings.currentMonitoringEnabled)
+      {
+        //Send current monitor data
+        doc.clear(); // Need to clear the json object for next message
+        sprintf(topic, "%s/modbus/A%u", mysettings.mqtt_topic, mysettings.currentMonitoringModBusAddress);
+
+        doc["valid"] = currentMonitor.validReadings ? 1 : 0;
+
+        if (currentMonitor.validReadings && currentMonitor.timestamp != lastcurrentMonitortimestamp)
+        {
+          //Send current monitor data if its valid and not sent before
+          doc["voltage"] = currentMonitor.voltage;
+          doc["current"] = currentMonitor.current;
+          doc["mAhIn"] = currentMonitor.milliamphour_in;
+          doc["mAhOut"] = currentMonitor.milliamphour_out;
+          doc["power"] = currentMonitor.power;
+          doc["temperature"] = currentMonitor.temperature;
+          doc["shuntmV"] = currentMonitor.shuntmV;
+          doc["relayState"] = currentMonitor.RelayState ? 1 : 0;
+        }
+
+        lastcurrentMonitortimestamp = currentMonitor.timestamp;
+
+        serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+#if defined(MQTT_LOGGING)
+        ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+#endif
+        mqttClient.publish(topic, 0, false, jsonbuffer);
       }
     }
   }
