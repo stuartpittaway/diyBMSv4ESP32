@@ -506,7 +506,7 @@ void sdcardlog_task(void *param)
           if (mysettings.currentMonitoringEnabled)
           {
             char cmon_filename[32];
-            sprintf(cmon_filename, "/modbus%02u_%04u%02u%02u.csv",mysettings.currentMonitoringModBusAddress, timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
+            sprintf(cmon_filename, "/modbus%02u_%04u%02u%02u.csv", mysettings.currentMonitoringModBusAddress, timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
 
             File file;
 
@@ -566,8 +566,7 @@ void sdcardlog_task(void *param)
               //We had an error opening the file, so switch off logging
               //mysettings.loggingEnabled = false;
             }
-          }//end of logging for current monitor
-
+          } //end of logging for current monitor
         }
         else
         {
@@ -2309,7 +2308,6 @@ void rs485_rx(void *param)
 
       uint16_t crc = ((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
 
-      //uint16_t temp = CRC16.modbus(frame, len - 2);
       uint16_t temp = calculateCRC(frame, len - 2);
       //Swap bytes to match MODBUS ordering
       uint16_t calculatedCRC = (temp << 8) | (temp >> 8);
@@ -2318,7 +2316,6 @@ void rs485_rx(void *param)
 
       if (calculatedCRC == crc)
       {
-        //83 bytes
         // if the calculated crc matches the recieved crc continue
         uint8_t RS485Error = frame[1] & B10000000;
         if (RS485Error == 0)
@@ -2357,11 +2354,11 @@ void rs485_rx(void *param)
     }
     else
     {
-
-      //Should we set this to false?
-      //currentMonitor.validReadings=false;
-
+      //We didn't receive anything on RS485
       ESP_LOGE(TAG, "Short packet %i bytes", len);
+
+      //Indicate that the current monitor values are now invalid/unknown
+      currentMonitor.validReadings = false;
     }
     //for (int i = 0; i < len; i++)    {      dumpByte(data[i]);    }
   }
