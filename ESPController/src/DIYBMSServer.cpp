@@ -45,6 +45,7 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 AsyncWebServer *DIYBMSServer::_myserver;
 String DIYBMSServer::UUIDString;
+String DIYBMSServer::UUIDStringLast2Chars;
 
 fs::SDFS *DIYBMSServer::_sdcard = 0;
 void (*DIYBMSServer::_sdcardaction_callback)(uint8_t action) = 0;
@@ -93,6 +94,9 @@ void DIYBMSServer::generateUUID()
     uuidNumber[x] = random(0xFF);
 
   UUIDString = uuidToString(uuidNumber);
+
+  //481efb3f-0400-0000-101f-fb3fd01efb3f
+  UUIDStringLast2Chars=UUIDString.substring(34);
 }
 
 bool DIYBMSServer::validateXSS(AsyncWebServerRequest *request)
@@ -1700,6 +1704,16 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"ignored\":", _receiveProc->totalNotProcessedErrors);
   PrintStreamComma(response, "\"roundtrip\":", _receiveProc->packetTimerMillisecond);
   PrintStreamComma(response, "\"oos\":", _receiveProc->totalOutofSequenceErrors);
+
+  PrintStreamComma(response, "\"uptime\":", (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6));
+  
+  //Output last 2 charaters from security cookie, to allow brower to detect when its
+  //no longer in sync with the back end and report warning.
+  //Technically this downgrades the complexity of the XSS key, as it reduces key length.
+  response->print("\"sec\":\"");
+  response->print(UUIDStringLast2Chars);
+  response->print("\",");
+
 
   response->print(F("\"errors\":["));
   uint8_t count = 0;

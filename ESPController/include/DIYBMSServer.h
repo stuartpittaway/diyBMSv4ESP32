@@ -41,6 +41,7 @@ public:
 private:
     static AsyncWebServer *_myserver;
     static String UUIDString;
+    static String UUIDStringLast2Chars;
 
     //Pointers to other classes (not always a good idea in static classes)
     //static sdcard_info (*_sdcardcallback)();

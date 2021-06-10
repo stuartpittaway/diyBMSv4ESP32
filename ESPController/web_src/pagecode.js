@@ -33,7 +33,6 @@ function identifyModule(button, cellid) {
 }
 
 function refreshCurrentMonitorValues() {
-
     $.getJSON("currentmonitor.json",
         function (data) {
             $("#CurrentMonEnabled").prop("checked", data.enabled);
@@ -227,6 +226,17 @@ function configureModule(button, cellid, attempts) {
         });
 }
 
+function secondsToHms(d) {
+    d = Number(d);
+    var h = Math.floor(d / 3600);
+    var m = Math.floor(d % 3600 / 60);
+    var s = Math.floor(d % 3600 % 60);
+
+    var hDisplay = h > 0 ? h + "h" : "";
+    var mDisplay = m > 0 ? m + "m" : "";
+    var sDisplay = h > 24 ? "" :  (s > 0 ? s + "s" : "");
+    return hDisplay + mDisplay + sDisplay;
+}
 
 function queryBMS() {
     $.getJSON("monitor2.json", function (jsondata) {
@@ -319,6 +329,8 @@ function queryBMS() {
             if (jsondata.received == 0) { $("#received").hide(); } else { $("#received .v").html(jsondata.received); $("#received").show(); }
             if (jsondata.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.roundtrip); $("#roundtrip").show(); }
             if (jsondata.oos == 0) { $("#oos").hide(); } else { $("#oos .v").html(jsondata.oos); $("#oos").show(); }
+
+            $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
         }
 
         if (jsondata.bankv) {
@@ -334,6 +346,12 @@ function queryBMS() {
                 //$("#bank" + (bankNumber )).hide();
                 $("#voltage" + bankNumber).hide();
                 $("#range" + bankNumber).hide();
+            }
+        }
+
+        if (jsondata.sec) {           
+            if (!XSS_KEY.endsWith(jsondata.sec)) {
+                $("#warning7").show();
             }
         }
 
@@ -548,7 +566,7 @@ function queryBMS() {
                                 silent: true,
                                 symbol: 'none',
                                 lineStyle: { width: 5, type: 'dashed', opacity: 0.1 },
-                                label: { show: true, distance: [0, 0], formatter: '{b}' },
+                                label: { show: true, distance: [0, 0], formatter: '{b}', color: "#c1bdbd" },
                                 data: markLineData
                             },
                             itemStyle: { color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
@@ -718,7 +736,7 @@ function queryBMS() {
 
             }
 
-            if (window.g2 == null && $('#graph2').css('display') != 'none' && window.Graph3DAvailable===true) {
+            if (window.g2 == null && $('#graph2').css('display') != 'none' && window.Graph3DAvailable === true) {
                 window.g2 = echarts.init(document.getElementById('graph2'));
 
                 var Option3dBar = {
@@ -1188,6 +1206,7 @@ $(function () {
 
         return true;
     });
+
     $("#AVRProgEnable").click(function () {
         $.ajax({
             type: 'post',
@@ -1453,6 +1472,13 @@ $(function () {
         beforeSend: function (xhr, settings) { settings.data += '&xss=' + XSS_KEY; }
     });
 
+
+    $(".stat").mouseenter(function () {
+        $(this).addClass("hover");
+    }).mouseleave(function () {
+        $(this).removeClass("hover");
+    });
+
     //$(document).ajaxStart(function(){ });
     //$(document).ajaxStop(function(){ });
 
@@ -1460,4 +1486,4 @@ $(function () {
 
     //On page ready
     queryBMS();
-});
+}); // end $(function ()
