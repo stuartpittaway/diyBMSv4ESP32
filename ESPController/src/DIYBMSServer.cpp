@@ -2281,22 +2281,22 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                   }
                 });
 
-  /*
-  _myserver->on("/echarts_gl.min.js", HTTP_GET,
+  _myserver->on("/notify.min.js", HTTP_GET,
                 [](AsyncWebServerRequest *request)
                 {
-                  if (request->header("If-None-Match").equals(String(etag_file_echarts_gl_min_js_gz)))
+                  if (request->header("If-None-Match").equals(String(etag_file_notify_min_js_gz)))
                   {
                     request->send(304);
                   }
                   else
                   {
-                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_echarts_gl_min_js_gz, size_file_echarts_gl_min_js_gz);
-                    SetCacheAndETagGzip(response, String(etag_file_echarts_gl_min_js_gz));
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_notify_min_js_gz, size_file_notify_min_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_notify_min_js_gz));
                     request->send(response);
                   }
                 });
-*/
+
+
   _myserver->on("/style.css", HTTP_GET,
                 [](AsyncWebServerRequest *request)
                 {

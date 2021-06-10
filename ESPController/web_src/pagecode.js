@@ -5,7 +5,8 @@ const INTERNALWARNINGCODE = {
     ModuleInconsistantCodeVersion: 3,
     ModuleInconsistantBoardRevision: 4,
     LoggingEnabledNoSDCard: 5,
-    AVRProgrammingMode: 6
+    AVRProgrammingMode: 6,
+    XSSKEYSync: 7
 }
 Object.freeze(INTERNALWARNINGCODE);
 
@@ -103,6 +104,14 @@ function refreshCurrentMonitorValues() {
 
 }
 
+function showFailure() {
+    $.notify($("#saveerror").text(), { className: 'error', autoHideDelay: 15000 });
+}
+
+function showSuccess() {
+    $.notify($("#savesuccess").text(), { className: 'success' });
+}
+
 function currentmonitorSubmitForm(form) {
     $.ajax({
         type: $(form).attr('method'),
@@ -113,7 +122,7 @@ function currentmonitorSubmitForm(form) {
             $("#currentmonbasic").hide();
             $("#currentmonrelay").hide();
 
-            $("#savesuccess").show().delay(2000).fadeOut(500);
+            showSuccess();
 
             //Show spinner for 6 seconds, then refresh page
             $("#loading").show().delay(6000).hide("fast", function () {
@@ -121,7 +130,7 @@ function currentmonitorSubmitForm(form) {
             });
         },
         error: function (data) {
-            $("#saveerror").show().delay(2000).fadeOut(500);
+            showFailure();
         },
     });
 }
@@ -234,7 +243,7 @@ function secondsToHms(d) {
 
     var hDisplay = h > 0 ? h + "h" : "";
     var mDisplay = m > 0 ? m + "m" : "";
-    var sDisplay = h > 24 ? "" :  (s > 0 ? s + "s" : "");
+    var sDisplay = h > 24 ? "" : (s > 0 ? s + "s" : "");
     return hDisplay + mDisplay + sDisplay;
 }
 
@@ -268,13 +277,13 @@ function queryBMS() {
 
         var markLineData = [];
 
-        markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
-        markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
-        markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
+        markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+        markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+        markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
 
         var xAxis = 0;
         for (let index = 0; index < jsondata.banks; index++) {
-            markLineData.push({ name: "Bank " + index, xAxis: xAxis });
+            markLineData.push({ name: "Bank " + index, xAxis: xAxis, lineStyle: { color: colours[index], width: 4, type: 'dashed', opacity: 0.5 }, label: { show: true, distance: [0, 0], formatter: '{b}', color: '#eeeeee', textBorderColor: colours[index], textBorderWidth: 2 } });
             xAxis += jsondata.seriesmodules;
         }
 
@@ -349,9 +358,12 @@ function queryBMS() {
             }
         }
 
-        if (jsondata.sec) {           
+        if (jsondata.sec) {
             if (!XSS_KEY.endsWith(jsondata.sec)) {
-                $("#warning7").show();
+                if ($("#warning7").data("notify") == undefined) {
+                    $("#warning7").data("notify", 1);
+                    $.notify($("#warning7").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
+                }
             }
         }
 
@@ -382,14 +394,22 @@ function queryBMS() {
             }
         }
 
+
+
+
         //Needs increasing when more warnings are added
         if (jsondata.warnings) {
             for (let warning = 1; warning <= 6; warning++) {
                 if (jsondata.warnings.includes(warning)) {
-                    $("#warning" + warning).show();
-                } else {
-                    $("#warning" + warning).hide();
+                    //Once a warning has triggered, hide it from showing in the future
+                    if ($("#warning" + warning).data("notify") == undefined) {
+                        $("#warning" + warning).data("notify", 1);
+                        $.notify($("#warning" + warning).text(), { autoHideDelay: 15000, globalPosition: 'top left', className: 'warn' });
+                    }
                 }
+                //else {
+                //$("#warning" + warning).hide();
+                //}
             }
         }
 
@@ -565,8 +585,7 @@ function queryBMS() {
                             markLine: {
                                 silent: true,
                                 symbol: 'none',
-                                lineStyle: { width: 5, type: 'dashed', opacity: 0.1 },
-                                label: { show: true, distance: [0, 0], formatter: '{b}', color: "#c1bdbd" },
+
                                 data: markLineData
                             },
                             itemStyle: { color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
@@ -1145,7 +1164,7 @@ $(function () {
                 $("#storage").trigger("click");
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1158,10 +1177,10 @@ $(function () {
             data: 'save=1',
             success: function (data) {
                 //Refresh the storage page
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1176,7 +1195,7 @@ $(function () {
                 $("#storage").trigger("click");
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1195,6 +1214,8 @@ $(function () {
                     $("#AVRProgDisable").prop('disabled', true).css({ opacity: 0.25 });
                     $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
                     $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
+                    //Allow warning to trigger again
+                    $("#warning7").removeData("notify");
                 })
             .fail(function (data) {
                 $("#avrinfo").html("Failed");
@@ -1328,6 +1349,10 @@ $(function () {
 
         $.getJSON("storage.json",
             function (data) {
+
+                //Allow warning to trigger again
+                $("#warning5").removeData("notify");
+
                 $("#loggingEnabled").prop("checked", data.storage.logging);
                 $("#loggingFreq").val(data.storage.frequency);
 
@@ -1384,15 +1409,13 @@ $(function () {
             url: $(this).attr('action'),
             data: $(this).serialize(),
             success: function (data) {
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
-
-
 
 
     $("#diybmsCurrentMonitorForm2").unbind('submit').submit(function (e) {
@@ -1407,11 +1430,32 @@ $(function () {
         e.preventDefault();
         currentmonitorSubmitForm(this);
     });
-
-
     $("#diybmsCurrentMonitorForm1").unbind('submit').submit(function (e) {
         e.preventDefault();
         currentmonitorSubmitForm(this);
+    });
+
+    
+    $("#globalSettingsForm").unbind('submit').submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+            type: $(this).attr('method'),
+            url: $(this).attr('action'),
+            data: $(this).serialize(),
+            success: function (data) {
+                showSuccess();
+
+                //Allow warning to trigger again
+                $("#warning1").removeData("notify");
+                $("#warning2").removeData("notify");
+                $("#warning3").removeData("notify");
+                $("#warning4").removeData("notify");
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
     });
 
 
@@ -1424,10 +1468,17 @@ $(function () {
             data: $(this).serialize(),
             success: function (data) {
                 $('#settingConfig').hide();
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
+
+                //Allow warning to trigger again
+                $("#warning1").removeData("notify");
+                $("#warning2").removeData("notify");
+                $("#warning3").removeData("notify");
+                $("#warning4").removeData("notify");
+
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1442,10 +1493,10 @@ $(function () {
             success: function (data) {
                 DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat($("#VoltageHigh").val());
                 DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat($("#VoltageLow").val());
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
