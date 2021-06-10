@@ -60,6 +60,7 @@ HAL_ESP32 *DIYBMSServer::_hal = 0;
 
 String DIYBMSServer::uuidToString(uint8_t *uuidLocation)
 {
+  const char hexchars[]="0123456789abcdef";
   String string = "";
   int i;
   for (i = 0; i < 16; i++)
@@ -72,12 +73,12 @@ String DIYBMSServer::uuidToString(uint8_t *uuidLocation)
       string += "-";
     if (i == 10)
       string += "-";
-    int topDigit = uuidLocation[i] >> 4;
-    int bottomDigit = uuidLocation[i] & 0x0f;
+    uint8_t topDigit = uuidLocation[i] >> 4;
+    uint8_t bottomDigit = uuidLocation[i] & 0x0f;
     // High hex digit
-    string += "0123456789abcdef"[topDigit];
+    string += hexchars[topDigit];
     // Low hex digit
-    string += "0123456789abcdef"[bottomDigit];
+    string += hexchars[bottomDigit];
   }
 
   return string;
@@ -85,13 +86,13 @@ String DIYBMSServer::uuidToString(uint8_t *uuidLocation)
 
 void DIYBMSServer::generateUUID()
 {
-  //SERIAL_DEBUG.print("generateUUID=");
   uint8_t uuidNumber[16]; // UUIDs in binary form are 16 bytes long
 
   //ESP32 has inbuilt random number generator
   //https://techtutorialsx.com/2017/12/22/esp32-arduino-random-number-generation/
-  for (uint8_t x = 0; x < 16; x--)
+  for (uint8_t x = 0; x < 16; x++) {
     uuidNumber[x] = random(0xFF);
+  }
 
   UUIDString = uuidToString(uuidNumber);
 

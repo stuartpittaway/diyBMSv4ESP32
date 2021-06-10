@@ -1402,8 +1402,6 @@ WiFi.status() only returns:
 
   ESP_LOGI(TAG, "Hostname: %s, current state %i", hostname, status);
 
-  //ESP_LOGD(TAG, "WiFi begin");
-
   WiFi.begin(DIYBMSSoftAP::Config()->wifi_ssid, DIYBMSSoftAP::Config()->wifi_passphrase);
 }
 
@@ -3043,10 +3041,6 @@ void setup()
 
   ESP_LOGI(TAG, "ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u", chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
-  //We generate a unique number which is used in all following JSON requests
-  //we use this as a simple method to avoid cross site scripting attacks
-  DIYBMSServer::generateUUID();
-
   hal.ConfigurePins(WifiPasswordClear);
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
   hal.ConfigureVSPI();
@@ -3301,6 +3295,12 @@ TEST CAN BUS
 
     //Attempt connection in setup(), loop() will also try every 30 seconds
     connectToWifi();
+
+    //We generate a unique number which is used in all following JSON requests
+    //we use this as a simple method to avoid cross site scripting attacks
+    //This MUST be done once the WIFI is switched on otherwise only PSEUDO random
+    //data is generated!!
+    DIYBMSServer::generateUUID();
 
     //Wake screen on power up
     xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
