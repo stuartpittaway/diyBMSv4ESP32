@@ -2075,7 +2075,7 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
 
     case 8:
     {
-      uint32_t milliamph = v.word[0] << 16 | data;
+      uint32_t milliamph = ((uint32_t)v.word[0]) << 16 | (uint32_t)data;
       currentMonitor.milliamphour_in = milliamph;
       break;
     }
@@ -2088,7 +2088,9 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
 
     case 10:
     {
+      //High byte
       uint8_t flag1 = data >> 8;
+      //Low byte
       uint8_t flag2 = data;
 
       ESP_LOGD(TAG, "Read relay trigger settings %u %u", flag1, flag2);
