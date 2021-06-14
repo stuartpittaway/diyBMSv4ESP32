@@ -2068,7 +2068,7 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
 
     case 6:
     {
-      uint32_t milliamph = v.word[0] << 16 | data;
+      uint32_t milliamph = ((uint32_t)v.word[0]) << 16 | (uint32_t)data;
       currentMonitor.milliamphour_out = milliamph;
       break;
     }
