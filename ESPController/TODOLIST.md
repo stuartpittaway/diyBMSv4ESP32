@@ -77,18 +77,12 @@ Looking top down onto the TFT screen (screen header pins on left marked J2) pins
 * T_IRQ (touch)
 
 ### TFT Touch
-
-uses GPIO4 for chip select and VSPI interface for communication with XPT2046 driver
+Uses GPIO4 for chip select and VSPI interface for communication with XPT2046 driver
 http://grobotronics.com/images/datasheets/xpt2046-datasheet.pdf
 
 ### SD CARD
-
-Integrated into TFT display, see TFT Screen above, uses GPIO5 for chip select
-
-Added Micro SD card onto controller PCB for users who don't want TFT screen but do want logging
-using MOLEX part 1040310811  https://datasheet.lcsc.com/szlcsc/2011171806_MOLEX-1040310811_C585350.pdf
-
-PCB also has seperate micro SD socket/footprint for users who want logging but not TFT screen.
+Uses GPIO5 for chip select
+Micro SD card onto controller PCB see B.O.M for part numbers
 
 ### CANBUS
 
@@ -113,4 +107,4 @@ Connected to VSPI interface and uses P4 output on  TCA9534A to drive reset line.
 VSPI should be disabled/not used whilst IVR programmer in use
 
 ### TX2/RX2 
-Copy of TX1/RX1 circuit
+Removed in newer revision of board

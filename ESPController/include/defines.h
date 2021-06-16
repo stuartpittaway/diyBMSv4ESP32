@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+#include <driver/uart.h>
+
 #include "EmbeddedFiles_Defines.h"
 
 #include "EmbeddedFiles_Integrity.h"
@@ -16,6 +18,12 @@
 
 //Total number of cells a single controler can handle (memory limitation)
 #define maximum_controller_cell_modules 128
+
+typedef union
+{
+  float value;
+  uint16_t word[2];
+} FloatUnionType;
 
 enum RGBLED : uint8_t
 {
@@ -104,6 +112,16 @@ struct diybms_eeprom_settings
   bool loggingEnabled;
   uint16_t loggingFrequencySeconds;
 
+  bool currentMonitoringEnabled;
+  uint8_t currentMonitoringModBusAddress;
+
+  int rs485baudrate;
+  uart_word_length_t rs485databits;
+  uart_parity_t rs485parity;
+  uart_stop_bits_t rs485stopbits;
+
+  char language[2+1];
+
   //NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
   uint16_t mqtt_port;
@@ -120,7 +138,8 @@ struct diybms_eeprom_settings
   char influxdb_password[32 + 1];
 };
 
-typedef union {
+typedef union
+{
   float number;
   uint8_t bytes[4];
   uint16_t word[2];
@@ -236,5 +255,73 @@ struct avrprogramsettings
   bool programmingModeEnabled;
 };
 
+struct currentmonitoring_struct
+{
+  //Uses float as these are 4 bytes on ESP32
+  int64_t timestamp;
+  bool validReadings;
+  float voltage;
+  float current;
+  uint32_t milliamphour_out;
+  uint32_t milliamphour_in;
+  int16_t temperature;
+  uint16_t watchdogcounter;
+  float power;
+  float shuntmV;
+  float currentlsb;
+  float shuntresistance;
+  uint16_t shuntmaxcurrent;
+  uint16_t shuntmillivolt;
+  uint16_t shuntcal;
+  int16_t temperaturelimit;
+  float undervoltagelimit;
+  float overvoltagelimit;
+
+  float overpowerlimit;
+  float overcurrentlimit;
+  float undercurrentlimit;
+  uint16_t shunttempcoefficient;
+  uint16_t modelnumber;
+  uint32_t firmwareversion;
+  uint32_t firmwaredatetime;
+
+  bool TemperatureOverLimit : 1;
+  bool CurrentOverLimit : 1;
+  bool CurrentUnderLimit : 1;
+  bool VoltageOverlimit : 1;
+  bool VoltageUnderlimit : 1;
+  bool PowerOverLimit : 1;
+  bool TempCompEnabled : 1;
+  bool ADCRange4096mV : 1;
+
+  bool RelayTriggerTemperatureOverLimit : 1;
+  bool RelayTriggerCurrentOverLimit : 1;
+  bool RelayTriggerCurrentUnderLimit : 1;
+  bool RelayTriggerVoltageOverlimit : 1;
+  bool RelayTriggerVoltageUnderlimit : 1;
+  bool RelayTriggerPowerOverLimit : 1;
+  bool RelayState : 1;
+};
+
+
+enum DIAG_ALRT_FIELD : uint16_t
+{
+  ALATCH = 15,
+  CNVR = 14,
+  SLOWALERT = 13,
+  APOL = 12,
+  ENERGYOF = 11,
+  CHARGEOF = 10,
+  MATHOF = 9,
+  RESERVED = 8,
+  TMPOL = 7,
+  SHNTOL = 6,
+  SHNTUL = 5,
+  BUSOL = 4,
+  BUSUL = 3,
+  POL = 2,
+  CNVRF = 1,
+  MEMSTAT = 0
+};
 
 #endif

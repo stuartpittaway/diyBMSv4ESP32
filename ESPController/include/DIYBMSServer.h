@@ -41,6 +41,7 @@ public:
 private:
     static AsyncWebServer *_myserver;
     static String UUIDString;
+    static String UUIDStringLast2Chars;
 
     //Pointers to other classes (not always a good idea in static classes)
     //static sdcard_info (*_sdcardcallback)();
@@ -57,7 +58,9 @@ private:
     {
         Settings::WriteConfig("diybms", (char *)_mysettings, sizeof(diybms_eeprom_settings));
     }
+    static void PrintStreamCommaFloat(AsyncResponseStream *response, const char *text, float value);
     static void PrintStreamComma(AsyncResponseStream *response, const char *text, uint32_t value);
+    static void PrintStreamCommaInt16(AsyncResponseStream *response, const char *text, int16_t value);
     static void PrintStream(AsyncResponseStream *response, const char *text, uint32_t value);
     static void PrintStreamCommaBoolean(AsyncResponseStream *response, const char *text, bool value);
     static void fileSystemListDirectory(AsyncResponseStream *response, fs::FS &fs, const char *dirname, uint8_t levels);
@@ -80,6 +83,9 @@ private:
     static void storage(AsyncWebServerRequest *request);
     static void avrstorage(AsyncWebServerRequest *request);
     static void avrstatus(AsyncWebServerRequest *request);
+    static void currentmonitor(AsyncWebServerRequest *request);
+    static void rs485settings(AsyncWebServerRequest *request);
+    
 
     static void downloadFile(AsyncWebServerRequest *request);
     static void saveSetting(AsyncWebServerRequest *request);
@@ -88,6 +94,11 @@ private:
     static void saveGlobalSetting(AsyncWebServerRequest *request);
     static void saveBankConfiguration(AsyncWebServerRequest *request);
     static void saveRuleConfiguration(AsyncWebServerRequest *request);
+    static void saveCurrentMonBasic(AsyncWebServerRequest *request);
+    static void saveCurrentMonAdvanced(AsyncWebServerRequest *request);
+    static void saveCurrentMonRelay(AsyncWebServerRequest *request);
+    static void saveRS485Settings(AsyncWebServerRequest *request);
+    static void saveCurrentMonSettings(AsyncWebServerRequest *request);
     static void saveNTP(AsyncWebServerRequest *request);
     static void saveStorage(AsyncWebServerRequest *request);
 
@@ -111,5 +122,9 @@ extern bool _sd_card_installed;
 extern TaskHandle_t avrprog_task_handle;
 extern avrprogramsettings _avrsettings;
 extern RelayState previousRelayState[RELAY_TOTAL];
-
+extern currentmonitoring_struct currentMonitor;
+extern void ConfigureRS485();
+extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur);
+extern void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues);
+extern void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues);
 #endif

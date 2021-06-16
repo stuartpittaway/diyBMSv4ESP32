@@ -34,7 +34,8 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #define TCA6408_OUTPUT 0x01
 #define TCA6408_POLARITY_INVERSION 0x02
 #define TCA6408_CONFIGURATION 0x03
-#define TCA6408_INPUTMASK B00001111
+//All pins on TCA6408 are outputs - prevents interrupts triggering randomly due to static/ESD
+#define TCA6408_INPUTMASK B11111111
 
 #define VSPI_SCK GPIO_NUM_18
 
@@ -65,6 +66,7 @@ public:
         xVSPIMutex = xSemaphoreCreateMutex();
         xDisplayMutex = xSemaphoreCreateMutex();
         xi2cMutex = xSemaphoreCreateMutex();
+        RS485Mutex = xSemaphoreCreateMutex();
     }
 
     void ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void));
@@ -149,9 +151,32 @@ public:
         return (xSemaphoreGive(xi2cMutex) == pdTRUE);
     }
 
+    bool GetRS485Mutex()
+    {
+        if (RS485Mutex == NULL)
+            return false;
+
+        //Wait 100ms max
+        bool reply = (xSemaphoreTake(RS485Mutex, (TickType_t)100 / portTICK_PERIOD_MS) == pdTRUE);
+        if (!reply)
+        {
+            ESP_LOGE(TAG, "Unable to get RS485 mutex");
+        }
+        return reply;
+    }
+    bool ReleaseRS485Mutex()
+    {
+        if (RS485Mutex == NULL)
+            return false;
+
+        return (xSemaphoreGive(RS485Mutex) == pdTRUE);
+    }
+
     //Infinite loop flashing the LED RED/WHITE
     void Halt(RGBLED colour)
     {
+        ESP_LOGE(TAG, "SYSTEM HALTED");
+
         while (true)
         {
             Led(RGBLED::Red);
@@ -294,6 +319,7 @@ private:
     SemaphoreHandle_t xVSPIMutex = NULL;
     SemaphoreHandle_t xDisplayMutex = NULL;
     SemaphoreHandle_t xi2cMutex = NULL;
+    SemaphoreHandle_t RS485Mutex = NULL;
 
     //Copy of pin state for TCA9534
     uint8_t TCA9534APWR_Value;

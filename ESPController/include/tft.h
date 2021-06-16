@@ -29,7 +29,8 @@ enum ScreenTemplateToDisplay : uint8_t
   VoltageOneBank = 3,
   VoltageFourBank = 4,
   State = 5,
-  AVRProgrammer=6
+  AVRProgrammer=6,
+  CurrentMonitor=7
 };
 
 
@@ -63,4 +64,5 @@ extern TaskHandle_t updatetftdisplay_task_handle;
 extern QueueHandle_t queue_i2c;
 extern TaskHandle_t tftwakeup_task_handle;
 extern avrprogramsettings _avrsettings;
+extern currentmonitoring_struct currentMonitor;
 #endif

@@ -40,6 +40,9 @@ bool _tft_screen_available = false;
 volatile bool _screen_awake = false;
 
 ScreenTemplateToDisplay _lastScreenToDisplay = ScreenTemplateToDisplay::NotInstalled;
+uint8_t _ScreenToDisplayCounter = 0;
+uint8_t _ScreenPageCounter = 0;
+
 int16_t fontHeight_2;
 int16_t fontHeight_4;
 
@@ -58,7 +61,9 @@ void IRAM_ATTR TFTScreenTouchInterrupt()
         {
             ESP_LOGD(TAG, "Touch");
             xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
-        } else {
+        }
+        else
+        {
             ESP_LOGE(TAG, "tftwakeup_task_handle=NULL");
         }
     }
@@ -247,25 +252,79 @@ void PrepareTFT_VoltageOneBank()
 //Determine what screen to show on the TFT based on priority/severity
 ScreenTemplateToDisplay WhatScreenToDisplay()
 {
+    ScreenTemplateToDisplay reply = ScreenTemplateToDisplay::None;
+
     if (!_tft_screen_available)
-        return ScreenTemplateToDisplay::NotInstalled;
+    {
+        reply = ScreenTemplateToDisplay::NotInstalled;
+    }
+    else if (_avrsettings.inProgress)
+    {
+        reply = ScreenTemplateToDisplay::AVRProgrammer;
+    }
+    else if (rules.numberOfActiveErrors > 0)
+    {
+        reply = ScreenTemplateToDisplay::Error;
+    }
 
-    if (_avrsettings.inProgress)
-        return ScreenTemplateToDisplay::AVRProgrammer;
+    if (_controller_state == ControllerState::Running)
+    {
+        if (_ScreenToDisplayCounter > 5)
+        {
+            //Move to the next page after the "_ScreenToDisplayCounter" delay 
+            _ScreenPageCounter++;
+            _ScreenToDisplayCounter = 0;
+        }
 
-    if (rules.numberOfActiveErrors > 0)
-        return ScreenTemplateToDisplay::Error;
+        if (_ScreenPageCounter > 1)
+        {
+            //Loop back to first page
+            _ScreenPageCounter = 0;
+        }
 
-    if (mysettings.totalNumberOfBanks == 1 && _controller_state == ControllerState::Running)
-        return ScreenTemplateToDisplay::VoltageOneBank;
+        if (_ScreenPageCounter == 1 && mysettings.currentMonitoringEnabled == false)
+        {
+            //Don't show current if its not fitted/installed
+            _ScreenPageCounter = 0;
+        }
 
-    if (mysettings.totalNumberOfBanks > 1 && _controller_state == ControllerState::Running)
-        return ScreenTemplateToDisplay::VoltageFourBank;
+        //Voltage page
+        if (_ScreenPageCounter == 0)
+        {
+            if (mysettings.totalNumberOfBanks == 1)
+            {
+                reply = ScreenTemplateToDisplay::VoltageOneBank;
+            }
+            else if (mysettings.totalNumberOfBanks > 1)
+            {
+                reply = ScreenTemplateToDisplay::VoltageFourBank;
+            }
+        }
 
-    if (_controller_state != ControllerState::Running)
-        return ScreenTemplateToDisplay::State;
+        if (_ScreenPageCounter == 1)
+        {
+            //Show the current monitor
+            reply = ScreenTemplateToDisplay::CurrentMonitor;
+        }
+    }
+    else
+    {
+        reply = ScreenTemplateToDisplay::State;
+    }
 
-    return ScreenTemplateToDisplay::None;
+    //If we are drawing the same screen, increment a counter
+    //so we can use that to drive page rotation
+    if (reply == _lastScreenToDisplay)
+    {
+        _ScreenToDisplayCounter++;
+    }
+    else
+    {
+        //Its a new type of screen/page, so reset count
+        _ScreenToDisplayCounter = 0;
+    }
+
+    return reply;
 }
 
 void init_tft_display()
@@ -309,6 +368,7 @@ void tftsleep_task(void *param)
         hal.TFTScreenBacklight(false);
         _screen_awake = false;
         _lastScreenToDisplay = ScreenTemplateToDisplay::None;
+        _ScreenToDisplayCounter = 0;
     }
 }
 //This task switches on/off the TFT screen, and triggers a redraw of its contents
@@ -389,9 +449,35 @@ void DrawTFT_ControlState()
     } //end switch
 }
 
+void PrepareTFT_CurrentMonitor()
+{
+    tft.fillScreen(TFT_BLACK);
+
+    int16_t w = tft.width();
+    //Take off the wifi banner height
+    int16_t h = tft.height() - fontHeight_2;
+    int16_t yhalfway = h / 2;
+
+    //Grid lines
+    tft.drawLine(w / 2, 0, w / 2, h, TFT_DARKGREY);
+    tft.drawLine(0, yhalfway, w, yhalfway, TFT_DARKGREY);
+    tft.drawLine(0, h, w, h, TFT_DARKGREY);
+
+    tft.setTextFont(2);
+    //Need to think about multilingual strings in the longer term
+    tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    tft.drawString("Current (A)", 0, 0);
+    tft.drawString("Voltage", 0, yhalfway + 2);
+    tft.drawString("Power (W)", 2 + (w / 2), 0);
+
+    tft.drawString("Amp/hour Out", 2 + (w / 2), yhalfway + 2);
+
+    tft.drawString("Amp/hour In", 2 + (w / 2), fontHeight_4 + fontHeight_4 + yhalfway + 2);
+    TFTDrawWifiDetails();
+}
+
 void PrepareTFT_VoltageFourBank()
 {
-
     tft.fillScreen(TFT_BLACK);
 
     int16_t w = tft.width();
@@ -525,6 +611,77 @@ void DrawTFT_VoltageFourBank()
     tft.fillRect(x, y, w - x, fontHeight_2, TFT_BLACK);
 }
 
+void DrawTFT_CurrentMonitor()
+{
+    int16_t w = tft.width();
+    //Take off the wifi banner height
+    int16_t h = tft.height() - fontHeight_2;
+    int16_t yhalfway = h / 2;
+
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+
+    //Top left
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextFont(7);
+    int16_t y = fontHeight_2;
+    int16_t x = 0;
+
+    uint8_t decimals = 2;
+
+    if (currentMonitor.current > 99)
+    {
+        decimals = 1;
+    }
+    if (currentMonitor.current < 9)
+    {
+        decimals = 3;
+    }
+
+    x += tft.drawFloat(currentMonitor.current, decimals, x, y);
+    tft.fillRect(x, y, (w / 2) - x, tft.fontHeight(), TFT_BLACK);
+
+    decimals = 2;
+    if (currentMonitor.voltage > 99)
+    {
+        decimals = 1;
+    }
+    y = 2 + yhalfway + fontHeight_2;
+    x = 0;
+    x += tft.drawFloat(currentMonitor.voltage, decimals, x, y);
+    tft.fillRect(x, y, (w / 2) - x, tft.fontHeight(), TFT_BLACK);
+
+    y = fontHeight_2;
+    x = 2 + w / 2;
+    decimals = 1;
+    x += tft.drawFloat(currentMonitor.power, decimals, x, y);
+    tft.fillRect(x, y, w - x, tft.fontHeight(), TFT_BLACK);
+
+    y = 2 + yhalfway + fontHeight_2;
+    x = 2 + w / 2;
+    decimals = 1;
+    tft.setTextFont(4);
+    float ahout = (float)currentMonitor.milliamphour_out / 1000.0;
+    if (ahout < 10)
+    {
+        decimals = 3;
+    }
+    x += tft.drawFloat(ahout, decimals, x, y);
+    tft.fillRect(x, y, w - x, tft.fontHeight(), TFT_BLACK);
+
+    //Amp hour in
+    y = fontHeight_2 + fontHeight_4 + fontHeight_4 + yhalfway + 2;
+    x = 2 + w / 2;
+    decimals = 1;
+    float ahin = (float)currentMonitor.milliamphour_in / 1000.0;
+
+    if (ahin < 10)
+    {
+        decimals = 3;
+    }
+    x += tft.drawFloat(ahin, decimals, x, y);
+    tft.fillRect(x, y, w - x, tft.fontHeight(), TFT_BLACK);
+}
+
 void DrawTFT_VoltageOneBank()
 {
     //Single bank, large font
@@ -549,7 +706,7 @@ void DrawTFT_VoltageOneBank()
     //Cell temperatures and stuff
     int16_t h = tft.height() - fontHeight_2 - 100;
 
-    y = h;
+    y = h + fontHeight_2;
     x = xoffset + 0;
     if (rules.moduleHasExternalTempSensor)
     {
@@ -583,7 +740,7 @@ void DrawTFT_VoltageOneBank()
     //blank out gap between numbers
     tft.fillRect(x, y, tft.width() / 2 - x, fontHeight_4, TFT_BLACK);
 
-    y = h + fontHeight_4 + fontHeight_2;
+    y = h + fontHeight_4 + fontHeight_2 + fontHeight_2 + 2;
     x = xoffset + tft.width() / 2;
     x += tft.drawNumber(rules.numberOfBalancingModules, x, y);
     //blank out gap between numbers
@@ -754,6 +911,9 @@ void updatetftdisplay_task(void *param)
                     case ScreenTemplateToDisplay::VoltageFourBank:
                         PrepareTFT_VoltageFourBank();
                         break;
+                    case ScreenTemplateToDisplay::CurrentMonitor:
+                        PrepareTFT_CurrentMonitor();
+                        break;
                     case ScreenTemplateToDisplay::State:
                         PrepareTFT_ControlState();
                         break;
@@ -785,10 +945,28 @@ void updatetftdisplay_task(void *param)
                 case ScreenTemplateToDisplay::VoltageFourBank:
                     DrawTFT_VoltageFourBank();
                     break;
+                case ScreenTemplateToDisplay::CurrentMonitor:
+                    DrawTFT_CurrentMonitor();
+                    break;
                 }
 
                 hal.ReleaseDisplayMutex();
             } //endif mutex
+
+            /*
+            //Debug
+            if (hal.GetDisplayMutex())
+            {
+
+                tft.setTextDatum(TL_DATUM);
+                tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                tft.setTextFont(2);
+                int16_t y = 0;
+                int16_t x = 0;
+                x += tft.drawNumber(_ScreenToDisplayCounter, x, y);
+                hal.ReleaseDisplayMutex();
+            }
+            */
         }
     } //end for
 }

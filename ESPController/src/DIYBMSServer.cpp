@@ -45,6 +45,7 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 AsyncWebServer *DIYBMSServer::_myserver;
 String DIYBMSServer::UUIDString;
+String DIYBMSServer::UUIDStringLast2Chars;
 
 fs::SDFS *DIYBMSServer::_sdcard = 0;
 void (*DIYBMSServer::_sdcardaction_callback)(uint8_t action) = 0;
@@ -59,6 +60,7 @@ HAL_ESP32 *DIYBMSServer::_hal = 0;
 
 String DIYBMSServer::uuidToString(uint8_t *uuidLocation)
 {
+  const char hexchars[]="0123456789abcdef";
   String string = "";
   int i;
   for (i = 0; i < 16; i++)
@@ -71,12 +73,12 @@ String DIYBMSServer::uuidToString(uint8_t *uuidLocation)
       string += "-";
     if (i == 10)
       string += "-";
-    int topDigit = uuidLocation[i] >> 4;
-    int bottomDigit = uuidLocation[i] & 0x0f;
+    uint8_t topDigit = uuidLocation[i] >> 4;
+    uint8_t bottomDigit = uuidLocation[i] & 0x0f;
     // High hex digit
-    string += "0123456789abcdef"[topDigit];
+    string += hexchars[topDigit];
     // Low hex digit
-    string += "0123456789abcdef"[bottomDigit];
+    string += hexchars[bottomDigit];
   }
 
   return string;
@@ -84,15 +86,18 @@ String DIYBMSServer::uuidToString(uint8_t *uuidLocation)
 
 void DIYBMSServer::generateUUID()
 {
-  //SERIAL_DEBUG.print("generateUUID=");
   uint8_t uuidNumber[16]; // UUIDs in binary form are 16 bytes long
 
   //ESP32 has inbuilt random number generator
   //https://techtutorialsx.com/2017/12/22/esp32-arduino-random-number-generation/
-  for (uint8_t x = 0; x < 16; x--)
+  for (uint8_t x = 0; x < 16; x++) {
     uuidNumber[x] = random(0xFF);
+  }
 
   UUIDString = uuidToString(uuidNumber);
+
+  //481efb3f-0400-0000-101f-fb3fd01efb3f
+  UUIDStringLast2Chars=UUIDString.substring(34);
 }
 
 bool DIYBMSServer::validateXSS(AsyncWebServerRequest *request)
@@ -396,6 +401,12 @@ void DIYBMSServer::saveDisplaySetting(AsyncWebServerRequest *request)
     _mysettings->graph_voltagelow = 0;
   }
 
+  if (request->hasParam("Language", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("Language", true);
+    p1->value().toCharArray(_mysettings->language, sizeof(_mysettings->language));
+  }
+
   saveConfiguration();
 
   SendSuccess(request);
@@ -449,6 +460,203 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
   saveConfiguration();
 
   //ConfigHasChanged = REBOOT_COUNT_DOWN;
+  SendSuccess(request);
+}
+
+void DIYBMSServer::saveCurrentMonRelay(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  currentmonitoring_struct newvalues;
+  //Set everything to zero/false
+  memset(&newvalues, 0, sizeof(currentmonitoring_struct));
+
+  if (request->hasParam("TempCompEnabled", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("TempCompEnabled", true);
+    newvalues.TempCompEnabled = p1->value().equals("on") ? true : false;
+  }
+  else
+  {
+    newvalues.TempCompEnabled = false;
+  }
+
+  if (request->hasParam("cmTMPOL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmTMPOL", true);
+    newvalues.RelayTriggerTemperatureOverLimit = p1->value().equals("on") ? true : false;
+  }
+  if (request->hasParam("cmCURROL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmCURROL", true);
+    newvalues.RelayTriggerCurrentOverLimit = p1->value().equals("on") ? true : false;
+  }
+  if (request->hasParam("cmCURRUL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmCURRUL", true);
+    newvalues.RelayTriggerCurrentUnderLimit = p1->value().equals("on") ? true : false;
+  }
+  if (request->hasParam("cmVOLTOL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmVOLTOL", true);
+    newvalues.RelayTriggerVoltageOverlimit = p1->value().equals("on") ? true : false;
+  }
+  if (request->hasParam("cmVOLTUL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmVOLTUL", true);
+    newvalues.RelayTriggerVoltageUnderlimit = p1->value().equals("on") ? true : false;
+  }
+  if (request->hasParam("cmPOL", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmPOL", true);
+    newvalues.RelayTriggerPowerOverLimit = p1->value().equals("on") ? true : false;
+  }
+
+  CurrentMonitorSetRelaySettings(newvalues);
+
+  SendSuccess(request);
+}
+void DIYBMSServer::saveCurrentMonAdvanced(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  currentmonitoring_struct newvalues;
+  //Set everything to zero/false
+  memset(&newvalues, 0, sizeof(currentmonitoring_struct));
+
+  if (request->hasParam("cmcalibration", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmcalibration", true);
+    newvalues.shuntcal = p1->value().toInt();
+  }
+  if (request->hasParam("cmtemplimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmtemplimit", true);
+    newvalues.temperaturelimit = (int16_t)(p1->value().toInt());
+  }
+  if (request->hasParam("cmundervlimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmundervlimit", true);
+    newvalues.undervoltagelimit = p1->value().toFloat();
+  }
+  if (request->hasParam("cmovervlimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmovervlimit", true);
+    newvalues.overvoltagelimit = p1->value().toFloat();
+  }
+  if (request->hasParam("cmoverclimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmoverclimit", true);
+    newvalues.overcurrentlimit = p1->value().toFloat();
+  }
+  if (request->hasParam("cmunderclimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmunderclimit", true);
+    newvalues.undercurrentlimit = p1->value().toFloat();
+  }
+  if (request->hasParam("cmoverplimit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmoverplimit", true);
+    newvalues.overpowerlimit = p1->value().toFloat();
+  }
+  if (request->hasParam("cmtempcoeff", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("cmtempcoeff", true);
+    newvalues.shunttempcoefficient = p1->value().toInt();
+  }
+
+  CurrentMonitorSetAdvancedSettings(newvalues);
+
+  SendSuccess(request);
+}
+
+void DIYBMSServer::saveCurrentMonBasic(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (request->hasParam("shuntmaxcur", true) && request->hasParam("shuntmv", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("shuntmaxcur", true);
+    int shuntmaxcur = p1->value().toInt();
+
+    AsyncWebParameter *p2 = request->getParam("shuntmv", true);
+    int shuntmv = p2->value().toInt();
+
+    CurrentMonitorSetBasicSettings(shuntmv, shuntmaxcur);
+  }
+
+  SendSuccess(request);
+}
+
+void DIYBMSServer::saveCurrentMonSettings(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (request->hasParam("CurrentMonEnabled", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("CurrentMonEnabled", true);
+    _mysettings->currentMonitoringEnabled = p1->value().equals("on") ? true : false;
+  }
+  else
+  {
+    //If the parameter isn't there its FALSE/unchecked
+    _mysettings->currentMonitoringEnabled = false;
+  }
+
+  if (request->hasParam("modbusAddress", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("modbusAddress", true);
+    _mysettings->currentMonitoringModBusAddress = p1->value().toInt();
+  }
+
+  if (_mysettings->currentMonitoringEnabled == false)
+  {
+    //Switch off current monitor, clear out the values
+    memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+    currentMonitor.validReadings = false;
+  }
+
+  saveConfiguration();
+
+  SendSuccess(request);
+}
+
+void DIYBMSServer::saveRS485Settings(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (request->hasParam("rs485baudrate", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("rs485baudrate", true);
+    _mysettings->rs485baudrate = p1->value().toInt();
+  }
+
+  if (request->hasParam("rs485databit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("rs485databit", true);
+    _mysettings->rs485databits = (uart_word_length_t)(p1->value().toInt());
+  }
+
+  if (request->hasParam("rs485parity", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("rs485parity", true);
+    _mysettings->rs485parity = (uart_parity_t)(p1->value().toInt());
+  }
+
+  if (request->hasParam("rs485stopbit", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("rs485stopbit", true);
+    _mysettings->rs485stopbits = (uart_stop_bits_t)(p1->value().toInt());
+  }
+
+  saveConfiguration();
+
+  ConfigureRS485();
   SendSuccess(request);
 }
 
@@ -564,6 +772,11 @@ void DIYBMSServer::saveStorage(AsyncWebServerRequest *request)
     AsyncWebParameter *p1 = request->getParam("loggingEnabled", true);
     _mysettings->loggingEnabled = p1->value().equals("on") ? true : false;
   }
+  else
+  {
+    //Switch off logging
+    _mysettings->loggingEnabled = false;
+  }
 
   if (request->hasParam("loggingFreq", true))
   {
@@ -609,6 +822,10 @@ void DIYBMSServer::saveNTP(AsyncWebServerRequest *request)
   {
     AsyncWebParameter *p1 = request->getParam("NTPDST", true);
     _mysettings->daylight = p1->value().equals("on") ? true : false;
+  }
+  else
+  {
+    _mysettings->daylight = false;
   }
 
   saveConfiguration();
@@ -994,6 +1211,99 @@ void DIYBMSServer::fileSystemListDirectory(AsyncResponseStream *response, fs::FS
   response->print("null");
 }
 
+void DIYBMSServer::rs485settings(AsyncWebServerRequest *request)
+{
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+  response->print("{");
+
+  response->print("\"baudrate\":");
+  response->print(_mysettings->rs485baudrate);
+
+  response->print(",\"databits\":");
+  response->print(_mysettings->rs485databits);
+
+  response->print(",\"parity\":");
+  response->print(_mysettings->rs485parity);
+
+  response->print(",\"stopbits\":");
+  response->print(_mysettings->rs485stopbits);
+
+  //The END...
+  response->print('}');
+
+  response->addHeader("Cache-Control", "no-store");
+  request->send(response);
+}
+
+void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
+{
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+  response->print("{");
+
+  PrintStreamCommaBoolean(response, "\"enabled\":", _mysettings->currentMonitoringEnabled);
+  PrintStreamComma(response, "\"address\":", _mysettings->currentMonitoringModBusAddress);
+
+  //Convert to milliseconds
+  uint32_t x = 0;
+  if (currentMonitor.validReadings)
+  {
+    x = (esp_timer_get_time() - currentMonitor.timestamp) / 1000;
+  }
+  PrintStreamComma(response, "\"timestampage\":", x);
+  PrintStreamCommaBoolean(response, "\"valid\":", currentMonitor.validReadings);
+
+  PrintStreamCommaFloat(response, "\"voltage\":", currentMonitor.voltage);
+  PrintStreamCommaFloat(response, "\"current\":", currentMonitor.current);
+  PrintStreamComma(response, "\"mahout\":", currentMonitor.milliamphour_out);
+  PrintStreamComma(response, "\"mahin\":", currentMonitor.milliamphour_in);
+  PrintStreamCommaInt16(response, "\"temperature\":", currentMonitor.temperature);
+  PrintStreamComma(response, "\"watchdog\":", currentMonitor.watchdogcounter);
+  PrintStreamCommaFloat(response, "\"power\":", currentMonitor.power);
+  PrintStreamCommaFloat(response, "\"actualshuntmv\":", currentMonitor.shuntmV);
+  PrintStreamCommaFloat(response, "\"currentlsb\":", currentMonitor.currentlsb);
+  PrintStreamCommaFloat(response, "\"resistance\":", currentMonitor.shuntresistance);
+  PrintStreamComma(response, "\"calibration\":", currentMonitor.shuntcal);
+  PrintStreamCommaInt16(response, "\"templimit\":", currentMonitor.temperaturelimit);
+  PrintStreamCommaFloat(response, "\"undervlimit\":", currentMonitor.undervoltagelimit);
+  PrintStreamCommaFloat(response, "\"overvlimit\":", currentMonitor.overvoltagelimit);
+  PrintStreamCommaFloat(response, "\"overclimit\":", currentMonitor.overcurrentlimit);
+  PrintStreamCommaFloat(response, "\"underclimit\":", currentMonitor.undercurrentlimit);
+  PrintStreamCommaFloat(response, "\"overplimit\":", currentMonitor.overpowerlimit);
+  PrintStreamComma(response, "\"tempcoeff\":", currentMonitor.shunttempcoefficient);
+  PrintStreamComma(response, "\"model\":", currentMonitor.modelnumber);
+
+  PrintStreamComma(response, "\"firmwarev\":", currentMonitor.firmwareversion);
+  PrintStreamComma(response, "\"firmwaredate\":", currentMonitor.firmwaredatetime);
+
+  //Boolean flag values
+  PrintStreamCommaBoolean(response, "\"TMPOL\":", currentMonitor.TemperatureOverLimit);
+  PrintStreamCommaBoolean(response, "\"CURROL\":", currentMonitor.CurrentOverLimit);
+  PrintStreamCommaBoolean(response, "\"CURRUL\":", currentMonitor.CurrentUnderLimit);
+  PrintStreamCommaBoolean(response, "\"VOLTOL\":", currentMonitor.VoltageOverlimit);
+  PrintStreamCommaBoolean(response, "\"VOLTUL\":", currentMonitor.VoltageUnderlimit);
+  PrintStreamCommaBoolean(response, "\"POL\":", currentMonitor.PowerOverLimit);
+  PrintStreamCommaBoolean(response, "\"TempCompEnabled\":", currentMonitor.TempCompEnabled);
+  PrintStreamCommaBoolean(response, "\"ADCRange4096mV\":", currentMonitor.ADCRange4096mV);
+
+  //Trigger values
+  PrintStreamCommaBoolean(response, "\"T_TMPOL\":", currentMonitor.RelayTriggerTemperatureOverLimit);
+  PrintStreamCommaBoolean(response, "\"T_CURROL\":", currentMonitor.RelayTriggerCurrentOverLimit);
+  PrintStreamCommaBoolean(response, "\"T_CURRUL\":", currentMonitor.RelayTriggerCurrentUnderLimit);
+  PrintStreamCommaBoolean(response, "\"T_VOLTOL\":", currentMonitor.RelayTriggerVoltageOverlimit);
+  PrintStreamCommaBoolean(response, "\"T_VOLTUL\":", currentMonitor.RelayTriggerVoltageUnderlimit);
+  PrintStreamCommaBoolean(response, "\"T_POL\":", currentMonitor.RelayTriggerPowerOverLimit);
+  PrintStreamCommaBoolean(response, "\"RelayState\":", currentMonitor.RelayState);
+
+  PrintStreamComma(response, "\"shuntmv\":", currentMonitor.shuntmillivolt);
+  PrintStream(response, "\"shuntmaxcur\":", currentMonitor.shuntmaxcurrent);
+
+  //The END...
+  response->print('}');
+
+  response->addHeader("Cache-Control", "no-store");
+  request->send(response);
+}
+
 void DIYBMSServer::avrstorage(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response = request->beginResponseStream("application/json");
@@ -1351,12 +1661,29 @@ void DIYBMSServer::PrintStreamCommaBoolean(AsyncResponseStream *response, const 
   }
   response->print(',');
 }
+
+void DIYBMSServer::PrintStreamCommaFloat(AsyncResponseStream *response, const char *text, float value)
+{
+  response->print(text);
+  //Print value to 6 decimal places
+  response->print(value, 6);
+  response->print(',');
+}
+
 void DIYBMSServer::PrintStreamComma(AsyncResponseStream *response, const char *text, uint32_t value)
 {
   response->print(text);
   response->print(value);
   response->print(',');
 }
+
+void DIYBMSServer::PrintStreamCommaInt16(AsyncResponseStream *response, const char *text, int16_t value)
+{
+  response->print(text);
+  response->print(value);
+  response->print(',');
+}
+
 void DIYBMSServer::PrintStream(AsyncResponseStream *response, const char *text, uint32_t value)
 {
   response->print(text);
@@ -1378,6 +1705,16 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"ignored\":", _receiveProc->totalNotProcessedErrors);
   PrintStreamComma(response, "\"roundtrip\":", _receiveProc->packetTimerMillisecond);
   PrintStreamComma(response, "\"oos\":", _receiveProc->totalOutofSequenceErrors);
+
+  PrintStreamComma(response, "\"uptime\":", (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6));
+  
+  //Output last 2 charaters from security cookie, to allow brower to detect when its
+  //no longer in sync with the back end and report warning.
+  //Technically this downgrades the complexity of the XSS key, as it reduces key length.
+  response->print("\"sec\":\"");
+  response->print(UUIDStringLast2Chars);
+  response->print("\",");
+
 
   response->print(F("\"errors\":["));
   uint8_t count = 0;
@@ -1623,7 +1960,26 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
   response->print(comma);
   response->print(F("\"current\":["));
-  response->print(null);
+  if (_mysettings->currentMonitoringEnabled && currentMonitor.validReadings)
+  {
+    //Output current monitor values, this is inside an array, so could be more than 1
+    response->print(F("{\"c\":"));
+    response->print(currentMonitor.current, 4);
+    response->print(F(",\"v\":"));
+    response->print(currentMonitor.voltage, 4);
+    response->print(F(",\"mahout\":"));
+    response->print(currentMonitor.milliamphour_out);
+    response->print(F(",\"mahin\":"));
+    response->print(currentMonitor.milliamphour_in);
+    response->print(F(",\"p\":"));
+    response->print(currentMonitor.power, 2);
+    response->print("}");
+  }
+  else
+  {
+    response->print(null);
+  }
+
   response->print("]");
 
   //The END...
@@ -1640,15 +1996,13 @@ String DIYBMSServer::TemplateProcessor(const String &var)
   if (var == "XSS_KEY")
     return DIYBMSServer::UUIDString;
 
-#if defined(ESP8266)
-  if (var == "PLATFORM")
-    return String("ESP8266");
-#endif
-
 #if defined(ESP32)
   if (var == "PLATFORM")
     return String("ESP32");
 #endif
+
+  if (var == "LANGUAGE")
+    return String(_mysettings->language);
 
   if (var == "GIT_VERSION")
     return String(GIT_VERSION);
@@ -1708,17 +2062,20 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   cookieValue += String("; path=/; HttpOnly");
   DefaultHeaders::Instance().addHeader("Set-Cookie", cookieValue);
 
-  _myserver->on("/", HTTP_GET, [](AsyncWebServerRequest *request) { request->redirect("/default.htm"); });
+  _myserver->on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+                { request->redirect("/default.htm"); });
 
   _myserver->on("/default.htm", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", (char *)file_default_htm, DIYBMSServer::TemplateProcessor);
                   response->addHeader("Cache-Control", "no-store");
                   request->send(response);
                 });
 
   _myserver->on("/pagecode.js", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_pagecode_js_gz)))
                   {
                     request->send(304);
@@ -1732,7 +2089,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/favicon.ico", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_favicon_ico_gz)))
                   {
                     request->send(304);
@@ -1746,7 +2104,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/logo.png", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_logo_png)))
                   {
                     request->send(304);
@@ -1760,7 +2119,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/wait.png", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_wait_png)))
                   {
                     request->send(304);
@@ -1774,7 +2134,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/patron.png", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_patron_png)))
                   {
                     request->send(304);
@@ -1788,7 +2149,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/warning.png", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_warning_png)))
                   {
                     request->send(304);
@@ -1802,7 +2164,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                 });
 
   _myserver->on("/jquery.js", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_jquery_js_gz)))
                   {
                     request->send(304);
@@ -1815,8 +2178,97 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                   }
                 });
 
+  _myserver->on("/lang_en.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_lang_en_js_gz)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_lang_en_js_gz, size_file_lang_en_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_lang_en_js_gz));
+                    request->send(response);
+                  }
+                });
+
+  _myserver->on("/lang_es.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_lang_es_js_gz)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_lang_es_js_gz, size_file_lang_es_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_lang_es_js_gz));
+                    request->send(response);
+                  }
+                });
+
+  _myserver->on("/lang_de.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_lang_de_js_gz)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_lang_de_js_gz, size_file_lang_de_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_lang_de_js_gz));
+                    request->send(response);
+                  }
+                });
+
+  _myserver->on("/lang_pt.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_lang_pt_js_gz)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_lang_pt_js_gz, size_file_lang_pt_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_lang_pt_js_gz));
+                    request->send(response);
+                  }
+                });
+
+  _myserver->on("/lang_nl.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_lang_nl_js_gz)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_lang_nl_js_gz, size_file_lang_nl_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_lang_nl_js_gz));
+                    request->send(response);
+                  }
+                });
+  _myserver->on("/lang_hr.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_lang_hr_js_gz)))
+                  {
+                    request->send(304);
+                  }
+                  else
+                  {
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_lang_hr_js_gz, size_file_lang_hr_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_lang_hr_js_gz));
+                    request->send(response);
+                  }
+                });
   _myserver->on("/echarts.min.js", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_echarts_min_js_gz)))
                   {
                     request->send(304);
@@ -1829,22 +2281,25 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                   }
                 });
 
-  _myserver->on("/echarts_gl.min.js", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
-                  if (request->header("If-None-Match").equals(String(etag_file_echarts_gl_min_js_gz)))
+  _myserver->on("/notify.min.js", HTTP_GET,
+                [](AsyncWebServerRequest *request)
+                {
+                  if (request->header("If-None-Match").equals(String(etag_file_notify_min_js_gz)))
                   {
                     request->send(304);
                   }
                   else
                   {
-                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_echarts_gl_min_js_gz, size_file_echarts_gl_min_js_gz);
-                    SetCacheAndETagGzip(response, String(etag_file_echarts_gl_min_js_gz));
+                    AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", file_notify_min_js_gz, size_file_notify_min_js_gz);
+                    SetCacheAndETagGzip(response, String(etag_file_notify_min_js_gz));
                     request->send(response);
                   }
                 });
 
+
   _myserver->on("/style.css", HTTP_GET,
-                [](AsyncWebServerRequest *request) {
+                [](AsyncWebServerRequest *request)
+                {
                   if (request->header("If-None-Match").equals(String(etag_file_style_css_gz)))
                   {
                     request->send(304);
@@ -1870,6 +2325,9 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->on("/download", HTTP_GET, DIYBMSServer::downloadFile);
   _myserver->on("/avrstatus.json", HTTP_GET, DIYBMSServer::avrstatus);
 
+  _myserver->on("/currentmonitor.json", HTTP_GET, DIYBMSServer::currentmonitor);
+  _myserver->on("/rs485settings.json", HTTP_GET, DIYBMSServer::rs485settings);
+
   //POST method endpoints
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);
   _myserver->on("/saveglobalsetting.json", HTTP_POST, DIYBMSServer::saveGlobalSetting);
@@ -1892,6 +2350,13 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/avrprog.json", HTTP_POST, DIYBMSServer::avrProgrammer);
   _myserver->on("/wificonfigtofile.json", HTTP_POST, DIYBMSServer::saveWifiConfigToSDCard);
+
+  //Current monitor services/settings
+  _myserver->on("/savers485settings.json", HTTP_POST, DIYBMSServer::saveRS485Settings);
+  _myserver->on("/savecurrentmon.json", HTTP_POST, DIYBMSServer::saveCurrentMonSettings);
+  _myserver->on("/savecmbasic.json", HTTP_POST, DIYBMSServer::saveCurrentMonBasic);
+  _myserver->on("/savecmadvanced.json", HTTP_POST, DIYBMSServer::saveCurrentMonAdvanced);
+  _myserver->on("/savecmrelay.json", HTTP_POST, DIYBMSServer::saveCurrentMonRelay);
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();

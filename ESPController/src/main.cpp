@@ -30,6 +30,8 @@ static const char *TAG = "diybms";
 //#define RULES_LOGGING
 //#define MQTT_LOGGING
 
+const uint8_t diyBMSCurrentMonitorModbusAddress = 90;
+
 #include "FS.h"
 #include <LITTLEFS.h>
 #include <WiFi.h>
@@ -46,6 +48,7 @@ static const char *TAG = "diybms";
 #include "driver/can.h"
 #include "driver/adc.h"
 //#include "driver/twai.h"
+#include <driver/uart.h>
 
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
@@ -57,13 +60,13 @@ static const char *TAG = "diybms";
 #include "defines.h"
 #include "HAL_ESP32.h"
 
-//SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
-
 #include "Rules.h"
 
 #include "avrisp_programmer.h"
 
 #include "tft.h"
+
+const uart_port_t rs485_uart_num = uart_port_t::UART_NUM_1;
 
 HAL_ESP32 hal;
 
@@ -76,13 +79,13 @@ Rules rules;
 diybms_eeprom_settings mysettings;
 uint16_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
 
-//uint16_t ConfigHasChanged = 0;
-
 bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
 
 volatile enumInputState InputState[INPUTS_TOTAL];
+
+currentmonitoring_struct currentMonitor;
 
 AsyncWebServer server(80);
 
@@ -108,6 +111,9 @@ TaskHandle_t tftwakeup_task_handle = NULL;
 
 TaskHandle_t tca6408_isr_task_handle = NULL;
 TaskHandle_t tca9534_isr_task_handle = NULL;
+
+TaskHandle_t rs485_tx_task_handle = NULL;
+TaskHandle_t rs485_rx_task_handle = NULL;
 
 //This large array holds all the information about the modules
 CellModuleInfo cmi[maximum_controller_cell_modules];
@@ -163,6 +169,55 @@ void voltageandstatussnapshot_task(void *param)
     }
 
   } //end for
+}
+
+// Sets the RS485 serial parameters after they have been changed
+void ConfigureRS485()
+{
+  ESP_LOGD(TAG, "Configure RS485");
+  if (hal.GetRS485Mutex())
+  {
+    ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_parity(rs485_uart_num, mysettings.rs485parity));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_stop_bits(rs485_uart_num, mysettings.rs485stopbits));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_baudrate(rs485_uart_num, mysettings.rs485baudrate));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_word_length(rs485_uart_num, mysettings.rs485databits));
+    hal.ReleaseRS485Mutex();
+  }
+}
+
+void SetupRS485()
+{
+  ESP_LOGD(TAG, "Setup RS485");
+  /* TEST RS485 */
+
+  //Zero all data to start with
+  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+
+  //if (mysettings.currentMonitoringEnabled) {
+  //}
+
+  uart_config_t uart_config = {
+      .baud_rate = mysettings.rs485baudrate,
+      .data_bits = mysettings.rs485databits,
+      .parity = mysettings.rs485parity,
+      .stop_bits = mysettings.rs485stopbits,
+      .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+      .rx_flow_ctrl_thresh = 122,
+  };
+
+  // Configure UART parameters
+  ESP_ERROR_CHECK(uart_param_config(rs485_uart_num, &uart_config));
+
+  // Set UART1 pins(TX: IO23, RX: I022, RTS: IO18, CTS: Not used)
+  ESP_ERROR_CHECK(uart_set_pin(rs485_uart_num, RS485_TX, RS485_RX, RS485_ENABLE, UART_PIN_NO_CHANGE));
+
+  // Install UART driver (we don't need an event queue here)
+  ESP_ERROR_CHECK(uart_driver_install(rs485_uart_num, 256, 256, 0, NULL, 0));
+
+  // Set RS485 half duplex mode
+  ESP_ERROR_CHECK(uart_set_mode(rs485_uart_num, uart_mode_t::UART_MODE_RS485_HALF_DUPLEX));
+
+  ConfigureRS485();
 }
 
 void mountSDCard()
@@ -446,6 +501,72 @@ void sdcardlog_task(void *param)
             //We had an error opening the file, so switch off logging
             //mysettings.loggingEnabled = false;
           }
+
+          //Now log the current monitor
+          if (mysettings.currentMonitoringEnabled)
+          {
+            char cmon_filename[32];
+            sprintf(cmon_filename, "/modbus%02u_%04u%02u%02u.csv", mysettings.currentMonitoringModBusAddress, timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
+
+            File file;
+
+            if (SD.exists(cmon_filename))
+            {
+              //Open existing file (assumes there is enough SD card space to log)
+              file = SD.open(cmon_filename, FILE_APPEND);
+              //ESP_LOGD(TAG, "Open log %s", filename);
+            }
+            else
+            {
+              //Create a new file
+              uint64_t freeSpace = SD.totalBytes() - SD.usedBytes();
+
+              //Ensure there is more than 25MB of free space on SD card before creating a file
+              if (freeSpace > (uint64_t)(25 * 1024 * 1024))
+              {
+                //Create the file
+                File file = SD.open(cmon_filename, FILE_WRITE);
+                if (file)
+                {
+                  ESP_LOGI(TAG, "Create log %s", cmon_filename);
+                  file.println("DateTime,valid,voltage,current,mAhIn,mAhOut,power,temperature,shuntmV,relayState");
+                }
+              }
+              else
+              {
+                ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
+                //We had an error, so switch off logging (this is only in memory so not written perm.)
+                mysettings.loggingEnabled = false;
+              }
+            }
+
+            if (file && mysettings.loggingEnabled)
+            {
+              char dataMessage[255];
+
+              sprintf(dataMessage, "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+              file.print(dataMessage);
+
+              sprintf(dataMessage, "%i,%.3f,%.3f,%u,%u,%.3f,%i,%.3f,%i",
+                      currentMonitor.validReadings ? 1 : 0,
+                      currentMonitor.voltage, currentMonitor.current,
+                      currentMonitor.milliamphour_in, currentMonitor.milliamphour_out,
+                      currentMonitor.power, currentMonitor.temperature,
+                      currentMonitor.shuntmV, currentMonitor.RelayState ? 1 : 0);
+              file.print(dataMessage);
+
+              file.println();
+              file.close();
+
+              ESP_LOGD(TAG, "Wrote current monitor data to SD log");
+            }
+            else
+            {
+              ESP_LOGE(TAG, "Failed to create/append SD logging file");
+              //We had an error opening the file, so switch off logging
+              //mysettings.loggingEnabled = false;
+            }
+          } //end of logging for current monitor
         }
         else
         {
@@ -716,17 +837,6 @@ void IRAM_ATTR TCA9534AInterrupt()
     xTaskNotifyFromISR(tca9534_isr_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
   }
 }
-
-/*
-void dumpByte(uint8_t data)
-{
-  if (data <= 0x0F)
-  {
-    SERIAL_DEBUG.print('0');
-  }
-  SERIAL_DEBUG.print(data, HEX);
-}
-*/
 
 const char *packetType(uint8_t cmd)
 {
@@ -1292,8 +1402,6 @@ WiFi.status() only returns:
 
   ESP_LOGI(TAG, "Hostname: %s, current state %i", hostname, status);
 
-  //ESP_LOGD(TAG, "WiFi begin");
-
   WiFi.begin(DIYBMSSoftAP::Config()->wifi_ssid, DIYBMSSoftAP::Config()->wifi_passphrase);
 }
 
@@ -1332,67 +1440,71 @@ void setupInfluxClient()
   if (!aClient) //could not allocate client
     return;
 
-  aClient->onError([](void *arg, AsyncClient *client, err_t error) {
-    ESP_LOGE(TAG, "Influx connect error");
+  aClient->onError([](void *arg, AsyncClient *client, err_t error)
+                   {
+                     ESP_LOGE(TAG, "Influx connect error");
 
-    aClient = NULL;
-    delete client;
-  },
+                     aClient = NULL;
+                     delete client;
+                   },
                    NULL);
 
-  aClient->onConnect([](void *arg, AsyncClient *client) {
-    ESP_LOGI(TAG, "Influx connected");
+  aClient->onConnect([](void *arg, AsyncClient *client)
+                     {
+                       ESP_LOGI(TAG, "Influx connected");
 
-    //Send the packet here
+                       //Send the packet here
 
-    aClient->onError(NULL, NULL);
+                       aClient->onError(NULL, NULL);
 
-    client->onDisconnect([](void *arg, AsyncClient *c) {
-      ESP_LOGI(TAG, "Influx disconnected");
-      aClient = NULL;
-      delete c;
-    },
-                         NULL);
+                       client->onDisconnect([](void *arg, AsyncClient *c)
+                                            {
+                                              ESP_LOGI(TAG, "Influx disconnected");
+                                              aClient = NULL;
+                                              delete c;
+                                            },
+                                            NULL);
 
-    client->onData([](void *arg, AsyncClient *c, void *data, size_t len) {
-      //Data received
-      ESP_LOGD(TAG, "Influx data received");
-      //SERIAL_DEBUG.print(F("\r\nData: "));
-      //SERIAL_DEBUG.println(len);
-      //uint8_t* d = (uint8_t*)data;
-      //for (size_t i = 0; i < len; i++) {SERIAL_DEBUG.write(d[i]);}
-    },
-                   NULL);
+                       client->onData([](void *arg, AsyncClient *c, void *data, size_t len)
+                                      {
+                                        //Data received
+                                        ESP_LOGD(TAG, "Influx data received");
+                                        //SERIAL_DEBUG.print(F("\r\nData: "));
+                                        //SERIAL_DEBUG.println(len);
+                                        //uint8_t* d = (uint8_t*)data;
+                                        //for (size_t i = 0; i < len; i++) {SERIAL_DEBUG.write(d[i]);}
+                                      },
+                                      NULL);
 
-    //send the request
+                       //send the request
 
-    //Construct URL for the influxdb
-    //See API at https://docs.influxdata.com/influxdb/v1.7/tools/api/#write-http-endpoint
+                       //Construct URL for the influxdb
+                       //See API at https://docs.influxdata.com/influxdb/v1.7/tools/api/#write-http-endpoint
 
-    String poststring;
+                       String poststring;
 
-    for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
-    {
-      //TODO: We should send a request per bank not just a single POST as we are likely to exceed capabilities of ESP
-      for (uint8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
-      {
-        //Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v1.7/write_protocols/line_protocol_tutorial/
-        poststring = poststring + "cells," + "cell=" + String(bank) + "_" + String(i) + " v=" + String((float)cmi[i].voltagemV / 1000.0, 3) + ",i=" + String(cmi[i].internalTemp) + "i" + ",e=" + String(cmi[i].externalTemp) + "i" + ",b=" + (cmi[i].inBypass ? String("true") : String("false")) + "\n";
-      }
-    }
+                       for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
+                       {
+                         //TODO: We should send a request per bank not just a single POST as we are likely to exceed capabilities of ESP
+                         for (uint8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
+                         {
+                           //Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v1.7/write_protocols/line_protocol_tutorial/
+                           poststring = poststring + "cells," + "cell=" + String(bank) + "_" + String(i) + " v=" + String((float)cmi[i].voltagemV / 1000.0, 3) + ",i=" + String(cmi[i].internalTemp) + "i" + ",e=" + String(cmi[i].externalTemp) + "i" + ",b=" + (cmi[i].inBypass ? String("true") : String("false")) + "\n";
+                         }
+                       }
 
-    //TODO: Need to URLEncode these values
-    String url = "/write?db=" + String(mysettings.influxdb_database) + "&u=" + String(mysettings.influxdb_user) + "&p=" + String(mysettings.influxdb_password);
-    String header = "POST " + url + " HTTP/1.1\r\n" + "Host: " + String(mysettings.influxdb_host) + "\r\n" + "Connection: close\r\n" + "Content-Length: " + poststring.length() + "\r\n" + "Content-Type: text/plain\r\n" + "\r\n";
+                       //TODO: Need to URLEncode these values
+                       String url = "/write?db=" + String(mysettings.influxdb_database) + "&u=" + String(mysettings.influxdb_user) + "&p=" + String(mysettings.influxdb_password);
+                       String header = "POST " + url + " HTTP/1.1\r\n" + "Host: " + String(mysettings.influxdb_host) + "\r\n" + "Connection: close\r\n" + "Content-Length: " + poststring.length() + "\r\n" + "Content-Type: text/plain\r\n" + "\r\n";
 
-    //SERIAL_DEBUG.println(header.c_str());
-    //SERIAL_DEBUG.println(poststring.c_str());
+                       //SERIAL_DEBUG.println(header.c_str());
+                       //SERIAL_DEBUG.println(poststring.c_str());
 
-    client->write(header.c_str());
-    client->write(poststring.c_str());
+                       client->write(header.c_str());
+                       client->write(poststring.c_str());
 
-    ESP_LOGD(TAG, "Influx data sent");
-  },
+                       ESP_LOGD(TAG, "Influx data sent");
+                     },
                      NULL);
 }
 
@@ -1428,35 +1540,35 @@ void SetupOTA()
   ArduinoOTA.setPassword("1jiOOx12AQgEco4e");
 
   ArduinoOTA
-      .onStart([]() {
-        String type;
-        if (ArduinoOTA.getCommand() == U_FLASH)
-          type = "sketch";
-        else // U_SPIFFS
-          type = "filesystem";
+      .onStart([]()
+               {
+                 String type;
+                 if (ArduinoOTA.getCommand() == U_FLASH)
+                   type = "sketch";
+                 else // U_SPIFFS
+                   type = "filesystem";
 
-        // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-        ESP_LOGI(TAG, "Start updating %s", type);
-      });
-  ArduinoOTA.onEnd([]() {
-    ESP_LOGD(TAG, "\nEnd");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    ESP_LOGD(TAG, "Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    ESP_LOGD(TAG, "Error [%u]: ", error);
-    if (error == OTA_AUTH_ERROR)
-      ESP_LOGE(TAG, "Auth Failed");
-    else if (error == OTA_BEGIN_ERROR)
-      ESP_LOGE(TAG, "Begin Failed");
-    else if (error == OTA_CONNECT_ERROR)
-      ESP_LOGE(TAG, "Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR)
-      ESP_LOGE(TAG, "Receive Failed");
-    else if (error == OTA_END_ERROR)
-      ESP_LOGE(TAG, "End Failed");
-  });
+                 // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+                 ESP_LOGI(TAG, "Start updating %s", type);
+               });
+  ArduinoOTA.onEnd([]()
+                   { ESP_LOGD(TAG, "\nEnd"); });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+                        { ESP_LOGD(TAG, "Progress: %u%%\r", (progress / (total / 100))); });
+  ArduinoOTA.onError([](ota_error_t error)
+                     {
+                       ESP_LOGD(TAG, "Error [%u]: ", error);
+                       if (error == OTA_AUTH_ERROR)
+                         ESP_LOGE(TAG, "Auth Failed");
+                       else if (error == OTA_BEGIN_ERROR)
+                         ESP_LOGE(TAG, "Begin Failed");
+                       else if (error == OTA_CONNECT_ERROR)
+                         ESP_LOGE(TAG, "Connect Failed");
+                       else if (error == OTA_RECEIVE_ERROR)
+                         ESP_LOGE(TAG, "Receive Failed");
+                       else if (error == OTA_END_ERROR)
+                         ESP_LOGE(TAG, "End Failed");
+                     });
 
   ArduinoOTA.setHostname(WiFi.getHostname());
   ArduinoOTA.setMdnsEnabled(true);
@@ -1471,8 +1583,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   ESP_LOGI(TAG, "Request NTP from %s", mysettings.ntpServer);
 
   //Use native ESP32 code
-  configTime( mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
-
+  configTime(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
 
   /*
   TODO: CHECK ERROR CODES BETTER!
@@ -1613,7 +1724,698 @@ void mqtt2(void *param)
       ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
 #endif
       mqttClient.publish(topic, 0, false, jsonbuffer);
+
+    } //end if
+  }   //end for
+}
+
+uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
+{
+  uint16_t flag;
+  uint16_t temp;
+  temp = 0xFFFF;
+  for (unsigned char i = 0; i < bufferSize; i++)
+  {
+    temp = temp ^ frame[i];
+    for (unsigned char j = 1; j <= 8; j++)
+    {
+      flag = temp & 0x0001;
+      temp >>= 1;
+      if (flag)
+        temp ^= 0xA001;
     }
+  }
+
+  return temp;
+  /*
+  // Reverse byte order.
+	uint16_t temp2 = temp >> 8;
+	temp = (temp << 8) | temp2;
+	temp &= 0xFFFF;
+	// the returned value is already swapped
+	// crcLo byte is first & crcHi byte is last
+	return temp;
+  */
+}
+
+void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur)
+{
+
+  //Its possible that the RS485_TX task may have already requested some data
+  //at the exact split second of this call, but we ignore that
+  //given this infreqent usage of this function
+
+  //	Write Multiple Holding Registers
+  uint8_t cmd[] = {
+      //The Slave Address
+      diyBMSCurrentMonitorModbusAddress,
+      //The Function Code 16
+      16,
+      //Data Address of the first register
+      0, 18,
+      //number of registers to write
+      0, 2,
+      //number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
+      4,
+      //value to write to register 40018
+      (uint8_t)(shuntmaxcur >> 8), (uint8_t)(shuntmaxcur & 0xFF),
+      //value to write to register 40019
+      (uint8_t)(shuntmv >> 8), (uint8_t)(shuntmv & 0xFF),
+      //CRC
+      0, 0};
+
+  //Register 18 = shunt_max_current
+  //Register 19 = shunt_millivolt
+
+  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+  //Byte swap the Hi and Lo bytes
+  uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+  cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+  cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+  if (hal.GetRS485Mutex())
+  {
+    //Ensure we have empty receive buffer
+    uart_flush_input(rs485_uart_num);
+
+    //Send the bytes (actually just put them into the TX FIFO buffer)
+    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+    hal.ReleaseRS485Mutex();
+  }
+
+  ESP_LOGD(TAG, "Send MODBUS request");
+
+  //Zero all data
+  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  currentMonitor.validReadings = false;
+
+  //Notify the receive task that a packet should be on its way
+  if (rs485_rx_task_handle != NULL)
+  {
+    xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+  }
+}
+
+uint8_t frame[256];
+
+//Save the current monitor advanced settings back to the device over MODBUS/RS485
+void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues)
+{
+  uint8_t flag1 = 0;
+  uint8_t flag2 = 0;
+
+  flag1 += newvalues.TempCompEnabled ? B00000010 : 0;
+
+  //Use the previous value for setting the ADCRange4096mV flag
+  flag1 += currentMonitor.ADCRange4096mV ? B00000001 : 0;
+
+  //Apply new settings
+  flag2 += newvalues.RelayTriggerTemperatureOverLimit ? bit(DIAG_ALRT_FIELD::TMPOL) : 0;
+  flag2 += newvalues.RelayTriggerCurrentOverLimit ? bit(DIAG_ALRT_FIELD::SHNTOL) : 0;
+  flag2 += newvalues.RelayTriggerCurrentUnderLimit ? bit(DIAG_ALRT_FIELD::SHNTUL) : 0;
+  flag2 += newvalues.RelayTriggerVoltageOverlimit ? bit(DIAG_ALRT_FIELD::BUSOL) : 0;
+  flag2 += newvalues.RelayTriggerVoltageUnderlimit ? bit(DIAG_ALRT_FIELD::BUSUL) : 0;
+  flag2 += newvalues.RelayTriggerPowerOverLimit ? bit(DIAG_ALRT_FIELD::POL) : 0;
+
+  /*
+Flag 1
+10|Temperature compensation enabled|Read write
+9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
+
+Flag 2
+8|Relay Trigger on TMPOL|Read write
+7|Relay Trigger on SHNTOL|Read write
+6|Relay Trigger on SHNTUL|Read write
+5|Relay Trigger on BUSOL|Read write
+4|Relay Trigger on BUSUL|Read write
+3|Relay Trigger on POL|Read write
+*/
+
+  //	Write Multiple Holding Registers
+  uint8_t cmd[] = {
+      //The Slave Address
+      diyBMSCurrentMonitorModbusAddress,
+      //The Function Code 16
+      16,
+      //Data Address of the first register
+      0, 9,
+      //number of registers to write
+      0, 1,
+      //number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
+      2,
+      //value to write to register 40010
+      flag1, flag2,
+      //CRC
+      0, 0};
+
+  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+  //Byte swap the Hi and Lo bytes
+  uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+  cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+  cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+  if (hal.GetRS485Mutex())
+  {
+    //Ensure we have empty receive buffer
+    uart_flush_input(rs485_uart_num);
+
+    //Send the bytes (actually just put them into the TX FIFO buffer)
+    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+    hal.ReleaseRS485Mutex();
+  }
+
+  ESP_LOGD(TAG, "Write register 10 = %u %u", flag1, flag2);
+
+  //Zero all data
+  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  currentMonitor.validReadings = false;
+
+  //Notify the receive task that a packet should be on its way
+  if (rs485_rx_task_handle != NULL)
+  {
+    xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+  }
+}
+
+uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
+{
+  FloatUnionType fut;
+  fut.value = value;
+  //4 bytes
+  cmd[ptr] = (uint8_t)(fut.word[0] >> 8);
+  ptr++;
+  cmd[ptr] = (uint8_t)(fut.word[0] & 0xFF);
+  ptr++;
+  cmd[ptr] = (uint8_t)(fut.word[1] >> 8);
+  ptr++;
+  cmd[ptr] = (uint8_t)(fut.word[1] & 0xFF);
+  ptr++;
+
+  return ptr;
+}
+//Save the current monitor advanced settings back to the device over MODBUS/RS485
+void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
+{
+  //	Write Multiple Holding Registers
+  uint8_t cmd[] = {
+      //The Slave Address
+      diyBMSCurrentMonitorModbusAddress,
+      //The Function Code 16
+      16,
+      //Data Address of the first register
+      0, 20,
+      //number of registers to write
+      0, 13,
+      //number of data bytes to follow (2 registers x 6 bytes each)
+      2 * 13,
+      //value to write to register 40021
+      //21 = shuntcal
+      (uint8_t)(newvalues.shuntcal >> 8), (uint8_t)(newvalues.shuntcal & 0xFF),
+      //value to write to register 40022
+      //22 = temperaturelimit
+      (uint8_t)(newvalues.temperaturelimit >> 8), (uint8_t)(newvalues.temperaturelimit & 0xFF),
+      //23/24 = overvoltagelimit 40023
+      0, 0, 0, 0,
+      //25/26 = undervoltagelimit 40025
+      0, 0, 0, 0,
+      //27/28 = overcurrentlimit 40027
+      0, 0, 0, 0,
+      //29/30 = undercurrentlimit 40029
+      0, 0, 0, 0,
+      //31/32 = overpowerlimit 40031
+      0, 0, 0, 0,
+      //33 = shunttempcoefficient
+      (uint8_t)(newvalues.shunttempcoefficient >> 8), (uint8_t)(newvalues.shunttempcoefficient & 0xFF),
+      //CRC
+      0, 0};
+
+  //ESP_LOGD(TAG, "temp limit=%i", newvalues.temperaturelimit);
+  //ESP_LOGD(TAG, "shuntcal=%u", newvalues.shuntcal);
+
+  //Register 18 = shunt_max_current
+  //Register 19 = shunt_millivolt
+
+  uint8_t ptr = SetMobusRegistersFromFloat(cmd, 11, newvalues.overvoltagelimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.undervoltagelimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.overcurrentlimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.undercurrentlimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.overpowerlimit);
+
+  /*
+    newvalues.shuntcal = p1->value().toInt();
+    newvalues.temperaturelimit = p1->value().toInt();
+    newvalues.overvoltagelimit = p1->value().toFloat();
+    newvalues.undervoltagelimit = p1->value().toFloat();
+    newvalues.overcurrentlimit = p1->value().toFloat();
+    newvalues.undercurrentlimit = p1->value().toFloat();
+    newvalues.overpowerlimit = p1->value().toFloat();
+    newvalues.shunttempcoefficient = p1->value().toInt();
+*/
+
+  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+  //Byte swap the Hi and Lo bytes
+  uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+  cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+  cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+  if (hal.GetRS485Mutex())
+  {
+    //Ensure we have empty receive buffer
+    uart_flush_input(rs485_uart_num);
+
+    //Send the bytes (actually just put them into the TX FIFO buffer)
+    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+    hal.ReleaseRS485Mutex();
+  }
+
+  ESP_LOGD(TAG, "Advanced save settings");
+
+  //Zero all data
+  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  currentMonitor.validReadings = false;
+
+  //Notify the receive task that a packet should be on its way
+  if (rs485_rx_task_handle != NULL)
+  {
+    xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+  }
+}
+
+void ProcessCurrentMonitorRegisterReply(uint8_t length)
+{
+
+  FloatUnionType v;
+
+  //Length is in bytes, but the registers are returned in 16 bit words
+  uint8_t ptr = 3;
+  uint16_t reg = 0;
+  //Last time we updated the structure
+  currentMonitor.timestamp = esp_timer_get_time();
+  for (size_t i = 0; i < length / 2; i++)
+  {
+    uint16_t data = ((frame[ptr] << 8) | frame[ptr + 1]); // combine the starting address bytes
+    ptr += 2;
+    reg++;
+
+    //ESP_LOGD(TAG, "reg=%x", data);
+
+    switch (reg)
+    {
+
+    case 1:
+    case 3:
+    case 5:
+    case 7:
+    case 11:
+    case 13:
+    case 15:
+    case 17:
+    case 23:
+    case 25:
+    case 27:
+    case 29:
+    case 31:
+    case 35:
+    case 37:
+    {
+      //This stores the first half of the 32 bit register value
+      v.word[0] = data;
+      break;
+    }
+
+    case 2:
+    {
+      v.word[1] = data;
+      currentMonitor.voltage = v.value;
+      break;
+    }
+
+    case 4:
+    {
+      v.word[1] = data;
+      currentMonitor.current = v.value;
+      break;
+    }
+
+    case 6:
+    {
+      uint32_t milliamph = ((uint32_t)v.word[0]) << 16 | (uint32_t)data;
+      currentMonitor.milliamphour_out = milliamph;
+      break;
+    }
+
+    case 8:
+    {
+      uint32_t milliamph = ((uint32_t)v.word[0]) << 16 | (uint32_t)data;
+      currentMonitor.milliamphour_in = milliamph;
+      break;
+    }
+
+    case 9:
+    {
+      currentMonitor.temperature = (int16_t)data;
+      break;
+    }
+
+    case 10:
+    {
+      //High byte
+      uint8_t flag1 = data >> 8;
+      //Low byte
+      uint8_t flag2 = data;
+
+      ESP_LOGD(TAG, "Read relay trigger settings %u %u", flag1, flag2);
+
+      /*
+16|TMPOL|Read only
+15|SHNTOL|Read only
+14|SHNTUL|Read only
+13|BUSOL|Read only
+12|BUSUL|Read only
+11|POL|Read only
+10|Temperature compensation enabled|Read write
+9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
+*/
+
+      currentMonitor.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
+      currentMonitor.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
+      currentMonitor.CurrentUnderLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTUL);
+      currentMonitor.VoltageOverlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSOL);
+      currentMonitor.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
+      currentMonitor.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
+
+      currentMonitor.TempCompEnabled = flag1 & B00000010;
+      currentMonitor.ADCRange4096mV = flag1 & B00000001;
+
+      /*
+8|Relay Trigger on TMPOL|Read write
+7|Relay Trigger on SHNTOL|Read write
+6|Relay Trigger on SHNTUL|Read write
+5|Relay Trigger on BUSOL|Read write
+4|Relay Trigger on BUSUL|Read write
+3|Relay Trigger on POL|Read write
+2|Existing Relay state (0=off)|Read write
+1|Factory reset bit (always 0 when read)|Read write
+*/
+      currentMonitor.RelayTriggerTemperatureOverLimit = flag2 & bit(DIAG_ALRT_FIELD::TMPOL);
+      currentMonitor.RelayTriggerCurrentOverLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTOL);
+      currentMonitor.RelayTriggerCurrentUnderLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTUL);
+      currentMonitor.RelayTriggerVoltageOverlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSOL);
+      currentMonitor.RelayTriggerVoltageUnderlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSUL);
+      currentMonitor.RelayTriggerPowerOverLimit = flag2 & bit(DIAG_ALRT_FIELD::POL);
+      currentMonitor.RelayState = flag2 & B00000010;
+      //Last bit is for factory reset (always zero)
+
+      break;
+    }
+
+    case 12:
+    {
+      v.word[1] = data;
+      currentMonitor.power = v.value;
+      break;
+    }
+
+    case 14:
+    {
+      v.word[1] = data;
+      currentMonitor.shuntmV = v.value;
+      break;
+    }
+
+    case 16:
+    {
+      v.word[1] = data;
+      currentMonitor.currentlsb = v.value;
+      break;
+    }
+
+    case 18:
+    {
+      v.word[1] = data;
+      currentMonitor.shuntresistance = v.value;
+      break;
+    }
+
+    case 19:
+    {
+      currentMonitor.shuntmaxcurrent = data;
+      break;
+    }
+
+    case 20:
+    {
+      currentMonitor.shuntmillivolt = data;
+      break;
+    }
+    case 21:
+    {
+      currentMonitor.shuntcal = data;
+      break;
+    }
+
+    case 22:
+    {
+      currentMonitor.temperaturelimit = (int16_t)data;
+      break;
+    }
+
+    case 24:
+    {
+      //Bus Overvoltage (overvoltage protection)
+      v.word[1] = data;
+      currentMonitor.overvoltagelimit = v.value;
+      break;
+    }
+
+    case 26:
+    {
+      //Bus Undervoltage (under voltage protection)
+      v.word[1] = data;
+      currentMonitor.undervoltagelimit = v.value;
+      break;
+    }
+
+    case 28:
+    {
+      //Over current
+      v.word[1] = data;
+      currentMonitor.overcurrentlimit = v.value;
+      break;
+    }
+
+    case 30:
+    {
+      //Under current
+      v.word[1] = data;
+      currentMonitor.undercurrentlimit = v.value;
+      break;
+    }
+
+    case 32:
+    {
+      v.word[1] = data;
+      currentMonitor.overpowerlimit = v.value;
+      break;
+    }
+
+    case 33:
+    {
+      currentMonitor.shunttempcoefficient = data;
+      break;
+    }
+    case 34:
+    {
+      currentMonitor.modelnumber = data;
+      break;
+    }
+
+    case 36:
+    {
+      currentMonitor.firmwareversion = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
+      break;
+    }
+    case 38:
+    {
+      currentMonitor.firmwaredatetime = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
+      //If we have received the firmware settings, it means we have asked and got a full dump of all the registers
+      //so record it as valid
+      currentMonitor.validReadings = true;
+      break;
+    }
+
+    case 39:
+    {
+      currentMonitor.watchdogcounter = data;
+      //ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
+      break;
+    }
+
+    default:
+    {
+      ESP_LOGE(TAG, "Unprocessed register %u = %x", reg, data);
+      break;
+    }
+
+    } //end switch
+
+    //ESP_LOGD(TAG, "%u = %x", reg, data);
+  } //end for
+
+  //ESP_LOGD(TAG, "Volt = %f", currentMonitor.voltage);
+  //ESP_LOGD(TAG, "Curr = %f", currentMonitor.current);
+  //ESP_LOGD(TAG, "Temp = %i", currentMonitor.temperature);
+
+  //ESP_LOGD(TAG, "Out = %f", currentMonitor.amphour_out);
+  //ESP_LOGD(TAG, "In = %f", currentMonitor.amphour_in);
+
+  //ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
+  //ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
+}
+//RS485 receive
+void rs485_rx(void *param)
+{
+  for (;;)
+  {
+    //Wait until this task is triggered, when
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    //Delay 50ms for the data to arrive
+    vTaskDelay(pdMS_TO_TICKS(50));
+
+    int len = 0;
+
+    if (hal.GetRS485Mutex())
+    {
+      //Wait 200ms before timeout
+      len = uart_read_bytes(rs485_uart_num, frame, sizeof(frame), (200 / portTICK_RATE_MS));
+      hal.ReleaseRS485Mutex();
+    }
+
+    //Min packet length of 5 bytes
+    if (len > 5)
+    {
+      uint8_t id = frame[0];
+
+      uint16_t crc = ((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
+
+      uint16_t temp = calculateCRC(frame, len - 2);
+      //Swap bytes to match MODBUS ordering
+      uint16_t calculatedCRC = (temp << 8) | (temp >> 8);
+
+      ESP_LOGD(TAG, "Rec %i bytes, id=%u", len, id);
+
+      if (calculatedCRC == crc)
+      {
+        // if the calculated crc matches the recieved crc continue
+        uint8_t RS485Error = frame[1] & B10000000;
+        if (RS485Error == 0)
+        {
+          uint8_t cmd = frame[1] & B01111111;
+          uint8_t length = frame[2];
+
+          //ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
+
+          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3)
+          {
+            ProcessCurrentMonitorRegisterReply(length);
+
+            if (_tft_screen_available)
+            {
+              //Refresh the TFT display
+              xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
+            }
+
+          } //end diybms current monitor command 3
+
+          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 16)
+          {
+            ESP_LOGI(TAG, "Write multiple regs, success");
+          }
+        }
+        else
+        {
+          ESP_LOGE(TAG, "RS485 error");
+        }
+      }
+      else
+      {
+        ESP_LOGE(TAG, "CRC error");
+      }
+    }
+    else
+    {
+      //We didn't receive anything on RS485
+      ESP_LOGE(TAG, "Short packet %i bytes", len);
+
+      //Indicate that the current monitor values are now invalid/unknown
+      currentMonitor.validReadings = false;
+    }
+    //for (int i = 0; i < len; i++)    {      dumpByte(data[i]);    }
+  }
+}
+
+//This is the request we send to diyBMS current monitor, it pulls back 38 registers
+//this is all the registers diyBMS current monitor has
+//Holding Registers = command 3
+
+//RS485 transmit
+void rs485_tx(void *param)
+{
+  //8 byte request
+  uint8_t cmd[] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+  for (;;)
+  {
+    //Delay 5 seconds
+    vTaskDelay(pdMS_TO_TICKS(5000));
+
+    if (mysettings.currentMonitoringEnabled == true)
+    {
+      //ESP_LOGD(TAG, "RS485 TX");
+      cmd[0] = diyBMSCurrentMonitorModbusAddress;
+
+      //Input registers - 39 of them (78 bytes + headers + crc = 83 byte reply)
+      cmd[1] = 3;
+      cmd[5] = 39;
+
+      //Ideally we poll the current monitor and only ask it for a small subset of registers
+      //the first 12 registers are the most useful, so only need the others when we want to get the configuration data
+
+      uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+      //Byte swap the Hi and Lo bytes
+      uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+      cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+      cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+      if (hal.GetRS485Mutex())
+      {
+        //Ensure we have empty receive buffer
+        uart_flush_input(rs485_uart_num);
+
+        //Send the bytes (actually just put them into the TX FIFO buffer)
+        uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+        hal.ReleaseRS485Mutex();
+      }
+
+      //Notify the receive task that a packet should be on its way
+      if (rs485_rx_task_handle != NULL)
+      {
+        xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+      }
+    } //end if
   }
 }
 
@@ -1621,6 +2423,7 @@ void mqtt1(void *param)
 {
   //Send a few MQTT packets and keep track so we send the next batch on following calls
   static uint8_t mqttStartModule = 0;
+  static int64_t lastcurrentMonitortimestamp = 0;
 
   for (;;)
   {
@@ -1686,6 +2489,36 @@ void mqtt1(void *param)
         //this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
         mqttStartModule = i + 1;
       }
+
+      if (mysettings.currentMonitoringEnabled)
+      {
+        //Send current monitor data
+        doc.clear(); // Need to clear the json object for next message
+        sprintf(topic, "%s/modbus/A%u", mysettings.mqtt_topic, mysettings.currentMonitoringModBusAddress);
+
+        doc["valid"] = currentMonitor.validReadings ? 1 : 0;
+
+        if (currentMonitor.validReadings && currentMonitor.timestamp != lastcurrentMonitortimestamp)
+        {
+          //Send current monitor data if its valid and not sent before
+          doc["voltage"] = currentMonitor.voltage;
+          doc["current"] = currentMonitor.current;
+          doc["mAhIn"] = currentMonitor.milliamphour_in;
+          doc["mAhOut"] = currentMonitor.milliamphour_out;
+          doc["power"] = currentMonitor.power;
+          doc["temperature"] = currentMonitor.temperature;
+          doc["shuntmV"] = currentMonitor.shuntmV;
+          doc["relayState"] = currentMonitor.RelayState ? 1 : 0;
+        }
+
+        lastcurrentMonitortimestamp = currentMonitor.timestamp;
+
+        serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
+#if defined(MQTT_LOGGING)
+        ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+#endif
+        mqttClient.publish(topic, 0, false, jsonbuffer);
+      }
     }
   }
 }
@@ -1720,6 +2553,18 @@ void LoadConfiguration()
 
   mysettings.loggingEnabled = false;
   mysettings.loggingFrequencySeconds = 15;
+
+  mysettings.currentMonitoringEnabled = false;
+  mysettings.currentMonitoringModBusAddress = 90;
+
+  mysettings.rs485baudrate = 19200;
+  mysettings.rs485databits = uart_word_length_t::UART_DATA_8_BITS;
+  mysettings.rs485parity = uart_parity_t::UART_PARITY_DISABLE;
+  mysettings.rs485stopbits = uart_stop_bits_t::UART_STOP_BITS_1;
+
+  mysettings.currentMonitoringEnabled = false;
+
+  strcpy(mysettings.language, "en");
 
   //Default to EMONPI default MQTT settings
   strcpy(mysettings.mqtt_topic, "emon/diybms");
@@ -2198,10 +3043,6 @@ void setup()
 
   ESP_LOGI(TAG, "ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u", chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
-  //We generate a unique number which is used in all following JSON requests
-  //we use this as a simple method to avoid cross site scripting attacks
-  DIYBMSServer::generateUUID();
-
   hal.ConfigurePins(WifiPasswordClear);
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
   hal.ConfigureVSPI();
@@ -2234,7 +3075,7 @@ void setup()
 
   if (!LITTLEFS.begin(false))
   {
-    ESP_LOGE(TAG, "LITTLEFS mount failed, did you upload file system image? - SYSTEM HALTED");
+    ESP_LOGE(TAG, "LITTLEFS mount failed, did you upload file system image?");
 
     hal.Halt(RGBLED::White);
   }
@@ -2245,45 +3086,6 @@ void setup()
   }
 
   mountSDCard();
-
-  /* TEST RS485 */
-  /*
-  SERIAL_DEBUG.println("TEST RS485");
-  SERIAL_RS485.begin(115200, SERIAL_8N1, RS485_RX, RS485_TX, false, 20000UL);
-
-  while (1)
-  {
-
-    //Empty receive buffer
-    //while (SERIAL_RS485.available())    {      SERIAL_RS485.read();    }
-
-    //Transmit character
-    digitalWrite(RS485_ENABLE, HIGH);
-    delayMicroseconds(5);
-    SERIAL_RS485.write((char)'A');
-    //SERIAL_RS485.write((char)'B');
-    //SERIAL_RS485.write((char)'C');
-    //SERIAL_RS485.write((char)'D');
-    //SERIAL_RS485.write((char)'E');
-    //SERIAL_RS485.write((char)'F');
-    SERIAL_RS485.flush();
-    delayMicroseconds(5);
-    digitalWrite(RS485_ENABLE, LOW);
-    SERIAL_DEBUG.println();
-    SERIAL_DEBUG.print(millis());
-    SERIAL_DEBUG.print('=');
-
-    //Allow responses to build up in buffer
-    delay(100);
-
-    while (SERIAL_RS485.available())
-    {
-      SERIAL_DEBUG.print((char)SERIAL_RS485.read());
-    }
-
-    delay(3000);
-  }
-*/
 
   /*
 TEST CAN BUS
@@ -2376,10 +3178,15 @@ TEST CAN BUS
 
   resetAllRules();
 
+  LoadConfiguration();
+  ESP_LOGI("Config loaded");
+
   //Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
   SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1, 2, 32); // Serial for comms to modules
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
+
+  SetupRS485();
 
   xTaskCreate(ledoff_task, "ledoff", 1500, nullptr, 1, &ledoff_task_handle);
   xTaskCreate(tftwakeup_task, "tftwake", 1900, nullptr, 1, &tftwakeup_task_handle);
@@ -2398,6 +3205,9 @@ TEST CAN BUS
   xTaskCreate(mqtt1, "mqtt1", 3000, nullptr, 1, &mqtt1_task_handle);
   xTaskCreate(mqtt2, "mqtt2", 3000, nullptr, 1, &mqtt2_task_handle);
 
+  xTaskCreate(rs485_tx, "RS485TX", 3000, nullptr, 1, &rs485_tx_task_handle);
+  xTaskCreate(rs485_rx, "RS485RX", 3000, nullptr, 1, &rs485_rx_task_handle);
+
   //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
   //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
 
@@ -2406,8 +3216,6 @@ TEST CAN BUS
   xTaskCreate(lazy_tasks, "lazyt", 2048, nullptr, 1, &lazy_task_handle);
   xTaskCreate(pulse_relay_off_task, "pulse", 1024, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
-  LoadConfiguration();
-  ESP_LOGI("Config loaded");
   //Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
   {
@@ -2490,12 +3298,15 @@ TEST CAN BUS
     //Attempt connection in setup(), loop() will also try every 30 seconds
     connectToWifi();
 
+    //We generate a unique number which is used in all following JSON requests
+    //we use this as a simple method to avoid cross site scripting attacks
+    //This MUST be done once the WIFI is switched on otherwise only PSEUDO random
+    //data is generated!!
+    DIYBMSServer::generateUUID();
+
     //Wake screen on power up
     xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
   }
-
-  //SDM sdm(SERIAL_RS485, 9600, RS485_ENABLE, SERIAL_8N1, RS485_RX, RS485_TX); // pins for DIYBMS => RX pin 21, TX pin 22
-  //SERIAL_RS485.begin(9600, SERIAL_8N1, RS485_RX, RS485_TX);
 }
 
 unsigned long wifitimer = 0;

@@ -5,7 +5,8 @@ const INTERNALWARNINGCODE = {
     ModuleInconsistantCodeVersion: 3,
     ModuleInconsistantBoardRevision: 4,
     LoggingEnabledNoSDCard: 5,
-    AVRProgrammingMode: 6
+    AVRProgrammingMode: 6,
+    XSSKEYSync: 7
 }
 Object.freeze(INTERNALWARNINGCODE);
 
@@ -32,6 +33,107 @@ function identifyModule(button, cellid) {
     $.getJSON("identifyModule.json", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
 
+function refreshCurrentMonitorValues() {
+    $.getJSON("currentmonitor.json",
+        function (data) {
+            $("#CurrentMonEnabled").prop("checked", data.enabled);
+            $("#modbusAddress").val(data.address);
+
+            $("#shuntmaxcur").val(data.shuntmaxcur);
+            $("#shuntmv").val(data.shuntmv);
+
+            $("#cmvalid").val(data.valid);
+            $("#cmtimestampage").val(data.timestampage);
+            $("#cmtemperature").val(data.temperature);
+            $("#cmwatchdog").val(data.watchdog);
+            $("#cmactualshuntmv").val(data.actualshuntmv);
+            $("#cmcurrentlsb").val(data.currentlsb);
+            $("#cmresistance").val(data.resistance);
+            $("#cmcalibration").val(data.calibration);
+
+            $("#cmtemplimit").val(data.templimit);
+
+            $("#cmundervlimit").val(data.undervlimit);
+            $("#cmovervlimit").val(data.overvlimit);
+
+            $("#cmoverclimit").val(data.overclimit);
+            $("#cmunderclimit").val(data.underclimit);
+
+            $("#cmoverplimit").val(data.overplimit);
+            //Temperature coefficient
+            $("#cmtempcoeff").val(data.tempcoeff);
+
+            $("#cmmodel").val(data.model.toString(16));
+            $("#cmfirmwarev").val(data.firmwarev.toString(16));
+
+            var d = new Date(data.firmwaredate * 1000);
+            $("#cmfirmwaredate").val(d.toString());
+
+
+            $("#TempCompEnabled").prop("checked", data.TempCompEnabled);
+            $("#cmTemperatureOverLimit").val(data.TMPOL);
+
+            $("#cmCurrentOverLimit").val(data.CURROL);
+            $("#cmCurrentUnderLimit").val(data.CURRUL);
+            $("#cmVoltageOverLimit").val(data.VOLTOL);
+            $("#cmVoltageUnderLimit").val(data.VOLTUL);
+            $("#cmPowerOverLimit").val(data.POL);
+
+            $("#cmRelayState").val(data.RelayState ? "CLOSED" : "OPEN");
+
+            $("#cmTMPOL").prop("checked", data.T_TMPOL);
+            $("#cmCURROL").prop("checked", data.T_CURROL);
+            $("#cmCURRUL").prop("checked", data.T_CURRUL);
+            $("#cmVOLTOL").prop("checked", data.T_VOLTOL);
+            $("#cmVOLTUL").prop("checked", data.T_VOLTUL);
+            $("#cmPOL").prop("checked", data.T_POL);
+
+
+            if (data.enabled) {
+                $("#currentmonadvanced").show();
+                $("#currentmonbasic").show();
+                $("#currentmonrelay").show();
+            } else {
+                $("#currentmonadvanced").hide();
+                $("#currentmonbasic").hide();
+                $("#currentmonrelay").hide();
+            }
+
+        }).fail(function () { }
+        );
+
+}
+
+function showFailure() {
+    $.notify($("#saveerror").text(), { className: 'error', autoHideDelay: 15000 });
+}
+
+function showSuccess() {
+    $.notify($("#savesuccess").text(), { className: 'success' });
+}
+
+function currentmonitorSubmitForm(form) {
+    $.ajax({
+        type: $(form).attr('method'),
+        url: $(form).attr('action'),
+        data: $(form).serialize(),
+        success: function (data) {
+            $("#currentmonadvanced").hide();
+            $("#currentmonbasic").hide();
+            $("#currentmonrelay").hide();
+
+            showSuccess();
+
+            //Show spinner for 6 seconds, then refresh page
+            $("#loading").show().delay(6000).hide("fast", function () {
+                $("#currentmonitor").click();
+            });
+        },
+        error: function (data) {
+            showFailure();
+        },
+    });
+}
 
 function avrProgrammingStatsUpdate(attempts) {
     $.getJSON("avrstatus.json",
@@ -133,6 +235,17 @@ function configureModule(button, cellid, attempts) {
         });
 }
 
+function secondsToHms(d) {
+    d = Number(d);
+    var h = Math.floor(d / 3600);
+    var m = Math.floor(d % 3600 / 60);
+    var s = Math.floor(d % 3600 % 60);
+
+    var hDisplay = h > 0 ? h + "h" : "";
+    var mDisplay = m > 0 ? m + "m" : "";
+    var sDisplay = h > 24 ? "" : (s > 0 ? s + "s" : "");
+    return hDisplay + mDisplay + sDisplay;
+}
 
 function queryBMS() {
     $.getJSON("monitor2.json", function (jsondata) {
@@ -164,13 +277,13 @@ function queryBMS() {
 
         var markLineData = [];
 
-        markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
-        markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
-        markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
+        markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+        markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+        markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
 
         var xAxis = 0;
         for (let index = 0; index < jsondata.banks; index++) {
-            markLineData.push({ name: "Bank " + index, xAxis: xAxis });
+            markLineData.push({ name: "Bank " + index, xAxis: xAxis, lineStyle: { color: colours[index], width: 4, type: 'dashed', opacity: 0.5 }, label: { show: true, distance: [0, 0], formatter: '{b}', color: '#eeeeee', textBorderColor: colours[index], textBorderWidth: 2 } });
             xAxis += jsondata.seriesmodules;
         }
 
@@ -225,6 +338,8 @@ function queryBMS() {
             if (jsondata.received == 0) { $("#received").hide(); } else { $("#received .v").html(jsondata.received); $("#received").show(); }
             if (jsondata.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.roundtrip); $("#roundtrip").show(); }
             if (jsondata.oos == 0) { $("#oos").hide(); } else { $("#oos .v").html(jsondata.oos); $("#oos").show(); }
+
+            $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
         }
 
         if (jsondata.bankv) {
@@ -243,24 +358,58 @@ function queryBMS() {
             }
         }
 
-        //Not currently supported
+        if (jsondata.sec) {
+            if (!XSS_KEY.endsWith(jsondata.sec)) {
+                if ($("#warning7").data("notify") == undefined) {
+                    $("#warning7").data("notify", 1);
+                    $.notify($("#warning7").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
+                }
+            }
+        }
+
         if (jsondata.current) {
             if (jsondata.current[0] == null) {
                 $("#current").hide();
+                $("#shuntv").hide();
+                $("#amphout").hide();
+                $("#amphin").hide();
+                $("#power").hide();
             } else {
-                $("#current .v").html((parseFloat(jsondata.current[0]) / 1000.0).toFixed(2));
+                var data = jsondata.current[0];
+
+                $("#current .v").html(parseFloat(data.c).toFixed(2) + "A");
                 $("#current").show();
+
+                $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
+                $("#shuntv").show();
+
+                $("#power .v").html(parseFloat(data.p) + "W");
+                $("#power").show();
+
+                $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
+                $("#amphout").show();
+
+                $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
+                $("#amphin").show();
             }
         }
+
+
+
 
         //Needs increasing when more warnings are added
         if (jsondata.warnings) {
             for (let warning = 1; warning <= 6; warning++) {
                 if (jsondata.warnings.includes(warning)) {
-                    $("#warning" + warning).show();
-                } else {
-                    $("#warning" + warning).hide();
+                    //Once a warning has triggered, hide it from showing in the future
+                    if ($("#warning" + warning).data("notify") == undefined) {
+                        $("#warning" + warning).data("notify", 1);
+                        $.notify($("#warning" + warning).text(), { autoHideDelay: 15000, globalPosition: 'top left', className: 'warn' });
+                    }
                 }
+                //else {
+                //$("#warning" + warning).hide();
+                //}
             }
         }
 
@@ -436,8 +585,7 @@ function queryBMS() {
                             markLine: {
                                 silent: true,
                                 symbol: 'none',
-                                lineStyle: { width: 5, type: 'dashed', opacity: 0.1 },
-                                label: { show: true, distance: [0, 0], formatter: '{b}' },
+
                                 data: markLineData
                             },
                             itemStyle: { color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
@@ -607,7 +755,7 @@ function queryBMS() {
 
             }
 
-            if (window.g2 == null && $('#graph2').css('display') != 'none') {
+            if (window.g2 == null && $('#graph2').css('display') != 'none' && window.Graph3DAvailable === true) {
                 window.g2 = echarts.init(document.getElementById('graph2'));
 
                 var Option3dBar = {
@@ -775,15 +923,9 @@ $(function () {
         if ($(event.target).text() == "2D") {
             $("#graph1").show();
             $("#graph2").hide();
-
-            //Hide 3d graph
-            //if (window.g2 != null) {window.g2.clear();            }
         } else {
             $("#graph1").hide();
             $("#graph2").show();
-
-            //Hide 2d graph
-            //if (window.g1 != null) {window.g1.clear();            }
         }
         $(window).trigger('resize');
     });
@@ -951,6 +1093,32 @@ $(function () {
         return true;
     });
 
+    $("#currentmonitor").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+
+        switchPage("#diybmsCurrentMonitorPage");
+
+
+        $.getJSON("rs485settings.json",
+            function (data) {
+                $("#rs485baudrate").val(data.baudrate);
+                $("#rs485databit").val(data.databits);
+                $("#rs485parity").val(data.parity);
+                $("#rs485stopbit").val(data.stopbits);
+            }).fail(function () { }
+            );
+
+        refreshCurrentMonitorValues();
+
+        return true;
+    });
+
+    $("#currentmonrefresh").click(function (e) {
+        e.preventDefault();
+        refreshCurrentMonitorValues();
+    });
+
     $("#integration").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
@@ -996,7 +1164,7 @@ $(function () {
                 $("#storage").trigger("click");
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1009,10 +1177,10 @@ $(function () {
             data: 'save=1',
             success: function (data) {
                 //Refresh the storage page
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1027,7 +1195,7 @@ $(function () {
                 $("#storage").trigger("click");
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1046,6 +1214,8 @@ $(function () {
                     $("#AVRProgDisable").prop('disabled', true).css({ opacity: 0.25 });
                     $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
                     $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
+                    //Allow warning to trigger again
+                    $("#warning7").removeData("notify");
                 })
             .fail(function (data) {
                 $("#avrinfo").html("Failed");
@@ -1057,6 +1227,7 @@ $(function () {
 
         return true;
     });
+
     $("#AVRProgEnable").click(function () {
         $.ajax({
             type: 'post',
@@ -1178,6 +1349,10 @@ $(function () {
 
         $.getJSON("storage.json",
             function (data) {
+
+                //Allow warning to trigger again
+                $("#warning5").removeData("notify");
+
                 $("#loggingEnabled").prop("checked", data.storage.logging);
                 $("#loggingFreq").val(data.storage.frequency);
 
@@ -1234,13 +1409,55 @@ $(function () {
             url: $(this).attr('action'),
             data: $(this).serialize(),
             success: function (data) {
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
+
+
+    $("#diybmsCurrentMonitorForm2").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        currentmonitorSubmitForm(this);
+    });
+    $("#diybmsCurrentMonitorForm3").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        currentmonitorSubmitForm(this);
+    });
+    $("#diybmsCurrentMonitorForm4").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        currentmonitorSubmitForm(this);
+    });
+    $("#diybmsCurrentMonitorForm1").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        currentmonitorSubmitForm(this);
+    });
+
+    
+    $("#globalSettingsForm").unbind('submit').submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+            type: $(this).attr('method'),
+            url: $(this).attr('action'),
+            data: $(this).serialize(),
+            success: function (data) {
+                showSuccess();
+
+                //Allow warning to trigger again
+                $("#warning1").removeData("notify");
+                $("#warning2").removeData("notify");
+                $("#warning3").removeData("notify");
+                $("#warning4").removeData("notify");
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+    });
+
 
     $("#settingsForm").unbind('submit').submit(function (e) {
         e.preventDefault();
@@ -1251,10 +1468,17 @@ $(function () {
             data: $(this).serialize(),
             success: function (data) {
                 $('#settingConfig').hide();
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
+
+                //Allow warning to trigger again
+                $("#warning1").removeData("notify");
+                $("#warning2").removeData("notify");
+                $("#warning3").removeData("notify");
+                $("#warning4").removeData("notify");
+
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1269,10 +1493,10 @@ $(function () {
             success: function (data) {
                 DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat($("#VoltageHigh").val());
                 DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat($("#VoltageLow").val());
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1299,6 +1523,13 @@ $(function () {
         beforeSend: function (xhr, settings) { settings.data += '&xss=' + XSS_KEY; }
     });
 
+
+    $(".stat").mouseenter(function () {
+        $(this).addClass("hover");
+    }).mouseleave(function () {
+        $(this).removeClass("hover");
+    });
+
     //$(document).ajaxStart(function(){ });
     //$(document).ajaxStop(function(){ });
 
@@ -1306,4 +1537,4 @@ $(function () {
 
     //On page ready
     queryBMS();
-});
+}); // end $(function ()

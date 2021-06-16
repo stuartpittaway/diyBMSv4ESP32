@@ -83,8 +83,8 @@ void DefaultConfig()
   //About 2.2007 seems about right
   myConfig.Calibration = 2.2007;
 
-//2mV per ADC resolution
-//myConfig.mVPerADC = 2.0; //2048.0/1024.0;
+  //2mV per ADC resolution
+  //myConfig.mVPerADC = 2.0; //2048.0/1024.0;
 
 #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
   //Keep temperature low for modules with R19 and R20 not swapped
@@ -372,14 +372,10 @@ void loop()
   //this is also triggered by the watchdog should comms fail or the module is running standalone
   DiyBMSATTiny841::ReferenceVoltageOn();
 
-  //allow reference voltage to stabilize
-  //delay(1);
 
   //Internal temperature
   PP.TakeAnAnalogueReading(ADC_INTERNAL_TEMP);
 
-  //Disable the PWM/load during voltage readings
-  //if (PP.bypassCountDown > 0) { DiyBMSATTiny841::PausePWM(); }
 
   //Only take these readings when we are NOT in bypass....
   //this causes the voltage and temperature to "freeze" during bypass cycles
@@ -395,22 +391,15 @@ void loop()
 
     //Do voltage reading last to give as much time for voltage to settle
     PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
-
-    //#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
-    //    DiyBMSATTiny841::BlueLedOff();
-    //#endif
   }
-
-  //Switch balance PWM back on if needed
-  //if (PP.bypassCountDown > 0) { DiyBMSATTiny841::ResumePWM(); }
 
   //Switch reference off if we are not in bypass (otherwise leave on)
   DiyBMSATTiny841::ReferenceVoltageOff();
 
-  if (wdt_triggered)
+  if (wdt_triggered && Serial.available() == 0)
   {
-    //We got here because the watchdog (after 8 seconds) went off - we didn't receive a packet of data
-    wdt_triggered = false;
+    //If the WDT trigered, and NO serial is available, don't do anything here
+    //this avoids waiting 200ms for data that is never going to arrive.
   }
   else
   {
@@ -424,9 +413,6 @@ void loop()
     {
       // Call update to receive, decode and process incoming packets.
       myPacketSerial.checkInputStream();
-
-      //Abort loop if we just processed a packet
-      //if (PacketProcessed) break;
 
       //Allow data to be received in buffer (delay must be AFTER) checkInputStream and before DisableSerial0TX
       delay(1);
@@ -508,21 +494,5 @@ void loop()
     PP.bypassHasJustFinished--;
   }
 
-  /*
-  if (PP.bypassCountDown > 0)
-  {
-    //If we are trying to drain the cell/balance, then we need
-    //to wait around a bit here whilst the balancing works
-    //otherwise the loop() will start again and switch balance off!
-    //wait 500ms before continuing, or we exit when some Serial data arrives
-    uint16_t i = 500 / 5;
-    while (i > 0)
-    {
-      // Call update to receive, decode and process incoming packets (if any)
-      myPacketSerial.checkInputStream();
-      delay(5);
-      i--;
-    }
-  }
-*/
+  wdt_triggered = false;
 }
