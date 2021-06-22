@@ -35,7 +35,7 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #define TCA6408_POLARITY_INVERSION 0x02
 #define TCA6408_CONFIGURATION 0x03
 //All pins on TCA6408 are outputs - prevents interrupts triggering randomly due to static/ESD
-#define TCA6408_INPUTMASK B11111111
+#define TCA6408_INPUTMASK B00000000
 
 #define VSPI_SCK GPIO_NUM_18
 
