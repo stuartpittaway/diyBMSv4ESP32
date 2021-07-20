@@ -124,7 +124,7 @@ extern avrprogramsettings _avrsettings;
 extern RelayState previousRelayState[RELAY_TOTAL];
 extern currentmonitoring_struct currentMonitor;
 extern void ConfigureRS485();
-extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur);
-extern void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues);
-extern void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues);
+extern void CurrentMonitorSetBasicSettings_diyBMS(uint16_t shuntmv, uint16_t shuntmaxcur);
+extern void CurrentMonitorSetAdvancedSettings_diyBMS(currentmonitoring_struct newvalues);
+extern void CurrentMonitorSetRelaySettings_diyBMS(currentmonitoring_struct newvalues);
 #endif

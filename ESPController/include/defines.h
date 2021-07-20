@@ -11,6 +11,7 @@
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
+
 //Data uses Rx2/TX2 and debug logs go to serial0 - USB
 #define SERIAL_DATA Serial2
 #define SERIAL_DEBUG Serial
@@ -22,7 +23,13 @@
 typedef union
 {
   float value;
+  uint8_t byte[4];  
   uint16_t word[2];
+  uint32_t dword;
+  int8_t ubyte[4];  
+  int16_t uword[2];
+  int32_t udword;
+
 } FloatUnionType;
 
 enum RGBLED : uint8_t
@@ -73,6 +80,13 @@ enum RelayType : uint8_t
   RELAY_PULSE = 0x01
 };
 
+enum MODBUS_PROTOCOL
+{
+  modbusProtocol_diyBMS = 0,
+  modbusProtocol_Juntek = 1,
+  modbusProtocol_unknown = 0xFF
+};
+
 #define RELAY_RULES 12
 //Number of relays on board (4)
 #define RELAY_TOTAL 4
@@ -114,6 +128,9 @@ struct diybms_eeprom_settings
 
   bool currentMonitoringEnabled;
   uint8_t currentMonitoringModBusAddress;
+
+  uint8_t juntekShuntChannelLetter;
+  uint8_t juntekShuntChannelNumber;
 
   int rs485baudrate;
   uart_word_length_t rs485databits;
@@ -259,6 +276,7 @@ struct currentmonitoring_struct
 {
   //Uses float as these are 4 bytes on ESP32
   int64_t timestamp;
+  uint32_t seconds_of_activity;
   bool validReadings;
   float voltage;
   float current;
@@ -267,6 +285,7 @@ struct currentmonitoring_struct
   int16_t temperature;
   uint16_t watchdogcounter;
   float power;
+  float energy;
   float shuntmV;
   float currentlsb;
   float shuntresistance;

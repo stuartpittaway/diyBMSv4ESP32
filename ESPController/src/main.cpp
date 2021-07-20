@@ -20,7 +20,7 @@
 
 #undef CONFIG_DISABLE_HAL_LOCKS
 
-static const char *TAG = "diybms";
+const char *TAG = "diybms";
 
 #include "esp_log.h"
 #include <Arduino.h>
@@ -30,7 +30,6 @@ static const char *TAG = "diybms";
 //#define RULES_LOGGING
 //#define MQTT_LOGGING
 
-const uint8_t diyBMSCurrentMonitorModbusAddress = 90;
 
 #include "FS.h"
 #include <LITTLEFS.h>
@@ -65,6 +64,9 @@ const uint8_t diyBMSCurrentMonitorModbusAddress = 90;
 #include "avrisp_programmer.h"
 
 #include "tft.h"
+void dumpByte(uint8_t);
+void dumpAsHex(uint8_t*, uint16_t);
+void dumpModbusPacket(uint8_t*, uint16_t);
 
 const uart_port_t rs485_uart_num = uart_port_t::UART_NUM_1;
 
@@ -169,6 +171,23 @@ void voltageandstatussnapshot_task(void *param)
     }
 
   } //end for
+}
+
+//Maps modbus address to which protocol to use for communication with that address
+uint8_t protocolOfAddress(uint8_t addr)
+{
+  switch (addr)
+  {
+    case 0x90:
+    case 0x98:
+      return MODBUS_PROTOCOL::modbusProtocol_diyBMS;
+
+    case 0xAA:
+      return MODBUS_PROTOCOL::modbusProtocol_Juntek;
+
+    default:
+      return MODBUS_PROTOCOL::modbusProtocol_unknown;
+  }
 }
 
 // Sets the RS485 serial parameters after they have been changed
@@ -1403,6 +1422,7 @@ WiFi.status() only returns:
   ESP_LOGI(TAG, "Hostname: %s, current state %i", hostname, status);
 
   WiFi.begin(DIYBMSSoftAP::Config()->wifi_ssid, DIYBMSSoftAP::Config()->wifi_passphrase);
+
 }
 
 void connectToMqtt()
@@ -1621,6 +1641,8 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
   ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", WiFi.getHostname(), WiFi.localIP().toString().c_str());
 
+
+
   //Wake up the screen, this will show the IP address etc.
   if (tftwakeup_task_handle != NULL)
   {
@@ -1729,7 +1751,18 @@ void mqtt2(void *param)
   }   //end for
 }
 
-uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
+
+uint8_t calculateCRC_Juntek(const uint8_t *frame, uint8_t bufferSize)
+{
+  uint8_t c = 0;
+  for (uint16_t i = 0; i < bufferSize; i++)
+  {
+    c += frame[i];
+  }
+  return c;
+}
+
+uint16_t calculateCRC_diyBMS(const uint8_t *frame, uint8_t bufferSize)
 {
   uint16_t flag;
   uint16_t temp;
@@ -1758,7 +1791,15 @@ uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
   */
 }
 
-void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur)
+
+
+void CurrentMonitorSetBasicSettings_Juntek(uint16_t shuntmv, uint16_t shuntmaxcur)
+{
+  ESP_LOGE(TAG, "CurrentMonitorSetBasicSettings_Juntek() not implemented");
+}
+
+
+void CurrentMonitorSetBasicSettings_diyBMS(uint16_t shuntmv, uint16_t shuntmaxcur)
 {
 
   //Its possible that the RS485_TX task may have already requested some data
@@ -1768,7 +1809,7 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur)
   //	Write Multiple Holding Registers
   uint8_t cmd[] = {
       //The Slave Address
-      diyBMSCurrentMonitorModbusAddress,
+      mysettings.currentMonitoringModBusAddress,
       //The Function Code 16
       16,
       //Data Address of the first register
@@ -1787,7 +1828,7 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur)
   //Register 18 = shunt_max_current
   //Register 19 = shunt_millivolt
 
-  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+  uint16_t temp = calculateCRC_diyBMS(cmd, sizeof(cmd) - 2);
 
   //Byte swap the Hi and Lo bytes
   uint16_t crc16 = (temp << 8) | (temp >> 8);
@@ -1821,8 +1862,14 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur)
 
 uint8_t frame[256];
 
+
+void CurrentMonitorSetRelaySettings_Juntek(uint16_t shuntmv, uint16_t shuntmaxcur)
+{
+  ESP_LOGE(TAG, "CurrentMonitorSetRelaySettings_Juntek() not implemented");
+}
+
 //Save the current monitor advanced settings back to the device over MODBUS/RS485
-void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues)
+void CurrentMonitorSetRelaySettings_diyBMS(currentmonitoring_struct newvalues)
 {
   uint8_t flag1 = 0;
   uint8_t flag2 = 0;
@@ -1857,7 +1904,7 @@ Flag 2
   //	Write Multiple Holding Registers
   uint8_t cmd[] = {
       //The Slave Address
-      diyBMSCurrentMonitorModbusAddress,
+      mysettings.currentMonitoringModBusAddress,
       //The Function Code 16
       16,
       //Data Address of the first register
@@ -1871,7 +1918,7 @@ Flag 2
       //CRC
       0, 0};
 
-  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+  uint16_t temp = calculateCRC_diyBMS(cmd, sizeof(cmd) - 2);
 
   //Byte swap the Hi and Lo bytes
   uint16_t crc16 = (temp << 8) | (temp >> 8);
@@ -1903,6 +1950,8 @@ Flag 2
   }
 }
 
+
+
 uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
 {
   FloatUnionType fut;
@@ -1919,13 +1968,21 @@ uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
 
   return ptr;
 }
+
+
+void CurrentMonitorSetAdvancedSettings_Juntek(uint16_t shuntmv, uint16_t shuntmaxcur)
+{
+  ESP_LOGE(TAG, "CurrentMonitorSetAdvancedSettings_Juntek() not implemented");
+}
+
+
 //Save the current monitor advanced settings back to the device over MODBUS/RS485
-void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
+void CurrentMonitorSetAdvancedSettings_diyBMS(currentmonitoring_struct newvalues)
 {
   //	Write Multiple Holding Registers
   uint8_t cmd[] = {
       //The Slave Address
-      diyBMSCurrentMonitorModbusAddress,
+      mysettings.currentMonitoringModBusAddress,
       //The Function Code 16
       16,
       //Data Address of the first register
@@ -1978,7 +2035,7 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
     newvalues.shunttempcoefficient = p1->value().toInt();
 */
 
-  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+  uint16_t temp = calculateCRC_diyBMS(cmd, sizeof(cmd) - 2);
 
   //Byte swap the Hi and Lo bytes
   uint16_t crc16 = (temp << 8) | (temp >> 8);
@@ -2010,7 +2067,215 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   }
 }
 
-void ProcessCurrentMonitorRegisterReply(uint8_t length)
+
+void ProcessCurrentMonitorRegisterReply_Juntek(uint8_t length)
+{
+
+  FloatUnionType v;
+
+  //Length is in bytes, but the registers are returned in 16 bit words
+  uint8_t ptr = 2;  // First register data in byte 4
+  uint16_t reg = 1; //
+  //Last time we updated the structure
+  currentMonitor.timestamp = esp_timer_get_time();
+
+  dumpAsHex(frame, length);
+  dumpModbusPacket(frame, length);
+
+  for (size_t i = 0; i < length / 2; i++)
+  {
+    uint8_t b0 = frame[ptr];
+    uint8_t b1 = frame[ptr + 1];
+
+    uint16_t data = ((frame[ptr] << 8) | frame[ptr + 1]); // combine the starting address bytes
+
+
+/*
+      display sends:
+      AA04010BBA
+
+      shunt replies:
+
+        example 1
+      AA1C010B 05180000 00000000 00013560 0026CF2E 0002A606 01EB0000 42
+
+      [00] 0xAA: Address
+      [01] 0x1C: (28d) Data length
+      [02] 0x01: Channel letter + A - 1
+      [03] 0x0B: Channel number
+
+      [04-05] 0x0518 = 1304 => 13.04V
+      [06-07] 0x0000 = 0 => 0A
+
+
+
+
+        example 2
+      AA1C010B 0515FFD9 000013D1 00013560 0026CF2E 0002A606 01EB0000 FB
+      [00] 0xAA: Address
+      [01] 0x1C: (28d) Data length
+
+      [02-03] reg 01   [0x01 + 'A' - 1, 0x0B] => A11
+      [04-05] reg 02   0x0515 = 1301 => 13.01V
+      [06-07] reg 03   0xFFD9 = -39 => -3.9A
+
+      [08-11] reg 04 + 05   0x000013D1 = 5073 => 50.73W
+
+      [12-15] reg 06 + 07   0x00013560 = 79200 => 7.9200Ah
+
+      [16-19] reg 08 + 09   0x0026CF2E = 2543406 => 2543.406Wh
+
+      [20-23] reg 10 + 11   0x0002A606 = 173574 => 173574 seconds
+
+      [28] reg 14 CRC (actually just the sum of all bytes)
+
+
+      */
+
+    switch (reg)
+    {
+
+    case 4:
+    case 6:
+    case 8:
+    case 10:
+    case 12:
+    {
+      //This stores the first half of the 32 bit register value
+      v.word[0] = data;
+      break;
+    }
+
+
+    case 1:
+    {
+      uint8_t channelLetter = (uint8_t)'A' - 1 + b0;
+      uint8_t channelNumber = b1;
+      ESP_LOGI(TAG, "rs485 packet from Juntek shunt on channel %c%i", channelLetter, channelNumber);
+      break;
+    }
+
+    case 2:
+    {
+      currentMonitor.voltage = data * 0.01;
+
+      ESP_LOGI(TAG, "voltage: %f", currentMonitor.voltage);
+      break;
+    }
+
+    case 3:
+    {
+      currentMonitor.current = (int16_t)data * 0.01;
+
+      ESP_LOGI(TAG, "current: %f", currentMonitor.current);
+      break;
+    }
+
+    case 5:
+    {
+      uint32_t milliwatts = ((uint32_t)v.word[0]) << 16 | (uint32_t)data;
+      currentMonitor.power = milliwatts / 1000.0;
+
+      ESP_LOGI(TAG, "power: %f", currentMonitor.power);
+      break;
+    }
+
+    case 7:
+    {
+      ESP_LOGI(TAG, "milliamph");
+
+      v.word[1] = data;
+      dumpAsHex(v.byte, 4);
+      ESP_LOGD(TAG, "%u %i %f", v.udword, v.dword, v.value);
+
+      float milliamph = v.value;
+
+      ESP_LOGI(TAG, "milliamph: %f", milliamph);
+
+      if (milliamph > 0)
+      {
+        currentMonitor.milliamphour_in += milliamph;
+      }
+      else
+      {
+        currentMonitor.milliamphour_out += -1 * milliamph;
+      }
+
+      break;
+    }
+
+    case 9:
+    {
+      int32_t milliwatth = (int32_t)((uint32_t)v.word[0]) << 16 | (uint32_t)data;
+      currentMonitor.energy = milliwatth;
+
+      ESP_LOGI(TAG, "energy: %f", currentMonitor.energy);
+      break;
+    }
+
+    case 11:
+    {
+      uint32_t seconds_of_activity = ((uint32_t)v.word[0]) << 16 | (uint32_t)data;
+      currentMonitor.seconds_of_activity = seconds_of_activity;
+      ESP_LOGI(TAG, "seconds_of_activity: %i", currentMonitor.seconds_of_activity);
+      break;
+    }
+
+    case 13:
+    {
+      currentMonitor.temperature = v.value;
+      ESP_LOGI(TAG, "Temperature: %f", currentMonitor.temperature);
+      break;
+    }
+
+    case 14:
+    {
+      //Last register processed => we are done and the readings are valid for use
+      //CRC is already checked but used more as an end-of-message here
+      uint8_t crc_expected = calculateCRC_Juntek(frame, length - 1);
+      uint8_t crc_actual = frame[length - 1];
+      currentMonitor.validReadings = (crc_actual == crc_expected);
+      if (currentMonitor.validReadings)
+      {
+        ESP_LOGI(TAG, "A valid juntek-packet was parsed.");
+      }
+      else
+      {
+        ESP_LOGI(TAG, "An invalid juntek-packet was parsed. CRC: expected: 0x%x != actual: 0x%x", crc_expected, crc_actual);
+      }
+      break;
+    }
+
+    default:
+    {
+      ESP_LOGE(TAG, "Unprocessed register %u = %x", reg, data);
+      break;
+    }
+
+    } //end switch
+
+    ptr += 2;
+    reg++;
+
+    //ESP_LOGD(TAG, "%u = %x", reg, data);
+  } //end for
+
+  //ESP_LOGD(TAG, "Voltage = %fV", currentMonitor.voltage);
+  //ESP_LOGD(TAG, "Current = %fA", currentMonitor.current);
+  //ESP_LOGD(TAG, "Power   = %fW", currentMonitor.power);
+  //ESP_LOGD(TAG, "seconds_of_activity  = %fS", currentMonitor.seconds_of_activity);
+
+  //ESP_LOGD(TAG, "Temp = %i", currentMonitor.temperature);
+
+  //ESP_LOGD(TAG, "Out = %fmAh", currentMonitor.milliamphour_out);
+  //ESP_LOGD(TAG, "In = %fmAh", currentMonitor.milliamphour_in);
+
+  //ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
+  //ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
+}
+
+
+void ProcessCurrentMonitorRegisterReply_diyBMS(uint8_t length)
 {
 
   FloatUnionType v;
@@ -2202,6 +2467,8 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       //Bus Undervoltage (under voltage protection)
       v.word[1] = data;
       currentMonitor.undervoltagelimit = v.value;
+
+
       break;
     }
 
@@ -2270,17 +2537,10 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
 
     //ESP_LOGD(TAG, "%u = %x", reg, data);
   } //end for
-
-  //ESP_LOGD(TAG, "Volt = %f", currentMonitor.voltage);
-  //ESP_LOGD(TAG, "Curr = %f", currentMonitor.current);
-  //ESP_LOGD(TAG, "Temp = %i", currentMonitor.temperature);
-
-  //ESP_LOGD(TAG, "Out = %f", currentMonitor.amphour_out);
-  //ESP_LOGD(TAG, "In = %f", currentMonitor.amphour_in);
-
-  //ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
-  //ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
 }
+
+
+
 //RS485 receive
 void rs485_rx(void *param)
 {
@@ -2305,58 +2565,87 @@ void rs485_rx(void *param)
     if (len > 5)
     {
       uint8_t id = frame[0];
+      uint16_t crc;
+      uint16_t calculatedCRC = 0;
 
-      uint16_t crc = ((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
-
-      uint16_t temp = calculateCRC(frame, len - 2);
-      //Swap bytes to match MODBUS ordering
-      uint16_t calculatedCRC = (temp << 8) | (temp >> 8);
-
-      ESP_LOGD(TAG, "Rec %i bytes, id=%u", len, id);
-
-      if (calculatedCRC == crc)
+      if (protocolOfAddress(id) == modbusProtocol_diyBMS)
       {
-        // if the calculated crc matches the recieved crc continue
-        uint8_t RS485Error = frame[1] & B10000000;
-        if (RS485Error == 0)
+        crc = ((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
+        uint16_t temp = calculateCRC_diyBMS(frame, len - 2);
+        //Swap bytes to match MODBUS ordering
+        calculatedCRC = (temp << 8) | (temp >> 8);
+
+        if (calculatedCRC == crc)
         {
-          uint8_t cmd = frame[1] & B01111111;
-          uint8_t length = frame[2];
-
-          //ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
-
-          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3)
+          // if the calculated crc matches the recieved crc continue
+          uint8_t RS485Error = frame[1] & B10000000;
+          if (RS485Error == 0)
           {
-            ProcessCurrentMonitorRegisterReply(length);
+            uint8_t cmd = frame[1] & B01111111;
+            uint8_t length = frame[2];
 
-            if (_tft_screen_available)
+            //ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
+
+            if (cmd == 3)
             {
-              //Refresh the TFT display
-              xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
+              ProcessCurrentMonitorRegisterReply_diyBMS(length);
+              if (_tft_screen_available)
+              {
+                //Refresh the TFT display
+                xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
+              }
+            } //end diybms current monitor command 3
+            else if (cmd == 16)
+            {
+              ESP_LOGI(TAG, "Write multiple regs, success");
             }
-
-          } //end diybms current monitor command 3
-
-          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 16)
+          }
+          else
           {
-            ESP_LOGI(TAG, "Write multiple regs, success");
+            ESP_LOGE(TAG, "RS485 error");
           }
         }
         else
         {
-          ESP_LOGE(TAG, "RS485 error");
+          ESP_LOGE(TAG, "CRC error");
+        }
+      }
+      else if (protocolOfAddress(id) == modbusProtocol_Juntek)
+      {
+        crc = frame[len - 1];
+        calculatedCRC = calculateCRC_Juntek(frame, len-1);
+
+        if (calculatedCRC == crc)
+        {
+          uint8_t chLetter = frame[2];
+          uint8_t chNumber = frame[3];
+
+          if ((mysettings.juntekShuntChannelLetter == chLetter) && (mysettings.juntekShuntChannelNumber == chNumber))
+          {
+            ProcessCurrentMonitorRegisterReply_Juntek(len);
+          }
+          else
+          {
+            ESP_LOGW(TAG, "Unknown Juntek shunt channel %c%i", 'A' - 1 + chLetter, chNumber );
+          }
+        }
+        else
+        {
+          ESP_LOGE(TAG, "CRC error");
         }
       }
       else
       {
-        ESP_LOGE(TAG, "CRC error");
+        ESP_LOGW(TAG, "Unknown modbus device with address: 0x%Xc", id);
       }
     }
+
     else
     {
       //We didn't receive anything on RS485
       ESP_LOGE(TAG, "Short packet %i bytes", len);
-
+      SERIAL_DEBUG.print("rx: ");
+      dumpAsHex(frame, len);
       //Indicate that the current monitor values are now invalid/unknown
       currentMonitor.validReadings = false;
     }
@@ -2364,15 +2653,86 @@ void rs485_rx(void *param)
   }
 }
 
+
+
 //This is the request we send to diyBMS current monitor, it pulls back 38 registers
 //this is all the registers diyBMS current monitor has
 //Holding Registers = command 3
+uint8_t* generateDataRequestPacket_diyBMS(void)
+{
+ //8 byte request
+  static uint8_t cmd[] = {0, 0, 0, 0, 0, 0, 0, 0};
+  cmd[0] = mysettings.currentMonitoringModBusAddress;
+
+  //Input registers - 39 of them (78 bytes + headers + crc = 83 byte reply)
+  cmd[1] = 3;
+  cmd[5] = 39;
+
+  //Ideally we poll the current monitor and only ask it for a small subset of registers
+  //the first 12 registers are the most useful, so only need the others when we want to get the configuration data
+
+  uint16_t temp = calculateCRC_diyBMS(cmd, sizeof(cmd) - 2);
+
+  //Byte swap the Hi and Lo bytes
+  uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+  cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+  cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+  return cmd;
+}
+
+
+
+uint8_t* generateDataRequestPacket_Juntek(void)
+{
+  /*
+  display sends:
+  AA: Address
+  04: Read input registers
+  01: Channel Letter (1 == A)
+  0B: Channel number (11 = 0x0B)
+  BA: CRC == sum of all bytes
+
+  On init:
+      C0 31 00 30
+      AA 04 00 0B B9
+      AA 04 00 0B B9
+
+      AA 04 01 03 B2
+      AA 04 02 03 B3
+
+  */
+
+
+  //5 byte request
+  static uint8_t cmd[] = {0, 0, 0, 0, 0};
+  static uint8_t step = 0;
+
+  if (step == 0)
+  {
+    cmd[0] = mysettings.currentMonitoringModBusAddress;
+    cmd[1] = 0x04;
+    cmd[2] = 0x00;
+    cmd[3] = mysettings.juntekShuntChannelNumber;
+    cmd[4] = calculateCRC_Juntek(cmd, sizeof(cmd) - 1);
+    step++;
+  }
+  else if (step == 1)
+  {
+    cmd[0] = mysettings.currentMonitoringModBusAddress;
+    cmd[1] = 0x04;
+    cmd[2] = mysettings.juntekShuntChannelLetter;
+    cmd[3] = mysettings.juntekShuntChannelNumber;
+    cmd[4] = calculateCRC_Juntek(cmd, sizeof(cmd) - 1);
+  }
+  return cmd;
+}
+
 
 //RS485 transmit
-void rs485_tx(void *param)
+void rs485_tx(void *)
 {
-  //8 byte request
-  uint8_t cmd[] = {0, 0, 0, 0, 0, 0, 0, 0};
 
   for (;;)
   {
@@ -2381,33 +2741,35 @@ void rs485_tx(void *param)
 
     if (mysettings.currentMonitoringEnabled == true)
     {
-      //ESP_LOGD(TAG, "RS485 TX");
-      cmd[0] = diyBMSCurrentMonitorModbusAddress;
 
-      //Input registers - 39 of them (78 bytes + headers + crc = 83 byte reply)
-      cmd[1] = 3;
-      cmd[5] = 39;
+      uint8_t* cmd;
+      uint8_t cmdLength = 0;
+      if (protocolOfAddress(mysettings.currentMonitoringModBusAddress) == modbusProtocol_diyBMS)
+      {
+        cmd = generateDataRequestPacket_diyBMS();
+        cmdLength = 8;
+      }
+      else if (protocolOfAddress(mysettings.currentMonitoringModBusAddress) == modbusProtocol_Juntek)
+      {
+        cmd = generateDataRequestPacket_Juntek();
+        cmdLength = 5;
+      }
+      else
+      {
+        ESP_LOGW(TAG, "Unknown modbus address: 0x%X", mysettings.currentMonitoringModBusAddress);
+      }
 
-      //Ideally we poll the current monitor and only ask it for a small subset of registers
-      //the first 12 registers are the most useful, so only need the others when we want to get the configuration data
-
-      uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
-
-      //Byte swap the Hi and Lo bytes
-      uint16_t crc16 = (temp << 8) | (temp >> 8);
-
-      cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
-      cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
-
-      if (hal.GetRS485Mutex())
+      if ((cmdLength > 0) && (hal.GetRS485Mutex()))
       {
         //Ensure we have empty receive buffer
         uart_flush_input(rs485_uart_num);
 
         //Send the bytes (actually just put them into the TX FIFO buffer)
-        uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+        uart_write_bytes(rs485_uart_num, (char *)cmd, cmdLength);
 
         hal.ReleaseRS485Mutex();
+        SERIAL_DEBUG.print("tx: ");
+        dumpAsHex(cmd, cmdLength);
       }
 
       //Notify the receive task that a packet should be on its way
@@ -2418,6 +2780,7 @@ void rs485_tx(void *param)
     } //end if
   }
 }
+
 
 void mqtt1(void *param)
 {
@@ -2556,6 +2919,9 @@ void LoadConfiguration()
 
   mysettings.currentMonitoringEnabled = false;
   mysettings.currentMonitoringModBusAddress = 90;
+
+  mysettings.juntekShuntChannelLetter = 'A';
+  mysettings.juntekShuntChannelNumber = 0x01;
 
   mysettings.rs485baudrate = 19200;
   mysettings.rs485databits = uart_word_length_t::UART_DATA_8_BITS;
@@ -2937,6 +3303,72 @@ void dumpByte(uint8_t data)
     SERIAL_DEBUG.print('0');
   }
   SERIAL_DEBUG.print(data, HEX);
+  SERIAL_DEBUG.print(" ");
+
+}
+
+void dumpAsHex(uint8_t* data, uint16_t len)
+{
+  for (int i = 0; i < len; i++)
+  {
+    if (data[i] <= 0x0F)
+    {
+      SERIAL_DEBUG.print('0');
+    }
+    SERIAL_DEBUG.print(data[i], HEX);
+
+    if (i % 8 == 7)
+    {
+      SERIAL_DEBUG.println();
+    }
+    else
+    {
+      SERIAL_DEBUG.print(" ");
+
+    }
+  }
+  SERIAL_DEBUG.println();
+}
+
+
+void dumpModbusPacket(uint8_t* pkt, uint16_t len)
+{
+  dumpAsHex(pkt, len);
+  if (len < 5)
+  {
+    SERIAL_DEBUG.println("Not a valid Modbus packet:");
+    dumpAsHex(pkt, len);
+    return;
+  }
+
+  uint8_t crcBytes = 1;
+  SERIAL_DEBUG.print("adr: ");
+  dumpByte(pkt[0]);
+  SERIAL_DEBUG.print("fun: ");
+  dumpByte(pkt[1]);
+  SERIAL_DEBUG.print("start: ");
+  dumpByte(pkt[2]);
+  SERIAL_DEBUG.print("length: ");
+  SERIAL_DEBUG.println(pkt[3]);
+
+  SERIAL_DEBUG.print("crc: ");
+
+  for (uint8_t i=0; i < crcBytes; i++){
+    dumpByte(pkt[len - 1 + i - crcBytes]);
+  }
+
+  SERIAL_DEBUG.println();
+
+  for (int i = 4; i < len - crcBytes; i+=2)
+  {
+    dumpByte(pkt[i]);
+    SERIAL_DEBUG.print(" ");
+    dumpByte(pkt[i+1]);
+    SERIAL_DEBUG.print(" = ");
+    SERIAL_DEBUG.print((pkt[i] << 8) + pkt[i+1]);
+    SERIAL_DEBUG.println();
+  }
+  SERIAL_DEBUG.println();
 }
 
 // CHECK HERE FOR THE PRESENCE OF A /wifi.json CONFIG FILE ON THE SD CARD TO AUTOMATICALLY CONFIGURE WIFI

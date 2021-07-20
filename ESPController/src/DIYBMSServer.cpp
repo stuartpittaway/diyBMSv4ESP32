@@ -513,7 +513,7 @@ void DIYBMSServer::saveCurrentMonRelay(AsyncWebServerRequest *request)
     newvalues.RelayTriggerPowerOverLimit = p1->value().equals("on") ? true : false;
   }
 
-  CurrentMonitorSetRelaySettings(newvalues);
+  CurrentMonitorSetRelaySettings_diyBMS(newvalues);
 
   SendSuccess(request);
 }
@@ -567,7 +567,7 @@ void DIYBMSServer::saveCurrentMonAdvanced(AsyncWebServerRequest *request)
     newvalues.shunttempcoefficient = p1->value().toInt();
   }
 
-  CurrentMonitorSetAdvancedSettings(newvalues);
+  CurrentMonitorSetAdvancedSettings_diyBMS(newvalues);
 
   SendSuccess(request);
 }
@@ -585,7 +585,7 @@ void DIYBMSServer::saveCurrentMonBasic(AsyncWebServerRequest *request)
     AsyncWebParameter *p2 = request->getParam("shuntmv", true);
     int shuntmv = p2->value().toInt();
 
-    CurrentMonitorSetBasicSettings(shuntmv, shuntmaxcur);
+    CurrentMonitorSetBasicSettings_diyBMS(shuntmv, shuntmaxcur);
   }
 
   SendSuccess(request);
@@ -611,6 +611,18 @@ void DIYBMSServer::saveCurrentMonSettings(AsyncWebServerRequest *request)
   {
     AsyncWebParameter *p1 = request->getParam("modbusAddress", true);
     _mysettings->currentMonitoringModBusAddress = p1->value().toInt();
+  }
+
+  if (request->hasParam("juntekShuntChannelLetter", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("juntekShuntChannelLetter", true);
+    _mysettings->juntekShuntChannelLetter = p1->value().toInt();
+  }
+  
+  if (request->hasParam("juntekShuntChannelNumber", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("juntekShuntChannelNumber", true);
+    _mysettings->juntekShuntChannelNumber = p1->value().toInt();
   }
 
   if (_mysettings->currentMonitoringEnabled == false)

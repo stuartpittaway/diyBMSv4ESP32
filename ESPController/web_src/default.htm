@@ -547,9 +547,25 @@
                         <select name="modbusAddress" id="modbusAddress">
                             <option value="90">90 [default]</option>
                             <option value="98">98</option>
+                            <option value="170">AA [Juntek]</option>
                         </select>
                     </div>
-
+                    <div>
+                        <label for="juntekShuntChannelLetter">Juntek channel (letter)</label>
+                        <select name="juntekShuntChannelLetter" id="juntekShuntChannelLetter">
+                            <option value="1">A</option>
+                            <option value="2">B</option>
+                            <option value="3">C</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="juntekShuntChannelNumber">Juntek channel (number)</label>
+                        <select name="juntekShuntChannelNumber" id="juntekShuntChannelNumber">
+                            <option value="1">1</option>
+                            <option value="3">3</option>
+                            <option value="11">11</option>
+                        </select>
+                    </div>
                     <input type="submit" value="Save connection settings" />
                 </div>
             </form>
@@ -568,6 +584,7 @@
                             <option value="9600">9600</option>
                             <option value="19200">19200</option>
                             <option value="38400">38400</option>
+                            <option value="57600">57600</option>
                         </select>
                     </div>
                     <div>
