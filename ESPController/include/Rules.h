@@ -10,17 +10,17 @@ enum Rule : uint8_t
 {
     EmergencyStop = 0,
     BMSError = 1,
-    Individualcellovervoltage = 2,
-    Individualcellundervoltage = 3,
-    ModuleOverTemperatureInternal = 4,
-    ModuleUnderTemperatureInternal = 5,
-    IndividualcellovertemperatureExternal = 6,
-    IndividualcellundertemperatureExternal = 7,
-    PackOverVoltage = 8,
-    PackUnderVoltage = 9,
-    Timer2 = 10,
-    Timer1 = 11
-
+    CurrentMonitorOverCurrentAmps = 2,
+    Individualcellovervoltage = 3,
+    Individualcellundervoltage = 4,
+    ModuleOverTemperatureInternal = 5,
+    ModuleUnderTemperatureInternal = 6,
+    IndividualcellovertemperatureExternal = 7,
+    IndividualcellundertemperatureExternal = 8,
+    PackOverVoltage = 9,
+    PackUnderVoltage = 10,
+    Timer2 = 11,
+    Timer1 = 12
 };
 
 //Define a max constant for the highest value (change if you add more warnings)
@@ -102,7 +102,7 @@ public:
         uint32_t *value,
         uint32_t *hysteresisvalue,
         bool emergencyStop,
-        uint16_t mins);
+        uint16_t mins,currentmonitoring_struct *currentMonitor);
 };
 
 #endif

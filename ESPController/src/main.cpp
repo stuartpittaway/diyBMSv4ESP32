@@ -1163,7 +1163,9 @@ void ProcessRules()
       mysettings.rulevalue,
       mysettings.rulehysteresis,
       emergencyStop,
-      minutesSinceMidnight());
+      minutesSinceMidnight(),
+      &currentMonitor
+      );
 
   if (_controller_state == ControllerState::Stabilizing)
   {
@@ -2592,6 +2594,8 @@ void LoadConfiguration()
   mysettings.rulevalue[Rule::EmergencyStop] = 0;
   //Internal BMS error (communication issues, fault readings from modules etc)
   mysettings.rulevalue[Rule::BMSError] = 0;
+  //Current monitoring maximum AMPS
+  mysettings.rulevalue[Rule::CurrentMonitorOverCurrentAmps] = 100;
   //Individual cell over voltage
   mysettings.rulevalue[Rule::Individualcellovervoltage] = 4150;
   //Individual cell under voltage
@@ -3214,7 +3218,7 @@ TEST CAN BUS
   xTaskCreate(transmit_task, "tx", 2048, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 2048, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2048, nullptr, 1, &lazy_task_handle);
-  xTaskCreate(pulse_relay_off_task, "pulse", 1024, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
+  xTaskCreate(pulse_relay_off_task, "pulse", 2048, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
   //Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)

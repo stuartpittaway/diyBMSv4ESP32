@@ -715,7 +715,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
 
     //TODO: This STRING doesnt work properly if its on a single line!
     String name = "rule";
-    name = name + (rule + 1);
+    name = name + (rule);
     name = name + "value";
 
     if (request->hasParam(name, true))
@@ -726,7 +726,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
 
     //TODO: This STRING doesnt work properly if its on a single line!
     String hname = "rule";
-    hname = hname + (rule + 1);
+    hname = hname + (rule);
     hname = hname + "hysteresis";
     if (request->hasParam(hname, true))
     {
@@ -739,7 +739,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
     {
       //TODO: This STRING doesnt work properly if its on a single line!
       String name = "rule";
-      name = name + (rule + 1);
+      name = name + (rule);
       name = name + "relay";
       name = name + (i + 1);
       if (request->hasParam(name, true))

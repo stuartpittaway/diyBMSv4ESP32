@@ -137,7 +137,8 @@ void Rules::RunRules(
     uint32_t *value,
     uint32_t *hysteresisvalue,
     bool emergencyStop,
-    uint16_t mins)
+    uint16_t mins,
+    currentmonitoring_struct *currentMonitor)
 {
     //Emergency stop signal...
     rule_outcome[Rule::EmergencyStop] = emergencyStop;
@@ -146,15 +147,37 @@ void Rules::RunRules(
     rule_outcome[Rule::Timer1] = (mins >= value[Rule::Timer1] && mins <= hysteresisvalue[Rule::Timer1]);
     rule_outcome[Rule::Timer2] = (mins >= value[Rule::Timer2] && mins <= hysteresisvalue[Rule::Timer2]);
 
+    if (currentMonitor->validReadings)
+    {
+        //Currents can be both positive and negative (depending on current flow, we ABS that to get an always POSITIVE number)
+        uint32_t integercurrent = (uint32_t)(abs(currentMonitor->current) + (float)0.5);
+
+        if (integercurrent > value[Rule::CurrentMonitorOverCurrentAmps] && rule_outcome[Rule::CurrentMonitorOverCurrentAmps] == false)
+        {
+            //CurrentMonitorOverCurrentAmps - TRIGGERED
+            rule_outcome[Rule::CurrentMonitorOverCurrentAmps] = true;
+        }
+        else if (integercurrent < hysteresisvalue[Rule::CurrentMonitorOverCurrentAmps] && rule_outcome[Rule::CurrentMonitorOverCurrentAmps] == true)
+        {
+            //CurrentMonitorOverCurrentAmps - HYSTERESIS RESET
+            rule_outcome[Rule::CurrentMonitorOverCurrentAmps] = false;
+        }
+    }
+    else
+    {
+        //We don't have valid current monitor readings, so the rule is ALWAYS false
+        rule_outcome[Rule::CurrentMonitorOverCurrentAmps] = false;
+    }
+
     //At least 1 module is zero volt - not a problem whilst we are in stabilizing start up mode
     if (zeroVoltageModuleCount > 0)
     {
         rule_outcome[Rule::Individualcellovervoltage] = false;
         rule_outcome[Rule::Individualcellundervoltage] = false;
-        rule_outcome[Rule::IndividualcellovertemperatureExternal] = false;
-        rule_outcome[Rule::IndividualcellundertemperatureExternal] = false;
         rule_outcome[Rule::ModuleOverTemperatureInternal] = false;
         rule_outcome[Rule::ModuleUnderTemperatureInternal] = false;
+        rule_outcome[Rule::IndividualcellovertemperatureExternal] = false;
+        rule_outcome[Rule::IndividualcellundertemperatureExternal] = false;
 
         //Abort processing any more rules until controller is stable/running state
         return;
@@ -235,8 +258,8 @@ void Rules::RunRules(
         rule_outcome[Rule::IndividualcellundertemperatureExternal] = false;
     }
 
-    //Internal temperatyre monitoring and rules
-    //Doesn't cater for negative temperatures on rule (int8 vs uint32)
+    //Internal temperature monitoring and rules
+    //Does not cope with negative temperatures on rule (int8 vs uint32)
     if (((uint8_t)highestInternalTemp > value[Rule::ModuleOverTemperatureInternal]) && rule_outcome[Rule::ModuleOverTemperatureInternal] == false)
     {
         //Rule Individual cell over temperature (Internal probe)

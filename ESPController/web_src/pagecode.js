@@ -1,3 +1,20 @@
+const INTERNALRULENUMBER = {
+    EmergencyStop: 0,
+    BMSError: 1,
+    CurrentMonitorOverCurrentAmps: 2,
+    Individualcellovervoltage: 3,
+    Individualcellundervoltage: 4,
+    ModuleOverTemperatureInternal: 5,
+    ModuleUnderTemperatureInternal: 6,
+    IndividualcellovertemperatureExternal: 7,
+    IndividualcellundertemperatureExternal: 8,
+    PackOverVoltage: 9,
+    PackUnderVoltage: 10,
+    Timer2: 11,
+    Timer1: 12
+}
+Object.freeze(INTERNALRULENUMBER);
+
 const INTERNALWARNINGCODE = {
     NoWarning: 0,
     ModuleInconsistantBypassVoltage: 1,
@@ -897,7 +914,7 @@ $(function () {
     //Populate all the setting rules with relay select lists
     $.each($(".settings table tbody tr td:empty"), function (index, value) {
         $.each([1, 2, 3, 4], function (index1, relay) {
-            $(value).append('<select id="rule' + (index + 1) + 'relay' + relay + '" name="rule' + (index + 1) + 'relay' + relay + '"><option>On</option><option>Off</option><option>X</option></select>');
+            $(value).append('<select id="rule' + (index) + 'relay' + relay + '" name="rule' + (index) + 'relay' + relay + '"><option>On</option><option>Off</option><option>X</option></select>');
         });
     }
     );
@@ -1057,8 +1074,8 @@ $(function () {
                 var i = 1;
                 var allrules = $(".settings table tbody tr td label");
                 $.each(data.rules, function (index, value) {
-                    $("#rule" + (index + 1) + "value").val(value.value);
-                    $("#rule" + (index + 1) + "hysteresis").val(value.hysteresis);
+                    $("#rule" + (index) + "value").val(value.value);
+                    $("#rule" + (index) + "hysteresis").val(value.hysteresis);
 
                     //Highlight rules which are active
                     if (value.triggered) {
@@ -1074,14 +1091,18 @@ $(function () {
                         if (value2 === true) { relay_value = "On"; }
                         if (value2 === false) { relay_value = "Off"; }
 
-                        $("#rule" + (index + 1) + "relay" + (index2 + 1)).val(relay_value);
-
+                        $("#rule" + (index) + "relay" + (index2 + 1)).val(relay_value);
                     });
                 });
 
                 if (data.ControlState != 0xff) {
                     //Controller is not in running state yet, so some rules are disabled
-                    $.each([2, 3, 4, 5, 6, 7], function (index, value) {
+                    $.each([INTERNALRULENUMBER.Individualcellovervoltage,
+                    INTERNALRULENUMBER.Individualcellundervoltage,
+                    INTERNALRULENUMBER.ModuleOverTemperatureInternal,
+                    INTERNALRULENUMBER.ModuleUnderTemperatureInternal,
+                    INTERNALRULENUMBER.IndividualcellovertemperatureExternal,
+                    INTERNALRULENUMBER.IndividualcellundertemperatureExternal], function (index, value) {
                         $(allrules[value]).addClass("disablerule");
                     });
                 }
@@ -1435,7 +1456,7 @@ $(function () {
         currentmonitorSubmitForm(this);
     });
 
-    
+
     $("#globalSettingsForm").unbind('submit').submit(function (e) {
         e.preventDefault();
 

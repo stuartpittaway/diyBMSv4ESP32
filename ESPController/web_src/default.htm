@@ -387,17 +387,27 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td><label for="rule1value">Emergency stop</label></td>
+                                <td><label for="rule0value">Emergency stop</label></td>
+                                <td><input type="hidden" name="rule0value" id="rule0value" value="0"></td>
+                                <td><input type="hidden" name="rule0hysteresis" id="rule0hysteresis" value="0"></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule1value">Internal BMS error</label></td>
                                 <td><input type="hidden" name="rule1value" id="rule1value" value="0"></td>
                                 <td><input type="hidden" name="rule1hysteresis" id="rule1hysteresis" value="0"></td>
                                 <td class="relayset"></td>
                             </tr>
+
                             <tr>
-                                <td><label for="rule2value">Internal BMS error</label></td>
-                                <td><input type="hidden" name="rule2value" id="rule2value" value="0"></td>
-                                <td><input type="hidden" name="rule2hysteresis" id="rule2hysteresis" value="0"></td>
+                                <td><label for="rule2value">Current monitoring over current (Amps)</label></td>
+                                <td><input type="number" min="0" max="5000" step="1" name="rule2value" id="rule2value"
+                                        value="100" required=""></td>
+                                <td><input type="number" min="0" max="5000" step="1" name="rule2hysteresis"
+                                        id="rule2hysteresis" value="95" required=""></td>
                                 <td class="relayset"></td>
                             </tr>
+
                             <tr>
                                 <td><label for="rule3value">Individual cell over voltage (mV)</label></td>
                                 <td><input type="number" min="1800" max="4500" step="10" name="rule3value"
@@ -1117,7 +1127,8 @@
                         });
 
                         $.cachedScript("notify.min.js").done(function (script, textStatus) {
-                            $.cachedScript("pagecode.js").done(function (script, textStatus) {
+                            $.cachedScript("pagecode.js").done(function (script,
+                            textStatus) {
                                 //All done, scripts loaded
                             }).fail(function (jqxhr, settings, exception) {
                                 $("#jslibrary").show();
