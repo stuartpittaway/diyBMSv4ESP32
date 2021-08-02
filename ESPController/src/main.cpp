@@ -2487,7 +2487,7 @@ void mqtt1(void *param)
 
         //After transmitting this many packets over MQTT, store our current state and exit the function.
         //this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
-        mqttStartModule = i + 1;
+        mqttStartModule = i;
       }
 
       if (mysettings.currentMonitoringEnabled)
