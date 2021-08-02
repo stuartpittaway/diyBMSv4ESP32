@@ -74,7 +74,7 @@ enum RelayType : uint8_t
 };
 
 //Number of rules as defined in Rules.h (enum Rule)
-#define RELAY_RULES 13
+#define RELAY_RULES 15
 
 //Number of relays on board (4)
 #define RELAY_TOTAL 4

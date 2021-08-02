@@ -162,11 +162,37 @@ void Rules::RunRules(
             //CurrentMonitorOverCurrentAmps - HYSTERESIS RESET
             rule_outcome[Rule::CurrentMonitorOverCurrentAmps] = false;
         }
+
+        uint32_t integervoltagemV = (uint32_t)((currentMonitor->voltage*1000.0) + (float)0.5);
+
+        if (integervoltagemV > value[Rule::CurrentMonitorOverVoltage] && rule_outcome[Rule::CurrentMonitorOverVoltage] == false)
+        {
+            //Rule - CURRENT MONITOR Pack over voltage (mV)
+            rule_outcome[Rule::CurrentMonitorOverVoltage] = true;
+        }
+        else if (integervoltagemV < hysteresisvalue[Rule::CurrentMonitorOverVoltage] && rule_outcome[Rule::CurrentMonitorOverVoltage] == true)
+        {
+            //Rule - CURRENT MONITOR Pack over voltage (mV) - HYSTERESIS RESET
+            rule_outcome[Rule::CurrentMonitorOverVoltage] = false;
+        }
+
+        if (integervoltagemV < value[Rule::CurrentMonitorUnderVoltage] && rule_outcome[Rule::CurrentMonitorUnderVoltage] == false)
+        {
+            //Rule - CURRENT MONITOR Pack under voltage (mV)
+            rule_outcome[Rule::CurrentMonitorUnderVoltage] = true;
+        }
+        else if (integervoltagemV > hysteresisvalue[Rule::CurrentMonitorUnderVoltage] && rule_outcome[Rule::CurrentMonitorUnderVoltage] == true)
+        {
+            //Rule - CURRENT MONITOR Pack under voltage (mV) - HYSTERESIS RESET
+            rule_outcome[Rule::CurrentMonitorUnderVoltage] = false;
+        }
     }
     else
     {
         //We don't have valid current monitor readings, so the rule is ALWAYS false
         rule_outcome[Rule::CurrentMonitorOverCurrentAmps] = false;
+        rule_outcome[Rule::CurrentMonitorOverVoltage] = false;
+        rule_outcome[Rule::CurrentMonitorUnderVoltage] = false;
     }
 
     //At least 1 module is zero volt - not a problem whilst we are in stabilizing start up mode

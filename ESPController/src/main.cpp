@@ -2614,6 +2614,9 @@ void LoadConfiguration()
   mysettings.rulevalue[Rule::ModuleOverTemperatureInternal] = 60;
   mysettings.rulevalue[Rule::ModuleUnderTemperatureInternal] = 50;
 
+  mysettings.rulevalue[Rule::CurrentMonitorOverVoltage] = 4200 * 8;
+  mysettings.rulevalue[Rule::CurrentMonitorUnderVoltage] = 3000 * 8;
+
   for (size_t i = 0; i < RELAY_RULES; i++)
   {
     mysettings.rulehysteresis[i] = mysettings.rulevalue[i];

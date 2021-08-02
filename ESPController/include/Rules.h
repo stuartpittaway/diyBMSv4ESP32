@@ -17,10 +17,12 @@ enum Rule : uint8_t
     ModuleUnderTemperatureInternal = 6,
     IndividualcellovertemperatureExternal = 7,
     IndividualcellundertemperatureExternal = 8,
-    PackOverVoltage = 9,
-    PackUnderVoltage = 10,
-    Timer2 = 11,
-    Timer1 = 12
+    CurrentMonitorOverVoltage = 9,
+    CurrentMonitorUnderVoltage = 10,
+    PackOverVoltage = 11,
+    PackUnderVoltage = 12,
+    Timer2 = 13,
+    Timer1 = 14
 };
 
 //Define a max constant for the highest value (change if you add more warnings)
