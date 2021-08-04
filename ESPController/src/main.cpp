@@ -1164,8 +1164,7 @@ void ProcessRules()
       mysettings.rulehysteresis,
       emergencyStop,
       minutesSinceMidnight(),
-      &currentMonitor
-      );
+      &currentMonitor);
 
   if (_controller_state == ControllerState::Stabilizing)
   {
@@ -2928,14 +2927,14 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
   file.close();
 }
 
-/*
+
 static const char *ESP32_CAN_STATUS_STRINGS[] = {
     "STOPPED",               // CAN_STATE_STOPPED
     "RUNNING",               // CAN_STATE_RUNNING
     "OFF / RECOVERY NEEDED", // CAN_STATE_BUS_OFF
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
-*/
+
 
 void dumpByte(uint8_t data)
 {
@@ -3073,8 +3072,6 @@ void setup()
     ESP_LOGI(TAG, "TFT screen is NOT installed");
   }
 
-  //Switch CANBUS off, saves a couple of milliamps
-  hal.CANBUSEnable(false);
 
   SetControllerState(ControllerState::PowerUp);
 
@@ -3097,50 +3094,31 @@ void setup()
   /*
 TEST CAN BUS
 */
-  /*
-  //Initialize configuration structures using macro initializers
-  can_general_config_t g_config = CAN_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, CAN_MODE_NORMAL);
-  g_config.mode = CAN_MODE_NORMAL;
 
-  can_timing_config_t t_config = CAN_TIMING_CONFIG_125KBITS();
-  can_filter_config_t f_config = CAN_FILTER_CONFIG_ACCEPT_ALL();
+  //Switch CAN chip TJA1051T/3 ON
+  hal.CANBUSEnable(true);
 
-  //Install CAN driver
-  if (can_driver_install(&g_config, &t_config, &f_config) == ESP_OK)
-  {
-    SERIAL_DEBUG.printf("Driver installed\n");
-  }
-  else
-  {
-    SERIAL_DEBUG.printf("Failed to install driver\n");
-  }
-
-  //Start CAN driver
-  if (can_start() == ESP_OK)
-  {
-    SERIAL_DEBUG.println("Driver started\n");
-  }
-  else
-  {
-    SERIAL_DEBUG.println("Failed to start driver\n");
-  }
+  hal.ConfigureCAN();
 
   while (1)
   {
 
     //Wait for message to be received
     can_message_t message;
-    esp_err_t res = can_receive(&message, pdMS_TO_TICKS(8000));
+    esp_err_t res = can_receive(&message, pdMS_TO_TICKS(5000));
     if (res == ESP_OK)
     {
       SERIAL_DEBUG.println("Message received\n");
 
-      SERIAL_DEBUG.printf("\nID is %d=", message.identifier);
+      SERIAL_DEBUG.print("\nID is 0x");
+      SERIAL_DEBUG.print(message.identifier,HEX);
+      SERIAL_DEBUG.print("=");
       if (!(message.flags & CAN_MSG_FLAG_RTR))
       {
         for (int i = 0; i < message.data_length_code; i++)
         {
           dumpByte(message.data[i]);
+          SERIAL_DEBUG.print(" ");
         }
       }
       SERIAL_DEBUG.println();
@@ -3157,21 +3135,20 @@ TEST CAN BUS
     SERIAL_DEBUG.printf("  rx-q:%d, tx-q:%d, rx-err:%d, tx-err:%d, arb-lost:%d, bus-err:%d, state: %s",
                         status.msgs_to_rx, status.msgs_to_tx, status.rx_error_counter, status.tx_error_counter, status.arb_lost_count,
                         status.bus_error_count, ESP32_CAN_STATUS_STRINGS[status.state]);
-    if (status.state == CAN_STATE_BUS_OFF)
+    if (status.state == can_state_t::CAN_STATE_BUS_OFF)
     {
       // When the bus is OFF we need to initiate recovery, transmit is
       // not possible when in this state.
       SERIAL_DEBUG.printf("ESP32-CAN: initiating recovery");
       can_initiate_recovery();
     }
-    else if (status.state == CAN_STATE_RECOVERING)
+    else if (status.state == can_state_t::CAN_STATE_RECOVERING)
     {
       // when the bus is in recovery mode transmit is not possible.
       delay(200);
     }
     //delay(100);
   }
-  */
 
   hal.ConfigureVSPI();
   init_tft_display();

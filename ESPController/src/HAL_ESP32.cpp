@@ -116,6 +116,45 @@ void HAL_ESP32::Led(uint8_t bits)
     //TODO: Check return value
 }
 
+void HAL_ESP32::ConfigureCAN()
+{
+    //Initialize configuration structures using macro initializers
+    can_general_config_t g_config = CAN_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, CAN_MODE_NORMAL);
+    g_config.mode = CAN_MODE_NORMAL;
+
+    can_timing_config_t t_config = CAN_TIMING_CONFIG_500KBITS();
+    can_filter_config_t f_config = {.acceptance_code = 0, .acceptance_mask = 0xFFFFFFFF, .single_filter = true};
+
+    //Filter out all messages except 0x305 and 0x307
+    //https://docs.espressif.com/projects/esp-idf/en/v3.3.5/api-reference/peripherals/can.html
+    //01100000101 00000 00000000 00000000 = 0x60A00000  (0x305)
+    //01100000111 00000 00000000 00000000 = 0x60E00000  (0x307)
+    //00000000010 11111 11111111 11111111 = 0x005FFFFF
+    //         ^ THIS BIT IS IGNORED USING THE MASK SO 0x305 and 0x307 are permitted
+    f_config.acceptance_code = 0x60A00000;
+    f_config.acceptance_mask = 0x005FFFFF;
+
+    //Install CAN driver
+    if (can_driver_install(&g_config, &t_config, &f_config) == ESP_OK)
+    {
+        ESP_LOGI(TAG, "CAN driver installed.  Filter=%u Mask=%u", f_config.acceptance_code, f_config.acceptance_mask);
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to install CAN driver");
+    }
+
+    //Start CAN driver
+    if (can_start() == ESP_OK)
+    {
+        ESP_LOGI(TAG, "CAN driver started");
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to start CAN driver");
+    }
+}
+
 // Control Silent mode control input on TJA1051T/3
 // True = enable CANBUS
 void HAL_ESP32::CANBUSEnable(bool value)
