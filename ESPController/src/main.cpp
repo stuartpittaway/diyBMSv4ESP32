@@ -115,6 +115,9 @@ TaskHandle_t tca9534_isr_task_handle = NULL;
 TaskHandle_t rs485_tx_task_handle = NULL;
 TaskHandle_t rs485_rx_task_handle = NULL;
 
+TaskHandle_t victron_canbus_tx_task_handle = NULL;
+TaskHandle_t victron_canbus_rx_task_handle = NULL;
+
 //This large array holds all the information about the modules
 CellModuleInfo cmi[maximum_controller_cell_modules];
 
@@ -2365,6 +2368,195 @@ void rs485_rx(void *param)
   }
 }
 
+void victron_message_35e()
+{
+  can_message_t message;
+  message.identifier = 0x35E;
+  message.flags = CAN_MSG_FLAG_NONE;
+  message.data_length_code = 6;
+
+  memset(&message.data, 0, CAN_MAX_DATA_LEN);
+
+  message.data[0] = 'd';
+  message.data[1] = 'i';
+  message.data[2] = 'y';
+  message.data[3] = 'B';
+  message.data[4] = 'M';
+  message.data[5] = 'S';
+
+  //Queue message for transmission
+  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to queue message for transmission");
+  }
+}
+
+void victron_message_351()
+{
+  can_message_t message;
+  message.identifier = 0x351;
+  message.flags = CAN_MSG_FLAG_NONE;
+  message.data_length_code = 8;
+
+  memset(&message.data, 0, CAN_MAX_DATA_LEN);
+
+  //Queue message for transmission
+  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to queue message for transmission");
+  }
+}
+
+void victron_message_355()
+{
+  can_message_t message;
+  message.identifier = 0x355;
+  message.flags = CAN_MSG_FLAG_NONE;
+  message.data_length_code = 6;
+
+  memset(&message.data, 0, CAN_MAX_DATA_LEN);
+
+  //Queue message for transmission
+  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to queue message for transmission");
+  }
+}
+
+void victron_message_356()
+{
+  can_message_t message;
+  message.identifier = 0x356;
+  message.flags = CAN_MSG_FLAG_NONE;
+  message.data_length_code = 6;
+
+  //Clear buffer
+  memset(&message.data, 0, CAN_MAX_DATA_LEN);
+
+  int16_t output = rules.highestPackVoltage / 10;
+
+  //If current shunt is installed, use the voltage from that as it should be more accurate
+  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
+  {
+    output = currentMonitor.voltage * 100.0;
+  }
+
+  ESP_LOGI(TAG, "Voltage %i", output);
+
+  //Battery Voltage 0.01V scale
+  memcpy(&message.data[0], &output, 2);
+
+  //If current shunt is installed, use the voltage from that as it should be more accurate
+  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
+  {
+    int16_t amps = currentMonitor.current * 10;
+
+    //Current 0.1 Amp scale
+    memcpy(&message.data[2], &amps, 2);
+  }
+
+  //Temperature 0.1 C
+  int16_t temperature = (int16_t)rules.highestExternalTemp * (int16_t)10;
+  memcpy(&message.data[4], &temperature, 2);
+
+  //Queue message for transmission
+  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to queue message for transmission");
+  }
+}
+
+void victron_message_35a()
+{
+  can_message_t message;
+  message.identifier = 0x35a;
+  message.flags = CAN_MSG_FLAG_NONE;
+  message.data_length_code = 7;
+
+  memset(&message.data, 0, CAN_MAX_DATA_LEN);
+
+  //Queue message for transmission
+  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to queue message for transmission");
+  }
+}
+
+void victron_canbus_tx(void *param)
+{
+  for (;;)
+  {
+    //Delay 2 seconds
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    if (_controller_state == ControllerState::Running)
+    {
+      //minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
+      victron_message_35e();
+      victron_message_351();
+      victron_message_355();
+      victron_message_356();
+      victron_message_35a();
+    }
+  }
+}
+
+void victron_canbus_rx(void *param)
+{
+  for (;;)
+  {
+    //Wait for message to be received
+    can_message_t message;
+    esp_err_t res = can_receive(&message, pdMS_TO_TICKS(5000));
+    if (res == ESP_OK)
+    {
+      ESP_LOGI(TAG, "CANBUS received message");
+
+      /*
+      SERIAL_DEBUG.println("Message received\n");
+      SERIAL_DEBUG.print("\nID is 0x");
+      SERIAL_DEBUG.print(message.identifier, HEX);
+      SERIAL_DEBUG.print("=");
+      if (!(message.flags & CAN_MSG_FLAG_RTR))
+      {
+        for (int i = 0; i < message.data_length_code; i++)
+        {
+          dumpByte(message.data[i]);
+          SERIAL_DEBUG.print(" ");
+        }
+      }
+      SERIAL_DEBUG.println();
+      */
+    }
+    else if (res == ESP_ERR_TIMEOUT)
+    {
+      /// ignore the timeout or do something
+      ESP_LOGE(TAG, "CANBUS timeout");
+    }
+
+    /*
+    // check the health of the bus
+    can_status_info_t status;
+    can_get_status_info(&status);
+    SERIAL_DEBUG.printf("  rx-q:%d, tx-q:%d, rx-err:%d, tx-err:%d, arb-lost:%d, bus-err:%d, state: %s",
+                        status.msgs_to_rx, status.msgs_to_tx, status.rx_error_counter, status.tx_error_counter, status.arb_lost_count,
+                        status.bus_error_count, ESP32_CAN_STATUS_STRINGS[status.state]);
+    if (status.state == can_state_t::CAN_STATE_BUS_OFF)
+    {
+      // When the bus is OFF we need to initiate recovery, transmit is
+      // not possible when in this state.
+      SERIAL_DEBUG.printf("ESP32-CAN: initiating recovery");
+      can_initiate_recovery();
+    }
+    else if (status.state == can_state_t::CAN_STATE_RECOVERING)
+    {
+      // when the bus is in recovery mode transmit is not possible.
+      //delay(200);
+    }
+*/
+  }
+}
+
 //This is the request we send to diyBMS current monitor, it pulls back 38 registers
 //this is all the registers diyBMS current monitor has
 //Holding Registers = command 3
@@ -2927,14 +3119,12 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
   file.close();
 }
 
-
 static const char *ESP32_CAN_STATUS_STRINGS[] = {
     "STOPPED",               // CAN_STATE_STOPPED
     "RUNNING",               // CAN_STATE_RUNNING
     "OFF / RECOVERY NEEDED", // CAN_STATE_BUS_OFF
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
-
 
 void dumpByte(uint8_t data)
 {
@@ -3072,7 +3262,6 @@ void setup()
     ESP_LOGI(TAG, "TFT screen is NOT installed");
   }
 
-
   SetControllerState(ControllerState::PowerUp);
 
   hal.Led(0);
@@ -3100,6 +3289,7 @@ TEST CAN BUS
 
   hal.ConfigureCAN();
 
+  /*
   while (1)
   {
 
@@ -3111,7 +3301,7 @@ TEST CAN BUS
       SERIAL_DEBUG.println("Message received\n");
 
       SERIAL_DEBUG.print("\nID is 0x");
-      SERIAL_DEBUG.print(message.identifier,HEX);
+      SERIAL_DEBUG.print(message.identifier, HEX);
       SERIAL_DEBUG.print("=");
       if (!(message.flags & CAN_MSG_FLAG_RTR))
       {
@@ -3149,6 +3339,7 @@ TEST CAN BUS
     }
     //delay(100);
   }
+*/
 
   hal.ConfigureVSPI();
   init_tft_display();
@@ -3191,6 +3382,9 @@ TEST CAN BUS
 
   xTaskCreate(rs485_tx, "RS485TX", 3000, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "RS485RX", 3000, nullptr, 1, &rs485_rx_task_handle);
+
+  xTaskCreate(victron_canbus_tx, "viccantx", 3000, nullptr, 1, &victron_canbus_tx_task_handle);
+  xTaskCreate(victron_canbus_rx, "viccanrx", 3000, nullptr, 1, &victron_canbus_rx_task_handle);
 
   //We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
   //and slower than it takes a single module to process a command (about 200ms @ 2400baud)
