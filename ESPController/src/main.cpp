@@ -2549,10 +2549,10 @@ void victron_message_35a()
   const uint8_t BIT45_OK = B00100000;
   const uint8_t BIT67_OK = B10000000;
 
-  const uint8_t BIT01_NOTSUP = B00000011;
-  const uint8_t BIT23_NOTSUP = B00001100;
-  const uint8_t BIT45_NOTSUP = B00110000;
-  const uint8_t BIT67_NOTSUP = B11000000;
+  //const uint8_t BIT01_NOTSUP = B00000011;
+  //const uint8_t BIT23_NOTSUP = B00001100;
+  //const uint8_t BIT45_NOTSUP = B00110000;
+  //const uint8_t BIT67_NOTSUP = B11000000;
 
   if (_controller_state == ControllerState::Running)
   {
@@ -2583,19 +2583,19 @@ void victron_message_35a()
       data.byte1 |= (rules.rule_outcome[Rule::IndividualcellundertemperatureExternal] ? BIT01_ALARM : BIT01_OK);
     }
     //1 (bit 2+3) Battery high temperature charge alarm
-    data.byte1 |= BIT23_NOTSUP;
+    //data.byte1 |= BIT23_NOTSUP;
     //1 (bit 4+5) Battery low temperature charge alarm
-    data.byte1 |= BIT45_NOTSUP;
+    //data.byte1 |= BIT45_NOTSUP;
     //1 (bit 6+7) Battery high current alarm
-    data.byte1 |= BIT67_NOTSUP;
+    //data.byte1 |= BIT67_NOTSUP;
   }
 
   //2 (bit 0+1) Battery high charge current alarm
-  data.byte2 |= BIT01_NOTSUP;
+  //data.byte2 |= BIT01_NOTSUP;
   //2 (bit 2+3) Contactor Alarm (not implemented)
-  data.byte2 |= BIT23_NOTSUP;
+  //data.byte2 |= BIT23_NOTSUP;
   //2 (bit 4+5) Short circuit Alarm (not implemented)
-  data.byte2 |= BIT45_NOTSUP;
+  //data.byte2 |= BIT45_NOTSUP;
 
   //ESP_LOGI(TAG, "Rule BMSError=%u, EmergencyStop=%u", rules.rule_outcome[Rule::BMSError], rules.rule_outcome[Rule::EmergencyStop]);
 
@@ -2603,35 +2603,35 @@ void victron_message_35a()
   data.byte2 |= ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? BIT67_ALARM : BIT67_OK);
 
   //3 (bit 0+1) Cell imbalance alarm
-  data.byte3 |= BIT01_NOTSUP;
+  //data.byte3 |= BIT01_NOTSUP;
   //3 (bit 2+3) Reserved
   //3 (bit 4+5) Reserved
   //3 (bit 6+7) Reserved
 
   //4 (bit 0+1) General warning (not implemented)
-  data.byte4 |= BIT01_NOTSUP;
+  //data.byte4 |= BIT01_NOTSUP;
   //4 (bit 2+3) Battery low voltage warning
-  data.byte4 |= BIT23_NOTSUP;
+  //data.byte4 |= BIT23_NOTSUP;
   //4 (bit 4+5) Battery high voltage warning
-  data.byte4 |= BIT45_NOTSUP;
+  //data.byte4 |= BIT45_NOTSUP;
   //4 (bit 6+7) Battery high temperature warning
-  data.byte4 |= BIT67_NOTSUP;
+  //data.byte4 |= BIT67_NOTSUP;
 
   //5 (bit 0+1) Battery low temperature warning
-  data.byte5 |= BIT01_NOTSUP;
+  //data.byte5 |= BIT01_NOTSUP;
   //5 (bit 2+3) Battery high temperature charge warning
-  data.byte5 |= BIT23_NOTSUP;
+  //data.byte5 |= BIT23_NOTSUP;
   //5 (bit 4+5) Battery low temperature charge warning
-  data.byte5 |= BIT45_NOTSUP;
+  //data.byte5 |= BIT45_NOTSUP;
   //5 (bit 6+7) Battery high current warning
-  data.byte5 |= BIT67_NOTSUP;
+  //data.byte5 |= BIT67_NOTSUP;
 
   //6 (bit 0+1) Battery high charge current warning
-  data.byte6 |= BIT01_NOTSUP;
+  //data.byte6 |= BIT01_NOTSUP;
   //6 (bit 2+3) Contactor warning (not implemented)
-  data.byte6 |= BIT23_NOTSUP;
+  //data.byte6 |= BIT23_NOTSUP;
   //6 (bit 4+5) Short circuit warning (not implemented)
-  data.byte6 |= BIT45_NOTSUP;
+  //data.byte6 |= BIT45_NOTSUP;
   //6 (bit 6+7) BMS internal warning
   data.byte6 |= (rules.numberOfActiveWarnings > 0 ? BIT67_ALARM : BIT67_OK);
 
@@ -2657,22 +2657,22 @@ void victron_message_372()
   struct data372
   {
     uint16_t numberofmodulesok;
-    uint16_t numberofmodulesblockingcharge;
-    uint16_t numberofmodulesblockingdischarge;
-    uint16_t numberofmodulesoffline;
+    //uint16_t numberofmodulesblockingcharge;
+    //uint16_t numberofmodulesblockingdischarge;
+    //uint16_t numberofmodulesoffline;
   };
 
   can_message_t message;
   message.identifier = 0x372;
   message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = 8;
+  message.data_length_code = sizeof(data372);
 
   data372 data;
 
-  data.numberofmodulesok = TotalNumberOfCells()-rules.invalidModuleCount;
-  data.numberofmodulesblockingcharge = 0;
-  data.numberofmodulesblockingdischarge = 0;
-  data.numberofmodulesoffline = rules.invalidModuleCount;
+  data.numberofmodulesok = TotalNumberOfCells() - rules.invalidModuleCount;
+  //data.numberofmodulesblockingcharge = 0;
+  //data.numberofmodulesblockingdischarge = 0;
+  //data.numberofmodulesoffline = rules.invalidModuleCount;
 
   memcpy(&message.data, &data, sizeof(data372));
 
@@ -2726,7 +2726,7 @@ void victron_canbus_tx(void *param)
     victron_message_370_371();
     victron_message_35e();
     victron_message_35a();
-      victron_message_372();
+    victron_message_372();
 
     if (_controller_state == ControllerState::Running)
     {
