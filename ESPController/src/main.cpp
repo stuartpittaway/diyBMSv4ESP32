@@ -73,6 +73,9 @@ HAL_ESP32 hal;
 volatile bool emergencyStop = false;
 bool _sd_card_installed = false;
 
+//Used for WIFI hostname and also sent to Victron over CANBUS
+char hostname[16];
+
 extern bool _tft_screen_available;
 
 Rules rules;
@@ -1394,13 +1397,12 @@ WiFi.status() only returns:
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
 
-  char hostname[40];
-
   uint32_t chipId = 0;
   for (int i = 0; i < 17; i = i + 8)
   {
     chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
   }
+  // DIYBMS-00000000
   sprintf(hostname, "DIYBMS-%08X", chipId);
   WiFi.setHostname(hostname);
 
@@ -2368,6 +2370,37 @@ void rs485_rx(void *param)
   }
 }
 
+//Transmit the DIYBMS hostname via two CAN Messages
+void victron_message_370_371()
+{
+  // DIYBMS-00000000
+
+  can_message_t message;
+  message.identifier = 0x370;
+  message.flags = CAN_MSG_FLAG_NONE;
+  message.data_length_code = CAN_MAX_DATA_LEN;
+
+  memcpy(&message.data, &hostname, CAN_MAX_DATA_LEN);
+
+  //Queue message for transmission
+  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to queue message for transmission");
+  }
+
+  message.identifier = 0x371;
+  message.flags = CAN_MSG_FLAG_NONE;
+  message.data_length_code = CAN_MAX_DATA_LEN;
+
+  memcpy(&message.data, &hostname[CAN_MAX_DATA_LEN], CAN_MAX_DATA_LEN);
+
+  //Queue message for transmission
+  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to queue message for transmission");
+  }
+}
+
 void victron_message_35e()
 {
   can_message_t message;
@@ -2375,14 +2408,8 @@ void victron_message_35e()
   message.flags = CAN_MSG_FLAG_NONE;
   message.data_length_code = 6;
 
-  memset(&message.data, 0, CAN_MAX_DATA_LEN);
-
-  message.data[0] = 'd';
-  message.data[1] = 'i';
-  message.data[2] = 'y';
-  message.data[3] = 'B';
-  message.data[4] = 'M';
-  message.data[5] = 'S';
+  //Copy first 8 bytes of hostname
+  memcpy(&message.data, &hostname, CAN_MAX_DATA_LEN);
 
   //Queue message for transmission
   if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
@@ -2399,6 +2426,10 @@ void victron_message_351()
   message.data_length_code = 8;
 
   memset(&message.data, 0, CAN_MAX_DATA_LEN);
+  //0 Charge voltage limit (CVL) un16 0.1 V
+  //2 Max charge current (CCL) sn16 0.1 A
+  //4 Max discharge current (DCL) sn16 0.1 A
+  //6 Discharge voltage
 
   //Queue message for transmission
   if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
@@ -2409,12 +2440,26 @@ void victron_message_351()
 
 void victron_message_355()
 {
+
+  struct data355
+  {
+    uint16_t stateofchargevalue;
+    //uint16_t stateofhealthvalue;
+    //uint16_t highresolutionsoc;
+  };
+
   can_message_t message;
   message.identifier = 0x355;
   message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = 6;
+  message.data_length_code = sizeof(data355);
 
-  memset(&message.data, 0, CAN_MAX_DATA_LEN);
+  data355 data;
+  //0 SOC value un16 1 %
+  data.stateofchargevalue = 100;
+  //2 SOH value un16 1 %
+  //data.stateofhealthvalue = 100;
+
+  memcpy(&message.data, &data, sizeof(data355));
 
   //Queue message for transmission
   if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
@@ -2441,7 +2486,7 @@ void victron_message_356()
     output = currentMonitor.voltage * 100.0;
   }
 
-  ESP_LOGI(TAG, "Voltage %i", output);
+  //ESP_LOGI(TAG, "Voltage %i", output);
 
   //Battery Voltage 0.01V scale
   memcpy(&message.data[0], &output, 2);
@@ -2468,12 +2513,200 @@ void victron_message_356()
 
 void victron_message_35a()
 {
+
+  struct data35a
+  {
+    uint8_t byte0;
+    uint8_t byte1;
+    uint8_t byte2;
+    uint8_t byte3;
+    uint8_t byte4;
+    uint8_t byte5;
+    uint8_t byte6;
+    uint8_t byte7;
+  };
+
   can_message_t message;
   message.identifier = 0x35a;
   message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = 7;
+  message.data_length_code = 8;
 
-  memset(&message.data, 0, CAN_MAX_DATA_LEN);
+  data35a data;
+
+  memset(&data, 0, sizeof(data35a));
+
+  //B00 = Alarm not supported
+  //B10 = Alarm/warning active
+  //B01 = Alarm/warning inactive (status = OK)
+
+  const uint8_t BIT01_ALARM = B00000001;
+  const uint8_t BIT23_ALARM = B00000100;
+  const uint8_t BIT45_ALARM = B00010000;
+  const uint8_t BIT67_ALARM = B01000000;
+
+  const uint8_t BIT01_OK = B00000010;
+  const uint8_t BIT23_OK = B00001000;
+  const uint8_t BIT45_OK = B00100000;
+  const uint8_t BIT67_OK = B10000000;
+
+  const uint8_t BIT01_NOTSUP = B00000011;
+  const uint8_t BIT23_NOTSUP = B00001100;
+  const uint8_t BIT45_NOTSUP = B00110000;
+  const uint8_t BIT67_NOTSUP = B11000000;
+
+  if (_controller_state == ControllerState::Running)
+  {
+    /*
+    ESP_LOGI(TAG, "Rule PackOverVoltage=%u, PackUnderVoltage=%u, OverTemp=%u, UnderTemp=%u",
+             rules.rule_outcome[Rule::PackOverVoltage],
+             rules.rule_outcome[Rule::PackUnderVoltage],
+             rules.rule_outcome[Rule::IndividualcellovertemperatureExternal],
+             rules.rule_outcome[Rule::IndividualcellundertemperatureExternal]);
+  */
+
+    //BYTE 0
+    //(bit 0+1) General alarm (not implemented)
+    //(bit 2+3) Battery low voltage alarm
+    data.byte0 |= (rules.rule_outcome[Rule::PackOverVoltage] ? BIT23_ALARM : BIT23_OK);
+    //(bit 4+5) Battery high voltage alarm
+    data.byte0 |= (rules.rule_outcome[Rule::PackUnderVoltage] ? BIT45_ALARM : BIT45_OK);
+    //(bit 6+7) Battery high temperature alarm
+    if (rules.moduleHasExternalTempSensor)
+    {
+      data.byte0 |= (rules.rule_outcome[Rule::IndividualcellovertemperatureExternal] ? BIT67_ALARM : BIT67_OK);
+    }
+
+    //BYTE 1
+    //1 (bit 0+1) Battery low temperature alarm
+    if (rules.moduleHasExternalTempSensor)
+    {
+      data.byte1 |= (rules.rule_outcome[Rule::IndividualcellundertemperatureExternal] ? BIT01_ALARM : BIT01_OK);
+    }
+    //1 (bit 2+3) Battery high temperature charge alarm
+    data.byte1 |= BIT23_NOTSUP;
+    //1 (bit 4+5) Battery low temperature charge alarm
+    data.byte1 |= BIT45_NOTSUP;
+    //1 (bit 6+7) Battery high current alarm
+    data.byte1 |= BIT67_NOTSUP;
+  }
+
+  //2 (bit 0+1) Battery high charge current alarm
+  data.byte2 |= BIT01_NOTSUP;
+  //2 (bit 2+3) Contactor Alarm (not implemented)
+  data.byte2 |= BIT23_NOTSUP;
+  //2 (bit 4+5) Short circuit Alarm (not implemented)
+  data.byte2 |= BIT45_NOTSUP;
+
+  //ESP_LOGI(TAG, "Rule BMSError=%u, EmergencyStop=%u", rules.rule_outcome[Rule::BMSError], rules.rule_outcome[Rule::EmergencyStop]);
+
+  //2 (bit 6+7) BMS internal alarm
+  data.byte2 |= ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? BIT67_ALARM : BIT67_OK);
+
+  //3 (bit 0+1) Cell imbalance alarm
+  data.byte3 |= BIT01_NOTSUP;
+  //3 (bit 2+3) Reserved
+  //3 (bit 4+5) Reserved
+  //3 (bit 6+7) Reserved
+
+  //4 (bit 0+1) General warning (not implemented)
+  data.byte4 |= BIT01_NOTSUP;
+  //4 (bit 2+3) Battery low voltage warning
+  data.byte4 |= BIT23_NOTSUP;
+  //4 (bit 4+5) Battery high voltage warning
+  data.byte4 |= BIT45_NOTSUP;
+  //4 (bit 6+7) Battery high temperature warning
+  data.byte4 |= BIT67_NOTSUP;
+
+  //5 (bit 0+1) Battery low temperature warning
+  data.byte5 |= BIT01_NOTSUP;
+  //5 (bit 2+3) Battery high temperature charge warning
+  data.byte5 |= BIT23_NOTSUP;
+  //5 (bit 4+5) Battery low temperature charge warning
+  data.byte5 |= BIT45_NOTSUP;
+  //5 (bit 6+7) Battery high current warning
+  data.byte5 |= BIT67_NOTSUP;
+
+  //6 (bit 0+1) Battery high charge current warning
+  data.byte6 |= BIT01_NOTSUP;
+  //6 (bit 2+3) Contactor warning (not implemented)
+  data.byte6 |= BIT23_NOTSUP;
+  //6 (bit 4+5) Short circuit warning (not implemented)
+  data.byte6 |= BIT45_NOTSUP;
+  //6 (bit 6+7) BMS internal warning
+  data.byte6 |= (rules.numberOfActiveWarnings > 0 ? BIT67_ALARM : BIT67_OK);
+
+  //ESP_LOGI(TAG, "numberOfBalancingModules=%u", rules.numberOfBalancingModules);
+
+  //7 (bit 0+1) Cell imbalance warning
+  data.byte7 |= (rules.numberOfBalancingModules > 0 ? BIT01_ALARM : BIT01_OK);
+  //7 (bit 2+3) System status (online/offline) [1]
+  data.byte7 |= ((_controller_state != ControllerState::Running) ? BIT23_ALARM : BIT23_OK);
+  //7 (rest) Reserved
+
+  memcpy(&message.data, &data, sizeof(data35a));
+
+  //Queue message for transmission
+  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to queue message for transmission");
+  }
+}
+
+void victron_message_372()
+{
+  struct data372
+  {
+    uint16_t numberofmodulesok;
+    uint16_t numberofmodulesblockingcharge;
+    uint16_t numberofmodulesblockingdischarge;
+    uint16_t numberofmodulesoffline;
+  };
+
+  can_message_t message;
+  message.identifier = 0x372;
+  message.flags = CAN_MSG_FLAG_NONE;
+  message.data_length_code = 8;
+
+  data372 data;
+
+  data.numberofmodulesok = TotalNumberOfCells()-rules.invalidModuleCount;
+  data.numberofmodulesblockingcharge = 0;
+  data.numberofmodulesblockingdischarge = 0;
+  data.numberofmodulesoffline = rules.invalidModuleCount;
+
+  memcpy(&message.data, &data, sizeof(data372));
+
+  //Queue message for transmission
+  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to queue message for transmission");
+  }
+}
+
+void victron_message_373()
+{
+
+  struct data373
+  {
+    uint16_t mincellvoltage;
+    uint16_t maxcellvoltage;
+    uint16_t lowestcelltemperature;
+    uint16_t highestcelltemperature;
+  };
+
+  can_message_t message;
+  message.identifier = 0x373;
+  message.flags = CAN_MSG_FLAG_NONE;
+  message.data_length_code = 8;
+
+  data373 data;
+
+  data.lowestcelltemperature = 273 + rules.lowestExternalTemp;
+  data.highestcelltemperature = 273 + rules.highestExternalTemp;
+  data.maxcellvoltage = rules.highestCellVoltage;
+  data.mincellvoltage = rules.lowestCellVoltage;
+
+  memcpy(&message.data, &data, CAN_MAX_DATA_LEN);
 
   //Queue message for transmission
   if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
@@ -2489,14 +2722,19 @@ void victron_canbus_tx(void *param)
     //Delay 2 seconds
     vTaskDelay(pdMS_TO_TICKS(2000));
 
+    //Advertise the diyBMS name on CANBUS
+    victron_message_370_371();
+    victron_message_35e();
+    victron_message_35a();
+      victron_message_372();
+
     if (_controller_state == ControllerState::Running)
     {
       //minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
-      victron_message_35e();
       victron_message_351();
       victron_message_355();
       victron_message_356();
-      victron_message_35a();
+      victron_message_373();
     }
   }
 }
@@ -2507,10 +2745,10 @@ void victron_canbus_rx(void *param)
   {
     //Wait for message to be received
     can_message_t message;
-    esp_err_t res = can_receive(&message, pdMS_TO_TICKS(5000));
+    esp_err_t res = can_receive(&message, pdMS_TO_TICKS(10000));
     if (res == ESP_OK)
     {
-      ESP_LOGI(TAG, "CANBUS received message");
+      //ESP_LOGI(TAG, "CANBUS received message");
 
       /*
       SERIAL_DEBUG.println("Message received\n");
