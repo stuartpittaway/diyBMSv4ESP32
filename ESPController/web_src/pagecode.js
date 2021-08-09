@@ -919,7 +919,7 @@ $(function () {
     }
     );
 
-    for (var n = 1; n <= 32; n++) {
+    for (var n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }
     for (var n = MAXIMUM_NUMBER_OF_BANKS - 1; n >= 0; n--) {
@@ -1134,6 +1134,22 @@ $(function () {
 
         return true;
     });
+
+    $("#victroncanbus").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+
+        $.getJSON("victron.json",
+        function (data) {
+            $("#VictronEnabled").prop("checked", data.victron.enabled);
+            
+            switchPage("#victroncanbusPage");
+        }).fail(function () { }
+        );
+
+        return true;
+    });
+
 
     $("#currentmonrefresh").click(function (e) {
         e.preventDefault();
@@ -1452,6 +1468,12 @@ $(function () {
         currentmonitorSubmitForm(this);
     });
     $("#diybmsCurrentMonitorForm1").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        currentmonitorSubmitForm(this);
+    });
+
+
+    $("#victronForm1").unbind('submit').submit(function (e) {
         e.preventDefault();
         currentmonitorSubmitForm(this);
     });

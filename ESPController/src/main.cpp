@@ -2646,6 +2646,8 @@ void LoadConfiguration()
   mysettings.mqtt_enabled = false;
   mysettings.mqtt_port = 1883;
 
+  mysettings.VictronEnabled=false;
+
   mysettings.loggingEnabled = false;
   mysettings.loggingFrequencySeconds = 15;
 

@@ -92,7 +92,7 @@ void victron_message_351()
     //DCL
     int16_t maxdischargecurrent;
     //Not currently used by Victron
-    uint16_t dischargevoltage;
+    //uint16_t dischargevoltage;
   };
 
   can_message_t message;
@@ -105,7 +105,7 @@ void victron_message_351()
   data.chargevoltagelimit = 0;
   data.maxchargecurrent = 0;
   data.maxdischargecurrent = 0;
-  data.dischargevoltage = 0;
+  //data.dischargevoltage = 0;
 
   memcpy(&message.data, &data, sizeof(data351));
 

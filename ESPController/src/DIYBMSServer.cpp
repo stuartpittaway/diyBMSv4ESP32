@@ -60,7 +60,7 @@ HAL_ESP32 *DIYBMSServer::_hal = 0;
 
 String DIYBMSServer::uuidToString(uint8_t *uuidLocation)
 {
-  const char hexchars[]="0123456789abcdef";
+  const char hexchars[] = "0123456789abcdef";
   String string = "";
   int i;
   for (i = 0; i < 16; i++)
@@ -90,14 +90,15 @@ void DIYBMSServer::generateUUID()
 
   //ESP32 has inbuilt random number generator
   //https://techtutorialsx.com/2017/12/22/esp32-arduino-random-number-generation/
-  for (uint8_t x = 0; x < 16; x++) {
+  for (uint8_t x = 0; x < 16; x++)
+  {
     uuidNumber[x] = random(0xFF);
   }
 
   UUIDString = uuidToString(uuidNumber);
 
   //481efb3f-0400-0000-101f-fb3fd01efb3f
-  UUIDStringLast2Chars=UUIDString.substring(34);
+  UUIDStringLast2Chars = UUIDString.substring(34);
 }
 
 bool DIYBMSServer::validateXSS(AsyncWebServerRequest *request)
@@ -460,6 +461,72 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
   saveConfiguration();
 
   //ConfigHasChanged = REBOOT_COUNT_DOWN;
+  SendSuccess(request);
+}
+
+void DIYBMSServer::getvictron(AsyncWebServerRequest *request)
+{
+  AsyncResponseStream *response =
+      request->beginResponseStream("application/json");
+
+  DynamicJsonDocument doc(2048);
+  JsonObject root = doc.to<JsonObject>();
+
+  JsonObject settings = root.createNestedObject("victron");
+
+  settings["enabled"] = _mysettings->VictronEnabled;
+
+  //settings["Version"] = String(GIT_VERSION);
+  //settings["CompileDate"] = String(COMPILE_DATE_TIME);
+/*
+  
+  settings["totalseriesmodules"] = _mysettings->totalNumberOfSeriesModules;
+
+  settings["bypassthreshold"] = _mysettings->BypassThresholdmV;
+  settings["bypassovertemp"] = _mysettings->BypassOverTempShutdown;
+
+  settings["NTPServerName"] = _mysettings->ntpServer;
+  settings["TimeZone"] = _mysettings->timeZone;
+  settings["MinutesTimeZone"] = _mysettings->minutesTimeZone;
+  settings["DST"] = _mysettings->daylight;
+
+  settings["FreeHeap"] = ESP.getFreeHeap();
+  settings["MinFreeHeap"] = ESP.getMinFreeHeap();
+  settings["HeapSize"] = ESP.getHeapSize();
+  settings["SdkVersion"] = ESP.getSdkVersion();
+
+  settings["HostName"] = WiFi.getHostname();
+
+  time_t now;
+  if (time(&now))
+  {
+    settings["now"] = now;
+  }
+*/
+  response->addHeader("Cache-Control", "no-store");
+
+  serializeJson(doc, *response);
+  request->send(response);
+}
+
+void DIYBMSServer::saveVictron(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  bool enabled = false;
+
+  if (request->hasParam("VictronEnabled", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("VictronEnabled", true);
+    _mysettings->VictronEnabled= p1->value().equals("on") ? true : false;
+  }
+  else
+  {
+    _mysettings->VictronEnabled=false;
+  }
+
+
   SendSuccess(request);
 }
 
@@ -1707,14 +1774,13 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"oos\":", _receiveProc->totalOutofSequenceErrors);
 
   PrintStreamComma(response, "\"uptime\":", (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6));
-  
+
   //Output last 2 charaters from security cookie, to allow brower to detect when its
   //no longer in sync with the back end and report warning.
   //Technically this downgrades the complexity of the XSS key, as it reduces key length.
   response->print("\"sec\":\"");
   response->print(UUIDStringLast2Chars);
   response->print("\",");
-
 
   response->print(F("\"errors\":["));
   uint8_t count = 0;
@@ -2022,6 +2088,10 @@ String DIYBMSServer::TemplateProcessor(const String &var)
   if (var == "integrity_file_jquery_js")
     return String(integrity_file_jquery_js);
 
+  if (var == "numberofseriesmodules")
+    return String(maximum_controller_cell_modules);
+
+
   return String();
 }
 
@@ -2296,7 +2366,6 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                   }
                 });
 
-
   _myserver->on("/style.css", HTTP_GET,
                 [](AsyncWebServerRequest *request)
                 {
@@ -2327,6 +2396,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/currentmonitor.json", HTTP_GET, DIYBMSServer::currentmonitor);
   _myserver->on("/rs485settings.json", HTTP_GET, DIYBMSServer::rs485settings);
+  _myserver->on("/victron.json", HTTP_GET, DIYBMSServer::getvictron);
+  
 
   //POST method endpoints
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);
@@ -2357,6 +2428,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->on("/savecmbasic.json", HTTP_POST, DIYBMSServer::saveCurrentMonBasic);
   _myserver->on("/savecmadvanced.json", HTTP_POST, DIYBMSServer::saveCurrentMonAdvanced);
   _myserver->on("/savecmrelay.json", HTTP_POST, DIYBMSServer::saveCurrentMonRelay);
+  //Victron stuff
+  _myserver->on("/savevictron.json", HTTP_POST, DIYBMSServer::saveVictron);
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();

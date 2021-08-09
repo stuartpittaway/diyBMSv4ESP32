@@ -85,6 +85,7 @@ private:
     static void avrstatus(AsyncWebServerRequest *request);
     static void currentmonitor(AsyncWebServerRequest *request);
     static void rs485settings(AsyncWebServerRequest *request);
+    static void getvictron(AsyncWebServerRequest *request);
     
 
     static void downloadFile(AsyncWebServerRequest *request);
@@ -115,6 +116,8 @@ private:
 
     static void enableAVRprog(AsyncWebServerRequest *request);
     static void disableAVRprog(AsyncWebServerRequest *request);
+
+    static void saveVictron(AsyncWebServerRequest *request);
 };
 
 //TODO: Remove this

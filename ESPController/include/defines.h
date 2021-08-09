@@ -124,6 +124,9 @@ struct diybms_eeprom_settings
 
   char language[2+1];
 
+
+  bool VictronEnabled;
+
   //NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
   uint16_t mqtt_port;
