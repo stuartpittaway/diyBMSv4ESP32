@@ -2088,9 +2088,11 @@ String DIYBMSServer::TemplateProcessor(const String &var)
   if (var == "integrity_file_jquery_js")
     return String(integrity_file_jquery_js);
 
-  if (var == "numberofseriesmodules")
+  if (var == "noofseriesmodules")
     return String(maximum_controller_cell_modules);
 
+  if (var == "maxnumberofbanks")
+    return String(maximum_number_of_banks);
 
   return String();
 }

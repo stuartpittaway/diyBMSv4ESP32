@@ -7,10 +7,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet" />
     <link href="style.css" rel="stylesheet" />
     <script type="text/javascript">
-        const MAXIMUM_NUMBER_OF_BANKS = 16;
-        const MAXIMUM_NUMBER_OF_SERIES_MODULES = % numberofseriesmodules % ;
+        const MAXIMUM_NUMBER_OF_BANKS = parseInt('%maxnumberofbanks%',10) ;
+        const MAXIMUM_NUMBER_OF_SERIES_MODULES = parseInt('%noofseriesmodules%',10) ;
         const MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET = 16;
-
+        
         var DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat('%graph_voltagehigh%');
         var DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat('%graph_voltagelow%');
         var XSS_KEY = '%XSS_KEY%';
