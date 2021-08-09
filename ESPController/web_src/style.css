@@ -68,12 +68,11 @@ body{background-color: white;}
 .header a:hover{background-color:#ddd;color:#000}
 .header a.active{background-color:#1e90ff;color:#fff}
 .ct-series-a .ct-bar {stroke:blue;}
-form input[type='submit'] {color:white;background-color:#1e90ff;}
+form input[type='submit'] {color:white;background-color:#1e90ff !important; margin-left: 0;}
 .error {color:#D8000C;background-color:#FFBABA;}
 .warning {color:#000000;background-color:#ff9933;}
 .success {color:#000000;background-color:#49BE3B;}
 .triggered {background-color:#FFBABA;}
-
 
 
 /* Dark colours
@@ -105,7 +104,7 @@ a:visited {color:#e8e8e8;font-weight:bold;}
 button {color:white;background-color:#1e90ff;}
 button:hover {border:solid 1px white;}
 button:focus {color:#1e90ff;background-color:white;}
-form input[type='submit'] {color:white;background-color:#1e90ff;}
+
 
 .page .region.wide {width:98%;}
 
