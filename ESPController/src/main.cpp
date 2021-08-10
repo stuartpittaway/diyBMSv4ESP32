@@ -2378,27 +2378,32 @@ void victron_canbus_tx(void *param)
   {
     //Delay 1 seconds
     vTaskDelay(pdMS_TO_TICKS(1000));
-    //minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
 
-    //351 message must be sent at least every 3 seconds - or Victron will stop charge/discharge
-    victron_message_351();
-
-    vTaskDelay(pdMS_TO_TICKS(250));
-
-    //Advertise the diyBMS name on CANBUS
-    victron_message_370_371();
-    victron_message_35e();
-    victron_message_35a();
-    victron_message_372();
-
-    vTaskDelay(pdMS_TO_TICKS(250));
-
-    if (_controller_state == ControllerState::Running)
+    if (mysettings.VictronEnabled)
     {
-      victron_message_355();
-      victron_message_356();
-      victron_message_373();
+      //minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
+
+      //351 message must be sent at least every 3 seconds - or Victron will stop charge/discharge
+      victron_message_351();
+
       vTaskDelay(pdMS_TO_TICKS(250));
+
+      //Advertise the diyBMS name on CANBUS
+      victron_message_370_371();
+      victron_message_35e();
+      victron_message_35a();
+      victron_message_372();
+      victron_message_35f();
+
+      vTaskDelay(pdMS_TO_TICKS(250));
+
+      if (_controller_state == ControllerState::Running)
+      {
+        victron_message_355();
+        victron_message_356();
+        victron_message_373();
+        vTaskDelay(pdMS_TO_TICKS(250));
+      }
     }
   }
 }
@@ -2407,14 +2412,18 @@ void victron_canbus_rx(void *param)
 {
   for (;;)
   {
-    //Wait for message to be received
-    can_message_t message;
-    esp_err_t res = can_receive(&message, pdMS_TO_TICKS(10000));
-    if (res == ESP_OK)
-    {
-      //ESP_LOGI(TAG, "CANBUS received message");
 
-      /*
+    if (mysettings.VictronEnabled)
+    {
+
+      //Wait for message to be received
+      can_message_t message;
+      esp_err_t res = can_receive(&message, pdMS_TO_TICKS(10000));
+      if (res == ESP_OK)
+      {
+        //ESP_LOGI(TAG, "CANBUS received message");
+
+        /*
       SERIAL_DEBUG.println("Message received\n");
       SERIAL_DEBUG.print("\nID is 0x");
       SERIAL_DEBUG.print(message.identifier, HEX);
@@ -2429,14 +2438,14 @@ void victron_canbus_rx(void *param)
       }
       SERIAL_DEBUG.println();
       */
-    }
-    else if (res == ESP_ERR_TIMEOUT)
-    {
-      /// ignore the timeout or do something
-      ESP_LOGE(TAG, "CANBUS timeout");
-    }
+      }
+      else if (res == ESP_ERR_TIMEOUT)
+      {
+        /// ignore the timeout or do something
+        ESP_LOGE(TAG, "CANBUS timeout");
+      }
 
-    /*
+      /*
     // check the health of the bus
     can_status_info_t status;
     can_get_status_info(&status);
@@ -2456,6 +2465,12 @@ void victron_canbus_rx(void *param)
       //delay(200);
     }
 */
+    }
+    else
+    {
+      //Canbus is disbled, sleep....
+      vTaskDelay(pdMS_TO_TICKS(2000));
+    }
   }
 }
 
@@ -2646,7 +2661,7 @@ void LoadConfiguration()
   mysettings.mqtt_enabled = false;
   mysettings.mqtt_port = 1883;
 
-  mysettings.VictronEnabled=false;
+  mysettings.VictronEnabled = false;
 
   mysettings.loggingEnabled = false;
   mysettings.loggingFrequencySeconds = 15;

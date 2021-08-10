@@ -13,6 +13,7 @@ void victron_message_356();
 void victron_message_35a();
 void victron_message_372();
 void victron_message_373();
+void victron_message_35f();
 
 extern uint16_t TotalNumberOfCells();
 extern Rules rules;
@@ -20,5 +21,6 @@ extern currentmonitoring_struct currentMonitor;
 extern diybms_eeprom_settings mysettings;
 extern char hostname[16];
 extern ControllerState _controller_state;
+
 
 #endif

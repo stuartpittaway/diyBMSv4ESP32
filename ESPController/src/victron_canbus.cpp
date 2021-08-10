@@ -13,51 +13,60 @@ The code supports the VICTRON CAN BUS BMS style messages.
 
 */
 
+void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
+{
+  static const char *TAG = "canbus";
+
+  can_message_t message;
+  message.identifier = identifier;
+  message.flags = CAN_MSG_FLAG_NONE;
+  message.data_length_code = length;
+
+  memcpy(&message.data, buffer, length);
+
+  //Queue message for transmission
+  if (can_transmit(&message, pdMS_TO_TICKS(250)) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to queue message for transmission");
+  }
+  /*
+  else
+  {
+    ESP_LOGI(TAG, "Sent CAN message %u", identifier);
+    ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(can_message_t), esp_log_level_t::ESP_LOG_INFO);
+  }
+*/
+}
 //Transmit the DIYBMS hostname via two CAN Messages
 void victron_message_370_371()
 {
-
-  can_message_t message;
-  message.identifier = 0x370;
-  message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = CAN_MAX_DATA_LEN;
-
-  memcpy(&message.data, &hostname, CAN_MAX_DATA_LEN);
-
-  //Queue message for transmission
-  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
-  {
-    ESP_LOGE(TAG, "Failed to queue message for transmission");
-  }
-
-  message.identifier = 0x371;
-  message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = CAN_MAX_DATA_LEN;
-
-  memcpy(&message.data, &hostname[CAN_MAX_DATA_LEN], CAN_MAX_DATA_LEN);
-
-  //Queue message for transmission
-  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
-  {
-    ESP_LOGE(TAG, "Failed to queue message for transmission");
-  }
+  send_canbus_message(0x370, (uint8_t *)&hostname, (uint8_t)CAN_MAX_DATA_LEN);
+  send_canbus_message(0x371, (uint8_t *)&hostname[CAN_MAX_DATA_LEN], (uint8_t)CAN_MAX_DATA_LEN);
 }
 
 void victron_message_35e()
 {
-  can_message_t message;
-  message.identifier = 0x35E;
-  message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = 6;
+  send_canbus_message(0x35e, (uint8_t *)&hostname, 6);
+}
 
-  //Copy first 8 bytes of hostname
-  memcpy(&message.data, &hostname, CAN_MAX_DATA_LEN);
-
-  //Queue message for transmission
-  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
+void victron_message_35f()
+{
+  struct data35f
   {
-    ESP_LOGE(TAG, "Failed to queue message for transmission");
-  }
+    //Not used
+    uint16_t BatteryModel;
+    uint16_t Firmwareversion;
+    uint16_t OnlinecapacityinAh;
+  };
+
+  data35f data;
+
+  data.BatteryModel = 0;
+  //Need to swap bytes for this to make sense.
+  data.Firmwareversion = ((uint16_t)COMPILE_WEEK_NUMBER_BYTE << 8) | COMPILE_YEAR_BYTE;
+  data.OnlinecapacityinAh = 100;
+
+  send_canbus_message(0x35f, (uint8_t *)&data, sizeof(data35f));
 }
 
 //CVL & CCL implementation
@@ -95,11 +104,6 @@ void victron_message_351()
     //uint16_t dischargevoltage;
   };
 
-  can_message_t message;
-  message.identifier = 0x351;
-  message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = sizeof(data351);
-
   data351 data;
 
   data.chargevoltagelimit = 0;
@@ -107,13 +111,7 @@ void victron_message_351()
   data.maxdischargecurrent = 0;
   //data.dischargevoltage = 0;
 
-  memcpy(&message.data, &data, sizeof(data351));
-
-  //Queue message for transmission
-  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
-  {
-    ESP_LOGE(TAG, "Failed to queue message for transmission");
-  }
+  send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
 }
 
 void victron_message_355()
@@ -126,67 +124,54 @@ void victron_message_355()
     //uint16_t highresolutionsoc;
   };
 
-  can_message_t message;
-  message.identifier = 0x355;
-  message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = sizeof(data355);
-
   data355 data;
   //0 SOC value un16 1 %
   data.stateofchargevalue = 100;
   //2 SOH value un16 1 %
   //data.stateofhealthvalue = 100;
 
-  memcpy(&message.data, &data, sizeof(data355));
-
-  //Queue message for transmission
-  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
-  {
-    ESP_LOGE(TAG, "Failed to queue message for transmission");
-  }
+  send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
 }
 
 void victron_message_356()
 {
-  can_message_t message;
-  message.identifier = 0x356;
-  message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = 6;
+  struct data356
+  {
+    int16_t voltage;
+    int16_t current;
+    int16_t temperature;
+  };
 
-  //Clear buffer
-  memset(&message.data, 0, CAN_MAX_DATA_LEN);
+  data356 data;
 
-  int16_t output = rules.highestPackVoltage / 10;
+  //Use highest pack voltage calculate by controller and modules
+  data.voltage = rules.highestPackVoltage / 10;
 
   //If current shunt is installed, use the voltage from that as it should be more accurate
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
-    output = currentMonitor.voltage * 100.0;
+    data.voltage = currentMonitor.voltage * 100.0;
   }
 
-  //ESP_LOGI(TAG, "Voltage %i", output);
-
-  //Battery Voltage 0.01V scale
-  memcpy(&message.data[0], &output, 2);
-
-  //If current shunt is installed, use the voltage from that as it should be more accurate
+  data.current = 0;
+  //If current shunt is installed, use it
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
-    int16_t amps = currentMonitor.current * 10;
-
-    //Current 0.1 Amp scale
-    memcpy(&message.data[2], &amps, 2);
+    data.current = currentMonitor.current * 10;
   }
 
-  //Temperature 0.1 C
-  int16_t temperature = (int16_t)rules.highestExternalTemp * (int16_t)10;
-  memcpy(&message.data[4], &temperature, 2);
-
-  //Queue message for transmission
-  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
+  //Temperature 0.1 C using external temperature sensor
+  if (rules.moduleHasExternalTempSensor)
   {
-    ESP_LOGE(TAG, "Failed to queue message for transmission");
+    data.temperature = (int16_t)rules.highestExternalTemp * (int16_t)10;
   }
+  else
+  {
+    //No external temp sensors
+    data.temperature = 0;
+  }
+
+  send_canbus_message(0x356, (uint8_t *)&data, sizeof(data356));
 }
 
 // Send alarm details to Victron over CANBUS
@@ -204,11 +189,6 @@ void victron_message_35a()
     uint8_t byte6;
     uint8_t byte7;
   };
-
-  can_message_t message;
-  message.identifier = 0x35a;
-  message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = 8;
 
   data35a data;
 
@@ -322,13 +302,7 @@ void victron_message_35a()
   data.byte7 |= ((_controller_state != ControllerState::Running) ? BIT23_ALARM : BIT23_OK);
   //7 (rest) Reserved
 
-  memcpy(&message.data, &data, sizeof(data35a));
-
-  //Queue message for transmission
-  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
-  {
-    ESP_LOGE(TAG, "Failed to queue message for transmission");
-  }
+  send_canbus_message(0x35a, (uint8_t *)&data, sizeof(data35a));
 }
 
 void victron_message_372()
@@ -341,11 +315,6 @@ void victron_message_372()
     //uint16_t numberofmodulesoffline;
   };
 
-  can_message_t message;
-  message.identifier = 0x372;
-  message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = sizeof(data372);
-
   data372 data;
 
   data.numberofmodulesok = TotalNumberOfCells() - rules.invalidModuleCount;
@@ -353,13 +322,7 @@ void victron_message_372()
   //data.numberofmodulesblockingdischarge = 0;
   //data.numberofmodulesoffline = rules.invalidModuleCount;
 
-  memcpy(&message.data, &data, sizeof(data372));
-
-  //Queue message for transmission
-  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
-  {
-    ESP_LOGE(TAG, "Failed to queue message for transmission");
-  }
+  send_canbus_message(0x372, (uint8_t *)&data, sizeof(data372));
 }
 
 void victron_message_373()
@@ -373,11 +336,6 @@ void victron_message_373()
     uint16_t highestcelltemperature;
   };
 
-  can_message_t message;
-  message.identifier = 0x373;
-  message.flags = CAN_MSG_FLAG_NONE;
-  message.data_length_code = 8;
-
   data373 data;
 
   data.lowestcelltemperature = 273 + rules.lowestExternalTemp;
@@ -385,11 +343,5 @@ void victron_message_373()
   data.maxcellvoltage = rules.highestCellVoltage;
   data.mincellvoltage = rules.lowestCellVoltage;
 
-  memcpy(&message.data, &data, CAN_MAX_DATA_LEN);
-
-  //Queue message for transmission
-  if (can_transmit(&message, pdMS_TO_TICKS(200)) != ESP_OK)
-  {
-    ESP_LOGE(TAG, "Failed to queue message for transmission");
-  }
+  send_canbus_message(0x373, (uint8_t *)&data, sizeof(data373));
 }

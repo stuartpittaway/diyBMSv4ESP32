@@ -72,8 +72,11 @@ public:
     int8_t lowestExternalTemp;
     int8_t highestInternalTemp;
     int8_t lowestInternalTemp;
+    
     InternalErrorCode ErrorCodes[1 + MAXIMUM_InternalErrorCode];
     InternalWarningCode WarningCodes[1 + MAXIMUM_InternalWarningCode];
+
+    //True if at least 1 module has an external temp sensor fitted
     bool moduleHasExternalTempSensor;
     uint8_t invalidModuleCount;
 

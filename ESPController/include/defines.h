@@ -265,7 +265,9 @@ struct currentmonitoring_struct
   //Uses float as these are 4 bytes on ESP32
   int64_t timestamp;
   bool validReadings;
+  //Voltage
   float voltage;
+  //Current in AMPS
   float current;
   uint32_t milliamphour_out;
   uint32_t milliamphour_in;
