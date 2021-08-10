@@ -1667,8 +1667,8 @@ void mqtt2(void *param)
       ESP_LOGI(TAG, "Send MQTT Status");
 
       char topic[80];
-      char jsonbuffer[220];
-      DynamicJsonDocument doc(220);
+      char jsonbuffer[400];
+      DynamicJsonDocument doc(400);
       JsonObject root = doc.to<JsonObject>();
 
       root["banks"] = mysettings.totalNumberOfBanks;
@@ -2540,19 +2540,23 @@ void mqtt1(void *param)
     //Delay 5 seconds
     vTaskDelay(pdMS_TO_TICKS(5000));
 
+    if (mysettings.mqtt_enabled && mqttClient.connected() == false)
+    {
+      ESP_LOGE(TAG, "MQTT enabled, but not connected");
+    }
+
     if (mysettings.mqtt_enabled && mqttClient.connected())
     {
-      //ESP_LOGI(TAG, "Send MQTT Packet");
 
       char topic[80];
-      char jsonbuffer[200];
-      StaticJsonDocument<200> doc;
+      char jsonbuffer[300];
+      StaticJsonDocument<300> doc;
 
       //If the BMS is in error, stop sending MQTT packets for the data
       if (!rules.rule_outcome[Rule::BMSError])
       {
 
-        if (mqttStartModule > TotalNumberOfCells())
+        if (mqttStartModule > (TotalNumberOfCells() - 1))
         {
           mqttStartModule = 0;
         }
@@ -2562,6 +2566,7 @@ void mqtt1(void *param)
 
         while (i < TotalNumberOfCells() && counter < 8)
         {
+          ESP_LOGI(TAG, "Send MQTT for module %u", i);
           //Only send valid module data
           if (cmi[i].valid)
           {
@@ -3296,8 +3301,8 @@ TEST CAN BUS
   xTaskCreate(wifiresetdisable_task, "wifidbl", 800, nullptr, 1, &wifiresetdisable_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 3600, nullptr, 1, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 4000, nullptr, 1, &sdcardlog_outputs_task_handle);
-  xTaskCreate(mqtt1, "mqtt1", 3000, nullptr, 1, &mqtt1_task_handle);
-  xTaskCreate(mqtt2, "mqtt2", 3000, nullptr, 1, &mqtt2_task_handle);
+  xTaskCreate(mqtt1, "mqtt1", 4096, nullptr, 1, &mqtt1_task_handle);
+  xTaskCreate(mqtt2, "mqtt2", 4096, nullptr, 1, &mqtt2_task_handle);
 
   xTaskCreate(rs485_tx, "RS485TX", 3000, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "RS485RX", 3000, nullptr, 1, &rs485_rx_task_handle);
