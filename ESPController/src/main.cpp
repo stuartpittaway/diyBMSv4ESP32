@@ -3043,12 +3043,14 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
   file.close();
 }
 
+/*
 static const char *ESP32_CAN_STATUS_STRINGS[] = {
     "STOPPED",               // CAN_STATE_STOPPED
     "RUNNING",               // CAN_STATE_RUNNING
     "OFF / RECOVERY NEEDED", // CAN_STATE_BUS_OFF
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
+*/
 
 void dumpByte(uint8_t data)
 {

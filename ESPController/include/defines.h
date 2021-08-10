@@ -122,8 +122,11 @@ struct diybms_eeprom_settings
   uart_parity_t rs485parity;
   uart_stop_bits_t rs485stopbits;
 
-  char language[2+1];
+  char language[2 + 1];
 
+  float cvl[3];
+  float ccl[3];
+  float dcl[3];
 
   bool VictronEnabled;
 
@@ -309,7 +312,6 @@ struct currentmonitoring_struct
   bool RelayTriggerPowerOverLimit : 1;
   bool RelayState : 1;
 };
-
 
 enum DIAG_ALRT_FIELD : uint16_t
 {

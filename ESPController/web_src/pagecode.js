@@ -1472,12 +1472,11 @@ $(function () {
         currentmonitorSubmitForm(this);
     });
 
-
+/*
     $("#victronForm1").unbind('submit').submit(function (e) {
-        e.preventDefault();
-        currentmonitorSubmitForm(this);
+        e.preventDefault();        
     });
-
+*/
 
     $("#globalSettingsForm").unbind('submit').submit(function (e) {
         e.preventDefault();

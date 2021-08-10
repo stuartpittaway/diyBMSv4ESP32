@@ -476,33 +476,21 @@ void DIYBMSServer::getvictron(AsyncWebServerRequest *request)
 
   settings["enabled"] = _mysettings->VictronEnabled;
 
-  //settings["Version"] = String(GIT_VERSION);
-  //settings["CompileDate"] = String(COMPILE_DATE_TIME);
-/*
-  
-  settings["totalseriesmodules"] = _mysettings->totalNumberOfSeriesModules;
-
-  settings["bypassthreshold"] = _mysettings->BypassThresholdmV;
-  settings["bypassovertemp"] = _mysettings->BypassOverTempShutdown;
-
-  settings["NTPServerName"] = _mysettings->ntpServer;
-  settings["TimeZone"] = _mysettings->timeZone;
-  settings["MinutesTimeZone"] = _mysettings->minutesTimeZone;
-  settings["DST"] = _mysettings->daylight;
-
-  settings["FreeHeap"] = ESP.getFreeHeap();
-  settings["MinFreeHeap"] = ESP.getMinFreeHeap();
-  settings["HeapSize"] = ESP.getHeapSize();
-  settings["SdkVersion"] = ESP.getSdkVersion();
-
-  settings["HostName"] = WiFi.getHostname();
-
-  time_t now;
-  if (time(&now))
+  for (int i = 0; i < 3; i++)
   {
-    settings["now"] = now;
+    String name = "cvl";
+    name = name + i;
+    settings[name] = _mysettings->cvl[i];
+
+    name = "ccl";
+    name = name + i;
+    settings[name] = _mysettings->ccl[i];
+
+    name = "dcl";
+    name = name + i;
+    settings[name] = _mysettings->dcl[i];
   }
-*/
+
   response->addHeader("Cache-Control", "no-store");
 
   serializeJson(doc, *response);
@@ -514,18 +502,42 @@ void DIYBMSServer::saveVictron(AsyncWebServerRequest *request)
   if (!validateXSS(request))
     return;
 
-  bool enabled = false;
-
   if (request->hasParam("VictronEnabled", true))
   {
     AsyncWebParameter *p1 = request->getParam("VictronEnabled", true);
-    _mysettings->VictronEnabled= p1->value().equals("on") ? true : false;
+    _mysettings->VictronEnabled = p1->value().equals("on") ? true : false;
   }
   else
   {
-    _mysettings->VictronEnabled=false;
+    _mysettings->VictronEnabled = false;
   }
 
+  for (int i = 0; i < 3; i++)
+  {
+    String name = "cvl";
+    name = name + i;
+    if (request->hasParam(name.c_str(), true, false))
+    {
+      AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
+      _mysettings->cvl[i] = p1->value().toFloat();
+    }
+
+    name = "ccl";
+    name = name + i;
+    if (request->hasParam(name.c_str(), true, false))
+    {
+      AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
+      _mysettings->ccl[i] = p1->value().toFloat();
+    }
+
+    name = "dcl";
+    name = name + i;
+    if (request->hasParam(name.c_str(), true, false))
+    {
+      AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
+      _mysettings->dcl[i] = p1->value().toFloat();
+    }
+  }
 
   SendSuccess(request);
 }
@@ -2399,7 +2411,6 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->on("/currentmonitor.json", HTTP_GET, DIYBMSServer::currentmonitor);
   _myserver->on("/rs485settings.json", HTTP_GET, DIYBMSServer::rs485settings);
   _myserver->on("/victron.json", HTTP_GET, DIYBMSServer::getvictron);
-  
 
   //POST method endpoints
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);

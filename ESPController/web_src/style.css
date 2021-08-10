@@ -176,3 +176,5 @@ form input:read-only {
   color: white;
   border: solid 1px #808080;
 }
+
+#victronForm1 table { }
