@@ -1140,12 +1140,18 @@ $(function () {
         $(this).addClass("active");
 
         $.getJSON("victron.json",
-        function (data) {
-            $("#VictronEnabled").prop("checked", data.victron.enabled);
-            
-            switchPage("#victroncanbusPage");
-        }).fail(function () { }
-        );
+            function (data) {
+                $("#VictronEnabled").prop("checked", data.victron.enabled);
+
+                for (let index = 0; index < data.victron.cvl.length; index++) {
+                    $("#cvl" + index).val((data.victron.cvl[index]/10).toFixed(2));
+                    $("#ccl" + index).val((data.victron.ccl[index]/10).toFixed(2));
+                    $("#dcl" + index).val((data.victron.dcl[index]/10).toFixed(2));
+                }
+
+                switchPage("#victroncanbusPage");
+            }).fail(function () { }
+            );
 
         return true;
     });
@@ -1472,11 +1478,11 @@ $(function () {
         currentmonitorSubmitForm(this);
     });
 
-/*
-    $("#victronForm1").unbind('submit').submit(function (e) {
-        e.preventDefault();        
-    });
-*/
+    /*
+        $("#victronForm1").unbind('submit').submit(function (e) {
+            e.preventDefault();        
+        });
+    */
 
     $("#globalSettingsForm").unbind('submit').submit(function (e) {
         e.preventDefault();

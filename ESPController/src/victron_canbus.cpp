@@ -64,7 +64,11 @@ void victron_message_35f()
   data.BatteryModel = 0;
   //Need to swap bytes for this to make sense.
   data.Firmwareversion = ((uint16_t)COMPILE_WEEK_NUMBER_BYTE << 8) | COMPILE_YEAR_BYTE;
-  data.OnlinecapacityinAh = 100;
+
+  if (mysettings.currentMonitoringEnabled)
+  {
+    data.OnlinecapacityinAh = currentMonitor.AmpHourCapacity;
+  }
 
   send_canbus_message(0x35f, (uint8_t *)&data, sizeof(data35f));
 }
@@ -92,6 +96,28 @@ That strategy does not work with a Victron system.
 */
 void victron_message_351()
 {
+
+  uint8_t number_of_active_errors = 0;
+
+  if (_controller_state == ControllerState::Running)
+  {
+    number_of_active_errors += (rules.rule_outcome[Rule::PackOverVoltage] ? 1 : 0);
+    //(bit 4+5) Battery high voltage alarm
+    number_of_active_errors += (rules.rule_outcome[Rule::PackUnderVoltage] ? 1 : 0);
+    //(bit 6+7) Battery high temperature alarm
+    if (rules.moduleHasExternalTempSensor)
+    {
+      number_of_active_errors += (rules.rule_outcome[Rule::IndividualcellovertemperatureExternal] ? 1 : 0);
+    }
+
+    if (rules.moduleHasExternalTempSensor)
+    {
+      number_of_active_errors += (rules.rule_outcome[Rule::IndividualcellundertemperatureExternal] ? 1 : 0);
+    }
+
+    number_of_active_errors += ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? 1 : 0);
+  }
+
   struct data351
   {
     //CVL
@@ -106,10 +132,31 @@ void victron_message_351()
 
   data351 data;
 
-  data.chargevoltagelimit = 0;
-  data.maxchargecurrent = 0;
-  data.maxdischargecurrent = 0;
-  //data.dischargevoltage = 0;
+  if ((_controller_state != ControllerState::Running) || (number_of_active_errors > 0))
+  {
+    ESP_LOGW(TAG, "active_errors=%u", number_of_active_errors);
+    //Error condition
+    data.chargevoltagelimit = mysettings.cvl[VictronDVCC::ControllerError];
+    data.maxchargecurrent = mysettings.ccl[VictronDVCC::ControllerError];
+    data.maxdischargecurrent = mysettings.dcl[VictronDVCC::ControllerError];
+    //data.dischargevoltage = 0;
+  }
+  else if (rules.numberOfBalancingModules > 0)
+  {
+    //Balancing
+    data.chargevoltagelimit = mysettings.cvl[VictronDVCC::Balance];
+    data.maxchargecurrent = mysettings.ccl[VictronDVCC::Balance];
+    data.maxdischargecurrent = mysettings.dcl[VictronDVCC::Balance];
+    //data.dischargevoltage = 0;
+  }
+  else
+  {
+    //Default - normal behaviour
+    data.chargevoltagelimit = mysettings.cvl[VictronDVCC::Default];
+    data.maxchargecurrent = mysettings.ccl[VictronDVCC::Default];
+    data.maxdischargecurrent = mysettings.dcl[VictronDVCC::Default];
+    //data.dischargevoltage = 0;
+  }
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
 }

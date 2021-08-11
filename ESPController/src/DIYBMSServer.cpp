@@ -476,6 +476,17 @@ void DIYBMSServer::getvictron(AsyncWebServerRequest *request)
 
   settings["enabled"] = _mysettings->VictronEnabled;
 
+  JsonArray cvl = settings.createNestedArray("cvl");
+  JsonArray ccl = settings.createNestedArray("ccl");
+  JsonArray dcl = settings.createNestedArray("dcl");
+  for (uint8_t i = 0; i < 3; i++)
+  {
+    cvl.add(_mysettings->cvl[i]);
+    ccl.add(_mysettings->ccl[i]);
+    dcl.add(_mysettings->dcl[i]);
+  }
+
+  /*
   for (int i = 0; i < 3; i++)
   {
     String name = "cvl";
@@ -490,7 +501,7 @@ void DIYBMSServer::getvictron(AsyncWebServerRequest *request)
     name = name + i;
     settings[name] = _mysettings->dcl[i];
   }
-
+*/
   response->addHeader("Cache-Control", "no-store");
 
   serializeJson(doc, *response);
@@ -519,7 +530,7 @@ void DIYBMSServer::saveVictron(AsyncWebServerRequest *request)
     if (request->hasParam(name.c_str(), true, false))
     {
       AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
-      _mysettings->cvl[i] = p1->value().toFloat();
+      _mysettings->cvl[i] = p1->value().toFloat() * 10;
     }
 
     name = "ccl";
@@ -527,7 +538,7 @@ void DIYBMSServer::saveVictron(AsyncWebServerRequest *request)
     if (request->hasParam(name.c_str(), true, false))
     {
       AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
-      _mysettings->ccl[i] = p1->value().toFloat();
+      _mysettings->ccl[i] = p1->value().toFloat() * 10;
     }
 
     name = "dcl";
@@ -535,7 +546,7 @@ void DIYBMSServer::saveVictron(AsyncWebServerRequest *request)
     if (request->hasParam(name.c_str(), true, false))
     {
       AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
-      _mysettings->dcl[i] = p1->value().toFloat();
+      _mysettings->dcl[i] = p1->value().toFloat() * 10;
     }
   }
 

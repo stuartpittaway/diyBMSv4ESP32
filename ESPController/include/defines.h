@@ -37,6 +37,12 @@ enum RGBLED : uint8_t
   White = B00000111
 };
 
+enum VictronDVCC: uint8_t {
+  Default=0,
+  Balance=1,
+  ControllerError=2
+};
+
 //Maximum of 16 cell modules (don't change this!) number of cells to process in a single packet of data
 #define maximum_cell_modules_per_packet 16
 
@@ -124,9 +130,9 @@ struct diybms_eeprom_settings
 
   char language[2 + 1];
 
-  float cvl[3];
-  float ccl[3];
-  float dcl[3];
+  uint16_t cvl[3];
+  int16_t ccl[3];
+  int16_t dcl[3];
 
   bool VictronEnabled;
 
@@ -145,6 +151,7 @@ struct diybms_eeprom_settings
   char influxdb_user[32 + 1];
   char influxdb_password[32 + 1];
 };
+
 
 typedef union
 {
@@ -311,6 +318,8 @@ struct currentmonitoring_struct
   bool RelayTriggerVoltageUnderlimit : 1;
   bool RelayTriggerPowerOverLimit : 1;
   bool RelayState : 1;
+
+  uint16_t AmpHourCapacity;
 };
 
 enum DIAG_ALRT_FIELD : uint16_t

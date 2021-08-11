@@ -168,7 +168,7 @@ void voltageandstatussnapshot_task(void *param)
     //Wait until this task is triggered, when
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    ESP_LOGD(TAG, "Snap");
+    //ESP_LOGD(TAG, "Snap");
 
     if (_tft_screen_available)
     {
@@ -1664,7 +1664,7 @@ void mqtt2(void *param)
 
     if (mysettings.mqtt_enabled && mqttClient.connected())
     {
-      ESP_LOGI(TAG, "Send MQTT Status");
+      //ESP_LOGI(TAG, "Send MQTT Status");
 
       char topic[80];
       char jsonbuffer[400];
@@ -2566,7 +2566,7 @@ void mqtt1(void *param)
 
         while (i < TotalNumberOfCells() && counter < 8)
         {
-          ESP_LOGI(TAG, "Send MQTT for module %u", i);
+          //ESP_LOGI(TAG, "Send MQTT for module %u", i);
           //Only send valid module data
           if (cmi[i].valid)
           {
@@ -2667,6 +2667,22 @@ void LoadConfiguration()
   mysettings.mqtt_port = 1883;
 
   mysettings.VictronEnabled = false;
+
+  //Charge current limit (CCL)
+  mysettings.ccl[VictronDVCC::Default] = 10*10;
+  //Charge voltage limit (CVL)
+  mysettings.cvl[VictronDVCC::Default] = 12*10;
+  //Discharge current limit (DCL)
+  mysettings.dcl[VictronDVCC::Default] = 10*10;
+
+  //Balance
+  mysettings.ccl[VictronDVCC::Balance] = 10*10;
+  mysettings.cvl[VictronDVCC::Balance] = 10*10;
+  mysettings.dcl[VictronDVCC::Balance] = 10*10;
+  //Error
+  mysettings.ccl[VictronDVCC::ControllerError] = 0*10;
+  mysettings.cvl[VictronDVCC::ControllerError] = 0*10;
+  mysettings.dcl[VictronDVCC::ControllerError] = 0*10;
 
   mysettings.loggingEnabled = false;
   mysettings.loggingFrequencySeconds = 15;
