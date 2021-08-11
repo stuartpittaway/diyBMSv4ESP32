@@ -1107,7 +1107,7 @@ void ProcessRules()
   {
     for (int8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
     {
-      rules.ProcessCell(bank,cellid, &cmi[cellid]);
+      rules.ProcessCell(bank, cellid, &cmi[cellid]);
 
       if (cmi[cellid].valid && cmi[cellid].settingsCached)
       {
@@ -2386,7 +2386,8 @@ void victron_canbus_tx(void *param)
       //351 message must be sent at least every 3 seconds - or Victron will stop charge/discharge
       victron_message_351();
 
-      vTaskDelay(pdMS_TO_TICKS(250));
+      //Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
+      vTaskDelay(pdMS_TO_TICKS(100));
 
       //Advertise the diyBMS name on CANBUS
       victron_message_370_371();
@@ -2395,17 +2396,19 @@ void victron_canbus_tx(void *param)
       victron_message_372();
       victron_message_35f();
 
-      vTaskDelay(pdMS_TO_TICKS(250));
+      vTaskDelay(pdMS_TO_TICKS(100));
 
       if (_controller_state == ControllerState::Running)
       {
         victron_message_355();
         victron_message_356();
+
+        vTaskDelay(pdMS_TO_TICKS(100));
+
+        //Detail about individual cells
         victron_message_373();
-        victron_message_374();
-        victron_message_375();
-        victron_message_376();
-        victron_message_377();
+        victron_message_374_375_376_377();
+
         vTaskDelay(pdMS_TO_TICKS(250));
       }
     }
@@ -2673,20 +2676,20 @@ void LoadConfiguration()
   mysettings.VictronEnabled = false;
 
   //Charge current limit (CCL)
-  mysettings.ccl[VictronDVCC::Default] = 10*10;
+  mysettings.ccl[VictronDVCC::Default] = 10 * 10;
   //Charge voltage limit (CVL)
-  mysettings.cvl[VictronDVCC::Default] = 12*10;
+  mysettings.cvl[VictronDVCC::Default] = 12 * 10;
   //Discharge current limit (DCL)
-  mysettings.dcl[VictronDVCC::Default] = 10*10;
+  mysettings.dcl[VictronDVCC::Default] = 10 * 10;
 
   //Balance
-  mysettings.ccl[VictronDVCC::Balance] = 10*10;
-  mysettings.cvl[VictronDVCC::Balance] = 10*10;
-  mysettings.dcl[VictronDVCC::Balance] = 10*10;
+  mysettings.ccl[VictronDVCC::Balance] = 10 * 10;
+  mysettings.cvl[VictronDVCC::Balance] = 10 * 10;
+  mysettings.dcl[VictronDVCC::Balance] = 10 * 10;
   //Error
-  mysettings.ccl[VictronDVCC::ControllerError] = 0*10;
-  mysettings.cvl[VictronDVCC::ControllerError] = 0*10;
-  mysettings.dcl[VictronDVCC::ControllerError] = 0*10;
+  mysettings.ccl[VictronDVCC::ControllerError] = 0 * 10;
+  mysettings.cvl[VictronDVCC::ControllerError] = 0 * 10;
+  mysettings.dcl[VictronDVCC::ControllerError] = 0 * 10;
 
   mysettings.loggingEnabled = false;
   mysettings.loggingFrequencySeconds = 15;

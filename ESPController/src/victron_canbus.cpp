@@ -27,13 +27,13 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
   //Queue message for transmission
   if (can_transmit(&message, pdMS_TO_TICKS(250)) != ESP_OK)
   {
-    ESP_LOGE(TAG, "Failed to queue message for transmission");
+    ESP_LOGE(TAG, "Fail to queue message");
   }
   /*
   else
   {
-    ESP_LOGI(TAG, "Sent CAN message %u", identifier);
-    ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(can_message_t), esp_log_level_t::ESP_LOG_INFO);
+    ESP_LOGD(TAG, "Sent CAN message %u", identifier);
+    ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(can_message_t), esp_log_level_t::ESP_LOG_DEBUG);
   }
 */
 }
@@ -83,71 +83,42 @@ void SetBankAndModuleText(char *buffer, uint8_t cellid)
 
   snprintf(buffer, 8, "b%d m%d", bank, module);
 }
-//Min. cell voltage id string [1]
-void victron_message_374()
+
+void victron_message_374_375_376_377()
 {
-  struct data374
+  struct candata
   {
     char text[8];
   };
+
+  candata data;
 
   if (rules.address_LowestCellVoltage < maximum_controller_cell_modules)
   {
-    data374 data;
     SetBankAndModuleText(data.text, rules.address_LowestCellVoltage);
-
-    send_canbus_message(0x374, (uint8_t *)&data, sizeof(data374));
+    //Min. cell voltage id string [1]
+    send_canbus_message(0x374, (uint8_t *)&data, sizeof(candata));
   }
-}
-
-//Max. cell voltage id string [1]
-void victron_message_375()
-{
-  struct data375
-  {
-    char text[8];
-  };
 
   if (rules.address_HighestCellVoltage < maximum_controller_cell_modules)
   {
-    data375 data;
     SetBankAndModuleText(data.text, rules.address_HighestCellVoltage);
-
-    send_canbus_message(0x375, (uint8_t *)&data, sizeof(data375));
+    //Max. cell voltage id string [1]
+    send_canbus_message(0x375, (uint8_t *)&data, sizeof(candata));
   }
-}
 
-//Min. cell temperature id string
-void victron_message_376()
-{
-  struct data376
-  {
-    char text[8];
-  };
   if (rules.address_lowestExternalTemp < maximum_controller_cell_modules)
   {
-
-    data376 data;
     SetBankAndModuleText(data.text, rules.address_lowestExternalTemp);
-
-    send_canbus_message(0x376, (uint8_t *)&data, sizeof(data376));
+    //Min. cell voltage id string [1]
+    send_canbus_message(0x376, (uint8_t *)&data, sizeof(candata));
   }
-}
-
-//Max. cell temperature id string
-void victron_message_377()
-{
-  struct data377
-  {
-    char text[8];
-  };
 
   if (rules.address_highestExternalTemp < maximum_controller_cell_modules)
   {
-    data377 data;
     SetBankAndModuleText(data.text, rules.address_highestExternalTemp);
-
-    send_canbus_message(0x377, (uint8_t *)&data, sizeof(data377));
+    //Min. cell voltage id string [1]
+    send_canbus_message(0x377, (uint8_t *)&data, sizeof(candata));
   }
 }
 
@@ -239,6 +210,7 @@ void victron_message_351()
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
 }
 
+//SOC value
 void victron_message_355()
 {
 
@@ -258,6 +230,7 @@ void victron_message_355()
   send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
 }
 
+//Battery voltage
 void victron_message_356()
 {
   struct data356
