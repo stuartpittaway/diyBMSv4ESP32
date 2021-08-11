@@ -68,6 +68,13 @@ public:
     uint32_t lowestPackVoltage;
     uint16_t highestCellVoltage;
     uint16_t lowestCellVoltage;
+    
+    //Identify address (id) of which module reports the highest/lowest values
+    uint8_t address_HighestCellVoltage;
+    uint8_t address_LowestCellVoltage;
+    uint8_t address_highestExternalTemp;
+    uint8_t address_lowestExternalTemp;
+
     int8_t highestExternalTemp;
     int8_t lowestExternalTemp;
     int8_t highestInternalTemp;
@@ -85,7 +92,7 @@ public:
     int8_t numberOfBalancingModules;
 
     void ClearValues();
-    void ProcessCell(uint8_t bank, CellModuleInfo *c);
+    void ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c);
     void ProcessBank(uint8_t bank);
     void SetWarning(InternalWarningCode warncode);
 

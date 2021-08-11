@@ -1107,7 +1107,7 @@ void ProcessRules()
   {
     for (int8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
     {
-      rules.ProcessCell(bank, &cmi[cellid]);
+      rules.ProcessCell(bank,cellid, &cmi[cellid]);
 
       if (cmi[cellid].valid && cmi[cellid].settingsCached)
       {
@@ -2402,6 +2402,10 @@ void victron_canbus_tx(void *param)
         victron_message_355();
         victron_message_356();
         victron_message_373();
+        victron_message_374();
+        victron_message_375();
+        victron_message_376();
+        victron_message_377();
         vTaskDelay(pdMS_TO_TICKS(250));
       }
     }

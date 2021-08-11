@@ -21,10 +21,16 @@ void Rules::ClearValues()
     zeroVoltageModuleCount = 0;
     invalidModuleCount = 0;
     moduleHasExternalTempSensor = false;
+
+    address_LowestCellVoltage=maximum_controller_cell_modules+1;
+    address_lowestExternalTemp=maximum_controller_cell_modules+1;
+    address_highestExternalTemp=maximum_controller_cell_modules+1;
+    address_HighestCellVoltage=maximum_controller_cell_modules+1;
+
 }
 
 //Looking at individual voltages and temperatures and sum up pack voltages.
-void Rules::ProcessCell(uint8_t bank, CellModuleInfo *c)
+void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c)
 {
     if (c->valid == false)
     {
@@ -53,11 +59,13 @@ void Rules::ProcessCell(uint8_t bank, CellModuleInfo *c)
     if (c->voltagemV > highestCellVoltage)
     {
         highestCellVoltage = c->voltagemV;
+        address_HighestCellVoltage=cellNumber;
     }
 
     if (c->voltagemV < lowestCellVoltage)
     {
         lowestCellVoltage = c->voltagemV;
+        address_LowestCellVoltage=cellNumber;
     }
 
     if (c->externalTemp != -40)
@@ -68,11 +76,13 @@ void Rules::ProcessCell(uint8_t bank, CellModuleInfo *c)
         if (c->externalTemp > highestExternalTemp)
         {
             highestExternalTemp = c->externalTemp;
+            address_highestExternalTemp=cellNumber;
         }
 
         if (c->externalTemp < lowestExternalTemp)
         {
             lowestExternalTemp = c->externalTemp;
+            address_lowestExternalTemp=cellNumber;
         }
     }
 

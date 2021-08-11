@@ -73,6 +73,84 @@ void victron_message_35f()
   send_canbus_message(0x35f, (uint8_t *)&data, sizeof(data35f));
 }
 
+void SetBankAndModuleText(char *buffer, uint8_t cellid)
+{
+  uint8_t bank = cellid / mysettings.totalNumberOfSeriesModules;
+  uint8_t module = cellid - (bank * mysettings.totalNumberOfSeriesModules);
+
+  //Clear all 8 bytes
+  memset(buffer, 0, 8);
+
+  snprintf(buffer, 8, "b%d m%d", bank, module);
+}
+//Min. cell voltage id string [1]
+void victron_message_374()
+{
+  struct data374
+  {
+    char text[8];
+  };
+
+  if (rules.address_LowestCellVoltage < maximum_controller_cell_modules)
+  {
+    data374 data;
+    SetBankAndModuleText(data.text, rules.address_LowestCellVoltage);
+
+    send_canbus_message(0x374, (uint8_t *)&data, sizeof(data374));
+  }
+}
+
+//Max. cell voltage id string [1]
+void victron_message_375()
+{
+  struct data375
+  {
+    char text[8];
+  };
+
+  if (rules.address_HighestCellVoltage < maximum_controller_cell_modules)
+  {
+    data375 data;
+    SetBankAndModuleText(data.text, rules.address_HighestCellVoltage);
+
+    send_canbus_message(0x375, (uint8_t *)&data, sizeof(data375));
+  }
+}
+
+//Min. cell temperature id string
+void victron_message_376()
+{
+  struct data376
+  {
+    char text[8];
+  };
+  if (rules.address_lowestExternalTemp < maximum_controller_cell_modules)
+  {
+
+    data376 data;
+    SetBankAndModuleText(data.text, rules.address_lowestExternalTemp);
+
+    send_canbus_message(0x376, (uint8_t *)&data, sizeof(data376));
+  }
+}
+
+//Max. cell temperature id string
+void victron_message_377()
+{
+  struct data377
+  {
+    char text[8];
+  };
+
+  if (rules.address_highestExternalTemp < maximum_controller_cell_modules)
+  {
+    data377 data;
+    SetBankAndModuleText(data.text, rules.address_highestExternalTemp);
+
+    send_canbus_message(0x377, (uint8_t *)&data, sizeof(data377));
+  }
+}
+
 //CVL & CCL implementation
 /*
 At a fundamental level, Victron's approach to interacting with BMSes is in the form of 3 setpoint parameters:

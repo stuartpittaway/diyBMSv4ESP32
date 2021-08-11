@@ -964,7 +964,7 @@ void DIYBMSServer::saveMQTTSetting(AsyncWebServerRequest *request)
   }
   else
   {
-    sprintf(_mysettings->mqtt_topic, "diybms");
+    strcpy(_mysettings->mqtt_topic, "diybms");
   }
 
   if (request->hasParam("mqttPort", true))
@@ -2442,5 +2442,5 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();
 
-  ESP_LOGD(TAG, "Start Web Server complete");
+  ESP_LOGI(TAG, "Start Web Server complete");
 }

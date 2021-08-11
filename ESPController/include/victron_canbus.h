@@ -14,6 +14,10 @@ void victron_message_35a();
 void victron_message_372();
 void victron_message_373();
 void victron_message_35f();
+void victron_message_374();
+void victron_message_375();
+void victron_message_376();
+void victron_message_377();
 
 extern uint16_t TotalNumberOfCells();
 extern Rules rules;
