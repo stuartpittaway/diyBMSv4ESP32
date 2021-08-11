@@ -7,10 +7,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet" />
     <link href="style.css" rel="stylesheet" />
     <script type="text/javascript">
-        const MAXIMUM_NUMBER_OF_BANKS = parseInt('%maxnumberofbanks%',10) ;
-        const MAXIMUM_NUMBER_OF_SERIES_MODULES = parseInt('%noofseriesmodules%',10) ;
+        const MAXIMUM_NUMBER_OF_BANKS = parseInt('%maxnumberofbanks%', 10);
+        const MAXIMUM_NUMBER_OF_SERIES_MODULES = parseInt('%noofseriesmodules%', 10);
         const MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET = 16;
-        
+
         var DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat('%graph_voltagehigh%');
         var DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat('%graph_voltagelow%');
         var XSS_KEY = '%XSS_KEY%';
@@ -593,38 +593,54 @@
                             <tbody>
                                 <tr>
                                     <td>Default</td>
-                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01" name="cvl0" id="cvl0" value="0" required=""></td>
-                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01" name="ccl0" id="ccl0" value="0" required=""></td>
-                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01" name="dcl0" id="dcl0" value="0" required=""></td>
+                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                            name="cvl0" id="cvl0" value="0" required=""></td>
+                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                            name="ccl0" id="ccl0" value="0" required=""></td>
+                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                            name="dcl0" id="dcl0" value="0" required=""></td>
                                 </tr>
 
                                 <tr>
                                     <td>Balancing</td>
-                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01" name="cvl1" id="cvl1" value="0" required=""></td>
-                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01" name="ccl1" id="ccl1" value="0" required=""></td>
-                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01" name="dcl1" id="dcl1" value="0" required=""></td>
+                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                            name="cvl1" id="cvl1" value="0" required=""></td>
+                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                            name="ccl1" id="ccl1" value="0" required=""></td>
+                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                            name="dcl1" id="dcl1" value="0" required=""></td>
                                 </tr>
 
                                 <tr>
                                     <td>Error</td>
-                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01" name="cvl2" id="cvl2" value="0" required=""></td>
-                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01" name="ccl2" id="ccl2" value="0" required=""></td>
-                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01" name="dcl2" id="dcl2" value="0" required=""></td>
+                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                            name="cvl2" id="cvl2" value="0" required=""></td>
+                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                            name="ccl2" id="ccl2" value="0" required=""></td>
+                                    <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                            name="dcl2" id="dcl2" value="0" required=""></td>
                                 </tr>
 
                             </tbody>
                         </table>
+                    </div>
 
 
+                    <div>
+                        <p id="v5">
+                            <img class="warnicon" src="warning.png" width="48" height="41" alt="Warning" />
+                            WARNING: Incorrect use of these settings could destroy your battery and cause harm!
+                        </p>
                     </div>
 
                     <div>
-                        <p>Charge voltage limit (CVL): the maximum charge voltage that the battery currently accepts</p>
-                        <p>Charge current limit (CCL): the maximum charge current requested by the battery </p>
-                        <p>Discharge current limit (DCL): the maximum discharge current as requested by the battery</p>
+                        <p class="small">Charge voltage limit (CVL): the maximum charge voltage that the battery
+                            currently accepts</p>
+                        <p class="small">Charge current limit (CCL): the maximum charge current requested by the battery
+                        </p>
+                        <p class="small">Discharge current limit (DCL): the maximum discharge current as requested by
+                            the battery</p>
                     </div>
-
-
                     <input type="submit" value="Save Victron settings" />
                 </div>
             </form>

@@ -177,4 +177,5 @@ form input:read-only {
   border: solid 1px #808080;
 }
 
+.small {font-size:smaller;}
 #victronForm1 table { }

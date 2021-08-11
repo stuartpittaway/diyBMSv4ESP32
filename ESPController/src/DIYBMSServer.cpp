@@ -486,22 +486,6 @@ void DIYBMSServer::getvictron(AsyncWebServerRequest *request)
     dcl.add(_mysettings->dcl[i]);
   }
 
-  /*
-  for (int i = 0; i < 3; i++)
-  {
-    String name = "cvl";
-    name = name + i;
-    settings[name] = _mysettings->cvl[i];
-
-    name = "ccl";
-    name = name + i;
-    settings[name] = _mysettings->ccl[i];
-
-    name = "dcl";
-    name = name + i;
-    settings[name] = _mysettings->dcl[i];
-  }
-*/
   response->addHeader("Cache-Control", "no-store");
 
   serializeJson(doc, *response);
