@@ -140,6 +140,214 @@ void DIYBMSServer::SendFailure(AsyncWebServerRequest *request)
   request->send(500, "text/plain", "Failed");
 }
 
+void DIYBMSServer::saveConfigurationToSDCard(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (!_sd_card_installed)
+  {
+    SendFailure(request);
+    return;
+  }
+
+  if (_hal->GetVSPIMutex())
+  {
+
+    struct tm timeinfo;
+
+    //getLocalTime has delay() functions in it :-(
+    if (getLocalTime(&timeinfo, 1))
+    {
+      timeinfo.tm_year += 1900;
+      //Month is 0 to 11 based!
+      timeinfo.tm_mon++;
+    }
+    else
+    {
+      memset(&timeinfo, 0, sizeof(tm));
+    }
+
+    char filename[128];
+    sprintf(filename, "/backup_config_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+    //ESP_LOGI(TAG, "Creating folder");
+    //_sdcard->mkdir("/diybms");
+
+    //Get the file
+    ESP_LOGI(TAG, "Generating SD file %s", filename);
+
+    if (_sdcard->exists(filename))
+    {
+      ESP_LOGI(TAG, "Delete existing file %s", filename);
+      _sdcard->remove(filename);
+    }
+
+    StaticJsonDocument<4096> doc;
+
+    //This code builds up a JSON document which mirrors the structure "diybms_eeprom_settings"
+    JsonObject root = doc.createNestedObject("diybms_eeprom_settings");
+
+    root["totalNumberOfBanks"] = _mysettings->totalNumberOfBanks;
+    root["totalNumberOfSeriesModules"] = _mysettings->totalNumberOfSeriesModules;
+
+    root["graph_voltagehigh"] = _mysettings->graph_voltagehigh;
+    root["graph_voltagelow"] = _mysettings->graph_voltagelow;
+
+    root["BypassOverTempShutdown"] = _mysettings->BypassOverTempShutdown;
+    root["BypassThresholdmV"] = _mysettings->BypassThresholdmV;
+
+    root["timeZone"] = _mysettings->timeZone;
+    root["minutesTimeZone"] = _mysettings->minutesTimeZone;
+    root["daylight"] = _mysettings->daylight;
+    root["ntpServer"] = _mysettings->ntpServer;
+
+    root["loggingEnabled"] = _mysettings->loggingEnabled;
+    root["loggingFrequencySeconds"] = _mysettings->loggingFrequencySeconds;
+
+    root["currentMonitoringEnabled"] = _mysettings->currentMonitoringEnabled;
+    root["currentMonitoringModBusAddress"] = _mysettings->currentMonitoringModBusAddress;
+
+    root["rs485baudrate"] = _mysettings->rs485baudrate;
+    root["rs485databits"] = _mysettings->rs485databits;
+    root["rs485parity"] = _mysettings->rs485parity;
+    root["rs485stopbits"] = _mysettings->rs485stopbits;
+
+    root["language"] = _mysettings->language;
+
+    root["VictronEnabled"] = _mysettings->VictronEnabled;
+
+    JsonObject mqtt = root.createNestedObject("mqtt");
+    mqtt["enabled"] = _mysettings->mqtt_enabled;
+    mqtt["port"] = _mysettings->mqtt_port;
+    mqtt["server"] = _mysettings->mqtt_server;
+    mqtt["topic"] = _mysettings->mqtt_topic;
+    mqtt["username"] = _mysettings->mqtt_username;
+    mqtt["password"] = _mysettings->mqtt_password;
+
+    JsonObject influxdb = root.createNestedObject("influxdb");
+    influxdb["enabled"] = _mysettings->influxdb_enabled;
+    influxdb["httpPort"] = _mysettings->influxdb_httpPort;
+    influxdb["host"] = _mysettings->influxdb_host;
+    influxdb["database"] = _mysettings->influxdb_database;
+    influxdb["user"] = _mysettings->influxdb_user;
+    influxdb["password"] = _mysettings->influxdb_password;
+
+    JsonObject rule = root.createNestedObject("rule");
+    JsonArray v = rule.createNestedArray("value");
+    JsonArray h = rule.createNestedArray("hysteresis");
+    for (uint8_t i = 0; i < RELAY_RULES; i++)
+    {
+      v.add(_mysettings->rulevalue[i]);
+      h.add(_mysettings->rulehysteresis[i]);
+    }
+
+    JsonObject relay = root.createNestedObject("relay");
+
+    JsonArray d = relay.createNestedArray("default");
+    JsonArray t = relay.createNestedArray("type");
+    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+    {
+      d.add(_mysettings->rulerelaydefault[i]);
+      t.add(_mysettings->relaytype[i]);
+    }
+
+    //rulerelaystate
+    JsonObject state = relay.createNestedObject("state");
+    for (uint8_t rr = 0; rr < RELAY_RULES; rr++)
+    {
+
+      String elementName = String("rule") + String(rr);
+
+//Map enum to string so when this file is re-imported we are not locked to specific index offsets
+//which may no longer map to the correct rule
+      switch (rr)
+      {
+      case Rule::EmergencyStop:
+        elementName = String("EmergencyStop");
+        break;
+      case Rule::BMSError:
+        elementName = String("BMSError");
+        break;
+      case Rule::CurrentMonitorOverCurrentAmps:
+        elementName = String("CurrentMonitorOverCurrentAmps");
+        break;
+      case Rule::ModuleOverVoltage:
+        elementName = String("ModuleOverVoltage");
+        break;
+      case Rule::ModuleUnderVoltage:
+        elementName = String("ModuleUnderVoltage");
+        break;
+      case Rule::ModuleOverTemperatureInternal:
+        elementName = String("ModuleOverTemperatureInternal");
+        break;
+      case Rule::ModuleUnderTemperatureInternal:
+        elementName = String("ModuleUnderTemperatureInternal");
+        break;
+      case Rule::ModuleOverTemperatureExternal:
+        elementName = String("ModuleOverTemperatureExternal");
+        break;
+      case Rule::ModuleUnderTemperatureExternal:
+        elementName = String("ModuleUnderTemperatureExternal");
+        break;
+      case Rule::CurrentMonitorOverVoltage:
+        elementName = String("CurrentMonitorOverVoltage");
+        break;
+      case Rule::CurrentMonitorUnderVoltage:
+        elementName = String("CurrentMonitorUnderVoltage");
+        break;
+      case Rule::BankOverVoltage:
+        elementName = String("BankOverVoltage");
+        break;
+      case Rule::BankUnderVoltage:
+        elementName = String("BankUnderVoltage");
+        break;
+      case Rule::Timer2:
+        elementName = String("Timer2");
+        break;
+      case Rule::Timer1:
+        elementName = String("Timer1");
+        break;
+      }
+
+      JsonArray rule = state.createNestedArray(elementName);
+      for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
+      {
+        rule.add(_mysettings->rulerelaystate[rr][rt]);
+      }
+    }
+
+    JsonObject victron = root.createNestedObject("victron");
+    JsonArray cvl = victron.createNestedArray("cvl");
+    JsonArray ccl = victron.createNestedArray("ccl");
+    JsonArray dcl = victron.createNestedArray("dcl");
+    for (uint8_t i = 0; i < 3; i++)
+    {
+      cvl.add(_mysettings->cvl[i]);
+      ccl.add(_mysettings->ccl[i]);
+      dcl.add(_mysettings->dcl[i]);
+    }
+
+    /*
+struct diybms_eeprom_settings
+{
+  //Use a bit pattern to indicate the relay states
+  RelayState rulerelaystate[RELAY_RULES][RELAY_TOTAL];
+};
+*/
+
+    //wifi["password"] = DIYBMSSoftAP::Config()->wifi_passphrase;
+
+    File file = _sdcard->open(filename, "w");
+    serializeJson(doc, file);
+    file.close();
+
+    _hal->ReleaseVSPIMutex();
+  }
+
+  SendSuccess(request);
+}
+
 void DIYBMSServer::saveWifiConfigToSDCard(AsyncWebServerRequest *request)
 {
   if (!validateXSS(request))
@@ -1119,7 +1327,7 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   AsyncResponseStream *response =
       request->beginResponseStream("application/json");
 
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(4096);
   JsonObject root = doc.to<JsonObject>();
 
   struct tm timeinfo;
@@ -2430,6 +2638,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/avrprog.json", HTTP_POST, DIYBMSServer::avrProgrammer);
   _myserver->on("/wificonfigtofile.json", HTTP_POST, DIYBMSServer::saveWifiConfigToSDCard);
+  _myserver->on("/saveconfigtofile.json", HTTP_POST, DIYBMSServer::saveConfigurationToSDCard);
 
   //Current monitor services/settings
   _myserver->on("/savers485settings.json", HTTP_POST, DIYBMSServer::saveRS485Settings);

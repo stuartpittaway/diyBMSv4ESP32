@@ -1238,6 +1238,22 @@ $(function () {
         });
     });
 
+    $("#saveconfig").click(function () {
+        $.ajax({
+            type: 'post',
+            url: 'saveconfigtofile.json',
+            data: 'save=1',
+            success: function (data) {
+                //Refresh the storage page
+                showSuccess();
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+    });
+    
+
     $("#unmount").click(function () {
         $.ajax({
             type: 'post',

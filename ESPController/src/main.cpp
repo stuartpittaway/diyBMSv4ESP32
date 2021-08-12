@@ -2735,22 +2735,22 @@ void LoadConfiguration()
   //Current monitoring maximum AMPS
   mysettings.rulevalue[Rule::CurrentMonitorOverCurrentAmps] = 100;
   //Individual cell over voltage
-  mysettings.rulevalue[Rule::Individualcellovervoltage] = 4150;
+  mysettings.rulevalue[Rule::ModuleOverVoltage] = 4150;
   //Individual cell under voltage
-  mysettings.rulevalue[Rule::Individualcellundervoltage] = 3000;
+  mysettings.rulevalue[Rule::ModuleUnderVoltage] = 3000;
   //Individual cell over temperature (external probe)
-  mysettings.rulevalue[Rule::IndividualcellovertemperatureExternal] = 55;
+  mysettings.rulevalue[Rule::ModuleOverTemperatureExternal] = 55;
   //Pack over voltage (mV)
-  mysettings.rulevalue[Rule::IndividualcellundertemperatureExternal] = 5;
+  mysettings.rulevalue[Rule::ModuleUnderTemperatureExternal] = 5;
   //Pack under voltage (mV)
-  mysettings.rulevalue[Rule::PackOverVoltage] = 4200 * 8;
+  mysettings.rulevalue[Rule::BankOverVoltage] = 4200 * 8;
   //RULE_PackUnderVoltage
-  mysettings.rulevalue[Rule::PackUnderVoltage] = 3000 * 8;
+  mysettings.rulevalue[Rule::BankUnderVoltage] = 3000 * 8;
   mysettings.rulevalue[Rule::Timer1] = 60 * 8;  //8am
   mysettings.rulevalue[Rule::Timer2] = 60 * 17; //5pm
 
   mysettings.rulevalue[Rule::ModuleOverTemperatureInternal] = 60;
-  mysettings.rulevalue[Rule::ModuleUnderTemperatureInternal] = 50;
+  mysettings.rulevalue[Rule::ModuleUnderTemperatureInternal] = 5;
 
   mysettings.rulevalue[Rule::CurrentMonitorOverVoltage] = 4200 * 8;
   mysettings.rulevalue[Rule::CurrentMonitorUnderVoltage] = 3000 * 8;

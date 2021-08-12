@@ -150,18 +150,18 @@ void victron_message_351()
 
   if (_controller_state == ControllerState::Running)
   {
-    number_of_active_errors += (rules.rule_outcome[Rule::PackOverVoltage] ? 1 : 0);
+    number_of_active_errors += (rules.rule_outcome[Rule::BankOverVoltage] ? 1 : 0);
     //(bit 4+5) Battery high voltage alarm
-    number_of_active_errors += (rules.rule_outcome[Rule::PackUnderVoltage] ? 1 : 0);
+    number_of_active_errors += (rules.rule_outcome[Rule::BankUnderVoltage] ? 1 : 0);
     //(bit 6+7) Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      number_of_active_errors += (rules.rule_outcome[Rule::IndividualcellovertemperatureExternal] ? 1 : 0);
+      number_of_active_errors += (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? 1 : 0);
     }
 
     if (rules.moduleHasExternalTempSensor)
     {
-      number_of_active_errors += (rules.rule_outcome[Rule::IndividualcellundertemperatureExternal] ? 1 : 0);
+      number_of_active_errors += (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? 1 : 0);
     }
 
     number_of_active_errors += ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? 1 : 0);
@@ -324,20 +324,20 @@ void victron_message_35a()
     //BYTE 0
     //(bit 0+1) General alarm (not implemented)
     //(bit 2+3) Battery low voltage alarm
-    data.byte0 |= (rules.rule_outcome[Rule::PackOverVoltage] ? BIT23_ALARM : BIT23_OK);
+    data.byte0 |= (rules.rule_outcome[Rule::BankOverVoltage] ? BIT23_ALARM : BIT23_OK);
     //(bit 4+5) Battery high voltage alarm
-    data.byte0 |= (rules.rule_outcome[Rule::PackUnderVoltage] ? BIT45_ALARM : BIT45_OK);
+    data.byte0 |= (rules.rule_outcome[Rule::BankUnderVoltage] ? BIT45_ALARM : BIT45_OK);
     //(bit 6+7) Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      data.byte0 |= (rules.rule_outcome[Rule::IndividualcellovertemperatureExternal] ? BIT67_ALARM : BIT67_OK);
+      data.byte0 |= (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? BIT67_ALARM : BIT67_OK);
     }
 
     //BYTE 1
     //1 (bit 0+1) Battery low temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      data.byte1 |= (rules.rule_outcome[Rule::IndividualcellundertemperatureExternal] ? BIT01_ALARM : BIT01_OK);
+      data.byte1 |= (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? BIT01_ALARM : BIT01_OK);
     }
     //1 (bit 2+3) Battery high temperature charge alarm
     //data.byte1 |= BIT23_NOTSUP;

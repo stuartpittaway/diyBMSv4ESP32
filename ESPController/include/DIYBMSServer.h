@@ -109,6 +109,7 @@ private:
     static void sdUnmount(AsyncWebServerRequest *request);
     static void avrProgrammer(AsyncWebServerRequest *request);
     static void saveWifiConfigToSDCard(AsyncWebServerRequest *request);
+    static void saveConfigurationToSDCard(AsyncWebServerRequest *request);
 
     static String uuidToString(uint8_t *uuidLocation);
     static void SetCacheAndETagGzip(AsyncWebServerResponse *response, String ETag);
