@@ -1780,9 +1780,10 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"roundtrip\":", _receiveProc->packetTimerMillisecond);
   PrintStreamComma(response, "\"oos\":", _receiveProc->totalOutofSequenceErrors);
 
+  PrintStreamComma(response, "\"activerules\":", _rules->active_rule_count);
   PrintStreamComma(response, "\"uptime\":", (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6));
 
-  //Output last 2 charaters from security cookie, to allow brower to detect when its
+  //Output last 2 charaters from security cookie, to allow browser to detect when its
   //no longer in sync with the back end and report warning.
   //Technically this downgrades the complexity of the XSS key, as it reduces key length.
   response->print("\"sec\":\"");

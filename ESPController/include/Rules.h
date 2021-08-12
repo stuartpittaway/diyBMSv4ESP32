@@ -57,6 +57,9 @@ class Rules
 
 public:
     bool rule_outcome[RELAY_RULES];
+    //Number of TRUE values in array rule_outcome
+    uint8_t active_rule_count;
+
     uint32_t packvoltage[maximum_number_of_banks];
 
     uint16_t lowestvoltageinpack[maximum_number_of_banks];

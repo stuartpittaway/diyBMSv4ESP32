@@ -357,6 +357,7 @@ function queryBMS() {
             if (jsondata.oos == 0) { $("#oos").hide(); } else { $("#oos .v").html(jsondata.oos); $("#oos").show(); }
 
             $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
+            $("#activerules .v").html(jsondata.activerules); $("#activerules").show();
         }
 
         if (jsondata.bankv) {

@@ -341,4 +341,14 @@ void Rules::RunRules(
         //Rule - Pack under voltage (mV) - HYSTERESIS RESET
         rule_outcome[Rule::PackUnderVoltage] = false;
     }
+
+
+    //Total up the active rules
+    active_rule_count=0;
+
+    for (size_t i = 0; i < RELAY_RULES; i++)
+    {
+        if (rule_outcome[i]==true) active_rule_count++;
+    }
+
 }
