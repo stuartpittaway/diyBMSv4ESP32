@@ -41,11 +41,16 @@
     <div class="header">
         <div class="logocontainer"><img class="logo" src="logo.png" width="152" height="48" alt="DIYBMS" /></div>
         <div class="header-right">
-            <a id="home" class="active" href="#home">Home</a>
-            <a id="modules" href="#modules">Modules</a>
-            <a id="settings" href="#settings">Settings</a>
-            <a id="rules" href="#rules">Rules</a>
-            <a id="more" href="#">More</a>
+            <div class="notify-container"><a id="home" class="active" href="#home">Home</a></div>
+            <div class="notify-container"><a id="modules" href="#modules">Modules</a></div>
+            <div class="notify-container"><a id="settings" href="#settings">Settings</a></div>
+
+            <div class="notify-container">
+                <span class="notify-bubble" id="activerules"></span>
+                <a id="rules" href="#rules">Rules</a>
+            </div>
+
+            <div class="notify-container"><a id="more" href="#">More</a></div>
         </div>
     </div>
 
@@ -101,7 +106,7 @@
             <div id="received" class="stat"><span class="x t">Packets rec'd:</span><span class="x v"></span></div>
             <div id="roundtrip" class="stat"><span class="x t">Roundtrip (ms):</span><span class="x v"></span></div>
             <div id="uptime" class="stat"><span class="x t">Uptime:</span><span class="x v"></span></div>
-            <div id="activerules" class="stat"><span class="x t">Active rules:</span><span class="x v"></span></div>
+
 
             <div id="graphOptions" class="stat"><span class="x t">Graph:</span>
                 <span class="x v">
@@ -245,7 +250,7 @@
                             <input id="mVPerADC" name="mVPerADC" type="number" value="" readonly="">
                         </div>
 
-                        <input type="submit" value="Save settings" />
+                        <button type="submit">Save settings</button>
                     </div>
                 </form>
             </div>
@@ -266,7 +271,7 @@
                             value="4100" required="">
                     </div>
                 </div>
-                <input id="globalSettingsButton" type="submit" value="Save settings" />
+                <button id="globalSettingsButton" type="submit">Save settings</button>
             </form>
         </div>
     </div>
@@ -309,7 +314,7 @@
                         <input type="password" autocomplete="current-password" name="mqttPassword" id="mqttPassword"
                             value="" required="" maxlength="32">
                     </div>
-                    <input type="submit" value="Save MQTT settings" />
+                    <button type="submit">Save MQTT settings</button>
                 </div>
             </form>
         </div>
@@ -347,7 +352,7 @@
                         <input type="password" autocomplete="current-password" name="influxPassword" id="influxPassword"
                             value="" required="" maxlength="32">
                     </div>
-                    <input type="submit" value="Save Influx DB settings" />
+                    <button type="submit">Save Influx DB settings</button>
                 </div>
             </form>
         </div>
@@ -555,7 +560,7 @@
                         </tbody>
                     </table>
                 </div>
-                <input type="submit" value="Save rules" />
+                <button type="submit">Save rules</button>
             </form>
         </div>
     </div>
@@ -653,7 +658,7 @@
                             <input type="checkbox" name="VictronEnabled" id="VictronEnabled">
                         </div>
 
-                        <input type="submit" value="Save Victron settings" />
+                        <button type="submit">Save Victron settings</button>
                     </div>
                 </form>
             </div>
@@ -682,7 +687,7 @@
                         </select>
                     </div>
 
-                    <input type="submit" value="Save connection settings" />
+                    <button type="submit">Save connection settings</button>
                 </div>
             </form>
         </div>
@@ -727,7 +732,7 @@
                             <option value="3">2</option>
                         </select>
                     </div>
-                    <input type="submit" value="Save RS485 settings" />
+                    <button type="submit">Save RS485 settings</button>
                 </div>
             </form>
         </div>
@@ -850,7 +855,7 @@
 
 
 
-                    <input type="submit" value="Save basic settings" />
+                    <button type="submit">Save basic settings</button>
 
                     <button id="currentmonrefresh" type="button">Refresh values</button>
 
@@ -906,7 +911,7 @@
                     </div>
 
 
-                    <input type="submit" value="Save advanced settings" />
+                    <button type="submit">Save advanced settings</button>
                 </div>
             </form>
         </div>
@@ -947,7 +952,7 @@
                         <input type="checkbox" name="cmPOL" id="cmPOL">
                     </div>
 
-                    <input type="submit" value="Save relay triggers" />
+                    <button type="submit">Save relay triggers</button>
                 </div>
             </form>
         </div>
@@ -976,7 +981,7 @@
                         <select name="totalBanks" id="totalBanks">
                         </select>
                     </div>
-                    <input type="submit" value="Save module &amp; bank settings" />
+                    <button type="submit">Save module &amp; bank settings</button>
                 </div>
             </form>
         </div>
@@ -1007,7 +1012,7 @@
                         <label for="NTPDST">Daylight Saving Enabled</label>
                         <input type="checkbox" name="NTPDST" id="NTPDST">
                     </div>
-                    <input type="submit" value="Save NTP settings" />
+                    <button type="submit">Save NTP settings</button>
                 </div>
             </form>
         </div>
@@ -1067,7 +1072,7 @@
                             <option>0.00</option>
                         </select>
                     </div>
-                    <input type="submit" value="Save display settings" />
+                    <button type="submit">Save display settings</button>
                 </div>
             </form>
         </div>
@@ -1077,7 +1082,7 @@
             <form id="resetCountersForm" method="POST" action="resetcounters.json" autocomplete="off">
                 <div class="settings">
                     <input name="resetCounters" id="resetCounters" type="hidden" value="0">
-                    <input type="submit" value="Reset counters" />
+                    <button type="submit">Reset counters</button>
                 </div>
             </form>
         </div>
@@ -1086,7 +1091,7 @@
             <form id="restartControllerForm" method="POST" action="restartcontroller.json" autocomplete="off">
                 <div class="settings">
                     <input name="handleRestartController" id="handleRestartController" type="hidden" value="0">
-                    <input type="submit" value="Restart Controller" />
+                    <button type="submit">Restart Controller</button>
                 </div>
             </form>
         </div>
@@ -1180,7 +1185,7 @@
                             <option>300</option>
                         </select>
                     </div>
-                    <input type="submit" value="Save logging settings" />
+                    <button type="submit">Save logging settings</button>
                 </div>
             </form>
         </div>
