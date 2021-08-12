@@ -252,16 +252,19 @@ function configureModule(button, cellid, attempts) {
         });
 }
 
-function secondsToHms(d) {
-    d = Number(d);
-    var h = Math.floor(d / 3600);
-    var m = Math.floor(d % 3600 / 60);
-    var s = Math.floor(d % 3600 % 60);
+function secondsToHms(seconds) {
 
+    seconds = Number(seconds);
+    var d = Math.floor(seconds / (3600 * 24));
+    var h = Math.floor(seconds % (3600 * 24) / 3600);
+    var m = Math.floor(seconds % 3600 / 60);
+    var s = Math.floor(seconds % 60);
+
+    var dDisplay = d > 0 ? h + "d" : "";
     var hDisplay = h > 0 ? h + "h" : "";
     var mDisplay = m > 0 ? m + "m" : "";
     var sDisplay = h > 24 ? "" : (s > 0 ? s + "s" : "");
-    return hDisplay + mDisplay + sDisplay;
+    return dDisplay + hDisplay + mDisplay + sDisplay;
 }
 
 function queryBMS() {
@@ -358,10 +361,10 @@ function queryBMS() {
 
             $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
 
-            if (jsondata.activerules==0) {
+            if (jsondata.activerules == 0) {
                 $("#activerules").hide();
             } else {
-                $("#activerules").html(jsondata.activerules); 
+                $("#activerules").html(jsondata.activerules);
                 $("#activerules").show(400);
             }
         }
@@ -1151,9 +1154,9 @@ $(function () {
                 $("#VictronEnabled").prop("checked", data.victron.enabled);
 
                 for (let index = 0; index < data.victron.cvl.length; index++) {
-                    $("#cvl" + index).val((data.victron.cvl[index]/10).toFixed(2));
-                    $("#ccl" + index).val((data.victron.ccl[index]/10).toFixed(2));
-                    $("#dcl" + index).val((data.victron.dcl[index]/10).toFixed(2));
+                    $("#cvl" + index).val((data.victron.cvl[index] / 10).toFixed(2));
+                    $("#ccl" + index).val((data.victron.ccl[index] / 10).toFixed(2));
+                    $("#dcl" + index).val((data.victron.dcl[index] / 10).toFixed(2));
                 }
 
                 switchPage("#victroncanbusPage");
