@@ -263,7 +263,7 @@ function secondsToHms(seconds) {
     var dDisplay = d > 0 ? h + "d" : "";
     var hDisplay = h > 0 ? h + "h" : "";
     var mDisplay = m > 0 ? m + "m" : "";
-    var sDisplay = h > 24 ? "" : (s > 0 ? s + "s" : "");
+    var sDisplay = d > 1 ? "" : (s > 0 ? s + "s" : "");
     return dDisplay + hDisplay + mDisplay + sDisplay;
 }
 
