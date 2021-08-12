@@ -1246,13 +1246,14 @@ $(function () {
             success: function (data) {
                 //Refresh the storage page
                 showSuccess();
+                $("#storage").trigger("click");
             },
             error: function (data) {
                 showFailure();
             },
         });
     });
-    
+
 
     $("#unmount").click(function () {
         $.ajax({
