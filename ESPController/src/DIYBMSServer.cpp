@@ -186,7 +186,7 @@ void DIYBMSServer::saveConfigurationToSDCard(AsyncWebServerRequest *request)
     StaticJsonDocument<4096> doc;
 
     //This code builds up a JSON document which mirrors the structure "diybms_eeprom_settings"
-    JsonObject root = doc.createNestedObject("diybms_eeprom_settings");
+    JsonObject root = doc.createNestedObject("diybms_settings");
 
     root["totalNumberOfBanks"] = _mysettings->totalNumberOfBanks;
     root["totalNumberOfSeriesModules"] = _mysettings->totalNumberOfSeriesModules;
@@ -233,34 +233,23 @@ void DIYBMSServer::saveConfigurationToSDCard(AsyncWebServerRequest *request)
     influxdb["user"] = _mysettings->influxdb_user;
     influxdb["password"] = _mysettings->influxdb_password;
 
-    JsonObject rule = root.createNestedObject("rule");
-    JsonArray v = rule.createNestedArray("value");
-    JsonArray h = rule.createNestedArray("hysteresis");
-    for (uint8_t i = 0; i < RELAY_RULES; i++)
-    {
-      v.add(_mysettings->rulevalue[i]);
-      h.add(_mysettings->rulehysteresis[i]);
-    }
+    JsonObject outputs = root.createNestedObject("outputs");
 
-    JsonObject relay = root.createNestedObject("relay");
-
-    JsonArray d = relay.createNestedArray("default");
-    JsonArray t = relay.createNestedArray("type");
+    JsonArray d = outputs.createNestedArray("default");
+    JsonArray t = outputs.createNestedArray("type");
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
       d.add(_mysettings->rulerelaydefault[i]);
       t.add(_mysettings->relaytype[i]);
     }
 
-    //rulerelaystate
-    JsonObject state = relay.createNestedObject("state");
+    JsonObject rules = root.createNestedObject("rules");
     for (uint8_t rr = 0; rr < RELAY_RULES; rr++)
     {
-
       String elementName = String("rule") + String(rr);
 
-//Map enum to string so when this file is re-imported we are not locked to specific index offsets
-//which may no longer map to the correct rule
+      //Map enum to string so when this file is re-imported we are not locked to specific index offsets
+      //which may no longer map to the correct rule
       switch (rr)
       {
       case Rule::EmergencyStop:
@@ -310,12 +299,17 @@ void DIYBMSServer::saveConfigurationToSDCard(AsyncWebServerRequest *request)
         break;
       }
 
-      JsonArray rule = state.createNestedArray(elementName);
+      JsonObject state = rules.createNestedObject(elementName);
+
+      state["value"] = _mysettings->rulevalue[rr];
+      state["hysteresis"] = _mysettings->rulehysteresis[rr];
+
+      JsonArray relaystate = state.createNestedArray("state");
       for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
       {
-        rule.add(_mysettings->rulerelaystate[rr][rt]);
+        relaystate.add(_mysettings->rulerelaystate[rr][rt]);
       }
-    }
+    } //end for
 
     JsonObject victron = root.createNestedObject("victron");
     JsonArray cvl = victron.createNestedArray("cvl");
