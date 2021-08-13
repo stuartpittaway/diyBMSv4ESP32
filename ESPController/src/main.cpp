@@ -84,6 +84,10 @@ Rules rules;
 diybms_eeprom_settings mysettings;
 uint16_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
 
+uint32_t canbus_messages_received=0;
+uint32_t canbus_messages_sent=0;
+uint32_t canbus_messages_failed_sent=0;
+
 bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
@@ -2428,6 +2432,7 @@ void victron_canbus_rx(void *param)
       esp_err_t res = can_receive(&message, pdMS_TO_TICKS(10000));
       if (res == ESP_OK)
       {
+        canbus_messages_received++;
         //ESP_LOGI(TAG, "CANBUS received message");
 
         /*
@@ -3414,8 +3419,8 @@ TEST CAN BUS
     connectToMqtt();
 
     xTaskCreate(enqueue_task, "enqueue", 1024, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-    xTaskCreate(rules_task, "rules", 1800, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-    xTaskCreate(influxdb_task, "influxdb", 1500, nullptr, 1, &influxdb_task_handle);
+    xTaskCreate(rules_task, "rules", 2048, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+    xTaskCreate(influxdb_task, "influxdb", 4096, nullptr, 1, &influxdb_task_handle);
 
     //We have just started...
     SetControllerState(ControllerState::Stabilizing);
@@ -3550,3 +3555,4 @@ void loop()
   // Call update to receive, decode and process incoming packets
   myPacketSerial.checkInputStream();
 }
+
