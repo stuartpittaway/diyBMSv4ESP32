@@ -563,6 +563,10 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
   if (!validateXSS(request))
     return;
 
+  canbus_messages_failed_sent = 0;
+  canbus_messages_received = 0;
+  canbus_messages_sent = 0;
+
   //Ask modules to reset bad packet counters
   _prg->sendBadPacketCounterReset();
   _prg->sendResetBalanceCurrentCounter();
@@ -1984,6 +1988,10 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
 
   PrintStreamComma(response, "\"activerules\":", _rules->active_rule_count);
   PrintStreamComma(response, "\"uptime\":", (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6));
+
+  PrintStreamComma(response, "\"can_fail\":", canbus_messages_failed_sent);
+  PrintStreamComma(response, "\"can_sent\":", canbus_messages_sent);
+  PrintStreamComma(response, "\"can_rec\":", canbus_messages_received);
 
   //Output last 2 charaters from security cookie, to allow browser to detect when its
   //no longer in sync with the back end and report warning.

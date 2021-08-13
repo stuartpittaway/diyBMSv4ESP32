@@ -28,14 +28,15 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
   if (can_transmit(&message, pdMS_TO_TICKS(250)) != ESP_OK)
   {
     ESP_LOGE(TAG, "Fail to queue message");
+    canbus_messages_failed_sent++;
   }
-  /*
+
   else
   {
-    ESP_LOGD(TAG, "Sent CAN message %u", identifier);
-    ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(can_message_t), esp_log_level_t::ESP_LOG_DEBUG);
+    //ESP_LOGD(TAG, "Sent CAN message %u", identifier);
+    //ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(can_message_t), esp_log_level_t::ESP_LOG_DEBUG);
+    canbus_messages_sent++;
   }
-*/
 }
 //Transmit the DIYBMS hostname via two CAN Messages
 void victron_message_370_371()
@@ -242,7 +243,7 @@ void victron_message_356()
 
   data356 data;
 
-  //Use highest pack voltage calculate by controller and modules
+  //Use highest pack voltage calculated by controller and modules
   data.voltage = rules.highestPackVoltage / 10;
 
   //If current shunt is installed, use the voltage from that as it should be more accurate
@@ -296,6 +297,8 @@ void victron_message_35a()
   //B10 = Alarm/warning active
   //B01 = Alarm/warning inactive (status = OK)
 
+  //These constants are actually bit swapped compared to the notes above
+  //as the Victron kit uses little-endian ordering when transmitting on CANBUS
   const uint8_t BIT01_ALARM = B00000001;
   const uint8_t BIT23_ALARM = B00000100;
   const uint8_t BIT45_ALARM = B00010000;

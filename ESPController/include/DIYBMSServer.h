@@ -127,6 +127,11 @@ extern TaskHandle_t avrprog_task_handle;
 extern avrprogramsettings _avrsettings;
 extern RelayState previousRelayState[RELAY_TOTAL];
 extern currentmonitoring_struct currentMonitor;
+
+extern uint32_t canbus_messages_failed_sent;
+extern uint32_t canbus_messages_sent;
+extern uint32_t canbus_messages_received;
+
 extern void ConfigureRS485();
 extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur);
 extern void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues);
