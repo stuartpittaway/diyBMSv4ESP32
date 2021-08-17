@@ -322,6 +322,7 @@ struct currentmonitoring_struct
   uint16_t batterycapacityamphour;
   float tailcurrentamps;
   float fullychargedvoltage;
+  float chargeefficiency;
 };
 
 enum DIAG_ALRT_FIELD : uint16_t

@@ -852,7 +852,8 @@ void DIYBMSServer::saveCurrentMonBasic(AsyncWebServerRequest *request)
 
   if (request->hasParam("shuntmaxcur", true) && request->hasParam("shuntmv", true)
 
-      && request->hasParam("cmbatterycapacity", true) && request->hasParam("cmfullchargevolt", true) && request->hasParam("cmtailcurrent", true))
+      && request->hasParam("cmbatterycapacity", true) && request->hasParam("cmfullchargevolt", true) && request->hasParam("cmtailcurrent", true)
+      && request->hasParam("cmchargeefficiency", true))
   {
     AsyncWebParameter *p1 = request->getParam("shuntmaxcur", true);
     int shuntmaxcur = p1->value().toInt();
@@ -868,6 +869,9 @@ void DIYBMSServer::saveCurrentMonBasic(AsyncWebServerRequest *request)
 
     AsyncWebParameter *p5 = request->getParam("cmtailcurrent", true);
     float cmtailcurrent = p5->value().toFloat();
+
+    AsyncWebParameter *p6 = request->getParam("cmchargeefficiency", true);
+    float cmchargeefficiency = p6->value().toFloat();
 
     CurrentMonitorSetBasicSettings(shuntmv, shuntmaxcur);
   }
@@ -1539,6 +1543,8 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"batterycapacity\":", currentMonitor.batterycapacityamphour);
   PrintStreamCommaFloat(response, "\"tailcurrent\":", currentMonitor.tailcurrentamps);
   PrintStreamCommaFloat(response, "\"fullchargevolt\":", currentMonitor.fullychargedvoltage);
+  PrintStreamCommaFloat(response, "\"chargeefficiency\":", currentMonitor.chargeefficiency);
+  
 
   PrintStreamCommaFloat(response, "\"voltage\":", currentMonitor.voltage);
   PrintStreamCommaFloat(response, "\"current\":", currentMonitor.current);

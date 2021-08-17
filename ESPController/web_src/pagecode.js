@@ -64,6 +64,7 @@ function refreshCurrentMonitorValues() {
             $("#cmbatterycapacity").val(data.batterycapacity);
             $("#cmfullchargevolt").val(data.fullchargevolt.toFixed(1));
             $("#cmtailcurrent").val(data.tailcurrent.toFixed(1));
+            $("#cmchargeefficiency").val(data.chargeefficiency.toFixed(1));           
 
             $("#cmtimestampage").val(data.timestampage);
             $("#cmtemperature").val(data.temperature);
