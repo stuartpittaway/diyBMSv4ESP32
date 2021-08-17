@@ -227,11 +227,10 @@ void DIYBMSServer::saveConfigurationToSDCard(AsyncWebServerRequest *request)
 
     JsonObject influxdb = root.createNestedObject("influxdb");
     influxdb["enabled"] = _mysettings->influxdb_enabled;
-    influxdb["httpPort"] = _mysettings->influxdb_httpPort;
-    influxdb["host"] = _mysettings->influxdb_host;
-    influxdb["database"] = _mysettings->influxdb_database;
-    influxdb["user"] = _mysettings->influxdb_user;
-    influxdb["password"] = _mysettings->influxdb_password;
+    influxdb["apitoken"] = _mysettings->influxdb_apitoken;
+    influxdb["bucket"] = _mysettings->influxdb_databasebucket;
+    influxdb["org"] = _mysettings->influxdb_orgid;
+    influxdb["url"] = _mysettings->influxdb_serverurl;
 
     JsonObject outputs = root.createNestedObject("outputs");
 
