@@ -82,9 +82,9 @@ Rules rules;
 diybms_eeprom_settings mysettings;
 uint16_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
 
-uint32_t canbus_messages_received=0;
-uint32_t canbus_messages_sent=0;
-uint32_t canbus_messages_failed_sent=0;
+uint32_t canbus_messages_received = 0;
+uint32_t canbus_messages_sent = 0;
+uint32_t canbus_messages_failed_sent = 0;
 
 bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
@@ -1005,7 +1005,7 @@ void replyqueue_task(void *param)
       vTaskDelay(pdMS_TO_TICKS(10));
     }
 
-/*
+    /*
     //Debug - copy module zero to all the other cells for testing
     //large capacity battery banks
     for (size_t i = 1; i < TotalNumberOfCells(); i++)
@@ -1013,7 +1013,6 @@ void replyqueue_task(void *param)
       memcpy(&cmi[i], &cmi[0], sizeof(CellModuleInfo));
     }
 */
-
   }
 }
 
@@ -1689,12 +1688,33 @@ uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
   */
 }
 
-void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur)
+uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
 {
+  FloatUnionType fut;
+  fut.value = value;
+  //4 bytes
+  cmd[ptr] = (uint8_t)(fut.word[0] >> 8);
+  ptr++;
+  cmd[ptr] = (uint8_t)(fut.word[0] & 0xFF);
+  ptr++;
+  cmd[ptr] = (uint8_t)(fut.word[1] >> 8);
+  ptr++;
+  cmd[ptr] = (uint8_t)(fut.word[1] & 0xFF);
+  ptr++;
 
+  return ptr;
+}
+
+void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
+{
   //Its possible that the RS485_TX task may have already requested some data
   //at the exact split second of this call, but we ignore that
   //given this infreqent usage of this function
+
+  uint16_t chargeeff = chargeefficiency * 100.0;
+
+  ESP_LOGD(TAG, "batterycapacity %u", batterycapacity);
+  ESP_LOGD(TAG, "chargeeff %u", chargeeff);
 
   //	Write Multiple Holding Registers
   uint8_t cmd[] = {
@@ -1702,21 +1722,29 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur)
       diyBMSCurrentMonitorModbusAddress,
       //The Function Code 16
       16,
-      //Data Address of the first register
+      //Data Address of the first register (zero based so 18 = register 40019)
       0, 18,
       //number of registers to write
-      0, 2,
+      0, 8,
       //number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
-      4,
-      //value to write to register 40018
+      16,
+      //value to write to register 40019 |40019|shunt_max_current  (unsigned int16)
       (uint8_t)(shuntmaxcur >> 8), (uint8_t)(shuntmaxcur & 0xFF),
-      //value to write to register 40019
+      //value to write to register 40020 |40020|shunt_millivolt  (unsigned int16)
       (uint8_t)(shuntmv >> 8), (uint8_t)(shuntmv & 0xFF),
+      //|40021|Battery Capacity (ah)  (unsigned int16)
+      (uint8_t)(batterycapacity >> 8), (uint8_t)(batterycapacity & 0xFF),
+      //|40022|Fully charged voltage (4 byte double)
+      0, 0, 0, 0,
+      //|40024|Tail current (Amps) (4 byte double)
+      0, 0, 0, 0,
+      //|40026|Charge efficiency factor % (unsigned int16) (scale x100 eg. 10000 = 100.00%, 9561 = 95.61%)
+      (uint8_t)(chargeeff >> 8), (uint8_t)(chargeeff & 0xFF),
       //CRC
       0, 0};
 
-  //Register 18 = shunt_max_current
-  //Register 19 = shunt_millivolt
+  uint8_t ptr = SetMobusRegistersFromFloat(cmd, 13, fullchargevolt);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, tailcurrent);
 
   uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
 
@@ -1735,18 +1763,18 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur)
     uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
 
     hal.ReleaseRS485Mutex();
-  }
 
-  ESP_LOGD(TAG, "Send MODBUS request");
+    ESP_LOGD(TAG, "Send MODBUS request");
 
-  //Zero all data
-  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
-  currentMonitor.validReadings = false;
+    //Zero all data
+    memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+    currentMonitor.validReadings = false;
 
-  //Notify the receive task that a packet should be on its way
-  if (rs485_rx_task_handle != NULL)
-  {
-    xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+    //Notify the receive task that a packet should be on its way
+    if (rs485_rx_task_handle != NULL)
+    {
+      xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+    }
   }
 }
 
@@ -1791,7 +1819,7 @@ Flag 2
       diyBMSCurrentMonitorModbusAddress,
       //The Function Code 16
       16,
-      //Data Address of the first register
+      //Data Address of the first register (9=40010, Various status flags)
       0, 9,
       //number of registers to write
       0, 1,
@@ -1834,22 +1862,6 @@ Flag 2
   }
 }
 
-uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
-{
-  FloatUnionType fut;
-  fut.value = value;
-  //4 bytes
-  cmd[ptr] = (uint8_t)(fut.word[0] >> 8);
-  ptr++;
-  cmd[ptr] = (uint8_t)(fut.word[0] & 0xFF);
-  ptr++;
-  cmd[ptr] = (uint8_t)(fut.word[1] >> 8);
-  ptr++;
-  cmd[ptr] = (uint8_t)(fut.word[1] & 0xFF);
-  ptr++;
-
-  return ptr;
-}
 //Save the current monitor advanced settings back to the device over MODBUS/RS485
 void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
 {
@@ -1859,29 +1871,29 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
       diyBMSCurrentMonitorModbusAddress,
       //The Function Code 16
       16,
-      //Data Address of the first register
-      0, 20,
+      //Data Address of the first register (|40028|INA_REGISTER::SHUNT_CAL (unsigned int16))
+      0, 27,
       //number of registers to write
       0, 13,
       //number of data bytes to follow (2 registers x 6 bytes each)
       2 * 13,
-      //value to write to register 40021
+      //value to write to register 40028
       //21 = shuntcal
       (uint8_t)(newvalues.shuntcal >> 8), (uint8_t)(newvalues.shuntcal & 0xFF),
-      //value to write to register 40022
-      //22 = temperaturelimit
+      //value to write to register 40029
+      //temperaturelimit
       (uint8_t)(newvalues.temperaturelimit >> 8), (uint8_t)(newvalues.temperaturelimit & 0xFF),
-      //23/24 = overvoltagelimit 40023
+      //overvoltagelimit 40030
       0, 0, 0, 0,
-      //25/26 = undervoltagelimit 40025
+      //undervoltagelimit 40032
       0, 0, 0, 0,
-      //27/28 = overcurrentlimit 40027
+      //overcurrentlimit 40034
       0, 0, 0, 0,
-      //29/30 = undercurrentlimit 40029
+      //undercurrentlimit 40029
       0, 0, 0, 0,
-      //31/32 = overpowerlimit 40031
+      //overpowerlimit 40038
       0, 0, 0, 0,
-      //33 = shunttempcoefficient
+      //shunttempcoefficient 40
       (uint8_t)(newvalues.shunttempcoefficient >> 8), (uint8_t)(newvalues.shunttempcoefficient & 0xFF),
       //CRC
       0, 0};
@@ -1961,24 +1973,42 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
 
     switch (reg)
     {
-
+    //|40001|Voltage (4 byte double)
     case 1:
+    //|40003|Current (4 byte double)
     case 3:
+    //|40005|milliamphour_out (4 byte unsigned long uint32_t)
     case 5:
+    //|40007|milliamphour_in (4 byte  unsigned long uint32_t)
     case 7:
+    //|40011|Power (4 byte double)
     case 11:
+    //|40013|Shunt mV (4 byte double)
     case 13:
+    //|40015|CURRENT_LSB (4 byte double)
     case 15:
+    //|40017|shunt_resistance (4 byte double)
     case 17:
-    case 23:
-    case 25:
-    case 27:
-    case 29:
-    case 31:
-    case 35:
-    case 37:
+    //|40022|Fully charged voltage (4 byte double)
+    case 22:
+    //|40024|Tail current (Amps) (4 byte double)
+    case 24:
+    //|40030|Bus Overvoltage (overvoltage protection)(4 byte double)
+    case 30:
+    //|40032|BusUnderVolt (4 byte double)
+    case 32:
+    //|40034|Shunt Over Voltage Limit (current limit) (4 byte double)
+    case 34:
+    //|40036|Shunt UNDER Voltage Limit (under current limit) (4 byte double)
+    case 36:
+    //|40038|Shunt Over POWER LIMIT (4 byte double)
+    case 38:
+    //|40042|GITHUB version
+    case 42:
+    //|40044|COMPILE_DATE_TIME_EPOCH
+    case 44:
     {
-      //This stores the first half of the 32 bit register value
+      //This stores the first half of the 32 bit register value for all the registers above
       v.word[0] = data;
       break;
     }
@@ -2024,7 +2054,7 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       //Low byte
       uint8_t flag2 = data;
 
-      ESP_LOGD(TAG, "Read relay trigger settings %u %u", flag1, flag2);
+      //ESP_LOGD(TAG, "Read relay trigger settings %u %u", flag1, flag2);
 
       /*
 16|TMPOL|Read only
@@ -2105,22 +2135,68 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
 
     case 20:
     {
+      //|40020|shunt_millivolt  (unsigned int16)
       currentMonitor.shuntmillivolt = data;
       break;
     }
+
+      /*
+|40021|Battery Capacity (ah)  (unsigned int16)
+|40022|Fully charged voltage (4 byte double)
+|40023|Fully charged voltage
+|40024|Tail current (Amps) (4 byte double)
+|40025|Tail current (Amps)
+|40026|Charge efficiency factor % (unsigned int16) (scale x100 eg. 10000 = 100.00%, 9561 = 95.61%)
+|40027|State of charge % (unsigned int16) (scale x100 eg. 10000 = 100.00%, 8012 = 80.12%, 100 = 1.00%)
+*/
+
     case 21:
+    {
+      currentMonitor.batterycapacityamphour = data;
+      break;
+    }
+
+      //22
+
+    case 23:
+    {
+      v.word[1] = data;
+      currentMonitor.fullychargedvoltage = v.value;
+      break;
+    }
+      //24
+    case 25:
+    {
+      v.word[1] = data;
+      currentMonitor.tailcurrentamps = v.value;
+      break;
+    }
+
+    case 26:
+    {
+      currentMonitor.chargeefficiency = ((float)data) / 100.0;
+      break;
+    }
+
+    case 27:
+    {
+      currentMonitor.stateofcharge = ((float)data) / 100.0;
+      break;
+    }
+
+    case 28:
     {
       currentMonitor.shuntcal = data;
       break;
     }
 
-    case 22:
+    case 29:
     {
       currentMonitor.temperaturelimit = (int16_t)data;
       break;
     }
 
-    case 24:
+    case 7 + 24:
     {
       //Bus Overvoltage (overvoltage protection)
       v.word[1] = data;
@@ -2128,7 +2204,7 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       break;
     }
 
-    case 26:
+    case 7 + 26:
     {
       //Bus Undervoltage (under voltage protection)
       v.word[1] = data;
@@ -2136,7 +2212,7 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       break;
     }
 
-    case 28:
+    case 7 + 28:
     {
       //Over current
       v.word[1] = data;
@@ -2144,7 +2220,7 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       break;
     }
 
-    case 30:
+    case 7 + 30:
     {
       //Under current
       v.word[1] = data;
@@ -2152,30 +2228,30 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       break;
     }
 
-    case 32:
+    case 7 + 32:
     {
       v.word[1] = data;
       currentMonitor.overpowerlimit = v.value;
       break;
     }
 
-    case 33:
+    case 7 + 33:
     {
       currentMonitor.shunttempcoefficient = data;
       break;
     }
-    case 34:
+    case 7 + 34:
     {
       currentMonitor.modelnumber = data;
       break;
     }
 
-    case 36:
+    case 7 + 36:
     {
       currentMonitor.firmwareversion = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
       break;
     }
-    case 38:
+    case 7 + 38:
     {
       currentMonitor.firmwaredatetime = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
       //If we have received the firmware settings, it means we have asked and got a full dump of all the registers
@@ -2184,7 +2260,7 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       break;
     }
 
-    case 39:
+    case 7 + 39:
     {
       currentMonitor.watchdogcounter = data;
       //ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
@@ -2217,7 +2293,7 @@ void rs485_rx(void *param)
 {
   for (;;)
   {
-    //Wait until this task is triggered, when
+    //Wait until this task is triggered (sending task triggers it)
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     //Delay 50ms for the data to arrive
@@ -2331,8 +2407,6 @@ void victron_canbus_tx(void *param)
         //Detail about individual cells
         victron_message_373();
         victron_message_374_375_376_377();
-
-        vTaskDelay(pdMS_TO_TICKS(250));
       }
     }
   }
@@ -2425,9 +2499,9 @@ void rs485_tx(void *param)
       //ESP_LOGD(TAG, "RS485 TX");
       cmd[0] = diyBMSCurrentMonitorModbusAddress;
 
-      //Input registers - 39 of them (78 bytes + headers + crc = 83 byte reply)
+      //Input registers - 46 of them (92 bytes + headers + crc = 83 byte reply)
       cmd[1] = 3;
-      cmd[5] = 39;
+      cmd[5] = 46;
 
       //Ideally we poll the current monitor and only ask it for a small subset of registers
       //the first 12 registers are the most useful, so only need the others when we want to get the configuration data
@@ -2449,12 +2523,12 @@ void rs485_tx(void *param)
         uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
 
         hal.ReleaseRS485Mutex();
-      }
 
-      //Notify the receive task that a packet should be on its way
-      if (rs485_rx_task_handle != NULL)
-      {
-        xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+        //Notify the receive task that a packet should be on its way
+        if (rs485_rx_task_handle != NULL)
+        {
+          xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+        }
       }
     } //end if
   }
@@ -2949,7 +3023,7 @@ void TerminalBasedWifiSetup(HardwareSerial stream)
 
 void createFile(fs::FS &fs, const char *path, const char *message)
 {
-  //ESP_LOGD(TAG,"Writing file: %s", path);
+  ESP_LOGD(TAG, "Writing file: %s", path);
 
   File file = fs.open(path, FILE_WRITE);
   if (!file)
@@ -2970,7 +3044,7 @@ void createFile(fs::FS &fs, const char *path, const char *message)
 
 void appendFile(fs::FS &fs, const char *path, const char *message)
 {
-  //ESP_LOGD(TAG,("Appending to file: %s\n", path);
+  ESP_LOGD(TAG, "Appending to file: %s", path);
 
   File file = fs.open(path, FILE_APPEND);
   if (!file)
@@ -2988,15 +3062,6 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
   }
   file.close();
 }
-
-/*
-static const char *ESP32_CAN_STATUS_STRINGS[] = {
-    "STOPPED",               // CAN_STATE_STOPPED
-    "RUNNING",               // CAN_STATE_RUNNING
-    "OFF / RECOVERY NEEDED", // CAN_STATE_BUS_OFF
-    "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
-};
-*/
 
 void dumpByte(uint8_t data)
 {
@@ -3152,66 +3217,10 @@ void setup()
 
   mountSDCard();
 
-  /*
-TEST CAN BUS
-*/
-
   //Switch CAN chip TJA1051T/3 ON
   hal.CANBUSEnable(true);
 
   hal.ConfigureCAN();
-
-  /*
-  while (1)
-  {
-
-    //Wait for message to be received
-    can_message_t message;
-    esp_err_t res = can_receive(&message, pdMS_TO_TICKS(5000));
-    if (res == ESP_OK)
-    {
-      SERIAL_DEBUG.println("Message received\n");
-
-      SERIAL_DEBUG.print("\nID is 0x");
-      SERIAL_DEBUG.print(message.identifier, HEX);
-      SERIAL_DEBUG.print("=");
-      if (!(message.flags & CAN_MSG_FLAG_RTR))
-      {
-        for (int i = 0; i < message.data_length_code; i++)
-        {
-          dumpByte(message.data[i]);
-          SERIAL_DEBUG.print(" ");
-        }
-      }
-      SERIAL_DEBUG.println();
-    }
-    else if (res == ESP_ERR_TIMEOUT)
-    {
-      /// ignore the timeout or do something
-      SERIAL_DEBUG.println("Timeout");
-    }
-
-    // check the health of the bus
-    can_status_info_t status;
-    can_get_status_info(&status);
-    SERIAL_DEBUG.printf("  rx-q:%d, tx-q:%d, rx-err:%d, tx-err:%d, arb-lost:%d, bus-err:%d, state: %s",
-                        status.msgs_to_rx, status.msgs_to_tx, status.rx_error_counter, status.tx_error_counter, status.arb_lost_count,
-                        status.bus_error_count, ESP32_CAN_STATUS_STRINGS[status.state]);
-    if (status.state == can_state_t::CAN_STATE_BUS_OFF)
-    {
-      // When the bus is OFF we need to initiate recovery, transmit is
-      // not possible when in this state.
-      SERIAL_DEBUG.printf("ESP32-CAN: initiating recovery");
-      can_initiate_recovery();
-    }
-    else if (status.state == can_state_t::CAN_STATE_RECOVERING)
-    {
-      // when the bus is in recovery mode transmit is not possible.
-      delay(200);
-    }
-    //delay(100);
-  }
-*/
 
   hal.ConfigureVSPI();
   init_tft_display();
@@ -3472,4 +3481,3 @@ void loop()
   // Call update to receive, decode and process incoming packets
   myPacketSerial.checkInputStream();
 }
-

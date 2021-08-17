@@ -410,6 +410,7 @@ function queryBMS() {
             if (jsondata.current[0] == null) {
                 $("#current").hide();
                 $("#shuntv").hide();
+                $("#soc").hide();                
                 $("#amphout").hide();
                 $("#amphin").hide();
                 $("#power").hide();
@@ -421,6 +422,9 @@ function queryBMS() {
 
                 $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
                 $("#shuntv").show();
+
+                $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
+                $("#soc").show();
 
                 $("#power .v").html(parseFloat(data.p) + "W");
                 $("#power").show();
