@@ -559,10 +559,10 @@ void sdcardlog_task(void *param)
 
               sprintf(dataMessage, "%i,%.3f,%.3f,%u,%u,%.3f,%i,%.3f,%i",
                       currentMonitor.validReadings ? 1 : 0,
-                      currentMonitor.voltage, currentMonitor.current,
-                      currentMonitor.milliamphour_in, currentMonitor.milliamphour_out,
-                      currentMonitor.power, currentMonitor.temperature,
-                      currentMonitor.shuntmV, currentMonitor.RelayState ? 1 : 0);
+                      currentMonitor.modbus.voltage, currentMonitor.modbus.current,
+                      currentMonitor.modbus.milliamphour_in, currentMonitor.modbus.milliamphour_out,
+                      currentMonitor.modbus.power, currentMonitor.modbus.temperature,
+                      currentMonitor.modbus.shuntmV, currentMonitor.RelayState ? 1 : 0);
               file.print(dataMessage);
 
               file.println();
@@ -1879,10 +1879,10 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
       2 * 13,
       //value to write to register 40028
       //21 = shuntcal
-      (uint8_t)(newvalues.shuntcal >> 8), (uint8_t)(newvalues.shuntcal & 0xFF),
+      (uint8_t)(newvalues.modbus.shuntcal >> 8), (uint8_t)(newvalues.modbus.shuntcal & 0xFF),
       //value to write to register 40029
       //temperaturelimit
-      (uint8_t)(newvalues.temperaturelimit >> 8), (uint8_t)(newvalues.temperaturelimit & 0xFF),
+      (uint8_t)(newvalues.modbus.temperaturelimit >> 8), (uint8_t)(newvalues.modbus.temperaturelimit & 0xFF),
       //overvoltagelimit 40030
       0, 0, 0, 0,
       //undervoltagelimit 40032
@@ -1894,7 +1894,7 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
       //overpowerlimit 40038
       0, 0, 0, 0,
       //shunttempcoefficient 40
-      (uint8_t)(newvalues.shunttempcoefficient >> 8), (uint8_t)(newvalues.shunttempcoefficient & 0xFF),
+      (uint8_t)(newvalues.modbus.shunttempcoefficient >> 8), (uint8_t)(newvalues.modbus.shunttempcoefficient & 0xFF),
       //CRC
       0, 0};
 
@@ -1904,11 +1904,11 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   //Register 18 = shunt_max_current
   //Register 19 = shunt_millivolt
 
-  uint8_t ptr = SetMobusRegistersFromFloat(cmd, 11, newvalues.overvoltagelimit);
-  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.undervoltagelimit);
-  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.overcurrentlimit);
-  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.undercurrentlimit);
-  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.overpowerlimit);
+  uint8_t ptr = SetMobusRegistersFromFloat(cmd, 11, newvalues.modbus.overvoltagelimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.modbus.undervoltagelimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.modbus.overcurrentlimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.modbus.undercurrentlimit);
+  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.modbus.overpowerlimit);
 
   /*
     newvalues.shuntcal = p1->value().toInt();
@@ -1953,14 +1953,125 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   }
 }
 
+//Swap the two 16 bit words in a 32bit word
+static inline unsigned int word16swap32(unsigned int __bsx)
+{
+  return ((__bsx & 0xffff0000) >> 16) | ((__bsx & 0x0000ffff) << 16);
+}
+
+//Extract the current monitor MODBUS registers into our internal STRUCTURE variables
 void ProcessCurrentMonitorRegisterReply(uint8_t length)
 {
+  //ESP_LOGD(TAG, "Modbus len=%i, struct len=%i", length, sizeof(currentmonitor_raw_modbus));
 
+  //ESP_LOG_BUFFER_HEXDUMP(TAG, &frame[3], length, esp_log_level_t::ESP_LOG_DEBUG);
+
+  if (sizeof(currentmonitor_raw_modbus) != length)
+  {
+    //Abort if the packet sizes are different
+    memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
+    currentMonitor.validReadings = false;
+    return;
+  }
+
+  //Now byte swap to align to ESP32 endiness, and copy as we go into new structure
+  uint8_t *ptr = (uint8_t *)&currentMonitor.modbus;
+  for (size_t i = 0; i < length; i += 2)
+  {
+    uint8_t temp = frame[3 + i];
+    ptr[i] = frame[i + 4];
+    ptr[i + 1] = temp;
+  }
+
+  //Finally, we have to fix the 32 bit fields
+  currentMonitor.modbus.milliamphour_out = word16swap32(currentMonitor.modbus.milliamphour_out);
+  currentMonitor.modbus.milliamphour_in = word16swap32(currentMonitor.modbus.milliamphour_in);
+  currentMonitor.modbus.firmwareversion = word16swap32(currentMonitor.modbus.firmwareversion);
+  currentMonitor.modbus.firmwaredatetime = word16swap32(currentMonitor.modbus.firmwaredatetime);
+
+  //ESP_LOG_BUFFER_HEXDUMP(TAG, &currentMonitor.modbus, sizeof(currentmonitor_raw_modbus), esp_log_level_t::ESP_LOG_DEBUG);
+
+  currentMonitor.timestamp = esp_timer_get_time();
+
+  //High byte
+  uint8_t flag1 = currentMonitor.modbus.flags >> 8;
+  //Low byte
+  uint8_t flag2 = currentMonitor.modbus.flags;
+
+  //ESP_LOGD(TAG, "Read relay trigger settings %u %u", flag1, flag2);
+
+  /*
+16|TMPOL|Read only
+15|SHNTOL|Read only
+14|SHNTUL|Read only
+13|BUSOL|Read only
+12|BUSUL|Read only
+11|POL|Read only
+10|Temperature compensation enabled|Read write
+9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
+*/
+
+  currentMonitor.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
+  currentMonitor.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
+  currentMonitor.CurrentUnderLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTUL);
+  currentMonitor.VoltageOverlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSOL);
+  currentMonitor.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
+  currentMonitor.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
+
+  currentMonitor.TempCompEnabled = flag1 & B00000010;
+  currentMonitor.ADCRange4096mV = flag1 & B00000001;
+
+  /*
+8|Relay Trigger on TMPOL|Read write
+7|Relay Trigger on SHNTOL|Read write
+6|Relay Trigger on SHNTUL|Read write
+5|Relay Trigger on BUSOL|Read write
+4|Relay Trigger on BUSUL|Read write
+3|Relay Trigger on POL|Read write
+2|Existing Relay state (0=off)|Read write
+1|Factory reset bit (always 0 when read)|Read write
+*/
+  currentMonitor.RelayTriggerTemperatureOverLimit = flag2 & bit(DIAG_ALRT_FIELD::TMPOL);
+  currentMonitor.RelayTriggerCurrentOverLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTOL);
+  currentMonitor.RelayTriggerCurrentUnderLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTUL);
+  currentMonitor.RelayTriggerVoltageOverlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSOL);
+  currentMonitor.RelayTriggerVoltageUnderlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSUL);
+  currentMonitor.RelayTriggerPowerOverLimit = flag2 & bit(DIAG_ALRT_FIELD::POL);
+  currentMonitor.RelayState = flag2 & B00000010;
+  //Last bit is for factory reset (always zero)
+
+  currentMonitor.chargeefficiency = ((float)currentMonitor.modbus.raw_chargeefficiency) / 100.0;
+  currentMonitor.stateofcharge = ((float)currentMonitor.modbus.raw_stateofcharge) / 100.0;
+
+  currentMonitor.validReadings = true;
+
+  /*
+  ESP_LOGD(TAG, "WDog = %u", currentMonitor.modbus.watchdogcounter);
+  ESP_LOGD(TAG, "SOC = %i", currentMonitor.stateofcharge);
+
+  ESP_LOGD(TAG, "Volt = %f", currentMonitor.modbus.voltage);
+  ESP_LOGD(TAG, "Curr = %f", currentMonitor.modbus.current);
+  ESP_LOGD(TAG, "Temp = %i", currentMonitor.modbus.temperature);
+
+  ESP_LOGD(TAG, "Out = %f", currentMonitor.modbus.milliamphour_in);
+  ESP_LOGD(TAG, "In = %f", currentMonitor.modbus.milliamphour_out);
+
+  ESP_LOGD(TAG, "Ver = %x", currentMonitor.modbus.firmwareversion);
+  ESP_LOGD(TAG, "Date = %u", currentMonitor.modbus.firmwaredatetime);
+*/
+}
+
+/*
+void ProcessCurrentMonitorRegisterReply_OLD(uint8_t length)
+{
   FloatUnionType v;
 
   //Length is in bytes, but the registers are returned in 16 bit words
   uint8_t ptr = 3;
   uint16_t reg = 0;
+
+  //ESP_LOG_BUFFER_HEXDUMP(TAG, &frame[ptr], length, esp_log_level_t::ESP_LOG_DEBUG);
+
   //Last time we updated the structure
   currentMonitor.timestamp = esp_timer_get_time();
   for (size_t i = 0; i < length / 2; i++)
@@ -1969,7 +2080,7 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
     ptr += 2;
     reg++;
 
-    //ESP_LOGD(TAG, "reg=%x", data);
+    //ESP_LOGD(TAG, "register=%u data=%x", reg, data);
 
     switch (reg)
     {
@@ -2016,34 +2127,34 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
     case 2:
     {
       v.word[1] = data;
-      currentMonitor.voltage = v.value;
+      currentMonitor.modbus.voltage = v.value;
       break;
     }
 
     case 4:
     {
       v.word[1] = data;
-      currentMonitor.current = v.value;
+      currentMonitor.modbus.current = v.value;
       break;
     }
 
     case 6:
     {
       uint32_t milliamph = ((uint32_t)v.word[0]) << 16 | (uint32_t)data;
-      currentMonitor.milliamphour_out = milliamph;
+      currentMonitor.modbus.milliamphour_out = milliamph;
       break;
     }
 
     case 8:
     {
       uint32_t milliamph = ((uint32_t)v.word[0]) << 16 | (uint32_t)data;
-      currentMonitor.milliamphour_in = milliamph;
+      currentMonitor.modbus.milliamphour_in = milliamph;
       break;
     }
 
     case 9:
     {
-      currentMonitor.temperature = (int16_t)data;
+      currentMonitor.modbus.temperature = (int16_t)data;
       break;
     }
 
@@ -2054,18 +2165,21 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       //Low byte
       uint8_t flag2 = data;
 
+      currentMonitor.modbus.flags = data;
+      //currentMonitor.modbus.flag2 = flag2;
+
       //ESP_LOGD(TAG, "Read relay trigger settings %u %u", flag1, flag2);
 
-      /*
-16|TMPOL|Read only
-15|SHNTOL|Read only
-14|SHNTUL|Read only
-13|BUSOL|Read only
-12|BUSUL|Read only
-11|POL|Read only
-10|Temperature compensation enabled|Read write
-9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
-*/
+
+//16|TMPOL|Read only
+//15|SHNTOL|Read only
+//14|SHNTUL|Read only
+//13|BUSOL|Read only
+//12|BUSUL|Read only
+//11|POL|Read only
+//10|Temperature compensation enabled|Read write
+//9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
+
 
       currentMonitor.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
       currentMonitor.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
@@ -2077,16 +2191,16 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
       currentMonitor.TempCompEnabled = flag1 & B00000010;
       currentMonitor.ADCRange4096mV = flag1 & B00000001;
 
-      /*
-8|Relay Trigger on TMPOL|Read write
-7|Relay Trigger on SHNTOL|Read write
-6|Relay Trigger on SHNTUL|Read write
-5|Relay Trigger on BUSOL|Read write
-4|Relay Trigger on BUSUL|Read write
-3|Relay Trigger on POL|Read write
-2|Existing Relay state (0=off)|Read write
-1|Factory reset bit (always 0 when read)|Read write
-*/
+
+//8|Relay Trigger on TMPOL|Read write
+//7|Relay Trigger on SHNTOL|Read write
+//6|Relay Trigger on SHNTUL|Read write
+//5|Relay Trigger on BUSOL|Read write
+//4|Relay Trigger on BUSUL|Read write
+//3|Relay Trigger on POL|Read write
+//2|Existing Relay state (0=off)|Read write
+//1|Factory reset bit (always 0 when read)|Read write
+
       currentMonitor.RelayTriggerTemperatureOverLimit = flag2 & bit(DIAG_ALRT_FIELD::TMPOL);
       currentMonitor.RelayTriggerCurrentOverLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTOL);
       currentMonitor.RelayTriggerCurrentUnderLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTUL);
@@ -2102,57 +2216,47 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
     case 12:
     {
       v.word[1] = data;
-      currentMonitor.power = v.value;
+      currentMonitor.modbus.power = v.value;
       break;
     }
 
     case 14:
     {
       v.word[1] = data;
-      currentMonitor.shuntmV = v.value;
+      currentMonitor.modbus.shuntmV = v.value;
       break;
     }
 
     case 16:
     {
       v.word[1] = data;
-      currentMonitor.currentlsb = v.value;
+      currentMonitor.modbus.currentlsb = v.value;
       break;
     }
 
     case 18:
     {
       v.word[1] = data;
-      currentMonitor.shuntresistance = v.value;
+      currentMonitor.modbus.shuntresistance = v.value;
       break;
     }
 
     case 19:
     {
-      currentMonitor.shuntmaxcurrent = data;
+      currentMonitor.modbus.shuntmaxcurrent = data;
       break;
     }
 
     case 20:
     {
       //|40020|shunt_millivolt  (unsigned int16)
-      currentMonitor.shuntmillivolt = data;
+      currentMonitor.modbus.shuntmillivolt = data;
       break;
     }
 
-      /*
-|40021|Battery Capacity (ah)  (unsigned int16)
-|40022|Fully charged voltage (4 byte double)
-|40023|Fully charged voltage
-|40024|Tail current (Amps) (4 byte double)
-|40025|Tail current (Amps)
-|40026|Charge efficiency factor % (unsigned int16) (scale x100 eg. 10000 = 100.00%, 9561 = 95.61%)
-|40027|State of charge % (unsigned int16) (scale x100 eg. 10000 = 100.00%, 8012 = 80.12%, 100 = 1.00%)
-*/
-
     case 21:
     {
-      currentMonitor.batterycapacityamphour = data;
+      currentMonitor.modbus.batterycapacityamphour = data;
       break;
     }
 
@@ -2161,109 +2265,112 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
     case 23:
     {
       v.word[1] = data;
-      currentMonitor.fullychargedvoltage = v.value;
+      currentMonitor.modbus.fullychargedvoltage = v.value;
       break;
     }
       //24
     case 25:
     {
       v.word[1] = data;
-      currentMonitor.tailcurrentamps = v.value;
+      currentMonitor.modbus.tailcurrentamps = v.value;
       break;
     }
 
     case 26:
     {
+      currentMonitor.modbus.raw_chargeefficiency = data;
       currentMonitor.chargeefficiency = ((float)data) / 100.0;
       break;
     }
 
     case 27:
     {
+      currentMonitor.modbus.raw_stateofcharge = data;
       currentMonitor.stateofcharge = ((float)data) / 100.0;
       break;
     }
 
     case 28:
     {
-      currentMonitor.shuntcal = data;
+      currentMonitor.modbus.shuntcal = data;
       break;
     }
 
     case 29:
     {
-      currentMonitor.temperaturelimit = (int16_t)data;
+      currentMonitor.modbus.temperaturelimit = (int16_t)data;
       break;
     }
-
-    case 7 + 24:
+      //30
+    case 31:
     {
       //Bus Overvoltage (overvoltage protection)
       v.word[1] = data;
-      currentMonitor.overvoltagelimit = v.value;
+      currentMonitor.modbus.overvoltagelimit = v.value;
       break;
     }
-
-    case 7 + 26:
+      //32
+    case 33:
     {
       //Bus Undervoltage (under voltage protection)
       v.word[1] = data;
-      currentMonitor.undervoltagelimit = v.value;
+      currentMonitor.modbus.undervoltagelimit = v.value;
       break;
     }
-
-    case 7 + 28:
+      //34
+    case 35:
     {
       //Over current
       v.word[1] = data;
-      currentMonitor.overcurrentlimit = v.value;
+      currentMonitor.modbus.overcurrentlimit = v.value;
       break;
     }
-
-    case 7 + 30:
+      //36
+    case 37:
     {
       //Under current
       v.word[1] = data;
-      currentMonitor.undercurrentlimit = v.value;
+      currentMonitor.modbus.undercurrentlimit = v.value;
       break;
     }
-
-    case 7 + 32:
+      //38
+    case 39:
     {
       v.word[1] = data;
-      currentMonitor.overpowerlimit = v.value;
+      currentMonitor.modbus.overpowerlimit = v.value;
       break;
     }
 
-    case 7 + 33:
+    case 40:
     {
-      currentMonitor.shunttempcoefficient = data;
+      currentMonitor.modbus.shunttempcoefficient = data;
       break;
     }
-    case 7 + 34:
+    case 41:
     {
-      currentMonitor.modelnumber = data;
+      currentMonitor.modbus.modelnumber = data;
       break;
     }
-
-    case 7 + 36:
+      //42
+    case 43:
     {
-      currentMonitor.firmwareversion = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
+      currentMonitor.modbus.firmwareversion = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
       break;
     }
-    case 7 + 38:
+    //44
+    case 45:
     {
-      currentMonitor.firmwaredatetime = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
+      currentMonitor.modbus.firmwaredatetime = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
       //If we have received the firmware settings, it means we have asked and got a full dump of all the registers
       //so record it as valid
       currentMonitor.validReadings = true;
       break;
     }
 
-    case 7 + 39:
+    case 46:
     {
-      currentMonitor.watchdogcounter = data;
-      //ESP_LOGD(TAG, "WDog = %u", currentMonitor.watchdogcounter);
+      currentMonitor.modbus.watchdogcounter = data;
+      ESP_LOGD(TAG, "WDog = %u", currentMonitor.modbus.watchdogcounter);
       break;
     }
 
@@ -2287,7 +2394,11 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
 
   //ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
   //ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
+
+  //ESP_LOG_BUFFER_HEXDUMP(TAG, &currentMonitor.modbus, sizeof(currentmonitor_raw_modbus), esp_log_level_t::ESP_LOG_DEBUG);
 }
+*/
+
 //RS485 receive
 void rs485_rx(void *param)
 {
@@ -2320,6 +2431,8 @@ void rs485_rx(void *param)
       uint16_t calculatedCRC = (temp << 8) | (temp >> 8);
 
       ESP_LOGD(TAG, "Rec %i bytes, id=%u", len, id);
+
+      //ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
 
       if (calculatedCRC == crc)
       {
@@ -2621,13 +2734,13 @@ void mqtt1(void *param)
         if (currentMonitor.validReadings && currentMonitor.timestamp != lastcurrentMonitortimestamp)
         {
           //Send current monitor data if its valid and not sent before
-          doc["voltage"] = currentMonitor.voltage;
-          doc["current"] = currentMonitor.current;
-          doc["mAhIn"] = currentMonitor.milliamphour_in;
-          doc["mAhOut"] = currentMonitor.milliamphour_out;
-          doc["power"] = currentMonitor.power;
-          doc["temperature"] = currentMonitor.temperature;
-          doc["shuntmV"] = currentMonitor.shuntmV;
+          doc["voltage"] = currentMonitor.modbus.voltage;
+          doc["current"] = currentMonitor.modbus.current;
+          doc["mAhIn"] = currentMonitor.modbus.milliamphour_in;
+          doc["mAhOut"] = currentMonitor.modbus.milliamphour_out;
+          doc["power"] = currentMonitor.modbus.power;
+          doc["temperature"] = currentMonitor.modbus.temperature;
+          doc["shuntmV"] = currentMonitor.modbus.shuntmV;
           doc["relayState"] = currentMonitor.RelayState ? 1 : 0;
         }
 

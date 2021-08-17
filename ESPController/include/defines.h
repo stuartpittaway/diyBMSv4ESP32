@@ -270,6 +270,77 @@ struct avrprogramsettings
   bool programmingModeEnabled;
 };
 
+struct currentmonitor_raw_modbus {
+  //These variables are in STRICT order
+  //and must match the MODBUS register sequence and data types!!
+
+  //Voltage
+  float voltage;
+  //Current in AMPS
+  float current;
+  uint32_t milliamphour_out;
+  uint32_t milliamphour_in;
+  int16_t temperature;
+  uint16_t flags;
+  float power;
+  float shuntmV;
+  float currentlsb;
+  float shuntresistance;
+  uint16_t shuntmaxcurrent;
+  uint16_t shuntmillivolt;
+  uint16_t batterycapacityamphour;
+  float fullychargedvoltage;
+  float tailcurrentamps;
+  uint16_t raw_chargeefficiency;
+  uint16_t raw_stateofcharge;
+  uint16_t shuntcal;
+  int16_t temperaturelimit;
+  float overvoltagelimit;
+  float undervoltagelimit;
+  float overcurrentlimit;
+  float undercurrentlimit;
+  float overpowerlimit;
+  uint16_t shunttempcoefficient;
+  uint16_t modelnumber;
+  uint32_t firmwareversion;
+  uint32_t firmwaredatetime;
+  uint16_t watchdogcounter;
+}__attribute__((packed));
+
+struct currentmonitoring_struct
+{
+  currentmonitor_raw_modbus modbus;
+
+  //Uses float as these are 4 bytes on ESP32
+  int64_t timestamp;
+  bool validReadings;
+
+  float chargeefficiency;
+  float stateofcharge;
+
+  bool TemperatureOverLimit : 1;
+  bool CurrentOverLimit : 1;
+  bool CurrentUnderLimit : 1;
+  bool VoltageOverlimit : 1;
+  bool VoltageUnderlimit : 1;
+  bool PowerOverLimit : 1;
+  bool TempCompEnabled : 1;
+  bool ADCRange4096mV : 1;
+
+  bool RelayTriggerTemperatureOverLimit : 1;
+  bool RelayTriggerCurrentOverLimit : 1;
+  bool RelayTriggerCurrentUnderLimit : 1;
+  bool RelayTriggerVoltageOverlimit : 1;
+  bool RelayTriggerVoltageUnderlimit : 1;
+  bool RelayTriggerPowerOverLimit : 1;
+  bool RelayState : 1;
+
+
+};
+
+
+
+/*
 struct currentmonitoring_struct
 {
   //Uses float as these are 4 bytes on ESP32
@@ -326,6 +397,7 @@ struct currentmonitoring_struct
 
   float stateofcharge;
 };
+*/
 
 enum DIAG_ALRT_FIELD : uint16_t
 {

@@ -69,7 +69,7 @@ void victron_message_35f()
 
   if (mysettings.currentMonitoringEnabled)
   {
-    data.OnlinecapacityinAh = currentMonitor.batterycapacityamphour;
+    data.OnlinecapacityinAh = currentMonitor.modbus.batterycapacityamphour;
   }
 
   send_canbus_message(0x35f, (uint8_t *)&data, sizeof(data35f));
@@ -250,14 +250,14 @@ void victron_message_356()
   //If current shunt is installed, use the voltage from that as it should be more accurate
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
-    data.voltage = currentMonitor.voltage * 100.0;
+    data.voltage = currentMonitor.modbus.voltage * 100.0;
   }
 
   data.current = 0;
   //If current shunt is installed, use it
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
-    data.current = currentMonitor.current * 10;
+    data.current = currentMonitor.modbus.current * 10;
   }
 
   //Temperature 0.1 C using external temperature sensor

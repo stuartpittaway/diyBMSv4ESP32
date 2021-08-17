@@ -802,42 +802,42 @@ void DIYBMSServer::saveCurrentMonAdvanced(AsyncWebServerRequest *request)
   if (request->hasParam("cmcalibration", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmcalibration", true);
-    newvalues.shuntcal = p1->value().toInt();
+    newvalues.modbus.shuntcal = p1->value().toInt();
   }
   if (request->hasParam("cmtemplimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmtemplimit", true);
-    newvalues.temperaturelimit = (int16_t)(p1->value().toInt());
+    newvalues.modbus.temperaturelimit = (int16_t)(p1->value().toInt());
   }
   if (request->hasParam("cmundervlimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmundervlimit", true);
-    newvalues.undervoltagelimit = p1->value().toFloat();
+    newvalues.modbus.undervoltagelimit = p1->value().toFloat();
   }
   if (request->hasParam("cmovervlimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmovervlimit", true);
-    newvalues.overvoltagelimit = p1->value().toFloat();
+    newvalues.modbus.overvoltagelimit = p1->value().toFloat();
   }
   if (request->hasParam("cmoverclimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmoverclimit", true);
-    newvalues.overcurrentlimit = p1->value().toFloat();
+    newvalues.modbus.overcurrentlimit = p1->value().toFloat();
   }
   if (request->hasParam("cmunderclimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmunderclimit", true);
-    newvalues.undercurrentlimit = p1->value().toFloat();
+    newvalues.modbus.undercurrentlimit = p1->value().toFloat();
   }
   if (request->hasParam("cmoverplimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmoverplimit", true);
-    newvalues.overpowerlimit = p1->value().toFloat();
+    newvalues.modbus.overpowerlimit = p1->value().toFloat();
   }
   if (request->hasParam("cmtempcoeff", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmtempcoeff", true);
-    newvalues.shunttempcoefficient = p1->value().toInt();
+    newvalues.modbus.shunttempcoefficient = p1->value().toInt();
   }
 
   CurrentMonitorSetAdvancedSettings(newvalues);
@@ -1537,33 +1537,33 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"timestampage\":", x);
   PrintStreamCommaBoolean(response, "\"valid\":", currentMonitor.validReadings);
 
-  PrintStreamComma(response, "\"batterycapacity\":", currentMonitor.batterycapacityamphour);
-  PrintStreamCommaFloat(response, "\"tailcurrent\":", currentMonitor.tailcurrentamps);
-  PrintStreamCommaFloat(response, "\"fullchargevolt\":", currentMonitor.fullychargedvoltage);
+  PrintStreamComma(response, "\"batterycapacity\":", currentMonitor.modbus.batterycapacityamphour);
+  PrintStreamCommaFloat(response, "\"tailcurrent\":", currentMonitor.modbus.tailcurrentamps);
+  PrintStreamCommaFloat(response, "\"fullchargevolt\":", currentMonitor.modbus.fullychargedvoltage);
   PrintStreamCommaFloat(response, "\"chargeefficiency\":", currentMonitor.chargeefficiency);
 
-  PrintStreamCommaFloat(response, "\"voltage\":", currentMonitor.voltage);
-  PrintStreamCommaFloat(response, "\"current\":", currentMonitor.current);
-  PrintStreamComma(response, "\"mahout\":", currentMonitor.milliamphour_out);
-  PrintStreamComma(response, "\"mahin\":", currentMonitor.milliamphour_in);
-  PrintStreamCommaInt16(response, "\"temperature\":", currentMonitor.temperature);
-  PrintStreamComma(response, "\"watchdog\":", currentMonitor.watchdogcounter);
-  PrintStreamCommaFloat(response, "\"power\":", currentMonitor.power);
-  PrintStreamCommaFloat(response, "\"actualshuntmv\":", currentMonitor.shuntmV);
-  PrintStreamCommaFloat(response, "\"currentlsb\":", currentMonitor.currentlsb);
-  PrintStreamCommaFloat(response, "\"resistance\":", currentMonitor.shuntresistance);
-  PrintStreamComma(response, "\"calibration\":", currentMonitor.shuntcal);
-  PrintStreamCommaInt16(response, "\"templimit\":", currentMonitor.temperaturelimit);
-  PrintStreamCommaFloat(response, "\"undervlimit\":", currentMonitor.undervoltagelimit);
-  PrintStreamCommaFloat(response, "\"overvlimit\":", currentMonitor.overvoltagelimit);
-  PrintStreamCommaFloat(response, "\"overclimit\":", currentMonitor.overcurrentlimit);
-  PrintStreamCommaFloat(response, "\"underclimit\":", currentMonitor.undercurrentlimit);
-  PrintStreamCommaFloat(response, "\"overplimit\":", currentMonitor.overpowerlimit);
-  PrintStreamComma(response, "\"tempcoeff\":", currentMonitor.shunttempcoefficient);
-  PrintStreamComma(response, "\"model\":", currentMonitor.modelnumber);
+  PrintStreamCommaFloat(response, "\"voltage\":", currentMonitor.modbus.voltage);
+  PrintStreamCommaFloat(response, "\"current\":", currentMonitor.modbus.current);
+  PrintStreamComma(response, "\"mahout\":", currentMonitor.modbus.milliamphour_out);
+  PrintStreamComma(response, "\"mahin\":", currentMonitor.modbus.milliamphour_in);
+  PrintStreamCommaInt16(response, "\"temperature\":", currentMonitor.modbus.temperature);
+  PrintStreamComma(response, "\"watchdog\":", currentMonitor.modbus.watchdogcounter);
+  PrintStreamCommaFloat(response, "\"power\":", currentMonitor.modbus.power);
+  PrintStreamCommaFloat(response, "\"actualshuntmv\":", currentMonitor.modbus.shuntmV);
+  PrintStreamCommaFloat(response, "\"currentlsb\":", currentMonitor.modbus.currentlsb);
+  PrintStreamCommaFloat(response, "\"resistance\":", currentMonitor.modbus.shuntresistance);
+  PrintStreamComma(response, "\"calibration\":", currentMonitor.modbus.shuntcal);
+  PrintStreamCommaInt16(response, "\"templimit\":", currentMonitor.modbus.temperaturelimit);
+  PrintStreamCommaFloat(response, "\"undervlimit\":", currentMonitor.modbus.undervoltagelimit);
+  PrintStreamCommaFloat(response, "\"overvlimit\":", currentMonitor.modbus.overvoltagelimit);
+  PrintStreamCommaFloat(response, "\"overclimit\":", currentMonitor.modbus.overcurrentlimit);
+  PrintStreamCommaFloat(response, "\"underclimit\":", currentMonitor.modbus.undercurrentlimit);
+  PrintStreamCommaFloat(response, "\"overplimit\":", currentMonitor.modbus.overpowerlimit);
+  PrintStreamComma(response, "\"tempcoeff\":", currentMonitor.modbus.shunttempcoefficient);
+  PrintStreamComma(response, "\"model\":", currentMonitor.modbus.modelnumber);
 
-  PrintStreamComma(response, "\"firmwarev\":", currentMonitor.firmwareversion);
-  PrintStreamComma(response, "\"firmwaredate\":", currentMonitor.firmwaredatetime);
+  PrintStreamComma(response, "\"firmwarev\":", currentMonitor.modbus.firmwareversion);
+  PrintStreamComma(response, "\"firmwaredate\":", currentMonitor.modbus.firmwaredatetime);
 
   //Boolean flag values
   PrintStreamCommaBoolean(response, "\"TMPOL\":", currentMonitor.TemperatureOverLimit);
@@ -1584,8 +1584,8 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   PrintStreamCommaBoolean(response, "\"T_POL\":", currentMonitor.RelayTriggerPowerOverLimit);
   PrintStreamCommaBoolean(response, "\"RelayState\":", currentMonitor.RelayState);
 
-  PrintStreamComma(response, "\"shuntmv\":", currentMonitor.shuntmillivolt);
-  PrintStream(response, "\"shuntmaxcur\":", currentMonitor.shuntmaxcurrent);
+  PrintStreamComma(response, "\"shuntmv\":", currentMonitor.modbus.shuntmillivolt);
+  PrintStream(response, "\"shuntmaxcur\":", currentMonitor.modbus.shuntmaxcurrent);
 
   //The END...
   response->print('}');
@@ -2256,15 +2256,15 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   {
     //Output current monitor values, this is inside an array, so could be more than 1
     response->print(F("{\"c\":"));
-    response->print(currentMonitor.current, 4);
+    response->print(currentMonitor.modbus.current, 4);
     response->print(F(",\"v\":"));
-    response->print(currentMonitor.voltage, 4);
+    response->print(currentMonitor.modbus.voltage, 4);
     response->print(F(",\"mahout\":"));
-    response->print(currentMonitor.milliamphour_out);
+    response->print(currentMonitor.modbus.milliamphour_out);
     response->print(F(",\"mahin\":"));
-    response->print(currentMonitor.milliamphour_in);
+    response->print(currentMonitor.modbus.milliamphour_in);
     response->print(F(",\"p\":"));
-    response->print(currentMonitor.power, 2);
+    response->print(currentMonitor.modbus.power, 2);
     response->print(F(",\"soc\":"));
     response->print(currentMonitor.stateofcharge, 2);
 

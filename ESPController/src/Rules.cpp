@@ -159,7 +159,7 @@ void Rules::RunRules(
     if (currentMonitor->validReadings)
     {
         //Currents can be both positive and negative (depending on current flow, we ABS that to get an always POSITIVE number)
-        uint32_t integercurrent = (uint32_t)(abs(currentMonitor->current) + (float)0.5);
+        uint32_t integercurrent = (uint32_t)(abs(currentMonitor->modbus.current) + (float)0.5);
 
         if (integercurrent > value[Rule::CurrentMonitorOverCurrentAmps] && rule_outcome[Rule::CurrentMonitorOverCurrentAmps] == false)
         {
@@ -172,7 +172,7 @@ void Rules::RunRules(
             rule_outcome[Rule::CurrentMonitorOverCurrentAmps] = false;
         }
 
-        uint32_t integervoltagemV = (uint32_t)((currentMonitor->voltage * 1000.0) + (float)0.5);
+        uint32_t integervoltagemV = (uint32_t)((currentMonitor->modbus.voltage * 1000.0) + (float)0.5);
 
         if (integervoltagemV > value[Rule::CurrentMonitorOverVoltage] && rule_outcome[Rule::CurrentMonitorOverVoltage] == false)
         {

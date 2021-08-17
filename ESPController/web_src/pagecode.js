@@ -64,7 +64,7 @@ function refreshCurrentMonitorValues() {
             $("#cmbatterycapacity").val(data.batterycapacity);
             $("#cmfullchargevolt").val(data.fullchargevolt.toFixed(1));
             $("#cmtailcurrent").val(data.tailcurrent.toFixed(1));
-            $("#cmchargeefficiency").val(data.chargeefficiency.toFixed(1));           
+            $("#cmchargeefficiency").val(data.chargeefficiency.toFixed(1));
 
             $("#cmtimestampage").val(data.timestampage);
             $("#cmtemperature").val(data.temperature);
@@ -410,7 +410,7 @@ function queryBMS() {
             if (jsondata.current[0] == null) {
                 $("#current").hide();
                 $("#shuntv").hide();
-                $("#soc").hide();                
+                $("#soc").hide();
                 $("#amphout").hide();
                 $("#amphin").hide();
                 $("#power").hide();
