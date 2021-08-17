@@ -60,6 +60,11 @@ function refreshCurrentMonitorValues() {
             $("#shuntmv").val(data.shuntmv);
 
             $("#cmvalid").val(data.valid);
+
+            $("#cmbatterycapacity").val(data.batterycapacity);
+            $("#cmfullchargevolt").val(data.fullchargevolt.toFixed(1));
+            $("#cmtailcurrent").val(data.tailcurrent.toFixed(1));
+
             $("#cmtimestampage").val(data.timestampage);
             $("#cmtemperature").val(data.temperature);
             $("#cmwatchdog").val(data.watchdog);
@@ -360,10 +365,10 @@ function queryBMS() {
             if (jsondata.oos == 0) { $("#oos").hide(); } else { $("#oos .v").html(jsondata.oos); $("#oos").show(); }
 
             if (jsondata.can_fail == 0) { $("#canfail").hide(); } else { $("#canfail .v").html(jsondata.can_fail); $("#canfail").show(); }
-            
-            if (jsondata.can_sent == 0) { $("#cansent").hide(); } else { $("#cansent .v").html(jsondata.can_sent); $("#cansent").show(); }            
+
+            if (jsondata.can_sent == 0) { $("#cansent").hide(); } else { $("#cansent .v").html(jsondata.can_sent); $("#cansent").show(); }
             if (jsondata.can_rec == 0) { $("#canrecd").hide(); } else { $("#canrecd .v").html(jsondata.can_rec); $("#canrecd").show(); }
-            
+
 
             $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
 

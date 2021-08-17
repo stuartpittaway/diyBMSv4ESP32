@@ -62,13 +62,14 @@ void victron_message_35f()
 
   data35f data;
 
+  //Not used by Victron
   data.BatteryModel = 0;
   //Need to swap bytes for this to make sense.
   data.Firmwareversion = ((uint16_t)COMPILE_WEEK_NUMBER_BYTE << 8) | COMPILE_YEAR_BYTE;
 
   if (mysettings.currentMonitoringEnabled)
   {
-    data.OnlinecapacityinAh = currentMonitor.AmpHourCapacity;
+    data.OnlinecapacityinAh = currentMonitor.batterycapacityamphour;
   }
 
   send_canbus_message(0x35f, (uint8_t *)&data, sizeof(data35f));

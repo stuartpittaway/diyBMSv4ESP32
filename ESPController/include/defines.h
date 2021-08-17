@@ -319,7 +319,9 @@ struct currentmonitoring_struct
   bool RelayTriggerPowerOverLimit : 1;
   bool RelayState : 1;
 
-  uint16_t AmpHourCapacity;
+  uint16_t batterycapacityamphour;
+  float tailcurrentamps;
+  float fullychargedvoltage;
 };
 
 enum DIAG_ALRT_FIELD : uint16_t
