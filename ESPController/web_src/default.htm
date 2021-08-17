@@ -322,7 +322,12 @@
         </div>
 
         <div class="region">
-            <h2>Influx Database</h2>
+            <h2>Influx DB v2 Database</h2>
+            <p>Influx DB version 2 protocol is supported. Server URL should be the full URL to the <a target="_blank"
+                    rel="noreferrer"
+                    href="https://docs.influxdata.com/influxdb/v2.0/write-data/developer-tools/api/">write API</a>, for
+                example http://192.168.0.49:8086/api/v2/write</p>
+            <p>Only HTTP is supported, for local servers use the IP address not a domain name.</p>
             <form id="influxForm" method="POST" action="saveinfluxdb.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -330,31 +335,24 @@
                         <input type="checkbox" name="influxEnabled" id="influxEnabled">
                     </div>
                     <div>
-                        <label for="influxServer">Host server</label>
-                        <input type="input" name="influxServer" id="influxServer" value="influx" required=""
-                            maxlength="64">
+                        <label for="influxUrl">Influx DB write API URL</label>
+                        <input type="input" name="influxUrl" id="influxUrl" value="influx" required="" maxlength="128"
+                            title="Example:  http://192.168.0.49:8086/api/v2/write">
                     </div>
                     <div>
-                        <label for="influxPort">Port</label>
-                        <input type="number" min="1" max="65535" step="1" name="influxPort" id="influxPort" value="1883"
-                            required="">
+                        <label for="influxToken">API authentication token</label>
+                        <input type="input" name="influxToken" id="influxToken" value="" required="" maxlength="128">
                     </div>
                     <div>
-                        <label for="influxDatabase">Database name</label>
+                        <label for="influxOrgId">Influx DB 2 organization id</label>
+                        <input type="input" name="influxOrgId" id="influxOrgId" value="" required="" maxlength="64">
+                    </div>
+                    <div>
+                        <label for="influxDatabase">Bucket or database name</label>
                         <input type="input" name="influxDatabase" id="influxDatabase" value="database" required=""
                             maxlength="64">
                     </div>
-                    <div>
-                        <label for="influxUsername">Username</label>
-                        <input type="input" autocomplete="username" name="influxUsername" id="influxUsername"
-                            value="myusername" required="" maxlength="32">
-                    </div>
-                    <div>
-                        <label for="influxPassword">Password</label>
-                        <input type="password" autocomplete="current-password" name="influxPassword" id="influxPassword"
-                            value="" required="" maxlength="32">
-                    </div>
-                    <button type="submit">Save Influx DB settings</button>
+                    <button type="submit">Save Influx settings</button>
                 </div>
             </form>
         </div>

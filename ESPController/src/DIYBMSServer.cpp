@@ -634,34 +634,28 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
     _mysettings->influxdb_enabled = false;
   }
 
-  if (request->hasParam("influxPort", true))
+  if (request->hasParam("influxUrl", true))
   {
-    AsyncWebParameter *p1 = request->getParam("influxPort", true);
-    _mysettings->influxdb_httpPort = p1->value().toInt();
-  }
-
-  if (request->hasParam("influxServer", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("influxServer", true);
-    p1->value().toCharArray(_mysettings->influxdb_host, sizeof(_mysettings->influxdb_host));
+    AsyncWebParameter *p1 = request->getParam("influxUrl", true);
+    p1->value().toCharArray(_mysettings->influxdb_serverurl, sizeof(_mysettings->influxdb_serverurl));
   }
 
   if (request->hasParam("influxDatabase", true))
   {
     AsyncWebParameter *p1 = request->getParam("influxDatabase", true);
-    p1->value().toCharArray(_mysettings->influxdb_database, sizeof(_mysettings->influxdb_database));
+    p1->value().toCharArray(_mysettings->influxdb_databasebucket, sizeof(_mysettings->influxdb_databasebucket));
   }
 
-  if (request->hasParam("influxUsername", true))
+  if (request->hasParam("influxOrgId", true))
   {
-    AsyncWebParameter *p1 = request->getParam("influxUsername", true);
-    p1->value().toCharArray(_mysettings->influxdb_user, sizeof(_mysettings->influxdb_user));
+    AsyncWebParameter *p1 = request->getParam("influxOrgId", true);
+    p1->value().toCharArray(_mysettings->influxdb_orgid, sizeof(_mysettings->influxdb_orgid));
   }
 
-  if (request->hasParam("influxPassword", true))
+  if (request->hasParam("influxToken", true))
   {
-    AsyncWebParameter *p1 = request->getParam("influxPassword", true);
-    p1->value().toCharArray(_mysettings->influxdb_password, sizeof(_mysettings->influxdb_password));
+    AsyncWebParameter *p1 = request->getParam("influxToken", true);
+    p1->value().toCharArray(_mysettings->influxdb_apitoken, sizeof(_mysettings->influxdb_apitoken));
   }
 
   saveConfiguration();
@@ -1707,12 +1701,10 @@ void DIYBMSServer::integration(AsyncWebServerRequest *request)
 
   JsonObject influxdb = root.createNestedObject("influxdb");
   influxdb["enabled"] = _mysettings->influxdb_enabled;
-  influxdb["port"] = _mysettings->influxdb_httpPort;
-  influxdb["server"] = _mysettings->influxdb_host;
-  influxdb["database"] = _mysettings->influxdb_database;
-  influxdb["username"] = _mysettings->influxdb_user;
-  //We don't output the password in the json file as this could breach security
-  //influxdb["password"] = _mysettings->influxdb_password;
+  influxdb["url"] = _mysettings->influxdb_serverurl;
+  influxdb["bucket"] = _mysettings->influxdb_databasebucket;
+  influxdb["apitoken"] = _mysettings->influxdb_apitoken;
+  influxdb["orgid"] = _mysettings->influxdb_orgid;
 
   serializeJson(doc, *response);
   request->send(response);

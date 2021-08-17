@@ -1198,11 +1198,10 @@ $(function () {
                 $("#mqttPassword").val("");
 
                 $("#influxEnabled").prop("checked", data.influxdb.enabled);
-                $("#influxServer").val(data.influxdb.server);
-                $("#influxPort").val(data.influxdb.port);
-                $("#influxDatabase").val(data.influxdb.database);
-                $("#influxUsername").val(data.influxdb.username);
-                $("#influxPassword").val("");
+                $("#influxUrl").val(data.influxdb.url);
+                $("#influxDatabase").val(data.influxdb.bucket);
+                $("#influxToken").val(data.influxdb.apitoken);
+                $("#influxOrgId").val(data.influxdb.orgid);
 
                 $("#mqttForm").show();
                 $("#influxForm").show();

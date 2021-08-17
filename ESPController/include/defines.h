@@ -145,11 +145,11 @@ struct diybms_eeprom_settings
   char mqtt_password[32 + 1];
 
   bool influxdb_enabled;
-  uint16_t influxdb_httpPort;
-  char influxdb_host[64 + 1];
-  char influxdb_database[32 + 1];
-  char influxdb_user[32 + 1];
-  char influxdb_password[32 + 1];
+  //uint16_t influxdb_httpPort;
+  char influxdb_serverurl[128 + 1];
+  char influxdb_databasebucket[64 + 1];
+  char influxdb_apitoken[128 + 1];
+  char influxdb_orgid[128 + 1];
 };
 
 

@@ -88,6 +88,8 @@ public:
 
     //True if at least 1 module has an external temp sensor fitted
     bool moduleHasExternalTempSensor;
+
+    //Number of modules which have not yet reported back to the controller
     uint8_t invalidModuleCount;
 
     int8_t numberOfActiveErrors;
