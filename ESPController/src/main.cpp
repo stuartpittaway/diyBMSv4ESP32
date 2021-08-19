@@ -2742,6 +2742,7 @@ void mqtt1(void *param)
           doc["temperature"] = currentMonitor.modbus.temperature;
           doc["shuntmV"] = currentMonitor.modbus.shuntmV;
           doc["relayState"] = currentMonitor.RelayState ? 1 : 0;
+          doc["soc"] = currentMonitor.stateofcharge;
         }
 
         lastcurrentMonitortimestamp = currentMonitor.timestamp;
