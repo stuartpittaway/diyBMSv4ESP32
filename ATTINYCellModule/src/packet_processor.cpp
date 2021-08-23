@@ -57,8 +57,33 @@ void PacketProcessor::ADCReading(uint16_t value)
   {
   case ADC_CELL_VOLTAGE:
   {
-    //UpdateRingBuffer(value);
+
+#if (SAMPLEAVERAGING == 1)
     raw_adc_voltage = value;
+#else
+    //Multiple samples - keep history for sample averaging
+
+    // subtract the last reading:
+    total = total - readings[readIndex];
+    // read from the sensor:
+    readings[readIndex] = value;
+    // add the reading to the total:
+    total = total + value;
+    // advance to the next position in the array:
+    readIndex++;
+
+    // if we're at the end of the array...
+    if (readIndex >= SAMPLEAVERAGING)
+    {
+      // ...wrap around to the beginning:
+      readIndex = 0;
+    }
+
+    // calculate the average, and overwrite the "raw" value
+    raw_adc_voltage = total / SAMPLEAVERAGING;
+
+#endif
+
     break;
   }
   case ADC_INTERNAL_TEMP:
@@ -82,6 +107,16 @@ void PacketProcessor::ADCReading(uint16_t value)
   }
   }
 }
+
+PacketProcessor::PacketProcessor()
+{
+#if (SAMPLEAVERAGING > 1)
+  for (int thisReading = 0; thisReading < SAMPLEAVERAGING; thisReading++)
+  {
+    readings[thisReading] = 0;
+  }
+#endif  
+};
 
 //Start an ADC reading via Interrupt
 void PacketProcessor::TakeAnAnalogueReading(uint8_t mode)
@@ -127,8 +162,8 @@ bool PacketProcessor::onPacketReceived(PacketStruct *receivebuffer)
   {
 
 #if defined(FAKE_16_CELLS)
-    uint8_t start=receivebuffer->hops;
-    uint8_t end=start+16;
+    uint8_t start = receivebuffer->hops;
+    uint8_t end = start + 16;
     for (size_t i = start; i < end; i++)
     {
 #endif
