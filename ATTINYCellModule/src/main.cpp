@@ -50,6 +50,10 @@ https://trolsoft.ru/en/uart-calc
 #error Expected BAUD define
 #endif
 
+#if !defined(SAMPLEAVERAGING)
+#error Expected SAMPLEAVERAGING define
+#endif
+
 //Our project code includes
 #include "defines.h"
 #include "settings.h"
@@ -323,6 +327,7 @@ inline void identifyModule()
   }
 }
 
+
 void loop()
 {
   //This loop runs around 3 times per second when the module is in bypass
@@ -372,10 +377,8 @@ void loop()
   //this is also triggered by the watchdog should comms fail or the module is running standalone
   DiyBMSATTiny841::ReferenceVoltageOn();
 
-
   //Internal temperature
   PP.TakeAnAnalogueReading(ADC_INTERNAL_TEMP);
-
 
   //Only take these readings when we are NOT in bypass....
   //this causes the voltage and temperature to "freeze" during bypass cycles
@@ -389,8 +392,17 @@ void loop()
     //External temperature
     PP.TakeAnAnalogueReading(ADC_EXTERNAL_TEMP);
 
+#if (SAMPLEAVERAGING == 1)
+    //Sample averaging not enabled
     //Do voltage reading last to give as much time for voltage to settle
     PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
+#else
+    //Take several samples and average the result
+    for (size_t i = 0; i < SAMPLEAVERAGING; i++)
+    {
+      PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
+    }
+#endif
   }
 
   //Switch reference off if we are not in bypass (otherwise leave on)
