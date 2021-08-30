@@ -663,78 +663,6 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
   SendSuccess(request);
 }
 
-void DIYBMSServer::getvictron(AsyncWebServerRequest *request)
-{
-  AsyncResponseStream *response =
-      request->beginResponseStream("application/json");
-
-  DynamicJsonDocument doc(2048);
-  JsonObject root = doc.to<JsonObject>();
-
-  JsonObject settings = root.createNestedObject("victron");
-
-  settings["enabled"] = _mysettings->VictronEnabled;
-
-  JsonArray cvl = settings.createNestedArray("cvl");
-  JsonArray ccl = settings.createNestedArray("ccl");
-  JsonArray dcl = settings.createNestedArray("dcl");
-  for (uint8_t i = 0; i < 3; i++)
-  {
-    cvl.add(_mysettings->cvl[i]);
-    ccl.add(_mysettings->ccl[i]);
-    dcl.add(_mysettings->dcl[i]);
-  }
-
-  response->addHeader("Cache-Control", "no-store");
-
-  serializeJson(doc, *response);
-  request->send(response);
-}
-
-void DIYBMSServer::saveVictron(AsyncWebServerRequest *request)
-{
-  if (!validateXSS(request))
-    return;
-
-  if (request->hasParam("VictronEnabled", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("VictronEnabled", true);
-    _mysettings->VictronEnabled = p1->value().equals("on") ? true : false;
-  }
-  else
-  {
-    _mysettings->VictronEnabled = false;
-  }
-
-  for (int i = 0; i < 3; i++)
-  {
-    String name = "cvl";
-    name = name + i;
-    if (request->hasParam(name.c_str(), true, false))
-    {
-      AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
-      _mysettings->cvl[i] = p1->value().toFloat() * 10;
-    }
-
-    name = "ccl";
-    name = name + i;
-    if (request->hasParam(name.c_str(), true, false))
-    {
-      AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
-      _mysettings->ccl[i] = p1->value().toFloat() * 10;
-    }
-
-    name = "dcl";
-    name = name + i;
-    if (request->hasParam(name.c_str(), true, false))
-    {
-      AsyncWebParameter *p1 = request->getParam(name.c_str(), true, false);
-      _mysettings->dcl[i] = p1->value().toFloat() * 10;
-    }
-  }
-
-  SendSuccess(request);
-}
 
 void DIYBMSServer::saveCurrentMonRelay(AsyncWebServerRequest *request)
 {
@@ -2627,7 +2555,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/currentmonitor.json", HTTP_GET, DIYBMSServer::currentmonitor);
   _myserver->on("/rs485settings.json", HTTP_GET, DIYBMSServer::rs485settings);
-  _myserver->on("/victron.json", HTTP_GET, DIYBMSServer::getvictron);
+  
 
   //POST method endpoints
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);
@@ -2659,8 +2587,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->on("/savecmbasic.json", HTTP_POST, DIYBMSServer::saveCurrentMonBasic);
   _myserver->on("/savecmadvanced.json", HTTP_POST, DIYBMSServer::saveCurrentMonAdvanced);
   _myserver->on("/savecmrelay.json", HTTP_POST, DIYBMSServer::saveCurrentMonRelay);
-  //Victron stuff
-  _myserver->on("/savevictron.json", HTTP_POST, DIYBMSServer::saveVictron);
+  
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();

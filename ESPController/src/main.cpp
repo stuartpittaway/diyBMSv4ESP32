@@ -52,7 +52,7 @@ const uint8_t diyBMSCurrentMonitorModbusAddress = 90;
 
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
-//#include <ArduinoOTA.h>
+#include <ArduinoOTA.h>
 #include <SerialEncoder.h>
 #include <cppQueue.h>
 
@@ -3590,7 +3590,7 @@ void loop()
     ResetWifi = false;
   }
 
-  //ArduinoOTA.handle();
+  ArduinoOTA.handle();
 
   // Call update to receive, decode and process incoming packets
   myPacketSerial.checkInputStream();
