@@ -1461,7 +1461,7 @@ void influxdb_task(void *param)
     }
   }
 }
-/*
+
 
 void SetupOTA()
 {
@@ -1503,7 +1503,7 @@ void SetupOTA()
   ArduinoOTA.setMdnsEnabled(true);
   ArduinoOTA.begin();
 }
-*/
+
 
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
@@ -1531,7 +1531,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
   connectToMqtt();
 
-  //SetupOTA();
+  SetupOTA();
 
   // Set up mDNS responder:
   // - first argument is the domain name, in this example
