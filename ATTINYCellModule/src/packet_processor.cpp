@@ -80,7 +80,10 @@ void PacketProcessor::ADCReading(uint16_t value)
     }
 
     // calculate the average, and overwrite the "raw" value
-    raw_adc_voltage = total / SAMPLEAVERAGING;
+    //raw_adc_voltage = total / SAMPLEAVERAGING;
+    
+    // JB: Keep Full total and divide later in float variables
+    raw_adc_voltage = total ;
 
 #endif
 
@@ -207,16 +210,17 @@ bool PacketProcessor::onPacketReceived(PacketStruct *receivebuffer)
 uint16_t PacketProcessor::CellVoltage()
 {
   //TODO: Get rid of the need for float variables?
-  float v = ((float)raw_adc_voltage * (float)MV_PER_ADC) * _config->Calibration;
 
+  // JB: Divide by number of samples here to get more precision from the averaging.
+  #if (SAMPLEAVERAGING >1)
+  float v = (((float)raw_adc_voltage/ (float)SAMPLEAVERAGING) * (float)MV_PER_ADC) * _config->Calibration;
+  #else
+  float v = ((float)raw_adc_voltage * (float)MV_PER_ADC) * _config->Calibration;
+  #endif
   return (uint16_t)v;
 }
 
-//Returns the last RAW ADC value 0-1023
-uint16_t PacketProcessor::RawADCValue()
-{
-  return raw_adc_voltage;
-}
+
 
 // Process the request in the received packet
 //command byte
