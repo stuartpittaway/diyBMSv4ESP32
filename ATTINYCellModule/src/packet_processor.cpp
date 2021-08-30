@@ -220,11 +220,7 @@ uint16_t PacketProcessor::CellVoltage()
   return (uint16_t)v;
 }
 
-//Returns the last RAW ADC value 0-1023
-uint16_t PacketProcessor::RawADCValue()
-{
-  return raw_adc_voltage;
-}
+
 
 // Process the request in the received packet
 //command byte

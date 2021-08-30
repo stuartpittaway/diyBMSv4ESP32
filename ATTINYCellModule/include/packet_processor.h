@@ -69,8 +69,6 @@ public:
   uint8_t identifyModule;
   bool BypassOverheatCheck();
 
-  //Raw value returned from ADC (10bit)
-  uint16_t RawADCValue();
   int16_t InternalTemperature();
 
   volatile float MilliAmpHourBalanceCounter = 0;
