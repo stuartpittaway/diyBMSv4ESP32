@@ -7,7 +7,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet" />
     <link href="style.css" rel="stylesheet" />
     <script type="text/javascript">
-        const MAXIMUM_NUMBER_OF_BANKS = 16;
+        const MAXIMUM_NUMBER_OF_BANKS = parseInt('%maxnumberofbanks%', 10);
+        const MAXIMUM_NUMBER_OF_SERIES_MODULES = parseInt('%noofseriesmodules%', 10);
         const MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET = 16;
 
         var DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat('%graph_voltagehigh%');
@@ -39,11 +40,16 @@
     <div class="header">
         <div class="logocontainer"><img class="logo" src="logo.png" width="152" height="48" alt="DIYBMS" /></div>
         <div class="header-right">
-            <a id="home" class="active" href="#home">Home</a>
-            <a id="modules" href="#modules">Modules</a>
-            <a id="settings" href="#settings">Settings</a>
-            <a id="rules" href="#rules">Rules</a>
-            <a id="more" href="#">More</a>
+            <div class="notify-container"><a id="home" class="active" href="#home">Home</a></div>
+            <div class="notify-container"><a id="modules" href="#modules">Modules</a></div>
+            <div class="notify-container"><a id="settings" href="#settings">Settings</a></div>
+
+            <div class="notify-container">
+                <span class="notify-bubble" id="activerules"></span>
+                <a id="rules" href="#rules">Rules</a>
+            </div>
+
+            <div class="notify-container"><a id="more" href="#">More</a></div>
         </div>
     </div>
 
@@ -75,6 +81,7 @@
         <div id='warning7' class='warning'>Web page is unsynchronised with controller, refresh web page (F5)</div>
     </div>
     <div id="info" class="info">
+        <div id="soc" class="stat"><span class="x t">S.o.C:</span><span class="x v"></span></div>
         <div id="current" class="stat"><span class="x t">Current:</span><span class="x v"></span></div>
         <div id="shuntv" class="stat"><span class="x t">Shunt voltage:</span><span class="x v"></span></div>
         <div id="power" class="stat"><span class="x t">Power:</span><span class="x v"></span></div>
@@ -84,6 +91,9 @@
                 class="x v"></span></div>
         <div id="badcrc" class="stat"><span class="x t">CRC Errors:</span><span class="x v"></span></div>
         <div id="ignored" class="stat"><span class="x t" title="Ignored request errors">Ignored requests:</span><span
+                class="x v"></span></div>
+
+        <div id="canfail" class="stat"><span class="x t" title="CAN send failure">CAN send error:</span><span
                 class="x v"></span></div>
     </div>
 
@@ -99,6 +109,9 @@
             <div id="received" class="stat"><span class="x t">Packets rec'd:</span><span class="x v"></span></div>
             <div id="roundtrip" class="stat"><span class="x t">Roundtrip (ms):</span><span class="x v"></span></div>
             <div id="uptime" class="stat"><span class="x t">Uptime:</span><span class="x v"></span></div>
+
+            <div id="cansent" class="stat"><span class="x t">CAN sent:</span><span class="x v"></span></div>
+            <div id="canrecd" class="stat"><span class="x t">CAN received:</span><span class="x v"></span></div>
 
             <div id="graphOptions" class="stat"><span class="x t">Graph:</span>
                 <span class="x v">
@@ -242,7 +255,7 @@
                             <input id="mVPerADC" name="mVPerADC" type="number" value="" readonly="">
                         </div>
 
-                        <input type="submit" value="Save settings" />
+                        <button type="submit">Save settings</button>
                     </div>
                 </form>
             </div>
@@ -263,7 +276,7 @@
                             value="4100" required="">
                     </div>
                 </div>
-                <input id="globalSettingsButton" type="submit" value="Save settings" />
+                <button id="globalSettingsButton" type="submit">Save settings</button>
             </form>
         </div>
     </div>
@@ -272,8 +285,7 @@
     <div class="page" id="integrationPage">
         <h1 id="ip1">Integration</h1>
         <p id="ip2">For security, you will need to re-enter the password for the service(s) you want to enable or
-            modify, before
-            you save.</p>
+            modify, before you save.</p>
         <p id="ip3">After changes are made, the controller will need to be rebooted, do this manually.</p>
         <div class="region">
             <h2>MQTT</h2>
@@ -306,13 +318,18 @@
                         <input type="password" autocomplete="current-password" name="mqttPassword" id="mqttPassword"
                             value="" required="" maxlength="32">
                     </div>
-                    <input type="submit" value="Save MQTT settings" />
+                    <button type="submit">Save MQTT settings</button>
                 </div>
             </form>
         </div>
 
         <div class="region">
-            <h2>Influx Database</h2>
+            <h2>Influx DB v2 Database</h2>
+            <p>Influx DB version 2 protocol is supported. Server URL should be the full URL to the <a target="_blank"
+                    rel="noreferrer"
+                    href="https://docs.influxdata.com/influxdb/v2.0/write-data/developer-tools/api/">write API</a>, for
+                example http://192.168.0.49:8086/api/v2/write</p>
+            <p>Only HTTP is supported, for local servers use the IP address not a domain name.</p>
             <form id="influxForm" method="POST" action="saveinfluxdb.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -320,31 +337,24 @@
                         <input type="checkbox" name="influxEnabled" id="influxEnabled">
                     </div>
                     <div>
-                        <label for="influxServer">Host server</label>
-                        <input type="input" name="influxServer" id="influxServer" value="influx" required=""
-                            maxlength="64">
+                        <label for="influxUrl">Influx DB write API URL</label>
+                        <input type="input" name="influxUrl" id="influxUrl" value="influx" required="" maxlength="128"
+                            title="Example:  http://192.168.0.49:8086/api/v2/write">
                     </div>
                     <div>
-                        <label for="influxPort">Port</label>
-                        <input type="number" min="1" max="65535" step="1" name="influxPort" id="influxPort" value="1883"
-                            required="">
+                        <label for="influxToken">API authentication token</label>
+                        <input type="input" name="influxToken" id="influxToken" value="" required="" maxlength="128">
                     </div>
                     <div>
-                        <label for="influxDatabase">Database name</label>
+                        <label for="influxOrgId">Influx DB 2 organization id</label>
+                        <input type="input" name="influxOrgId" id="influxOrgId" value="" required="" maxlength="64">
+                    </div>
+                    <div>
+                        <label for="influxDatabase">Bucket or database name</label>
                         <input type="input" name="influxDatabase" id="influxDatabase" value="database" required=""
                             maxlength="64">
                     </div>
-                    <div>
-                        <label for="influxUsername">Username</label>
-                        <input type="input" autocomplete="username" name="influxUsername" id="influxUsername"
-                            value="myusername" required="" maxlength="32">
-                    </div>
-                    <div>
-                        <label for="influxPassword">Password</label>
-                        <input type="password" autocomplete="current-password" name="influxPassword" id="influxPassword"
-                            value="" required="" maxlength="32">
-                    </div>
-                    <input type="submit" value="Save Influx DB settings" />
+                    <button type="submit">Save Influx settings</button>
                 </div>
             </form>
         </div>
@@ -387,17 +397,27 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td><label for="rule1value">Emergency stop</label></td>
+                                <td><label for="rule0value">Emergency stop</label></td>
+                                <td><input type="hidden" name="rule0value" id="rule0value" value="0"></td>
+                                <td><input type="hidden" name="rule0hysteresis" id="rule0hysteresis" value="0"></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule1value">Internal BMS error</label></td>
                                 <td><input type="hidden" name="rule1value" id="rule1value" value="0"></td>
                                 <td><input type="hidden" name="rule1hysteresis" id="rule1hysteresis" value="0"></td>
                                 <td class="relayset"></td>
                             </tr>
+
                             <tr>
-                                <td><label for="rule2value">Internal BMS error</label></td>
-                                <td><input type="hidden" name="rule2value" id="rule2value" value="0"></td>
-                                <td><input type="hidden" name="rule2hysteresis" id="rule2hysteresis" value="0"></td>
+                                <td><label for="rule2value">Current monitoring over current (Amps)</label></td>
+                                <td><input type="number" min="0" max="5000" step="1" name="rule2value" id="rule2value"
+                                        value="100" required=""></td>
+                                <td><input type="number" min="0" max="5000" step="1" name="rule2hysteresis"
+                                        id="rule2hysteresis" value="95" required=""></td>
                                 <td class="relayset"></td>
                             </tr>
+
                             <tr>
                                 <td><label for="rule3value">Individual cell over voltage (mV)</label></td>
                                 <td><input type="number" min="1800" max="4500" step="10" name="rule3value"
@@ -447,7 +467,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule9value">Pack over voltage (mV)</label></td>
+                                <td><label for="rule9value">Current monitor over voltage (mV)</label></td>
                                 <td><input type="number" min="1000" max="99999999" step="100" name="rule9value"
                                         id="rule9value" value="16000" required=""></td>
                                 <td><input type="number" min="1000" max="99999999" step="100" name="rule9hysteresis"
@@ -455,27 +475,44 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule10value">Pack under voltage (mV)</label></td>
+                                <td><label for="rule10value">Current monitor under voltage (mV)</label></td>
                                 <td><input type="number" min="1000" max="99999999" step="100" name="rule10value"
                                         id="rule10value" value="12000" required=""></td>
                                 <td><input type="number" min="1000" max="99999999" step="100" name="rule10hysteresis"
                                         id="rule10hysteresis" value="12000" required=""></td>
                                 <td class="relayset"></td>
                             </tr>
+
                             <tr>
-                                <td><label for="rule11value">Timer 2</label></td>
-                                <td><input type="number" min="0" max="1440" step="1" name="rule11value" id="rule11value"
-                                        value="0" required=""></td>
-                                <td><input type="number" min="0" max="1440" step="1" name="rule11hysteresis"
-                                        id="rule11hysteresis" value="0" required=""></td>
+                                <td><label for="rule11value">Pack over voltage (mV)</label></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule11value"
+                                        id="rule11value" value="16000" required=""></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule11hysteresis"
+                                        id="rule11hysteresis" value="16000" required=""></td>
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule12value">Timer 1</label></td>
-                                <td><input type="number" min="0" max="1440" step="1" name="rule12value" id="rule12value"
+                                <td><label for="rule12value">Pack under voltage (mV)</label></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule12value"
+                                        id="rule12value" value="12000" required=""></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule12hysteresis"
+                                        id="rule12hysteresis" value="12000" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule13value">Timer 2</label></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule13value" id="rule13value"
                                         value="0" required=""></td>
-                                <td><input type="number" min="0" max="1440" step="1" name="rule12hysteresis"
-                                        id="rule12hysteresis" value="0" required=""></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule13hysteresis"
+                                        id="rule13hysteresis" value="0" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule14value">Timer 1</label></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule14value" id="rule14value"
+                                        value="0" required=""></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule14hysteresis"
+                                        id="rule14hysteresis" value="0" required=""></td>
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
@@ -525,10 +562,11 @@
                         </tbody>
                     </table>
                 </div>
-                <input type="submit" value="Save rules" />
+                <button type="submit">Save rules</button>
             </form>
         </div>
     </div>
+
 
     <div class="page" id="diybmsCurrentMonitorPage">
         <h1>diyBMS Current &amp; Voltage Monitor</h1>
@@ -550,7 +588,7 @@
                         </select>
                     </div>
 
-                    <input type="submit" value="Save connection settings" />
+                    <button type="submit">Save connection settings</button>
                 </div>
             </form>
         </div>
@@ -595,7 +633,7 @@
                             <option value="3">2</option>
                         </select>
                     </div>
-                    <input type="submit" value="Save RS485 settings" />
+                    <button type="submit">Save RS485 settings</button>
                 </div>
             </form>
         </div>
@@ -606,6 +644,7 @@
             <p id="b3">Ensure the current shunt parameters match the data sheet for your particular shunt resistor.</p>
             <p id="b4">The current monitor uses a 40.96mV maximum scale, so shunt voltages over this will be scaled down
                 proportionally.</p>
+                <p id="b11">Battery capacity and charge voltage/tail current are used to calculate the battery 'state of charge' (SOC).</p>
             <form id="diybmsCurrentMonitorForm2" method="POST" action="savecmbasic.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -626,6 +665,9 @@
                             <option value="300">400</option>
                             <option value="500">500</option>
                             <option value="600">600</option>
+                            <option value="750">750</option>
+                            <option value="800">800</option>
+                            <option value="1000">1000</option>
                         </select>
                     </div>
 
@@ -641,41 +683,62 @@
                     </div>
 
                     <div>
+                        <label for="cmbatterycapacity">Battery capacity (Ah)</label>
+                        <input id="cmbatterycapacity" name="cmbatterycapacity" value="" type="number" min="1"
+                            max="65535" step="1" />
+                    </div>
+                    <div>
+                        <label for="cmfullchargevolt">Fully charged voltage</label>
+                        <input id="cmfullchargevolt" name="cmfullchargevolt" value="" type="number" min="1"
+                            max="999.99" step="0.01" />
+                    </div>
+                    <div>
+                        <label for="cmtailcurrent">Tail current (Amps)</label>
+                        <input id="cmtailcurrent" name="cmtailcurrent" value="" type="number" min="0.01" max="1000"
+                            step="0.01" />
+                    </div>
+                    <div>
+                        <label for="cmchargeefficiency">Charge efficiency factor %</label>
+                        <input id="cmchargeefficiency" name="cmchargeefficiency" value="" type="number" min="1" max="100"
+                            step="0.1" />
+                    </div>
+
+                    <div>
                         <label for="cmvalid">Values valid?</label>
-                        <input id="cmvalid" name="cmvalid" value="" readonly="">
+                        <input id="cmvalid" name="cmvalid" value="" readonly="" />
                     </div>
                     <div>
                         <label for="cmtimestampage">Last communication (milliseconds)</label>
-                        <input id="cmtimestampage" name="cmtimestampage" value="" readonly="">
+                        <input id="cmtimestampage" name="cmtimestampage" value="" readonly="" />
                     </div>
                     <div>
                         <label for="cmwatchdog">Watchdog counter</label>
-                        <input id="cmwatchdog" name="cmwatchdog" value="" readonly="">
+                        <input id="cmwatchdog" name="cmwatchdog" value="" readonly="" />
                     </div>
 
                     <div>
                         <label for="cmtemperature">Die temperature &deg;C</label>
-                        <input id="cmtemperature" name="cmtemperature" value="" readonly="">
+                        <input id="cmtemperature" name="cmtemperature" value="" readonly="" />
                     </div>
                     <div>
                         <label for="cmactualshuntmv">Actual shunt mV reading</label>
-                        <input id="cmactualshuntmv" name="cmactualshuntmv" value="" readonly="">
+                        <input id="cmactualshuntmv" name="cmactualshuntmv" value="" readonly="" />
                     </div>
                     <div>
                         <label for="cmcurrentlsb">Current LSB size</label>
-                        <input id="cmcurrentlsb" name="cmcurrentlsb" value="" readonly="">
+                        <input id="cmcurrentlsb" name="cmcurrentlsb" value="" readonly="" />
                     </div>
                     <div>
                         <label for="cmresistance">Shunt resistance</label>
-                        <input id="cmresistance" name="cmresistance" value="" readonly="">
+                        <input id="cmresistance" name="cmresistance" value="" readonly="" />
                     </div>
                     <div>
                         <label for="cmmodel">Sensor model</label>
-                        <input id="cmmodel" name="cmmodel" value="" readonly="">
+                        <input id="cmmodel" name="cmmodel" value="" readonly="" />
                     </div>
                     <div>
                         <label for="cmfirmwarev">Firmware version</label>
-                        <input id="cmfirmwarev" name="cmfirmwarev" value="" readonly="">
+                        <input id="cmfirmwarev" name="cmfirmwarev" value="" readonly="" />
                     </div>
                     <div>
                         <label for="cmfirmwaredate">Firmware date</label>
@@ -718,7 +781,7 @@
 
 
 
-                    <input type="submit" value="Save basic settings" />
+                    <button type="submit">Save basic settings</button>
 
                     <button id="currentmonrefresh" type="button">Refresh values</button>
 
@@ -774,15 +837,15 @@
                     </div>
 
 
-                    <input type="submit" value="Save advanced settings" />
+                    <button type="submit">Save advanced settings</button>
                 </div>
             </form>
         </div>
 
 
         <div class="region" id="currentmonrelay">
-            <h2>Current Monitor Relay Settings &amp; Temperature coefficient</h2>
-            <p>Relay triggers define which rules are used to trigger the relay into a closed state.</p>
+            <h2 id="b10">Current Monitor Relay Settings &amp; Temperature coefficient</h2>
+            <p id="b9">Relay triggers define which rules are used to trigger the relay into a closed state.</p>
             <form id="diybmsCurrentMonitorForm4" method="POST" action="savecmrelay.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -815,7 +878,7 @@
                         <input type="checkbox" name="cmPOL" id="cmPOL">
                     </div>
 
-                    <input type="submit" value="Save relay triggers" />
+                    <button type="submit">Save relay triggers</button>
                 </div>
             </form>
         </div>
@@ -828,7 +891,7 @@
         <h1>Controller Settings</h1>
         <div class="region">
             <h2 id="mb1">Modules &amp; Banks</h2>
-            <p id="mb2">DIYBMS supports up to 100 modules in total. These modules can be split into banks to support
+            <p id="mb2">DIYBMS supports up to <span id='labelMaxModules'>X</span> modules in total. These modules can be split into banks to support
                 parallel
                 configurations.</p>
             <p id="mb3">Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).</p>
@@ -844,7 +907,7 @@
                         <select name="totalBanks" id="totalBanks">
                         </select>
                     </div>
-                    <input type="submit" value="Save module &amp; bank settings" />
+                    <button type="submit">Save module &amp; bank settings</button>
                 </div>
             </form>
         </div>
@@ -875,7 +938,7 @@
                         <label for="NTPDST">Daylight Saving Enabled</label>
                         <input type="checkbox" name="NTPDST" id="NTPDST">
                     </div>
-                    <input type="submit" value="Save NTP settings" />
+                    <button type="submit">Save NTP settings</button>
                 </div>
             </form>
         </div>
@@ -935,7 +998,7 @@
                             <option>0.00</option>
                         </select>
                     </div>
-                    <input type="submit" value="Save display settings" />
+                    <button type="submit">Save display settings</button>
                 </div>
             </form>
         </div>
@@ -945,7 +1008,7 @@
             <form id="resetCountersForm" method="POST" action="resetcounters.json" autocomplete="off">
                 <div class="settings">
                     <input name="resetCounters" id="resetCounters" type="hidden" value="0">
-                    <input type="submit" value="Reset counters" />
+                    <button type="submit">Reset counters</button>
                 </div>
             </form>
         </div>
@@ -954,7 +1017,7 @@
             <form id="restartControllerForm" method="POST" action="restartcontroller.json" autocomplete="off">
                 <div class="settings">
                     <input name="handleRestartController" id="handleRestartController" type="hidden" value="0">
-                    <input type="submit" value="Restart Controller" />
+                    <button type="submit">Restart Controller</button>
                 </div>
             </form>
         </div>
@@ -1018,6 +1081,7 @@
                 <button type="button" id="unmount">Unmount</button>
                 <button type="button" id="mount">Mount</button>
                 <button type="button" id="savewifi">Save Wifi</button>
+                <button type="button" id="saveconfig">Save Configuration</button>
             </p>
             <ul id="sdcardfiles"></ul>
         </div>
@@ -1048,7 +1112,7 @@
                             <option>300</option>
                         </select>
                     </div>
-                    <input type="submit" value="Save logging settings" />
+                    <button type="submit">Save logging settings</button>
                 </div>
             </form>
         </div>
@@ -1117,7 +1181,8 @@
                         });
 
                         $.cachedScript("notify.min.js").done(function (script, textStatus) {
-                            $.cachedScript("pagecode.js").done(function (script, textStatus) {
+                            $.cachedScript("pagecode.js").done(function (script,
+                                textStatus) {
                                 //All done, scripts loaded
                             }).fail(function (jqxhr, settings, exception) {
                                 $("#jslibrary").show();

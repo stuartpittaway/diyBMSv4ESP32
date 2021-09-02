@@ -86,6 +86,7 @@ private:
     static void currentmonitor(AsyncWebServerRequest *request);
     static void rs485settings(AsyncWebServerRequest *request);
     
+    
 
     static void downloadFile(AsyncWebServerRequest *request);
     static void saveSetting(AsyncWebServerRequest *request);
@@ -108,13 +109,14 @@ private:
     static void sdUnmount(AsyncWebServerRequest *request);
     static void avrProgrammer(AsyncWebServerRequest *request);
     static void saveWifiConfigToSDCard(AsyncWebServerRequest *request);
+    static void saveConfigurationToSDCard(AsyncWebServerRequest *request);
 
     static String uuidToString(uint8_t *uuidLocation);
     static void SetCacheAndETagGzip(AsyncWebServerResponse *response, String ETag);
     static void SetCacheAndETag(AsyncWebServerResponse *response, String ETag);
 
     static void enableAVRprog(AsyncWebServerRequest *request);
-    static void disableAVRprog(AsyncWebServerRequest *request);
+    static void disableAVRprog(AsyncWebServerRequest *request);    
 };
 
 //TODO: Remove this
@@ -123,8 +125,13 @@ extern TaskHandle_t avrprog_task_handle;
 extern avrprogramsettings _avrsettings;
 extern RelayState previousRelayState[RELAY_TOTAL];
 extern currentmonitoring_struct currentMonitor;
+
+extern uint32_t canbus_messages_failed_sent;
+extern uint32_t canbus_messages_sent;
+extern uint32_t canbus_messages_received;
+
 extern void ConfigureRS485();
-extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur);
+extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent,float chargeefficiency);
 extern void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues);
 extern void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues);
 #endif

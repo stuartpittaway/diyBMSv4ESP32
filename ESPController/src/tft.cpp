@@ -628,39 +628,35 @@ void DrawTFT_CurrentMonitor()
 
     uint8_t decimals = 2;
 
-    if (currentMonitor.current > 99)
+    if (currentMonitor.modbus.current > 99)
     {
         decimals = 1;
     }
-    if (currentMonitor.current < 9)
-    {
-        decimals = 3;
-    }
 
-    x += tft.drawFloat(currentMonitor.current, decimals, x, y);
+    x += tft.drawFloat(currentMonitor.modbus.current, decimals, x, y);
     tft.fillRect(x, y, (w / 2) - x, tft.fontHeight(), TFT_BLACK);
 
     decimals = 2;
-    if (currentMonitor.voltage > 99)
+    if (currentMonitor.modbus.voltage > 99)
     {
         decimals = 1;
     }
     y = 2 + yhalfway + fontHeight_2;
     x = 0;
-    x += tft.drawFloat(currentMonitor.voltage, decimals, x, y);
+    x += tft.drawFloat(currentMonitor.modbus.voltage, decimals, x, y);
     tft.fillRect(x, y, (w / 2) - x, tft.fontHeight(), TFT_BLACK);
 
     y = fontHeight_2;
     x = 2 + w / 2;
     decimals = 1;
-    x += tft.drawFloat(currentMonitor.power, decimals, x, y);
+    x += tft.drawFloat(currentMonitor.modbus.power, decimals, x, y);
     tft.fillRect(x, y, w - x, tft.fontHeight(), TFT_BLACK);
 
     y = 2 + yhalfway + fontHeight_2;
     x = 2 + w / 2;
     decimals = 1;
     tft.setTextFont(4);
-    float ahout = (float)currentMonitor.milliamphour_out / 1000.0;
+    float ahout = (float)currentMonitor.modbus.milliamphour_out / 1000.0;
     if (ahout < 10)
     {
         decimals = 3;
@@ -672,7 +668,7 @@ void DrawTFT_CurrentMonitor()
     y = fontHeight_2 + fontHeight_4 + fontHeight_4 + yhalfway + 2;
     x = 2 + w / 2;
     decimals = 1;
-    float ahin = (float)currentMonitor.milliamphour_in / 1000.0;
+    float ahin = (float)currentMonitor.modbus.milliamphour_in / 1000.0;
 
     if (ahin < 10)
     {

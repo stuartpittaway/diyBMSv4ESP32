@@ -60,7 +60,7 @@ HAL_ESP32 *DIYBMSServer::_hal = 0;
 
 String DIYBMSServer::uuidToString(uint8_t *uuidLocation)
 {
-  const char hexchars[]="0123456789abcdef";
+  const char hexchars[] = "0123456789abcdef";
   String string = "";
   int i;
   for (i = 0; i < 16; i++)
@@ -90,14 +90,15 @@ void DIYBMSServer::generateUUID()
 
   //ESP32 has inbuilt random number generator
   //https://techtutorialsx.com/2017/12/22/esp32-arduino-random-number-generation/
-  for (uint8_t x = 0; x < 16; x++) {
+  for (uint8_t x = 0; x < 16; x++)
+  {
     uuidNumber[x] = random(0xFF);
   }
 
   UUIDString = uuidToString(uuidNumber);
 
   //481efb3f-0400-0000-101f-fb3fd01efb3f
-  UUIDStringLast2Chars=UUIDString.substring(34);
+  UUIDStringLast2Chars = UUIDString.substring(34);
 }
 
 bool DIYBMSServer::validateXSS(AsyncWebServerRequest *request)
@@ -137,6 +138,207 @@ void DIYBMSServer::SendSuccess(AsyncWebServerRequest *request)
 void DIYBMSServer::SendFailure(AsyncWebServerRequest *request)
 {
   request->send(500, "text/plain", "Failed");
+}
+
+void DIYBMSServer::saveConfigurationToSDCard(AsyncWebServerRequest *request)
+{
+  if (!validateXSS(request))
+    return;
+
+  if (!_sd_card_installed)
+  {
+    SendFailure(request);
+    return;
+  }
+
+  if (_hal->GetVSPIMutex())
+  {
+
+    struct tm timeinfo;
+
+    //getLocalTime has delay() functions in it :-(
+    if (getLocalTime(&timeinfo, 1))
+    {
+      timeinfo.tm_year += 1900;
+      //Month is 0 to 11 based!
+      timeinfo.tm_mon++;
+    }
+    else
+    {
+      memset(&timeinfo, 0, sizeof(tm));
+    }
+
+    char filename[128];
+    sprintf(filename, "/backup_config_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+    //ESP_LOGI(TAG, "Creating folder");
+    //_sdcard->mkdir("/diybms");
+
+    //Get the file
+    ESP_LOGI(TAG, "Generating SD file %s", filename);
+
+    if (_sdcard->exists(filename))
+    {
+      ESP_LOGI(TAG, "Delete existing file %s", filename);
+      _sdcard->remove(filename);
+    }
+
+    StaticJsonDocument<4096> doc;
+
+    //This code builds up a JSON document which mirrors the structure "diybms_eeprom_settings"
+    JsonObject root = doc.createNestedObject("diybms_settings");
+
+    root["totalNumberOfBanks"] = _mysettings->totalNumberOfBanks;
+    root["totalNumberOfSeriesModules"] = _mysettings->totalNumberOfSeriesModules;
+
+    root["graph_voltagehigh"] = _mysettings->graph_voltagehigh;
+    root["graph_voltagelow"] = _mysettings->graph_voltagelow;
+
+    root["BypassOverTempShutdown"] = _mysettings->BypassOverTempShutdown;
+    root["BypassThresholdmV"] = _mysettings->BypassThresholdmV;
+
+    root["timeZone"] = _mysettings->timeZone;
+    root["minutesTimeZone"] = _mysettings->minutesTimeZone;
+    root["daylight"] = _mysettings->daylight;
+    root["ntpServer"] = _mysettings->ntpServer;
+
+    root["loggingEnabled"] = _mysettings->loggingEnabled;
+    root["loggingFrequencySeconds"] = _mysettings->loggingFrequencySeconds;
+
+    root["currentMonitoringEnabled"] = _mysettings->currentMonitoringEnabled;
+    root["currentMonitoringModBusAddress"] = _mysettings->currentMonitoringModBusAddress;
+
+    root["rs485baudrate"] = _mysettings->rs485baudrate;
+    root["rs485databits"] = _mysettings->rs485databits;
+    root["rs485parity"] = _mysettings->rs485parity;
+    root["rs485stopbits"] = _mysettings->rs485stopbits;
+
+    root["language"] = _mysettings->language;
+
+    root["VictronEnabled"] = _mysettings->VictronEnabled;
+
+    JsonObject mqtt = root.createNestedObject("mqtt");
+    mqtt["enabled"] = _mysettings->mqtt_enabled;
+    mqtt["port"] = _mysettings->mqtt_port;
+    mqtt["server"] = _mysettings->mqtt_server;
+    mqtt["topic"] = _mysettings->mqtt_topic;
+    mqtt["username"] = _mysettings->mqtt_username;
+    mqtt["password"] = _mysettings->mqtt_password;
+
+    JsonObject influxdb = root.createNestedObject("influxdb");
+    influxdb["enabled"] = _mysettings->influxdb_enabled;
+    influxdb["apitoken"] = _mysettings->influxdb_apitoken;
+    influxdb["bucket"] = _mysettings->influxdb_databasebucket;
+    influxdb["org"] = _mysettings->influxdb_orgid;
+    influxdb["url"] = _mysettings->influxdb_serverurl;
+
+    JsonObject outputs = root.createNestedObject("outputs");
+
+    JsonArray d = outputs.createNestedArray("default");
+    JsonArray t = outputs.createNestedArray("type");
+    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+    {
+      d.add(_mysettings->rulerelaydefault[i]);
+      t.add(_mysettings->relaytype[i]);
+    }
+
+    JsonObject rules = root.createNestedObject("rules");
+    for (uint8_t rr = 0; rr < RELAY_RULES; rr++)
+    {
+      String elementName = String("rule") + String(rr);
+
+      //Map enum to string so when this file is re-imported we are not locked to specific index offsets
+      //which may no longer map to the correct rule
+      switch (rr)
+      {
+      case Rule::EmergencyStop:
+        elementName = String("EmergencyStop");
+        break;
+      case Rule::BMSError:
+        elementName = String("BMSError");
+        break;
+      case Rule::CurrentMonitorOverCurrentAmps:
+        elementName = String("CurrentMonitorOverCurrentAmps");
+        break;
+      case Rule::ModuleOverVoltage:
+        elementName = String("ModuleOverVoltage");
+        break;
+      case Rule::ModuleUnderVoltage:
+        elementName = String("ModuleUnderVoltage");
+        break;
+      case Rule::ModuleOverTemperatureInternal:
+        elementName = String("ModuleOverTemperatureInternal");
+        break;
+      case Rule::ModuleUnderTemperatureInternal:
+        elementName = String("ModuleUnderTemperatureInternal");
+        break;
+      case Rule::ModuleOverTemperatureExternal:
+        elementName = String("ModuleOverTemperatureExternal");
+        break;
+      case Rule::ModuleUnderTemperatureExternal:
+        elementName = String("ModuleUnderTemperatureExternal");
+        break;
+      case Rule::CurrentMonitorOverVoltage:
+        elementName = String("CurrentMonitorOverVoltage");
+        break;
+      case Rule::CurrentMonitorUnderVoltage:
+        elementName = String("CurrentMonitorUnderVoltage");
+        break;
+      case Rule::BankOverVoltage:
+        elementName = String("BankOverVoltage");
+        break;
+      case Rule::BankUnderVoltage:
+        elementName = String("BankUnderVoltage");
+        break;
+      case Rule::Timer2:
+        elementName = String("Timer2");
+        break;
+      case Rule::Timer1:
+        elementName = String("Timer1");
+        break;
+      }
+
+      JsonObject state = rules.createNestedObject(elementName);
+
+      state["value"] = _mysettings->rulevalue[rr];
+      state["hysteresis"] = _mysettings->rulehysteresis[rr];
+
+      JsonArray relaystate = state.createNestedArray("state");
+      for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
+      {
+        relaystate.add(_mysettings->rulerelaystate[rr][rt]);
+      }
+    } //end for
+
+    JsonObject victron = root.createNestedObject("victron");
+    JsonArray cvl = victron.createNestedArray("cvl");
+    JsonArray ccl = victron.createNestedArray("ccl");
+    JsonArray dcl = victron.createNestedArray("dcl");
+    for (uint8_t i = 0; i < 3; i++)
+    {
+      cvl.add(_mysettings->cvl[i]);
+      ccl.add(_mysettings->ccl[i]);
+      dcl.add(_mysettings->dcl[i]);
+    }
+
+    /*
+struct diybms_eeprom_settings
+{
+  //Use a bit pattern to indicate the relay states
+  RelayState rulerelaystate[RELAY_RULES][RELAY_TOTAL];
+};
+*/
+
+    //wifi["password"] = DIYBMSSoftAP::Config()->wifi_passphrase;
+
+    File file = _sdcard->open(filename, "w");
+    serializeJson(doc, file);
+    file.close();
+
+    _hal->ReleaseVSPIMutex();
+  }
+
+  SendSuccess(request);
 }
 
 void DIYBMSServer::saveWifiConfigToSDCard(AsyncWebServerRequest *request)
@@ -360,6 +562,10 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
   if (!validateXSS(request))
     return;
 
+  canbus_messages_failed_sent = 0;
+  canbus_messages_received = 0;
+  canbus_messages_sent = 0;
+
   //Ask modules to reset bad packet counters
   _prg->sendBadPacketCounterReset();
   _prg->sendResetBalanceCurrentCounter();
@@ -427,34 +633,28 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
     _mysettings->influxdb_enabled = false;
   }
 
-  if (request->hasParam("influxPort", true))
+  if (request->hasParam("influxUrl", true))
   {
-    AsyncWebParameter *p1 = request->getParam("influxPort", true);
-    _mysettings->influxdb_httpPort = p1->value().toInt();
-  }
-
-  if (request->hasParam("influxServer", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("influxServer", true);
-    p1->value().toCharArray(_mysettings->influxdb_host, sizeof(_mysettings->influxdb_host));
+    AsyncWebParameter *p1 = request->getParam("influxUrl", true);
+    p1->value().toCharArray(_mysettings->influxdb_serverurl, sizeof(_mysettings->influxdb_serverurl));
   }
 
   if (request->hasParam("influxDatabase", true))
   {
     AsyncWebParameter *p1 = request->getParam("influxDatabase", true);
-    p1->value().toCharArray(_mysettings->influxdb_database, sizeof(_mysettings->influxdb_database));
+    p1->value().toCharArray(_mysettings->influxdb_databasebucket, sizeof(_mysettings->influxdb_databasebucket));
   }
 
-  if (request->hasParam("influxUsername", true))
+  if (request->hasParam("influxOrgId", true))
   {
-    AsyncWebParameter *p1 = request->getParam("influxUsername", true);
-    p1->value().toCharArray(_mysettings->influxdb_user, sizeof(_mysettings->influxdb_user));
+    AsyncWebParameter *p1 = request->getParam("influxOrgId", true);
+    p1->value().toCharArray(_mysettings->influxdb_orgid, sizeof(_mysettings->influxdb_orgid));
   }
 
-  if (request->hasParam("influxPassword", true))
+  if (request->hasParam("influxToken", true))
   {
-    AsyncWebParameter *p1 = request->getParam("influxPassword", true);
-    p1->value().toCharArray(_mysettings->influxdb_password, sizeof(_mysettings->influxdb_password));
+    AsyncWebParameter *p1 = request->getParam("influxToken", true);
+    p1->value().toCharArray(_mysettings->influxdb_apitoken, sizeof(_mysettings->influxdb_apitoken));
   }
 
   saveConfiguration();
@@ -462,6 +662,7 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
   //ConfigHasChanged = REBOOT_COUNT_DOWN;
   SendSuccess(request);
 }
+
 
 void DIYBMSServer::saveCurrentMonRelay(AsyncWebServerRequest *request)
 {
@@ -529,42 +730,42 @@ void DIYBMSServer::saveCurrentMonAdvanced(AsyncWebServerRequest *request)
   if (request->hasParam("cmcalibration", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmcalibration", true);
-    newvalues.shuntcal = p1->value().toInt();
+    newvalues.modbus.shuntcal = p1->value().toInt();
   }
   if (request->hasParam("cmtemplimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmtemplimit", true);
-    newvalues.temperaturelimit = (int16_t)(p1->value().toInt());
+    newvalues.modbus.temperaturelimit = (int16_t)(p1->value().toInt());
   }
   if (request->hasParam("cmundervlimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmundervlimit", true);
-    newvalues.undervoltagelimit = p1->value().toFloat();
+    newvalues.modbus.undervoltagelimit = p1->value().toFloat();
   }
   if (request->hasParam("cmovervlimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmovervlimit", true);
-    newvalues.overvoltagelimit = p1->value().toFloat();
+    newvalues.modbus.overvoltagelimit = p1->value().toFloat();
   }
   if (request->hasParam("cmoverclimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmoverclimit", true);
-    newvalues.overcurrentlimit = p1->value().toFloat();
+    newvalues.modbus.overcurrentlimit = p1->value().toFloat();
   }
   if (request->hasParam("cmunderclimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmunderclimit", true);
-    newvalues.undercurrentlimit = p1->value().toFloat();
+    newvalues.modbus.undercurrentlimit = p1->value().toFloat();
   }
   if (request->hasParam("cmoverplimit", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmoverplimit", true);
-    newvalues.overpowerlimit = p1->value().toFloat();
+    newvalues.modbus.overpowerlimit = p1->value().toFloat();
   }
   if (request->hasParam("cmtempcoeff", true))
   {
     AsyncWebParameter *p1 = request->getParam("cmtempcoeff", true);
-    newvalues.shunttempcoefficient = p1->value().toInt();
+    newvalues.modbus.shunttempcoefficient = p1->value().toInt();
   }
 
   CurrentMonitorSetAdvancedSettings(newvalues);
@@ -577,7 +778,7 @@ void DIYBMSServer::saveCurrentMonBasic(AsyncWebServerRequest *request)
   if (!validateXSS(request))
     return;
 
-  if (request->hasParam("shuntmaxcur", true) && request->hasParam("shuntmv", true))
+  if (request->hasParam("shuntmaxcur", true) && request->hasParam("shuntmv", true) && request->hasParam("cmbatterycapacity", true) && request->hasParam("cmfullchargevolt", true) && request->hasParam("cmtailcurrent", true) && request->hasParam("cmchargeefficiency", true))
   {
     AsyncWebParameter *p1 = request->getParam("shuntmaxcur", true);
     int shuntmaxcur = p1->value().toInt();
@@ -585,7 +786,19 @@ void DIYBMSServer::saveCurrentMonBasic(AsyncWebServerRequest *request)
     AsyncWebParameter *p2 = request->getParam("shuntmv", true);
     int shuntmv = p2->value().toInt();
 
-    CurrentMonitorSetBasicSettings(shuntmv, shuntmaxcur);
+    AsyncWebParameter *p3 = request->getParam("cmbatterycapacity", true);
+    uint16_t batterycapacity = (uint16_t)(p3->value().toInt());
+
+    AsyncWebParameter *p4 = request->getParam("cmfullchargevolt", true);
+    float fullchargevolt = p4->value().toFloat();
+
+    AsyncWebParameter *p5 = request->getParam("cmtailcurrent", true);
+    float tailcurrent = p5->value().toFloat();
+
+    AsyncWebParameter *p6 = request->getParam("cmchargeefficiency", true);
+    float chargeefficiency = p6->value().toFloat();
+
+    CurrentMonitorSetBasicSettings(shuntmv, shuntmaxcur, batterycapacity, fullchargevolt, tailcurrent, chargeefficiency);
   }
 
   SendSuccess(request);
@@ -715,7 +928,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
 
     //TODO: This STRING doesnt work properly if its on a single line!
     String name = "rule";
-    name = name + (rule + 1);
+    name = name + (rule);
     name = name + "value";
 
     if (request->hasParam(name, true))
@@ -726,7 +939,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
 
     //TODO: This STRING doesnt work properly if its on a single line!
     String hname = "rule";
-    hname = hname + (rule + 1);
+    hname = hname + (rule);
     hname = hname + "hysteresis";
     if (request->hasParam(hname, true))
     {
@@ -739,7 +952,7 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
     {
       //TODO: This STRING doesnt work properly if its on a single line!
       String name = "rule";
-      name = name + (rule + 1);
+      name = name + (rule);
       name = name + "relay";
       name = name + (i + 1);
       if (request->hasParam(name, true))
@@ -890,7 +1103,7 @@ void DIYBMSServer::saveMQTTSetting(AsyncWebServerRequest *request)
   }
   else
   {
-    sprintf(_mysettings->mqtt_topic, "diybms");
+    strcpy(_mysettings->mqtt_topic, "diybms");
   }
 
   if (request->hasParam("mqttPort", true))
@@ -1045,7 +1258,7 @@ void DIYBMSServer::GetRules(AsyncWebServerRequest *request)
   AsyncResponseStream *response =
       request->beginResponseStream("application/json");
 
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(4096);
   JsonObject root = doc.to<JsonObject>();
 
   struct tm timeinfo;
@@ -1252,28 +1465,33 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"timestampage\":", x);
   PrintStreamCommaBoolean(response, "\"valid\":", currentMonitor.validReadings);
 
-  PrintStreamCommaFloat(response, "\"voltage\":", currentMonitor.voltage);
-  PrintStreamCommaFloat(response, "\"current\":", currentMonitor.current);
-  PrintStreamComma(response, "\"mahout\":", currentMonitor.milliamphour_out);
-  PrintStreamComma(response, "\"mahin\":", currentMonitor.milliamphour_in);
-  PrintStreamCommaInt16(response, "\"temperature\":", currentMonitor.temperature);
-  PrintStreamComma(response, "\"watchdog\":", currentMonitor.watchdogcounter);
-  PrintStreamCommaFloat(response, "\"power\":", currentMonitor.power);
-  PrintStreamCommaFloat(response, "\"actualshuntmv\":", currentMonitor.shuntmV);
-  PrintStreamCommaFloat(response, "\"currentlsb\":", currentMonitor.currentlsb);
-  PrintStreamCommaFloat(response, "\"resistance\":", currentMonitor.shuntresistance);
-  PrintStreamComma(response, "\"calibration\":", currentMonitor.shuntcal);
-  PrintStreamCommaInt16(response, "\"templimit\":", currentMonitor.temperaturelimit);
-  PrintStreamCommaFloat(response, "\"undervlimit\":", currentMonitor.undervoltagelimit);
-  PrintStreamCommaFloat(response, "\"overvlimit\":", currentMonitor.overvoltagelimit);
-  PrintStreamCommaFloat(response, "\"overclimit\":", currentMonitor.overcurrentlimit);
-  PrintStreamCommaFloat(response, "\"underclimit\":", currentMonitor.undercurrentlimit);
-  PrintStreamCommaFloat(response, "\"overplimit\":", currentMonitor.overpowerlimit);
-  PrintStreamComma(response, "\"tempcoeff\":", currentMonitor.shunttempcoefficient);
-  PrintStreamComma(response, "\"model\":", currentMonitor.modelnumber);
+  PrintStreamComma(response, "\"batterycapacity\":", currentMonitor.modbus.batterycapacityamphour);
+  PrintStreamCommaFloat(response, "\"tailcurrent\":", currentMonitor.modbus.tailcurrentamps);
+  PrintStreamCommaFloat(response, "\"fullchargevolt\":", currentMonitor.modbus.fullychargedvoltage);
+  PrintStreamCommaFloat(response, "\"chargeefficiency\":", currentMonitor.chargeefficiency);
 
-  PrintStreamComma(response, "\"firmwarev\":", currentMonitor.firmwareversion);
-  PrintStreamComma(response, "\"firmwaredate\":", currentMonitor.firmwaredatetime);
+  PrintStreamCommaFloat(response, "\"voltage\":", currentMonitor.modbus.voltage);
+  PrintStreamCommaFloat(response, "\"current\":", currentMonitor.modbus.current);
+  PrintStreamComma(response, "\"mahout\":", currentMonitor.modbus.milliamphour_out);
+  PrintStreamComma(response, "\"mahin\":", currentMonitor.modbus.milliamphour_in);
+  PrintStreamCommaInt16(response, "\"temperature\":", currentMonitor.modbus.temperature);
+  PrintStreamComma(response, "\"watchdog\":", currentMonitor.modbus.watchdogcounter);
+  PrintStreamCommaFloat(response, "\"power\":", currentMonitor.modbus.power);
+  PrintStreamCommaFloat(response, "\"actualshuntmv\":", currentMonitor.modbus.shuntmV);
+  PrintStreamCommaFloat(response, "\"currentlsb\":", currentMonitor.modbus.currentlsb);
+  PrintStreamCommaFloat(response, "\"resistance\":", currentMonitor.modbus.shuntresistance);
+  PrintStreamComma(response, "\"calibration\":", currentMonitor.modbus.shuntcal);
+  PrintStreamCommaInt16(response, "\"templimit\":", currentMonitor.modbus.temperaturelimit);
+  PrintStreamCommaFloat(response, "\"undervlimit\":", currentMonitor.modbus.undervoltagelimit);
+  PrintStreamCommaFloat(response, "\"overvlimit\":", currentMonitor.modbus.overvoltagelimit);
+  PrintStreamCommaFloat(response, "\"overclimit\":", currentMonitor.modbus.overcurrentlimit);
+  PrintStreamCommaFloat(response, "\"underclimit\":", currentMonitor.modbus.undercurrentlimit);
+  PrintStreamCommaFloat(response, "\"overplimit\":", currentMonitor.modbus.overpowerlimit);
+  PrintStreamComma(response, "\"tempcoeff\":", currentMonitor.modbus.shunttempcoefficient);
+  PrintStreamComma(response, "\"model\":", currentMonitor.modbus.modelnumber);
+
+  PrintStreamComma(response, "\"firmwarev\":", currentMonitor.modbus.firmwareversion);
+  PrintStreamComma(response, "\"firmwaredate\":", currentMonitor.modbus.firmwaredatetime);
 
   //Boolean flag values
   PrintStreamCommaBoolean(response, "\"TMPOL\":", currentMonitor.TemperatureOverLimit);
@@ -1294,8 +1512,8 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   PrintStreamCommaBoolean(response, "\"T_POL\":", currentMonitor.RelayTriggerPowerOverLimit);
   PrintStreamCommaBoolean(response, "\"RelayState\":", currentMonitor.RelayState);
 
-  PrintStreamComma(response, "\"shuntmv\":", currentMonitor.shuntmillivolt);
-  PrintStream(response, "\"shuntmaxcur\":", currentMonitor.shuntmaxcurrent);
+  PrintStreamComma(response, "\"shuntmv\":", currentMonitor.modbus.shuntmillivolt);
+  PrintStream(response, "\"shuntmaxcur\":", currentMonitor.modbus.shuntmaxcurrent);
 
   //The END...
   response->print('}');
@@ -1427,12 +1645,10 @@ void DIYBMSServer::integration(AsyncWebServerRequest *request)
 
   JsonObject influxdb = root.createNestedObject("influxdb");
   influxdb["enabled"] = _mysettings->influxdb_enabled;
-  influxdb["port"] = _mysettings->influxdb_httpPort;
-  influxdb["server"] = _mysettings->influxdb_host;
-  influxdb["database"] = _mysettings->influxdb_database;
-  influxdb["username"] = _mysettings->influxdb_user;
-  //We don't output the password in the json file as this could breach security
-  //influxdb["password"] = _mysettings->influxdb_password;
+  influxdb["url"] = _mysettings->influxdb_serverurl;
+  influxdb["bucket"] = _mysettings->influxdb_databasebucket;
+  influxdb["apitoken"] = _mysettings->influxdb_apitoken;
+  influxdb["orgid"] = _mysettings->influxdb_orgid;
 
   serializeJson(doc, *response);
   request->send(response);
@@ -1706,15 +1922,19 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"roundtrip\":", _receiveProc->packetTimerMillisecond);
   PrintStreamComma(response, "\"oos\":", _receiveProc->totalOutofSequenceErrors);
 
+  PrintStreamComma(response, "\"activerules\":", _rules->active_rule_count);
   PrintStreamComma(response, "\"uptime\":", (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6));
-  
-  //Output last 2 charaters from security cookie, to allow brower to detect when its
+
+  PrintStreamComma(response, "\"can_fail\":", canbus_messages_failed_sent);
+  PrintStreamComma(response, "\"can_sent\":", canbus_messages_sent);
+  PrintStreamComma(response, "\"can_rec\":", canbus_messages_received);
+
+  //Output last 2 charaters from security cookie, to allow browser to detect when its
   //no longer in sync with the back end and report warning.
   //Technically this downgrades the complexity of the XSS key, as it reduces key length.
   response->print("\"sec\":\"");
   response->print(UUIDStringLast2Chars);
   response->print("\",");
-
 
   response->print(F("\"errors\":["));
   uint8_t count = 0;
@@ -1964,15 +2184,18 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   {
     //Output current monitor values, this is inside an array, so could be more than 1
     response->print(F("{\"c\":"));
-    response->print(currentMonitor.current, 4);
+    response->print(currentMonitor.modbus.current, 4);
     response->print(F(",\"v\":"));
-    response->print(currentMonitor.voltage, 4);
+    response->print(currentMonitor.modbus.voltage, 4);
     response->print(F(",\"mahout\":"));
-    response->print(currentMonitor.milliamphour_out);
+    response->print(currentMonitor.modbus.milliamphour_out);
     response->print(F(",\"mahin\":"));
-    response->print(currentMonitor.milliamphour_in);
+    response->print(currentMonitor.modbus.milliamphour_in);
     response->print(F(",\"p\":"));
-    response->print(currentMonitor.power, 2);
+    response->print(currentMonitor.modbus.power, 2);
+    response->print(F(",\"soc\":"));
+    response->print(currentMonitor.stateofcharge, 2);
+
     response->print("}");
   }
   else
@@ -2021,6 +2244,12 @@ String DIYBMSServer::TemplateProcessor(const String &var)
 
   if (var == "integrity_file_jquery_js")
     return String(integrity_file_jquery_js);
+
+  if (var == "noofseriesmodules")
+    return String(maximum_controller_cell_modules);
+
+  if (var == "maxnumberofbanks")
+    return String(maximum_number_of_banks);
 
   return String();
 }
@@ -2296,7 +2525,6 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
                   }
                 });
 
-
   _myserver->on("/style.css", HTTP_GET,
                 [](AsyncWebServerRequest *request)
                 {
@@ -2327,6 +2555,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/currentmonitor.json", HTTP_GET, DIYBMSServer::currentmonitor);
   _myserver->on("/rs485settings.json", HTTP_GET, DIYBMSServer::rs485settings);
+  
 
   //POST method endpoints
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);
@@ -2350,6 +2579,7 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   _myserver->on("/avrprog.json", HTTP_POST, DIYBMSServer::avrProgrammer);
   _myserver->on("/wificonfigtofile.json", HTTP_POST, DIYBMSServer::saveWifiConfigToSDCard);
+  _myserver->on("/saveconfigtofile.json", HTTP_POST, DIYBMSServer::saveConfigurationToSDCard);
 
   //Current monitor services/settings
   _myserver->on("/savers485settings.json", HTTP_POST, DIYBMSServer::saveRS485Settings);
@@ -2357,9 +2587,10 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->on("/savecmbasic.json", HTTP_POST, DIYBMSServer::saveCurrentMonBasic);
   _myserver->on("/savecmadvanced.json", HTTP_POST, DIYBMSServer::saveCurrentMonAdvanced);
   _myserver->on("/savecmrelay.json", HTTP_POST, DIYBMSServer::saveCurrentMonRelay);
+  
 
   _myserver->onNotFound(DIYBMSServer::handleNotFound);
   _myserver->begin();
 
-  ESP_LOGD(TAG, "Start Web Server complete");
+  ESP_LOGI(TAG, "Start Web Server complete");
 }

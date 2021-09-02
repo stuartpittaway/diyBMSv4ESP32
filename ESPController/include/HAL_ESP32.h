@@ -6,8 +6,10 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 
 #include <Arduino.h>
 #include "driver/i2c.h"
+#include <driver/can.h>
 #include "esp32-hal-i2c.h"
 #include <SPI.h>
+
 
 //#define GREEN_LED 2
 
@@ -79,6 +81,7 @@ public:
     void TFTScreenBacklight(bool Status);
     void SwapGPIO0ToOutput();
     void CANBUSEnable(bool value);
+    void ConfigureCAN();
 
     bool IsVSPIMutexAvailable()
     {

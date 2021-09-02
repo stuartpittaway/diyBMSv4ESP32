@@ -1,3 +1,20 @@
+const INTERNALRULENUMBER = {
+    EmergencyStop: 0,
+    BMSError: 1,
+    CurrentMonitorOverCurrentAmps: 2,
+    Individualcellovervoltage: 3,
+    Individualcellundervoltage: 4,
+    ModuleOverTemperatureInternal: 5,
+    ModuleUnderTemperatureInternal: 6,
+    IndividualcellovertemperatureExternal: 7,
+    IndividualcellundertemperatureExternal: 8,
+    PackOverVoltage: 9,
+    PackUnderVoltage: 10,
+    Timer2: 11,
+    Timer1: 12
+}
+Object.freeze(INTERNALRULENUMBER);
+
 const INTERNALWARNINGCODE = {
     NoWarning: 0,
     ModuleInconsistantBypassVoltage: 1,
@@ -43,6 +60,12 @@ function refreshCurrentMonitorValues() {
             $("#shuntmv").val(data.shuntmv);
 
             $("#cmvalid").val(data.valid);
+
+            $("#cmbatterycapacity").val(data.batterycapacity);
+            $("#cmfullchargevolt").val(data.fullchargevolt.toFixed(2));
+            $("#cmtailcurrent").val(data.tailcurrent.toFixed(2));
+            $("#cmchargeefficiency").val(data.chargeefficiency.toFixed(1));
+
             $("#cmtimestampage").val(data.timestampage);
             $("#cmtemperature").val(data.temperature);
             $("#cmwatchdog").val(data.watchdog);
@@ -235,16 +258,19 @@ function configureModule(button, cellid, attempts) {
         });
 }
 
-function secondsToHms(d) {
-    d = Number(d);
-    var h = Math.floor(d / 3600);
-    var m = Math.floor(d % 3600 / 60);
-    var s = Math.floor(d % 3600 % 60);
+function secondsToHms(seconds) {
 
+    seconds = Number(seconds);
+    var d = Math.floor(seconds / (3600 * 24));
+    var h = Math.floor(seconds % (3600 * 24) / 3600);
+    var m = Math.floor(seconds % 3600 / 60);
+    var s = Math.floor(seconds % 60);
+
+    var dDisplay = d > 0 ? h + "d" : "";
     var hDisplay = h > 0 ? h + "h" : "";
     var mDisplay = m > 0 ? m + "m" : "";
-    var sDisplay = h > 24 ? "" : (s > 0 ? s + "s" : "");
-    return hDisplay + mDisplay + sDisplay;
+    var sDisplay = d > 1 ? "" : (s > 0 ? s + "s" : "");
+    return dDisplay + hDisplay + mDisplay + sDisplay;
 }
 
 function queryBMS() {
@@ -339,7 +365,20 @@ function queryBMS() {
             if (jsondata.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.roundtrip); $("#roundtrip").show(); }
             if (jsondata.oos == 0) { $("#oos").hide(); } else { $("#oos .v").html(jsondata.oos); $("#oos").show(); }
 
+            if (jsondata.can_fail == 0) { $("#canfail").hide(); } else { $("#canfail .v").html(jsondata.can_fail); $("#canfail").show(); }
+
+            if (jsondata.can_sent == 0) { $("#cansent").hide(); } else { $("#cansent .v").html(jsondata.can_sent); $("#cansent").show(); }
+            if (jsondata.can_rec == 0) { $("#canrecd").hide(); } else { $("#canrecd .v").html(jsondata.can_rec); $("#canrecd").show(); }
+
+
             $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
+
+            if (jsondata.activerules == 0) {
+                $("#activerules").hide();
+            } else {
+                $("#activerules").html(jsondata.activerules);
+                $("#activerules").show(400);
+            }
         }
 
         if (jsondata.bankv) {
@@ -371,6 +410,7 @@ function queryBMS() {
             if (jsondata.current[0] == null) {
                 $("#current").hide();
                 $("#shuntv").hide();
+                $("#soc").hide();
                 $("#amphout").hide();
                 $("#amphin").hide();
                 $("#power").hide();
@@ -382,6 +422,9 @@ function queryBMS() {
 
                 $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
                 $("#shuntv").show();
+
+                $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
+                $("#soc").show();
 
                 $("#power .v").html(parseFloat(data.p) + "W");
                 $("#power").show();
@@ -897,12 +940,14 @@ $(function () {
     //Populate all the setting rules with relay select lists
     $.each($(".settings table tbody tr td:empty"), function (index, value) {
         $.each([1, 2, 3, 4], function (index1, relay) {
-            $(value).append('<select id="rule' + (index + 1) + 'relay' + relay + '" name="rule' + (index + 1) + 'relay' + relay + '"><option>On</option><option>Off</option><option>X</option></select>');
+            $(value).append('<select id="rule' + (index) + 'relay' + relay + '" name="rule' + (index) + 'relay' + relay + '"><option>On</option><option>Off</option><option>X</option></select>');
         });
     }
     );
 
-    for (var n = 1; n <= 32; n++) {
+    $("#labelMaxModules").text(MAXIMUM_NUMBER_OF_SERIES_MODULES);
+
+    for (var n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }
     for (var n = MAXIMUM_NUMBER_OF_BANKS - 1; n >= 0; n--) {
@@ -1057,8 +1102,8 @@ $(function () {
                 var i = 1;
                 var allrules = $(".settings table tbody tr td label");
                 $.each(data.rules, function (index, value) {
-                    $("#rule" + (index + 1) + "value").val(value.value);
-                    $("#rule" + (index + 1) + "hysteresis").val(value.hysteresis);
+                    $("#rule" + (index) + "value").val(value.value);
+                    $("#rule" + (index) + "hysteresis").val(value.hysteresis);
 
                     //Highlight rules which are active
                     if (value.triggered) {
@@ -1074,14 +1119,18 @@ $(function () {
                         if (value2 === true) { relay_value = "On"; }
                         if (value2 === false) { relay_value = "Off"; }
 
-                        $("#rule" + (index + 1) + "relay" + (index2 + 1)).val(relay_value);
-
+                        $("#rule" + (index) + "relay" + (index2 + 1)).val(relay_value);
                     });
                 });
 
                 if (data.ControlState != 0xff) {
                     //Controller is not in running state yet, so some rules are disabled
-                    $.each([2, 3, 4, 5, 6, 7], function (index, value) {
+                    $.each([INTERNALRULENUMBER.Individualcellovervoltage,
+                    INTERNALRULENUMBER.Individualcellundervoltage,
+                    INTERNALRULENUMBER.ModuleOverTemperatureInternal,
+                    INTERNALRULENUMBER.ModuleUnderTemperatureInternal,
+                    INTERNALRULENUMBER.IndividualcellovertemperatureExternal,
+                    INTERNALRULENUMBER.IndividualcellundertemperatureExternal], function (index, value) {
                         $(allrules[value]).addClass("disablerule");
                     });
                 }
@@ -1114,6 +1163,28 @@ $(function () {
         return true;
     });
 
+    $("#victroncanbus").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+
+        $.getJSON("victron.json",
+            function (data) {
+                $("#VictronEnabled").prop("checked", data.victron.enabled);
+
+                for (let index = 0; index < data.victron.cvl.length; index++) {
+                    $("#cvl" + index).val((data.victron.cvl[index] / 10).toFixed(2));
+                    $("#ccl" + index).val((data.victron.ccl[index] / 10).toFixed(2));
+                    $("#dcl" + index).val((data.victron.dcl[index] / 10).toFixed(2));
+                }
+
+                switchPage("#victroncanbusPage");
+            }).fail(function () { }
+            );
+
+        return true;
+    });
+
+
     $("#currentmonrefresh").click(function (e) {
         e.preventDefault();
         refreshCurrentMonitorValues();
@@ -1139,11 +1210,10 @@ $(function () {
                 $("#mqttPassword").val("");
 
                 $("#influxEnabled").prop("checked", data.influxdb.enabled);
-                $("#influxServer").val(data.influxdb.server);
-                $("#influxPort").val(data.influxdb.port);
-                $("#influxDatabase").val(data.influxdb.database);
-                $("#influxUsername").val(data.influxdb.username);
-                $("#influxPassword").val("");
+                $("#influxUrl").val(data.influxdb.url);
+                $("#influxDatabase").val(data.influxdb.bucket);
+                $("#influxToken").val(data.influxdb.apitoken);
+                $("#influxOrgId").val(data.influxdb.orgid);
 
                 $("#mqttForm").show();
                 $("#influxForm").show();
@@ -1184,6 +1254,23 @@ $(function () {
             },
         });
     });
+
+    $("#saveconfig").click(function () {
+        $.ajax({
+            type: 'post',
+            url: 'saveconfigtofile.json',
+            data: 'save=1',
+            success: function (data) {
+                //Refresh the storage page
+                showSuccess();
+                $("#storage").trigger("click");
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+    });
+
 
     $("#unmount").click(function () {
         $.ajax({
@@ -1435,7 +1522,12 @@ $(function () {
         currentmonitorSubmitForm(this);
     });
 
-    
+    /*
+        $("#victronForm1").unbind('submit').submit(function (e) {
+            e.preventDefault();        
+        });
+    */
+
     $("#globalSettingsForm").unbind('submit').submit(function (e) {
         e.preventDefault();
 
