@@ -2827,7 +2827,7 @@ void LoadConfiguration()
   strcpy(mysettings.mqtt_password, "emonpimqtt2016");
 
   mysettings.influxdb_enabled = false;
-  strcpy(mysettings.influxdb_serverurl, "https://eu-central-1-1.aws.cloud2.influxdata.com");
+  strcpy(mysettings.influxdb_serverurl, "http://192.168.0.49:8086/api/v2/write");
   strcpy(mysettings.influxdb_databasebucket, "bucketname");
   strcpy(mysettings.influxdb_orgid, "organisation");
 
