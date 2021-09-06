@@ -945,6 +945,8 @@ $(function () {
     }
     );
 
+    $("#labelMaxModules").text(MAXIMUM_NUMBER_OF_SERIES_MODULES);
+
     for (var n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }

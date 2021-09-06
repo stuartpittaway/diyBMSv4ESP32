@@ -632,10 +632,6 @@ void DrawTFT_CurrentMonitor()
     {
         decimals = 1;
     }
-    if (currentMonitor.modbus.current < 9)
-    {
-        decimals = 3;
-    }
 
     x += tft.drawFloat(currentMonitor.modbus.current, decimals, x, y);
     tft.fillRect(x, y, (w / 2) - x, tft.fontHeight(), TFT_BLACK);
