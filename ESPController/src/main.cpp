@@ -52,7 +52,7 @@ const uint8_t diyBMSCurrentMonitorModbusAddress = 90;
 
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
-//#include <ArduinoOTA.h>
+#include <ArduinoOTA.h>
 #include <SerialEncoder.h>
 #include <cppQueue.h>
 
@@ -1461,8 +1461,6 @@ void influxdb_task(void *param)
     }
   }
 }
-/*
-
 
 void SetupOTA()
 {
@@ -1504,7 +1502,7 @@ void SetupOTA()
   ArduinoOTA.setMdnsEnabled(true);
   ArduinoOTA.begin();
 }
-*/
+
 
 
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
@@ -1533,7 +1531,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 
   connectToMqtt();
 
-  //SetupOTA();
+  SetupOTA();
 
   // Set up mDNS responder:
   // - first argument is the domain name, in this example
@@ -3592,7 +3590,7 @@ void loop()
     ResetWifi = false;
   }
 
-  //ArduinoOTA.handle();
+  ArduinoOTA.handle();
 
   // Call update to receive, decode and process incoming packets
   myPacketSerial.checkInputStream();
