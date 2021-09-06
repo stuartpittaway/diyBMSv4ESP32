@@ -324,12 +324,22 @@
         </div>
 
         <div class="region">
-            <h2>Influx DB v2 Database</h2>
-            <p>Influx DB version 2 protocol is supported. Server URL should be the full URL to the <a target="_blank"
-                    rel="noreferrer"
+            <h2 id="in1">Influx DB</h2>
+            <h3 id="in2">API Version 2.X</h3>
+            <p id="in3">Influx DB version 2 protocol is supported. Server URL should be the full URL to the <a
+                    target="_blank" rel="noreferrer"
                     href="https://docs.influxdata.com/influxdb/v2.0/write-data/developer-tools/api/">write API</a>, for
                 example http://192.168.0.49:8086/api/v2/write</p>
-            <p>Only HTTP is supported, for local servers use the IP address not a domain name.</p>
+            <p id="in4">Only HTTP is supported, for local servers use the IP address not a domain name.</p>
+            <h3 id="in5">API Version 1.X</h3>
+            <p id="in6">Influx DB v1.8 has forward <a target="_blank" rel="noreferrer"
+                    href="https://docs.influxdata.com/influxdb/v1.8/tools/api/#apiv2write-http-endpoint">compatibility
+                    APIs</a> which mimic the v2 protocol.</p>
+            <p id="in7">For this to work, use the v1 username and password as the token, in the format of
+                <i>username:password</i></p>
+            <p id="in8">The organisation is not used, just set to the word "organisation".</p>
+            <p id="in9">The URL is the same as the v2 example above.</p>
+
             <form id="influxForm" method="POST" action="saveinfluxdb.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -644,7 +654,8 @@
             <p id="b3">Ensure the current shunt parameters match the data sheet for your particular shunt resistor.</p>
             <p id="b4">The current monitor uses a 40.96mV maximum scale, so shunt voltages over this will be scaled down
                 proportionally.</p>
-                <p id="b11">Battery capacity and charge voltage/tail current are used to calculate the battery 'state of charge' (SOC).</p>
+            <p id="b11">Battery capacity and charge voltage/tail current are used to calculate the battery 'state of
+                charge' (SOC).</p>
             <form id="diybmsCurrentMonitorForm2" method="POST" action="savecmbasic.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -689,8 +700,8 @@
                     </div>
                     <div>
                         <label for="cmfullchargevolt">Fully charged voltage</label>
-                        <input id="cmfullchargevolt" name="cmfullchargevolt" value="" type="number" min="1"
-                            max="999.99" step="0.01" />
+                        <input id="cmfullchargevolt" name="cmfullchargevolt" value="" type="number" min="1" max="999.99"
+                            step="0.01" />
                     </div>
                     <div>
                         <label for="cmtailcurrent">Tail current (Amps)</label>
@@ -699,8 +710,8 @@
                     </div>
                     <div>
                         <label for="cmchargeefficiency">Charge efficiency factor %</label>
-                        <input id="cmchargeefficiency" name="cmchargeefficiency" value="" type="number" min="1" max="100"
-                            step="0.1" />
+                        <input id="cmchargeefficiency" name="cmchargeefficiency" value="" type="number" min="1"
+                            max="100" step="0.1" />
                     </div>
 
                     <div>
@@ -891,7 +902,8 @@
         <h1>Controller Settings</h1>
         <div class="region">
             <h2 id="mb1">Modules &amp; Banks</h2>
-            <p id="mb2">DIYBMS supports up to <span id='labelMaxModules'>X</span> modules in total. These modules can be split into banks to support
+            <p id="mb2">DIYBMS supports up to <span id='labelMaxModules'>X</span> modules in total. These modules can be
+                split into banks to support
                 parallel
                 configurations.</p>
             <p id="mb3">Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).</p>
