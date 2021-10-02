@@ -394,7 +394,7 @@ void victron_message_35a()
   //6 (bit 4+5) Short circuit warning (not implemented)
   //data.byte6 |= BIT45_NOTSUP;
   //6 (bit 6+7) BMS internal warning
-  data.byte6 |= (rules.numberOfActiveWarnings > 0 ? BIT67_ALARM : BIT67_OK);
+  //data.byte6 |= (rules.numberOfActiveWarnings > 0 ? BIT67_ALARM : BIT67_OK);
 
   //ESP_LOGI(TAG, "numberOfBalancingModules=%u", rules.numberOfBalancingModules);
 
