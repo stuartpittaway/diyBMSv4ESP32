@@ -328,9 +328,10 @@ void victron_message_35a()
     //BYTE 0
     //(bit 0+1) General alarm (not implemented)
     //(bit 2+3) Battery low voltage alarm
-    data.byte0 |= (rules.rule_outcome[Rule::BankOverVoltage] ? BIT23_ALARM : BIT23_OK);
+    data.byte0 |= ((rules.rule_outcome[Rule::BankOverVoltage] | rules.rule_outcome[Rule::CurrentMonitorOverVoltage]) ? BIT23_ALARM : BIT23_OK);
     //(bit 4+5) Battery high voltage alarm
-    data.byte0 |= (rules.rule_outcome[Rule::BankUnderVoltage] ? BIT45_ALARM : BIT45_OK);
+    data.byte0 |= ((rules.rule_outcome[Rule::BankUnderVoltage] | rules.rule_outcome[Rule::CurrentMonitorUnderVoltage]) ? BIT45_ALARM : BIT45_OK);
+
     //(bit 6+7) Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
