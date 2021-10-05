@@ -1071,6 +1071,7 @@
                             <option value="de">German</option>
                             <option value="nl">Dutch</option>
                             <option value="hr">Croatian</option>
+                            <option value="ru">Russian</option>
                         </select>
                     </div>
 
@@ -1247,7 +1248,7 @@
                 console.log("$(\"#" + $(this).attr("id") + "\").text(\"" + $(this).text() + "\");");
             });
             $('label').each(function (index, value) {
-                console.log("$(\"label[for='" + $(this).attr("for") + "').text(\"" + $(this).text() + "\");");
+                console.log("$(\"label[for='" + $(this).attr("for") + "'\").text(\"" + $(this).text() + "\");");
             });
             $('p').each(function (index, value) {
                 console.log("$(\"#" + $(this).attr("id") + ").text(\"" + $(this).text() + "\");");
