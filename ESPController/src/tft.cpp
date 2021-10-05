@@ -52,20 +52,20 @@ void IRAM_ATTR TFTScreenTouchInterrupt()
         return;
 
     if (_screen_awake)
+        return;
+
+    if (tftwakeup_task_handle != NULL)
     {
-        ESP_LOGD(TAG, "Ignored touch, screen already on");
+        ESP_LOGD(TAG, "Touch");
+
+        BaseType_t xHigherPriorityTaskWoken;
+        xHigherPriorityTaskWoken = pdFALSE;
+
+        xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, &xHigherPriorityTaskWoken);
     }
     else
     {
-        if (tftwakeup_task_handle != NULL)
-        {
-            ESP_LOGD(TAG, "Touch");
-            xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
-        }
-        else
-        {
-            ESP_LOGE(TAG, "tftwakeup_task_handle=NULL");
-        }
+        ESP_LOGE(TAG, "tftwakeup_task_handle=NULL");
     }
 }
 
@@ -271,7 +271,7 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
     {
         if (_ScreenToDisplayCounter > 5)
         {
-            //Move to the next page after the "_ScreenToDisplayCounter" delay 
+            //Move to the next page after the "_ScreenToDisplayCounter" delay
             _ScreenPageCounter++;
             _ScreenToDisplayCounter = 0;
         }
