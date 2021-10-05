@@ -212,10 +212,9 @@ void victron_message_351()
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
 }
 
-//SOC value
+//S.o.C value
 void victron_message_355()
 {
-
   struct data355
   {
     uint16_t stateofchargevalue;
@@ -223,13 +222,16 @@ void victron_message_355()
     //uint16_t highresolutionsoc;
   };
 
-  data355 data;
-  //0 SOC value un16 1 %
-  data.stateofchargevalue = 100;
-  //2 SOH value un16 1 %
-  //data.stateofhealthvalue = 100;
+  if (_controller_state == ControllerState::Running && mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
+  {
+    data355 data;
+    //0 SOC value un16 1 %
+    data.stateofchargevalue = currentMonitor.stateofcharge;
+    //2 SOH value un16 1 %
+    //data.stateofhealthvalue = 100;
 
-  send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
+    send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
+  }
 }
 
 //Battery voltage

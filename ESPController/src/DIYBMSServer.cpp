@@ -733,6 +733,8 @@ void DIYBMSServer::saveVictron(AsyncWebServerRequest *request)
     }
   }
 
+  saveConfiguration();
+
   SendSuccess(request);
 }
 
