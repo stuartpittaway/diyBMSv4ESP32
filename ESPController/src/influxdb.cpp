@@ -60,17 +60,21 @@ void influxdb_onError(void *arg, AsyncClient *client, err_t error)
     delete client;
 };
 
-/*
-void influxdb_onDisconnect(void *arg, AsyncClient *c)
+void influxdb_onDisconnect(void *arg, AsyncClient *client)
 {
-  ESP_LOGI(TAG, "Influx disconnected");
+    ESP_LOGI(TAG, "Influx disconnected");
+    influx_Client = NULL;
+    delete client;
 };
-*/
 
 //Called when the TCP stack connects to INFLUXDB server
 void influxdb_onConnect(void *arg, AsyncClient *client)
 {
     ESP_LOGD(TAG, "Influx connected");
+
+    influx_Client->onError(NULL, NULL);
+    influx_Client->onData(&influxdb_onData, influx_Client);
+    influx_Client->onDisconnect(&influxdb_onDisconnect, influx_Client);
 
     if (influx_StartModule > (TotalNumberOfCells() - 1))
     {
@@ -124,6 +128,12 @@ void influxdb_onConnect(void *arg, AsyncClient *client)
 
 void influx_task_action()
 {
+    //client already exists, so don't do this again
+    if (influx_Client)
+    {
+        ESP_LOGE(TAG, "Client already exists");
+        return;
+    }
 
     if (influx_Client == NULL)
     {
@@ -168,15 +178,22 @@ void influx_task_action()
 
             influx_Client = new AsyncClient();
 
-            influx_Client->onData(&influxdb_onData, influx_Client);
+            if (!influx_Client)
+            {
+                ESP_LOGE(TAG, "Unable to create Client");
+                return;
+            }
+
             influx_Client->onConnect(&influxdb_onConnect, influx_Client);
-            //influx_Client->onDisconnect(&influxdb_onDisconnect, influx_Client);
             influx_Client->onError(&influxdb_onError, influx_Client);
         }
     }
 
     if (influx_Client != NULL)
     {
+        influx_Client->setAckTimeout(2000);
+        influx_Client->setRxTimeout(2);
+
         //Now trigger the connection, and then send the data
         if (!influx_Client->connect(influx_host.c_str(), influx_port))
         {

@@ -1451,8 +1451,8 @@ void influxdb_task(void *param)
 {
   for (;;)
   {
-    //Delay 15 seconds
-    vTaskDelay(pdMS_TO_TICKS(10000));
+    //Delay between transmissions
+    vTaskDelay(pdMS_TO_TICKS(8000));
 
     if (mysettings.influxdb_enabled && WiFi.isConnected() && rules.invalidModuleCount == 0 && _controller_state == ControllerState::Running && rules.rule_outcome[Rule::BMSError] == false)
     {
