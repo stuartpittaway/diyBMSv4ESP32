@@ -1448,13 +1448,11 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
       if (cmi[i].BoardVersionNumber >= 440)
       {
         numberOfV440OrNewer++;
-        break;
       }
     }
   }
   //Only true if all modules have communicated and are all v440 or newer
   settings["supportSpeedChange"] = numberOfV440OrNewer == totalModules;
-
 
   settings["bypassthreshold"] = _mysettings->BypassThresholdmV;
   settings["bypassovertemp"] = _mysettings->BypassOverTempShutdown;
