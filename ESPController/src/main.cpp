@@ -1503,8 +1503,6 @@ void SetupOTA()
   ArduinoOTA.begin();
 }
 
-
-
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
 
@@ -2775,6 +2773,8 @@ void LoadConfiguration()
   //Default to a single module
   mysettings.totalNumberOfBanks = 1;
   mysettings.totalNumberOfSeriesModules = 1;
+  //Default serial port speed
+  mysettings.baudRate = COMMS_BAUD_RATE;
   mysettings.BypassOverTempShutdown = 65;
   //4.10V bypass
   mysettings.BypassThresholdmV = 4100;
@@ -3352,7 +3352,7 @@ void setup()
   ESP_LOGI("Config loaded");
 
   //Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
-  SERIAL_DATA.begin(COMMS_BAUD_RATE, SERIAL_8N1, 2, 32); // Serial for comms to modules
+  SERIAL_DATA.begin(mysettings.baudRate, SERIAL_8N1, 2, 32); // Serial for comms to modules
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 

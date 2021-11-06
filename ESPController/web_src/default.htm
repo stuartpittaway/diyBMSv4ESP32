@@ -1005,10 +1005,9 @@
         <div class="region">
             <h2 id="mb1">Modules &amp; Banks</h2>
             <p id="mb2">DIYBMS supports up to <span id='labelMaxModules'>X</span> modules in total. These modules can be
-                split into banks to support
-                parallel
-                configurations.</p>
+                split into banks to support parallel configurations.</p>
             <p id="mb3">Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).</p>
+            <p id="mb4">Only hardware module version 4.4 or newer support faster communication speeds.</p>
             <form id="banksForm" method="POST" action="savebankconfig.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -1021,6 +1020,12 @@
                         <select name="totalBanks" id="totalBanks">
                         </select>
                     </div>
+                    <div>
+                        <label for="baudrate">Communication speed</label>
+                        <select name="baudrate" id="baudrate">
+                        </select>
+                    </div>
+                    
                     <button type="submit">Save module &amp; bank settings</button>
                 </div>
             </form>
