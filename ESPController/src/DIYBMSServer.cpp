@@ -190,6 +190,7 @@ void DIYBMSServer::saveConfigurationToSDCard(AsyncWebServerRequest *request)
 
     root["totalNumberOfBanks"] = _mysettings->totalNumberOfBanks;
     root["totalNumberOfSeriesModules"] = _mysettings->totalNumberOfSeriesModules;
+    root["baudRate"] = _mysettings->baudRate;
 
     root["graph_voltagehigh"] = _mysettings->graph_voltagehigh;
     root["graph_voltagelow"] = _mysettings->graph_voltagelow;
@@ -1128,6 +1129,7 @@ void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
 
   uint8_t totalSeriesModules = 1;
   uint8_t totalBanks = 1;
+  uint16_t baudrate = COMMS_BAUD_RATE;
 
   if (request->hasParam("totalSeriesModules", true))
   {
@@ -1141,10 +1143,17 @@ void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
     totalBanks = p1->value().toInt();
   }
 
+  if (request->hasParam("baudrate", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("baudrate", true);
+    baudrate = p1->value().toInt();
+  }
+
   if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
   {
     _mysettings->totalNumberOfSeriesModules = totalSeriesModules;
     _mysettings->totalNumberOfBanks = totalBanks;
+    _mysettings->baudRate = baudrate;
     saveConfiguration();
 
     SendSuccess(request);
@@ -1427,6 +1436,23 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
 
   settings["totalnumberofbanks"] = _mysettings->totalNumberOfBanks;
   settings["totalseriesmodules"] = _mysettings->totalNumberOfSeriesModules;
+  settings["baudrate"] = _mysettings->baudRate;
+
+  uint8_t numberOfV440OrNewer = 0;
+  uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    if (cmi[i].valid)
+    {
+      //Count of v440 or newer modules
+      if (cmi[i].BoardVersionNumber >= 440)
+      {
+        numberOfV440OrNewer++;
+      }
+    }
+  }
+  //Only true if all modules have communicated and are all v440 or newer
+  settings["supportSpeedChange"] = numberOfV440OrNewer == totalModules;
 
   settings["bypassthreshold"] = _mysettings->BypassThresholdmV;
   settings["bypassovertemp"] = _mysettings->BypassOverTempShutdown;

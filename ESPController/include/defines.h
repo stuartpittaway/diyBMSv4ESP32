@@ -96,6 +96,7 @@ struct diybms_eeprom_settings
 {
   uint8_t totalNumberOfBanks;
   uint8_t totalNumberOfSeriesModules;
+  uint16_t baudRate;
 
   uint32_t rulevalue[RELAY_RULES];
   uint32_t rulehysteresis[RELAY_RULES];

@@ -946,6 +946,7 @@ $(function () {
 
     $("#labelMaxModules").text(MAXIMUM_NUMBER_OF_SERIES_MODULES);
 
+
     for (var n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }
@@ -1060,6 +1061,17 @@ $(function () {
 
                 $("#totalSeriesModules").val(data.settings.totalseriesmodules);
                 $("#totalBanks").val(data.settings.totalnumberofbanks);
+
+                $("#baudrate").empty();
+                $("#baudrate").append('<option value="2400">Standard</option>')
+
+                if (data.settings.supportSpeedChange) {
+                    $("#baudrate").append('<option value="5000">5K</option>')
+                    $("#baudrate").append('<option value="9600">9K6</option>')
+                }
+
+                $("#baudrate").val(data.settings.baudrate);
+
 
                 $("#banksForm").show();
             }).fail(function () { }
