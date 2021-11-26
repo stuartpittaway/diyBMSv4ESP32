@@ -456,24 +456,120 @@ void PrepareTFT_CurrentMonitor()
     int16_t w = tft.width();
     //Take off the wifi banner height
     int16_t h = tft.height() - fontHeight_2;
-    int16_t yhalfway = h / 2;
+    //int16_t yhalfway = h / 2;
+
+    int16_t y_row0 = 0;
+    int16_t y_row1 = h / 3;
+    int16_t y_row2 = y_row1 * 2;
 
     //Grid lines
     tft.drawLine(w / 2, 0, w / 2, h, TFT_DARKGREY);
-    tft.drawLine(0, yhalfway, w, yhalfway, TFT_DARKGREY);
+    tft.drawLine(0, y_row1, w, y_row1, TFT_DARKGREY);
+    tft.drawLine(0, y_row2, w, y_row2, TFT_DARKGREY);
     tft.drawLine(0, h, w, h, TFT_DARKGREY);
+
+    //Skip over horizontal line
+    y_row1 += 2;
+    y_row2 += 2;
 
     tft.setTextFont(2);
     //Need to think about multilingual strings in the longer term
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    tft.drawString("Current (A)", 0, 0);
-    tft.drawString("Voltage", 0, yhalfway + 2);
-    tft.drawString("Power (W)", 2 + (w / 2), 0);
-
-    tft.drawString("Amp/hour Out", 2 + (w / 2), yhalfway + 2);
-
-    tft.drawString("Amp/hour In", 2 + (w / 2), fontHeight_4 + fontHeight_4 + yhalfway + 2);
+    tft.drawString("Current (A)", 0, y_row0);
+    tft.drawString("Power (W)", 2 + (w / 2), y_row0);
+    tft.drawString("Voltage", 0, y_row1);
+    tft.drawString("State of charge %", 2 + (w / 2), y_row1);
+    tft.drawString("Amp/hour Out", 0, y_row2);
+    tft.drawString("Amp/hour In", 2 + (w / 2), y_row2);
     TFTDrawWifiDetails();
+}
+
+void DrawTFT_CurrentMonitor()
+{
+    int16_t w = tft.width();
+    //Take off the wifi banner height
+    int16_t h = tft.height() - fontHeight_2;
+    //int16_t yhalfway = h / 2;
+    int16_t half_w = w / 2;
+
+    int16_t y_row0 = 0;
+    int16_t y_row1 = h / 3;
+    int16_t y_row2 = y_row1 * 2;
+
+    //Skip over horizontal line and font titles
+    y_row0 += 0 + fontHeight_2;
+    y_row1 += 2 + fontHeight_2;
+    y_row2 += 2 + fontHeight_2;
+
+    // Position of text in X axis
+    int16_t middle_x = 2 + w / 2;
+
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+
+    //Top left
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextFont(7);
+    //Skip over title
+    int16_t y = y_row0;
+    int16_t x = 0;
+
+    uint8_t decimals = 2;
+
+    if (currentMonitor.modbus.current > 99)
+    {
+        decimals = 1;
+    }
+
+    x += tft.drawFloat(currentMonitor.modbus.current, decimals, x, y);
+    //Clear out surrounding background (to black)
+    tft.fillRect(x, y, half_w - x, tft.fontHeight(), TFT_BLACK);
+
+    y = y_row1;
+    x = middle_x;
+    x += tft.drawFloat(currentMonitor.stateofcharge, 1, x, y);
+    x += tft.drawString("%", x, y);
+    //Clear out surrounding background (to black)
+    tft.fillRect(x, y, w - x, tft.fontHeight(), TFT_BLACK);
+
+    decimals = 2;
+    if (currentMonitor.modbus.voltage > 99)
+    {
+        decimals = 1;
+    }
+    y = y_row1;
+    x = 0;
+    x += tft.drawFloat(currentMonitor.modbus.voltage, decimals, x, y);
+    tft.fillRect(x, y, half_w - x, tft.fontHeight(), TFT_BLACK);
+
+    y = y_row0;
+    x = middle_x;
+    x += tft.drawNumber(currentMonitor.modbus.power, x, y);
+    tft.fillRect(x, y, w - x, tft.fontHeight(), TFT_BLACK);
+
+    y = y_row2;
+    x = 0;
+    decimals = 1;
+    tft.setTextFont(4);
+    float ahout = (float)currentMonitor.modbus.milliamphour_out / 1000.0;
+    if (ahout < 100)
+    {
+        decimals = 2;
+    }
+    x += tft.drawFloat(ahout, decimals, x, y);
+    tft.fillRect(x, y, half_w - x, tft.fontHeight(), TFT_BLACK);
+
+    //Amp hour in
+    y = y_row2;
+    x = middle_x;
+    decimals = 1;
+    float ahin = (float)currentMonitor.modbus.milliamphour_in / 1000.0;
+
+    if (ahin < 100)
+    {
+        decimals = 2;
+    }
+    x += tft.drawFloat(ahin, decimals, x, y);
+    tft.fillRect(x, y, w - x, tft.fontHeight(), TFT_BLACK);
 }
 
 void PrepareTFT_VoltageFourBank()
@@ -609,73 +705,6 @@ void DrawTFT_VoltageFourBank()
     y = fontHeight_2 + fontHeight_2 + fontHeight_2 + h + 2;
     x += tft.drawNumber(rules.numberOfBalancingModules, x, y);
     tft.fillRect(x, y, w - x, fontHeight_2, TFT_BLACK);
-}
-
-void DrawTFT_CurrentMonitor()
-{
-    int16_t w = tft.width();
-    //Take off the wifi banner height
-    int16_t h = tft.height() - fontHeight_2;
-    int16_t yhalfway = h / 2;
-
-    tft.setTextColor(TFT_GREEN, TFT_BLACK);
-
-    //Top left
-    tft.setTextDatum(TL_DATUM);
-    tft.setTextFont(7);
-    int16_t y = fontHeight_2;
-    int16_t x = 0;
-
-    uint8_t decimals = 2;
-
-    if (currentMonitor.modbus.current > 99)
-    {
-        decimals = 1;
-    }
-
-    x += tft.drawFloat(currentMonitor.modbus.current, decimals, x, y);
-    tft.fillRect(x, y, (w / 2) - x, tft.fontHeight(), TFT_BLACK);
-
-    decimals = 2;
-    if (currentMonitor.modbus.voltage > 99)
-    {
-        decimals = 1;
-    }
-    y = 2 + yhalfway + fontHeight_2;
-    x = 0;
-    x += tft.drawFloat(currentMonitor.modbus.voltage, decimals, x, y);
-    tft.fillRect(x, y, (w / 2) - x, tft.fontHeight(), TFT_BLACK);
-
-    y = fontHeight_2;
-    x = 2 + w / 2;
-    decimals = 1;
-    x += tft.drawFloat(currentMonitor.modbus.power, decimals, x, y);
-    tft.fillRect(x, y, w - x, tft.fontHeight(), TFT_BLACK);
-
-    y = 2 + yhalfway + fontHeight_2;
-    x = 2 + w / 2;
-    decimals = 1;
-    tft.setTextFont(4);
-    float ahout = (float)currentMonitor.modbus.milliamphour_out / 1000.0;
-    if (ahout < 10)
-    {
-        decimals = 3;
-    }
-    x += tft.drawFloat(ahout, decimals, x, y);
-    tft.fillRect(x, y, w - x, tft.fontHeight(), TFT_BLACK);
-
-    //Amp hour in
-    y = fontHeight_2 + fontHeight_4 + fontHeight_4 + yhalfway + 2;
-    x = 2 + w / 2;
-    decimals = 1;
-    float ahin = (float)currentMonitor.modbus.milliamphour_in / 1000.0;
-
-    if (ahin < 10)
-    {
-        decimals = 3;
-    }
-    x += tft.drawFloat(ahin, decimals, x, y);
-    tft.fillRect(x, y, w - x, tft.fontHeight(), TFT_BLACK);
 }
 
 void DrawTFT_VoltageOneBank()
