@@ -1064,11 +1064,8 @@ $(function () {
 
                 $("#baudrate").empty();
                 $("#baudrate").append('<option value="2400">Standard</option>')
-
-                if (data.settings.supportSpeedChange) {
-                    $("#baudrate").append('<option value="5000">5K</option>')
-                    $("#baudrate").append('<option value="9600">9K6</option>')
-                }
+                $("#baudrate").append('<option value="5000">5K</option>')
+                $("#baudrate").append('<option value="9600">9K6</option>')
 
                 $("#baudrate").val(data.settings.baudrate);
 

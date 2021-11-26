@@ -1438,21 +1438,7 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   settings["totalseriesmodules"] = _mysettings->totalNumberOfSeriesModules;
   settings["baudrate"] = _mysettings->baudRate;
 
-  uint8_t numberOfV440OrNewer = 0;
-  uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
-  for (uint8_t i = 0; i < totalModules; i++)
-  {
-    if (cmi[i].valid)
-    {
-      //Count of v440 or newer modules
-      if (cmi[i].BoardVersionNumber >= 440)
-      {
-        numberOfV440OrNewer++;
-      }
-    }
-  }
-  //Only true if all modules have communicated and are all v440 or newer
-  settings["supportSpeedChange"] = numberOfV440OrNewer == totalModules;
+  
 
   settings["bypassthreshold"] = _mysettings->BypassThresholdmV;
   settings["bypassovertemp"] = _mysettings->BypassOverTempShutdown;
