@@ -2,16 +2,10 @@
 #define SOFTAP_H_
 
 #include <Arduino.h>
-
-#if defined(ESP8266)
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
-#else
 #include <WiFi.h>
 #include <AsyncTCP.h>
-#endif
 
-#include <ESPAsyncWebServer.h>
+//#include <ESPAsyncWebServer.h>
 #include <EEPROM.h>
 #include "settings.h"
 
@@ -27,7 +21,7 @@ struct wifi_eeprom_settings
 class DIYBMSSoftAP
 {
 public:
-  static void SetupAccessPoint(AsyncWebServer *webserver);
+//  static void SetupAccessPoint(AsyncWebServer *webserver);
   static bool LoadConfigFromEEPROM();
   
   static void FactoryReset()
@@ -40,16 +34,16 @@ public:
   }
 
 private:
-  static AsyncWebServer *_myserver;
+  //static AsyncWebServer *_myserver;
   static const char *_configtag;
-  static void handleNotFound(AsyncWebServerRequest *request);
+  //static void handleNotFound(AsyncWebServerRequest *request);
 
-  static void handleRoot(AsyncWebServerRequest *request);
-  static void handleSave(AsyncWebServerRequest *request);
+  //static void handleRoot(AsyncWebServerRequest *request);
+  //static void handleSave(AsyncWebServerRequest *request);
 
   static wifi_eeprom_settings _config;
-  static String networks;
-  static String TemplateProcessor(const String &var);
+  //static String networks;
+  //static String TemplateProcessor(const String &var);
 };
 
 #endif

@@ -50,7 +50,9 @@ const uint8_t diyBMSCurrentMonitorModbusAddress = 90;
 //#include "driver/twai.h"
 #include <driver/uart.h>
 
-#include <ESPAsyncWebServer.h>
+#include <esp_http_server.h>
+
+//#include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
 #include <ArduinoOTA.h>
 #include <SerialEncoder.h>
@@ -65,6 +67,7 @@ const uint8_t diyBMSCurrentMonitorModbusAddress = 90;
 #include "influxdb.h"
 
 #include "victron_canbus.h"
+
 
 const uart_port_t rs485_uart_num = uart_port_t::UART_NUM_1;
 
@@ -94,7 +97,7 @@ volatile enumInputState InputState[INPUTS_TOTAL];
 
 currentmonitoring_struct currentMonitor;
 
-AsyncWebServer server(80);
+//AsyncWebServer server(80);
 
 TaskHandle_t i2c_task_handle = NULL;
 TaskHandle_t ledoff_task_handle = NULL;
@@ -133,9 +136,11 @@ avrprogramsettings _avrsettings;
 #include "crc16.h"
 #include "settings.h"
 #include "SoftAP.h"
-#include "DIYBMSServer.h"
+//#include "DIYBMSServer.h"
 #include "PacketRequestGenerator.h"
 #include "PacketReceiveProcessor.h"
+
+#include "webserver.h"
 
 // Instantiate queue to hold packets ready for transmission
 // TODO: Move to RTOS queues instead
@@ -1523,7 +1528,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   */
   if (!server_running)
   {
-    DIYBMSServer::StartServer(&server, &mysettings, &SD, &prg, &receiveProc, &_controller_state, &rules, &sdcardaction_callback, &hal);
+    StartServer(&mysettings, &SD, &prg, &receiveProc, &_controller_state, &rules, &sdcardaction_callback, &hal);
     server_running = true;
   }
 
@@ -3343,7 +3348,7 @@ void setup()
   memset(&cmi, 0, sizeof(cmi));
   for (size_t i = 0; i < maximum_controller_cell_modules; i++)
   {
-    DIYBMSServer::clearModuleValues(i);
+    clearModuleValues(i);
   }
 
   resetAllRules();
@@ -3442,7 +3447,7 @@ void setup()
 
     ESP_LOGI(TAG, "Setup Access Point");
     //We are in initial power on mode (factory reset)
-    DIYBMSSoftAP::SetupAccessPoint(&server);
+    //DIYBMSSoftAP::SetupAccessPoint(&server);
   }
   else
   {
@@ -3475,7 +3480,7 @@ void setup()
     //we use this as a simple method to avoid cross site scripting attacks
     //This MUST be done once the WIFI is switched on otherwise only PSEUDO random
     //data is generated!!
-    DIYBMSServer::generateUUID();
+    generateUUID();
 
     //Wake screen on power up
     xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);

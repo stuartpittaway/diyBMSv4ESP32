@@ -8,10 +8,11 @@
 wifi_eeprom_settings DIYBMSSoftAP::_config;
 const char *DIYBMSSoftAP::_configtag = "diybmswifi";
 
-String DIYBMSSoftAP::networks;
+//String DIYBMSSoftAP::networks;
 
-AsyncWebServer *DIYBMSSoftAP::_myserver;
+//AsyncWebServer *DIYBMSSoftAP::_myserver;
 
+/*
 void DIYBMSSoftAP::handleRoot(AsyncWebServerRequest *request)
 {
   String s;
@@ -53,12 +54,14 @@ void DIYBMSSoftAP::handleSave(AsyncWebServerRequest *request)
     request->send(200, "text/html", s);
   }
 }
+*/
 
 bool DIYBMSSoftAP::LoadConfigFromEEPROM()
 {
   return (Settings::ReadConfig(_configtag, (char *)&_config, sizeof(_config)));
 }
 
+/*
 void DIYBMSSoftAP::SetupAccessPoint(AsyncWebServer *webserver)
 {
   _myserver = webserver;
@@ -127,3 +130,4 @@ String DIYBMSSoftAP::TemplateProcessor(const String &var)
 
   return String();
 }
+*/
