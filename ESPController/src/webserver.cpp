@@ -396,6 +396,8 @@ httpd_handle_t start_webserver(void)
   /* Generate default configuration */
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
+  config.max_uri_handlers=20;
+
   /* Empty handle to esp_http_server */
   httpd_handle_t server = NULL;
 
