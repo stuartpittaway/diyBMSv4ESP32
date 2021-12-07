@@ -98,6 +98,8 @@ void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c)
 
 uint16_t Rules::VoltageRangeInBank(uint8_t bank)
 {
+    if (invalidModuleCount>0) return 0;
+    
     return highestvoltageinpack[bank] - lowestvoltageinpack[bank];
 }
 

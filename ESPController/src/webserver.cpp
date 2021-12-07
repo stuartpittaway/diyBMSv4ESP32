@@ -1,6 +1,8 @@
 
 #include "webserver.h"
 
+#include <stdio.h>
+
 httpd_handle_t _myserver;
 String UUIDString;
 String UUIDStringLast2Chars;
@@ -101,6 +103,355 @@ String TemplateProcessor(const String &var)
   return String();
 }
 
+esp_err_t content_handler_monitor2(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
+  uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
+
+  const char comma = ',';
+  const char *null = "null";
+  // AsyncResponseStream *response = request->beginResponseStream("application/json");
+
+#define BUFSIZE 1024
+
+  char buf[BUFSIZE];
+  int bufferused = 0;
+  const char *nullstring = "null";
+
+  // Output the first batch of settings/parameters/values
+  bufferused += snprintf(&buf[bufferused], BUFSIZE,
+                         "{\"banks\":%u,\"seriesmodules\":%u,\"sent\":%u,\"received\":%u,\"modulesfnd\":%u,\"badcrc\":%u,\"ignored\":%u,\"roundtrip\":%u,\"oos\":%u,\"activerules\":%u,\"uptime\":%u,\"can_fail\":%u,\"can_sent\":%u,\"can_rec\":%u,\"sec\":\"%s\",",
+                         _mysettings->totalNumberOfBanks, _mysettings->totalNumberOfSeriesModules,
+                         _prg->packetsGenerated, _receiveProc->packetsReceived,
+                         _receiveProc->totalModulesFound, _receiveProc->totalCRCErrors,
+                         _receiveProc->totalNotProcessedErrors,
+                         _receiveProc->packetTimerMillisecond, _receiveProc->totalOutofSequenceErrors, _rules->active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6), canbus_messages_failed_sent, canbus_messages_sent, canbus_messages_received, UUIDStringLast2Chars.c_str());
+
+
+  // current
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"current\":[");
+
+  if (_mysettings->currentMonitoringEnabled && currentMonitor.validReadings)
+  {
+
+    // Output current monitor values, this is inside an array, so could be more than 1
+    bufferused += snprintf(&buf[bufferused], BUFSIZE,
+                           "{\"c\":%.4f,\"v\":%.4f,\"mahout\":%u,\"mahin\":%u,\"p\":%.2f,\"soc\":%.2f}",
+                           currentMonitor.modbus.current, currentMonitor.modbus.voltage, currentMonitor.modbus.milliamphour_out,
+                           currentMonitor.modbus.milliamphour_in, currentMonitor.modbus.power, currentMonitor.stateofcharge);
+  }
+  else
+  {
+    bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+  }
+
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+
+
+
+  bufferused += snprintf(&buf[bufferused], BUFSIZE, "\"errors\":[");
+  uint8_t count = 0;
+
+  for (size_t i = 0; i < sizeof(_rules->ErrorCodes); i++)
+  {
+    if (_rules->ErrorCodes[i] != InternalErrorCode::NoError)
+    {
+      // Comma if not zero
+      if (count)
+      {
+        bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      }
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", _rules->ErrorCodes[i]);
+      count++;
+    }
+  }
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],\"warnings\":[");
+
+  count = 0;
+  for (size_t i = 0; i < sizeof(_rules->WarningCodes); i++)
+  {
+    if (_rules->WarningCodes[i] != InternalWarningCode::NoWarning)
+    {
+      // Comma if not zero
+      if (count)
+      {
+        bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      }
+
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", _rules->WarningCodes[i]);
+      count++;
+    }
+  }
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+
+  ESP_LOGD(TAG, "bufferused=%i", bufferused);
+  ESP_LOGD(TAG, "monitor2: %s", buf);
+
+  // Send it...
+  httpd_resp_sendstr_chunk(req, buf);
+
+  // voltages
+  bufferused = 0;
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"voltages\":[");
+
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    // Comma if not zero
+    if (i)
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+    }
+
+    if (cmi[i].valid)
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].voltagemV);
+    }
+    else
+    {
+      // Module is not yet valid so return null values...
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+    }
+  }
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+
+  ESP_LOGD(TAG, "bufferused=%i", bufferused);
+  ESP_LOGD(TAG, "monitor2: %s", buf);
+
+  // Send it...
+  httpd_resp_sendstr_chunk(req, buf);
+
+  bufferused = 0;
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"minvoltages\":[");
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    // Comma if not zero
+    if (i)
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+
+    if (cmi[i].valid)
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].voltagemVMin);
+    }
+    else
+    {
+      // Module is not yet valid so return null values...
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+    }
+  }
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+
+  ESP_LOGD(TAG, "bufferused=%i", bufferused);
+  ESP_LOGD(TAG, "monitor2: %s", buf);
+  // Send it...
+  httpd_resp_sendstr_chunk(req, buf);
+
+  // maxvoltages
+  bufferused = 0;
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"maxvoltages\":[");
+
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    // Comma if not zero
+    if (i)
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+
+    if (cmi[i].valid)
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].voltagemVMin);
+    }
+    else
+    {
+      // Module is not yet valid so return null values...
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+    }
+  }
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+
+  ESP_LOGD(TAG, "bufferused=%i", bufferused);
+  ESP_LOGD(TAG, "monitor2: %s", buf);
+  // Send it...
+  httpd_resp_sendstr_chunk(req, buf);
+
+  // inttemp
+  bufferused = 0;
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"inttemp\":[");
+
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    // Comma if not zero
+    if (i)
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+
+    if (cmi[i].valid && cmi[i].internalTemp != -40)
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%i", cmi[i].internalTemp);
+    }
+    else
+    {
+      // Module is not yet valid so return null values...
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+    }
+  }
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+
+  ESP_LOGD(TAG, "bufferused=%i", bufferused);
+  ESP_LOGD(TAG, "monitor2: %s", buf);
+  // Send it...
+  httpd_resp_sendstr_chunk(req, buf);
+
+  // exttemp
+  bufferused = 0;
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"exttemp\":[");
+
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    // Comma if not zero
+    if (i)
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+
+    if (cmi[i].valid && cmi[i].externalTemp != -40)
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%i", cmi[i].externalTemp);
+    }
+    else
+    {
+      // Module is not yet valid so return null values...
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+    }
+  }
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+
+  ESP_LOGD(TAG, "bufferused=%i", bufferused);
+  ESP_LOGD(TAG, "monitor2: %s", buf);
+  // Send it...
+  httpd_resp_sendstr_chunk(req, buf);
+
+  // bypass
+  bufferused = 0;
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"bypass\":[");
+
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    // Comma if not zero
+    if (i)
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+
+    if (cmi[i].valid && cmi[i].inBypass)
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "1");
+    }
+    else
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "0");
+    }
+  }
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+
+  ESP_LOGD(TAG, "bufferused=%i", bufferused);
+  ESP_LOGD(TAG, "monitor2: %s", buf);
+  // Send it...
+  httpd_resp_sendstr_chunk(req, buf);
+
+  // bypasshot
+  bufferused = 0;
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"bypasshot\":[");
+
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    // Comma if not zero
+    if (i)
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+
+    if (cmi[i].valid && cmi[i].bypassOverTemp)
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "1");
+    }
+    else
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "0");
+    }
+  }
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+
+  ESP_LOGD(TAG, "bufferused=%i", bufferused);
+  ESP_LOGD(TAG, "monitor2: %s", buf);
+  // Send it...
+  httpd_resp_sendstr_chunk(req, buf);
+
+  // bypasspwm
+  bufferused = 0;
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"bypasspwm\":[");
+
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    // Comma if not zero
+    if (i)
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+
+    if (cmi[i].valid && cmi[i].inBypass)
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].PWMValue);
+    }
+    else
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "0");
+    }
+  }
+
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+
+  ESP_LOGD(TAG, "bufferused=%i", bufferused);
+  ESP_LOGD(TAG, "monitor2: %s", buf);
+  // Send it...
+  httpd_resp_sendstr_chunk(req, buf);
+
+  // bankv
+  bufferused = 0;
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"bankv\":[");
+
+  for (uint8_t i = 0; i < _mysettings->totalNumberOfBanks; i++)
+  {
+    // Comma if not zero
+    if (i)
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+
+    bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", _rules->packvoltage[i]);
+  }
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+
+  ESP_LOGD(TAG, "bufferused=%i", bufferused);
+  ESP_LOGD(TAG, "monitor2: %s", buf);
+  // Send it...
+  httpd_resp_sendstr_chunk(req, buf);
+
+  // voltrange
+  bufferused = 0;
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"voltrange\":[");
+
+  for (uint8_t i = 0; i < _mysettings->totalNumberOfBanks; i++)
+  {
+    // Comma if not zero
+    if (i)
+    {
+      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+    }
+
+    bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", _rules->VoltageRangeInBank(i));
+  }
+  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "]}");
+
+  ESP_LOGD(TAG, "bufferused=%i", bufferused);
+  ESP_LOGD(TAG, "monitor2: %s", buf);
+  // Send it...
+  httpd_resp_sendstr_chunk(req, buf);
+
+
+  // Indicate last chunk (zero byte length)
+  return httpd_resp_send_chunk(req, buf, 0);
+}
+
 // The main home page
 esp_err_t default_htm_handler(httpd_req_t *req)
 {
@@ -119,7 +470,7 @@ esp_err_t default_htm_handler(httpd_req_t *req)
 
   while (p < end_pointer)
   {
-    char *templateCharacter = "%";
+    const char *templateCharacter = "%";
 
     // Find the next escape character (start of a template keyword)
     char *start_ptr = (char *)memchr(p, '%', end_pointer - p);
@@ -370,6 +721,8 @@ httpd_uri_t uri_patron_png_get = {.uri = "/patron.png", .method = HTTP_GET, .han
 WEBKIT_RESPONSE_ARGS webkit_warning_png_args = {file_warning_png, size_file_warning_png, etag_file_warning_png, image_png};
 httpd_uri_t uri_warning_png_get = {.uri = "/warning.png", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = (void *)&webkit_warning_png_args};
 
+httpd_uri_t uri_monitor2_json_get = {.uri = "/monitor2.json", .method = HTTP_GET, .handler = content_handler_monitor2, .user_ctx = NULL};
+
 /* URI handler structure for POST /uri */
 httpd_uri_t uri_post = {
     .uri = "/uri",
@@ -396,7 +749,7 @@ httpd_handle_t start_webserver(void)
   /* Generate default configuration */
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-  config.max_uri_handlers=20;
+  config.max_uri_handlers = 32;
 
   /* Empty handle to esp_http_server */
   httpd_handle_t server = NULL;
@@ -427,6 +780,9 @@ httpd_handle_t start_webserver(void)
     httpd_register_uri_handler(server, &uri_lang_de_js_get);
     httpd_register_uri_handler(server, &uri_lang_es_js_get);
     httpd_register_uri_handler(server, &uri_lang_en_js_get);
+
+    // Web services/API
+    httpd_register_uri_handler(server, &uri_monitor2_json_get);
 
     // httpd_register_uri_handler(server, &uri_post);
   }
