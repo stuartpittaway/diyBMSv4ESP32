@@ -110,9 +110,9 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
 
-  const char comma = ',';
-  const char *null = "null";
-  // AsyncResponseStream *response = request->beginResponseStream("application/json");
+  // const char comma = ',';
+  // const char *null = "null";
+  //  AsyncResponseStream *response = request->beginResponseStream("application/json");
 
 #define BUFSIZE 1024
 
@@ -128,7 +128,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          _receiveProc->totalModulesFound, _receiveProc->totalCRCErrors,
                          _receiveProc->totalNotProcessedErrors,
                          _receiveProc->packetTimerMillisecond, _receiveProc->totalOutofSequenceErrors, _rules->active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6), canbus_messages_failed_sent, canbus_messages_sent, canbus_messages_received, UUIDStringLast2Chars.c_str());
-
 
   // current
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"current\":[");
@@ -148,8 +147,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
 
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
-
-
 
   bufferused += snprintf(&buf[bufferused], BUFSIZE, "\"errors\":[");
   uint8_t count = 0;
@@ -186,8 +183,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  ESP_LOGD(TAG, "bufferused=%i", bufferused);
-  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
 
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
@@ -216,8 +212,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  ESP_LOGD(TAG, "bufferused=%i", bufferused);
-  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
 
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
@@ -242,8 +237,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  ESP_LOGD(TAG, "bufferused=%i", bufferused);
-  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
@@ -269,8 +263,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  ESP_LOGD(TAG, "bufferused=%i", bufferused);
-  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
@@ -296,8 +289,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  ESP_LOGD(TAG, "bufferused=%i", bufferused);
-  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
@@ -323,8 +315,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  ESP_LOGD(TAG, "bufferused=%i", bufferused);
-  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
@@ -349,8 +340,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  ESP_LOGD(TAG, "bufferused=%i", bufferused);
-  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
@@ -375,8 +365,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  ESP_LOGD(TAG, "bufferused=%i", bufferused);
-  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
@@ -402,8 +391,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  ESP_LOGD(TAG, "bufferused=%i", bufferused);
-  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
@@ -421,8 +409,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  ESP_LOGD(TAG, "bufferused=%i", bufferused);
-  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
@@ -442,11 +429,9 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "]}");
 
-  ESP_LOGD(TAG, "bufferused=%i", bufferused);
-  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
-
 
   // Indicate last chunk (zero byte length)
   return httpd_resp_send_chunk(req, buf, 0);
@@ -559,6 +544,8 @@ esp_err_t static_content_handler(httpd_req_t *req)
   WEBKIT_RESPONSE_ARGS *args = (WEBKIT_RESPONSE_ARGS *)(req->user_ctx);
   ESP_LOGD(TAG, "Web serve %s", req->uri);
 
+  // TODO: GET ETAGS WORKING AGAIN!!
+
   /*
     _myserver->on("/style.css", HTTP_GET,
                   [](AsyncWebServerRequest *request)
@@ -588,6 +575,8 @@ esp_err_t static_content_handler_gzipped(httpd_req_t *req)
   WEBKIT_RESPONSE_ARGS *args = (WEBKIT_RESPONSE_ARGS *)(req->user_ctx);
 
   ESP_LOGD(TAG, "Web serve %s", req->uri);
+
+  // TODO: GET ETAGS WORKING AGAIN!!
 
   /*
     _myserver->on("/style.css", HTTP_GET,
@@ -658,17 +647,9 @@ esp_err_t post_handler(httpd_req_t *req)
 }
 
 /* URI handler structure for GET /uri */
-httpd_uri_t uri_root_get = {
-    .uri = "/",
-    .method = HTTP_GET,
-    .handler = get_root_handler,
-    .user_ctx = NULL};
+httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
 
-httpd_uri_t uri_defaulthtm_get = {
-    .uri = "/default.htm",
-    .method = HTTP_GET,
-    .handler = default_htm_handler,
-    .user_ctx = NULL};
+httpd_uri_t uri_defaulthtm_get = {.uri = "/default.htm", .method = HTTP_GET, .handler = default_htm_handler, .user_ctx = NULL};
 
 WEBKIT_RESPONSE_ARGS webkit_style_css_args = {file_style_css_gz, size_file_style_css_gz, etag_file_style_css_gz, text_css};
 httpd_uri_t uri_stylecss_get = {.uri = "/style.css", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_style_css_args};
@@ -724,11 +705,7 @@ httpd_uri_t uri_warning_png_get = {.uri = "/warning.png", .method = HTTP_GET, .h
 httpd_uri_t uri_monitor2_json_get = {.uri = "/monitor2.json", .method = HTTP_GET, .handler = content_handler_monitor2, .user_ctx = NULL};
 
 /* URI handler structure for POST /uri */
-httpd_uri_t uri_post = {
-    .uri = "/uri",
-    .method = HTTP_POST,
-    .handler = post_handler,
-    .user_ctx = NULL};
+httpd_uri_t uri_post = {.uri = "/uri", .method = HTTP_POST, .handler = post_handler, .user_ctx = NULL};
 
 void clearModuleValues(uint8_t module)
 {
@@ -757,32 +734,33 @@ httpd_handle_t start_webserver(void)
   /* Start the httpd server */
   if (httpd_start(&server, &config) == ESP_OK)
   {
+    
     /* Register URI handlers */
-    httpd_register_uri_handler(server, &uri_root_get);
-    httpd_register_uri_handler(server, &uri_defaulthtm_get);
-    httpd_register_uri_handler(server, &uri_stylecss_get);
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_root_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_defaulthtm_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_stylecss_get));
     // Images
-    httpd_register_uri_handler(server, &uri_favicon_ico_get);
-    httpd_register_uri_handler(server, &uri_warning_png_get);
-    httpd_register_uri_handler(server, &uri_patron_png_get);
-    httpd_register_uri_handler(server, &uri_logo_png_get);
-    httpd_register_uri_handler(server, &uri_wait_png_get);
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_favicon_ico_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_warning_png_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_patron_png_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_logo_png_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_wait_png_get));
 
     // Javascript libs...
-    httpd_register_uri_handler(server, &uri_pagecode_js_get);
-    httpd_register_uri_handler(server, &uri_jquery_js_get);
-    httpd_register_uri_handler(server, &uri_notify_min_js_get);
-    httpd_register_uri_handler(server, &uri_echarts_min_js_get);
-    httpd_register_uri_handler(server, &uri_lang_ru_js_get);
-    httpd_register_uri_handler(server, &uri_lang_hr_js_get);
-    httpd_register_uri_handler(server, &uri_lang_nl_js_get);
-    httpd_register_uri_handler(server, &uri_lang_pt_js_get);
-    httpd_register_uri_handler(server, &uri_lang_de_js_get);
-    httpd_register_uri_handler(server, &uri_lang_es_js_get);
-    httpd_register_uri_handler(server, &uri_lang_en_js_get);
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_pagecode_js_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_jquery_js_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_notify_min_js_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_echarts_min_js_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_ru_js_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_hr_js_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_nl_js_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_pt_js_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_de_js_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_es_js_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_en_js_get));
 
     // Web services/API
-    httpd_register_uri_handler(server, &uri_monitor2_json_get);
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_monitor2_json_get));
 
     // httpd_register_uri_handler(server, &uri_post);
   }
