@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="%LANGUAGE%">
-
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
@@ -15,7 +14,7 @@
         var DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat('%graph_voltagelow%');
         var XSS_KEY = '%XSS_KEY%';
     </script>
-    <script type='text/javascript' src='jquery.js' integrity='%integrity_file_jquery_js%' crossorigin='anonymous'>
+    <script type="text/javascript" src="/jquery.js" integrity="%integrity_file_jquery_js%" crossorigin="anonymous">
     </script>
     <title>DIY BMS CONTROLLER v4</title>
 </head>
@@ -192,7 +191,7 @@
                         <th id="mpvmax" class='hide'>V. Max</th>
                         <th id="mptint" class='hide'>Temp Int &deg;C</th>
                         <th id="mptext" class='hide'>Temp Ext &deg;C</th>
-                        <th id="mpbypass" class='hide'>Bypass PWM %</th>
+                        <th id="mpbypass" class='hide'>Bypass PWM &percnt;</th>
                         <th id="mpbpc" class='hide'>Bad packet count</th>
                         <th id="mppktr" class='hide'>Packets received</th>
                         <th id="mpbal" class='hide'>Balance energy used (mAh)</th>
@@ -811,7 +810,7 @@
                             step="0.01" />
                     </div>
                     <div>
-                        <label for="cmchargeefficiency">Charge efficiency factor %</label>
+                        <label for="cmchargeefficiency">Charge efficiency factor &percnt;</label>
                         <input id="cmchargeefficiency" name="cmchargeefficiency" value="" type="number" min="1"
                             max="100" step="0.1" />
                     </div>
@@ -1007,7 +1006,9 @@
             <p id="mb2">DIYBMS supports up to <span id='labelMaxModules'>X</span> modules in total. These modules can be
                 split into banks to support parallel configurations.</p>
             <p id="mb3">Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).</p>
-            <p id="mb4">Only hardware module version 4.4 or newer support faster communication speeds.  You will need to reboot the controller manually if you change the speed, and also ensure all modules are using the correct firmware.</p>
+            <p id="mb4">Only hardware module version 4.4 or newer support faster communication speeds. You will need to
+                reboot the controller manually if you change the speed, and also ensure all modules are using the
+                correct firmware.</p>
             <form id="banksForm" method="POST" action="savebankconfig.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -1025,7 +1026,7 @@
                         <select name="baudrate" id="baudrate">
                         </select>
                     </div>
-                    
+
                     <button type="submit">Save module &amp; bank settings</button>
                 </div>
             </form>
@@ -1195,7 +1196,7 @@
         <div class="region">
             <h2>SD Card</h2>
             <p id='sdcardmissing' class="warning">SD card not installed</p>
-            Used <span id="sdcard_used"></span>KiB (<span id="sdcard_used_percent"></span>%%) of <span
+            Used <span id="sdcard_used"></span>KiB (<span id="sdcard_used_percent"></span>&percnt;) of <span
                 id="sdcard_total"></span>KiB
             <p>
                 <button type="button" id="unmount">Unmount</button>
@@ -1207,7 +1208,7 @@
         </div>
         <div class="region">
             <h2>Flash Memory</h2>
-            <p>Used <span id="flash_used"></span>KiB (<span id="flash_used_percent"></span>%%) of <span
+            <p>Used <span id="flash_used"></span>KiB (<span id="flash_used_percent"></span>&percnt;) of <span
                     id="flash_total"></span>KiB</p>
             <ul id="flashfiles"></ul>
         </div>

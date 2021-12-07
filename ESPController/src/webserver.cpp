@@ -64,12 +64,123 @@ void setCacheControl(httpd_req_t *req)
   httpd_resp_set_hdr(req, "Cache-Control", "no-store");
 }
 
+String TemplateProcessor(const String &var)
+{
+  if (var == "XSS_KEY")
+    return UUIDString;
+
+#if defined(ESP32)
+  if (var == "PLATFORM")
+    return String("ESP32");
+#endif
+
+  if (var == "LANGUAGE")
+    return String(_mysettings->language);
+
+  if (var == "GIT_VERSION")
+    return String(GIT_VERSION);
+
+  if (var == "COMPILE_DATE_TIME")
+    return String(COMPILE_DATE_TIME);
+
+  if (var == "graph_voltagehigh")
+    return String(_mysettings->graph_voltagehigh);
+
+  if (var == "graph_voltagelow")
+    return String(_mysettings->graph_voltagelow);
+
+  if (var == "integrity_file_jquery_js")
+    return String(integrity_file_jquery_js);
+
+  if (var == "noofseriesmodules")
+    return String(maximum_controller_cell_modules);
+
+  if (var == "maxnumberofbanks")
+    return String(maximum_number_of_banks);
+
+  return String();
+}
+
 // The main home page
 esp_err_t default_htm_handler(httpd_req_t *req)
 {
   httpd_resp_set_type(req, "text/html");
   setCacheControl(req);
-  return httpd_resp_send(req, (const char *)file_default_htm, size_file_default_htm);
+
+  char *file_pointer = (char *)file_default_htm;
+  size_t max_len = size_file_default_htm;
+  char *end_pointer = file_pointer + max_len;
+
+  // Seek out the template strings to inline replace
+  // this is likely to crash with poorly formatted HTML input
+  ESP_LOGI(TAG, "default.htm");
+
+  char *p = file_pointer;
+
+  while (p < end_pointer)
+  {
+    char *templateCharacter = "%";
+
+    // Find the next escape character (start of a template keyword)
+    char *start_ptr = (char *)memchr(p, '%', end_pointer - p);
+
+    if (start_ptr != NULL)
+    {
+      // Output to client up to the start of the template string
+      httpd_resp_send_chunk(req, p, start_ptr - p);
+
+      // Skip over template character %
+      p = start_ptr + 1;
+
+      // Find the end of the template
+      char *end_ptr = (char *)memchr(p, '%', end_pointer - p);
+
+      if (end_ptr != NULL)
+      {
+        // Length of the template keyword
+        int paramNameLength = end_ptr - p;
+
+        if (paramNameLength > 0)
+        {
+          char buf[50 + 1];
+          memcpy(buf, p, paramNameLength);
+          buf[paramNameLength] = 0;
+          String paramName = String(buf);
+          String templateValue = TemplateProcessor(paramName);
+
+          ESP_LOGD(TAG, "Template %s = '%s'", paramName.c_str(), templateValue.c_str());
+
+          // Output the template answer
+          httpd_resp_sendstr_chunk(req, templateValue.c_str());
+        }
+        else
+        {
+          // Its an empty keyword %% - so just output a % character
+          httpd_resp_sendstr_chunk(req, templateCharacter);
+        }
+
+        end_ptr++;
+        p = end_ptr;
+      }
+      else
+      {
+        break;
+      }
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  // output the last chunk
+  if (p < end_pointer)
+  {
+    httpd_resp_send_chunk(req, p, end_pointer - p);
+  }
+
+  // Indicate last chunk (zero byte length)
+  return httpd_resp_send_chunk(req, p, 0);
 }
 
 void SetCacheAndETag(httpd_req_t *req, const char *ETag)
