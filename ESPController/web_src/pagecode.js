@@ -122,7 +122,7 @@ function refreshCurrentMonitorValues() {
                 $("#currentmonrelay").hide();
             }
 
-        }).fail(function () { }
+        }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
         );
 
 }
@@ -1005,7 +1005,7 @@ $(function () {
                 $("#HeapSize").html(data.settings.HeapSize);
                 $("#SdkVersion").html(data.settings.SdkVersion);
                 $("#HostName").html("<a href='http://" + data.settings.HostName + "'>" + data.settings.HostName + "</a>");
-            }).fail(function () { }
+            }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -1029,7 +1029,7 @@ $(function () {
                 $("#g2").val(data.settings.bypassthreshold);
 
                 $("#modulesPage").show();
-            }).fail(function () { }
+            }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
         return true;
     });
@@ -1071,7 +1071,7 @@ $(function () {
 
 
                 $("#banksForm").show();
-            }).fail(function () { }
+            }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -1144,7 +1144,7 @@ $(function () {
                 }
 
                 $("#rulesForm").show();
-            }).fail(function () { }
+            }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -1163,7 +1163,7 @@ $(function () {
                 $("#rs485databit").val(data.databits);
                 $("#rs485parity").val(data.parity);
                 $("#rs485stopbit").val(data.stopbits);
-            }).fail(function () { }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });}
             );
 
         refreshCurrentMonitorValues();
@@ -1186,7 +1186,7 @@ $(function () {
                 }
 
                 switchPage("#victroncanbusPage");
-            }).fail(function () { }
+            }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -1225,7 +1225,7 @@ $(function () {
 
                 $("#mqttForm").show();
                 $("#influxForm").show();
-            }).fail(function () { }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });}
             );
 
         return true;
@@ -1429,7 +1429,7 @@ $(function () {
                         $(li).append(aref);
                     });
                 }
-            }).fail(function () { }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });}
             );
 
         return true;
@@ -1489,7 +1489,9 @@ $(function () {
                     });
                 }
 
-            }).fail(function () { }
+            }).fail(function () {
+                $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
+             }
             );
 
         return true;
