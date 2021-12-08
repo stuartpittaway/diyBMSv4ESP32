@@ -22,6 +22,9 @@
 #include "EmbeddedFiles_Integrity.h"
 #include "HAL_ESP32.h"
 
+int printBoolean(char *buffer, size_t bufferLen,const char *fieldName, boolean value, boolean addComma);
+int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean value);
+
 void generateUUID();
 void StartServer(diybms_eeprom_settings *mysettings,
                  fs::SDFS *sdcard,

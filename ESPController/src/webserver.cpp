@@ -107,6 +107,232 @@ String TemplateProcessor(const String &var)
   return String();
 }
 
+int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean value, boolean addComma)
+{
+  return snprintf(buffer, bufferLen,
+                  "\"%s\":%s%s",
+                  fieldName,
+                  value ? "true" : "false",
+                  addComma ? "," : "");
+}
+
+int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean value)
+{
+  return printBoolean(buffer, bufferLen, fieldName, value, true);
+}
+
+esp_err_t content_handler_currentmonitor(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
+  int bufferused = 0;
+
+  // Convert to milliseconds
+  uint32_t x = 0;
+  if (currentMonitor.validReadings)
+  {
+    x = (esp_timer_get_time() - currentMonitor.timestamp) / 1000;
+  }
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{");
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "enabled", _mysettings->currentMonitoringEnabled);
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                         "\"address\":%u,\"timestampage\":%u,\"valid\":%s,\"batterycapacity\":%u,\"tailcurrent\":%.4f,\"fullchargevolt\":%.4f,\"chargeefficiency\":%.4f,",
+                         _mysettings->currentMonitoringModBusAddress,
+                         x,
+                         currentMonitor.validReadings ? "true" : "false",
+                         currentMonitor.modbus.batterycapacityamphour, currentMonitor.modbus.tailcurrentamps,
+                         currentMonitor.modbus.fullychargedvoltage, currentMonitor.chargeefficiency);
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                         "\"address\":%u,\"timestampage\":%u,",
+                         _mysettings->currentMonitoringModBusAddress,
+                         x);
+  // 1536432
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "valid", currentMonitor.validReadings);
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                         "\"batterycapacity\":%u,\"tailcurrent\":%.4f,\"fullchargevolt\":%.4f,\"chargeefficiency\":%.4f,",
+                         currentMonitor.modbus.batterycapacityamphour, currentMonitor.modbus.tailcurrentamps,
+                         currentMonitor.modbus.fullychargedvoltage, currentMonitor.chargeefficiency);
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                         "\"voltage\":%.4f,\"current\":%.4f,\"mahout\":%u,\"mahin\":%u,\"temperature\":%i,\"watchdog\":%u,\"power\":%.4f,\"actualshuntmv\":%.4f,\"currentlsb\":%.4f,\"resistance\":%.4f,\"calibration\":%u,\"templimit\":%i,\"undervlimit\":%.4f,\"overvlimit\":%.4f,\"overclimit\":%.4f,\"underclimit\":%.4f,\"overplimit\":%.4f,\"tempcoeff\":%u,\"model\":%u,\"firmwarev\":%u,\"firmwaredate\":%u,",
+                         currentMonitor.modbus.voltage, currentMonitor.modbus.current, currentMonitor.modbus.milliamphour_out, currentMonitor.modbus.milliamphour_in,
+                         currentMonitor.modbus.temperature, currentMonitor.modbus.watchdogcounter, currentMonitor.modbus.power,
+                         currentMonitor.modbus.shuntmV, currentMonitor.modbus.currentlsb, currentMonitor.modbus.shuntresistance,
+                         currentMonitor.modbus.shuntcal, currentMonitor.modbus.temperaturelimit,
+                         currentMonitor.modbus.undervoltagelimit, currentMonitor.modbus.overvoltagelimit,
+                         currentMonitor.modbus.overcurrentlimit, currentMonitor.modbus.undercurrentlimit,
+                         currentMonitor.modbus.overpowerlimit, currentMonitor.modbus.shunttempcoefficient,
+                         currentMonitor.modbus.modelnumber, currentMonitor.modbus.firmwareversion,
+                         currentMonitor.modbus.firmwaredatetime);
+
+  // Boolean flag values
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "TMPOL", currentMonitor.TemperatureOverLimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "CURROL", currentMonitor.CurrentOverLimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "CURRUL", currentMonitor.CurrentUnderLimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "VOLTOL", currentMonitor.VoltageOverlimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "VOLTUL", currentMonitor.VoltageUnderlimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "POL", currentMonitor.PowerOverLimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "TempCompEnabled", currentMonitor.TempCompEnabled);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "ADCRange4096mV", currentMonitor.ADCRange4096mV);
+
+  // Trigger values
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "T_TMPOL", currentMonitor.RelayTriggerTemperatureOverLimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "T_CURROL", currentMonitor.RelayTriggerCurrentOverLimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "T_CURRUL", currentMonitor.RelayTriggerCurrentUnderLimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "T_VOLTOL", currentMonitor.RelayTriggerVoltageOverlimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "T_VOLTUL", currentMonitor.RelayTriggerVoltageUnderlimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "T_POL", currentMonitor.RelayTriggerPowerOverLimit);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "RelayState", currentMonitor.RelayState);
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                         "\"shuntmv\":%u,\"shuntmaxcur\":%u}",
+                         currentMonitor.modbus.shuntmillivolt, currentMonitor.modbus.shuntmaxcurrent);
+
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t content_handler_rs485settings(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
+  int bufferused = 0;
+
+  // Output the first batch of settings/parameters/values
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
+                         "{\"baudrate\":%i,\"databits\":%i,\"parity\":%i,\"stopbits\":%i}",
+                         _mysettings->rs485baudrate, _mysettings->rs485databits,
+                         _mysettings->rs485parity, _mysettings->rs485stopbits);
+
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t content_handler_modules(httpd_req_t *req)
+{
+  uint8_t c;
+  bool valid = false;
+
+  char buf[100];
+  size_t buf_len = httpd_req_get_url_query_len(req);
+  if (buf_len > 1)
+  {
+    // Only allow up to our pre-defined buffer length (100 bytes)
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK)
+    {
+      ESP_LOGI(TAG, "Found URL query => %s", buf);
+      char param[8];
+      /* Get value of expected key from query string */
+      if (httpd_query_key_value(buf, "c", param, sizeof(param)) == ESP_OK)
+      {
+        c = atoi(param);
+
+        ESP_LOGI(TAG, "Found URL query parameter => query1=%s (%u)", param, c);
+
+        if (c <= _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules)
+        {
+          valid = true;
+        }
+      }
+    }
+  }
+
+  if (valid)
+  {
+    httpd_resp_set_type(req, "application/json");
+    setCacheControl(req);
+
+    if (cmi[c].settingsCached == false)
+    {
+      _prg->sendGetSettingsRequest(c);
+    }
+
+    DynamicJsonDocument doc(2048);
+    JsonObject root = doc.to<JsonObject>();
+    JsonObject settings = root.createNestedObject("settings");
+
+    uint8_t b = c / _mysettings->totalNumberOfSeriesModules;
+    uint8_t m = c - (b * _mysettings->totalNumberOfSeriesModules);
+    settings["bank"] = b;
+    settings["module"] = m;
+    settings["id"] = c;
+    settings["ver"] = cmi[c].BoardVersionNumber;
+    settings["code"] = cmi[c].CodeVersionNumber;
+    settings["Cached"] = cmi[c].settingsCached;
+
+    if (cmi[c].settingsCached)
+    {
+      settings["BypassOverTempShutdown"] = cmi[c].BypassOverTempShutdown;
+      settings["BypassThresholdmV"] = cmi[c].BypassThresholdmV;
+      settings["LoadRes"] = cmi[c].LoadResistance;
+      settings["Calib"] = cmi[c].Calibration;
+      settings["mVPerADC"] = cmi[c].mVPerADC;
+      settings["IntBCoef"] = cmi[c].Internal_BCoefficient;
+      settings["ExtBCoef"] = cmi[c].External_BCoefficient;
+    }
+
+    int bufferused = 0;
+    bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+    return httpd_resp_send(req, httpbuf, bufferused);
+  }
+  else
+  {
+    // It failed!
+    return httpd_resp_send_500(req);
+  }
+}
+
+esp_err_t content_handler_avrstatus(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
+  int bufferused = 0;
+  StaticJsonDocument<256> doc;
+  doc["inprogress"] = _avrsettings.inProgress ? 1 : 0;
+  doc["result"] = _avrsettings.progresult;
+  doc["duration"] = _avrsettings.duration;
+  doc["size"] = _avrsettings.programsize;
+  doc["mcu"] = _avrsettings.mcu;
+
+  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t content_handler_getvictron(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
+  int bufferused = 0;
+
+  DynamicJsonDocument doc(2048);
+  JsonObject root = doc.to<JsonObject>();
+
+  JsonObject settings = root.createNestedObject("victron");
+
+  settings["enabled"] = _mysettings->VictronEnabled;
+
+  JsonArray cvl = settings.createNestedArray("cvl");
+  JsonArray ccl = settings.createNestedArray("ccl");
+  JsonArray dcl = settings.createNestedArray("dcl");
+  for (uint8_t i = 0; i < 3; i++)
+  {
+    cvl.add(_mysettings->cvl[i]);
+    ccl.add(_mysettings->ccl[i]);
+    dcl.add(_mysettings->dcl[i]);
+  }
+
+  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
 esp_err_t content_handler_rules(httpd_req_t *req)
 {
   httpd_resp_set_type(req, "application/json");
@@ -968,6 +1194,11 @@ httpd_uri_t uri_monitor3_json_get = {.uri = "/monitor3.json", .method = HTTP_GET
 httpd_uri_t uri_integration_json_get = {.uri = "/integration.json", .method = HTTP_GET, .handler = content_handler_integration, .user_ctx = NULL};
 httpd_uri_t uri_settings_json_get = {.uri = "/settings.json", .method = HTTP_GET, .handler = content_handler_settings, .user_ctx = NULL};
 httpd_uri_t uri_rules_json_get = {.uri = "/rules.json", .method = HTTP_GET, .handler = content_handler_rules, .user_ctx = NULL};
+httpd_uri_t uri_getvictron_json_get = {.uri = "/getvictron.json", .method = HTTP_GET, .handler = content_handler_getvictron, .user_ctx = NULL};
+httpd_uri_t uri_rs485settings_json_get = {.uri = "/rs485settings.json", .method = HTTP_GET, .handler = content_handler_rs485settings, .user_ctx = NULL};
+httpd_uri_t uri_currentmonitor_json_get = {.uri = "/currentmonitor.json", .method = HTTP_GET, .handler = content_handler_currentmonitor, .user_ctx = NULL};
+httpd_uri_t uri_avrstatus_json_get = {.uri = "/avrstatus.json", .method = HTTP_GET, .handler = content_handler_avrstatus, .user_ctx = NULL};
+httpd_uri_t uri_modules_json_get = {.uri = "/modules.json", .method = HTTP_GET, .handler = content_handler_modules, .user_ctx = NULL};
 
 /* URI handler structure for POST /uri */
 httpd_uri_t uri_post = {.uri = "/uri", .method = HTTP_POST, .handler = post_handler, .user_ctx = NULL};
@@ -992,6 +1223,7 @@ httpd_handle_t start_webserver(void)
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
   config.max_uri_handlers = 48;
+  config.max_open_sockets = 3;
 
   /* Empty handle to esp_http_server */
   httpd_handle_t server = NULL;
@@ -1030,6 +1262,11 @@ httpd_handle_t start_webserver(void)
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_integration_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_settings_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_rules_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_getvictron_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_rs485settings_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_currentmonitor_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrstatus_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_modules_json_get));
 
     // httpd_register_uri_handler(server, &uri_post);
   }
