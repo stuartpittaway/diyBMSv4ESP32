@@ -183,7 +183,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
 
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
@@ -212,7 +212,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
 
   // Send it...
   httpd_resp_sendstr_chunk(req, buf);
@@ -237,8 +237,8 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
-  // Send it...
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //  Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
   // maxvoltages
@@ -263,8 +263,8 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
-  // Send it...
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //  Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
   // inttemp
@@ -289,8 +289,8 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
-  // Send it...
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //  Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
   // exttemp
@@ -315,8 +315,8 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
-  // Send it...
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //  Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
   // bypass
@@ -340,8 +340,8 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
-  // Send it...
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //  Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
   // bypasshot
@@ -365,8 +365,8 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
-  // Send it...
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //  Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
   // bypasspwm
@@ -391,8 +391,8 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
-  // Send it...
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //  Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
   // bankv
@@ -409,8 +409,8 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
 
-  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
-  // Send it...
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //  Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
   // voltrange
@@ -429,8 +429,8 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "]}");
 
-  //ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
-  // Send it...
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //  Send it...
   httpd_resp_sendstr_chunk(req, buf);
 
   // Indicate last chunk (zero byte length)
@@ -542,28 +542,27 @@ const char *const image_x_icon = "image/x-icon";
 esp_err_t static_content_handler(httpd_req_t *req)
 {
   WEBKIT_RESPONSE_ARGS *args = (WEBKIT_RESPONSE_ARGS *)(req->user_ctx);
-  ESP_LOGD(TAG, "Web serve %s", req->uri);
-
-  // TODO: GET ETAGS WORKING AGAIN!!
-
-  /*
-    _myserver->on("/style.css", HTTP_GET,
-                  [](AsyncWebServerRequest *request)
-                  {
-                    if (request->header("If-None-Match").equals(String(etag_file_style_css_gz)))
-                    {
-                      request->send(304);
-                    }
-                    else
-                    {
-                      AsyncWebServerResponse *response = request->beginResponse_P(200, "text/css", file_style_css_gz, size_file_style_css_gz);
-                      SetCacheAndETagGzip(response, String(etag_file_style_css_gz));
-                      request->send(response);
-                    }
-                  });
-  */
 
   httpd_resp_set_type(req, args->mimetype);
+
+  // TODO: GET ETAGS WORKING AGAIN!!
+  char buffer[50];
+
+  if (httpd_req_get_hdr_value_str(req, "If-None-Match", buffer, sizeof(buffer)) == ESP_OK)
+  {
+    // We have a value in the eTag header
+
+    if (strncmp(buffer, args->etag, strlen(args->etag)) == 0)
+    {
+      ESP_LOGD(TAG, "Cached response for %s", req->uri);
+      // Matched
+      httpd_resp_set_status(req, "304 Not Modified");
+      httpd_resp_send(req, NULL, 0);
+      return ESP_OK;
+    }
+  }
+
+  ESP_LOGD(TAG, "Web serve %s", req->uri);
   SetCacheAndETag(req, args->etag);
   return httpd_resp_send(req, (const char *)args->resp, args->resp_len);
 }
@@ -571,31 +570,28 @@ esp_err_t static_content_handler(httpd_req_t *req)
 // Handle static files which are already GZIP compressed
 esp_err_t static_content_handler_gzipped(httpd_req_t *req)
 {
-
   WEBKIT_RESPONSE_ARGS *args = (WEBKIT_RESPONSE_ARGS *)(req->user_ctx);
 
-  ESP_LOGD(TAG, "Web serve %s", req->uri);
+  httpd_resp_set_type(req, args->mimetype);
 
   // TODO: GET ETAGS WORKING AGAIN!!
+  char buffer[50];
 
-  /*
-    _myserver->on("/style.css", HTTP_GET,
-                  [](AsyncWebServerRequest *request)
-                  {
-                    if (request->header("If-None-Match").equals(String(etag_file_style_css_gz)))
-                    {
-                      request->send(304);
-                    }
-                    else
-                    {
-                      AsyncWebServerResponse *response = request->beginResponse_P(200, "text/css", file_style_css_gz, size_file_style_css_gz);
-                      SetCacheAndETagGzip(response, String(etag_file_style_css_gz));
-                      request->send(response);
-                    }
-                  });
-  */
+  if (httpd_req_get_hdr_value_str(req, "If-None-Match", buffer, sizeof(buffer)) == ESP_OK)
+  {
+    // We have a value in the eTag header
 
-  httpd_resp_set_type(req, args->mimetype);
+    if (strncmp(buffer, args->etag, strlen(args->etag)) == 0)
+    {
+      ESP_LOGD(TAG, "Cached response for %s", req->uri);
+      // Matched
+      httpd_resp_set_status(req, "304 Not Modified");
+      httpd_resp_send(req, NULL, 0);
+      return ESP_OK;
+    }
+  }
+
+  ESP_LOGD(TAG, "Web serve %s", req->uri);
   httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
   SetCacheAndETag(req, args->etag);
   return httpd_resp_send(req, (const char *)args->resp, args->resp_len);
@@ -734,7 +730,7 @@ httpd_handle_t start_webserver(void)
   /* Start the httpd server */
   if (httpd_start(&server, &config) == ESP_OK)
   {
-    
+
     /* Register URI handlers */
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_root_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_defaulthtm_get));
