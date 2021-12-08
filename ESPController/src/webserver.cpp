@@ -18,9 +18,8 @@ Rules *_rules;
 ControllerState *_controlState;
 HAL_ESP32 *_hal;
 
-
 #define BUFSIZE 1500
-//Shared buffer for all HTTP generated replies
+// Shared buffer for all HTTP generated replies
 char httpbuf[BUFSIZE];
 
 void generateUUID()
