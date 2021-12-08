@@ -18,6 +18,11 @@ Rules *_rules;
 ControllerState *_controlState;
 HAL_ESP32 *_hal;
 
+
+#define BUFSIZE 1500
+//Shared buffer for all HTTP generated replies
+char httpbuf[BUFSIZE];
+
 void generateUUID()
 {
   uint8_t uuidNumber[16]; // UUIDs in binary form are 16 bytes long
@@ -103,6 +108,274 @@ String TemplateProcessor(const String &var)
   return String();
 }
 
+esp_err_t content_handler_rules(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
+  int bufferused = 0;
+
+  DynamicJsonDocument doc(2048);
+  JsonObject root = doc.to<JsonObject>();
+
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo, 100))
+  {
+    root["timenow"] = 0;
+  }
+  else
+  {
+    root["timenow"] = (timeinfo.tm_hour * 60) + timeinfo.tm_min;
+  }
+
+  root["ControlState"] = (*_controlState);
+
+  JsonArray defaultArray = root.createNestedArray("relaydefault");
+  for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
+  {
+    switch (_mysettings->rulerelaydefault[relay])
+    {
+    case RELAY_OFF:
+      defaultArray.add(false);
+      break;
+    case RELAY_ON:
+      defaultArray.add(true);
+      break;
+    default:
+      defaultArray.add((char *)0);
+      break;
+    }
+  }
+
+  JsonArray typeArray = root.createNestedArray("relaytype");
+  for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
+  {
+    switch (_mysettings->relaytype[relay])
+    {
+    case RELAY_STANDARD:
+      typeArray.add("Std");
+      break;
+    case RELAY_PULSE:
+      typeArray.add("Pulse");
+      break;
+    default:
+      typeArray.add((char *)0);
+      break;
+    }
+  }
+
+  JsonArray bankArray = root.createNestedArray("rules");
+
+  for (uint8_t r = 0; r < RELAY_RULES; r++)
+  {
+    JsonObject rule = bankArray.createNestedObject();
+    rule["value"] = _mysettings->rulevalue[r];
+    rule["hysteresis"] = _mysettings->rulehysteresis[r];
+    rule["triggered"] = _rules->rule_outcome[r];
+    JsonArray data = rule.createNestedArray("relays");
+
+    for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
+    {
+      switch (_mysettings->rulerelaystate[r][relay])
+      {
+      case RELAY_OFF:
+        data.add(false);
+        break;
+      case RELAY_ON:
+        data.add(true);
+        break;
+      default:
+        data.add((char *)0);
+        break;
+      }
+    }
+  }
+
+  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t content_handler_settings(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
+  int bufferused = 0;
+
+  DynamicJsonDocument doc(2048);
+  JsonObject root = doc.to<JsonObject>();
+
+  JsonObject settings = root.createNestedObject("settings");
+
+  settings["totalnumberofbanks"] = _mysettings->totalNumberOfBanks;
+  settings["totalseriesmodules"] = _mysettings->totalNumberOfSeriesModules;
+  settings["baudrate"] = _mysettings->baudRate;
+
+  settings["bypassthreshold"] = _mysettings->BypassThresholdmV;
+  settings["bypassovertemp"] = _mysettings->BypassOverTempShutdown;
+
+  settings["NTPServerName"] = _mysettings->ntpServer;
+  settings["TimeZone"] = _mysettings->timeZone;
+  settings["MinutesTimeZone"] = _mysettings->minutesTimeZone;
+  settings["DST"] = _mysettings->daylight;
+
+  settings["FreeHeap"] = ESP.getFreeHeap();
+  settings["MinFreeHeap"] = ESP.getMinFreeHeap();
+  settings["HeapSize"] = ESP.getHeapSize();
+  settings["SdkVersion"] = ESP.getSdkVersion();
+
+  settings["HostName"] = WiFi.getHostname();
+
+  time_t now;
+  if (time(&now))
+  {
+    settings["now"] = now;
+  }
+
+  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t content_handler_integration(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
+  int bufferused = 0;
+  /*
+    const char *nullstring = "null";
+
+    // Output the first batch of settings/parameters/values
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
+                           "{\"mqtt\":{\"enabled\":%s,\"topic\":\"%s\",\"port\":%u,\"server\":\"%s\",\"username\":\"%s\"}",
+                           _mysettings->mqtt_enabled ? "true" : "false", _mysettings->mqtt_topic, _mysettings->mqtt_port, _mysettings->mqtt_server, _mysettings->mqtt_username);
+
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
+                           ",\"influxdb\":{\"enabled\":%s,\"url\":\"%s\",\"bucket\":\"%s\",\"apitoken\":\"%s\",\"orgid\":\"%s\"}}",
+                           _mysettings->influxdb_enabled ? "true" : "false", _mysettings->influxdb_serverurl, _mysettings->influxdb_databasebucket, _mysettings->influxdb_apitoken, _mysettings->influxdb_orgid);
+
+    // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+    //  Send it...
+    httpd_resp_sendstr_chunk(req, buf);
+
+    // Indicate last chunk (zero byte length)
+    return httpd_resp_send_chunk(req, buf, 0);
+  */
+
+  DynamicJsonDocument doc(1024);
+  JsonObject root = doc.to<JsonObject>();
+
+  JsonObject mqtt = root.createNestedObject("mqtt");
+  mqtt["enabled"] = _mysettings->mqtt_enabled;
+  mqtt["topic"] = _mysettings->mqtt_topic;
+  mqtt["port"] = _mysettings->mqtt_port;
+  mqtt["server"] = _mysettings->mqtt_server;
+  mqtt["username"] = _mysettings->mqtt_username;
+  // We don't output the password in the json file as this could breach security
+  // mqtt["password"] =_mysettings->mqtt_password;
+
+  JsonObject influxdb = root.createNestedObject("influxdb");
+  influxdb["enabled"] = _mysettings->influxdb_enabled;
+  influxdb["url"] = _mysettings->influxdb_serverurl;
+  influxdb["bucket"] = _mysettings->influxdb_databasebucket;
+  influxdb["apitoken"] = _mysettings->influxdb_apitoken;
+  influxdb["orgid"] = _mysettings->influxdb_orgid;
+
+  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t content_handler_monitor3(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
+  uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
+  uint8_t comma = totalModules - 1;
+
+  int bufferused = 0;
+  const char *nullstring = "null";
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{\"badpacket\":[");
+
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    if (cmi[i].valid)
+    {
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].badPacketCount);
+    }
+    else
+    {
+      // Return NULL
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+    }
+    if (i < comma)
+    {
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
+    }
+  }
+  //  Send it...
+  httpd_resp_sendstr_chunk(req, httpbuf);
+
+  // voltrange
+  bufferused = 0;
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],\"balcurrent\":[");
+
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    if (cmi[i].valid)
+    {
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].BalanceCurrentCount);
+    }
+    else
+    {
+      // Return NULL
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+    }
+    if (i < comma)
+    {
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
+    }
+  }
+
+  //  Send it...
+  httpd_resp_sendstr_chunk(req, httpbuf);
+
+  // voltrange
+  bufferused = 0;
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],\"pktrecvd\":[");
+
+  for (uint8_t i = 0; i < totalModules; i++)
+  {
+    if (cmi[i].valid)
+    {
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].PacketReceivedCount);
+    }
+    else
+    {
+      // Return NULL
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+    }
+    if (i < comma)
+    {
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
+    }
+  }
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]}");
+
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //  Send it...
+  httpd_resp_sendstr_chunk(req, httpbuf);
+
+  // Indicate last chunk (zero byte length)
+  return httpd_resp_send_chunk(req, httpbuf, 0);
+}
+
 esp_err_t content_handler_monitor2(httpd_req_t *req)
 {
   httpd_resp_set_type(req, "application/json");
@@ -110,18 +383,11 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
 
-  // const char comma = ',';
-  // const char *null = "null";
-  //  AsyncResponseStream *response = request->beginResponseStream("application/json");
-
-#define BUFSIZE 1024
-
-  char buf[BUFSIZE];
   int bufferused = 0;
   const char *nullstring = "null";
 
   // Output the first batch of settings/parameters/values
-  bufferused += snprintf(&buf[bufferused], BUFSIZE,
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
                          "{\"banks\":%u,\"seriesmodules\":%u,\"sent\":%u,\"received\":%u,\"modulesfnd\":%u,\"badcrc\":%u,\"ignored\":%u,\"roundtrip\":%u,\"oos\":%u,\"activerules\":%u,\"uptime\":%u,\"can_fail\":%u,\"can_sent\":%u,\"can_rec\":%u,\"sec\":\"%s\",",
                          _mysettings->totalNumberOfBanks, _mysettings->totalNumberOfSeriesModules,
                          _prg->packetsGenerated, _receiveProc->packetsReceived,
@@ -130,25 +396,25 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          _receiveProc->packetTimerMillisecond, _receiveProc->totalOutofSequenceErrors, _rules->active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6), canbus_messages_failed_sent, canbus_messages_sent, canbus_messages_received, UUIDStringLast2Chars.c_str());
 
   // current
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"current\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"current\":[");
 
   if (_mysettings->currentMonitoringEnabled && currentMonitor.validReadings)
   {
 
     // Output current monitor values, this is inside an array, so could be more than 1
-    bufferused += snprintf(&buf[bufferused], BUFSIZE,
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
                            "{\"c\":%.4f,\"v\":%.4f,\"mahout\":%u,\"mahin\":%u,\"p\":%.2f,\"soc\":%.2f}",
                            currentMonitor.modbus.current, currentMonitor.modbus.voltage, currentMonitor.modbus.milliamphour_out,
                            currentMonitor.modbus.milliamphour_in, currentMonitor.modbus.power, currentMonitor.stateofcharge);
   }
   else
   {
-    bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
   }
 
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
-  bufferused += snprintf(&buf[bufferused], BUFSIZE, "\"errors\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE, "\"errors\":[");
   uint8_t count = 0;
 
   for (size_t i = 0; i < sizeof(_rules->ErrorCodes); i++)
@@ -158,13 +424,13 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
       // Comma if not zero
       if (count)
       {
-        bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+        bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
       }
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", _rules->ErrorCodes[i]);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", _rules->ErrorCodes[i]);
       count++;
     }
   }
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],\"warnings\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],\"warnings\":[");
 
   count = 0;
   for (size_t i = 0; i < sizeof(_rules->WarningCodes); i++)
@@ -174,267 +440,267 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
       // Comma if not zero
       if (count)
       {
-        bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+        bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
       }
 
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", _rules->WarningCodes[i]);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", _rules->WarningCodes[i]);
       count++;
     }
   }
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
 
   // Send it...
-  httpd_resp_sendstr_chunk(req, buf);
+  httpd_resp_sendstr_chunk(req, httpbuf);
 
   // voltages
   bufferused = 0;
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"voltages\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"voltages\":[");
 
   for (uint8_t i = 0; i < totalModules; i++)
   {
     // Comma if not zero
     if (i)
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
     }
 
     if (cmi[i].valid)
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].voltagemV);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].voltagemV);
     }
     else
     {
       // Module is not yet valid so return null values...
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
     }
   }
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
 
   // Send it...
-  httpd_resp_sendstr_chunk(req, buf);
+  httpd_resp_sendstr_chunk(req, httpbuf);
 
   bufferused = 0;
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"minvoltages\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"minvoltages\":[");
   for (uint8_t i = 0; i < totalModules; i++)
   {
     // Comma if not zero
     if (i)
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
     if (cmi[i].valid)
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].voltagemVMin);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].voltagemVMin);
     }
     else
     {
       // Module is not yet valid so return null values...
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
     }
   }
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, buf);
+  httpd_resp_sendstr_chunk(req, httpbuf);
 
   // maxvoltages
   bufferused = 0;
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"maxvoltages\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"maxvoltages\":[");
 
   for (uint8_t i = 0; i < totalModules; i++)
   {
     // Comma if not zero
     if (i)
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
     if (cmi[i].valid)
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].voltagemVMin);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].voltagemVMin);
     }
     else
     {
       // Module is not yet valid so return null values...
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
     }
   }
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, buf);
+  httpd_resp_sendstr_chunk(req, httpbuf);
 
   // inttemp
   bufferused = 0;
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"inttemp\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"inttemp\":[");
 
   for (uint8_t i = 0; i < totalModules; i++)
   {
     // Comma if not zero
     if (i)
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
     if (cmi[i].valid && cmi[i].internalTemp != -40)
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%i", cmi[i].internalTemp);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%i", cmi[i].internalTemp);
     }
     else
     {
       // Module is not yet valid so return null values...
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
     }
   }
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, buf);
+  httpd_resp_sendstr_chunk(req, httpbuf);
 
   // exttemp
   bufferused = 0;
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"exttemp\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"exttemp\":[");
 
   for (uint8_t i = 0; i < totalModules; i++)
   {
     // Comma if not zero
     if (i)
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
     if (cmi[i].valid && cmi[i].externalTemp != -40)
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%i", cmi[i].externalTemp);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%i", cmi[i].externalTemp);
     }
     else
     {
       // Module is not yet valid so return null values...
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%s", nullstring);
     }
   }
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, buf);
+  httpd_resp_sendstr_chunk(req, httpbuf);
 
   // bypass
   bufferused = 0;
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"bypass\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"bypass\":[");
 
   for (uint8_t i = 0; i < totalModules; i++)
   {
     // Comma if not zero
     if (i)
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
     if (cmi[i].valid && cmi[i].inBypass)
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "1");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "1");
     }
     else
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "0");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "0");
     }
   }
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, buf);
+  httpd_resp_sendstr_chunk(req, httpbuf);
 
   // bypasshot
   bufferused = 0;
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"bypasshot\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"bypasshot\":[");
 
   for (uint8_t i = 0; i < totalModules; i++)
   {
     // Comma if not zero
     if (i)
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
     if (cmi[i].valid && cmi[i].bypassOverTemp)
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "1");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "1");
     }
     else
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "0");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "0");
     }
   }
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, buf);
+  httpd_resp_sendstr_chunk(req, httpbuf);
 
   // bypasspwm
   bufferused = 0;
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"bypasspwm\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"bypasspwm\":[");
 
   for (uint8_t i = 0; i < totalModules; i++)
   {
     // Comma if not zero
     if (i)
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
     if (cmi[i].valid && cmi[i].inBypass)
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].PWMValue);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].PWMValue);
     }
     else
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "0");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "0");
     }
   }
 
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, buf);
+  httpd_resp_sendstr_chunk(req, httpbuf);
 
   // bankv
   bufferused = 0;
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"bankv\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"bankv\":[");
 
   for (uint8_t i = 0; i < _mysettings->totalNumberOfBanks; i++)
   {
     // Comma if not zero
     if (i)
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
-    bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", _rules->packvoltage[i]);
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", _rules->packvoltage[i]);
   }
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "],");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, buf);
+  httpd_resp_sendstr_chunk(req, httpbuf);
 
   // voltrange
   bufferused = 0;
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "\"voltrange\":[");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"voltrange\":[");
 
   for (uint8_t i = 0; i < _mysettings->totalNumberOfBanks; i++)
   {
     // Comma if not zero
     if (i)
     {
-      bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, ",");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
     }
 
-    bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "%u", _rules->VoltageRangeInBank(i));
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", _rules->VoltageRangeInBank(i));
   }
-  bufferused += snprintf(&buf[bufferused], BUFSIZE - bufferused, "]}");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]}");
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, buf);
+  httpd_resp_sendstr_chunk(req, httpbuf);
 
   // Indicate last chunk (zero byte length)
-  return httpd_resp_send_chunk(req, buf, 0);
+  return httpd_resp_send_chunk(req, httpbuf, 0);
 }
 
 // The main home page
@@ -699,6 +965,10 @@ WEBKIT_RESPONSE_ARGS webkit_warning_png_args = {file_warning_png, size_file_warn
 httpd_uri_t uri_warning_png_get = {.uri = "/warning.png", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = (void *)&webkit_warning_png_args};
 
 httpd_uri_t uri_monitor2_json_get = {.uri = "/monitor2.json", .method = HTTP_GET, .handler = content_handler_monitor2, .user_ctx = NULL};
+httpd_uri_t uri_monitor3_json_get = {.uri = "/monitor3.json", .method = HTTP_GET, .handler = content_handler_monitor3, .user_ctx = NULL};
+httpd_uri_t uri_integration_json_get = {.uri = "/integration.json", .method = HTTP_GET, .handler = content_handler_integration, .user_ctx = NULL};
+httpd_uri_t uri_settings_json_get = {.uri = "/settings.json", .method = HTTP_GET, .handler = content_handler_settings, .user_ctx = NULL};
+httpd_uri_t uri_rules_json_get = {.uri = "/rules.json", .method = HTTP_GET, .handler = content_handler_rules, .user_ctx = NULL};
 
 /* URI handler structure for POST /uri */
 httpd_uri_t uri_post = {.uri = "/uri", .method = HTTP_POST, .handler = post_handler, .user_ctx = NULL};
@@ -722,7 +992,7 @@ httpd_handle_t start_webserver(void)
   /* Generate default configuration */
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-  config.max_uri_handlers = 32;
+  config.max_uri_handlers = 48;
 
   /* Empty handle to esp_http_server */
   httpd_handle_t server = NULL;
@@ -757,6 +1027,10 @@ httpd_handle_t start_webserver(void)
 
     // Web services/API
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_monitor2_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_monitor3_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_integration_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_settings_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_rules_json_get));
 
     // httpd_register_uri_handler(server, &uri_post);
   }
