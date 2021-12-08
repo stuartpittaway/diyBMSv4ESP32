@@ -3,6 +3,8 @@
 
 #include <esp_http_server.h>
 
+#include <WiFi.h>
+
 #include "settings.h"
 #include "FS.h"
 #include <LITTLEFS.h>
