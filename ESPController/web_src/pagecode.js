@@ -1396,7 +1396,7 @@ $(function () {
                 $("#avrprogconfirm").hide();
                 $("#selectedavrindex").val("");
 
-                if (data.ProgModeEnabled == 1) {
+                if (data.ProgModeEnabled == true) {
                     //Programming mode enabled
                     $("#AVRProgEnable").prop('disabled', true).css({ opacity: 0.25 });
                     $("#AVRProgDisable").prop('disabled', false).css({ opacity: 1.0 });

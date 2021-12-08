@@ -24,7 +24,9 @@
 
 int printBoolean(char *buffer, size_t bufferLen,const char *fieldName, boolean value, boolean addComma);
 int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean value);
-
+esp_err_t SendSuccess(httpd_req_t *req);
+void setCookieValue();
+void setCookie(httpd_req_t *req);
 void generateUUID();
 void StartServer(diybms_eeprom_settings *mysettings,
                  fs::SDFS *sdcard,

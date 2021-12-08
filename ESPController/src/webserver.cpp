@@ -22,6 +22,9 @@ HAL_ESP32 *_hal;
 // Shared buffer for all HTTP generated replies
 char httpbuf[BUFSIZE];
 
+// DIYBMS_XSS=768a5b9c-e37f-28f5-7bb4-38415df17bbf; path=/; HttpOnly
+char cookie[90];
+
 void generateUUID()
 {
   uint8_t uuidNumber[16]; // UUIDs in binary form are 16 bytes long
@@ -121,6 +124,49 @@ int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean 
   return printBoolean(buffer, bufferLen, fieldName, value, true);
 }
 
+esp_err_t content_handler_avrstorage(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
+  int bufferused = 0;
+
+  //{"avrprog":{"avrprog":[{"board":"V400","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V400_ca58bde0.bin","ver":"ca58bde0"},{"board":"V410","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V410_ca58bde0.bin","ver":"ca58bde0"},{"board":"V420","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V420_ca58bde0.bin","ver":"ca58bde0"},{"board":"V420_SWAPR19R20","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V420_SWAPR19R20_ca58bde0.bin","ver":"ca58bde0"},{"board":"V421","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V421_ca58bde0.bin","ver":"ca58bde0"},{"board":"V421_LTO","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V421_LTO_ca58bde0.bin","ver":"ca58bde0"}]}}
+  // See if we can open and process the AVR PROGRAMMER manifest file
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{");
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "ProgModeEnabled", _avrsettings.programmingModeEnabled);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "InProgress", _avrsettings.inProgress);
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"avrprog\":");
+
+  String manifest = String("/avr/manifest.json");
+  if (LITTLEFS.exists(manifest))
+  {
+    StaticJsonDocument<3000> doc;
+    File file = LITTLEFS.open(manifest);
+    DeserializationError error = deserializeJson(doc, file);
+    if (error)
+    {
+      ESP_LOGE(TAG, "Error deserialize Json");
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{}");
+    }
+    else
+    {
+      bufferused += serializeJson(doc, &httpbuf[bufferused], BUFSIZE - bufferused);
+    }
+    file.close();
+  }
+  else
+  {
+    // No files!
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{}");
+  }
+
+  // The END...
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "}");
+
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
 esp_err_t content_handler_currentmonitor(httpd_req_t *req)
 {
   httpd_resp_set_type(req, "application/json");
@@ -209,6 +255,264 @@ esp_err_t content_handler_rs485settings(httpd_req_t *req)
                          _mysettings->rs485baudrate, _mysettings->rs485databits,
                          _mysettings->rs485parity, _mysettings->rs485stopbits);
 
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t levels)
+{
+  // This needs to check for buffer overrun as too many files are likely to exceed the buffer capacity
+
+  int bufferused = 0;
+  File root = fs.open(dirname);
+  if (!root)
+  {
+    ESP_LOGE(TAG, "Failed to open dir");
+    return 0;
+  }
+  if (!root.isDirectory())
+  {
+    ESP_LOGE(TAG, "Not a dir");
+    return 0;
+  }
+
+  File file = root.openNextFile();
+  while (file)
+  {
+    if (file.isDirectory())
+    {
+      // Hide the diybms folder where the config files are kept
+      if (levels && String(file.name()).startsWith("/diybms") == false)
+      {
+        bufferused += fileSystemListDirectory(&buffer[bufferused], bufferLen - bufferused, fs, file.name(), levels - 1);
+        bufferused += snprintf(&buffer[bufferused], bufferLen - bufferused, ",");
+      }
+    }
+    else
+    {
+      bufferused += snprintf(&buffer[bufferused], bufferLen - bufferused, "\"%s\",", file.name());
+    }
+
+    file = root.openNextFile();
+  }
+
+  // Trailing null to cope with trailing ','
+  bufferused += snprintf(&buffer[bufferused], bufferLen - bufferused, "null");
+
+  return bufferused;
+}
+
+esp_err_t content_handler_storage(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
+  int bufferused = 0;
+
+  sdcard_info info;
+
+  info.available = _sd_card_installed;
+
+  // Lock VSPI bus during operation (not sure if this is acutally needed, as the SD class may have cached these values)
+  if (_hal->GetVSPIMutex())
+  {
+    // Convert to KiB
+    info.totalkilobytes = SD.totalBytes() / 1024;
+    info.usedkilobytes = SD.usedBytes() / 1024;
+    _hal->ReleaseVSPIMutex();
+  }
+  else
+  {
+    info.totalkilobytes = 0;
+    info.usedkilobytes = 0;
+  }
+
+  info.flash_totalkilobytes = LITTLEFS.totalBytes() / 1024;
+  info.flash_usedkilobytes = LITTLEFS.usedBytes() / 1024;
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{\"storage\":{");
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "logging", _mysettings->loggingEnabled);
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"frequency\":%u,\"sdcard\":{", _mysettings->loggingFrequencySeconds);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "available", info.available);
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"total\":%u,\"used\":%u,\"files\":[", info.totalkilobytes, info.usedkilobytes);
+
+  //  Send it...
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
+  bufferused = 0;
+
+  // File listing goes here
+  if (info.available)
+  {
+    if (_hal->GetVSPIMutex())
+    {
+      bufferused += fileSystemListDirectory(&httpbuf[bufferused], BUFSIZE - bufferused, SD, "/", 2);
+      _hal->ReleaseVSPIMutex();
+    }
+  }
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]},\"flash\":{");
+
+  //  Send it...
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
+
+  bufferused = 0;
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"total\":%u,\"used\":%u,\"files\":[", info.flash_totalkilobytes, info.flash_usedkilobytes);
+
+  bufferused += fileSystemListDirectory(&httpbuf[bufferused], BUFSIZE - bufferused, LITTLEFS, "/", 0);
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]}}}");
+
+  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
+  //  Send it...
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
+
+  // Indicate last chunk (zero byte length)
+  return httpd_resp_send_chunk(req, httpbuf, 0);
+}
+
+
+//TODO: FINISH THIS OFF
+esp_err_t content_handler_downloadfile(httpd_req_t *req)
+{
+  bool valid = false;
+
+  char param[128];
+  String type;
+  String file;
+
+  char buf[256];
+  size_t buf_len = httpd_req_get_url_query_len(req);
+  if (buf_len > 1)
+  {
+    // Only allow up to our pre-defined buffer length (100 bytes)
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK)
+    {
+      // ESP_LOGD(TAG, "Found URL query => %s", buf);
+
+      /* Get value of expected key from query string */
+      if (httpd_query_key_value(buf, "type", param, sizeof(param)) == ESP_OK)
+      {
+        type = String(param);
+        ESP_LOGD(TAG, "type=%s", type.c_str());
+
+        if (httpd_query_key_value(buf, "file", param, sizeof(param)) == ESP_OK)
+        {
+          file = String(param);
+          ESP_LOGD(TAG, "file=%s", file.c_str());
+          valid = true;
+        }
+      }
+    }
+  }
+
+  if (valid)
+  {
+    // Do some really simple validation here to prevent files being downloaded,
+    // which could be a security risk.
+    // See: directory traversal vulnerability
+    if (file.startsWith("/") == false)
+    {
+      // All file names must start at the root
+      return httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Bad request");
+    }
+
+    if (file.startsWith("//") == true)
+    {
+      // All file names must start at the root
+      return httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Bad request");
+    }
+
+    if (file.startsWith("/diybms/") == true)
+    {
+      // Prevent downloads from /diybms/ folder
+      // request->send(401); // 401 Unauthorized
+      return httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Bad request");
+    }
+
+    if (type.equals("sdcard") && _sd_card_installed)
+    {
+      // Process file from SD card
+
+      if (_hal->GetVSPIMutex())
+      {
+        // Get the file
+        ESP_LOGI(TAG, "Download SDCard file %s", file.c_str());
+        httpd_resp_set_type(req, "application/octet-stream");
+
+        // request->send(*_sdcard, file, "application/octet-stream", true, nullptr);
+        // httpd_resp_send_chunk(req, httpbuf, bufferused);
+
+        _hal->ReleaseVSPIMutex();
+        // Indicate last chunk (zero byte length)
+        return httpd_resp_send_chunk(req, httpbuf, 0);
+      }
+    }
+
+    if (type.equals("flash"))
+    {
+      // Process file from flash storage
+      ESP_LOGI(TAG, "Download FLASH file %s", file.c_str());
+
+      httpd_resp_set_type(req, "application/octet-stream");
+
+      // request->send(LITTLEFS, file, "application/octet-stream", true, nullptr);
+      //  httpd_resp_send_chunk(req, httpbuf, bufferused);
+
+      // Indicate last chunk (zero byte length)
+      return httpd_resp_send_chunk(req, httpbuf, 0);
+    }
+  }
+
+  return httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Bad request");
+}
+
+esp_err_t content_handler_identifymodule(httpd_req_t *req)
+{
+  uint8_t c;
+  bool valid = false;
+
+  char buf[100];
+  size_t buf_len = httpd_req_get_url_query_len(req);
+  if (buf_len > 1)
+  {
+    // Only allow up to our pre-defined buffer length (100 bytes)
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK)
+    {
+      ESP_LOGD(TAG, "Found URL query => %s", buf);
+      char param[8];
+      /* Get value of expected key from query string */
+      if (httpd_query_key_value(buf, "c", param, sizeof(param)) == ESP_OK)
+      {
+        c = atoi(param);
+
+        ESP_LOGD(TAG, "Found URL query parameter => query1=%s (%u)", param, c);
+
+        if (c <= _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules)
+        {
+          valid = true;
+        }
+      }
+    }
+  }
+
+  if (valid)
+  {
+    _prg->sendIdentifyModuleRequest(c);
+    return SendSuccess(req);
+  }
+  else
+  {
+    // It failed!
+    return httpd_resp_send_500(req);
+  }
+}
+
+esp_err_t SendSuccess(httpd_req_t *req)
+{
+  StaticJsonDocument<100> doc;
+  doc["success"] = true;
+  int bufferused = 0;
+  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
@@ -483,7 +787,7 @@ esp_err_t content_handler_integration(httpd_req_t *req)
 
     // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
     //  Send it...
-    httpd_resp_sendstr_chunk(req, buf);
+    httpd_resp_send_chunk(req, httpbuf, bufferused);
 
     // Indicate last chunk (zero byte length)
     return httpd_resp_send_chunk(req, buf, 0);
@@ -543,7 +847,7 @@ esp_err_t content_handler_monitor3(httpd_req_t *req)
     }
   }
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // voltrange
   bufferused = 0;
@@ -568,7 +872,7 @@ esp_err_t content_handler_monitor3(httpd_req_t *req)
   }
 
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // voltrange
   bufferused = 0;
@@ -595,7 +899,7 @@ esp_err_t content_handler_monitor3(httpd_req_t *req)
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // Indicate last chunk (zero byte length)
   return httpd_resp_send_chunk(req, httpbuf, 0);
@@ -677,7 +981,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
 
   // Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // voltages
   bufferused = 0;
@@ -706,7 +1010,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
 
   // Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   bufferused = 0;
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"minvoltages\":[");
@@ -730,7 +1034,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // maxvoltages
   bufferused = 0;
@@ -756,7 +1060,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // inttemp
   bufferused = 0;
@@ -782,7 +1086,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // exttemp
   bufferused = 0;
@@ -808,7 +1112,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // bypass
   bufferused = 0;
@@ -833,7 +1137,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // bypasshot
   bufferused = 0;
@@ -858,7 +1162,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // bypasspwm
   bufferused = 0;
@@ -884,7 +1188,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // bankv
   bufferused = 0;
@@ -902,7 +1206,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // voltrange
   bufferused = 0;
@@ -922,7 +1226,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
-  httpd_resp_sendstr_chunk(req, httpbuf);
+  httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   // Indicate last chunk (zero byte length)
   return httpd_resp_send_chunk(req, httpbuf, 0);
@@ -933,6 +1237,7 @@ esp_err_t default_htm_handler(httpd_req_t *req)
 {
   httpd_resp_set_type(req, "text/html");
   setCacheControl(req);
+  setCookie(req);
 
   char *file_pointer = (char *)file_default_htm;
   size_t max_len = size_file_default_htm;
@@ -1028,6 +1333,17 @@ const char *const text_css = "text/css";
 const char *const application_javascript = "application/javascript";
 const char *const image_png = "image/png";
 const char *const image_x_icon = "image/x-icon";
+
+void setCookieValue()
+{
+  snprintf(cookie, sizeof(cookie), "DIYBMS_XSS=%s; path=/; HttpOnly", UUIDString.c_str());
+}
+
+void setCookie(httpd_req_t *req)
+{
+  return;
+  httpd_resp_set_hdr(req, "Set-Cookie", cookie);
+}
 
 // Handle static files which are NOT GZIP compressed
 esp_err_t static_content_handler(httpd_req_t *req)
@@ -1199,6 +1515,11 @@ httpd_uri_t uri_rs485settings_json_get = {.uri = "/rs485settings.json", .method 
 httpd_uri_t uri_currentmonitor_json_get = {.uri = "/currentmonitor.json", .method = HTTP_GET, .handler = content_handler_currentmonitor, .user_ctx = NULL};
 httpd_uri_t uri_avrstatus_json_get = {.uri = "/avrstatus.json", .method = HTTP_GET, .handler = content_handler_avrstatus, .user_ctx = NULL};
 httpd_uri_t uri_modules_json_get = {.uri = "/modules.json", .method = HTTP_GET, .handler = content_handler_modules, .user_ctx = NULL};
+httpd_uri_t uri_identifymodule_json_get = {.uri = "/identifyModule.json", .method = HTTP_GET, .handler = content_handler_identifymodule, .user_ctx = NULL};
+httpd_uri_t uri_storage_json_get = {.uri = "/storage.json", .method = HTTP_GET, .handler = content_handler_storage, .user_ctx = NULL};
+httpd_uri_t uri_avrstorage_json_get = {.uri = "/avrstorage.json", .method = HTTP_GET, .handler = content_handler_avrstorage, .user_ctx = NULL};
+
+httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler = content_handler_downloadfile, .user_ctx = NULL};
 
 /* URI handler structure for POST /uri */
 httpd_uri_t uri_post = {.uri = "/uri", .method = HTTP_POST, .handler = post_handler, .user_ctx = NULL};
@@ -1224,6 +1545,7 @@ httpd_handle_t start_webserver(void)
 
   config.max_uri_handlers = 48;
   config.max_open_sockets = 3;
+  config.max_resp_headers = 16;
 
   /* Empty handle to esp_http_server */
   httpd_handle_t server = NULL;
@@ -1267,6 +1589,10 @@ httpd_handle_t start_webserver(void)
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_currentmonitor_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrstatus_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_modules_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_identifymodule_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_storage_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrstorage_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_download_get));
 
     // httpd_register_uri_handler(server, &uri_post);
   }
@@ -1294,6 +1620,8 @@ void StartServer(diybms_eeprom_settings *mysettings,
                  void (*sdcardaction_callback)(uint8_t action),
                  HAL_ESP32 *hal)
 {
+  // Generate the cookie value
+  setCookieValue();
   _myserver = start_webserver();
   _hal = hal;
   _prg = prg;
