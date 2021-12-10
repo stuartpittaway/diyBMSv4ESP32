@@ -3476,11 +3476,6 @@ void setup()
     //Attempt connection in setup(), loop() will also try every 30 seconds
     connectToWifi();
 
-    //We generate a unique number which is used in all following JSON requests
-    //we use this as a simple method to avoid cross site scripting attacks
-    //This MUST be done once the WIFI is switched on otherwise only PSEUDO random
-    //data is generated!!
-    generateUUID();
 
     //Wake screen on power up
     xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);

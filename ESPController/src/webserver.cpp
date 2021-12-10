@@ -4,8 +4,6 @@
 #include <stdio.h>
 
 httpd_handle_t _myserver;
-String UUIDString;
-String UUIDStringLast2Chars;
 
 // Pointers to other classes (not always a good idea in static classes)
 // static sdcard_info (*_sdcardcallback)();
@@ -18,55 +16,15 @@ Rules *_rules;
 ControllerState *_controlState;
 HAL_ESP32 *_hal;
 
+String UUIDString;
+char UUIDStringLast2Chars[3];
+
 #define BUFSIZE 1500
 // Shared buffer for all HTTP generated replies
 char httpbuf[BUFSIZE];
 
-// DIYBMS_XSS=768a5b9c-e37f-28f5-7bb4-38415df17bbf; path=/; HttpOnly
+// DIYBMS=768a5b9c-e37f-28f5-7bb4-38415df17bbf; path=/; HttpOnly
 char cookie[90];
-
-void generateUUID()
-{
-  uint8_t uuidNumber[16]; // UUIDs in binary form are 16 bytes long
-
-  // ESP32 has inbuilt random number generator
-  // https://techtutorialsx.com/2017/12/22/esp32-arduino-random-number-generation/
-  for (uint8_t x = 0; x < 16; x++)
-  {
-    uuidNumber[x] = random(0xFF);
-  }
-
-  UUIDString = uuidToString(uuidNumber);
-
-  // 481efb3f-0400-0000-101f-fb3fd01efb3f
-  UUIDStringLast2Chars = UUIDString.substring(34);
-}
-
-String uuidToString(uint8_t *uuidLocation)
-{
-  const char hexchars[] = "0123456789abcdef";
-  String string = "";
-  int i;
-  for (i = 0; i < 16; i++)
-  {
-    if (i == 4)
-      string += "-";
-    if (i == 6)
-      string += "-";
-    if (i == 8)
-      string += "-";
-    if (i == 10)
-      string += "-";
-    uint8_t topDigit = uuidLocation[i] >> 4;
-    uint8_t bottomDigit = uuidLocation[i] & 0x0f;
-    // High hex digit
-    string += hexchars[topDigit];
-    // Low hex digit
-    string += hexchars[bottomDigit];
-  }
-
-  return string;
-}
 
 void setCacheControl(httpd_req_t *req)
 {
@@ -370,13 +328,57 @@ esp_err_t content_handler_storage(httpd_req_t *req)
   return httpd_resp_send_chunk(req, httpbuf, 0);
 }
 
+esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filename)
+{
+  if (filesystem.exists(filename))
+  {
+    httpd_resp_set_type(req, "application/octet-stream");
 
-//TODO: FINISH THIS OFF
+    char *httpheader = NULL;
+
+    asprintf(&httpheader, "attachment; filename=\"%s\"", filename);
+
+    if (!httpheader)
+    {
+      ESP_LOGE(TAG, "No enough memory");
+      free(httpheader);
+      return ESP_ERR_NO_MEM;
+    }
+    httpd_resp_set_hdr(req, "Content-Disposition", httpheader);
+    ESP_LOGD(TAG, "Content-Disposition: %s", httpheader);
+
+    ESP_LOGD(TAG, "Stream file %s", filename);
+    File f = filesystem.open(filename, FILE_READ);
+
+    size_t bytesRead = 0;
+    do
+    {
+      bytesRead = f.read((uint8_t *)httpbuf, BUFSIZE);
+      if (bytesRead > 0)
+      {
+        ESP_LOGD(TAG, "Stream chunk %i", bytesRead);
+        ESP_ERROR_CHECK_WITHOUT_ABORT(httpd_resp_send_chunk(req, httpbuf, bytesRead));
+      }
+    } while (bytesRead == BUFSIZE);
+    f.close();
+
+    free(httpheader);
+    return ESP_OK;
+  }
+  else
+  {
+    return ESP_ERR_NOT_FOUND;
+  }
+}
+
+// TODO: FINISH THIS OFF
 esp_err_t content_handler_downloadfile(httpd_req_t *req)
 {
   bool valid = false;
 
   char param[128];
+
+  // TODO: No need for String here...
   String type;
   String file;
 
@@ -436,12 +438,8 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
       if (_hal->GetVSPIMutex())
       {
         // Get the file
-        ESP_LOGI(TAG, "Download SDCard file %s", file.c_str());
-        httpd_resp_set_type(req, "application/octet-stream");
-
-        // request->send(*_sdcard, file, "application/octet-stream", true, nullptr);
-        // httpd_resp_send_chunk(req, httpbuf, bufferused);
-
+        ESP_LOGI(TAG, "Download SDCard file");
+        SendFileInChunks(req, *_sdcard, file.c_str());
         _hal->ReleaseVSPIMutex();
         // Indicate last chunk (zero byte length)
         return httpd_resp_send_chunk(req, httpbuf, 0);
@@ -451,13 +449,8 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
     if (type.equals("flash"))
     {
       // Process file from flash storage
-      ESP_LOGI(TAG, "Download FLASH file %s", file.c_str());
-
-      httpd_resp_set_type(req, "application/octet-stream");
-
-      // request->send(LITTLEFS, file, "application/octet-stream", true, nullptr);
-      //  httpd_resp_send_chunk(req, httpbuf, bufferused);
-
+      ESP_LOGI(TAG, "Download FLASH file");
+      SendFileInChunks(req, LITTLEFS, file.c_str());
       // Indicate last chunk (zero byte length)
       return httpd_resp_send_chunk(req, httpbuf, 0);
     }
@@ -922,7 +915,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          _prg->packetsGenerated, _receiveProc->packetsReceived,
                          _receiveProc->totalModulesFound, _receiveProc->totalCRCErrors,
                          _receiveProc->totalNotProcessedErrors,
-                         _receiveProc->packetTimerMillisecond, _receiveProc->totalOutofSequenceErrors, _rules->active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6), canbus_messages_failed_sent, canbus_messages_sent, canbus_messages_received, UUIDStringLast2Chars.c_str());
+                         _receiveProc->packetTimerMillisecond, _receiveProc->totalOutofSequenceErrors, _rules->active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6), canbus_messages_failed_sent, canbus_messages_sent, canbus_messages_received, UUIDStringLast2Chars);
 
   // current
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"current\":[");
@@ -1243,8 +1236,6 @@ esp_err_t default_htm_handler(httpd_req_t *req)
   size_t max_len = size_file_default_htm;
   char *end_pointer = file_pointer + max_len;
 
-  // Seek out the template strings to inline replace
-  // this is likely to crash with poorly formatted HTML input
   ESP_LOGI(TAG, "default.htm");
 
   char *p = file_pointer;
@@ -1336,12 +1327,32 @@ const char *const image_x_icon = "image/x-icon";
 
 void setCookieValue()
 {
-  snprintf(cookie, sizeof(cookie), "DIYBMS_XSS=%s; path=/; HttpOnly", UUIDString.c_str());
+  // We generate a unique number which is used in all following JSON requests
+  // we use this as a simple method to avoid cross site scripting attacks
+  // This MUST be done once the WIFI is switched on otherwise only PSEUDO random data is generated!!
+
+  // ESP32 has inbuilt random number generator
+  // https://techtutorialsx.com/2017/12/22/esp32-arduino-random-number-generation/
+
+  // Pick random characters from this string (we could just use ASCII offset instead of this)
+  // but this also avoids javascript escape characters like backslash
+  char alphabet[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!$%&*()#@:;";
+
+  for (uint8_t x = 0; x < 20; x++)
+  {
+    UUIDString += alphabet[random(sizeof(alphabet))];
+  }
+
+  // Extract last 2 characters which drives some javascript logic to indicate
+  // when frontend is out of sync with backend
+  memset(UUIDStringLast2Chars, 0, sizeof(UUIDStringLast2Chars));
+  strncpy(UUIDStringLast2Chars, UUIDString.substring(34).c_str(), 2);
+
+  snprintf(cookie, sizeof(cookie), "DIYBMS=%s; path=/; HttpOnly", UUIDString.c_str());
 }
 
 void setCookie(httpd_req_t *req)
 {
-  return;
   httpd_resp_set_hdr(req, "Set-Cookie", cookie);
 }
 
@@ -1622,6 +1633,7 @@ void StartServer(diybms_eeprom_settings *mysettings,
 {
   // Generate the cookie value
   setCookieValue();
+
   _myserver = start_webserver();
   _hal = hal;
   _prg = prg;
