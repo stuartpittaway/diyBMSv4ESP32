@@ -337,6 +337,7 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
       // ESP_LOGD(TAG, "Found URL query => %s", buf);
 
       /* Get value of expected key from query string */
+      //The components of URL query string (keys and values) are not URLdecoded
       if (httpd_query_key_value(buf, "type", param, sizeof(param)) == ESP_OK)
       {
         type = String(param);

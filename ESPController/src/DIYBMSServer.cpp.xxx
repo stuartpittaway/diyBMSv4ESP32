@@ -1074,47 +1074,6 @@ void DIYBMSServer::saveNTP(AsyncWebServerRequest *request)
   SendSuccess(request);
 }
 
-void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
-{
-  if (!validateXSS(request))
-    return;
-
-  uint8_t totalSeriesModules = 1;
-  uint8_t totalBanks = 1;
-  uint16_t baudrate = COMMS_BAUD_RATE;
-
-  if (request->hasParam("totalSeriesModules", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("totalSeriesModules", true);
-    totalSeriesModules = p1->value().toInt();
-  }
-
-  if (request->hasParam("totalBanks", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("totalBanks", true);
-    totalBanks = p1->value().toInt();
-  }
-
-  if (request->hasParam("baudrate", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("baudrate", true);
-    baudrate = p1->value().toInt();
-  }
-
-  if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
-  {
-    _mysettings->totalNumberOfSeriesModules = totalSeriesModules;
-    _mysettings->totalNumberOfBanks = totalBanks;
-    _mysettings->baudRate = baudrate;
-    saveConfiguration();
-
-    SendSuccess(request);
-  }
-  else
-  {
-    SendFailure(request);
-  }
-}
 
 void DIYBMSServer::saveMQTTSetting(AsyncWebServerRequest *request)
 {
@@ -1408,11 +1367,14 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   
 
   //POST method endpoints
+
+  _myserver->on("/savebankconfig.json", HTTP_POST, DIYBMSServer::saveBankConfiguration);
+
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);
   _myserver->on("/saveglobalsetting.json", HTTP_POST, DIYBMSServer::saveGlobalSetting);
   _myserver->on("/savemqtt.json", HTTP_POST, DIYBMSServer::saveMQTTSetting);
   _myserver->on("/saveinfluxdb.json", HTTP_POST, DIYBMSServer::saveInfluxDBSetting);
-  _myserver->on("/savebankconfig.json", HTTP_POST, DIYBMSServer::saveBankConfiguration);
+  
   _myserver->on("/saverules.json", HTTP_POST, DIYBMSServer::saveRuleConfiguration);
   _myserver->on("/saventp.json", HTTP_POST, DIYBMSServer::saveNTP);
   _myserver->on("/savedisplaysetting.json", HTTP_POST, DIYBMSServer::saveDisplaySetting);
