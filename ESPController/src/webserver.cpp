@@ -345,7 +345,7 @@ esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filenam
       return ESP_ERR_NO_MEM;
     }
     httpd_resp_set_hdr(req, "Content-Disposition", httpheader);
-    ESP_LOGD(TAG, "Content-Disposition: %s", httpheader);
+    // ESP_LOGD(TAG, "Content-Disposition: %s", httpheader);
 
     ESP_LOGD(TAG, "Stream file %s", filename);
     File f = filesystem.open(filename, FILE_READ);
@@ -371,7 +371,6 @@ esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filenam
   }
 }
 
-// TODO: FINISH THIS OFF
 esp_err_t content_handler_downloadfile(httpd_req_t *req)
 {
   bool valid = false;
@@ -445,14 +444,17 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
         return httpd_resp_send_chunk(req, httpbuf, 0);
       }
     }
-
-    if (type.equals("flash"))
+    else if (type.equals("flash"))
     {
       // Process file from flash storage
       ESP_LOGI(TAG, "Download FLASH file");
       SendFileInChunks(req, LITTLEFS, file.c_str());
       // Indicate last chunk (zero byte length)
       return httpd_resp_send_chunk(req, httpbuf, 0);
+    }
+    else
+    {
+      return ESP_FAIL;
     }
   }
 
