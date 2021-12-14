@@ -1041,9 +1041,19 @@ void transmit_task(void *param)
 {
   for (;;)
   {
-    //Delay 1 second
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    //Delay based on comms speed
+    uint16_t delay_ms = 1000;
 
+    if (mysettings.baudRate == 9600)
+    {
+      delay_ms = 500;
+    }
+    else if (mysettings.baudRate == 5000)
+    {
+      delay_ms = 750;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(delay_ms));
     //TODO: Move to proper RTOS QUEUE...
     if (requestQueue.isEmpty() == false)
     {
