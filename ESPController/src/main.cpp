@@ -2896,113 +2896,87 @@ void LoadConfiguration()
   }
 }
 
-uint8_t lazyTimerMode = 0;
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 void lazy_tasks(void *param)
 {
   for (;;)
   {
-    //TODO: Perhaps this should be based on some improved logic - based on number of modules in system?
-    // Delay 6.5 seconds
-    vTaskDelay(pdMS_TO_TICKS(6500));
+    // TODO: Perhaps this should be based on some improved logic - based on number of modules in system?
+    //  Delay 6.5 seconds
 
-    //Only continue if there is some space in the queue    
-    if (requestQueue.getRemainingCount() > 6)
+    ESP_LOGI(TAG, "Sleep");
+    TickType_t delay_ticks = pdMS_TO_TICKS(6500);
+    vTaskDelay(delay_ticks);
+
+    // Task 1
+    ESP_LOGI(TAG, "Task 1");
+    //  Send a "ping" message through the cells to get a round trip time
+    while (prg.sendTimingRequest() == false)
     {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 
-      bool done_for_this_loop = false;
+    // Sleep between sections to give the ESP a chance to do other stuff
+    vTaskDelay(delay_ticks);
 
-      lazyTimerMode++;
-
-      if (lazyTimerMode == 1 && !done_for_this_loop)
+    // Task 2
+    ESP_LOGI(TAG, "Task 2");
+    uint8_t counter = 0;
+    // Find modules that don't have settings cached and request them
+    for (uint8_t module = 0; module < TotalNumberOfCells(); module++)
+    {
+      if (cmi[module].valid && !cmi[module].settingsCached)
       {
-        // Send a "ping" message through the cells to get a round trip time
-        while (prg.sendTimingRequest() == false)
+        while (prg.sendGetSettingsRequest(module) == false)
         {
           vTaskDelay(pdMS_TO_TICKS(1000));
-        }
-        done_for_this_loop = true;
-      }
-
-      if (lazyTimerMode == 2 && !done_for_this_loop)
-      {
-        done_for_this_loop = true;
-        uint8_t counter = 0;
-        // Find modules that don't have settings cached and request them
-        for (uint8_t module = 0; module < TotalNumberOfCells(); module++)
-        {
-          if (cmi[module].valid && !cmi[module].settingsCached)
-          {
-            while (prg.sendGetSettingsRequest(module) == false)
-            {
-              vTaskDelay(pdMS_TO_TICKS(1000));
-            };
-            counter++;
-          }
-        }
-      }
-
-      if (!done_for_this_loop)
-      {
-
-        // Send these requests to all banks of modules
-        uint16_t i = 0;
-        uint16_t max = TotalNumberOfCells();
-
-        uint8_t startmodule = 0;
-
-        while (i < max)
-        {
-          uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
-
-          // Limit to number of modules we have configured
-          if (endmodule > max)
-          {
-            endmodule = max - 1;
-          }
-
-          if (lazyTimerMode == 3)
-          {
-            while (prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule) == false)
-            {
-              vTaskDelay(pdMS_TO_TICKS(1000));
-            }
-          }
-
-          if (lazyTimerMode == 4)
-          {
-            while (prg.sendReadPacketsReceivedRequest(startmodule, endmodule) == false)
-            {
-              vTaskDelay(pdMS_TO_TICKS(1000));
-            }
-          }
-
-          // Ask for bad packet count (saves battery power if we dont ask for this all the time)
-          if (lazyTimerMode == 5)
-          {
-            while (prg.sendReadBadPacketCounter(startmodule, endmodule) == false)
-            {
-              vTaskDelay(pdMS_TO_TICKS(1000));
-            }
-          }
-
-          // Move to the next bank
-          startmodule = endmodule + 1;
-          i += maximum_cell_modules_per_packet;
-        } // end while
-      }
-
-      // Reset at end of cycle
-      if (lazyTimerMode >= 5)
-      {
-        lazyTimerMode = 0;
+        };
+        counter++;
       }
     }
-    else
+
+    // Sleep between sections to give the ESP a chance to do other stuff
+    vTaskDelay(delay_ticks);
+
+    // Task 3
+    //  Send these requests to all banks of modules
+    uint16_t i = 0;
+    uint16_t max = TotalNumberOfCells();
+
+    uint8_t startmodule = 0;
+
+    while (i < max)
     {
-      // Exit here to avoid overflowing the queue
-      ESP_LOGW(TAG, "Queue full Q Depth=%i", requestQueue.getRemainingCount());
-    }
+      uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
+
+      // Limit to number of modules we have configured
+      if (endmodule > max)
+      {
+        endmodule = max - 1;
+      }
+
+      ESP_LOGI(TAG, "Task 3, s=%i e=%i", startmodule, endmodule);
+      while (prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule) == false)
+      {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+      }
+      while (prg.sendReadPacketsReceivedRequest(startmodule, endmodule) == false)
+      {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+      }
+      while (prg.sendReadBadPacketCounter(startmodule, endmodule) == false)
+      {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+      }
+
+      // Delay per bank/loop
+      vTaskDelay(delay_ticks);
+
+      // Move to the next bank
+      startmodule = endmodule + 1;
+      i += maximum_cell_modules_per_packet;
+    } // end while
+
   } // end for
 }
 
