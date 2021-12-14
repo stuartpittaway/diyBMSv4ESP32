@@ -27,7 +27,7 @@ public:
   bool sendGetSettingsRequest(uint8_t cellid);
   bool sendIdentifyModuleRequest(uint8_t cellid);
   bool sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration);
-  void sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown);
+  bool sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown);
   bool sendReadBadPacketCounter(uint8_t startmodule, uint8_t endmodule);
 
   bool sendCellVoltageRequest(uint8_t startmodule, uint8_t endmodule);

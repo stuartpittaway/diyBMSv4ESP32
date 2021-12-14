@@ -9,7 +9,7 @@ void PacketRequestGenerator::clearSettingsForAllModules()
   }
 }
 
-void PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
+bool PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
 {
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
@@ -25,7 +25,11 @@ void PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, u
   _packetbuffer.moduledata[7] = BypassThresholdmV;
   if (pushPacketToQueue(&_packetbuffer)) {
     clearSettingsForAllModules();
+
+    return true;
   }
+
+  return false;
 }
 
 bool PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration)
