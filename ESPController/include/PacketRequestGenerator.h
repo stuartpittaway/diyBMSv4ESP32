@@ -39,6 +39,10 @@ public:
   bool sendTimingRequest();
   bool sendResetBalanceCurrentCounter();
 
+  uint16_t queueLength() {
+    return _requestq->getCount();
+  }
+
   void ResetCounters()
   {
     packetsGenerated = 0;
