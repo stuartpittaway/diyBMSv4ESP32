@@ -580,7 +580,7 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
   //Reset internal counters on CONTROLLER
   _receiveProc->ResetCounters();
 
-  _prg->packetsGenerated = 0;
+  _prg->ResetCounters();
 
   SendSuccess(request);
 }
@@ -2007,6 +2007,7 @@ void DIYBMSServer::monitor2(AsyncWebServerRequest *request)
   PrintStreamComma(response, "\"ignored\":", _receiveProc->totalNotProcessedErrors);
   PrintStreamComma(response, "\"roundtrip\":", _receiveProc->packetTimerMillisecond);
   PrintStreamComma(response, "\"oos\":", _receiveProc->totalOutofSequenceErrors);
+  //PrintStreamComma(response, "\"qfull\":", _prg->queueFullErrors);  
 
   PrintStreamComma(response, "\"activerules\":", _rules->active_rule_count);
   PrintStreamComma(response, "\"uptime\":", (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6));

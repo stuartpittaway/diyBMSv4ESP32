@@ -42,7 +42,7 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
     if (ReplyWasProcessedByAModule())
     {
-      //ESP_LOGD(TAG, "Hops %u,  start %u end %u", _packetbuffer.hops, _packetbuffer.start_address, _packetbuffer.end_address);
+      //ESP_LOGD(TAG, "Hops %u, start %u end %u, command=%u", _packetbuffer.hops, _packetbuffer.start_address, _packetbuffer.end_address,ReplyForCommand());
 
       switch (ReplyForCommand())
       {
@@ -68,12 +68,15 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
         //ESP_LOGD(TAG, "Updated volt status cells %u to %u", _packetbuffer.start_address, _packetbuffer.end_address);
 
+
+        //TODO: REVIEW THIS LOGIC
         if (_packetbuffer.end_address == _packetbuffer.hops - 1)
         {
           //We have just processed a voltage reading for the entire chain of modules (all banks)
           //at this point we should update any display or rules logic
           //as we have a clean snapshot of voltages and statues
 
+          ESP_LOGD(TAG, "Finished all reads");
           if (voltageandstatussnapshot_task_handle != NULL)
           {
             xTaskNotify(voltageandstatussnapshot_task_handle, 0x00, eNotifyAction::eNoAction);
@@ -111,15 +114,14 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 #if defined(PACKET_LOGGING_RECEIVE)
       SERIAL_DEBUG.println(F("*OK*"));
 #endif
+
       return true;
     }
     else
     {
       //Error count for a request that was not processed by any module in the string
       totalNotProcessedErrors++;
-#if defined(PACKET_LOGGING_RECEIVE)
-      SERIAL_DEBUG.println(F("*IGNORE*"));
-#endif
+      ESP_LOGD(TAG, "Modules ignored request");
     }
   }
   else
