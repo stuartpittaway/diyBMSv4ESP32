@@ -1624,7 +1624,7 @@ $(function () {
     });
 
     $.ajaxSetup({
-        beforeSend: function (xhr, settings) { settings.data += '&xss=' + XSS_KEY; }
+        beforeSend: function (xhr, settings) { settings.data += '&xss=' + encodeURIComponent(XSS_KEY); }
     });
 
 
