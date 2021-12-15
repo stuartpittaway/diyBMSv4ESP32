@@ -542,13 +542,15 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
   if (!validateXSS(request))
     return;
 
+
+  //Ask modules to reset bad packet counters
+ // If this fails, queue could be full so return error
+  if (_prg->sendBadPacketCounterReset() && _prg->sendResetBalanceCurrentCounter())
+  {  
+
   canbus_messages_failed_sent = 0;
   canbus_messages_received = 0;
   canbus_messages_sent = 0;
-
-  //Ask modules to reset bad packet counters
-  _prg->sendBadPacketCounterReset();
-  _prg->sendResetBalanceCurrentCounter();
 
   for (uint8_t i = 0; i < maximum_controller_cell_modules; i++)
   {
@@ -558,10 +560,12 @@ void DIYBMSServer::resetCounters(AsyncWebServerRequest *request)
 
   //Reset internal counters on CONTROLLER
   _receiveProc->ResetCounters();
-
-  _prg->packetsGenerated = 0;
+  _prg->ResetCounters();
 
   SendSuccess(request);
+  } else {
+    SendFailure(request);
+  }
 }
 
 void DIYBMSServer::saveDisplaySetting(AsyncWebServerRequest *request)
@@ -1143,10 +1147,10 @@ void DIYBMSServer::saveGlobalSetting(AsyncWebServerRequest *request)
     AsyncWebParameter *p2 = request->getParam("BypassThresholdmV", true);
     _mysettings->BypassThresholdmV = p2->value().toInt();
 
+
+    if (_prg->sendSaveGlobalSetting(_mysettings->BypassThresholdmV, _mysettings->BypassOverTempShutdown)) {
+
     saveConfiguration();
-
-    _prg->sendSaveGlobalSetting(_mysettings->BypassThresholdmV, _mysettings->BypassOverTempShutdown);
-
     uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
 
     for (uint8_t i = 0; i < totalModules; i++)
@@ -1160,6 +1164,9 @@ void DIYBMSServer::saveGlobalSetting(AsyncWebServerRequest *request)
 
     //Just returns NULL
     SendSuccess(request);
+    } else {
+      SendFailure(request);
+    }
   }
   else
   {

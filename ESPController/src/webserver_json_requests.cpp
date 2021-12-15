@@ -896,12 +896,12 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // Output the first batch of settings/parameters/values
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
-                         "{\"banks\":%u,\"seriesmodules\":%u,\"sent\":%u,\"received\":%u,\"modulesfnd\":%u,\"badcrc\":%u,\"ignored\":%u,\"roundtrip\":%u,\"oos\":%u,\"activerules\":%u,\"uptime\":%u,\"can_fail\":%u,\"can_sent\":%u,\"can_rec\":%u,\"sec\":\"%s\",",
+                         "{\"banks\":%u,\"seriesmodules\":%u,\"sent\":%u,\"received\":%u,\"modulesfnd\":%u,\"badcrc\":%u,\"ignored\":%u,\"roundtrip\":%u,\"oos\":%u,\"activerules\":%u,\"uptime\":%u,\"can_fail\":%u,\"can_sent\":%u,\"can_rec\":%u,\"sec\":\"%s\",\"qlen\":%u,",
                          _mysettings->totalNumberOfBanks, _mysettings->totalNumberOfSeriesModules,
                          _prg->packetsGenerated, _receiveProc->packetsReceived,
                          _receiveProc->totalModulesFound, _receiveProc->totalCRCErrors,
                          _receiveProc->totalNotProcessedErrors,
-                         _receiveProc->packetTimerMillisecond, _receiveProc->totalOutofSequenceErrors, _rules->active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6), canbus_messages_failed_sent, canbus_messages_sent, canbus_messages_received, &CookieValue[sizeof(CookieValue) - 3]);
+                         _receiveProc->packetTimerMillisecond, _receiveProc->totalOutofSequenceErrors, _rules->active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6), canbus_messages_failed_sent, canbus_messages_sent, canbus_messages_received, &CookieValue[sizeof(CookieValue) - 3],_prg->queueLength());
 
   // current
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"current\":[");
