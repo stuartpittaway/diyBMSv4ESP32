@@ -144,8 +144,8 @@ avrprogramsettings _avrsettings;
 
 // Instantiate queue to hold packets ready for transmission
 // TODO: Move to RTOS queues instead
-cppQueue requestQueue(sizeof(PacketStruct), 24, FIFO);
-cppQueue replyQueue(sizeof(PacketStruct), 8, FIFO);
+cppQueue requestQueue(sizeof(PacketStruct), 30, FIFO);
+cppQueue replyQueue(sizeof(PacketStruct), 4, FIFO);
 
 PacketRequestGenerator prg = PacketRequestGenerator(&requestQueue);
 PacketReceiveProcessor receiveProc = PacketReceiveProcessor();
@@ -982,8 +982,8 @@ void replyqueue_task(void *param)
 {
   for (;;)
   {
-    // Delay 1 second
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    // Delay 500ms second
+    vTaskDelay(pdMS_TO_TICKS(500));
 
     while (!replyQueue.isEmpty())
     {
@@ -1009,15 +1009,6 @@ void replyqueue_task(void *param)
       // Small delay to allow watchdog to be fed
       vTaskDelay(pdMS_TO_TICKS(10));
     }
-
-    /*
-    //Debug - copy module zero to all the other cells for testing
-    //large capacity battery banks
-    for (size_t i = 1; i < TotalNumberOfCells(); i++)
-    {
-      memcpy(&cmi[i], &cmi[0], sizeof(CellModuleInfo));
-    }
-*/
   }
 }
 
@@ -1038,17 +1029,29 @@ void onPacketReceived()
 
   if (!replyQueue.push(&ps))
   {
-    ESP_LOGE(TAG, "*Failed to queue reply*");
+    ESP_LOGE(TAG, "Reply Q full");
   }
+  // ESP_LOGI(TAG,"Reply Q length %i",replyQueue.getCount());
 }
 
 void transmit_task(void *param)
 {
   for (;;)
   {
-    // Delay 1 second
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    // Delay based on comms speed, ensure the first module has time to process and clear the request
+    // before sending another packet
+    uint16_t delay_ms = 900;
 
+    if (mysettings.baudRate == 9600)
+    {
+      delay_ms = 450;
+    }
+    else if (mysettings.baudRate == 5000)
+    {
+      delay_ms = 700;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(delay_ms));
     // TODO: Move to proper RTOS QUEUE...
     if (requestQueue.isEmpty() == false)
     {
@@ -1345,6 +1348,7 @@ void enqueue_task(void *param)
   {
     // Ensure we service the cell modules every 5 or 10 seconds, depending on number of cells being serviced
     // slower stops the queues from overflowing when a lot of cells are being monitored
+    // TODO: SCALE THIS BASED ON COMMS BAUD RATES
     vTaskDelay(pdMS_TO_TICKS((TotalNumberOfCells() <= maximum_cell_modules_per_packet) ? 5000 : 10000));
 
     LED(RGBLED::Green);
@@ -1366,18 +1370,26 @@ void enqueue_task(void *param)
         endmodule = max - 1;
       }
 
-      //ESP_LOGD(TAG, "Request from modules %i to %i", startmodule, endmodule);
-
-      // Need to watch overflow of the uint8 here...
-      prg.sendCellVoltageRequest(startmodule, endmodule);
-      prg.sendCellTemperatureRequest(startmodule, endmodule);
+      // Request voltage, but if queue is full, sleep and try again (other threads will reduce the queue)
+      while (prg.sendCellVoltageRequest(startmodule, endmodule) == false)
+      {
+        vTaskDelay(pdMS_TO_TICKS(500));
+      }
+      // Same for temperature
+      while (prg.sendCellTemperatureRequest(startmodule, endmodule) == false)
+      {
+        vTaskDelay(pdMS_TO_TICKS(500));
+      }
 
       // If any module is in bypass then request PWM reading for whole bank
       for (uint8_t m = startmodule; m <= endmodule; m++)
       {
         if (cmi[m].inBypass)
         {
-          prg.sendReadBalancePowerRequest(startmodule, endmodule);
+          while (prg.sendReadBalancePowerRequest(startmodule, endmodule) == false)
+          {
+            vTaskDelay(pdMS_TO_TICKS(500));
+          }
           // We only need 1 reading for whole bank
           break;
         }
@@ -1609,6 +1621,7 @@ void mqtt2(void *param)
       root["badcrc"] = receiveProc.totalCRCErrors;
       root["ignored"] = receiveProc.totalNotProcessedErrors;
       root["oos"] = receiveProc.totalOutofSequenceErrors;
+      root["sendqlvl"] = requestQueue.getCount();
       root["roundtrip"] = receiveProc.packetTimerMillisecond;
 
       serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
@@ -2890,101 +2903,87 @@ void LoadConfiguration()
   }
 }
 
-uint8_t lazyTimerMode = 0;
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 void lazy_tasks(void *param)
 {
   for (;;)
   {
-    // Delay 6.5 seconds
-    vTaskDelay(pdMS_TO_TICKS(6500));
+    // TODO: Perhaps this should be based on some improved logic - based on number of modules in system?
+    //  Delay 6.5 seconds
 
-    if (requestQueue.getRemainingCount() > 6)
+    ESP_LOGI(TAG, "Sleep");
+    TickType_t delay_ticks = pdMS_TO_TICKS(6500);
+    vTaskDelay(delay_ticks);
+
+    // Task 1
+    ESP_LOGI(TAG, "Task 1");
+    //  Send a "ping" message through the cells to get a round trip time
+    while (prg.sendTimingRequest() == false)
     {
-      bool done_for_this_loop = false;
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 
-      lazyTimerMode++;
+    // Sleep between sections to give the ESP a chance to do other stuff
+    vTaskDelay(delay_ticks);
 
-      if (lazyTimerMode == 1 && !done_for_this_loop)
+    // Task 2
+    ESP_LOGI(TAG, "Task 2");
+    uint8_t counter = 0;
+    // Find modules that don't have settings cached and request them
+    for (uint8_t module = 0; module < TotalNumberOfCells(); module++)
+    {
+      if (cmi[module].valid && !cmi[module].settingsCached)
       {
-        // Send a "ping" message through the cells to get a round trip time
-        prg.sendTimingRequest();
-        done_for_this_loop = true;
-      }
-
-      if (lazyTimerMode == 2 && !done_for_this_loop)
-      {
-        done_for_this_loop = true;
-        uint8_t counter = 0;
-        // Find modules that don't have settings cached and request them
-        for (uint8_t module = 0; module < TotalNumberOfCells(); module++)
+        while (prg.sendGetSettingsRequest(module) == false)
         {
-          if (cmi[module].valid && !cmi[module].settingsCached)
-          {
-            if (requestQueue.getRemainingCount() < 6)
-            {
-              // Exit here to avoid flooding the queue
-              break;
-            }
-
-            prg.sendGetSettingsRequest(module);
-            counter++;
-          }
-        }
-      }
-
-      if (!done_for_this_loop)
-      {
-
-        // Send these requests to all banks of modules
-        uint16_t i = 0;
-        uint16_t max = TotalNumberOfCells();
-
-        uint8_t startmodule = 0;
-
-        while (i < max)
-        {
-          uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
-
-          // Limit to number of modules we have configured
-          if (endmodule > max)
-          {
-            endmodule = max - 1;
-          }
-
-          if (lazyTimerMode == 3)
-          {
-            prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule);
-          }
-
-          if (lazyTimerMode == 4)
-          {
-            prg.sendReadPacketsReceivedRequest(startmodule, endmodule);
-          }
-
-          // Ask for bad packet count (saves battery power if we dont ask for this all the time)
-          if (lazyTimerMode == 5)
-          {
-            prg.sendReadBadPacketCounter(startmodule, endmodule);
-          }
-
-          // Move to the next bank
-          startmodule = endmodule + 1;
-          i += maximum_cell_modules_per_packet;
-        } // end while
-      }
-
-      // Reset at end of cycle
-      if (lazyTimerMode >= 5)
-      {
-        lazyTimerMode = 0;
+          vTaskDelay(pdMS_TO_TICKS(1000));
+        };
+        counter++;
       }
     }
-    else
+
+    // Sleep between sections to give the ESP a chance to do other stuff
+    vTaskDelay(delay_ticks);
+
+    // Task 3
+    //  Send these requests to all banks of modules
+    uint16_t i = 0;
+    uint16_t max = TotalNumberOfCells();
+
+    uint8_t startmodule = 0;
+
+    while (i < max)
     {
-      // Exit here to avoid overflowing the queue
-      ESP_LOGE(TAG, "ERR: Lazy overflow Q=%i", requestQueue.getRemainingCount());
-    }
+      uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
+
+      // Limit to number of modules we have configured
+      if (endmodule > max)
+      {
+        endmodule = max - 1;
+      }
+
+      ESP_LOGI(TAG, "Task 3, s=%i e=%i", startmodule, endmodule);
+      while (prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule) == false)
+      {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+      }
+      while (prg.sendReadPacketsReceivedRequest(startmodule, endmodule) == false)
+      {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+      }
+      while (prg.sendReadBadPacketCounter(startmodule, endmodule) == false)
+      {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+      }
+
+      // Delay per bank/loop
+      vTaskDelay(delay_ticks);
+
+      // Move to the next bank
+      startmodule = endmodule + 1;
+      i += maximum_cell_modules_per_packet;
+    } // end while
+
   } // end for
 }
 
@@ -3357,10 +3356,6 @@ void setup()
 
   LoadConfiguration();
   ESP_LOGI("Config loaded");
-
-  // DEBUG - 84 modules
-  //mysettings.totalNumberOfSeriesModules = 14;
-  //mysettings.totalNumberOfBanks = 6;
 
   // Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
   SERIAL_DATA.begin(mysettings.baudRate, SERIAL_8N1, 2, 32); // Serial for comms to modules

@@ -9,7 +9,7 @@ void PacketRequestGenerator::clearSettingsForAllModules()
   }
 }
 
-void PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
+bool PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
 {
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
@@ -23,12 +23,16 @@ void PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, u
   setmoduledataFFFF(&_packetbuffer);
   _packetbuffer.moduledata[6] = BypassOverTempShutdown;
   _packetbuffer.moduledata[7] = BypassThresholdmV;
-  pushPacketToQueue(&_packetbuffer);
+  if (pushPacketToQueue(&_packetbuffer)) {
+    clearSettingsForAllModules();
 
-  clearSettingsForAllModules();
+    return true;
+  }
+
+  return false;
 }
 
-void PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration)
+bool PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration)
 {
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
@@ -62,86 +66,95 @@ void PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThreshold
   _packetbuffer.moduledata[7] = BypassThresholdmV;
   //_packetbuffer.moduledata[8] = Internal_BCoefficient;
   //_packetbuffer.moduledata[9] = External_BCoefficient;
-  pushPacketToQueue(&_packetbuffer);
+  return pushPacketToQueue(&_packetbuffer);
 }
 
-void PacketRequestGenerator::sendReadBadPacketCounter(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendReadBadPacketCounter(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadBadPacketCounter, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadBadPacketCounter, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendCellVoltageRequest(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendCellVoltageRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadVoltageAndStatus, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadVoltageAndStatus, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendIdentifyModuleRequest(uint8_t cellid)
+bool PacketRequestGenerator::sendIdentifyModuleRequest(uint8_t cellid)
 {
-  BuildAndSendRequest(COMMAND::Identify, cellid, cellid);
+  return BuildAndSendRequest(COMMAND::Identify, cellid, cellid);
 }
 
-void PacketRequestGenerator::sendTimingRequest()
+bool PacketRequestGenerator::sendTimingRequest()
 {
   //Ask all modules to simple pass on a NULL request/packet for timing purposes
-  BuildAndSendRequest(COMMAND::Timing);
+  return BuildAndSendRequest(COMMAND::Timing);
 }
 
-void PacketRequestGenerator::sendGetSettingsRequest(uint8_t cellid)
+bool PacketRequestGenerator::sendGetSettingsRequest(uint8_t cellid)
 {
-  BuildAndSendRequest(COMMAND::ReadSettings, cellid, cellid);
+  return BuildAndSendRequest(COMMAND::ReadSettings, cellid, cellid);
 }
 
-void PacketRequestGenerator::sendCellTemperatureRequest(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendCellTemperatureRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadTemperature, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadTemperature, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendReadBalanceCurrentCountRequest(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendReadBalanceCurrentCountRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadBalanceCurrentCounter, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadBalanceCurrentCounter, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendReadPacketsReceivedRequest(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendReadPacketsReceivedRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadPacketReceivedCounter, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadPacketReceivedCounter, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendReadBalancePowerRequest(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendReadBalancePowerRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadBalancePowerPWM, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadBalancePowerPWM, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendBadPacketCounterReset()
+bool PacketRequestGenerator::sendBadPacketCounterReset()
 {
-  BuildAndSendRequest(COMMAND::ResetBadPacketCounter);
+  return BuildAndSendRequest(COMMAND::ResetBadPacketCounter);
 }
-void PacketRequestGenerator::sendResetBalanceCurrentCounter()
+bool PacketRequestGenerator::sendResetBalanceCurrentCounter()
 {
-  BuildAndSendRequest(COMMAND::ResetBalanceCurrentCounter);
+  return BuildAndSendRequest(COMMAND::ResetBalanceCurrentCounter);
 }
 
-void PacketRequestGenerator::BuildAndSendRequest(COMMAND command)
+bool PacketRequestGenerator::BuildAndSendRequest(COMMAND command)
 {
+  //ESP_LOGD(TAG,"Build %u",command);
+
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
   setPacketAddressBroadcast(&_packetbuffer);
   _packetbuffer.command = command;
-  pushPacketToQueue(&_packetbuffer);
+  return pushPacketToQueue(&_packetbuffer);
 }
 
-void PacketRequestGenerator::BuildAndSendRequest(COMMAND command, uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::BuildAndSendRequest(COMMAND command, uint8_t startmodule, uint8_t endmodule)
 {
+  //ESP_LOGD(TAG,"Build %u, %u to %u",command,startmodule,endmodule);
+
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
   setPacketAddressModuleRange(&_packetbuffer, startmodule, endmodule);
   _packetbuffer.command = command;
-  pushPacketToQueue(&_packetbuffer);
+  return pushPacketToQueue(&_packetbuffer);
 }
 
-void PacketRequestGenerator::pushPacketToQueue(PacketStruct *_packetbuffer)
+bool PacketRequestGenerator::pushPacketToQueue(PacketStruct *_packetbuffer)
 {
-  _requestq->push(_packetbuffer);
+  if (!_requestq->push(_packetbuffer)) {
+    //ESP_LOGE(TAG,"Queue full");
+    return false;
+  }
+
   packetsGenerated++;
+  return true;
 }
 
 void PacketRequestGenerator::setPacketAddressModuleRange(PacketStruct *_packetbuffer, uint8_t startmodule, uint8_t endmodule)
