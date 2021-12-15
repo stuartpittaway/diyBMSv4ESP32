@@ -29,6 +29,34 @@ void setCacheControl(httpd_req_t *req)
   httpd_resp_set_hdr(req, "Cache-Control", "no-store");
 }
 
+bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer)
+{
+  // Need to validate POST variable as well...
+  if (validateXSS(req))
+  {
+    char param[sizeof(CookieValue)];
+    if (httpd_query_key_value(postbuffer, "xss", param, sizeof(param)) == ESP_OK)
+    {
+      // Compare received cookie to our expected cookie
+      if (strncmp(CookieValue, param, sizeof(CookieValue)) == 0)
+      {
+        // All good, everything ok.
+        return true;
+      }
+
+      // Cookie found and returned correctly (not truncated etc)
+      ESP_LOGW(TAG, "Incorrect POST cookie %s", param);
+    }
+
+    // Failed POST XSS check
+    httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie");
+    return false;
+  }
+
+  // validateXSS has already sent httpd_resp_send_err...
+  return false;
+}
+
 String TemplateProcessor(const String &var)
 {
   if (var == "XSS_KEY")
@@ -80,6 +108,11 @@ int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean 
   return printBoolean(buffer, bufferLen, fieldName, value, true);
 }
 
+esp_err_t SendFailure(httpd_req_t *req)
+{
+  return httpd_resp_send_500(req);
+}
+
 esp_err_t SendSuccess(httpd_req_t *req)
 {
   StaticJsonDocument<100> doc;
@@ -88,6 +121,12 @@ esp_err_t SendSuccess(httpd_req_t *req)
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
   return httpd_resp_send(req, httpbuf, bufferused);
 }
+
+void saveConfiguration()
+{
+    Settings::WriteConfig("diybms", (char *)_mysettings, sizeof(diybms_eeprom_settings));
+}
+
 
 // The main home page
 esp_err_t default_htm_handler(httpd_req_t *req)
@@ -200,13 +239,15 @@ void setCookieValue()
 
   // Pick random characters from this string (we could just use ASCII offset instead of this)
   // but this also avoids javascript escape characters like backslash and cookie escape chars like ; and %
-  char alphabet[] = "!$&*#@ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyz";
+  char alphabet[] = "!$*#@ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyz";
 
   memset(CookieValue, 0, sizeof(CookieValue));
 
+  //Leave NULL terminator on char array
   for (uint8_t x = 0; x < sizeof(CookieValue) - 1; x++)
   {
-    CookieValue[x] = alphabet[random(sizeof(alphabet))];
+    //Random number between 0 and array length (minus null char)
+    CookieValue[x] = alphabet[random(0,sizeof(alphabet)-2)];
   }
 
   // Generate the full cookie string, as a HTTPONLY cookie, valid for this session only
@@ -287,6 +328,30 @@ esp_err_t get_root_handler(httpd_req_t *req)
   return ESP_OK;
 }
 
+// Determine if the HTTPD request has a Content-Type of x-www-form-urlencoded
+bool HasURLEncodedHeader(httpd_req_t *req)
+{
+  const char value[] = "application/x-www-form-urlencoded";
+  char buffer[128];
+
+  esp_err_t result = httpd_req_get_hdr_value_str(req, "Content-Type", buffer, sizeof(buffer));
+  // ESP_LOGD(TAG, "esp_err_t=%i", result);
+
+  if (result == ESP_OK)
+  {
+    // ESP_LOGD(TAG, "URLEncode=%s", buffer);
+    //  Compare received value to our expected value (just the start of the string, minus null char)
+    if (strncmp(value, buffer, sizeof(value) - 1) == 0)
+    {
+      // Header found and matches x-www-form-urlencoded
+      return true;
+    }
+
+    // Didn't match, so fall through to FALSE handler
+  }
+
+  return false;
+}
 
 /* Helper function to get a cookie value from a cookie string of the type "cookie1=val1; cookie2=val2" */
 esp_err_t httpd_cookie_key_value(const char *cookie_str, const char *key, char *val, size_t *val_size)
@@ -386,7 +451,7 @@ esp_err_t httpd_req_get_cookie_val(httpd_req_t *req, const char *cookie_name, ch
   return ret;
 }
 
-boolean validateXSS(httpd_req_t *req)
+bool validateXSS(httpd_req_t *req)
 {
   char requestcookie[sizeof(CookieValue)];
 
@@ -558,7 +623,7 @@ httpd_handle_t start_webserver(void)
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrstorage_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_download_get));
 
-    //Post services
+    // Post services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savebankconfig_json_post));
   }
   /* If server failed to start, handle will be NULL */
@@ -600,4 +665,3 @@ void StartServer(diybms_eeprom_settings *mysettings,
   _receiveProc = pktreceiveproc;
   _sdcardaction_callback = sdcardaction_callback;
 }
-

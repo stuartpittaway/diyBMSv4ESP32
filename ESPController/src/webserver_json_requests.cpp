@@ -1,7 +1,6 @@
 #include "webserver.h"
 #include "webserver_json_requests.h"
 
-
 esp_err_t content_handler_avrstorage(httpd_req_t *req)
 {
   if (!validateXSS(req))
@@ -24,7 +23,7 @@ esp_err_t content_handler_avrstorage(httpd_req_t *req)
   String manifest = String("/avr/manifest.json");
   if (LITTLEFS.exists(manifest))
   {
-    //Use Dynamic to avoid head issues
+    // Use Dynamic to avoid head issues
     DynamicJsonDocument doc(3000);
     File file = LITTLEFS.open(manifest);
     DeserializationError error = deserializeJson(doc, file);
@@ -337,7 +336,7 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
       // ESP_LOGD(TAG, "Found URL query => %s", buf);
 
       /* Get value of expected key from query string */
-      //The components of URL query string (keys and values) are not URLdecoded
+      // The components of URL query string (keys and values) are not URLdecoded
       if (httpd_query_key_value(buf, "type", param, sizeof(param)) == ESP_OK)
       {
         type = String(param);
@@ -453,8 +452,6 @@ esp_err_t content_handler_identifymodule(httpd_req_t *req)
     return httpd_resp_send_500(req);
   }
 }
-
-
 
 esp_err_t content_handler_modules(httpd_req_t *req)
 {
@@ -901,7 +898,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          _prg->packetsGenerated, _receiveProc->packetsReceived,
                          _receiveProc->totalModulesFound, _receiveProc->totalCRCErrors,
                          _receiveProc->totalNotProcessedErrors,
-                         _receiveProc->packetTimerMillisecond, _receiveProc->totalOutofSequenceErrors, _rules->active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6), canbus_messages_failed_sent, canbus_messages_sent, canbus_messages_received, &CookieValue[sizeof(CookieValue) - 3],_prg->queueLength());
+                         _receiveProc->packetTimerMillisecond, _receiveProc->totalOutofSequenceErrors, _rules->active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6), canbus_messages_failed_sent, canbus_messages_sent, canbus_messages_received, &CookieValue[sizeof(CookieValue) - 3], _prg->queueLength());
 
   // current
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"current\":[");

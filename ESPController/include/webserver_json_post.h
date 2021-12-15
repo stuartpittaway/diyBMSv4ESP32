@@ -24,7 +24,10 @@
 //#include "EmbeddedFiles_Integrity.h"
 #include "HAL_ESP32.h"
 
+bool getPostDataIntoBuffer(httpd_req_t *req);
+bool GetUint32FromKeyValue(const char *buffer, const char *key, bool urlEncoded, uint32_t *value);
 esp_err_t post_savebankconfig_json_handler(httpd_req_t *req);
 
+extern diybms_eeprom_settings *_mysettings;
 
 #endif

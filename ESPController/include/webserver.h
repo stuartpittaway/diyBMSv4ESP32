@@ -39,12 +39,15 @@ void StartServer(diybms_eeprom_settings *mysettings,
                  void (*sdcardaction_callback)(uint8_t action),
                  HAL_ESP32 *hal);
 void clearModuleValues(uint8_t module);
-
+esp_err_t SendFailure(httpd_req_t *req);
 httpd_handle_t start_webserver(void);
 void stop_webserver(httpd_handle_t server);
 String uuidToString(uint8_t *uuidLocation);
 
-boolean validateXSS(httpd_req_t *req);
+bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer);
+bool validateXSS(httpd_req_t *req);
+bool HasURLEncodedHeader(httpd_req_t *req);
+void saveConfiguration();
 
 //These are borrowed from the new ESP IDF framework, will need to be removed if framework is upgraded
 esp_err_t httpd_req_get_cookie_val(httpd_req_t *req, const char *cookie_name, char *val, size_t *val_size);
@@ -56,7 +59,6 @@ extern TaskHandle_t avrprog_task_handle;
 extern avrprogramsettings _avrsettings;
 extern RelayState previousRelayState[RELAY_TOTAL];
 extern currentmonitoring_struct currentMonitor;
-
 
 extern void ConfigureRS485();
 extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency);

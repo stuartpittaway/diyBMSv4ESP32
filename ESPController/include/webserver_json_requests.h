@@ -56,4 +56,5 @@ extern HAL_ESP32 *_hal;
 
 extern void setCacheControl(httpd_req_t *req);
 extern char CookieValue[20 + 1];
+
 #endif
