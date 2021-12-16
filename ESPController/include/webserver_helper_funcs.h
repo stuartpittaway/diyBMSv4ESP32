@@ -5,9 +5,9 @@
 #include <esp_http_server.h>
 #include "defines.h"
 
-bool GetTextFromKeyValue(const char *buffer, const char *key,  char *text, size_t textLength);
-bool GetUint32FromKeyValue(const char *buffer, const char *key,  uint32_t *value);
-bool GetBoolFromKeyValue(const char *buffer, const char *key,  bool *value);
+bool GetTextFromKeyValue(const char *buffer, const char *key,  char *text, size_t textLength, bool urlEncoded);
+bool GetUint32FromKeyValue(const char *buffer, const char *key,  uint32_t *value, bool urlEncoded);
+bool GetBoolFromKeyValue(const char *buffer, const char *key,  bool *value, bool urlEncoded);
 
 bool getPostDataIntoBuffer(httpd_req_t *req);
 void url_decode(char *str, char *buf);
@@ -16,7 +16,7 @@ char from_hex(char ch);
 bool validateXSS(httpd_req_t *req);
 bool HasURLEncodedHeader(httpd_req_t *req);
 
-bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer);
+bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer, bool urlEncoded);
 
 void setCookieValue();
 void setCookie(httpd_req_t *req);

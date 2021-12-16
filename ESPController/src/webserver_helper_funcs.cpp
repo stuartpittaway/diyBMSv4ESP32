@@ -69,35 +69,18 @@ bool getPostDataIntoBuffer(httpd_req_t *req)
     // Ensure null terminated
     httpbuf[ret] = 0;
 
-    // URL DECODE the entire buffer
-    if (HasURLEncodedHeader(req))
-    {
-        // Decode the incoming char array
-        char *buf = (char *)malloc(ret + 1);
-        if (buf == NULL)
-        {
-            ESP_LOGE(TAG, "Unable to malloc");
-            return false;
-        }
-
-        strncpy(buf, httpbuf, ret);
-        // Overwrite existing char array
-        url_decode(buf, httpbuf);
-        free(buf);
-    }
-
     ESP_LOGD(TAG, "Post data %s", httpbuf);
 
     return true;
 }
 
 // Gets text value from a character buffer (as returned in HTTP request, query string etc)
-bool GetTextFromKeyValue(const char *buffer, const char *key, char *text, size_t textLength)
+bool GetTextFromKeyValue(const char *buffer, const char *key, char *text, size_t textLength, bool urlEncoded)
 {
     if (httpd_query_key_value(httpbuf, key, text, textLength) == ESP_OK)
     {
         // ESP_LOGD(TAG, "Found: %s=%s", key, param);
-        /*
+
         if (urlEncoded)
         {
             // Decode the incoming char array
@@ -113,7 +96,6 @@ bool GetTextFromKeyValue(const char *buffer, const char *key, char *text, size_t
             url_decode(buf, text);
             free(buf);
         }
-        */
 
         return true;
     }
@@ -122,11 +104,11 @@ bool GetTextFromKeyValue(const char *buffer, const char *key, char *text, size_t
 }
 
 // Gets an unsigned long value from a character buffer (as returned in HTTP request, query string etc)
-bool GetUint32FromKeyValue(const char *buffer, const char *key, uint32_t *value)
+bool GetUint32FromKeyValue(const char *buffer, const char *key, uint32_t *value, bool urlEncoded)
 {
     char param[32];
 
-    if (GetTextFromKeyValue(httpbuf, key, param, sizeof(param)))
+    if (GetTextFromKeyValue(httpbuf, key, param, sizeof(param), urlEncoded))
     {
         // String to number conversion
         char **endptr = NULL;
@@ -139,11 +121,11 @@ bool GetUint32FromKeyValue(const char *buffer, const char *key, uint32_t *value)
     return false;
 }
 
-bool GetBoolFromKeyValue(const char *buffer, const char *key, bool *value)
+bool GetBoolFromKeyValue(const char *buffer, const char *key, bool *value, bool urlEncoded)
 {
     char param[32];
 
-    if (GetTextFromKeyValue(httpbuf, key, param, sizeof(param)))
+    if (GetTextFromKeyValue(httpbuf, key, param, sizeof(param), urlEncoded))
     {
         // Compare strings
         bool v = false;
@@ -348,7 +330,7 @@ bool HasURLEncodedHeader(httpd_req_t *req)
     return false;
 }
 
-bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer)
+bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer, bool urlencoded)
 {
     // Need to validate POST variable as well...
     if (validateXSS(req))
@@ -357,16 +339,15 @@ bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer)
         if (httpd_query_key_value(postbuffer, "xss", param, sizeof(param)) == ESP_OK)
         {
 
-            /*
-                        if (urlencoded)
-                        {
-                            // Decode the incoming char array
-                            char param_encoded[sizeof(CookieValue)];
-                            strncpy(param_encoded, param, sizeof(param));
-                            // Overwrite existing char array
-                            url_decode(param_encoded, param);
-                        }
-            */
+            if (urlencoded)
+            {
+                // Decode the incoming char array
+                char param_encoded[sizeof(CookieValue)];
+                strncpy(param_encoded, param, sizeof(param));
+                // Overwrite existing char array
+                url_decode(param_encoded, param);
+            }
+
             // Compare received cookie to our expected cookie
             if (strncmp(CookieValue, param, sizeof(CookieValue)) == 0)
             {

@@ -9,9 +9,10 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req)
         // Fail...
         return httpd_resp_send_500(req);
     }
+    bool urlEncoded = HasURLEncodedHeader(req);
 
     // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf))
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
     {
         return ESP_FAIL;
     }
@@ -22,17 +23,17 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req)
 
     uint32_t tempVariable;
 
-    if (GetUint32FromKeyValue(httpbuf, "totalSeriesModules", &tempVariable))
+    if (GetUint32FromKeyValue(httpbuf, "totalSeriesModules", &tempVariable, urlEncoded))
     {
         // Obviously could overflow
         totalSeriesModules = (uint8_t)tempVariable;
 
-        if (GetUint32FromKeyValue(httpbuf, "totalBanks", &tempVariable))
+        if (GetUint32FromKeyValue(httpbuf, "totalBanks", &tempVariable, urlEncoded))
         {
             // Obviously could overflow
             totalBanks = (uint8_t)tempVariable;
 
-            if (GetUint32FromKeyValue(httpbuf, "baudrate", &tempVariable))
+            if (GetUint32FromKeyValue(httpbuf, "baudrate", &tempVariable, urlEncoded))
             {
                 // Obviously could overflow
                 baudrate = (uint16_t)tempVariable;
@@ -63,28 +64,30 @@ esp_err_t post_saventp_json_handler(httpd_req_t *req)
         return httpd_resp_send_500(req);
     }
 
+    bool urlEncoded = HasURLEncodedHeader(req);
+
     // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf))
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
     {
         return ESP_FAIL;
     }
 
     uint32_t tempVariable;
-    if (GetUint32FromKeyValue(httpbuf, "NTPZoneHour", &tempVariable))
+    if (GetUint32FromKeyValue(httpbuf, "NTPZoneHour", &tempVariable, urlEncoded))
     {
         _mysettings->timeZone = (uint8_t)tempVariable;
     }
-    if (GetUint32FromKeyValue(httpbuf, "NTPZoneMin", &tempVariable))
+    if (GetUint32FromKeyValue(httpbuf, "NTPZoneMin", &tempVariable, urlEncoded))
     {
         _mysettings->minutesTimeZone = (uint8_t)tempVariable;
     }
 
-    if (GetTextFromKeyValue(httpbuf, "NTPServer", _mysettings->ntpServer, sizeof(_mysettings->ntpServer)))
+    if (GetTextFromKeyValue(httpbuf, "NTPServer", _mysettings->ntpServer, sizeof(_mysettings->ntpServer), urlEncoded))
     {
     }
 
     // HTML Boolean value, so element is not POST'ed if FALSE/OFF
-    if (GetBoolFromKeyValue(httpbuf, "NTPDST", &_mysettings->daylight))
+    if (GetBoolFromKeyValue(httpbuf, "NTPDST", &_mysettings->daylight, urlEncoded))
     {
     }
     else
