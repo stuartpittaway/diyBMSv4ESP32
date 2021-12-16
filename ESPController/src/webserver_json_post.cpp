@@ -99,3 +99,107 @@ esp_err_t post_saventp_json_handler(httpd_req_t *req)
 
     return SendSuccess(req);
 }
+
+esp_err_t post_savemqtt_json_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+    uint32_t tempVariable;
+
+    _mysettings->mqtt_enabled = false;
+
+    if (GetBoolFromKeyValue(httpbuf, "mqttEnabled", &_mysettings->mqtt_enabled, urlEncoded))
+    {
+    }
+
+    if (GetTextFromKeyValue(httpbuf, "mqttTopic", _mysettings->mqtt_topic, sizeof(_mysettings->mqtt_topic), urlEncoded))
+    {
+    }
+
+    if (GetUint32FromKeyValue(httpbuf, "mqttPort", &tempVariable, urlEncoded))
+    {
+        _mysettings->mqtt_port = (uint8_t)tempVariable;
+    }
+
+    if (GetTextFromKeyValue(httpbuf, "mqttServer", _mysettings->mqtt_server, sizeof(_mysettings->mqtt_server), urlEncoded))
+    {
+    }
+
+    if (GetTextFromKeyValue(httpbuf, "mqttUsername", _mysettings->mqtt_username, sizeof(_mysettings->mqtt_username), urlEncoded))
+    {
+    }
+
+    if (GetTextFromKeyValue(httpbuf, "mqttPassword", _mysettings->mqtt_password, sizeof(_mysettings->mqtt_password), urlEncoded))
+    {
+    }
+
+    saveConfiguration();
+
+    return SendSuccess(req);
+}
+
+esp_err_t post_saveglobalsetting_json_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+    uint32_t tempVariable;
+
+    if (GetUint32FromKeyValue(httpbuf, "BypassOverTempShutdown", &tempVariable, urlEncoded))
+    {
+        _mysettings->BypassOverTempShutdown = (uint8_t)tempVariable;
+
+        if (GetUint32FromKeyValue(httpbuf, "BypassThresholdmV", &tempVariable, urlEncoded))
+        {
+            _mysettings->BypassThresholdmV = (uint16_t)tempVariable;
+
+            if (_prg->sendSaveGlobalSetting(_mysettings->BypassThresholdmV, _mysettings->BypassOverTempShutdown))
+            {
+
+                saveConfiguration();
+                uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
+
+                for (uint8_t i = 0; i < totalModules; i++)
+                {
+                    if (cmi[i].valid)
+                    {
+                        cmi[i].BypassThresholdmV = _mysettings->BypassThresholdmV;
+                        cmi[i].BypassOverTempShutdown = _mysettings->BypassOverTempShutdown;
+                    }
+                }
+
+                // Just returns NULL
+                return SendSuccess(req);
+            }
+        }
+    }
+    else
+    {
+        return SendFailure(req);
+    }
+}

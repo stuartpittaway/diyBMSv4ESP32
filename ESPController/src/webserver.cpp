@@ -22,18 +22,13 @@ Rules *_rules;
 ControllerState *_controlState;
 HAL_ESP32 *_hal;
 
-
-
 // Shared buffer for all HTTP generated replies
 char httpbuf[BUFSIZE];
-
 
 void setCacheControl(httpd_req_t *req)
 {
   httpd_resp_set_hdr(req, "Cache-Control", "no-store");
 }
-
-
 
 String TemplateProcessor(const String &var)
 {
@@ -200,8 +195,6 @@ typedef struct
   const char *mimetype;
 } WEBKIT_RESPONSE_ARGS;
 
-
-
 // Handle static files which are NOT GZIP compressed
 esp_err_t static_content_handler(httpd_req_t *req)
 {
@@ -269,9 +262,6 @@ esp_err_t get_root_handler(httpd_req_t *req)
   httpd_resp_send(req, NULL, 0);
   return ESP_OK;
 }
-
-
-
 
 /* URI handler structure for GET /uri */
 httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
@@ -348,6 +338,9 @@ httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler
 /* URI handler structure for POST /uri */
 httpd_uri_t uri_savebankconfig_json_post = {.uri = "/savebankconfig.json", .method = HTTP_POST, .handler = post_savebankconfig_json_handler, .user_ctx = NULL};
 httpd_uri_t uri_saventp_json_post = {.uri = "/saventp.json", .method = HTTP_POST, .handler = post_saventp_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_saveglobalsetting_json_post = {.uri = "/saveglobalsetting.json", .method = HTTP_POST, .handler = post_saveglobalsetting_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_savemqtt_json_post = {.uri = "/savemqtt.json", .method = HTTP_POST, .handler = post_savemqtt_json_handler, .user_ctx = NULL};
+
 
 void clearModuleValues(uint8_t module)
 {
@@ -423,6 +416,9 @@ httpd_handle_t start_webserver(void)
     // Post services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savebankconfig_json_post));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saventp_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saveglobalsetting_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savemqtt_json_post));
+    
   }
   /* If server failed to start, handle will be NULL */
   return server;

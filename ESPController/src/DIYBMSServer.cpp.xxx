@@ -1079,100 +1079,10 @@ void DIYBMSServer::saveNTP(AsyncWebServerRequest *request)
 }
 
 
-void DIYBMSServer::saveMQTTSetting(AsyncWebServerRequest *request)
-{
-  if (!validateXSS(request))
-    return;
-
-  if (request->hasParam("mqttEnabled", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("mqttEnabled", true);
-    _mysettings->mqtt_enabled = p1->value().equals("on") ? true : false;
-  }
-  else
-  {
-    _mysettings->mqtt_enabled = false;
-  }
-
-  if (request->hasParam("mqttTopic", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("mqttTopic", true);
-    p1->value().toCharArray(_mysettings->mqtt_topic, sizeof(_mysettings->mqtt_topic));
-  }
-  else
-  {
-    strcpy(_mysettings->mqtt_topic, "diybms");
-  }
-
-  if (request->hasParam("mqttPort", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("mqttPort", true);
-    _mysettings->mqtt_port = p1->value().toInt();
-  }
-
-  if (request->hasParam("mqttServer", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("mqttServer", true);
-    p1->value().toCharArray(_mysettings->mqtt_server, sizeof(_mysettings->mqtt_server));
-  }
-
-  if (request->hasParam("mqttUsername", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("mqttUsername", true);
-    p1->value().toCharArray(_mysettings->mqtt_username, sizeof(_mysettings->mqtt_username));
-  }
-
-  if (request->hasParam("mqttPassword", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("mqttPassword", true);
-    p1->value().toCharArray(_mysettings->mqtt_password, sizeof(_mysettings->mqtt_password));
-  }
-
-  saveConfiguration();
-
-  SendSuccess(request);
-}
-
-void DIYBMSServer::saveGlobalSetting(AsyncWebServerRequest *request)
-{
-  if (!validateXSS(request))
-    return;
-
-  if (request->hasParam("BypassOverTempShutdown", true) && request->hasParam("BypassThresholdmV", true))
-  {
-
-    AsyncWebParameter *p1 = request->getParam("BypassOverTempShutdown", true);
-    _mysettings->BypassOverTempShutdown = p1->value().toInt();
-
-    AsyncWebParameter *p2 = request->getParam("BypassThresholdmV", true);
-    _mysettings->BypassThresholdmV = p2->value().toInt();
 
 
-    if (_prg->sendSaveGlobalSetting(_mysettings->BypassThresholdmV, _mysettings->BypassOverTempShutdown)) {
 
-    saveConfiguration();
-    uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
 
-    for (uint8_t i = 0; i < totalModules; i++)
-    {
-      if (cmi[i].valid)
-      {
-        cmi[i].BypassThresholdmV = _mysettings->BypassThresholdmV;
-        cmi[i].BypassOverTempShutdown = _mysettings->BypassOverTempShutdown;
-      }
-    }
-
-    //Just returns NULL
-    SendSuccess(request);
-    } else {
-      SendFailure(request);
-    }
-  }
-  else
-  {
-    request->send(500, "text/plain", "Missing parameters");
-  }
-}
 
 void DIYBMSServer::handleNotFound(AsyncWebServerRequest *request)
 {
@@ -1375,15 +1285,15 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
 
   //POST method endpoints
 
-  _myserver->on("/savebankconfig.json", HTTP_POST, DIYBMSServer::saveBankConfiguration);
 
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);
-  _myserver->on("/saveglobalsetting.json", HTTP_POST, DIYBMSServer::saveGlobalSetting);
+
+  
   _myserver->on("/savemqtt.json", HTTP_POST, DIYBMSServer::saveMQTTSetting);
   _myserver->on("/saveinfluxdb.json", HTTP_POST, DIYBMSServer::saveInfluxDBSetting);
   
   _myserver->on("/saverules.json", HTTP_POST, DIYBMSServer::saveRuleConfiguration);
-  _myserver->on("/saventp.json", HTTP_POST, DIYBMSServer::saveNTP);
+  
   _myserver->on("/savedisplaysetting.json", HTTP_POST, DIYBMSServer::saveDisplaySetting);
   _myserver->on("/savestorage.json", HTTP_POST, DIYBMSServer::saveStorage);
 

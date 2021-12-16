@@ -100,6 +100,8 @@ bool GetTextFromKeyValue(const char *buffer, const char *key, char *text, size_t
         return true;
     }
 
+    ESP_LOGW(TAG, "Missing key named '%s'", key);
+
     return false;
 }
 
@@ -320,7 +322,7 @@ bool HasURLEncodedHeader(httpd_req_t *req)
         //  Compare received value to our expected value (just the start of the string, minus null char)
         if (strncmp(value, buffer, sizeof(value) - 1) == 0)
         {
-            ESP_LOGD(TAG, "Header found and matches x-www-form-urlencoded");
+            //ESP_LOGD(TAG, "Header found and matches x-www-form-urlencoded");
             return true;
         }
 
