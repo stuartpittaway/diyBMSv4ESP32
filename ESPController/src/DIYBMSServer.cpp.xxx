@@ -602,50 +602,7 @@ void DIYBMSServer::saveDisplaySetting(AsyncWebServerRequest *request)
   SendSuccess(request);
 }
 
-void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
-{
-  if (!validateXSS(request))
-    return;
 
-  if (request->hasParam("influxEnabled", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("influxEnabled", true);
-    _mysettings->influxdb_enabled = p1->value().equals("on") ? true : false;
-  }
-  else
-  {
-    _mysettings->influxdb_enabled = false;
-  }
-
-  if (request->hasParam("influxUrl", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("influxUrl", true);
-    p1->value().toCharArray(_mysettings->influxdb_serverurl, sizeof(_mysettings->influxdb_serverurl));
-  }
-
-  if (request->hasParam("influxDatabase", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("influxDatabase", true);
-    p1->value().toCharArray(_mysettings->influxdb_databasebucket, sizeof(_mysettings->influxdb_databasebucket));
-  }
-
-  if (request->hasParam("influxOrgId", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("influxOrgId", true);
-    p1->value().toCharArray(_mysettings->influxdb_orgid, sizeof(_mysettings->influxdb_orgid));
-  }
-
-  if (request->hasParam("influxToken", true))
-  {
-    AsyncWebParameter *p1 = request->getParam("influxToken", true);
-    p1->value().toCharArray(_mysettings->influxdb_apitoken, sizeof(_mysettings->influxdb_apitoken));
-  }
-
-  saveConfiguration();
-
-  //ConfigHasChanged = REBOOT_COUNT_DOWN;
-  SendSuccess(request);
-}
 
 
 void DIYBMSServer::saveVictron(AsyncWebServerRequest *request)
@@ -1289,8 +1246,8 @@ void DIYBMSServer::StartServer(AsyncWebServer *webserver,
   _myserver->on("/savesetting.json", HTTP_POST, DIYBMSServer::saveSetting);
 
   
-  _myserver->on("/savemqtt.json", HTTP_POST, DIYBMSServer::saveMQTTSetting);
-  _myserver->on("/saveinfluxdb.json", HTTP_POST, DIYBMSServer::saveInfluxDBSetting);
+  
+  
   
   _myserver->on("/saverules.json", HTTP_POST, DIYBMSServer::saveRuleConfiguration);
   

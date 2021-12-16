@@ -203,3 +203,45 @@ esp_err_t post_saveglobalsetting_json_handler(httpd_req_t *req)
         return SendFailure(req);
     }
 }
+
+esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+    uint32_t tempVariable;
+
+    _mysettings->influxdb_enabled = false;
+    if (GetBoolFromKeyValue(httpbuf, "influxEnabled", &_mysettings->influxdb_enabled, urlEncoded))
+    {
+    }
+
+    if (GetTextFromKeyValue(httpbuf, "influxUrl", _mysettings->influxdb_serverurl, sizeof(_mysettings->influxdb_serverurl), urlEncoded))
+    {
+    }
+    if (GetTextFromKeyValue(httpbuf, "influxDatabase", _mysettings->influxdb_databasebucket, sizeof(_mysettings->influxdb_databasebucket), urlEncoded))
+    {
+    }
+    if (GetTextFromKeyValue(httpbuf, "influxOrgId", _mysettings->influxdb_orgid, sizeof(_mysettings->influxdb_orgid), urlEncoded))
+    {
+    }
+    if (GetTextFromKeyValue(httpbuf, "influxToken", _mysettings->influxdb_apitoken, sizeof(_mysettings->influxdb_apitoken), urlEncoded))
+    {
+    }
+
+    saveConfiguration();
+
+    return SendSuccess(req);
+}

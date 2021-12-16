@@ -340,6 +340,7 @@ httpd_uri_t uri_savebankconfig_json_post = {.uri = "/savebankconfig.json", .meth
 httpd_uri_t uri_saventp_json_post = {.uri = "/saventp.json", .method = HTTP_POST, .handler = post_saventp_json_handler, .user_ctx = NULL};
 httpd_uri_t uri_saveglobalsetting_json_post = {.uri = "/saveglobalsetting.json", .method = HTTP_POST, .handler = post_saveglobalsetting_json_handler, .user_ctx = NULL};
 httpd_uri_t uri_savemqtt_json_post = {.uri = "/savemqtt.json", .method = HTTP_POST, .handler = post_savemqtt_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_saveinfluxdbsetting_json_post = {.uri = "/saveinfluxdb.json", .method = HTTP_POST, .handler = post_saveinfluxdbsetting_json_handler, .user_ctx = NULL};
 
 
 void clearModuleValues(uint8_t module)
@@ -418,6 +419,7 @@ httpd_handle_t start_webserver(void)
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saventp_json_post));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saveglobalsetting_json_post));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savemqtt_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saveinfluxdbsetting_json_post));
     
   }
   /* If server failed to start, handle will be NULL */

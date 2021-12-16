@@ -25,6 +25,7 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req);
 esp_err_t post_saventp_json_handler(httpd_req_t *req);
 esp_err_t post_saveglobalsetting_json_handler(httpd_req_t *req);
 esp_err_t post_savemqtt_json_handler(httpd_req_t *req);
+esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req);
 
 extern diybms_eeprom_settings *_mysettings;
 extern PacketRequestGenerator *_prg;

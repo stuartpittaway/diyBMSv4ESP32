@@ -45,7 +45,7 @@ bool getPostDataIntoBuffer(httpd_req_t *req)
 
     if (req->content_len > sizeof(httpbuf))
     {
-        ESP_LOGD(TAG, "Buffer not large enough %u", req->content_len);
+        ESP_LOGE(TAG, "Buffer not large enough %u", req->content_len);
         return false;
     }
 
@@ -69,7 +69,7 @@ bool getPostDataIntoBuffer(httpd_req_t *req)
     // Ensure null terminated
     httpbuf[ret] = 0;
 
-    ESP_LOGD(TAG, "Post data %s", httpbuf);
+    // ESP_LOGD(TAG, "Post data %s", httpbuf);
 
     return true;
 }
@@ -322,7 +322,7 @@ bool HasURLEncodedHeader(httpd_req_t *req)
         //  Compare received value to our expected value (just the start of the string, minus null char)
         if (strncmp(value, buffer, sizeof(value) - 1) == 0)
         {
-            //ESP_LOGD(TAG, "Header found and matches x-www-form-urlencoded");
+            // ESP_LOGD(TAG, "Header found and matches x-www-form-urlencoded");
             return true;
         }
 
@@ -337,14 +337,15 @@ bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer, bool urlencod
     // Need to validate POST variable as well...
     if (validateXSS(req))
     {
-        char param[sizeof(CookieValue)];
+        // Must be larger than CookieValue as it could be URLEncoded
+        char param[2 * sizeof(CookieValue)];
         if (httpd_query_key_value(postbuffer, "xss", param, sizeof(param)) == ESP_OK)
         {
 
             if (urlencoded)
             {
                 // Decode the incoming char array
-                char param_encoded[sizeof(CookieValue)];
+                char param_encoded[sizeof(param)];
                 strncpy(param_encoded, param, sizeof(param));
                 // Overwrite existing char array
                 url_decode(param_encoded, param);
@@ -360,7 +361,10 @@ bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer, bool urlencod
             // Cookie found and returned correctly (not truncated etc)
             ESP_LOGW(TAG, "Incorrect POST cookie %s", param);
         }
-
+        else
+        {
+            ESP_LOGW(TAG, "xss query key returned not OK");
+        }
         // Failed POST XSS check
         httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie");
         return false;
