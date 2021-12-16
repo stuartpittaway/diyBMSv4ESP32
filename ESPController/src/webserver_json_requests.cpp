@@ -1,4 +1,5 @@
 #include "webserver.h"
+#include "webserver_helper_funcs.h"
 #include "webserver_json_requests.h"
 
 esp_err_t content_handler_avrstorage(httpd_req_t *req)

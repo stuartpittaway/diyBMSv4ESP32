@@ -1055,7 +1055,6 @@ void transmit_task(void *param)
     // TODO: Move to proper RTOS QUEUE...
     if (requestQueue.isEmpty() == false)
     {
-
       //ESP_LOGD(TAG,"Tx queue len=%i",requestQueue.getCount());
       // Called to transmit the next packet in the queue need to ensure this procedure
       // is called more frequently than items are added into the queue

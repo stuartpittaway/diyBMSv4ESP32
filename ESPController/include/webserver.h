@@ -27,8 +27,7 @@
 int printBoolean(char *buffer, size_t bufferLen,const char *fieldName, boolean value, boolean addComma);
 int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean value);
 esp_err_t SendSuccess(httpd_req_t *req);
-void setCookieValue();
-void setCookie(httpd_req_t *req);
+
 void generateUUID();
 void StartServer(diybms_eeprom_settings *mysettings,
                  fs::SDFS *sdcard,
@@ -44,14 +43,8 @@ httpd_handle_t start_webserver(void);
 void stop_webserver(httpd_handle_t server);
 String uuidToString(uint8_t *uuidLocation);
 
-bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer);
-bool validateXSS(httpd_req_t *req);
-bool HasURLEncodedHeader(httpd_req_t *req);
 void saveConfiguration();
 
-//These are borrowed from the new ESP IDF framework, will need to be removed if framework is upgraded
-esp_err_t httpd_req_get_cookie_val(httpd_req_t *req, const char *cookie_name, char *val, size_t *val_size);
-esp_err_t httpd_cookie_key_value(const char *cookie_str, const char *key, char *val, size_t *val_size);
 
 // TODO: Remove this
 extern bool _sd_card_installed;

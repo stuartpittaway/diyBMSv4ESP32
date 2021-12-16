@@ -1,7 +1,13 @@
 
 #include "webserver.h"
+#include "webserver_helper_funcs.h"
 #include "webserver_json_requests.h"
 #include "webserver_json_post.h"
+
+const char *const text_css = "text/css";
+const char *const application_javascript = "application/javascript";
+const char *const image_png = "image/png";
+const char *const image_x_icon = "image/x-icon";
 
 httpd_handle_t _myserver;
 
@@ -16,46 +22,18 @@ Rules *_rules;
 ControllerState *_controlState;
 HAL_ESP32 *_hal;
 
-char CookieValue[20 + 1];
+
 
 // Shared buffer for all HTTP generated replies
 char httpbuf[BUFSIZE];
 
-// DIYBMS=a&zp!b4okcj$2$Dg*zUC; path=/; HttpOnly; SameSite=Strict
-char cookie[45 + sizeof(CookieValue)];
 
 void setCacheControl(httpd_req_t *req)
 {
   httpd_resp_set_hdr(req, "Cache-Control", "no-store");
 }
 
-bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer)
-{
-  // Need to validate POST variable as well...
-  if (validateXSS(req))
-  {
-    char param[sizeof(CookieValue)];
-    if (httpd_query_key_value(postbuffer, "xss", param, sizeof(param)) == ESP_OK)
-    {
-      // Compare received cookie to our expected cookie
-      if (strncmp(CookieValue, param, sizeof(CookieValue)) == 0)
-      {
-        // All good, everything ok.
-        return true;
-      }
 
-      // Cookie found and returned correctly (not truncated etc)
-      ESP_LOGW(TAG, "Incorrect POST cookie %s", param);
-    }
-
-    // Failed POST XSS check
-    httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie");
-    return false;
-  }
-
-  // validateXSS has already sent httpd_resp_send_err...
-  return false;
-}
 
 String TemplateProcessor(const String &var)
 {
@@ -124,9 +102,8 @@ esp_err_t SendSuccess(httpd_req_t *req)
 
 void saveConfiguration()
 {
-    Settings::WriteConfig("diybms", (char *)_mysettings, sizeof(diybms_eeprom_settings));
+  Settings::WriteConfig("diybms", (char *)_mysettings, sizeof(diybms_eeprom_settings));
 }
-
 
 // The main home page
 esp_err_t default_htm_handler(httpd_req_t *req)
@@ -223,41 +200,7 @@ typedef struct
   const char *mimetype;
 } WEBKIT_RESPONSE_ARGS;
 
-const char *const text_css = "text/css";
-const char *const application_javascript = "application/javascript";
-const char *const image_png = "image/png";
-const char *const image_x_icon = "image/x-icon";
 
-void setCookieValue()
-{
-  // We generate a unique number which is used in all following JSON requests
-  // we use this as a simple method to avoid cross site scripting attacks
-  // This MUST be done once the WIFI is switched on otherwise only PSEUDO random data is generated!!
-
-  // ESP32 has inbuilt random number generator
-  // https://techtutorialsx.com/2017/12/22/esp32-arduino-random-number-generation/
-
-  // Pick random characters from this string (we could just use ASCII offset instead of this)
-  // but this also avoids javascript escape characters like backslash and cookie escape chars like ; and %
-  char alphabet[] = "!$*#@ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyz";
-
-  memset(CookieValue, 0, sizeof(CookieValue));
-
-  //Leave NULL terminator on char array
-  for (uint8_t x = 0; x < sizeof(CookieValue) - 1; x++)
-  {
-    //Random number between 0 and array length (minus null char)
-    CookieValue[x] = alphabet[random(0,sizeof(alphabet)-2)];
-  }
-
-  // Generate the full cookie string, as a HTTPONLY cookie, valid for this session only
-  snprintf(cookie, sizeof(cookie), "DIYBMS=%s; path=/; HttpOnly; SameSite=Strict", CookieValue);
-}
-
-void setCookie(httpd_req_t *req)
-{
-  httpd_resp_set_hdr(req, "Set-Cookie", cookie);
-}
 
 // Handle static files which are NOT GZIP compressed
 esp_err_t static_content_handler(httpd_req_t *req)
@@ -295,7 +238,6 @@ esp_err_t static_content_handler_gzipped(httpd_req_t *req)
 
   httpd_resp_set_type(req, args->mimetype);
 
-  // TODO: GET ETAGS WORKING AGAIN!!
   char buffer[50];
 
   if (httpd_req_get_hdr_value_str(req, "If-None-Match", buffer, sizeof(buffer)) == ESP_OK)
@@ -328,154 +270,8 @@ esp_err_t get_root_handler(httpd_req_t *req)
   return ESP_OK;
 }
 
-// Determine if the HTTPD request has a Content-Type of x-www-form-urlencoded
-bool HasURLEncodedHeader(httpd_req_t *req)
-{
-  const char value[] = "application/x-www-form-urlencoded";
-  char buffer[128];
 
-  esp_err_t result = httpd_req_get_hdr_value_str(req, "Content-Type", buffer, sizeof(buffer));
-  // ESP_LOGD(TAG, "esp_err_t=%i", result);
 
-  if (result == ESP_OK)
-  {
-    // ESP_LOGD(TAG, "URLEncode=%s", buffer);
-    //  Compare received value to our expected value (just the start of the string, minus null char)
-    if (strncmp(value, buffer, sizeof(value) - 1) == 0)
-    {
-      // Header found and matches x-www-form-urlencoded
-      return true;
-    }
-
-    // Didn't match, so fall through to FALSE handler
-  }
-
-  return false;
-}
-
-/* Helper function to get a cookie value from a cookie string of the type "cookie1=val1; cookie2=val2" */
-esp_err_t httpd_cookie_key_value(const char *cookie_str, const char *key, char *val, size_t *val_size)
-{
-  if (cookie_str == NULL || key == NULL || val == NULL)
-  {
-    return ESP_ERR_INVALID_ARG;
-  }
-
-  const char *cookie_ptr = cookie_str;
-  const size_t buf_len = *val_size;
-  size_t _val_size = *val_size;
-
-  while (strlen(cookie_ptr))
-  {
-    /* Search for the '=' character. Else, it would mean
-     * that the parameter is invalid */
-    const char *val_ptr = strchr(cookie_ptr, '=');
-    if (!val_ptr)
-    {
-      break;
-    }
-    size_t offset = val_ptr - cookie_ptr;
-
-    /* If the key, does not match, continue searching.
-     * Compare lengths first as key from cookie string is not
-     * null terminated (has '=' in the end) */
-    if ((offset != strlen(key)) || (strncasecmp(cookie_ptr, key, offset) != 0))
-    {
-      /* Get the name=val string. Multiple name=value pairs
-       * are separated by '; ' */
-      cookie_ptr = strchr(val_ptr, ' ');
-      if (!cookie_ptr)
-      {
-        break;
-      }
-      cookie_ptr++;
-      continue;
-    }
-
-    /* Locate start of next query */
-    cookie_ptr = strchr(++val_ptr, ';');
-    /* Or this could be the last query, in which
-     * case get to the end of query string */
-    if (!cookie_ptr)
-    {
-      cookie_ptr = val_ptr + strlen(val_ptr);
-    }
-
-    /* Update value length, including one byte for null */
-    _val_size = cookie_ptr - val_ptr + 1;
-
-    /* Copy value to the caller's buffer. */
-    strlcpy(val, val_ptr, min(_val_size, buf_len));
-
-    /* If buffer length is smaller than needed, return truncation error */
-    if (buf_len < _val_size)
-    {
-      *val_size = _val_size;
-      return ESP_ERR_HTTPD_RESULT_TRUNC;
-    }
-    /* Save amount of bytes copied to caller's buffer */
-    *val_size = min(_val_size, buf_len);
-    return ESP_OK;
-  }
-  ESP_LOGD(TAG, "cookie %s not found", key);
-  return ESP_ERR_NOT_FOUND;
-}
-
-/* Get the value of a cookie from the request headers */
-esp_err_t httpd_req_get_cookie_val(httpd_req_t *req, const char *cookie_name, char *val, size_t *val_size)
-{
-  esp_err_t ret;
-  size_t hdr_len_cookie = httpd_req_get_hdr_value_len(req, "Cookie");
-  char *cookie_str = NULL;
-
-  if (hdr_len_cookie <= 0)
-  {
-    return ESP_ERR_NOT_FOUND;
-  }
-  cookie_str = (char *)malloc(hdr_len_cookie + 1);
-  if (cookie_str == NULL)
-  {
-    ESP_LOGE(TAG, "Failed to allocate memory");
-    return ESP_ERR_NO_MEM;
-  }
-
-  if (httpd_req_get_hdr_value_str(req, "Cookie", cookie_str, hdr_len_cookie + 1) != ESP_OK)
-  {
-    ESP_LOGW(TAG, "Cookie not found");
-    free(cookie_str);
-    return ESP_ERR_NOT_FOUND;
-  }
-
-  ret = httpd_cookie_key_value(cookie_str, cookie_name, val, val_size);
-  free(cookie_str);
-  return ret;
-}
-
-bool validateXSS(httpd_req_t *req)
-{
-  char requestcookie[sizeof(CookieValue)];
-
-  size_t cookielength = sizeof(CookieValue);
-
-  esp_err_t result = httpd_req_get_cookie_val(req, "DIYBMS", requestcookie, &cookielength);
-
-  if (result == ESP_OK)
-  {
-    // Compare received cookie to our expected cookie
-    if (strncmp(CookieValue, requestcookie, sizeof(CookieValue)) == 0)
-    {
-      // All good, everything ok.
-      return true;
-    }
-
-    // Cookie found and returned correctly (not truncated etc)
-    ESP_LOGW(TAG, "Incorrect cookie received %s", requestcookie);
-  }
-
-  // Fail - wrong cookie or not supplied etc.
-  httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie");
-  return false;
-}
 
 /* URI handler structure for GET /uri */
 httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
@@ -551,6 +347,7 @@ httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler
 
 /* URI handler structure for POST /uri */
 httpd_uri_t uri_savebankconfig_json_post = {.uri = "/savebankconfig.json", .method = HTTP_POST, .handler = post_savebankconfig_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_saventp_json_post = {.uri = "/saventp.json", .method = HTTP_POST, .handler = post_saventp_json_handler, .user_ctx = NULL};
 
 void clearModuleValues(uint8_t module)
 {
@@ -625,6 +422,7 @@ httpd_handle_t start_webserver(void)
 
     // Post services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savebankconfig_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saventp_json_post));
   }
   /* If server failed to start, handle will be NULL */
   return server;
