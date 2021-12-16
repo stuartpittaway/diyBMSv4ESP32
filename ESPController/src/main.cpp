@@ -1040,7 +1040,7 @@ void transmit_task(void *param)
   {
     // Delay based on comms speed, ensure the first module has time to process and clear the request
     // before sending another packet
-    uint16_t delay_ms = 900;
+    uint16_t delay_ms = 750;
 
     if (mysettings.baudRate == 9600)
     {
@@ -1048,7 +1048,7 @@ void transmit_task(void *param)
     }
     else if (mysettings.baudRate == 5000)
     {
-      delay_ms = 700;
+      delay_ms = 600;
     }
 
     vTaskDelay(pdMS_TO_TICKS(delay_ms));
