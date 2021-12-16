@@ -370,7 +370,7 @@ function queryBMS() {
             if (jsondata.can_sent == 0) { $("#cansent").hide(); } else { $("#cansent .v").html(jsondata.can_sent); $("#cansent").show(); }
             if (jsondata.can_rec == 0) { $("#canrecd").hide(); } else { $("#canrecd .v").html(jsondata.can_rec); $("#canrecd").show(); }
 
-            if (jsondata.qlen == 0) { $("#qlen").hide(); } else { $("#qlen .v").html(jsondata.qlen); $("#qlen").show(); }
+            $("#qlen .v").html(jsondata.qlen); $("#qlen").show();
 
             $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
 
