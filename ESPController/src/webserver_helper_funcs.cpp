@@ -105,6 +105,27 @@ bool GetTextFromKeyValue(const char *buffer, const char *key, char *text, size_t
     return false;
 }
 
+
+
+// Gets an FLOAT value from a character buffer (as returned in HTTP request, query string etc)
+bool GetFloatFromKeyValue(const char *buffer, const char *key, float *value, bool urlEncoded)
+{
+    char param[32];
+
+    if (GetTextFromKeyValue(httpbuf, key, param, sizeof(param), urlEncoded))
+    {
+        // String to number conversion
+        char **endptr = NULL;
+        float v = strtof(param, endptr);
+
+        *value = v;
+        return true;
+    }
+
+    return false;
+}
+
+
 // Gets an unsigned long value from a character buffer (as returned in HTTP request, query string etc)
 bool GetUint32FromKeyValue(const char *buffer, const char *key, uint32_t *value, bool urlEncoded)
 {

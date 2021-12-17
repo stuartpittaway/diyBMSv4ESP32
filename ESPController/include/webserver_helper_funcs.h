@@ -6,6 +6,7 @@
 #include "defines.h"
 
 bool GetTextFromKeyValue(const char *buffer, const char *key,  char *text, size_t textLength, bool urlEncoded);
+bool GetFloatFromKeyValue(const char *buffer, const char *key, float *value, bool urlEncoded);
 bool GetUint32FromKeyValue(const char *buffer, const char *key,  uint32_t *value, bool urlEncoded);
 bool GetBoolFromKeyValue(const char *buffer, const char *key,  bool *value, bool urlEncoded);
 
