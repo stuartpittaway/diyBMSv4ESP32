@@ -5,10 +5,18 @@
 #include <esp_http_server.h>
 #include "defines.h"
 
-bool GetTextFromKeyValue(const char *buffer, const char *key,  char *text, size_t textLength, bool urlEncoded);
+bool GetTextFromKeyValue(const char *buffer, const char *key, char *text, size_t textLength, bool urlEncoded);
+
+bool GetKeyValue(const char *buffer, const char *key, int8_t *value, bool urlEncoded);
+bool GetKeyValue(const char *buffer, const char *key, int16_t *value, bool urlEncoded);
+bool GetKeyValue(const char *buffer, const char *key, int32_t *value, bool urlEncoded);
+
+bool GetKeyValue(const char *buffer, const char *key, uint8_t *value, bool urlEncoded);
+bool GetKeyValue(const char *buffer, const char *key, uint16_t *value, bool urlEncoded);
+bool GetKeyValue(const char *buffer, const char *key, uint32_t *value, bool urlEncoded);
+
 bool GetKeyValue(const char *buffer, const char *key, float *value, bool urlEncoded);
-bool GetKeyValue(const char *buffer, const char *key,  uint32_t *value, bool urlEncoded);
-bool GetKeyValue(const char *buffer, const char *key,  bool *value, bool urlEncoded);
+bool GetKeyValue(const char *buffer, const char *key, bool *value, bool urlEncoded);
 
 bool getPostDataIntoBuffer(httpd_req_t *req);
 void url_decode(char *str, char *buf);

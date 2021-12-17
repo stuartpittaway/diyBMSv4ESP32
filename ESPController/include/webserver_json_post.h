@@ -57,4 +57,5 @@ extern uint32_t canbus_messages_received;
 extern uint32_t canbus_messages_sent;
 extern uint32_t canbus_messages_failed_sent;
 extern void (*_sdcardaction_callback)(uint8_t action);
+extern Rules *_rules;
 #endif

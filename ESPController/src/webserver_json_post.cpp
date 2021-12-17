@@ -35,10 +35,8 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req)
             // Obviously could overflow
             totalBanks = (uint8_t)tempVariable;
 
-            if (GetKeyValue(httpbuf, "baudrate", &tempVariable, urlEncoded))
+            if (GetKeyValue(httpbuf, "baudrate", &baudrate, urlEncoded))
             {
-                // Obviously could overflow
-                baudrate = (uint16_t)tempVariable;
 
                 if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
                 {
@@ -74,14 +72,12 @@ esp_err_t post_saventp_json_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    uint32_t tempVariable;
-    if (GetKeyValue(httpbuf, "NTPZoneHour", &tempVariable, urlEncoded))
+    // uint32_t tempVariable;
+    if (GetKeyValue(httpbuf, "NTPZoneHour", &_mysettings->timeZone, urlEncoded))
     {
-        _mysettings->timeZone = (uint8_t)tempVariable;
     }
-    if (GetKeyValue(httpbuf, "NTPZoneMin", &tempVariable, urlEncoded))
+    if (GetKeyValue(httpbuf, "NTPZoneMin", &_mysettings->minutesTimeZone, urlEncoded))
     {
-        _mysettings->minutesTimeZone = (uint8_t)tempVariable;
     }
 
     if (GetTextFromKeyValue(httpbuf, "NTPServer", _mysettings->ntpServer, sizeof(_mysettings->ntpServer), urlEncoded))
@@ -116,7 +112,6 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req)
     {
         return ESP_FAIL;
     }
-    uint32_t tempVariable;
 
     _mysettings->mqtt_enabled = false;
 
@@ -128,9 +123,8 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req)
     {
     }
 
-    if (GetKeyValue(httpbuf, "mqttPort", &tempVariable, urlEncoded))
+    if (GetKeyValue(httpbuf, "mqttPort", &_mysettings->mqtt_port, urlEncoded))
     {
-        _mysettings->mqtt_port = (uint8_t)tempVariable;
     }
 
     if (GetTextFromKeyValue(httpbuf, "mqttServer", _mysettings->mqtt_server, sizeof(_mysettings->mqtt_server), urlEncoded))
@@ -167,15 +161,12 @@ esp_err_t post_saveglobalsetting_json_handler(httpd_req_t *req)
     {
         return ESP_FAIL;
     }
-    uint32_t tempVariable;
 
-    if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &tempVariable, urlEncoded))
+    if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &_mysettings->BypassOverTempShutdown, urlEncoded))
     {
-        _mysettings->BypassOverTempShutdown = (uint8_t)tempVariable;
 
-        if (GetKeyValue(httpbuf, "BypassThresholdmV", &tempVariable, urlEncoded))
+        if (GetKeyValue(httpbuf, "BypassThresholdmV", &_mysettings->BypassThresholdmV, urlEncoded))
         {
-            _mysettings->BypassThresholdmV = (uint16_t)tempVariable;
 
             if (_prg->sendSaveGlobalSetting(_mysettings->BypassThresholdmV, _mysettings->BypassOverTempShutdown))
             {
@@ -584,14 +575,10 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req)
             // External Thermistor settings
             // uint16_t External_BCoefficient = 0xFFFF;
 
-            if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &tempVariable, urlEncoded))
+            if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &BypassOverTempShutdown, urlEncoded))
             {
-                BypassOverTempShutdown = (uint8_t)tempVariable;
-
-                if (GetKeyValue(httpbuf, "BypassThresholdmV", &tempVariable, urlEncoded))
+                if (GetKeyValue(httpbuf, "BypassThresholdmV", &BypassThresholdmV, urlEncoded))
                 {
-                    BypassThresholdmV = (uint16_t)tempVariable;
-
                     if (GetKeyValue(httpbuf, "Calib", &Calibration, urlEncoded))
                     {
                         if (_prg->sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration))
@@ -626,17 +613,14 @@ esp_err_t post_savestorage_json_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    uint32_t tempVariable;
-
     // HTML Boolean value, so element is not POST'ed if FALSE/OFF
     _mysettings->loggingEnabled = false;
     if (GetKeyValue(httpbuf, "loggingEnabled", &_mysettings->loggingEnabled, urlEncoded))
     {
     }
 
-    if (GetKeyValue(httpbuf, "loggingFreq", &tempVariable, urlEncoded))
+    if (GetKeyValue(httpbuf, "loggingFreq", &_mysettings->loggingFrequencySeconds, urlEncoded))
     {
-        _mysettings->loggingFrequencySeconds = (uint16_t)tempVariable;
     }
 
     // Validate
@@ -1018,6 +1002,54 @@ esp_err_t post_savecmrelay_json_handler(httpd_req_t *req)
 
 esp_err_t post_savecmbasic_json_handler(httpd_req_t *req)
 {
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    int shuntmaxcur = 0;
+    if (GetKeyValue(httpbuf, "shuntmaxcur", &shuntmaxcur, urlEncoded))
+    {
+        int shuntmv = 0;
+        if (GetKeyValue(httpbuf, "shuntmv", &shuntmv, urlEncoded))
+        {
+            uint16_t batterycapacity = 0;
+            if (GetKeyValue(httpbuf, "cmbatterycapacity", &batterycapacity, urlEncoded))
+            {
+                float fullchargevolt = 0;
+                if (GetKeyValue(httpbuf, "cmfullchargevolt", &fullchargevolt, urlEncoded))
+                {
+                    float tailcurrent = 0;
+                    if (GetKeyValue(httpbuf, "cmtailcurrent", &fullchargevolt, urlEncoded))
+                    {
+                        float chargeefficiency = 0;
+                        if (GetKeyValue(httpbuf, "cmchargeefficiency", &fullchargevolt, urlEncoded))
+                        {
+                            CurrentMonitorSetBasicSettings(shuntmv, shuntmaxcur, batterycapacity, fullchargevolt, tailcurrent, chargeefficiency);
+                            return SendSuccess(req);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return SendFailure(req);
+}
+
+esp_err_t post_savecmadvanced_json_handler(httpd_req_t *req)
+{
 
     ESP_LOGI(TAG, "JSON call");
 
@@ -1035,45 +1067,294 @@ esp_err_t post_savecmbasic_json_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    uint32_t tempVariable;
+    currentmonitoring_struct newvalues;
+    // Set everything to zero/false
+    memset(&newvalues, 0, sizeof(currentmonitoring_struct));
 
-    int shuntmaxcur=0;
-    if (GetKeyValue(httpbuf, "shuntmaxcur", &tempVariable, urlEncoded))
+    // TODO: We need more validation here to check values are correct and all supplied.
+
+    if (GetKeyValue(httpbuf, "cmcalibration", &newvalues.modbus.shuntcal, urlEncoded))
     {
-        shuntmaxcur = (int)tempVariable;
+    }
+    if (GetKeyValue(httpbuf, "cmtemplimit", &newvalues.modbus.temperaturelimit, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "cmundervlimit", &newvalues.modbus.undervoltagelimit, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "cmovervlimit", &newvalues.modbus.overvoltagelimit, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "cmoverclimit", &newvalues.modbus.overcurrentlimit, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "cmunderclimit", &newvalues.modbus.undercurrentlimit, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "cmoverplimit", &newvalues.modbus.overpowerlimit, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "cmtempcoeff", &newvalues.modbus.shunttempcoefficient, urlEncoded))
+    {
+    }
 
-        int shuntmv=0;
-        if (GetKeyValue(httpbuf, "shuntmv", &tempVariable, urlEncoded))
+    CurrentMonitorSetAdvancedSettings(newvalues);
+
+    return SendSuccess(req);
+}
+
+esp_err_t post_avrprog_json_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    uint16_t filenumber;
+
+    if (!GetKeyValue(httpbuf, "file", &filenumber, urlEncoded))
+    {
+        return SendFailure(req);
+    }
+
+    DynamicJsonDocument doc(512);
+
+    int bufferused = 0;
+
+    if (_sd_card_installed)
+    {
+        doc["message"] = "Failed: Unable to program AVR whilst SD Card is mounted";
+        bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+
+        return httpd_resp_send(req, httpbuf, bufferused);
+    }
+
+    if (!_avrsettings.programmingModeEnabled)
+    {
+        doc["message"] = "Failed: Programming mode not enabled";
+        bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+
+        return httpd_resp_send(req, httpbuf, bufferused);
+    }
+
+    String manifestfilename = String("/avr/manifest.json");
+
+    if (LITTLEFS.exists(manifestfilename))
+    {
+        DynamicJsonDocument jsonmanifest(3000);
+        File file = LITTLEFS.open(manifestfilename);
+        DeserializationError error = deserializeJson(jsonmanifest, file);
+        if (error != DeserializationError::Ok)
         {
-            shuntmv = (int)tempVariable;
+            ESP_LOGE(TAG, "Error deserialize Json");
+            return SendFailure(req);
+        }
+        else
+        {
+            // File open
+            // ESP_LOGI(TAG, "Loaded manifest.json");
 
-            uint16_t batterycapacity=0;
-            if (GetKeyValue(httpbuf, "cmbatterycapacity", &tempVariable, urlEncoded))
+            JsonArray toplevel = jsonmanifest["avrprog"];
+
+            int arraySize = jsonmanifest["avrprog"].size();
+
+            if (filenumber > arraySize)
             {
-                batterycapacity = (uint16_t)tempVariable;
+                ESP_LOGE(TAG, "Index outsize array %i > %i", filenumber, arraySize);
+                return SendFailure(req);
+            }
 
-                float fullchargevolt=0;
-                if (GetKeyValue(httpbuf, "cmfullchargevolt", &fullchargevolt, urlEncoded))
-                {
-                    float tailcurrent=0;
-                    if (GetKeyValue(httpbuf, "cmtailcurrent", &fullchargevolt, urlEncoded))
-                    {
-                        float chargeefficiency=0;
-                        if (GetKeyValue(httpbuf, "cmchargeefficiency", &fullchargevolt, urlEncoded))
-                        {
-                            CurrentMonitorSetBasicSettings(shuntmv, shuntmaxcur, batterycapacity, fullchargevolt, tailcurrent, chargeefficiency);
-                            return SendSuccess(req);
-                        }
-                    }
-                }
+            JsonObject x = toplevel[filenumber];
+
+            _avrsettings.efuse = strtoul(x["efuse"].as<String>().c_str(), nullptr, 16);
+            _avrsettings.hfuse = strtoul(x["hfuse"].as<String>().c_str(), nullptr, 16);
+            _avrsettings.lfuse = strtoul(x["lfuse"].as<String>().c_str(), nullptr, 16);
+            _avrsettings.mcu = strtoul(x["mcu"].as<String>().c_str(), nullptr, 16);
+
+            String avrfilename = String("/avr/") + x["name"].as<String>();
+
+            avrfilename.toCharArray(_avrsettings.filename, sizeof(_avrsettings.filename));
+        }
+        file.close();
+
+        _avrsettings.progresult = 0xFF;
+        _avrsettings.inProgress = true;
+
+        // Fire task to start the AVR programming
+        xTaskNotify(avrprog_task_handle, 0x00, eNotifyAction::eNoAction);
+    }
+    else
+    {
+        // No files!
+        return SendFailure(req);
+    }
+
+    doc["started"] = 1;
+    doc["message"] = "Started";
+
+    bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+
+    return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    _mysettings->currentMonitoringEnabled = false;
+    if (GetKeyValue(httpbuf, "CurrentMonEnabled", &_mysettings->currentMonitoringEnabled, urlEncoded))
+    {
+    }
+
+    if (GetKeyValue(httpbuf, "modbusAddress", &_mysettings->currentMonitoringModBusAddress, urlEncoded))
+    {
+    }
+
+    if (_mysettings->currentMonitoringEnabled == false)
+    {
+        // Switch off current monitor, clear out the values
+        memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+        currentMonitor.validReadings = false;
+    }
+
+    saveConfiguration();
+
+    return SendSuccess(req);
+}
+esp_err_t post_saverules_json_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    char textBuffer[32];
+
+    // relaytype
+    for (int i = 0; i < RELAY_TOTAL; i++)
+    {
+        String name = "relaytype";
+        name = name + (i + 1);
+
+        if (GetTextFromKeyValue(httpbuf, name.c_str(), textBuffer, sizeof(textBuffer), urlEncoded))
+        {
+
+            // Default
+            RelayType oldValue = _mysettings->relaytype[i];
+            if (strcmp(textBuffer, "Pulse") == 0)
+            {
+                _mysettings->relaytype[i] = RelayType::RELAY_PULSE;
+            }
+            else
+            {
+                _mysettings->relaytype[i] = RelayType::RELAY_STANDARD;
+            }
+
+            if (oldValue != _mysettings->relaytype[i])
+            {
+                // The type of relay has changed - we probably need to reset something here
+                ESP_LOGI(TAG, "Type of relay has changed");
+                previousRelayState[i] = RelayState::RELAY_X;
             }
         }
     }
 
-    return SendFailure(req);
-}
+    // Relay default
+    for (int i = 0; i < RELAY_TOTAL; i++)
+    {
+        String name = "defaultrelay";
+        name = name + (i + 1);
+        if (GetTextFromKeyValue(httpbuf, name.c_str(), textBuffer, sizeof(textBuffer), urlEncoded))
+        {
+            // Default
+            _mysettings->rulerelaydefault[i] = RelayState::RELAY_OFF;
+            if (strcmp(textBuffer, "On") == 0)
+            {
+                _mysettings->rulerelaydefault[i] = RelayState::RELAY_ON;
+            }
+        }
+    }
 
-esp_err_t post_saverules_json_handler(httpd_req_t *req) { return SendFailure(req); }
-esp_err_t post_avrprog_json_handler(httpd_req_t *req) { return SendFailure(req); }
-esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req) { return SendFailure(req); }
-esp_err_t post_savecmadvanced_json_handler(httpd_req_t *req) { return SendFailure(req); }
+    for (int rule = 0; rule < RELAY_RULES; rule++)
+    {
+
+        // TODO: This STRING doesnt work properly if its on a single line!
+        String name = "rule";
+        name = name + (rule);
+        name = name + "value";
+
+        if (GetKeyValue(httpbuf, name.c_str(), &_mysettings->rulevalue[rule], urlEncoded))
+        {
+        }
+
+        // TODO: This STRING doesnt work properly if its on a single line!
+        String hname = "rule";
+        hname = hname + (rule);
+        hname = hname + "hysteresis";
+        if (GetKeyValue(httpbuf, name.c_str(), &_mysettings->rulehysteresis[rule], urlEncoded))
+        {
+        }
+
+        // Rule/relay processing
+        for (int i = 0; i < RELAY_TOTAL; i++)
+        {
+            // TODO: This STRING doesnt work properly if its on a single line!
+            String name = "rule";
+            name = name + (rule);
+            name = name + "relay";
+            name = name + (i + 1);
+
+            if (GetTextFromKeyValue(httpbuf, name.c_str(), textBuffer, sizeof(textBuffer), urlEncoded))
+            {
+                _mysettings->rulerelaystate[rule][i] = strcmp(textBuffer, "X") == 0 ? RELAY_X : strcmp(textBuffer, "On") == 0 ? RelayState::RELAY_ON
+                                                                                                                              : RelayState::RELAY_OFF;
+            }
+        }
+
+        // Reset state of rules after updating the new values
+        for (int8_t r = 0; r < RELAY_RULES; r++)
+        {
+            _rules->rule_outcome[r] = false;
+        }
+    }
+
+    saveConfiguration();
+
+    return SendSuccess(req);
+}

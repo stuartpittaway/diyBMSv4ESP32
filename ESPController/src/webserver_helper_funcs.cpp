@@ -105,6 +105,85 @@ bool GetTextFromKeyValue(const char *buffer, const char *key, char *text, size_t
     return false;
 }
 
+bool GetKeyValue(const char *buffer, const char *key, uint8_t *value, bool urlEncoded)
+{
+    uint32_t uint32Variable;
+    bool reply = GetKeyValue(buffer, key, &uint32Variable, urlEncoded);
+    if (reply)
+    {
+        // Truncate down to uint16
+        if (uint32Variable > 0xFF)
+        {
+            ESP_LOGW(TAG, "Overflow %i", uint32Variable);
+        }
+        *value = (uint8_t)uint32Variable;
+    }
+    return reply;
+}
+
+bool GetKeyValue(const char *buffer, const char *key, uint16_t *value, bool urlEncoded)
+{
+    uint32_t uint32Variable;
+    bool reply = GetKeyValue(buffer, key, &uint32Variable, urlEncoded);
+    if (reply)
+    {
+        // Truncate down to uint16
+        if (uint32Variable > 0xFFFF)
+        {
+            ESP_LOGW(TAG, "Overflow %i", uint32Variable);
+        }
+        *value = (uint16_t)uint32Variable;
+    }
+    return reply;
+}
+
+bool GetKeyValue(const char *buffer, const char *key, int8_t *value, bool urlEncoded)
+{
+    int32_t int32Variable;
+    bool reply = GetKeyValue(buffer, key, &int32Variable, urlEncoded);
+    if (reply)
+    {
+        // Truncate down to int8
+        // Check for overflow?
+        if (int32Variable > 255)
+        {
+            ESP_LOGW(TAG, "Overflow %i", int32Variable);
+        }
+
+        *value = (int8_t)int32Variable;
+    }
+    return reply;
+}
+
+bool GetKeyValue(const char *buffer, const char *key, int16_t *value, bool urlEncoded)
+{
+    int32_t int32Variable;
+    bool reply = GetKeyValue(buffer, key, &int32Variable, urlEncoded);
+    if (reply)
+    {
+        // Truncate down to int16
+        *value = (int16_t)int32Variable;
+    }
+    return reply;
+}
+
+// Gets an SIGNED long value from a character buffer (as returned in HTTP request, query string etc)
+bool GetKeyValue(const char *buffer, const char *key, int32_t *value, bool urlEncoded)
+{
+    char param[32];
+
+    if (GetTextFromKeyValue(httpbuf, key, param, sizeof(param), urlEncoded))
+    {
+        // String to number conversion
+        char **endptr = NULL;
+        long v = strtol(param, endptr, 10);
+
+        *value = v;
+        return true;
+    }
+
+    return false;
+}
 
 // Gets a FLOAT value from a character buffer (as returned in HTTP request, query string etc)
 bool GetKeyValue(const char *buffer, const char *key, float *value, bool urlEncoded)
@@ -123,7 +202,6 @@ bool GetKeyValue(const char *buffer, const char *key, float *value, bool urlEnco
 
     return false;
 }
-
 
 // Gets an unsigned long value from a character buffer (as returned in HTTP request, query string etc)
 bool GetKeyValue(const char *buffer, const char *key, uint32_t *value, bool urlEncoded)
