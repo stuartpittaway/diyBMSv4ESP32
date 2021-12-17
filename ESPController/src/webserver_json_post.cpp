@@ -80,7 +80,7 @@ esp_err_t post_saventp_json_handler(httpd_req_t *req)
     {
     }
 
-    if (GetTextFromKeyValue(httpbuf, "NTPServer",mysettings.ntpServer, sizeof(mysettings.ntpServer), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "NTPServer", mysettings.ntpServer, sizeof(mysettings.ntpServer), urlEncoded))
     {
     }
 
@@ -1191,21 +1191,24 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req)
         _avrsettings.progresult = 0xFF;
         _avrsettings.inProgress = true;
 
+        ESP_LOGI(TAG, "Notify AVR task")
         // Fire task to start the AVR programming
         xTaskNotify(avrprog_task_handle, 0x00, eNotifyAction::eNoAction);
+
+        doc["started"] = 1;
+        doc["message"] = "Started";
+
+        bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+
+        return httpd_resp_send(req, httpbuf, bufferused);
     }
     else
     {
-        // No files!
-        return SendFailure(req);
+        ESP_LOGE(TAG, "Cannot find file %s", manifestfilename);
     }
 
-    doc["started"] = 1;
-    doc["message"] = "Started";
-
-    bufferused += serializeJson(doc, httpbuf, BUFSIZE);
-
-    return httpd_resp_send(req, httpbuf, bufferused);
+    // No files!
+    return SendFailure(req);
 }
 
 esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req)
@@ -1343,7 +1346,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req)
             if (GetTextFromKeyValue(httpbuf, name.c_str(), textBuffer, sizeof(textBuffer), urlEncoded))
             {
                 mysettings.rulerelaystate[rule][i] = strcmp(textBuffer, "X") == 0 ? RELAY_X : strcmp(textBuffer, "On") == 0 ? RelayState::RELAY_ON
-                                                                                                                              : RelayState::RELAY_OFF;
+                                                                                                                            : RelayState::RELAY_OFF;
             }
         }
 

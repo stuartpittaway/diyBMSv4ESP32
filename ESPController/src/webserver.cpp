@@ -11,19 +11,6 @@ const char *const image_x_icon = "image/x-icon";
 
 httpd_handle_t _myserver;
 
-// Pointers to other classes (not always a good idea in static classes)
-// static sdcard_info (*_sdcardcallback)();
-/*
-fs::SDFS *_sdcard;
-void (*_sdcardaction_callback)(uint8_t action);
-PacketRequestGenerator *_prg;
-PacketReceiveProcessor *_receiveProc;
-diybms_eeprom_settings *_mysettings;
-Rules *_rules;
-ControllerState *_controlState;
-HAL_ESP32 *_hal;
-*/
-
 // Shared buffer for all HTTP generated replies
 char httpbuf[BUFSIZE];
 
