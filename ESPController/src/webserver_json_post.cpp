@@ -25,17 +25,17 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req)
 
     uint32_t tempVariable;
 
-    if (GetUint32FromKeyValue(httpbuf, "totalSeriesModules", &tempVariable, urlEncoded))
+    if (GetKeyValue(httpbuf, "totalSeriesModules", &tempVariable, urlEncoded))
     {
         // Obviously could overflow
         totalSeriesModules = (uint8_t)tempVariable;
 
-        if (GetUint32FromKeyValue(httpbuf, "totalBanks", &tempVariable, urlEncoded))
+        if (GetKeyValue(httpbuf, "totalBanks", &tempVariable, urlEncoded))
         {
             // Obviously could overflow
             totalBanks = (uint8_t)tempVariable;
 
-            if (GetUint32FromKeyValue(httpbuf, "baudrate", &tempVariable, urlEncoded))
+            if (GetKeyValue(httpbuf, "baudrate", &tempVariable, urlEncoded))
             {
                 // Obviously could overflow
                 baudrate = (uint16_t)tempVariable;
@@ -75,11 +75,11 @@ esp_err_t post_saventp_json_handler(httpd_req_t *req)
     }
 
     uint32_t tempVariable;
-    if (GetUint32FromKeyValue(httpbuf, "NTPZoneHour", &tempVariable, urlEncoded))
+    if (GetKeyValue(httpbuf, "NTPZoneHour", &tempVariable, urlEncoded))
     {
         _mysettings->timeZone = (uint8_t)tempVariable;
     }
-    if (GetUint32FromKeyValue(httpbuf, "NTPZoneMin", &tempVariable, urlEncoded))
+    if (GetKeyValue(httpbuf, "NTPZoneMin", &tempVariable, urlEncoded))
     {
         _mysettings->minutesTimeZone = (uint8_t)tempVariable;
     }
@@ -89,12 +89,9 @@ esp_err_t post_saventp_json_handler(httpd_req_t *req)
     }
 
     // HTML Boolean value, so element is not POST'ed if FALSE/OFF
-    if (GetBoolFromKeyValue(httpbuf, "NTPDST", &_mysettings->daylight, urlEncoded))
+    _mysettings->daylight = false;
+    if (GetKeyValue(httpbuf, "NTPDST", &_mysettings->daylight, urlEncoded))
     {
-    }
-    else
-    {
-        _mysettings->daylight = false;
     }
 
     saveConfiguration();
@@ -123,7 +120,7 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req)
 
     _mysettings->mqtt_enabled = false;
 
-    if (GetBoolFromKeyValue(httpbuf, "mqttEnabled", &_mysettings->mqtt_enabled, urlEncoded))
+    if (GetKeyValue(httpbuf, "mqttEnabled", &_mysettings->mqtt_enabled, urlEncoded))
     {
     }
 
@@ -131,7 +128,7 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req)
     {
     }
 
-    if (GetUint32FromKeyValue(httpbuf, "mqttPort", &tempVariable, urlEncoded))
+    if (GetKeyValue(httpbuf, "mqttPort", &tempVariable, urlEncoded))
     {
         _mysettings->mqtt_port = (uint8_t)tempVariable;
     }
@@ -172,11 +169,11 @@ esp_err_t post_saveglobalsetting_json_handler(httpd_req_t *req)
     }
     uint32_t tempVariable;
 
-    if (GetUint32FromKeyValue(httpbuf, "BypassOverTempShutdown", &tempVariable, urlEncoded))
+    if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &tempVariable, urlEncoded))
     {
         _mysettings->BypassOverTempShutdown = (uint8_t)tempVariable;
 
-        if (GetUint32FromKeyValue(httpbuf, "BypassThresholdmV", &tempVariable, urlEncoded))
+        if (GetKeyValue(httpbuf, "BypassThresholdmV", &tempVariable, urlEncoded))
         {
             _mysettings->BypassThresholdmV = (uint16_t)tempVariable;
 
@@ -204,6 +201,33 @@ esp_err_t post_saveglobalsetting_json_handler(httpd_req_t *req)
     return SendFailure(req);
 }
 
+/*
+Restart controller from web interface
+*/
+esp_err_t post_restartcontroller_json_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    // Reboot!
+    ESP.restart();
+
+    return SendSuccess(req);
+}
+
 esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "JSON call");
@@ -223,7 +247,7 @@ esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req)
     }
 
     _mysettings->influxdb_enabled = false;
-    if (GetBoolFromKeyValue(httpbuf, "influxEnabled", &_mysettings->influxdb_enabled, urlEncoded))
+    if (GetKeyValue(httpbuf, "influxEnabled", &_mysettings->influxdb_enabled, urlEncoded))
     {
     }
 
@@ -533,7 +557,7 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req)
 
     uint32_t tempVariable;
 
-    if (GetUint32FromKeyValue(httpbuf, "m", &tempVariable, urlEncoded))
+    if (GetKeyValue(httpbuf, "m", &tempVariable, urlEncoded))
     {
         uint8_t m = (uint8_t)tempVariable;
 
@@ -560,15 +584,15 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req)
             // External Thermistor settings
             // uint16_t External_BCoefficient = 0xFFFF;
 
-            if (GetUint32FromKeyValue(httpbuf, "BypassOverTempShutdown", &tempVariable, urlEncoded))
+            if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &tempVariable, urlEncoded))
             {
                 BypassOverTempShutdown = (uint8_t)tempVariable;
 
-                if (GetUint32FromKeyValue(httpbuf, "BypassThresholdmV", &tempVariable, urlEncoded))
+                if (GetKeyValue(httpbuf, "BypassThresholdmV", &tempVariable, urlEncoded))
                 {
                     BypassThresholdmV = (uint16_t)tempVariable;
 
-                    if (GetFloatFromKeyValue(httpbuf, "Calib", &Calibration, urlEncoded))
+                    if (GetKeyValue(httpbuf, "Calib", &Calibration, urlEncoded))
                     {
                         if (_prg->sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration))
                         {
@@ -580,7 +604,476 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req)
                 }
             }
         }
+    }
+    return SendFailure(req);
+}
 
+esp_err_t post_savestorage_json_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    uint32_t tempVariable;
+
+    // HTML Boolean value, so element is not POST'ed if FALSE/OFF
+    _mysettings->loggingEnabled = false;
+    if (GetKeyValue(httpbuf, "loggingEnabled", &_mysettings->loggingEnabled, urlEncoded))
+    {
+    }
+
+    if (GetKeyValue(httpbuf, "loggingFreq", &tempVariable, urlEncoded))
+    {
+        _mysettings->loggingFrequencySeconds = (uint16_t)tempVariable;
+    }
+
+    // Validate
+    if (_mysettings->loggingFrequencySeconds < 15 || _mysettings->loggingFrequencySeconds > 600)
+    {
+        _mysettings->loggingFrequencySeconds = 15;
+    }
+
+    saveConfiguration();
+
+    return SendSuccess(req);
+}
+
+esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    // uint32_t tempVariable;
+
+    if (GetKeyValue(httpbuf, "VoltageHigh", &_mysettings->graph_voltagehigh, urlEncoded))
+    {
+    }
+
+    if (GetKeyValue(httpbuf, "VoltageLow", &_mysettings->graph_voltagelow, urlEncoded))
+    {
+    }
+
+    // Validate high is greater than low
+    if (_mysettings->graph_voltagelow > _mysettings->graph_voltagehigh || _mysettings->graph_voltagelow < 0)
+    {
+        _mysettings->graph_voltagelow = 0;
+    }
+
+    if (GetTextFromKeyValue(httpbuf, "Language", _mysettings->language, sizeof(_mysettings->language), urlEncoded))
+    {
+    }
+
+    saveConfiguration();
+
+    return SendSuccess(req);
+}
+
+esp_err_t post_resetcounters_json_handler(httpd_req_t *req)
+{
+
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    // Ask modules to reset bad packet counters
+    // If this fails, queue could be full so return error
+    if (_prg->sendBadPacketCounterReset() && _prg->sendResetBalanceCurrentCounter())
+    {
+        canbus_messages_failed_sent = 0;
+        canbus_messages_received = 0;
+        canbus_messages_sent = 0;
+
+        for (uint8_t i = 0; i < maximum_controller_cell_modules; i++)
+        {
+            cmi[i].badPacketCount = 0;
+            cmi[i].PacketReceivedCount = 0;
+        }
+
+        // Reset internal counters on CONTROLLER
+        _receiveProc->ResetCounters();
+        _prg->ResetCounters();
+
+        return SendSuccess(req);
+    }
+
+    return SendFailure(req);
+}
+
+esp_err_t post_sdmount_json_handler(httpd_req_t *req)
+{
+
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    if (_avrsettings.programmingModeEnabled)
+    {
         return SendFailure(req);
     }
+
+    (*_sdcardaction_callback)(1);
+
+    return SendSuccess(req);
 }
+esp_err_t post_sdunmount_json_handler(httpd_req_t *req)
+{
+
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    if (_avrsettings.programmingModeEnabled)
+    {
+        return SendFailure(req);
+    }
+
+    (*_sdcardaction_callback)(0);
+
+    return SendSuccess(req);
+}
+
+esp_err_t post_enableavrprog_json_handler(httpd_req_t *req)
+{
+
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    (*_sdcardaction_callback)(0);
+
+    _avrsettings.programmingModeEnabled = true;
+
+    return SendSuccess(req);
+}
+esp_err_t post_disableavrprog_json_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    _avrsettings.programmingModeEnabled = false;
+
+    // Try and remount the SD card
+    (*_sdcardaction_callback)(1);
+
+    return SendSuccess(req);
+}
+
+esp_err_t post_savers485settings_json_handler(httpd_req_t *req)
+{
+
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    uint32_t tempVariable;
+
+    if (GetKeyValue(httpbuf, "rs485baudrate", &tempVariable, urlEncoded))
+    {
+        _mysettings->rs485baudrate = (int)tempVariable;
+    }
+
+    if (GetKeyValue(httpbuf, "rs485databit", &tempVariable, urlEncoded))
+    {
+        _mysettings->rs485databits = (uart_word_length_t)tempVariable;
+    }
+
+    if (GetKeyValue(httpbuf, "rs485parity", &tempVariable, urlEncoded))
+    {
+        _mysettings->rs485parity = (uart_parity_t)tempVariable;
+    }
+
+    if (GetKeyValue(httpbuf, "rs485stopbit", &tempVariable, urlEncoded))
+    {
+        _mysettings->rs485stopbits = (uart_stop_bits_t)tempVariable;
+    }
+
+    saveConfiguration();
+
+    ConfigureRS485();
+    return SendSuccess(req);
+}
+
+esp_err_t post_savevictron_json_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    // uint32_t tempVariable;
+
+    _mysettings->VictronEnabled = false;
+    if (GetKeyValue(httpbuf, "VictronEnabled", &_mysettings->VictronEnabled, urlEncoded))
+    {
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        // TODO: Check return values are correct here... floats vs ints?
+        String name = "cvl";
+        name = name + i;
+
+        float tempFloat;
+
+        if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
+        {
+            _mysettings->cvl[i] = tempFloat * 10;
+        }
+
+        name = "ccl";
+        name = name + i;
+        if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
+        {
+            _mysettings->ccl[i] = tempFloat * 10;
+        }
+
+        name = "dcl";
+        name = name + i;
+        if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
+        {
+            _mysettings->dcl[i] = tempFloat * 10;
+        }
+    }
+
+    saveConfiguration();
+
+    return SendSuccess(req);
+}
+esp_err_t post_savecmrelay_json_handler(httpd_req_t *req)
+{
+
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    // uint32_t tempVariable;
+
+    currentmonitoring_struct newvalues;
+    // Set everything to zero/false
+    memset(&newvalues, 0, sizeof(currentmonitoring_struct));
+
+    newvalues.TempCompEnabled = false;
+
+    bool tempBool;
+
+    if (GetKeyValue(httpbuf, "TempCompEnabled", &tempBool, urlEncoded))
+    {
+        newvalues.TempCompEnabled = tempBool;
+    }
+
+    if (GetKeyValue(httpbuf, "cmTMPOL", &tempBool, urlEncoded))
+    {
+        newvalues.RelayTriggerTemperatureOverLimit = tempBool;
+    }
+
+    if (GetKeyValue(httpbuf, "cmCURROL", &tempBool, urlEncoded))
+    {
+        newvalues.RelayTriggerCurrentOverLimit = tempBool;
+    }
+
+    if (GetKeyValue(httpbuf, "cmCURRUL", &tempBool, urlEncoded))
+    {
+        newvalues.RelayTriggerCurrentUnderLimit = tempBool;
+    }
+
+    if (GetKeyValue(httpbuf, "cmVOLTOL", &tempBool, urlEncoded))
+    {
+        newvalues.RelayTriggerVoltageOverlimit = tempBool;
+    }
+
+    if (GetKeyValue(httpbuf, "cmVOLTUL", &tempBool, urlEncoded))
+    {
+        newvalues.RelayTriggerVoltageUnderlimit = tempBool;
+    }
+    if (GetKeyValue(httpbuf, "cmPOL", &tempBool, urlEncoded))
+    {
+        newvalues.RelayTriggerPowerOverLimit = tempBool;
+    }
+
+    CurrentMonitorSetRelaySettings(newvalues);
+
+    return SendSuccess(req);
+}
+
+esp_err_t post_savecmbasic_json_handler(httpd_req_t *req)
+{
+
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    uint32_t tempVariable;
+
+    int shuntmaxcur=0;
+    if (GetKeyValue(httpbuf, "shuntmaxcur", &tempVariable, urlEncoded))
+    {
+        shuntmaxcur = (int)tempVariable;
+
+        int shuntmv=0;
+        if (GetKeyValue(httpbuf, "shuntmv", &tempVariable, urlEncoded))
+        {
+            shuntmv = (int)tempVariable;
+
+            uint16_t batterycapacity=0;
+            if (GetKeyValue(httpbuf, "cmbatterycapacity", &tempVariable, urlEncoded))
+            {
+                batterycapacity = (uint16_t)tempVariable;
+
+                float fullchargevolt=0;
+                if (GetKeyValue(httpbuf, "cmfullchargevolt", &fullchargevolt, urlEncoded))
+                {
+                    float tailcurrent=0;
+                    if (GetKeyValue(httpbuf, "cmtailcurrent", &fullchargevolt, urlEncoded))
+                    {
+                        float chargeefficiency=0;
+                        if (GetKeyValue(httpbuf, "cmchargeefficiency", &fullchargevolt, urlEncoded))
+                        {
+                            CurrentMonitorSetBasicSettings(shuntmv, shuntmaxcur, batterycapacity, fullchargevolt, tailcurrent, chargeefficiency);
+                            return SendSuccess(req);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return SendFailure(req);
+}
+
+esp_err_t post_saverules_json_handler(httpd_req_t *req) { return SendFailure(req); }
+esp_err_t post_avrprog_json_handler(httpd_req_t *req) { return SendFailure(req); }
+esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req) { return SendFailure(req); }
+esp_err_t post_savecmadvanced_json_handler(httpd_req_t *req) { return SendFailure(req); }

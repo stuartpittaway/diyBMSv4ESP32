@@ -556,7 +556,7 @@ esp_err_t content_handler_avrstatus(httpd_req_t *req)
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
-esp_err_t content_handler_getvictron(httpd_req_t *req)
+esp_err_t content_handler_victron(httpd_req_t *req)
 {
   if (!validateXSS(req))
   {

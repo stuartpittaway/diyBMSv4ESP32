@@ -324,7 +324,7 @@ httpd_uri_t uri_monitor3_json_get = {.uri = "/monitor3.json", .method = HTTP_GET
 httpd_uri_t uri_integration_json_get = {.uri = "/integration.json", .method = HTTP_GET, .handler = content_handler_integration, .user_ctx = NULL};
 httpd_uri_t uri_settings_json_get = {.uri = "/settings.json", .method = HTTP_GET, .handler = content_handler_settings, .user_ctx = NULL};
 httpd_uri_t uri_rules_json_get = {.uri = "/rules.json", .method = HTTP_GET, .handler = content_handler_rules, .user_ctx = NULL};
-httpd_uri_t uri_getvictron_json_get = {.uri = "/getvictron.json", .method = HTTP_GET, .handler = content_handler_getvictron, .user_ctx = NULL};
+httpd_uri_t uri_victron_json_get = {.uri = "/victron.json", .method = HTTP_GET, .handler = content_handler_victron, .user_ctx = NULL};
 httpd_uri_t uri_rs485settings_json_get = {.uri = "/rs485settings.json", .method = HTTP_GET, .handler = content_handler_rs485settings, .user_ctx = NULL};
 httpd_uri_t uri_currentmonitor_json_get = {.uri = "/currentmonitor.json", .method = HTTP_GET, .handler = content_handler_currentmonitor, .user_ctx = NULL};
 httpd_uri_t uri_avrstatus_json_get = {.uri = "/avrstatus.json", .method = HTTP_GET, .handler = content_handler_avrstatus, .user_ctx = NULL};
@@ -343,8 +343,24 @@ httpd_uri_t uri_savemqtt_json_post = {.uri = "/savemqtt.json", .method = HTTP_PO
 httpd_uri_t uri_saveinfluxdbsetting_json_post = {.uri = "/saveinfluxdb.json", .method = HTTP_POST, .handler = post_saveinfluxdbsetting_json_handler, .user_ctx = NULL};
 httpd_uri_t uri_saveconfigurationtosdcard_json_post = {.uri = "/saveconfigtofile.json", .method = HTTP_POST, .handler = post_saveconfigurationtosdcard_json_handler, .user_ctx = NULL};
 httpd_uri_t uri_savewificonfigtosdcard_json_post = {.uri = "/wificonfigtofile.json", .method = HTTP_POST, .handler = post_savewificonfigtosdcard_json_handler, .user_ctx = NULL};
-
 httpd_uri_t uri_savesetting_json_post = {.uri = "/savesetting.json", .method = HTTP_POST, .handler = post_savesetting_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_restartcontroller_json_post = {.uri = "/restartcontroller.json", .method = HTTP_POST, .handler = post_restartcontroller_json_handler, .user_ctx = NULL};
+
+httpd_uri_t uri_saverules_json_post = {.uri = "/saverules.json", .method = HTTP_POST, .handler = post_saverules_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_savedisplaysetting_json_post = {.uri = "/savedisplaysetting.json", .method = HTTP_POST, .handler = post_savedisplaysetting_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_savestorage_json_post = {.uri = "/savestorage.json", .method = HTTP_POST, .handler = post_savestorage_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_resetcounters_json_post = {.uri = "/resetcounters.json", .method = HTTP_POST, .handler = post_resetcounters_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_sdmount_json_post = {.uri = "/sdmount.json", .method = HTTP_POST, .handler = post_sdmount_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_sdunmount_json_post = {.uri = "/sdunmount.json", .method = HTTP_POST, .handler = post_sdunmount_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_enableavrprog_json_post = {.uri = "/enableavrprog.json", .method = HTTP_POST, .handler = post_enableavrprog_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_disableavrprog_json_post = {.uri = "/disableavrprog.json", .method = HTTP_POST, .handler = post_disableavrprog_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_avrprog_json_post = {.uri = "/avrprog.json", .method = HTTP_POST, .handler = post_avrprog_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_savers485settings_json_post = {.uri = "/savers485settings.json", .method = HTTP_POST, .handler = post_savers485settings_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_savecurrentmon_json_post = {.uri = "/savecurrentmon.json", .method = HTTP_POST, .handler = post_savecurrentmon_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_savecmbasic_json_post = {.uri = "/savecmbasic.json", .method = HTTP_POST, .handler = post_savecmbasic_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_savecmadvanced_json_post = {.uri = "/savecmadvanced.json", .method = HTTP_POST, .handler = post_savecmadvanced_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_savecmrelay_json_post = {.uri = "/savecmrelay.json", .method = HTTP_POST, .handler = post_savecmrelay_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_savevictron_json_post = {.uri = "/savevictron.json", .method = HTTP_POST, .handler = post_savevictron_json_handler, .user_ctx = NULL};
 
 
 void clearModuleValues(uint8_t module)
@@ -366,7 +382,7 @@ httpd_handle_t start_webserver(void)
   /* Generate default configuration */
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-  config.max_uri_handlers = 50;
+  config.max_uri_handlers = 58;
   config.max_open_sockets = 5;
   config.max_resp_headers = 16;
   config.stack_size = 4096;
@@ -408,7 +424,7 @@ httpd_handle_t start_webserver(void)
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_integration_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_settings_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_rules_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_getvictron_json_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_victron_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_rs485settings_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_currentmonitor_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrstatus_json_get));
@@ -427,7 +443,24 @@ httpd_handle_t start_webserver(void)
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saveconfigurationtosdcard_json_post));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savewificonfigtosdcard_json_post));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savesetting_json_post));
-    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_restartcontroller_json_post));    
+
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saverules_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savedisplaysetting_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savestorage_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_resetcounters_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_sdmount_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_sdunmount_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_enableavrprog_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_disableavrprog_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrprog_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savers485settings_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecurrentmon_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmbasic_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmadvanced_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmrelay_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savevictron_json_post));    
+
   }
   /* If server failed to start, handle will be NULL */
   return server;
