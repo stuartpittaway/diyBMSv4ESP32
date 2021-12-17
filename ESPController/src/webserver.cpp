@@ -77,6 +77,9 @@ esp_err_t SendFailure(httpd_req_t *req)
 
 esp_err_t SendSuccess(httpd_req_t *req)
 {
+  httpd_resp_set_type(req, "application/json");
+  setCacheControl(req);
+
   StaticJsonDocument<100> doc;
   doc["success"] = true;
   int bufferused = 0;
@@ -351,7 +354,6 @@ httpd_uri_t uri_savecmadvanced_json_post = {.uri = "/savecmadvanced.json", .meth
 httpd_uri_t uri_savecmrelay_json_post = {.uri = "/savecmrelay.json", .method = HTTP_POST, .handler = post_savecmrelay_json_handler, .user_ctx = NULL};
 httpd_uri_t uri_savevictron_json_post = {.uri = "/savevictron.json", .method = HTTP_POST, .handler = post_savevictron_json_handler, .user_ctx = NULL};
 
-
 void clearModuleValues(uint8_t module)
 {
   cmi[module].valid = false;
@@ -432,24 +434,23 @@ httpd_handle_t start_webserver(void)
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saveconfigurationtosdcard_json_post));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savewificonfigtosdcard_json_post));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savesetting_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_restartcontroller_json_post));    
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_restartcontroller_json_post));
 
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saverules_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savedisplaysetting_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savestorage_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_resetcounters_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_sdmount_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_sdunmount_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_enableavrprog_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_disableavrprog_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrprog_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savers485settings_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecurrentmon_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmbasic_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmadvanced_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmrelay_json_post));    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savevictron_json_post));    
-
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saverules_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savedisplaysetting_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savestorage_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_resetcounters_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_sdmount_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_sdunmount_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_enableavrprog_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_disableavrprog_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrprog_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savers485settings_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecurrentmon_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmbasic_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmadvanced_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmrelay_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savevictron_json_post));
   }
   /* If server failed to start, handle will be NULL */
   return server;

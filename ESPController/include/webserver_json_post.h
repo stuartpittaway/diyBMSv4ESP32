@@ -63,5 +63,5 @@ extern void ConfigureRS485();
 extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency);
 extern void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues);
 extern void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues);
-
+extern void setCacheControl(httpd_req_t *req);
 #endif

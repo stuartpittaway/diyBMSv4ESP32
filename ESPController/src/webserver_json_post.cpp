@@ -1134,6 +1134,9 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req)
 
     if (_sd_card_installed)
     {
+        httpd_resp_set_type(req, "application/json");
+        setCacheControl(req);
+
         doc["message"] = "Failed: Unable to program AVR whilst SD Card is mounted";
         bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
@@ -1142,6 +1145,9 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req)
 
     if (!_avrsettings.programmingModeEnabled)
     {
+        httpd_resp_set_type(req, "application/json");
+        setCacheControl(req);
+
         doc["message"] = "Failed: Programming mode not enabled";
         bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
@@ -1191,9 +1197,11 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req)
         _avrsettings.progresult = 0xFF;
         _avrsettings.inProgress = true;
 
-        ESP_LOGI(TAG, "Notify AVR task")
+        ESP_LOGI(TAG, "Notify AVR task");
         // Fire task to start the AVR programming
         xTaskNotify(avrprog_task_handle, 0x00, eNotifyAction::eNoAction);
+        httpd_resp_set_type(req, "application/json");
+        setCacheControl(req);
 
         doc["started"] = 1;
         doc["message"] = "Started";
@@ -1206,6 +1214,7 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req)
     {
         ESP_LOGE(TAG, "Cannot find file %s", manifestfilename);
     }
+
 
     // No files!
     return SendFailure(req);
