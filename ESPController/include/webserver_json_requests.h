@@ -27,9 +27,7 @@ esp_err_t content_handler_victron(httpd_req_t *req);
 esp_err_t content_handler_avrstorage(httpd_req_t *req);
 esp_err_t content_handler_currentmonitor(httpd_req_t *req);
 esp_err_t content_handler_rs485settings(httpd_req_t *req);
-int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t levels);
 esp_err_t content_handler_storage(httpd_req_t *req);
-esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filename);
 esp_err_t content_handler_downloadfile(httpd_req_t *req);
 esp_err_t content_handler_identifymodule(httpd_req_t *req);
 esp_err_t content_handler_modules(httpd_req_t *req);
@@ -40,18 +38,22 @@ esp_err_t content_handler_integration(httpd_req_t *req);
 esp_err_t content_handler_monitor3(httpd_req_t *req);
 esp_err_t content_handler_monitor2(httpd_req_t *req);
 
-extern uint32_t canbus_messages_failed_sent;
-extern uint32_t canbus_messages_sent;
-extern uint32_t canbus_messages_received;
+esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filename);
+int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t levels);
 
-extern fs::SDFS *_sdcard;
-extern void (*_sdcardaction_callback)(uint8_t action);
-extern PacketRequestGenerator *_prg;
-extern PacketReceiveProcessor *_receiveProc;
-extern diybms_eeprom_settings *_mysettings;
-extern Rules *_rules;
-extern ControllerState *_controlState;
-extern HAL_ESP32 *_hal;
+extern diybms_eeprom_settings mysettings;
+extern PacketRequestGenerator prg;
+extern PacketReceiveProcessor receiveProc;
+extern HAL_ESP32 hal;
+extern fs::SDFS SD;
+
+extern TaskHandle_t avrprog_task_handle;
+extern uint32_t canbus_messages_received;
+extern uint32_t canbus_messages_sent;
+extern uint32_t canbus_messages_failed_sent;
+extern void sdcardaction_callback(uint8_t action);
+extern Rules rules;
+extern ControllerState _controller_state;
 
 extern void setCacheControl(httpd_req_t *req);
 extern char CookieValue[20 + 1];

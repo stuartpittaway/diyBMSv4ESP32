@@ -40,9 +40,9 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req)
 
                 if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
                 {
-                    _mysettings->totalNumberOfSeriesModules = totalSeriesModules;
-                    _mysettings->totalNumberOfBanks = totalBanks;
-                    _mysettings->baudRate = baudrate;
+                    mysettings.totalNumberOfSeriesModules = totalSeriesModules;
+                    mysettings.totalNumberOfBanks = totalBanks;
+                    mysettings.baudRate = baudrate;
                     saveConfiguration();
 
                     return SendSuccess(req);
@@ -73,20 +73,20 @@ esp_err_t post_saventp_json_handler(httpd_req_t *req)
     }
 
     // uint32_t tempVariable;
-    if (GetKeyValue(httpbuf, "NTPZoneHour", &_mysettings->timeZone, urlEncoded))
+    if (GetKeyValue(httpbuf, "NTPZoneHour", &mysettings.timeZone, urlEncoded))
     {
     }
-    if (GetKeyValue(httpbuf, "NTPZoneMin", &_mysettings->minutesTimeZone, urlEncoded))
+    if (GetKeyValue(httpbuf, "NTPZoneMin", &mysettings.minutesTimeZone, urlEncoded))
     {
     }
 
-    if (GetTextFromKeyValue(httpbuf, "NTPServer", _mysettings->ntpServer, sizeof(_mysettings->ntpServer), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "NTPServer",mysettings.ntpServer, sizeof(mysettings.ntpServer), urlEncoded))
     {
     }
 
     // HTML Boolean value, so element is not POST'ed if FALSE/OFF
-    _mysettings->daylight = false;
-    if (GetKeyValue(httpbuf, "NTPDST", &_mysettings->daylight, urlEncoded))
+    mysettings.daylight = false;
+    if (GetKeyValue(httpbuf, "NTPDST", &mysettings.daylight, urlEncoded))
     {
     }
 
@@ -113,29 +113,29 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    _mysettings->mqtt_enabled = false;
+    mysettings.mqtt_enabled = false;
 
-    if (GetKeyValue(httpbuf, "mqttEnabled", &_mysettings->mqtt_enabled, urlEncoded))
+    if (GetKeyValue(httpbuf, "mqttEnabled", &mysettings.mqtt_enabled, urlEncoded))
     {
     }
 
-    if (GetTextFromKeyValue(httpbuf, "mqttTopic", _mysettings->mqtt_topic, sizeof(_mysettings->mqtt_topic), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "mqttTopic", mysettings.mqtt_topic, sizeof(mysettings.mqtt_topic), urlEncoded))
     {
     }
 
-    if (GetKeyValue(httpbuf, "mqttPort", &_mysettings->mqtt_port, urlEncoded))
+    if (GetKeyValue(httpbuf, "mqttPort", &mysettings.mqtt_port, urlEncoded))
     {
     }
 
-    if (GetTextFromKeyValue(httpbuf, "mqttServer", _mysettings->mqtt_server, sizeof(_mysettings->mqtt_server), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "mqttServer", mysettings.mqtt_server, sizeof(mysettings.mqtt_server), urlEncoded))
     {
     }
 
-    if (GetTextFromKeyValue(httpbuf, "mqttUsername", _mysettings->mqtt_username, sizeof(_mysettings->mqtt_username), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "mqttUsername", mysettings.mqtt_username, sizeof(mysettings.mqtt_username), urlEncoded))
     {
     }
 
-    if (GetTextFromKeyValue(httpbuf, "mqttPassword", _mysettings->mqtt_password, sizeof(_mysettings->mqtt_password), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "mqttPassword", mysettings.mqtt_password, sizeof(mysettings.mqtt_password), urlEncoded))
     {
     }
 
@@ -162,24 +162,24 @@ esp_err_t post_saveglobalsetting_json_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &_mysettings->BypassOverTempShutdown, urlEncoded))
+    if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &mysettings.BypassOverTempShutdown, urlEncoded))
     {
 
-        if (GetKeyValue(httpbuf, "BypassThresholdmV", &_mysettings->BypassThresholdmV, urlEncoded))
+        if (GetKeyValue(httpbuf, "BypassThresholdmV", &mysettings.BypassThresholdmV, urlEncoded))
         {
 
-            if (_prg->sendSaveGlobalSetting(_mysettings->BypassThresholdmV, _mysettings->BypassOverTempShutdown))
+            if (prg.sendSaveGlobalSetting(mysettings.BypassThresholdmV, mysettings.BypassOverTempShutdown))
             {
 
                 saveConfiguration();
-                uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
+                uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
 
                 for (uint8_t i = 0; i < totalModules; i++)
                 {
                     if (cmi[i].valid)
                     {
-                        cmi[i].BypassThresholdmV = _mysettings->BypassThresholdmV;
-                        cmi[i].BypassOverTempShutdown = _mysettings->BypassOverTempShutdown;
+                        cmi[i].BypassThresholdmV = mysettings.BypassThresholdmV;
+                        cmi[i].BypassOverTempShutdown = mysettings.BypassOverTempShutdown;
                     }
                 }
 
@@ -237,21 +237,21 @@ esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    _mysettings->influxdb_enabled = false;
-    if (GetKeyValue(httpbuf, "influxEnabled", &_mysettings->influxdb_enabled, urlEncoded))
+    mysettings.influxdb_enabled = false;
+    if (GetKeyValue(httpbuf, "influxEnabled", &mysettings.influxdb_enabled, urlEncoded))
     {
     }
 
-    if (GetTextFromKeyValue(httpbuf, "influxUrl", _mysettings->influxdb_serverurl, sizeof(_mysettings->influxdb_serverurl), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "influxUrl", mysettings.influxdb_serverurl, sizeof(mysettings.influxdb_serverurl), urlEncoded))
     {
     }
-    if (GetTextFromKeyValue(httpbuf, "influxDatabase", _mysettings->influxdb_databasebucket, sizeof(_mysettings->influxdb_databasebucket), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "influxDatabase", mysettings.influxdb_databasebucket, sizeof(mysettings.influxdb_databasebucket), urlEncoded))
     {
     }
-    if (GetTextFromKeyValue(httpbuf, "influxOrgId", _mysettings->influxdb_orgid, sizeof(_mysettings->influxdb_orgid), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "influxOrgId", mysettings.influxdb_orgid, sizeof(mysettings.influxdb_orgid), urlEncoded))
     {
     }
-    if (GetTextFromKeyValue(httpbuf, "influxToken", _mysettings->influxdb_apitoken, sizeof(_mysettings->influxdb_apitoken), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "influxToken", mysettings.influxdb_apitoken, sizeof(mysettings.influxdb_apitoken), urlEncoded))
     {
     }
 
@@ -283,7 +283,7 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req)
         return SendFailure(req);
     }
 
-    if (_hal->GetVSPIMutex())
+    if (hal.GetVSPIMutex())
     {
 
         struct tm timeinfo;
@@ -309,10 +309,10 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req)
         // Get the file
         ESP_LOGI(TAG, "Generating SD file %s", filename);
 
-        if (_sdcard->exists(filename))
+        if (SD.exists(filename))
         {
             ESP_LOGI(TAG, "Delete existing file %s", filename);
-            _sdcard->remove(filename);
+            SD.remove(filename);
         }
 
         DynamicJsonDocument doc(4096);
@@ -320,50 +320,50 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req)
         // This code builds up a JSON document which mirrors the structure "diybms_eeprom_settings"
         JsonObject root = doc.createNestedObject("diybms_settings");
 
-        root["totalNumberOfBanks"] = _mysettings->totalNumberOfBanks;
-        root["totalNumberOfSeriesModules"] = _mysettings->totalNumberOfSeriesModules;
-        root["baudRate"] = _mysettings->baudRate;
+        root["totalNumberOfBanks"] = mysettings.totalNumberOfBanks;
+        root["totalNumberOfSeriesModules"] = mysettings.totalNumberOfSeriesModules;
+        root["baudRate"] = mysettings.baudRate;
 
-        root["graph_voltagehigh"] = _mysettings->graph_voltagehigh;
-        root["graph_voltagelow"] = _mysettings->graph_voltagelow;
+        root["graph_voltagehigh"] = mysettings.graph_voltagehigh;
+        root["graph_voltagelow"] = mysettings.graph_voltagelow;
 
-        root["BypassOverTempShutdown"] = _mysettings->BypassOverTempShutdown;
-        root["BypassThresholdmV"] = _mysettings->BypassThresholdmV;
+        root["BypassOverTempShutdown"] = mysettings.BypassOverTempShutdown;
+        root["BypassThresholdmV"] = mysettings.BypassThresholdmV;
 
-        root["timeZone"] = _mysettings->timeZone;
-        root["minutesTimeZone"] = _mysettings->minutesTimeZone;
-        root["daylight"] = _mysettings->daylight;
-        root["ntpServer"] = _mysettings->ntpServer;
+        root["timeZone"] = mysettings.timeZone;
+        root["minutesTimeZone"] = mysettings.minutesTimeZone;
+        root["daylight"] = mysettings.daylight;
+        root["ntpServer"] = mysettings.ntpServer;
 
-        root["loggingEnabled"] = _mysettings->loggingEnabled;
-        root["loggingFrequencySeconds"] = _mysettings->loggingFrequencySeconds;
+        root["loggingEnabled"] = mysettings.loggingEnabled;
+        root["loggingFrequencySeconds"] = mysettings.loggingFrequencySeconds;
 
-        root["currentMonitoringEnabled"] = _mysettings->currentMonitoringEnabled;
-        root["currentMonitoringModBusAddress"] = _mysettings->currentMonitoringModBusAddress;
+        root["currentMonitoringEnabled"] = mysettings.currentMonitoringEnabled;
+        root["currentMonitoringModBusAddress"] = mysettings.currentMonitoringModBusAddress;
 
-        root["rs485baudrate"] = _mysettings->rs485baudrate;
-        root["rs485databits"] = _mysettings->rs485databits;
-        root["rs485parity"] = _mysettings->rs485parity;
-        root["rs485stopbits"] = _mysettings->rs485stopbits;
+        root["rs485baudrate"] = mysettings.rs485baudrate;
+        root["rs485databits"] = mysettings.rs485databits;
+        root["rs485parity"] = mysettings.rs485parity;
+        root["rs485stopbits"] = mysettings.rs485stopbits;
 
-        root["language"] = _mysettings->language;
+        root["language"] = mysettings.language;
 
-        root["VictronEnabled"] = _mysettings->VictronEnabled;
+        root["VictronEnabled"] = mysettings.VictronEnabled;
 
         JsonObject mqtt = root.createNestedObject("mqtt");
-        mqtt["enabled"] = _mysettings->mqtt_enabled;
-        mqtt["port"] = _mysettings->mqtt_port;
-        mqtt["server"] = _mysettings->mqtt_server;
-        mqtt["topic"] = _mysettings->mqtt_topic;
-        mqtt["username"] = _mysettings->mqtt_username;
-        mqtt["password"] = _mysettings->mqtt_password;
+        mqtt["enabled"] = mysettings.mqtt_enabled;
+        mqtt["port"] = mysettings.mqtt_port;
+        mqtt["server"] = mysettings.mqtt_server;
+        mqtt["topic"] = mysettings.mqtt_topic;
+        mqtt["username"] = mysettings.mqtt_username;
+        mqtt["password"] = mysettings.mqtt_password;
 
         JsonObject influxdb = root.createNestedObject("influxdb");
-        influxdb["enabled"] = _mysettings->influxdb_enabled;
-        influxdb["apitoken"] = _mysettings->influxdb_apitoken;
-        influxdb["bucket"] = _mysettings->influxdb_databasebucket;
-        influxdb["org"] = _mysettings->influxdb_orgid;
-        influxdb["url"] = _mysettings->influxdb_serverurl;
+        influxdb["enabled"] = mysettings.influxdb_enabled;
+        influxdb["apitoken"] = mysettings.influxdb_apitoken;
+        influxdb["bucket"] = mysettings.influxdb_databasebucket;
+        influxdb["org"] = mysettings.influxdb_orgid;
+        influxdb["url"] = mysettings.influxdb_serverurl;
 
         JsonObject outputs = root.createNestedObject("outputs");
 
@@ -371,8 +371,8 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req)
         JsonArray t = outputs.createNestedArray("type");
         for (uint8_t i = 0; i < RELAY_TOTAL; i++)
         {
-            d.add(_mysettings->rulerelaydefault[i]);
-            t.add(_mysettings->relaytype[i]);
+            d.add(mysettings.rulerelaydefault[i]);
+            t.add(mysettings.relaytype[i]);
         }
 
         JsonObject rules = root.createNestedObject("rules");
@@ -433,13 +433,13 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req)
 
             JsonObject state = rules.createNestedObject(elementName);
 
-            state["value"] = _mysettings->rulevalue[rr];
-            state["hysteresis"] = _mysettings->rulehysteresis[rr];
+            state["value"] = mysettings.rulevalue[rr];
+            state["hysteresis"] = mysettings.rulehysteresis[rr];
 
             JsonArray relaystate = state.createNestedArray("state");
             for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
             {
-                relaystate.add(_mysettings->rulerelaystate[rr][rt]);
+                relaystate.add(mysettings.rulerelaystate[rr][rt]);
             }
         } // end for
 
@@ -449,9 +449,9 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req)
         JsonArray dcl = victron.createNestedArray("dcl");
         for (uint8_t i = 0; i < 3; i++)
         {
-            cvl.add(_mysettings->cvl[i]);
-            ccl.add(_mysettings->ccl[i]);
-            dcl.add(_mysettings->dcl[i]);
+            cvl.add(mysettings.cvl[i]);
+            ccl.add(mysettings.ccl[i]);
+            dcl.add(mysettings.dcl[i]);
         }
 
         /*
@@ -462,13 +462,13 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req)
     };
     */
 
-        // wifi["password"] = DIYBMSSoftAP::Config()->wifi_passphrase;
+        // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
 
-        File file = _sdcard->open(filename, "w");
+        File file = SD.open(filename, "w");
         serializeJson(doc, file);
         file.close();
 
-        _hal->ReleaseVSPIMutex();
+        hal.ReleaseVSPIMutex();
     }
 
     return SendSuccess(req);
@@ -497,12 +497,12 @@ esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req)
         return SendFailure(req);
     }
 
-    if (_hal->GetVSPIMutex())
+    if (hal.GetVSPIMutex())
     {
         const char *wificonfigfilename = "/diybms/wifi.json";
 
         ESP_LOGI(TAG, "Creating folder");
-        _sdcard->mkdir("/diybms");
+        SD.mkdir("/diybms");
 
         // Get the file
         ESP_LOGI(TAG, "Generating SD file %s", wificonfigfilename);
@@ -512,17 +512,17 @@ esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req)
         wifi["ssid"] = DIYBMSSoftAP::Config()->wifi_ssid;
         wifi["password"] = DIYBMSSoftAP::Config()->wifi_passphrase;
 
-        if (_sdcard->exists(wificonfigfilename))
+        if (SD.exists(wificonfigfilename))
         {
             ESP_LOGI(TAG, "Delete existing file %s", wificonfigfilename);
-            _sdcard->remove(wificonfigfilename);
+            SD.remove(wificonfigfilename);
         }
 
-        File file = _sdcard->open(wificonfigfilename, "w");
+        File file = SD.open(wificonfigfilename, "w");
         serializeJson(doc, file);
         file.close();
 
-        _hal->ReleaseVSPIMutex();
+        hal.ReleaseVSPIMutex();
     }
 
     return SendSuccess(req);
@@ -581,7 +581,7 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req)
                 {
                     if (GetKeyValue(httpbuf, "Calib", &Calibration, urlEncoded))
                     {
-                        if (_prg->sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration))
+                        if (prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration))
                         {
                             clearModuleValues(m);
 
@@ -614,19 +614,19 @@ esp_err_t post_savestorage_json_handler(httpd_req_t *req)
     }
 
     // HTML Boolean value, so element is not POST'ed if FALSE/OFF
-    _mysettings->loggingEnabled = false;
-    if (GetKeyValue(httpbuf, "loggingEnabled", &_mysettings->loggingEnabled, urlEncoded))
+    mysettings.loggingEnabled = false;
+    if (GetKeyValue(httpbuf, "loggingEnabled", &mysettings.loggingEnabled, urlEncoded))
     {
     }
 
-    if (GetKeyValue(httpbuf, "loggingFreq", &_mysettings->loggingFrequencySeconds, urlEncoded))
+    if (GetKeyValue(httpbuf, "loggingFreq", &mysettings.loggingFrequencySeconds, urlEncoded))
     {
     }
 
     // Validate
-    if (_mysettings->loggingFrequencySeconds < 15 || _mysettings->loggingFrequencySeconds > 600)
+    if (mysettings.loggingFrequencySeconds < 15 || mysettings.loggingFrequencySeconds > 600)
     {
-        _mysettings->loggingFrequencySeconds = 15;
+        mysettings.loggingFrequencySeconds = 15;
     }
 
     saveConfiguration();
@@ -654,21 +654,21 @@ esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req)
 
     // uint32_t tempVariable;
 
-    if (GetKeyValue(httpbuf, "VoltageHigh", &_mysettings->graph_voltagehigh, urlEncoded))
+    if (GetKeyValue(httpbuf, "VoltageHigh", &mysettings.graph_voltagehigh, urlEncoded))
     {
     }
 
-    if (GetKeyValue(httpbuf, "VoltageLow", &_mysettings->graph_voltagelow, urlEncoded))
+    if (GetKeyValue(httpbuf, "VoltageLow", &mysettings.graph_voltagelow, urlEncoded))
     {
     }
 
     // Validate high is greater than low
-    if (_mysettings->graph_voltagelow > _mysettings->graph_voltagehigh || _mysettings->graph_voltagelow < 0)
+    if (mysettings.graph_voltagelow > mysettings.graph_voltagehigh || mysettings.graph_voltagelow < 0)
     {
-        _mysettings->graph_voltagelow = 0;
+        mysettings.graph_voltagelow = 0;
     }
 
-    if (GetTextFromKeyValue(httpbuf, "Language", _mysettings->language, sizeof(_mysettings->language), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "Language", mysettings.language, sizeof(mysettings.language), urlEncoded))
     {
     }
 
@@ -698,7 +698,7 @@ esp_err_t post_resetcounters_json_handler(httpd_req_t *req)
 
     // Ask modules to reset bad packet counters
     // If this fails, queue could be full so return error
-    if (_prg->sendBadPacketCounterReset() && _prg->sendResetBalanceCurrentCounter())
+    if (prg.sendBadPacketCounterReset() && prg.sendResetBalanceCurrentCounter())
     {
         canbus_messages_failed_sent = 0;
         canbus_messages_received = 0;
@@ -711,8 +711,8 @@ esp_err_t post_resetcounters_json_handler(httpd_req_t *req)
         }
 
         // Reset internal counters on CONTROLLER
-        _receiveProc->ResetCounters();
-        _prg->ResetCounters();
+        receiveProc.ResetCounters();
+        prg.ResetCounters();
 
         return SendSuccess(req);
     }
@@ -744,7 +744,7 @@ esp_err_t post_sdmount_json_handler(httpd_req_t *req)
         return SendFailure(req);
     }
 
-    (*_sdcardaction_callback)(1);
+    sdcardaction_callback(1);
 
     return SendSuccess(req);
 }
@@ -772,7 +772,7 @@ esp_err_t post_sdunmount_json_handler(httpd_req_t *req)
         return SendFailure(req);
     }
 
-    (*_sdcardaction_callback)(0);
+    sdcardaction_callback(0);
 
     return SendSuccess(req);
 }
@@ -796,7 +796,7 @@ esp_err_t post_enableavrprog_json_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    (*_sdcardaction_callback)(0);
+    sdcardaction_callback(0);
 
     _avrsettings.programmingModeEnabled = true;
 
@@ -823,7 +823,7 @@ esp_err_t post_disableavrprog_json_handler(httpd_req_t *req)
     _avrsettings.programmingModeEnabled = false;
 
     // Try and remount the SD card
-    (*_sdcardaction_callback)(1);
+    sdcardaction_callback(1);
 
     return SendSuccess(req);
 }
@@ -851,22 +851,22 @@ esp_err_t post_savers485settings_json_handler(httpd_req_t *req)
 
     if (GetKeyValue(httpbuf, "rs485baudrate", &tempVariable, urlEncoded))
     {
-        _mysettings->rs485baudrate = (int)tempVariable;
+        mysettings.rs485baudrate = (int)tempVariable;
     }
 
     if (GetKeyValue(httpbuf, "rs485databit", &tempVariable, urlEncoded))
     {
-        _mysettings->rs485databits = (uart_word_length_t)tempVariable;
+        mysettings.rs485databits = (uart_word_length_t)tempVariable;
     }
 
     if (GetKeyValue(httpbuf, "rs485parity", &tempVariable, urlEncoded))
     {
-        _mysettings->rs485parity = (uart_parity_t)tempVariable;
+        mysettings.rs485parity = (uart_parity_t)tempVariable;
     }
 
     if (GetKeyValue(httpbuf, "rs485stopbit", &tempVariable, urlEncoded))
     {
-        _mysettings->rs485stopbits = (uart_stop_bits_t)tempVariable;
+        mysettings.rs485stopbits = (uart_stop_bits_t)tempVariable;
     }
 
     saveConfiguration();
@@ -895,8 +895,8 @@ esp_err_t post_savevictron_json_handler(httpd_req_t *req)
 
     // uint32_t tempVariable;
 
-    _mysettings->VictronEnabled = false;
-    if (GetKeyValue(httpbuf, "VictronEnabled", &_mysettings->VictronEnabled, urlEncoded))
+    mysettings.VictronEnabled = false;
+    if (GetKeyValue(httpbuf, "VictronEnabled", &mysettings.VictronEnabled, urlEncoded))
     {
     }
 
@@ -910,21 +910,21 @@ esp_err_t post_savevictron_json_handler(httpd_req_t *req)
 
         if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
         {
-            _mysettings->cvl[i] = tempFloat * 10;
+            mysettings.cvl[i] = tempFloat * 10;
         }
 
         name = "ccl";
         name = name + i;
         if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
         {
-            _mysettings->ccl[i] = tempFloat * 10;
+            mysettings.ccl[i] = tempFloat * 10;
         }
 
         name = "dcl";
         name = name + i;
         if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
         {
-            _mysettings->dcl[i] = tempFloat * 10;
+            mysettings.dcl[i] = tempFloat * 10;
         }
     }
 
@@ -1226,16 +1226,16 @@ esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    _mysettings->currentMonitoringEnabled = false;
-    if (GetKeyValue(httpbuf, "CurrentMonEnabled", &_mysettings->currentMonitoringEnabled, urlEncoded))
+    mysettings.currentMonitoringEnabled = false;
+    if (GetKeyValue(httpbuf, "CurrentMonEnabled", &mysettings.currentMonitoringEnabled, urlEncoded))
     {
     }
 
-    if (GetKeyValue(httpbuf, "modbusAddress", &_mysettings->currentMonitoringModBusAddress, urlEncoded))
+    if (GetKeyValue(httpbuf, "modbusAddress", &mysettings.currentMonitoringModBusAddress, urlEncoded))
     {
     }
 
-    if (_mysettings->currentMonitoringEnabled == false)
+    if (mysettings.currentMonitoringEnabled == false)
     {
         // Switch off current monitor, clear out the values
         memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
@@ -1276,17 +1276,17 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req)
         {
 
             // Default
-            RelayType oldValue = _mysettings->relaytype[i];
+            RelayType oldValue = mysettings.relaytype[i];
             if (strcmp(textBuffer, "Pulse") == 0)
             {
-                _mysettings->relaytype[i] = RelayType::RELAY_PULSE;
+                mysettings.relaytype[i] = RelayType::RELAY_PULSE;
             }
             else
             {
-                _mysettings->relaytype[i] = RelayType::RELAY_STANDARD;
+                mysettings.relaytype[i] = RelayType::RELAY_STANDARD;
             }
 
-            if (oldValue != _mysettings->relaytype[i])
+            if (oldValue != mysettings.relaytype[i])
             {
                 // The type of relay has changed - we probably need to reset something here
                 ESP_LOGI(TAG, "Type of relay has changed");
@@ -1303,10 +1303,10 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req)
         if (GetTextFromKeyValue(httpbuf, name.c_str(), textBuffer, sizeof(textBuffer), urlEncoded))
         {
             // Default
-            _mysettings->rulerelaydefault[i] = RelayState::RELAY_OFF;
+            mysettings.rulerelaydefault[i] = RelayState::RELAY_OFF;
             if (strcmp(textBuffer, "On") == 0)
             {
-                _mysettings->rulerelaydefault[i] = RelayState::RELAY_ON;
+                mysettings.rulerelaydefault[i] = RelayState::RELAY_ON;
             }
         }
     }
@@ -1319,7 +1319,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req)
         name = name + (rule);
         name = name + "value";
 
-        if (GetKeyValue(httpbuf, name.c_str(), &_mysettings->rulevalue[rule], urlEncoded))
+        if (GetKeyValue(httpbuf, name.c_str(), &mysettings.rulevalue[rule], urlEncoded))
         {
         }
 
@@ -1327,7 +1327,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req)
         String hname = "rule";
         hname = hname + (rule);
         hname = hname + "hysteresis";
-        if (GetKeyValue(httpbuf, name.c_str(), &_mysettings->rulehysteresis[rule], urlEncoded))
+        if (GetKeyValue(httpbuf, name.c_str(), &mysettings.rulehysteresis[rule], urlEncoded))
         {
         }
 
@@ -1342,7 +1342,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req)
 
             if (GetTextFromKeyValue(httpbuf, name.c_str(), textBuffer, sizeof(textBuffer), urlEncoded))
             {
-                _mysettings->rulerelaystate[rule][i] = strcmp(textBuffer, "X") == 0 ? RELAY_X : strcmp(textBuffer, "On") == 0 ? RelayState::RELAY_ON
+                mysettings.rulerelaystate[rule][i] = strcmp(textBuffer, "X") == 0 ? RELAY_X : strcmp(textBuffer, "On") == 0 ? RelayState::RELAY_ON
                                                                                                                               : RelayState::RELAY_OFF;
             }
         }
@@ -1350,7 +1350,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req)
         // Reset state of rules after updating the new values
         for (int8_t r = 0; r < RELAY_RULES; r++)
         {
-            _rules->rule_outcome[r] = false;
+            rules.rule_outcome[r] = false;
         }
     }
 

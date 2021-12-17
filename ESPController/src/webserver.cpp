@@ -13,6 +13,7 @@ httpd_handle_t _myserver;
 
 // Pointers to other classes (not always a good idea in static classes)
 // static sdcard_info (*_sdcardcallback)();
+/*
 fs::SDFS *_sdcard;
 void (*_sdcardaction_callback)(uint8_t action);
 PacketRequestGenerator *_prg;
@@ -21,6 +22,7 @@ diybms_eeprom_settings *_mysettings;
 Rules *_rules;
 ControllerState *_controlState;
 HAL_ESP32 *_hal;
+*/
 
 // Shared buffer for all HTTP generated replies
 char httpbuf[BUFSIZE];
@@ -41,7 +43,7 @@ String TemplateProcessor(const String &var)
 #endif
 
   if (var == "LANGUAGE")
-    return String(_mysettings->language);
+    return String(mysettings.language);
 
   if (var == "GIT_VERSION")
     return String(GIT_VERSION);
@@ -50,10 +52,10 @@ String TemplateProcessor(const String &var)
     return String(COMPILE_DATE_TIME);
 
   if (var == "graph_voltagehigh")
-    return String(_mysettings->graph_voltagehigh);
+    return String(mysettings.graph_voltagehigh);
 
   if (var == "graph_voltagelow")
-    return String(_mysettings->graph_voltagelow);
+    return String(mysettings.graph_voltagelow);
 
   if (var == "integrity_file_jquery_js")
     return String(integrity_file_jquery_js);
@@ -97,7 +99,7 @@ esp_err_t SendSuccess(httpd_req_t *req)
 
 void saveConfiguration()
 {
-  Settings::WriteConfig("diybms", (char *)_mysettings, sizeof(diybms_eeprom_settings));
+  Settings::WriteConfig("diybms", (char *)(&mysettings), sizeof(diybms_eeprom_settings));
 }
 
 // The main home page
@@ -477,27 +479,10 @@ void stop_webserver(httpd_handle_t server)
 }
 
 // Start Web Server (crazy amount of pointer params!)
-void StartServer(diybms_eeprom_settings *mysettings,
-                 fs::SDFS *sdcard,
-                 PacketRequestGenerator *prg,
-                 PacketReceiveProcessor *pktreceiveproc,
-                 ControllerState *controlState,
-                 Rules *rules,
-                 void (*sdcardaction_callback)(uint8_t action),
-                 HAL_ESP32 *hal)
+void StartServer()
 {
   // Generate the cookie value
   setCookieValue();
 
   _myserver = start_webserver();
-
-  // TODO: Remove all of these...
-  _hal = hal;
-  _prg = prg;
-  _controlState = controlState;
-  _rules = rules;
-  _sdcard = sdcard;
-  _mysettings = mysettings;
-  _receiveProc = pktreceiveproc;
-  _sdcardaction_callback = sdcardaction_callback;
 }

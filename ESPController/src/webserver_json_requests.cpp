@@ -71,11 +71,11 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
   }
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{");
-  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "enabled", _mysettings->currentMonitoringEnabled);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "enabled", mysettings.currentMonitoringEnabled);
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                          "\"address\":%u,\"timestampage\":%u,\"valid\":%s,\"batterycapacity\":%u,\"tailcurrent\":%.4f,\"fullchargevolt\":%.4f,\"chargeefficiency\":%.4f,",
-                         _mysettings->currentMonitoringModBusAddress,
+                         mysettings.currentMonitoringModBusAddress,
                          x,
                          currentMonitor.validReadings ? "true" : "false",
                          currentMonitor.modbus.batterycapacityamphour, currentMonitor.modbus.tailcurrentamps,
@@ -83,7 +83,7 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                          "\"address\":%u,\"timestampage\":%u,",
-                         _mysettings->currentMonitoringModBusAddress,
+                         mysettings.currentMonitoringModBusAddress,
                          x);
   // 1536432
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "valid", currentMonitor.validReadings);
@@ -146,8 +146,8 @@ esp_err_t content_handler_rs485settings(httpd_req_t *req)
   // Output the first batch of settings/parameters/values
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
                          "{\"baudrate\":%i,\"databits\":%i,\"parity\":%i,\"stopbits\":%i}",
-                         _mysettings->rs485baudrate, _mysettings->rs485databits,
-                         _mysettings->rs485parity, _mysettings->rs485stopbits);
+                         mysettings.rs485baudrate, mysettings.rs485databits,
+                         mysettings.rs485parity, mysettings.rs485stopbits);
 
   return httpd_resp_send(req, httpbuf, bufferused);
 }
@@ -212,12 +212,12 @@ esp_err_t content_handler_storage(httpd_req_t *req)
   info.available = _sd_card_installed;
 
   // Lock VSPI bus during operation (not sure if this is acutally needed, as the SD class may have cached these values)
-  if (_hal->GetVSPIMutex())
+  if (hal.GetVSPIMutex())
   {
     // Convert to KiB
     info.totalkilobytes = SD.totalBytes() / 1024;
     info.usedkilobytes = SD.usedBytes() / 1024;
-    _hal->ReleaseVSPIMutex();
+    hal.ReleaseVSPIMutex();
   }
   else
   {
@@ -229,8 +229,8 @@ esp_err_t content_handler_storage(httpd_req_t *req)
   info.flash_usedkilobytes = LITTLEFS.usedBytes() / 1024;
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{\"storage\":{");
-  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "logging", _mysettings->loggingEnabled);
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"frequency\":%u,\"sdcard\":{", _mysettings->loggingFrequencySeconds);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "logging", mysettings.loggingEnabled);
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"frequency\":%u,\"sdcard\":{", mysettings.loggingFrequencySeconds);
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "available", info.available);
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"total\":%u,\"used\":%u,\"files\":[", info.totalkilobytes, info.usedkilobytes);
 
@@ -241,10 +241,10 @@ esp_err_t content_handler_storage(httpd_req_t *req)
   // File listing goes here
   if (info.available)
   {
-    if (_hal->GetVSPIMutex())
+    if (hal.GetVSPIMutex())
     {
       bufferused += fileSystemListDirectory(&httpbuf[bufferused], BUFSIZE - bufferused, SD, "/", 2);
-      _hal->ReleaseVSPIMutex();
+      hal.ReleaseVSPIMutex();
     }
   }
 
@@ -373,7 +373,7 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
     if (file.startsWith("/diybms/") == true)
     {
       // Prevent downloads from /diybms/ folder
-      // request->send(401); // 401 Unauthorized
+      // request.send(401); // 401 Unauthorized
       return httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Bad request");
     }
 
@@ -381,12 +381,12 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
     {
       // Process file from SD card
 
-      if (_hal->GetVSPIMutex())
+      if (hal.GetVSPIMutex())
       {
         // Get the file
         ESP_LOGI(TAG, "Download SDCard file");
-        SendFileInChunks(req, *_sdcard, file.c_str());
-        _hal->ReleaseVSPIMutex();
+        SendFileInChunks(req, SD, file.c_str());
+        hal.ReleaseVSPIMutex();
         // Indicate last chunk (zero byte length)
         return httpd_resp_send_chunk(req, httpbuf, 0);
       }
@@ -434,7 +434,7 @@ esp_err_t content_handler_identifymodule(httpd_req_t *req)
 
         ESP_LOGD(TAG, "Found URL query parameter => query1=%s (%u)", param, c);
 
-        if (c <= _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules)
+        if (c <= mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules)
         {
           valid = true;
         }
@@ -444,7 +444,7 @@ esp_err_t content_handler_identifymodule(httpd_req_t *req)
 
   if (valid)
   {
-    _prg->sendIdentifyModuleRequest(c);
+    prg.sendIdentifyModuleRequest(c);
     return SendSuccess(req);
   }
   else
@@ -480,7 +480,7 @@ esp_err_t content_handler_modules(httpd_req_t *req)
 
         ESP_LOGI(TAG, "Found URL query parameter => query1=%s (%u)", param, c);
 
-        if (c <= _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules)
+        if (c <= mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules)
         {
           valid = true;
         }
@@ -495,15 +495,15 @@ esp_err_t content_handler_modules(httpd_req_t *req)
 
     if (cmi[c].settingsCached == false)
     {
-      _prg->sendGetSettingsRequest(c);
+      prg.sendGetSettingsRequest(c);
     }
 
     DynamicJsonDocument doc(2048);
     JsonObject root = doc.to<JsonObject>();
     JsonObject settings = root.createNestedObject("settings");
 
-    uint8_t b = c / _mysettings->totalNumberOfSeriesModules;
-    uint8_t m = c - (b * _mysettings->totalNumberOfSeriesModules);
+    uint8_t b = c / mysettings.totalNumberOfSeriesModules;
+    uint8_t m = c - (b * mysettings.totalNumberOfSeriesModules);
     settings["bank"] = b;
     settings["module"] = m;
     settings["id"] = c;
@@ -573,16 +573,16 @@ esp_err_t content_handler_victron(httpd_req_t *req)
 
   JsonObject settings = root.createNestedObject("victron");
 
-  settings["enabled"] = _mysettings->VictronEnabled;
+  settings["enabled"] = mysettings.VictronEnabled;
 
   JsonArray cvl = settings.createNestedArray("cvl");
   JsonArray ccl = settings.createNestedArray("ccl");
   JsonArray dcl = settings.createNestedArray("dcl");
   for (uint8_t i = 0; i < 3; i++)
   {
-    cvl.add(_mysettings->cvl[i]);
-    ccl.add(_mysettings->ccl[i]);
-    dcl.add(_mysettings->dcl[i]);
+    cvl.add(mysettings.cvl[i]);
+    ccl.add(mysettings.ccl[i]);
+    dcl.add(mysettings.dcl[i]);
   }
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
@@ -616,12 +616,12 @@ esp_err_t content_handler_rules(httpd_req_t *req)
     root["timenow"] = (timeinfo.tm_hour * 60) + timeinfo.tm_min;
   }
 
-  root["ControlState"] = (*_controlState);
+  root["ControlState"] = _controller_state;
 
   JsonArray defaultArray = root.createNestedArray("relaydefault");
   for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
   {
-    switch (_mysettings->rulerelaydefault[relay])
+    switch (mysettings.rulerelaydefault[relay])
     {
     case RELAY_OFF:
       defaultArray.add(false);
@@ -638,7 +638,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
   JsonArray typeArray = root.createNestedArray("relaytype");
   for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
   {
-    switch (_mysettings->relaytype[relay])
+    switch (mysettings.relaytype[relay])
     {
     case RELAY_STANDARD:
       typeArray.add("Std");
@@ -657,14 +657,14 @@ esp_err_t content_handler_rules(httpd_req_t *req)
   for (uint8_t r = 0; r < RELAY_RULES; r++)
   {
     JsonObject rule = bankArray.createNestedObject();
-    rule["value"] = _mysettings->rulevalue[r];
-    rule["hysteresis"] = _mysettings->rulehysteresis[r];
-    rule["triggered"] = _rules->rule_outcome[r];
+    rule["value"] = mysettings.rulevalue[r];
+    rule["hysteresis"] = mysettings.rulehysteresis[r];
+    rule["triggered"] = rules.rule_outcome[r];
     JsonArray data = rule.createNestedArray("relays");
 
     for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
     {
-      switch (_mysettings->rulerelaystate[r][relay])
+      switch (mysettings.rulerelaystate[r][relay])
       {
       case RELAY_OFF:
         data.add(false);
@@ -701,17 +701,17 @@ esp_err_t content_handler_settings(httpd_req_t *req)
 
   JsonObject settings = root.createNestedObject("settings");
 
-  settings["totalnumberofbanks"] = _mysettings->totalNumberOfBanks;
-  settings["totalseriesmodules"] = _mysettings->totalNumberOfSeriesModules;
-  settings["baudrate"] = _mysettings->baudRate;
+  settings["totalnumberofbanks"] = mysettings.totalNumberOfBanks;
+  settings["totalseriesmodules"] = mysettings.totalNumberOfSeriesModules;
+  settings["baudrate"] = mysettings.baudRate;
 
-  settings["bypassthreshold"] = _mysettings->BypassThresholdmV;
-  settings["bypassovertemp"] = _mysettings->BypassOverTempShutdown;
+  settings["bypassthreshold"] = mysettings.BypassThresholdmV;
+  settings["bypassovertemp"] = mysettings.BypassOverTempShutdown;
 
-  settings["NTPServerName"] = _mysettings->ntpServer;
-  settings["TimeZone"] = _mysettings->timeZone;
-  settings["MinutesTimeZone"] = _mysettings->minutesTimeZone;
-  settings["DST"] = _mysettings->daylight;
+  settings["NTPServerName"] = mysettings.ntpServer;
+  settings["TimeZone"] = mysettings.timeZone;
+  settings["MinutesTimeZone"] = mysettings.minutesTimeZone;
+  settings["DST"] = mysettings.daylight;
 
   settings["FreeHeap"] = ESP.getFreeHeap();
   settings["MinFreeHeap"] = ESP.getMinFreeHeap();
@@ -748,11 +748,11 @@ esp_err_t content_handler_integration(httpd_req_t *req)
     // Output the first batch of settings/parameters/values
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
                            "{\"mqtt\":{\"enabled\":%s,\"topic\":\"%s\",\"port\":%u,\"server\":\"%s\",\"username\":\"%s\"}",
-                           _mysettings->mqtt_enabled ? "true" : "false", _mysettings->mqtt_topic, _mysettings->mqtt_port, _mysettings->mqtt_server, _mysettings->mqtt_username);
+                           mysettings.mqtt_enabled ? "true" : "false", mysettings.mqtt_topic, mysettings.mqtt_port, mysettings.mqtt_server, mysettings.mqtt_username);
 
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
                            ",\"influxdb\":{\"enabled\":%s,\"url\":\"%s\",\"bucket\":\"%s\",\"apitoken\":\"%s\",\"orgid\":\"%s\"}}",
-                           _mysettings->influxdb_enabled ? "true" : "false", _mysettings->influxdb_serverurl, _mysettings->influxdb_databasebucket, _mysettings->influxdb_apitoken, _mysettings->influxdb_orgid);
+                           mysettings.influxdb_enabled ? "true" : "false", mysettings.influxdb_serverurl, mysettings.influxdb_databasebucket, mysettings.influxdb_apitoken, mysettings.influxdb_orgid);
 
     // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
     //  Send it...
@@ -766,20 +766,20 @@ esp_err_t content_handler_integration(httpd_req_t *req)
   JsonObject root = doc.to<JsonObject>();
 
   JsonObject mqtt = root.createNestedObject("mqtt");
-  mqtt["enabled"] = _mysettings->mqtt_enabled;
-  mqtt["topic"] = _mysettings->mqtt_topic;
-  mqtt["port"] = _mysettings->mqtt_port;
-  mqtt["server"] = _mysettings->mqtt_server;
-  mqtt["username"] = _mysettings->mqtt_username;
+  mqtt["enabled"] = mysettings.mqtt_enabled;
+  mqtt["topic"] = mysettings.mqtt_topic;
+  mqtt["port"] = mysettings.mqtt_port;
+  mqtt["server"] = mysettings.mqtt_server;
+  mqtt["username"] = mysettings.mqtt_username;
   // We don't output the password in the json file as this could breach security
-  // mqtt["password"] =_mysettings->mqtt_password;
+  // mqtt["password"] =mysettings.mqtt_password;
 
   JsonObject influxdb = root.createNestedObject("influxdb");
-  influxdb["enabled"] = _mysettings->influxdb_enabled;
-  influxdb["url"] = _mysettings->influxdb_serverurl;
-  influxdb["bucket"] = _mysettings->influxdb_databasebucket;
-  influxdb["apitoken"] = _mysettings->influxdb_apitoken;
-  influxdb["orgid"] = _mysettings->influxdb_orgid;
+  influxdb["enabled"] = mysettings.influxdb_enabled;
+  influxdb["url"] = mysettings.influxdb_serverurl;
+  influxdb["bucket"] = mysettings.influxdb_databasebucket;
+  influxdb["apitoken"] = mysettings.influxdb_apitoken;
+  influxdb["orgid"] = mysettings.influxdb_orgid;
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
@@ -796,7 +796,7 @@ esp_err_t content_handler_monitor3(httpd_req_t *req)
   httpd_resp_set_type(req, "application/json");
   setCacheControl(req);
 
-  uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
+  uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
   uint8_t comma = totalModules - 1;
 
   int bufferused = 0;
@@ -887,7 +887,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   httpd_resp_set_type(req, "application/json");
   setCacheControl(req);
 
-  uint8_t totalModules = _mysettings->totalNumberOfBanks * _mysettings->totalNumberOfSeriesModules;
+  uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
 
   int bufferused = 0;
   const char *nullstring = "null";
@@ -895,16 +895,24 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   // Output the first batch of settings/parameters/values
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
                          "{\"banks\":%u,\"seriesmodules\":%u,\"sent\":%u,\"received\":%u,\"modulesfnd\":%u,\"badcrc\":%u,\"ignored\":%u,\"roundtrip\":%u,\"oos\":%u,\"activerules\":%u,\"uptime\":%u,\"can_fail\":%u,\"can_sent\":%u,\"can_rec\":%u,\"sec\":\"%s\",\"qlen\":%u,",
-                         _mysettings->totalNumberOfBanks, _mysettings->totalNumberOfSeriesModules,
-                         _prg->packetsGenerated, _receiveProc->packetsReceived,
-                         _receiveProc->totalModulesFound, _receiveProc->totalCRCErrors,
-                         _receiveProc->totalNotProcessedErrors,
-                         _receiveProc->packetTimerMillisecond, _receiveProc->totalOutofSequenceErrors, _rules->active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6), canbus_messages_failed_sent, canbus_messages_sent, canbus_messages_received, &CookieValue[sizeof(CookieValue) - 3], _prg->queueLength());
+                         mysettings.totalNumberOfBanks,
+                         mysettings.totalNumberOfSeriesModules,
+                         prg.packetsGenerated,
+                         receiveProc.packetsReceived,
+                         receiveProc.totalModulesFound,
+                         receiveProc.totalCRCErrors,
+                         receiveProc.totalNotProcessedErrors,
+                         receiveProc.packetTimerMillisecond,
+                         receiveProc.totalOutofSequenceErrors,
+                         rules.active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6),
+                         canbus_messages_failed_sent, canbus_messages_sent,
+                         canbus_messages_received, &CookieValue[sizeof(CookieValue) - 3],
+                         prg.queueLength());
 
   // current
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"current\":[");
 
-  if (_mysettings->currentMonitoringEnabled && currentMonitor.validReadings)
+  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
 
     // Output current monitor values, this is inside an array, so could be more than 1
@@ -923,25 +931,25 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE, "\"errors\":[");
   uint8_t count = 0;
 
-  for (size_t i = 0; i < sizeof(_rules->ErrorCodes); i++)
+  for (size_t i = 0; i < sizeof(rules.ErrorCodes); i++)
   {
-    if (_rules->ErrorCodes[i] != InternalErrorCode::NoError)
+    if (rules.ErrorCodes[i] != InternalErrorCode::NoError)
     {
       // Comma if not zero
       if (count)
       {
         bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
       }
-      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", _rules->ErrorCodes[i]);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.ErrorCodes[i]);
       count++;
     }
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],\"warnings\":[");
 
   count = 0;
-  for (size_t i = 0; i < sizeof(_rules->WarningCodes); i++)
+  for (size_t i = 0; i < sizeof(rules.WarningCodes); i++)
   {
-    if (_rules->WarningCodes[i] != InternalWarningCode::NoWarning)
+    if (rules.WarningCodes[i] != InternalWarningCode::NoWarning)
     {
       // Comma if not zero
       if (count)
@@ -949,7 +957,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
         bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
       }
 
-      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", _rules->WarningCodes[i]);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.WarningCodes[i]);
       count++;
     }
   }
@@ -1171,13 +1179,13 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   bufferused = 0;
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"bankv\":[");
 
-  for (uint8_t i = 0; i < _mysettings->totalNumberOfBanks; i++)
+  for (uint8_t i = 0; i < mysettings.totalNumberOfBanks; i++)
   {
     // Comma if not zero
     if (i)
       bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", _rules->packvoltage[i]);
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.packvoltage[i]);
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
@@ -1189,7 +1197,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   bufferused = 0;
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"voltrange\":[");
 
-  for (uint8_t i = 0; i < _mysettings->totalNumberOfBanks; i++)
+  for (uint8_t i = 0; i < mysettings.totalNumberOfBanks; i++)
   {
     // Comma if not zero
     if (i)
@@ -1197,7 +1205,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
       bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
     }
 
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", _rules->VoltageRangeInBank(i));
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.VoltageRangeInBank(i));
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]}");
 

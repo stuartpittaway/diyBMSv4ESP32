@@ -26,38 +26,27 @@
 
 int printBoolean(char *buffer, size_t bufferLen,const char *fieldName, boolean value, boolean addComma);
 int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean value);
-esp_err_t SendSuccess(httpd_req_t *req);
 
 void generateUUID();
-void StartServer(diybms_eeprom_settings *mysettings,
-                 fs::SDFS *sdcard,
-                 PacketRequestGenerator *prg,
-                 PacketReceiveProcessor *pktreceiveproc,
-                 ControllerState *controlState,
-                 Rules *rules,
-                 void (*sdcardaction_callback)(uint8_t action),
-                 HAL_ESP32 *hal);
+
+void StartServer();
 void clearModuleValues(uint8_t module);
-esp_err_t SendFailure(httpd_req_t *req);
 httpd_handle_t start_webserver(void);
 void stop_webserver(httpd_handle_t server);
-String uuidToString(uint8_t *uuidLocation);
 
 void saveConfiguration();
 
+esp_err_t SendSuccess(httpd_req_t *req);
+esp_err_t SendFailure(httpd_req_t *req);
 
-// TODO: Remove this
+
+extern diybms_eeprom_settings mysettings;
 extern bool _sd_card_installed;
 extern TaskHandle_t avrprog_task_handle;
 extern avrprogramsettings _avrsettings;
 extern RelayState previousRelayState[RELAY_TOTAL];
 extern currentmonitoring_struct currentMonitor;
 
-extern void ConfigureRS485();
-extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency);
-extern void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues);
-extern void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues);
 
-extern char httpbuf[BUFSIZE];
 
 #endif
