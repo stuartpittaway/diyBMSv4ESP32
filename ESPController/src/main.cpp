@@ -339,6 +339,9 @@ void avrprog_task(void *param)
 
         // This will block for the 6 seconds it takes to program ATTINY841...
         // although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
+        
+        // Refresh the display, before programming
+        xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
 
         uint32_t starttime = millis();
         AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&(hal.vspi), GPIO_NUM_0, false, VSPI_SCK);

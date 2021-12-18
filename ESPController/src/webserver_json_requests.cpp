@@ -10,7 +10,7 @@ esp_err_t content_handler_avrstorage(httpd_req_t *req)
   }
 
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   int bufferused = 0;
 
@@ -59,7 +59,7 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
   }
 
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   int bufferused = 0;
 
@@ -139,7 +139,7 @@ esp_err_t content_handler_rs485settings(httpd_req_t *req)
   }
 
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   int bufferused = 0;
 
@@ -203,7 +203,7 @@ esp_err_t content_handler_storage(httpd_req_t *req)
   }
 
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   int bufferused = 0;
 
@@ -491,7 +491,7 @@ esp_err_t content_handler_modules(httpd_req_t *req)
   if (valid)
   {
     httpd_resp_set_type(req, "application/json");
-    setCacheControl(req);
+    setNoStoreCacheControl(req);
 
     if (cmi[c].settingsCached == false)
     {
@@ -541,7 +541,7 @@ esp_err_t content_handler_avrstatus(httpd_req_t *req)
   }
 
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   int bufferused = 0;
   StaticJsonDocument<200> doc;
@@ -564,7 +564,7 @@ esp_err_t content_handler_victron(httpd_req_t *req)
   }
 
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   int bufferused = 0;
 
@@ -599,7 +599,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
   }
 
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   int bufferused = 0;
 
@@ -692,7 +692,7 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   }
 
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   int bufferused = 0;
 
@@ -739,7 +739,7 @@ esp_err_t content_handler_integration(httpd_req_t *req)
   }
 
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   int bufferused = 0;
   /*
@@ -794,7 +794,7 @@ esp_err_t content_handler_monitor3(httpd_req_t *req)
   }
 
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
   uint8_t comma = totalModules - 1;
@@ -885,7 +885,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   // as read only
 
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
 

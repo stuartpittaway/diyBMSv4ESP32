@@ -14,7 +14,7 @@ httpd_handle_t _myserver;
 // Shared buffer for all HTTP generated replies
 char httpbuf[BUFSIZE];
 
-void setCacheControl(httpd_req_t *req)
+void setNoStoreCacheControl(httpd_req_t *req)
 {
   httpd_resp_set_hdr(req, "Cache-Control", "no-store");
 }
@@ -78,7 +78,7 @@ esp_err_t SendFailure(httpd_req_t *req)
 esp_err_t SendSuccess(httpd_req_t *req)
 {
   httpd_resp_set_type(req, "application/json");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
 
   StaticJsonDocument<100> doc;
   doc["success"] = true;
@@ -96,7 +96,7 @@ void saveConfiguration()
 esp_err_t default_htm_handler(httpd_req_t *req)
 {
   httpd_resp_set_type(req, "text/html");
-  setCacheControl(req);
+  setNoStoreCacheControl(req);
   setCookie(req);
 
   char *file_pointer = (char *)file_default_htm;

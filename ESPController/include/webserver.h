@@ -35,6 +35,7 @@ httpd_handle_t start_webserver(void);
 void stop_webserver(httpd_handle_t server);
 
 void saveConfiguration();
+void setNoStoreCacheControl(httpd_req_t *req);
 
 esp_err_t SendSuccess(httpd_req_t *req);
 esp_err_t SendFailure(httpd_req_t *req);

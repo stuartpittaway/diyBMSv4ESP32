@@ -11,7 +11,7 @@
 //#include "SD.h"
 //#include <SPIFFS.h>
 //#include "time.h"
-//#include "defines.h"
+#include "defines.h"
 //#include "Rules.h"
 //#include "settings.h"
 //#include "ArduinoJson.h"
@@ -58,6 +58,8 @@ extern uint32_t canbus_messages_sent;
 extern uint32_t canbus_messages_failed_sent;
 extern void sdcardaction_callback(uint8_t action);
 extern Rules rules;
+
+extern avrprogramsettings _avrsettings;
 
 extern void ConfigureRS485();
 extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency);

@@ -55,7 +55,7 @@ extern void sdcardaction_callback(uint8_t action);
 extern Rules rules;
 extern ControllerState _controller_state;
 
-extern void setCacheControl(httpd_req_t *req);
+extern void setNoStoreCacheControl(httpd_req_t *req);
 extern char CookieValue[20 + 1];
 
 #endif
