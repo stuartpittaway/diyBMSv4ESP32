@@ -122,7 +122,7 @@ function refreshCurrentMonitorValues() {
                 $("#currentmonrelay").hide();
             }
 
-        }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+        }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
         );
 
 }
@@ -364,7 +364,7 @@ function queryBMS() {
             if (jsondata.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.roundtrip); $("#roundtrip").show(); }
             if (jsondata.oos == 0) { $("#oos").hide(); } else { $("#oos .v").html(jsondata.oos); $("#oos").show(); }
 
-            
+
             if (jsondata.can_fail == 0) { $("#canfail").hide(); } else { $("#canfail .v").html(jsondata.can_fail); $("#canfail").show(); }
 
             if (jsondata.can_sent == 0) { $("#cansent").hide(); } else { $("#cansent .v").html(jsondata.can_sent); $("#cansent").show(); }
@@ -1007,7 +1007,7 @@ $(function () {
                 $("#HeapSize").html(data.settings.HeapSize);
                 $("#SdkVersion").html(data.settings.SdkVersion);
                 $("#HostName").html("<a href='http://" + data.settings.HostName + "'>" + data.settings.HostName + "</a>");
-            }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -1031,7 +1031,7 @@ $(function () {
                 $("#g2").val(data.settings.bypassthreshold);
 
                 $("#modulesPage").show();
-            }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
         return true;
     });
@@ -1073,7 +1073,7 @@ $(function () {
 
 
                 $("#banksForm").show();
-            }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -1146,7 +1146,7 @@ $(function () {
                 }
 
                 $("#rulesForm").show();
-            }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -1165,7 +1165,7 @@ $(function () {
                 $("#rs485databit").val(data.databits);
                 $("#rs485parity").val(data.parity);
                 $("#rs485stopbit").val(data.stopbits);
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });}
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         refreshCurrentMonitorValues();
@@ -1188,7 +1188,7 @@ $(function () {
                 }
 
                 switchPage("#victroncanbusPage");
-            }).fail(function () {$.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -1227,7 +1227,7 @@ $(function () {
 
                 $("#mqttForm").show();
                 $("#influxForm").show();
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });}
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -1431,7 +1431,7 @@ $(function () {
                         $(li).append(aref);
                     });
                 }
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });}
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -1493,7 +1493,7 @@ $(function () {
 
             }).fail(function () {
                 $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
-             }
+            }
             );
 
         return true;
@@ -1623,19 +1623,23 @@ $(function () {
         }
     });
 
-    $.ajaxSetup({
-        beforeSend: function (xhr, settings) { settings.data += '&xss=' + encodeURIComponent(XSS_KEY); }
-    });
+    $.ajaxPrefilter(function (options, originalOptions, jqXHR) {
+        if (originalOptions.type !== 'POST' || options.type !== 'POST') {
+            return;
+        }
 
+        if (options.data.length > 0) {
+            options.data += '&';
+        }
+
+        options.data += $.param({ xss: XSS_KEY });
+    });
 
     $(".stat").mouseenter(function () {
         $(this).addClass("hover");
     }).mouseleave(function () {
         $(this).removeClass("hover");
     });
-
-    //$(document).ajaxStart(function(){ });
-    //$(document).ajaxStop(function(){ });
 
     $("#homePage").show();
 
