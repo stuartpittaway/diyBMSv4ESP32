@@ -722,7 +722,6 @@ esp_err_t post_resetcounters_json_handler(httpd_req_t *req)
 
 esp_err_t post_sdmount_json_handler(httpd_req_t *req)
 {
-
     ESP_LOGI(TAG, "JSON call");
 
     if (!getPostDataIntoBuffer(req))

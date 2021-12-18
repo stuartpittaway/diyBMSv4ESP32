@@ -303,6 +303,7 @@ void avrprog_task(void *param)
     // Wake up the display
     if (tftwakeup_task_handle != NULL)
     {
+      //Pass parameter 1 to force wakeup
       xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
     }
 
@@ -310,6 +311,7 @@ void avrprog_task(void *param)
     avrprogramsettings *s;
     s = (avrprogramsettings *)param;
 
+    ESP_LOGD(TAG, "AVR inprogress=%i",s->inProgress);
     ESP_LOGI(TAG, "AVR setting e=%02X h=%02X l=%02X mcu=%08X file=%s", s->efuse, s->hfuse, s->lfuse, s->mcu, s->filename);
 
     bool old_sd_card_installed = _sd_card_installed;
@@ -340,9 +342,6 @@ void avrprog_task(void *param)
         // This will block for the 6 seconds it takes to program ATTINY841...
         // although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
         
-        // Refresh the display, before programming
-        xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
-
         uint32_t starttime = millis();
         AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&(hal.vspi), GPIO_NUM_0, false, VSPI_SCK);
 

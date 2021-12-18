@@ -1236,9 +1236,9 @@ $(function () {
 
     $("#mount").click(function () {
         $.ajax({
-            type: 'post',
+            type: 'POST',
             url: 'sdmount.json',
-            data: 'mount=1',
+            data: $.param({mount:1}),
             success: function (data) {
                 //Refresh the storage page
                 $("#storage").trigger("click");
@@ -1252,9 +1252,9 @@ $(function () {
 
     $("#savewifi").click(function () {
         $.ajax({
-            type: 'post',
+            type: 'POST',
             url: 'wificonfigtofile.json',
-            data: 'save=1',
+            data: $.param({save:1}),
             success: function (data) {
                 //Refresh the storage page
                 showSuccess();
@@ -1267,9 +1267,9 @@ $(function () {
 
     $("#saveconfig").click(function () {
         $.ajax({
-            type: 'post',
+            type: 'POST',
             url: 'saveconfigtofile.json',
-            data: 'save=1',
+            data: $.param({save:1}),
             success: function (data) {
                 //Refresh the storage page
                 showSuccess();
@@ -1284,9 +1284,9 @@ $(function () {
 
     $("#unmount").click(function () {
         $.ajax({
-            type: 'post',
+            type: 'POST',
             url: 'sdunmount.json',
-            data: 'unmount=1',
+            data: $.param({unmount:1}),
             success: function (data) {
                 //Refresh the storage page
                 $("#storage").trigger("click");
@@ -1300,7 +1300,7 @@ $(function () {
 
     $("#AVRProgDisable").click(function () {
         $.ajax({
-            type: 'post',
+            type: 'POST',
             url: 'disableavrprog.json',
             data: { 'enable': 0 },
             timeout: 10000
@@ -1327,7 +1327,7 @@ $(function () {
 
     $("#AVRProgEnable").click(function () {
         $.ajax({
-            type: 'post',
+            type: 'POST',
             url: 'enableavrprog.json',
             data: { 'enable': 1 },
             timeout: 10000
@@ -1362,7 +1362,7 @@ $(function () {
         $("#avrinfo").empty();
 
         $.ajax({
-            type: 'post',
+            type: 'POST',
             url: 'avrprog.json',
             data: { file: $("#selectedavrindex").val() },
             //Wait up to 30 seconds
@@ -1624,7 +1624,7 @@ $(function () {
     });
 
     $.ajaxPrefilter(function (options, originalOptions, jqXHR) {
-        if (originalOptions.type !== 'POST' || options.type !== 'POST') {
+        if (originalOptions.type.toUpperCase() !== 'POST' || options.type.toUpperCase() !== 'POST') {
             return;
         }
 
