@@ -20,7 +20,7 @@
 
 #undef CONFIG_DISABLE_HAL_LOCKS
 
-static const char *TAG = "diybms";
+//static const char *TAG = "diybms";
 
 #include "esp_log.h"
 #include <Arduino.h>

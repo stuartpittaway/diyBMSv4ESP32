@@ -15,7 +15,7 @@ The code supports the VICTRON CAN BUS BMS style messages.
 
 void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 {
-  static const char *TAG = "canbus";
+  //static const char *TAG = "canbus";
 
   can_message_t message;
   message.identifier = identifier;
