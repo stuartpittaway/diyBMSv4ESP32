@@ -1339,10 +1339,9 @@ void enqueue_task(void *param)
 {
   for (;;)
   {
-    // Ensure we service the cell modules every 5 or 10 seconds, depending on number of cells being serviced
-    // slower stops the queues from overflowing when a lot of cells are being monitored
-    // TODO: SCALE THIS BASED ON COMMS BAUD RATES
-    vTaskDelay(pdMS_TO_TICKS((TotalNumberOfCells() <= maximum_cell_modules_per_packet) ? 5000 : 10000));
+    // Ensure we service the cell modules every 4 seconds. 
+    //To prevent the queue overflowing for every request in the queue additional 200ms delay is added (max 10s)
+    vTaskDelay(pdMS_TO_TICKS(4000 + prg.queueLength()*200));
 
     LED(RGBLED::Green);
     // Fire task to switch off LED in a few ms
