@@ -38,7 +38,7 @@ button:focus {border-color: white;}
 .success {padding:10px;display:none; width:100%;}
 .warning {padding:10px;display:none; width:100%;}
 .page {clear:both; width:100%; display:none;margin-top:5px;}
-.page .region {float:left;padding:8px;margin-right:8px;width:45%;margin-bottom:8px;}
+.page .region {float:left;padding:8px;margin-right:8px;width:45%;margin-bottom:8px;min-height:245px;}
 #modulesTable { width:100%; border-collapse: collapse; }
 #modulesTable tbody tr td {font-family: 'Fira Code', monospace;text-align:right;}
 #modulesTable thead tr th {text-align:right;}

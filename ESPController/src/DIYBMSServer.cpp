@@ -907,11 +907,18 @@ void DIYBMSServer::saveCurrentMonSettings(AsyncWebServerRequest *request)
     _mysettings->currentMonitoringModBusAddress = p1->value().toInt();
   }
 
+  if (request->hasParam("CurrentMonDev", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("CurrentMonDev", true);
+    _mysettings->currentMonitoringDevice = (CurrentMonitorDevice)p1->value().toInt();
+  }
+
   if (_mysettings->currentMonitoringEnabled == false)
   {
     // Switch off current monitor, clear out the values
     memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
     currentMonitor.validReadings = false;
+    _mysettings->currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
   }
 
   saveConfiguration();
@@ -1549,6 +1556,7 @@ void DIYBMSServer::currentmonitor(AsyncWebServerRequest *request)
   response->print("{");
 
   PrintStreamCommaBoolean(response, "\"enabled\":", _mysettings->currentMonitoringEnabled);
+  PrintStreamComma(response, "\"devicetype\":", _mysettings->currentMonitoringDevice);
   PrintStreamComma(response, "\"address\":", _mysettings->currentMonitoringModBusAddress);
 
   // Convert to milliseconds

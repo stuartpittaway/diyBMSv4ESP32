@@ -1971,7 +1971,7 @@ static inline unsigned int word16swap32(unsigned int __bsx)
 }
 
 // Extract the current monitor MODBUS registers into our internal STRUCTURE variables
-void ProcessCurrentMonitorRegisterReply(uint8_t length)
+void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 {
   // ESP_LOGD(TAG, "Modbus len=%i, struct len=%i", length, sizeof(currentmonitor_raw_modbus));
 
@@ -2421,6 +2421,7 @@ void rs485_rx(void *param)
     // Delay 50ms for the data to arrive
     vTaskDelay(pdMS_TO_TICKS(50));
 
+
     int len = 0;
 
     if (hal.GetRS485Mutex())
@@ -2455,10 +2456,9 @@ void rs485_rx(void *param)
           uint8_t length = frame[2];
 
           // ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
-
-          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3)
+          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3 && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
           {
-            ProcessCurrentMonitorRegisterReply(length);
+            ProcessDIYBMSCurrentMonitorRegisterReply(length);
 
             if (_tft_screen_available)
             {
@@ -2467,6 +2467,19 @@ void rs485_rx(void *param)
             }
 
           } // end diybms current monitor command 3
+
+          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3 && mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
+          {
+            //ProcessPZEM017CurrentMonitorRegisterReply(length);
+
+            if (_tft_screen_available)
+            {
+              // Refresh the TFT display
+              xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
+            }
+
+          } // end diybms current monitor command 3
+
 
           if (id == diyBMSCurrentMonitorModbusAddress && cmd == 16)
           {
@@ -2620,38 +2633,41 @@ void rs485_tx(void *param)
 
     if (mysettings.currentMonitoringEnabled == true)
     {
-      // ESP_LOGD(TAG, "RS485 TX");
-      cmd[0] = diyBMSCurrentMonitorModbusAddress;
-
-      // Input registers - 46 of them (92 bytes + headers + crc = 83 byte reply)
-      cmd[1] = 3;
-      cmd[5] = 46;
-
-      // Ideally we poll the current monitor and only ask it for a small subset of registers
-      // the first 12 registers are the most useful, so only need the others when we want to get the configuration data
-
-      uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
-
-      // Byte swap the Hi and Lo bytes
-      uint16_t crc16 = (temp << 8) | (temp >> 8);
-
-      cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
-      cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
-
-      if (hal.GetRS485Mutex())
+      if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
       {
-        // Ensure we have empty receive buffer
-        uart_flush_input(rs485_uart_num);
+        // ESP_LOGD(TAG, "RS485 TX");
+        cmd[0] = diyBMSCurrentMonitorModbusAddress;
 
-        // Send the bytes (actually just put them into the TX FIFO buffer)
-        uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+        // Input registers - 46 of them (92 bytes + headers + crc = 83 byte reply)
+        cmd[1] = 3;
+        cmd[5] = 46;
 
-        hal.ReleaseRS485Mutex();
+        // Ideally we poll the current monitor and only ask it for a small subset of registers
+        // the first 12 registers are the most useful, so only need the others when we want to get the configuration data
 
-        // Notify the receive task that a packet should be on its way
-        if (rs485_rx_task_handle != NULL)
+        uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+        // Byte swap the Hi and Lo bytes
+        uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+        cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+        cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+        if (hal.GetRS485Mutex())
         {
-          xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+          // Ensure we have empty receive buffer
+          uart_flush_input(rs485_uart_num);
+
+          // Send the bytes (actually just put them into the TX FIFO buffer)
+          uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+          hal.ReleaseRS485Mutex();
+
+          // Notify the receive task that a packet should be on its way
+          if (rs485_rx_task_handle != NULL)
+          {
+            xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+          }
         }
       }
     } // end if
