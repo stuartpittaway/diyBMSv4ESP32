@@ -182,9 +182,9 @@ void PrepareTFT_ControlState()
     case ControllerState::Stabilizing:
     {
         // Draw box in same colour as background of logo/image
-        tft.fillRoundRect(16, 16, tft.width() - 32, tft.height() - 48, 8, SplashLogoPalette[0]);
+        tft.fillRoundRect(8, 8, tft.width() - 16, tft.height() - 48, 8, SplashLogoPalette[3]);
         // White border
-        tft.drawRoundRect(16 + 2, 16 + 2, tft.width() - 36, tft.height() - 52, 8, TFT_WHITE);
+        tft.drawRoundRect(8 + 2, 8 + 2, tft.width() - 20, tft.height() - 52, 8, TFT_WHITE);
 
         TFT_eSprite spr = TFT_eSprite(&tft);
         spr.setColorDepth(4);
@@ -195,26 +195,26 @@ void PrepareTFT_ControlState()
                       (uint16_t *)SplashLogoGraphic);
 
         spr.createPalette(SplashLogoPalette, 16);
-        spr.pushSprite(tft.width() / 2 - SplashLogoGraphic_Width / 2, 24);
+        spr.pushSprite(tft.width() / 2 - SplashLogoGraphic_Width / 2, 16);
         spr.deleteSprite();
 
-        y = 85;
-        tft.setTextColor(TFT_WHITE, SplashLogoPalette[0]);
-        tft.drawCentreString("Version:", x, y, 2);
-        y += fontHeight_2;
-        ;
-        tft.setTextColor(TFT_YELLOW, SplashLogoPalette[0]);
-        tft.drawCentreString(GIT_VERSION_SHORT, x, y, 2);
-        y += fontHeight_2;
-        ;
-        tft.setTextColor(TFT_WHITE, SplashLogoPalette[0]);
-        tft.drawCentreString("Build Date:", x, y, 2);
-        y += fontHeight_2;
-        ;
-        tft.setTextColor(TFT_YELLOW, SplashLogoPalette[0]);
-        tft.drawCentreString(COMPILE_DATE_TIME_SHORT, x, y, 2);
-        y += fontHeight_2;
-        ;
+        y = 100;
+        tft.setTextColor(TFT_WHITE, SplashLogoPalette[3]);      
+        tft.setTextDatum(MR_DATUM);
+        tft.drawString("Version: ", x, y, 2);
+
+        tft.setTextDatum(ML_DATUM);
+        tft.setTextColor(TFT_YELLOW, SplashLogoPalette[3]);
+        tft.drawString(GIT_VERSION_SHORT, x, y, 2);
+        
+        y += 2*fontHeight_2;
+        tft.setTextColor(TFT_WHITE, SplashLogoPalette[3]);
+        tft.setTextDatum(MR_DATUM);
+        tft.drawString("Build Date: ", x, y, 2);
+        tft.setTextDatum(ML_DATUM);       
+        tft.setTextColor(TFT_YELLOW, SplashLogoPalette[3]);
+        tft.drawString(COMPILE_DATE_TIME_SHORT, x, y, 2);
+        y += fontHeight_2;       
 
         break;
     }
@@ -411,10 +411,10 @@ void DrawTFT_ControlState()
 {
     TFTDrawWifiDetails();
 
-    tft.setTextColor(TFT_WHITE, SplashLogoPalette[0]);
+    tft.setTextColor(TFT_WHITE, SplashLogoPalette[3]);
     tft.setTextFont(4);
     uint16_t x = tft.width() / 2;
-    uint16_t y = tft.height() - 64;
+    uint16_t y = tft.height() - 72;
     //Centre/middle text
     tft.setTextDatum(TC_DATUM);
 
@@ -442,8 +442,7 @@ void DrawTFT_ControlState()
     }
     case ControllerState::Stabilizing:
     {
-        tft.drawCentreString("Stabilizing...", x, y, 4);
-
+        tft.drawCentreString("Waiting for modules...", x, y, 4);
         break;
     }
     } //end switch
