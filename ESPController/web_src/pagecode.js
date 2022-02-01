@@ -57,19 +57,17 @@ function refreshCurrentMonitorValues() {
             $("#modbusAddress").val(data.address);
             $("#CurrentMonDev").val(data.devicetype);
 
+            $("#shuntmaxcur").val(data.shuntmaxcur);
+            $("#shuntmv").val(data.shuntmv);
+            $("#cmvalid").val(data.valid);
+            $("#cmtimestampage").val(data.timestampage);
+
             if (data.devicetype==0) {
-
-                $("#shuntmaxcur").val(data.shuntmaxcur);
-                $("#shuntmv").val(data.shuntmv);
-
-                $("#cmvalid").val(data.valid);
-
                 $("#cmbatterycapacity").val(data.batterycapacity);
                 $("#cmfullchargevolt").val(data.fullchargevolt.toFixed(2));
                 $("#cmtailcurrent").val(data.tailcurrent.toFixed(2));
                 $("#cmchargeefficiency").val(data.chargeefficiency.toFixed(1));
 
-                $("#cmtimestampage").val(data.timestampage);
                 $("#cmtemperature").val(data.temperature);
                 $("#cmwatchdog").val(data.watchdog);
                 $("#cmactualshuntmv").val(data.actualshuntmv);

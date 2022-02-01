@@ -30,8 +30,6 @@ static const char *TAG = "diybms";
 //#define RULES_LOGGING
 //#define MQTT_LOGGING
 
-const uint8_t diyBMSCurrentMonitorModbusAddress = 90;
-
 #include "FS.h"
 #include <LITTLEFS.h>
 #include <WiFi.h>
@@ -184,14 +182,28 @@ void voltageandstatussnapshot_task(void *param)
 // Sets the RS485 serial parameters after they have been changed
 void ConfigureRS485()
 {
-  ESP_LOGD(TAG, "Configure RS485");
+
   if (hal.GetRS485Mutex())
   {
+    ESP_LOGD(TAG, "Configure RS485");
     ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_parity(rs485_uart_num, mysettings.rs485parity));
     ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_stop_bits(rs485_uart_num, mysettings.rs485stopbits));
     ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_baudrate(rs485_uart_num, mysettings.rs485baudrate));
     ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_word_length(rs485_uart_num, mysettings.rs485databits));
+
+    // Nasty bodge https://github.com/espressif/arduino-esp32/issues/435
+    uart_dev_t *dev = (volatile uart_dev_t *)(DR_REG_UART1_BASE);
+    if (dev->conf0.stop_bit_num == uart_stop_bits_t::UART_STOP_BITS_2)
+    {
+      dev->conf0.stop_bit_num = uart_stop_bits_t::UART_STOP_BITS_1;
+      dev->rs485_conf.dl1_en = 1;
+    }
+
     hal.ReleaseRS485Mutex();
+  }
+  else
+  {
+    ESP_ERROR_CHECK(ESP_FAIL)
   }
 }
 
@@ -1716,52 +1728,41 @@ uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
   return ptr;
 }
 
-void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
+void PZEM017_SetShuntType(uint8_t modbusAddress, uint16_t shuntMaxCurrent)
 {
-  // Its possible that the RS485_TX task may have already requested some data
-  // at the exact split second of this call, but we ignore that
-  // given this infreqent usage of this function
 
-  uint16_t chargeeff = chargeefficiency * 100.0;
+  // Default 100A
+  uint8_t shuntType = 0;
 
-  ESP_LOGD(TAG, "batterycapacity %u", batterycapacity);
-  ESP_LOGD(TAG, "chargeeff %u", chargeeff);
+  switch (shuntMaxCurrent)
+  {
+  case 50:
+    shuntType = 1;
+    break;
+  case 200:
+    shuntType = 2;
+    break;
+  case 300:
+    shuntType = 3;
+    break;
+  }
 
-  //	Write Multiple Holding Registers
   uint8_t cmd[] = {
-      // The Slave Address
-      diyBMSCurrentMonitorModbusAddress,
-      // The Function Code 16
-      16,
-      // Data Address of the first register (zero based so 18 = register 40019)
-      0, 18,
-      // number of registers to write
-      0, 8,
-      // number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
-      16,
-      // value to write to register 40019 |40019|shunt_max_current  (unsigned int16)
-      (uint8_t)(shuntmaxcur >> 8), (uint8_t)(shuntmaxcur & 0xFF),
-      // value to write to register 40020 |40020|shunt_millivolt  (unsigned int16)
-      (uint8_t)(shuntmv >> 8), (uint8_t)(shuntmv & 0xFF),
-      //|40021|Battery Capacity (ah)  (unsigned int16)
-      (uint8_t)(batterycapacity >> 8), (uint8_t)(batterycapacity & 0xFF),
-      //|40022|Fully charged voltage (4 byte double)
-      0, 0, 0, 0,
-      //|40024|Tail current (Amps) (4 byte double)
-      0, 0, 0, 0,
-      //|40026|Charge efficiency factor % (unsigned int16) (scale x100 eg. 10000 = 100.00%, 9561 = 95.61%)
-      (uint8_t)(chargeeff >> 8), (uint8_t)(chargeeff & 0xFF),
+      // The broadcast Address
+      modbusAddress,
+      // Function Code 6
+      0x06,
+      // Address of the shunt register
+      0, 3,
+      // value
+      0, shuntType,
       // CRC
       0, 0};
-
-  uint8_t ptr = SetMobusRegistersFromFloat(cmd, 13, fullchargevolt);
-  ptr = SetMobusRegistersFromFloat(cmd, ptr, tailcurrent);
 
   uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
 
   // Byte swap the Hi and Lo bytes
   uint16_t crc16 = (temp << 8) | (temp >> 8);
-
   cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
   cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
 
@@ -1770,12 +1771,12 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
     // Ensure we have empty receive buffer
     uart_flush_input(rs485_uart_num);
 
-    // Send the bytes (actually just put them into the TX FIFO buffer)
+    // Send the bytes
     uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
 
     hal.ReleaseRS485Mutex();
 
-    ESP_LOGD(TAG, "Send MODBUS request");
+    ESP_LOGD(TAG, "Sent PZEM_017 shunt type %u", shuntType);
 
     // Zero all data
     memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
@@ -1786,6 +1787,140 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
     {
       xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
     }
+  }
+}
+
+void PZEM017_SetDeviceAddress(uint8_t newAddress)
+{
+  // First we force the PZEM device to assume the selected MODBUS address using
+  // the special "broadcast" address of 0xF8.  Technically the PZEM devices
+  // support multiple devices on same RS485 bus, but DIYBMS doesn't....
+
+  uint8_t cmd[] = {
+      // The broadcast Address
+      0xf8,
+      // Function Code 6
+      0x06,
+      // Address of the register
+      0, 2,
+      // value
+      0, newAddress,
+      // CRC
+      0, 0};
+
+  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+  // Byte swap the Hi and Lo bytes
+  uint16_t crc16 = (temp << 8) | (temp >> 8);
+  cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+  cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+  if (hal.GetRS485Mutex())
+  {
+    // Ensure we have empty receive buffer
+    uart_flush_input(rs485_uart_num);
+
+    // Send the bytes
+    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+    hal.ReleaseRS485Mutex();
+
+    ESP_LOGD(TAG, "Sent PZEM_017 change address");
+
+    // Zero all data
+    memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+    currentMonitor.validReadings = false;
+
+    // Notify the receive task that a packet should be on its way
+    if (rs485_rx_task_handle != NULL)
+    {
+      xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+    }
+  }
+}
+
+void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
+{
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+  {
+    // Its possible that the RS485_TX task may have already requested some data
+    // at the exact split second of this call, but we ignore that
+    // given this infreqent usage of this function
+
+    uint16_t chargeeff = chargeefficiency * 100.0;
+
+    // ESP_LOGD(TAG, "batterycapacity %u", batterycapacity);
+    // ESP_LOGD(TAG, "chargeeff %u", chargeeff);
+
+    //	Write Multiple Holding Registers
+    uint8_t cmd[] = {
+        // The Slave Address
+        mysettings.currentMonitoringModBusAddress,
+        // The Function Code 16
+        16,
+        // Data Address of the first register (zero based so 18 = register 40019)
+        0, 18,
+        // number of registers to write
+        0, 8,
+        // number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
+        16,
+        // value to write to register 40019 |40019|shunt_max_current  (unsigned int16)
+        (uint8_t)(shuntmaxcur >> 8), (uint8_t)(shuntmaxcur & 0xFF),
+        // value to write to register 40020 |40020|shunt_millivolt  (unsigned int16)
+        (uint8_t)(shuntmv >> 8), (uint8_t)(shuntmv & 0xFF),
+        //|40021|Battery Capacity (ah)  (unsigned int16)
+        (uint8_t)(batterycapacity >> 8), (uint8_t)(batterycapacity & 0xFF),
+        //|40022|Fully charged voltage (4 byte double)
+        0, 0, 0, 0,
+        //|40024|Tail current (Amps) (4 byte double)
+        0, 0, 0, 0,
+        //|40026|Charge efficiency factor % (unsigned int16) (scale x100 eg. 10000 = 100.00%, 9561 = 95.61%)
+        (uint8_t)(chargeeff >> 8), (uint8_t)(chargeeff & 0xFF),
+        // CRC
+        0, 0};
+
+    uint8_t ptr = SetMobusRegistersFromFloat(cmd, 13, fullchargevolt);
+    ptr = SetMobusRegistersFromFloat(cmd, ptr, tailcurrent);
+
+    uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+
+    // Byte swap the Hi and Lo bytes
+    uint16_t crc16 = (temp << 8) | (temp >> 8);
+
+    cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+    cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+    if (hal.GetRS485Mutex())
+    {
+      // Ensure we have empty receive buffer
+      uart_flush_input(rs485_uart_num);
+
+      // Send the bytes (actually just put them into the TX FIFO buffer)
+      uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+      hal.ReleaseRS485Mutex();
+
+      ESP_LOGD(TAG, "Send MODBUS request");
+
+      // Zero all data
+      memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+      currentMonitor.validReadings = false;
+
+      // Notify the receive task that a packet should be on its way
+      if (rs485_rx_task_handle != NULL)
+      {
+        xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+      }
+    }
+  }
+
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
+  {
+    // PZEM017_SetDeviceAddress(mysettings.currentMonitoringModBusAddress);
+    //  Delay 150ms for the command to process
+    // vTaskDelay(pdMS_TO_TICKS(150));
+    //  Now configure the current meter/shunt type
+    PZEM017_SetShuntType(mysettings.currentMonitoringModBusAddress, shuntmaxcur);
   }
 }
 
@@ -1827,7 +1962,7 @@ Flag 2
   //	Write Multiple Holding Registers
   uint8_t cmd[] = {
       // The Slave Address
-      diyBMSCurrentMonitorModbusAddress,
+      mysettings.currentMonitoringModBusAddress,
       // The Function Code 16
       16,
       // Data Address of the first register (9=40010, Various status flags)
@@ -1879,7 +2014,7 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   //	Write Multiple Holding Registers
   uint8_t cmd[] = {
       // The Slave Address
-      diyBMSCurrentMonitorModbusAddress,
+      mysettings.currentMonitoringModBusAddress,
       // The Function Code 16
       16,
       // Data Address of the first register (|40028|INA_REGISTER::SHUNT_CAL (unsigned int16))
@@ -2421,7 +2556,6 @@ void rs485_rx(void *param)
     // Delay 50ms for the data to arrive
     vTaskDelay(pdMS_TO_TICKS(50));
 
-
     int len = 0;
 
     if (hal.GetRS485Mutex())
@@ -2442,8 +2576,6 @@ void rs485_rx(void *param)
       // Swap bytes to match MODBUS ordering
       uint16_t calculatedCRC = (temp << 8) | (temp >> 8);
 
-      ESP_LOGD(TAG, "Rec %i bytes, id=%u", len, id);
-
       // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
 
       if (calculatedCRC == crc)
@@ -2455,8 +2587,48 @@ void rs485_rx(void *param)
           uint8_t cmd = frame[1] & B01111111;
           uint8_t length = frame[2];
 
+          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017 && id == mysettings.currentMonitoringModBusAddress && cmd == 3)
+          {
+            ESP_LOGD(TAG, "Rec %i bytes, id=%u, cmd=%u", len, id, cmd);
+
+            // currentMonitor.modbus.shuntresistance=75;
+            // 75mV shunt (hard coded for PZEM)
+            currentMonitor.modbus.shuntmillivolt = 75;
+
+            switch (frame[10])
+            {
+            case 1:
+              currentMonitor.modbus.shuntmaxcurrent = 50;
+              break;
+            case 2:
+              currentMonitor.modbus.shuntmaxcurrent = 200;
+              break;
+            case 3:
+              currentMonitor.modbus.shuntmaxcurrent = 300;
+              break;
+
+            default:
+              currentMonitor.modbus.shuntmaxcurrent = 100;
+            }
+          }
+
+          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017 && id == mysettings.currentMonitoringModBusAddress && cmd == 4)
+          {
+            // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+
+            // memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
+            currentMonitor.validReadings = true;
+            currentMonitor.timestamp = esp_timer_get_time();
+            // voltage in 0.01V
+            currentMonitor.modbus.voltage = (float)((uint32_t)frame[3] << 8 | (uint32_t)frame[4]) / (float)100.0;
+            // current in 0.01A
+            currentMonitor.modbus.current = (float)((uint32_t)frame[5] << 8 | (uint32_t)frame[6]) / (float)100.0;
+            // power in 0.1W
+            currentMonitor.modbus.power = ((uint32_t)frame[7] << 8 | (uint32_t)frame[8] | (uint32_t)frame[9] << 24 | (uint32_t)frame[10] << 16) / 10.0;
+          }
+
           // ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
-          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3 && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+          if (id == mysettings.currentMonitoringModBusAddress && cmd == 3 && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
           {
             ProcessDIYBMSCurrentMonitorRegisterReply(length);
 
@@ -2468,20 +2640,7 @@ void rs485_rx(void *param)
 
           } // end diybms current monitor command 3
 
-          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3 && mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
-          {
-            //ProcessPZEM017CurrentMonitorRegisterReply(length);
-
-            if (_tft_screen_available)
-            {
-              // Refresh the TFT display
-              xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
-            }
-
-          } // end diybms current monitor command 3
-
-
-          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 16)
+          if (id == mysettings.currentMonitoringModBusAddress && cmd == 16)
           {
             ESP_LOGI(TAG, "Write multiple regs, success");
           }
@@ -2636,7 +2795,7 @@ void rs485_tx(void *param)
       if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
       {
         // ESP_LOGD(TAG, "RS485 TX");
-        cmd[0] = diyBMSCurrentMonitorModbusAddress;
+        cmd[0] = mysettings.currentMonitoringModBusAddress;
 
         // Input registers - 46 of them (92 bytes + headers + crc = 83 byte reply)
         cmd[1] = 3;
@@ -2670,6 +2829,52 @@ void rs485_tx(void *param)
           }
         }
       }
+
+      if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
+      {
+        // ESP_LOGD(TAG, "RS485 TX");
+        cmd[0] = mysettings.currentMonitoringModBusAddress;
+
+        if (currentMonitor.modbus.shuntmillivolt == 0)
+        {
+          // Read the parameters from the shunt device
+          cmd[1] = 0x03;
+          cmd[5] = 0x04;
+        }
+        else
+        {
+          // Read the standard voltage/current values
+          //  Input registers
+          cmd[1] = 0x04;
+          // Read 8 registers (0 to 8)
+          cmd[5] = 0x08;
+        }
+        uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+        // Byte swap the Hi and Lo bytes
+        uint16_t crc16 = (temp << 8) | (temp >> 8);
+        cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
+        cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
+
+        if (hal.GetRS485Mutex())
+        {
+          // Ensure we have empty receive buffer
+          uart_flush_input(rs485_uart_num);
+
+          // Send the bytes (actually just put them into the TX FIFO buffer)
+          uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+
+          hal.ReleaseRS485Mutex();
+
+          // ESP_LOGD(TAG, "Sent PZEM017 request");
+
+          // Notify the receive task that a packet should be on its way
+          if (rs485_rx_task_handle != NULL)
+          {
+            xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+          }
+        }
+      }
+
     } // end if
   }
 }
