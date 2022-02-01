@@ -434,17 +434,23 @@ function queryBMS() {
                 $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
                 $("#shuntv").show();
 
-                $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
-                $("#soc").show();
+                if (data.soc!=0) {
+                    $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
+                    $("#soc").show();
+                }
 
                 $("#power .v").html(parseFloat(data.p) + "W");
                 $("#power").show();
 
+                if (data.mahout!=0) {
                 $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
                 $("#amphout").show();
+                }
 
+                if (data.mahin!=0) {
                 $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
                 $("#amphin").show();
+                }
             }
         }
 
