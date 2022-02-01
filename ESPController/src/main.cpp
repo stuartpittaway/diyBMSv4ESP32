@@ -189,15 +189,7 @@ void ConfigureRS485()
     ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_parity(rs485_uart_num, mysettings.rs485parity));
     ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_stop_bits(rs485_uart_num, mysettings.rs485stopbits));
     ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_baudrate(rs485_uart_num, mysettings.rs485baudrate));
-    ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_word_length(rs485_uart_num, mysettings.rs485databits));
-
-    // Nasty bodge https://github.com/espressif/arduino-esp32/issues/435
-    uart_dev_t *dev = (volatile uart_dev_t *)(DR_REG_UART1_BASE);
-    if (dev->conf0.stop_bit_num == uart_stop_bits_t::UART_STOP_BITS_2)
-    {
-      dev->conf0.stop_bit_num = uart_stop_bits_t::UART_STOP_BITS_1;
-      dev->rs485_conf.dl1_en = 1;
-    }
+    ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_word_length(rs485_uart_num, mysettings.rs485databits));    
 
     hal.ReleaseRS485Mutex();
   }
@@ -1730,7 +1722,6 @@ uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
 
 void PZEM017_SetShuntType(uint8_t modbusAddress, uint16_t shuntMaxCurrent)
 {
-
   // Default 100A
   uint8_t shuntType = 0;
 
@@ -1752,7 +1743,7 @@ void PZEM017_SetShuntType(uint8_t modbusAddress, uint16_t shuntMaxCurrent)
       modbusAddress,
       // Function Code 6
       0x06,
-      // Address of the shunt register
+      // Address of the shunt register (3)
       0, 3,
       // value
       0, shuntType,
@@ -1776,7 +1767,7 @@ void PZEM017_SetShuntType(uint8_t modbusAddress, uint16_t shuntMaxCurrent)
 
     hal.ReleaseRS485Mutex();
 
-    ESP_LOGD(TAG, "Sent PZEM_017 shunt type %u", shuntType);
+    ESP_LOGD(TAG, "Set PZEM017 max current %u A=%u", shuntMaxCurrent, shuntType);
 
     // Zero all data
     memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
@@ -2580,23 +2571,26 @@ void rs485_rx(void *param)
 
       if (calculatedCRC == crc)
       {
-        // if the calculated crc matches the recieved crc continue
+        // if the calculated crc matches the recieved crc continue to process data...
         uint8_t RS485Error = frame[1] & B10000000;
         if (RS485Error == 0)
         {
           uint8_t cmd = frame[1] & B01111111;
           uint8_t length = frame[2];
 
+          ESP_LOGD(TAG, "Recv %i bytes, id=%u, cmd=%u", len, id, cmd);
+
           if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017 && id == mysettings.currentMonitoringModBusAddress && cmd == 3)
           {
-            ESP_LOGD(TAG, "Rec %i bytes, id=%u, cmd=%u", len, id, cmd);
-
-            // currentMonitor.modbus.shuntresistance=75;
             // 75mV shunt (hard coded for PZEM)
             currentMonitor.modbus.shuntmillivolt = 75;
 
-            switch (frame[10])
+            // Shunt type 0x0000 - 0x0003 (100A/50A/200A/300A)
+            switch (((uint32_t)frame[9] << 8 | (uint32_t)frame[10]))
             {
+            case 0:
+              currentMonitor.modbus.shuntmaxcurrent = 100;
+              break;
             case 1:
               currentMonitor.modbus.shuntmaxcurrent = 50;
               break;
@@ -2606,9 +2600,8 @@ void rs485_rx(void *param)
             case 3:
               currentMonitor.modbus.shuntmaxcurrent = 300;
               break;
-
             default:
-              currentMonitor.modbus.shuntmaxcurrent = 100;
+              currentMonitor.modbus.shuntmaxcurrent = 0;
             }
           }
 
@@ -2837,12 +2830,13 @@ void rs485_tx(void *param)
 
         if (currentMonitor.modbus.shuntmillivolt == 0)
         {
-          // Read the parameters from the shunt device
+          ESP_LOGD(TAG, "PZEM_017 Read params");
           cmd[1] = 0x03;
           cmd[5] = 0x04;
         }
         else
         {
+          ESP_LOGD(TAG, "PZEM_017 Read values");
           // Read the standard voltage/current values
           //  Input registers
           cmd[1] = 0x04;
@@ -2968,13 +2962,16 @@ void mqtt1(void *param)
           // Send current monitor data if its valid and not sent before
           doc["voltage"] = currentMonitor.modbus.voltage;
           doc["current"] = currentMonitor.modbus.current;
-          doc["mAhIn"] = currentMonitor.modbus.milliamphour_in;
-          doc["mAhOut"] = currentMonitor.modbus.milliamphour_out;
           doc["power"] = currentMonitor.modbus.power;
-          doc["temperature"] = currentMonitor.modbus.temperature;
-          doc["shuntmV"] = currentMonitor.modbus.shuntmV;
-          doc["relayState"] = currentMonitor.RelayState ? 1 : 0;
-          doc["soc"] = currentMonitor.stateofcharge;
+          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+          {
+            doc["mAhIn"] = currentMonitor.modbus.milliamphour_in;
+            doc["mAhOut"] = currentMonitor.modbus.milliamphour_out;
+            doc["temperature"] = currentMonitor.modbus.temperature;
+            doc["shuntmV"] = currentMonitor.modbus.shuntmV;
+            doc["relayState"] = currentMonitor.RelayState ? 1 : 0;
+            doc["soc"] = currentMonitor.stateofcharge;
+          }
         }
 
         lastcurrentMonitortimestamp = currentMonitor.timestamp;
