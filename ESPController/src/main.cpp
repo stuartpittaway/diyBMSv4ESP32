@@ -2226,7 +2226,7 @@ void service_rs485_transmit_q(void *param)
 
       ESP_LOGD(TAG, "Send addr=%u, func=%u, len=%u", cmd[0], cmd[1], packet_length);
       // Debug
-      ESP_LOG_BUFFER_HEXDUMP(TAG, cmd, packet_length, esp_log_level_t::ESP_LOG_DEBUG);
+      //ESP_LOG_BUFFER_HEXDUMP(TAG, cmd, packet_length, esp_log_level_t::ESP_LOG_DEBUG);
 
       // Once we have notified the receive task, we pause here to avoid sending
       // another request until the last one has been processed (or we timeout after 2 seconds)
@@ -2278,7 +2278,7 @@ void rs485_rx(void *param)
           uint8_t length = frame[2];
 
           ESP_LOGD(TAG, "Recv %i bytes, id=%u, cmd=%u", len, id, cmd);
-          ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+          //ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
 
           if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
           {
