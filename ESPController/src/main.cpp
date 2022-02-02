@@ -50,7 +50,7 @@ static const char *TAG = "diybms";
 
 #include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
-#include <ArduinoOTA.h>
+
 #include <SerialEncoder.h>
 #include <cppQueue.h>
 
@@ -1480,44 +1480,6 @@ void influxdb_task(void *param)
   }
 }
 
-void SetupOTA()
-{
-
-  ArduinoOTA.setPort(3232);
-  ArduinoOTA.setPassword("1jiOOx12AQgEco4e");
-  ArduinoOTA
-      .onStart([]()
-               {
-                 String type;
-                 if (ArduinoOTA.getCommand() == U_FLASH)
-                   type = "sketch";
-                 else // U_SPIFFS
-                   type = "filesystem";
-
-                 // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-                 ESP_LOGI(TAG, "Start updating %s", type); });
-  ArduinoOTA.onEnd([]()
-                   { ESP_LOGD(TAG, "\nEnd"); });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-                        { ESP_LOGD(TAG, "Progress: %u%%\r", (progress / (total / 100))); });
-  ArduinoOTA.onError([](ota_error_t error)
-                     {
-                       ESP_LOGD(TAG, "Error [%u]: ", error);
-                       if (error == OTA_AUTH_ERROR)
-                         ESP_LOGE(TAG, "Auth Failed");
-                       else if (error == OTA_BEGIN_ERROR)
-                         ESP_LOGE(TAG, "Begin Failed");
-                       else if (error == OTA_CONNECT_ERROR)
-                         ESP_LOGE(TAG, "Connect Failed");
-                       else if (error == OTA_RECEIVE_ERROR)
-                         ESP_LOGE(TAG, "Receive Failed");
-                       else if (error == OTA_END_ERROR)
-                         ESP_LOGE(TAG, "End Failed"); });
-
-  ArduinoOTA.setHostname(WiFi.getHostname());
-  ArduinoOTA.setMdnsEnabled(true);
-  ArduinoOTA.begin();
-}
 
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
@@ -1544,8 +1506,6 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   }
 
   connectToMqtt();
-
-  SetupOTA();
 
   // Set up mDNS responder:
   // - first argument is the domain name, in this example
@@ -1760,7 +1720,7 @@ void PZEM017_SetShuntType(uint8_t modbusAddress, uint16_t shuntMaxCurrent)
   if (hal.GetRS485Mutex())
   {
     // Ensure we have empty receive buffer
-    uart_flush_input(rs485_uart_num);
+    //uart_flush_input(rs485_uart_num);
 
     // Send the bytes
     uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
@@ -1809,7 +1769,7 @@ void PZEM017_SetDeviceAddress(uint8_t newAddress)
   if (hal.GetRS485Mutex())
   {
     // Ensure we have empty receive buffer
-    uart_flush_input(rs485_uart_num);
+    //uart_flush_input(rs485_uart_num);
 
     // Send the bytes
     uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
@@ -1884,7 +1844,7 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
     if (hal.GetRS485Mutex())
     {
       // Ensure we have empty receive buffer
-      uart_flush_input(rs485_uart_num);
+      //uart_flush_input(rs485_uart_num);
 
       // Send the bytes (actually just put them into the TX FIFO buffer)
       uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
@@ -1978,7 +1938,7 @@ Flag 2
   if (hal.GetRS485Mutex())
   {
     // Ensure we have empty receive buffer
-    uart_flush_input(rs485_uart_num);
+    //uart_flush_input(rs485_uart_num);
 
     // Send the bytes (actually just put them into the TX FIFO buffer)
     uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
@@ -2069,7 +2029,7 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   if (hal.GetRS485Mutex())
   {
     // Ensure we have empty receive buffer
-    uart_flush_input(rs485_uart_num);
+    //uart_flush_input(rs485_uart_num);
 
     // Send the bytes (actually just put them into the TX FIFO buffer)
     uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
@@ -2808,7 +2768,7 @@ void rs485_tx(void *param)
         if (hal.GetRS485Mutex())
         {
           // Ensure we have empty receive buffer
-          uart_flush_input(rs485_uart_num);
+          //uart_flush_input(rs485_uart_num);
 
           // Send the bytes (actually just put them into the TX FIFO buffer)
           uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
@@ -2836,7 +2796,7 @@ void rs485_tx(void *param)
         }
         else
         {
-          ESP_LOGD(TAG, "PZEM_017 Read values");
+          //ESP_LOGD(TAG, "PZEM_017 Read values");
           // Read the standard voltage/current values
           //  Input registers
           cmd[1] = 0x04;
@@ -2852,7 +2812,7 @@ void rs485_tx(void *param)
         if (hal.GetRS485Mutex())
         {
           // Ensure we have empty receive buffer
-          uart_flush_input(rs485_uart_num);
+          //uart_flush_input(rs485_uart_num);
 
           // Send the bytes (actually just put them into the TX FIFO buffer)
           uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
@@ -3039,6 +2999,7 @@ void LoadConfiguration()
 
   mysettings.currentMonitoringEnabled = false;
   mysettings.currentMonitoringModBusAddress = 90;
+  mysettings.currentMonitoringDevice==CurrentMonitorDevice::DIYBMS_CURRENT_MON;
 
   mysettings.rs485baudrate = 19200;
   mysettings.rs485databits = uart_word_length_t::UART_DATA_8_BITS;
@@ -3705,7 +3666,6 @@ unsigned long taskinfotimer = 0;
 
 void loop()
 {
-
   unsigned long currentMillis = millis();
 
   if (_controller_state != ControllerState::ConfigurationSoftAP)
@@ -3720,83 +3680,7 @@ void loop()
       connectToMqtt();
     }
   }
-  /*
-  if (currentMillis > taskinfotimer)
-  {
-    // High water mark is the minimum free stack space there has been (in bytes
-    // rather than words as found in vanilla FreeRTOS) since the task started.
-    // The smaller the returned number the closer the task has come to overflowing its stack.
-    ESP_LOGD(TAG, "Total number of tasks %u", uxTaskGetNumberOfTasks());
-
-    TaskHandle_t Handles[] = {i2c_task_handle,
-                              ledoff_task_handle,
-                              wifiresetdisable_task_handle,
-                              sdcardlog_task_handle,
-                              sdcardlog_outputs_task_handle,
-                              avrprog_task_handle,
-                              mqtt1_task_handle,
-                              mqtt2_task_handle,
-                              enqueue_task_handle,
-                              transmit_task_handle,
-                              replyqueue_task_handle,
-                              lazy_task_handle,
-                              rule_task_handle,
-                              influxdb_task_handle,
-                              pulse_relay_off_task_handle,
-                              voltageandstatussnapshot_task_handle,
-                              updatetftdisplay_task_handle,
-                              tftsleep_task_handle,
-                              tftwakeup_task_handle};
-
-    for (size_t i = 0; i < sizeof(Handles) / sizeof(TaskHandle_t); i++)
-    {
-      TaskHandle_t thisHandle = Handles[i];
-      UBaseType_t watermark = uxTaskGetStackHighWaterMark(thisHandle);
-      if (watermark < 128)
-      {
-        //Less than 128 bytes before stack overflow, report it...
-        char *name = pcTaskGetTaskName(thisHandle);
-        ESP_LOGW(TAG, "Watermark warn %s %u", name, watermark);
-      }
-
-      if (watermark > 512)
-      {
-        //Less than 128 bytes before stack overflow, report it...
-        char *name = pcTaskGetTaskName(thisHandle);
-        ESP_LOGI(TAG, "Excess stack %s %u", name, watermark);
-      }
-    }
-
-    //Wait 5 mins before next report
-    taskinfotimer = currentMillis + 60000 * 5;
-  }
-*/
-  /*
-  if (touchscreen.tirqTouched())
-  {
-    if (hal.IsVSPIMutexAvailable())
-    {
-      if (hal.GetVSPIMutex())
-      {
-        if (touchscreen.touched())
-        {
-
-      TS_Point p = touchscreen.getPoint();
-      SERIAL_DEBUG.print("Pressure = ");
-      SERIAL_DEBUG.print(p.z);
-      SERIAL_DEBUG.print(", x = ");
-      SERIAL_DEBUG.print(p.x);
-      SERIAL_DEBUG.print(", y = ");
-      SERIAL_DEBUG.print(p.y);
-      SERIAL_DEBUG.println();
-
-        }
-
-        hal.ReleaseVSPIMutex();
-      }
-    }
-  }
-*/
+ 
   if (ResetWifi)
   {
     // Password reset, turn LED CYAN
@@ -3806,8 +3690,6 @@ void loop()
     DIYBMSSoftAP::FactoryReset();
     ResetWifi = false;
   }
-
-  ArduinoOTA.handle();
 
   // Call update to receive, decode and process incoming packets
   myPacketSerial.checkInputStream();
