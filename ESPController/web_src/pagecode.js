@@ -437,6 +437,8 @@ function queryBMS() {
                 if (data.soc!=0) {
                     $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
                     $("#soc").show();
+                } else {
+                    $("#soc").hide();
                 }
 
                 $("#power .v").html(parseFloat(data.p) + "W");
@@ -445,11 +447,15 @@ function queryBMS() {
                 if (data.mahout!=0) {
                 $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
                 $("#amphout").show();
+                } else {
+                    $("#amphout").hide();
                 }
 
                 if (data.mahin!=0) {
                 $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
                 $("#amphin").show();
+                } else {
+                    $("#amphin").hide();
                 }
             }
         }
