@@ -919,6 +919,8 @@ void DIYBMSServer::saveCurrentMonSettings(AsyncWebServerRequest *request)
     memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
     currentMonitor.validReadings = false;
     _mysettings->currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
+    //Defaults
+    _mysettings->currentMonitoringModBusAddress = 90;
   }
 
   saveConfiguration();
