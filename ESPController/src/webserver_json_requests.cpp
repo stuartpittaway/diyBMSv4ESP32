@@ -64,19 +64,20 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
   int bufferused = 0;
 
   // Convert to milliseconds
-  uint32_t x = 0;
+  uint32_t timestampage = 0;
   if (currentMonitor.validReadings)
   {
-    x = (esp_timer_get_time() - currentMonitor.timestamp) / 1000;
+    timestampage = (esp_timer_get_time() - currentMonitor.timestamp) / 1000;
   }
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{");
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "enabled", mysettings.currentMonitoringEnabled);
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         "\"address\":%u,\"timestampage\":%u,\"valid\":%s,\"batterycapacity\":%u,\"tailcurrent\":%.4f,\"fullchargevolt\":%.4f,\"chargeefficiency\":%.4f,",
+                         "\"address\":%u,\"devicetype\":%u,\"timestampage\":%u,\"valid\":%s,\"batterycapacity\":%u,\"tailcurrent\":%.4f,\"fullchargevolt\":%.4f,\"chargeefficiency\":%.4f,",
                          mysettings.currentMonitoringModBusAddress,
-                         x,
+                         mysettings.currentMonitoringDevice,
+                         timestampage,
                          currentMonitor.validReadings ? "true" : "false",
                          currentMonitor.modbus.batterycapacityamphour, currentMonitor.modbus.tailcurrentamps,
                          currentMonitor.modbus.fullychargedvoltage, currentMonitor.chargeefficiency);

@@ -1214,7 +1214,6 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req)
         ESP_LOGE(TAG, "Cannot find file %s", manifestfilename);
     }
 
-
     // No files!
     return SendFailure(req);
 }
@@ -1246,11 +1245,19 @@ esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req)
     {
     }
 
+    uint8_t CurrentMonDev;
+    if (GetKeyValue(httpbuf, "CurrentMonDev", &CurrentMonDev, urlEncoded))
+    {
+        mysettings.currentMonitoringDevice = (CurrentMonitorDevice)CurrentMonDev;
+    }
+
     if (mysettings.currentMonitoringEnabled == false)
     {
         // Switch off current monitor, clear out the values
         memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
         currentMonitor.validReadings = false;
+        mysettings.currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
+        mysettings.currentMonitoringModBusAddress = 90;
     }
 
     saveConfiguration();
