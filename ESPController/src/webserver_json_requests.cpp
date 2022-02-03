@@ -81,18 +81,20 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
                          currentMonitor.validReadings ? "true" : "false",
                          currentMonitor.modbus.batterycapacityamphour, currentMonitor.modbus.tailcurrentamps,
                          currentMonitor.modbus.fullychargedvoltage, currentMonitor.chargeefficiency);
-
+/*
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         "\"address\":%u,\"timestampage\":%u,",
+                         "\"address\":%u,\"devicetype\":%u,\"timestampage\":%u,",
                          mysettings.currentMonitoringModBusAddress,
-                         x);
-  // 1536432
+                         mysettings.currentMonitoringDevice,
+                         timestampage);
+
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "valid", currentMonitor.validReadings);
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                          "\"batterycapacity\":%u,\"tailcurrent\":%.4f,\"fullchargevolt\":%.4f,\"chargeefficiency\":%.4f,",
                          currentMonitor.modbus.batterycapacityamphour, currentMonitor.modbus.tailcurrentamps,
                          currentMonitor.modbus.fullychargedvoltage, currentMonitor.chargeefficiency);
+*/
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                          "\"voltage\":%.4f,\"current\":%.4f,\"mahout\":%u,\"mahin\":%u,\"temperature\":%i,\"watchdog\":%u,\"power\":%.4f,\"actualshuntmv\":%.4f,\"currentlsb\":%.4f,\"resistance\":%.4f,\"calibration\":%u,\"templimit\":%i,\"undervlimit\":%.4f,\"overvlimit\":%.4f,\"overclimit\":%.4f,\"underclimit\":%.4f,\"overplimit\":%.4f,\"tempcoeff\":%u,\"model\":%u,\"firmwarev\":%u,\"firmwaredate\":%u,",

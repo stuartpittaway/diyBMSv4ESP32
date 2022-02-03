@@ -20,7 +20,7 @@
 
 #undef CONFIG_DISABLE_HAL_LOCKS
 
-//static const char *TAG = "diybms";
+static const char *TAG = "diybms";
 
 #include "esp_log.h"
 #include <Arduino.h>
@@ -2630,7 +2630,7 @@ void LoadConfiguration()
 
   mysettings.currentMonitoringEnabled = false;
   mysettings.currentMonitoringModBusAddress = 90;
-  mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON;
+  mysettings.currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
 
   mysettings.rs485baudrate = 19200;
   mysettings.rs485databits = uart_word_length_t::UART_DATA_8_BITS;
