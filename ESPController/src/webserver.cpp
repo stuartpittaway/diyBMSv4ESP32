@@ -194,7 +194,6 @@ esp_err_t static_content_handler(httpd_req_t *req)
 
   httpd_resp_set_type(req, args->mimetype);
 
-  // TODO: GET ETAGS WORKING AGAIN!!
   char buffer[50];
 
   if (httpd_req_get_hdr_value_str(req, "If-None-Match", buffer, sizeof(buffer)) == ESP_OK)
