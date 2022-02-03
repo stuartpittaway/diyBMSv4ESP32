@@ -30,8 +30,6 @@
 //#define RULES_LOGGING
 //#define MQTT_LOGGING
 
-const uint8_t diyBMSCurrentMonitorModbusAddress = 90;
-
 #include "FS.h"
 #include <LITTLEFS.h>
 #include <WiFi.h>
@@ -54,7 +52,7 @@ const uint8_t diyBMSCurrentMonitorModbusAddress = 90;
 
 //#include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
-#include <ArduinoOTA.h>
+
 #include <SerialEncoder.h>
 #include <cppQueue.h>
 
@@ -78,6 +76,9 @@ bool _sd_card_installed = false;
 
 // Used for WIFI hostname and also sent to Victron over CANBUS
 char hostname[16];
+
+// holds modbus data
+uint8_t frame[256];
 
 extern bool _tft_screen_available;
 
@@ -124,6 +125,7 @@ TaskHandle_t tca9534_isr_task_handle = NULL;
 
 TaskHandle_t rs485_tx_task_handle = NULL;
 TaskHandle_t rs485_rx_task_handle = NULL;
+TaskHandle_t service_rs485_transmit_q_task_handle = NULL;
 
 TaskHandle_t victron_canbus_tx_task_handle = NULL;
 TaskHandle_t victron_canbus_rx_task_handle = NULL;
@@ -132,6 +134,11 @@ TaskHandle_t victron_canbus_rx_task_handle = NULL;
 CellModuleInfo cmi[maximum_controller_cell_modules];
 
 avrprogramsettings _avrsettings;
+
+// Number of bytes of the largest MODBUS request we make
+#define MAX_SEND_RS485_PACKET_LENGTH 36
+
+QueueHandle_t rs485_transmit_q_handle;
 
 #include "crc16.h"
 #include "settings.h"
@@ -189,14 +196,20 @@ void voltageandstatussnapshot_task(void *param)
 // Sets the RS485 serial parameters after they have been changed
 void ConfigureRS485()
 {
-  ESP_LOGD(TAG, "Configure RS485");
+
   if (hal.GetRS485Mutex())
   {
+    ESP_LOGD(TAG, "Configure RS485");
     ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_parity(rs485_uart_num, mysettings.rs485parity));
     ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_stop_bits(rs485_uart_num, mysettings.rs485stopbits));
     ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_baudrate(rs485_uart_num, mysettings.rs485baudrate));
     ESP_ERROR_CHECK_WITHOUT_ABORT(uart_set_word_length(rs485_uart_num, mysettings.rs485databits));
+
     hal.ReleaseRS485Mutex();
+  }
+  else
+  {
+    ESP_ERROR_CHECK(ESP_FAIL)
   }
 }
 
@@ -1484,45 +1497,6 @@ void influxdb_task(void *param)
   }
 }
 
-void SetupOTA()
-{
-
-  ArduinoOTA.setPort(3232);
-  ArduinoOTA.setPassword("1jiOOx12AQgEco4e");
-  ArduinoOTA
-      .onStart([]()
-               {
-                 String type;
-                 if (ArduinoOTA.getCommand() == U_FLASH)
-                   type = "sketch";
-                 else // U_SPIFFS
-                   type = "filesystem";
-
-                 // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-                 ESP_LOGI(TAG, "Start updating %s", type); });
-  ArduinoOTA.onEnd([]()
-                   { ESP_LOGD(TAG, "\nEnd"); });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-                        { ESP_LOGD(TAG, "Progress: %u%%\r", (progress / (total / 100))); });
-  ArduinoOTA.onError([](ota_error_t error)
-                     {
-                       ESP_LOGD(TAG, "Error [%u]: ", error);
-                       if (error == OTA_AUTH_ERROR)
-                         ESP_LOGE(TAG, "Auth Failed");
-                       else if (error == OTA_BEGIN_ERROR)
-                         ESP_LOGE(TAG, "Begin Failed");
-                       else if (error == OTA_CONNECT_ERROR)
-                         ESP_LOGE(TAG, "Connect Failed");
-                       else if (error == OTA_RECEIVE_ERROR)
-                         ESP_LOGE(TAG, "Receive Failed");
-                       else if (error == OTA_END_ERROR)
-                         ESP_LOGE(TAG, "End Failed"); });
-
-  ArduinoOTA.setHostname(WiFi.getHostname());
-  ArduinoOTA.setMdnsEnabled(true);
-  ArduinoOTA.begin();
-}
-
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
 
@@ -1549,8 +1523,6 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   }
 
   connectToMqtt();
-
-  SetupOTA();
 
   // Set up mDNS responder:
   // - first argument is the domain name, in this example
@@ -1725,80 +1697,145 @@ uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
   return ptr;
 }
 
-void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
+void PZEM017_SetShuntType(uint8_t modbusAddress, uint16_t shuntMaxCurrent)
 {
-  // Its possible that the RS485_TX task may have already requested some data
-  // at the exact split second of this call, but we ignore that
-  // given this infreqent usage of this function
+  // Default 100A
+  uint8_t shuntType;
 
+  switch (shuntMaxCurrent)
+  {
+  case 50:
+    shuntType = 1;
+    break;
+  case 200:
+    shuntType = 2;
+    break;
+  case 300:
+    shuntType = 3;
+    break;
+  default:
+    // 100amp
+    shuntType = 0;
+    break;
+  }
+
+  uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
+  memset(&cmd, 0, sizeof(cmd));
+
+  cmd[0] = modbusAddress;
+  // Function Code 6
+  cmd[1] = 0x06;
+  // Address of the shunt register (3)
+  cmd[3] = 0x03;
+  // Value
+  cmd[5] = shuntType;
+
+  ESP_LOGD(TAG, "Set PZEM017 max current %uA=%u", shuntMaxCurrent, shuntType);
+
+  xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
+
+  // Zero all data
+  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  currentMonitor.validReadings = false;
+}
+
+void PZEM017_SetDeviceAddress(uint8_t newAddress)
+{
+  // First we force the PZEM device to assume the selected MODBUS address using
+  // the special "broadcast" address of 0xF8.  Technically the PZEM devices
+  // support multiple devices on same RS485 bus, but DIYBMS doesn't....
+
+  uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
+  memset(&cmd, 0, sizeof(cmd));
+
+  // The configuration address (only 1 PZEM device can be connected)
+  cmd[0] = 0xf8;
+  // Function Code 6
+  cmd[1] = 0x06;
+  // Register 2
+  // cmd[2] = 0;
+  cmd[3] = 2;
+  // value
+  // cmd[4] = 0;
+  cmd[5] = newAddress;
+
+  ESP_LOGD(TAG, "Sent PZEM_017 change address");
+
+  // Zero all data
+  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  currentMonitor.validReadings = false;
+  xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
+}
+
+void currentMon_ConfigureBasic(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
+{
   uint16_t chargeeff = chargeefficiency * 100.0;
 
-  ESP_LOGD(TAG, "batterycapacity %u", batterycapacity);
-  ESP_LOGD(TAG, "chargeeff %u", chargeeff);
+  uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
+  memset(&cmd, 0, sizeof(cmd));
 
   //	Write Multiple Holding Registers
-  uint8_t cmd[] = {
+  uint8_t cmd2[] = {
       // The Slave Address
-      diyBMSCurrentMonitorModbusAddress,
+      mysettings.currentMonitoringModBusAddress,
       // The Function Code 16
       16,
       // Data Address of the first register (zero based so 18 = register 40019)
-      0, 18,
+      0,
+      18,
       // number of registers to write
-      0, 8,
+      0,
+      8,
       // number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
       16,
       // value to write to register 40019 |40019|shunt_max_current  (unsigned int16)
-      (uint8_t)(shuntmaxcur >> 8), (uint8_t)(shuntmaxcur & 0xFF),
+      (uint8_t)(shuntmaxcur >> 8),
+      (uint8_t)(shuntmaxcur & 0xFF),
       // value to write to register 40020 |40020|shunt_millivolt  (unsigned int16)
-      (uint8_t)(shuntmv >> 8), (uint8_t)(shuntmv & 0xFF),
+      (uint8_t)(shuntmv >> 8),
+      (uint8_t)(shuntmv & 0xFF),
       //|40021|Battery Capacity (ah)  (unsigned int16)
-      (uint8_t)(batterycapacity >> 8), (uint8_t)(batterycapacity & 0xFF),
+      (uint8_t)(batterycapacity >> 8),
+      (uint8_t)(batterycapacity & 0xFF),
       //|40022|Fully charged voltage (4 byte double)
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       //|40024|Tail current (Amps) (4 byte double)
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       //|40026|Charge efficiency factor % (unsigned int16) (scale x100 eg. 10000 = 100.00%, 9561 = 95.61%)
-      (uint8_t)(chargeeff >> 8), (uint8_t)(chargeeff & 0xFF),
-      // CRC
-      0, 0};
+      (uint8_t)(chargeeff >> 8),
+      (uint8_t)(chargeeff & 0xFF),
+  };
 
-  uint8_t ptr = SetMobusRegistersFromFloat(cmd, 13, fullchargevolt);
-  ptr = SetMobusRegistersFromFloat(cmd, ptr, tailcurrent);
+  uint8_t ptr = SetMobusRegistersFromFloat(cmd2, 13, fullchargevolt);
+  ptr = SetMobusRegistersFromFloat(cmd2, ptr, tailcurrent);
 
-  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+  memcpy(&cmd, &cmd2, sizeof(cmd2));
+  xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
 
-  // Byte swap the Hi and Lo bytes
-  uint16_t crc16 = (temp << 8) | (temp >> 8);
-
-  cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
-  cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
-
-  if (hal.GetRS485Mutex())
-  {
-    // Ensure we have empty receive buffer
-    uart_flush_input(rs485_uart_num);
-
-    // Send the bytes (actually just put them into the TX FIFO buffer)
-    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
-
-    hal.ReleaseRS485Mutex();
-
-    ESP_LOGD(TAG, "Send MODBUS request");
-
-    // Zero all data
-    memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
-    currentMonitor.validReadings = false;
-
-    // Notify the receive task that a packet should be on its way
-    if (rs485_rx_task_handle != NULL)
-    {
-      xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
-    }
-  }
+  // Zero all data
+  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  currentMonitor.validReadings = false;
 }
 
-uint8_t frame[256];
+void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
+{
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+  {
+    currentMon_ConfigureBasic(shuntmv, shuntmaxcur, batterycapacity, fullchargevolt, tailcurrent, chargeefficiency);
+  }
+
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
+  {
+    PZEM017_SetDeviceAddress(mysettings.currentMonitoringModBusAddress);
+    PZEM017_SetShuntType(mysettings.currentMonitoringModBusAddress, shuntmaxcur);
+  }
+}
 
 // Save the current monitor advanced settings back to the device over MODBUS/RS485
 void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues)
@@ -1833,90 +1870,91 @@ Flag 2
 3|Relay Trigger on POL|Read write
 */
 
+  uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
+  memset(&cmd, 0, sizeof(cmd));
+
   //	Write Multiple Holding Registers
-  uint8_t cmd[] = {
-      // The Slave Address
-      diyBMSCurrentMonitorModbusAddress,
-      // The Function Code 16
-      16,
-      // Data Address of the first register (9=40010, Various status flags)
-      0, 9,
-      // number of registers to write
-      0, 1,
-      // number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
-      2,
-      // value to write to register 40010
-      flag1, flag2,
-      // CRC
-      0, 0};
 
-  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
+  // The Slave Address
+  cmd[0] = mysettings.currentMonitoringModBusAddress;
+  // The Function Code 16
+  cmd[1] = 16;
+  // Data Address of the first register (9=40010, Various status flags)
+  cmd[2] = 0;
+  cmd[3] = 9;
+  // number of registers to write
+  cmd[4] = 0;
+  cmd[5] = 1;
+  // number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
+  cmd[6] = 2;
+  // value to write to register 40010
+  cmd[7] = flag1;
+  cmd[8] = flag2;
 
-  // Byte swap the Hi and Lo bytes
-  uint16_t crc16 = (temp << 8) | (temp >> 8);
-
-  cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
-  cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
-
-  if (hal.GetRS485Mutex())
-  {
-    // Ensure we have empty receive buffer
-    uart_flush_input(rs485_uart_num);
-
-    // Send the bytes (actually just put them into the TX FIFO buffer)
-    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
-
-    hal.ReleaseRS485Mutex();
-  }
+  xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
 
   ESP_LOGD(TAG, "Write register 10 = %u %u", flag1, flag2);
 
   // Zero all data
   memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
   currentMonitor.validReadings = false;
-
-  // Notify the receive task that a packet should be on its way
-  if (rs485_rx_task_handle != NULL)
-  {
-    xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
-  }
 }
 
 // Save the current monitor advanced settings back to the device over MODBUS/RS485
 void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
 {
+
   //	Write Multiple Holding Registers
-  uint8_t cmd[] = {
+  uint8_t cmd2[] = {
       // The Slave Address
-      diyBMSCurrentMonitorModbusAddress,
+      mysettings.currentMonitoringModBusAddress,
       // The Function Code 16
       16,
       // Data Address of the first register (|40028|INA_REGISTER::SHUNT_CAL (unsigned int16))
-      0, 27,
+      0,
+      27,
       // number of registers to write
-      0, 13,
-      // number of data bytes to follow (2 registers x 6 bytes each)
+      0,
+      13,
+      // number of data bytes to follow (13 registers x 2 bytes each)
       2 * 13,
       // value to write to register 40028
       // 21 = shuntcal
-      (uint8_t)(newvalues.modbus.shuntcal >> 8), (uint8_t)(newvalues.modbus.shuntcal & 0xFF),
+      (uint8_t)(newvalues.modbus.shuntcal >> 8),
+      (uint8_t)(newvalues.modbus.shuntcal & 0xFF),
       // value to write to register 40029
       // temperaturelimit
-      (uint8_t)(newvalues.modbus.temperaturelimit >> 8), (uint8_t)(newvalues.modbus.temperaturelimit & 0xFF),
+      (uint8_t)(newvalues.modbus.temperaturelimit >> 8),
+      (uint8_t)(newvalues.modbus.temperaturelimit & 0xFF),
       // overvoltagelimit 40030
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       // undervoltagelimit 40032
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       // overcurrentlimit 40034
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       // undercurrentlimit 40029
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       // overpowerlimit 40038
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       // shunttempcoefficient 40
-      (uint8_t)(newvalues.modbus.shunttempcoefficient >> 8), (uint8_t)(newvalues.modbus.shunttempcoefficient & 0xFF),
-      // CRC
-      0, 0};
+      (uint8_t)(newvalues.modbus.shunttempcoefficient >> 8),
+      (uint8_t)(newvalues.modbus.shunttempcoefficient & 0xFF),
+  };
 
   // ESP_LOGD(TAG, "temp limit=%i", newvalues.temperaturelimit);
   // ESP_LOGD(TAG, "shuntcal=%u", newvalues.shuntcal);
@@ -1924,11 +1962,11 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   // Register 18 = shunt_max_current
   // Register 19 = shunt_millivolt
 
-  uint8_t ptr = SetMobusRegistersFromFloat(cmd, 11, newvalues.modbus.overvoltagelimit);
-  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.modbus.undervoltagelimit);
-  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.modbus.overcurrentlimit);
-  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.modbus.undercurrentlimit);
-  ptr = SetMobusRegistersFromFloat(cmd, ptr, newvalues.modbus.overpowerlimit);
+  uint8_t ptr = SetMobusRegistersFromFloat(cmd2, 11, newvalues.modbus.overvoltagelimit);
+  ptr = SetMobusRegistersFromFloat(cmd2, ptr, newvalues.modbus.undervoltagelimit);
+  ptr = SetMobusRegistersFromFloat(cmd2, ptr, newvalues.modbus.overcurrentlimit);
+  ptr = SetMobusRegistersFromFloat(cmd2, ptr, newvalues.modbus.undercurrentlimit);
+  ptr = SetMobusRegistersFromFloat(cmd2, ptr, newvalues.modbus.overpowerlimit);
 
   /*
     newvalues.shuntcal = p1->value().toInt();
@@ -1941,36 +1979,16 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
     newvalues.shunttempcoefficient = p1->value().toInt();
 */
 
-  uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
-
-  // Byte swap the Hi and Lo bytes
-  uint16_t crc16 = (temp << 8) | (temp >> 8);
-
-  cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
-  cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
-
-  if (hal.GetRS485Mutex())
-  {
-    // Ensure we have empty receive buffer
-    uart_flush_input(rs485_uart_num);
-
-    // Send the bytes (actually just put them into the TX FIFO buffer)
-    uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
-
-    hal.ReleaseRS485Mutex();
-  }
+  uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
+  memset(&cmd, 0, sizeof(cmd));
+  memcpy(&cmd, &cmd2, sizeof(cmd2));
+  xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
 
   ESP_LOGD(TAG, "Advanced save settings");
 
   // Zero all data
   memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
   currentMonitor.validReadings = false;
-
-  // Notify the receive task that a packet should be on its way
-  if (rs485_rx_task_handle != NULL)
-  {
-    xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
-  }
 }
 
 // Swap the two 16 bit words in a 32bit word
@@ -1980,7 +1998,7 @@ static inline unsigned int word16swap32(unsigned int __bsx)
 }
 
 // Extract the current monitor MODBUS registers into our internal STRUCTURE variables
-void ProcessCurrentMonitorRegisterReply(uint8_t length)
+void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 {
   // ESP_LOGD(TAG, "Modbus len=%i, struct len=%i", length, sizeof(currentmonitor_raw_modbus));
 
@@ -2079,429 +2097,6 @@ void ProcessCurrentMonitorRegisterReply(uint8_t length)
   ESP_LOGD(TAG, "Ver = %x", currentMonitor.modbus.firmwareversion);
   ESP_LOGD(TAG, "Date = %u", currentMonitor.modbus.firmwaredatetime);
 */
-}
-
-/*
-void ProcessCurrentMonitorRegisterReply_OLD(uint8_t length)
-{
-  FloatUnionType v;
-
-  //Length is in bytes, but the registers are returned in 16 bit words
-  uint8_t ptr = 3;
-  uint16_t reg = 0;
-
-  //ESP_LOG_BUFFER_HEXDUMP(TAG, &frame[ptr], length, esp_log_level_t::ESP_LOG_DEBUG);
-
-  //Last time we updated the structure
-  currentMonitor.timestamp = esp_timer_get_time();
-  for (size_t i = 0; i < length / 2; i++)
-  {
-    uint16_t data = ((frame[ptr] << 8) | frame[ptr + 1]); // combine the starting address bytes
-    ptr += 2;
-    reg++;
-
-    //ESP_LOGD(TAG, "register=%u data=%x", reg, data);
-
-    switch (reg)
-    {
-    //|40001|Voltage (4 byte double)
-    case 1:
-    //|40003|Current (4 byte double)
-    case 3:
-    //|40005|milliamphour_out (4 byte unsigned long uint32_t)
-    case 5:
-    //|40007|milliamphour_in (4 byte  unsigned long uint32_t)
-    case 7:
-    //|40011|Power (4 byte double)
-    case 11:
-    //|40013|Shunt mV (4 byte double)
-    case 13:
-    //|40015|CURRENT_LSB (4 byte double)
-    case 15:
-    //|40017|shunt_resistance (4 byte double)
-    case 17:
-    //|40022|Fully charged voltage (4 byte double)
-    case 22:
-    //|40024|Tail current (Amps) (4 byte double)
-    case 24:
-    //|40030|Bus Overvoltage (overvoltage protection)(4 byte double)
-    case 30:
-    //|40032|BusUnderVolt (4 byte double)
-    case 32:
-    //|40034|Shunt Over Voltage Limit (current limit) (4 byte double)
-    case 34:
-    //|40036|Shunt UNDER Voltage Limit (under current limit) (4 byte double)
-    case 36:
-    //|40038|Shunt Over POWER LIMIT (4 byte double)
-    case 38:
-    //|40042|GITHUB version
-    case 42:
-    //|40044|COMPILE_DATE_TIME_EPOCH
-    case 44:
-    {
-      //This stores the first half of the 32 bit register value for all the registers above
-      v.word[0] = data;
-      break;
-    }
-
-    case 2:
-    {
-      v.word[1] = data;
-      currentMonitor.modbus.voltage = v.value;
-      break;
-    }
-
-    case 4:
-    {
-      v.word[1] = data;
-      currentMonitor.modbus.current = v.value;
-      break;
-    }
-
-    case 6:
-    {
-      uint32_t milliamph = ((uint32_t)v.word[0]) << 16 | (uint32_t)data;
-      currentMonitor.modbus.milliamphour_out = milliamph;
-      break;
-    }
-
-    case 8:
-    {
-      uint32_t milliamph = ((uint32_t)v.word[0]) << 16 | (uint32_t)data;
-      currentMonitor.modbus.milliamphour_in = milliamph;
-      break;
-    }
-
-    case 9:
-    {
-      currentMonitor.modbus.temperature = (int16_t)data;
-      break;
-    }
-
-    case 10:
-    {
-      //High byte
-      uint8_t flag1 = data >> 8;
-      //Low byte
-      uint8_t flag2 = data;
-
-      currentMonitor.modbus.flags = data;
-      //currentMonitor.modbus.flag2 = flag2;
-
-      //ESP_LOGD(TAG, "Read relay trigger settings %u %u", flag1, flag2);
-
-
-//16|TMPOL|Read only
-//15|SHNTOL|Read only
-//14|SHNTUL|Read only
-//13|BUSOL|Read only
-//12|BUSUL|Read only
-//11|POL|Read only
-//10|Temperature compensation enabled|Read write
-//9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
-
-
-      currentMonitor.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
-      currentMonitor.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
-      currentMonitor.CurrentUnderLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTUL);
-      currentMonitor.VoltageOverlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSOL);
-      currentMonitor.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
-      currentMonitor.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
-
-      currentMonitor.TempCompEnabled = flag1 & B00000010;
-      currentMonitor.ADCRange4096mV = flag1 & B00000001;
-
-
-//8|Relay Trigger on TMPOL|Read write
-//7|Relay Trigger on SHNTOL|Read write
-//6|Relay Trigger on SHNTUL|Read write
-//5|Relay Trigger on BUSOL|Read write
-//4|Relay Trigger on BUSUL|Read write
-//3|Relay Trigger on POL|Read write
-//2|Existing Relay state (0=off)|Read write
-//1|Factory reset bit (always 0 when read)|Read write
-
-      currentMonitor.RelayTriggerTemperatureOverLimit = flag2 & bit(DIAG_ALRT_FIELD::TMPOL);
-      currentMonitor.RelayTriggerCurrentOverLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTOL);
-      currentMonitor.RelayTriggerCurrentUnderLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTUL);
-      currentMonitor.RelayTriggerVoltageOverlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSOL);
-      currentMonitor.RelayTriggerVoltageUnderlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSUL);
-      currentMonitor.RelayTriggerPowerOverLimit = flag2 & bit(DIAG_ALRT_FIELD::POL);
-      currentMonitor.RelayState = flag2 & B00000010;
-      //Last bit is for factory reset (always zero)
-
-      break;
-    }
-
-    case 12:
-    {
-      v.word[1] = data;
-      currentMonitor.modbus.power = v.value;
-      break;
-    }
-
-    case 14:
-    {
-      v.word[1] = data;
-      currentMonitor.modbus.shuntmV = v.value;
-      break;
-    }
-
-    case 16:
-    {
-      v.word[1] = data;
-      currentMonitor.modbus.currentlsb = v.value;
-      break;
-    }
-
-    case 18:
-    {
-      v.word[1] = data;
-      currentMonitor.modbus.shuntresistance = v.value;
-      break;
-    }
-
-    case 19:
-    {
-      currentMonitor.modbus.shuntmaxcurrent = data;
-      break;
-    }
-
-    case 20:
-    {
-      //|40020|shunt_millivolt  (unsigned int16)
-      currentMonitor.modbus.shuntmillivolt = data;
-      break;
-    }
-
-    case 21:
-    {
-      currentMonitor.modbus.batterycapacityamphour = data;
-      break;
-    }
-
-      //22
-
-    case 23:
-    {
-      v.word[1] = data;
-      currentMonitor.modbus.fullychargedvoltage = v.value;
-      break;
-    }
-      //24
-    case 25:
-    {
-      v.word[1] = data;
-      currentMonitor.modbus.tailcurrentamps = v.value;
-      break;
-    }
-
-    case 26:
-    {
-      currentMonitor.modbus.raw_chargeefficiency = data;
-      currentMonitor.chargeefficiency = ((float)data) / 100.0;
-      break;
-    }
-
-    case 27:
-    {
-      currentMonitor.modbus.raw_stateofcharge = data;
-      currentMonitor.stateofcharge = ((float)data) / 100.0;
-      break;
-    }
-
-    case 28:
-    {
-      currentMonitor.modbus.shuntcal = data;
-      break;
-    }
-
-    case 29:
-    {
-      currentMonitor.modbus.temperaturelimit = (int16_t)data;
-      break;
-    }
-      //30
-    case 31:
-    {
-      //Bus Overvoltage (overvoltage protection)
-      v.word[1] = data;
-      currentMonitor.modbus.overvoltagelimit = v.value;
-      break;
-    }
-      //32
-    case 33:
-    {
-      //Bus Undervoltage (under voltage protection)
-      v.word[1] = data;
-      currentMonitor.modbus.undervoltagelimit = v.value;
-      break;
-    }
-      //34
-    case 35:
-    {
-      //Over current
-      v.word[1] = data;
-      currentMonitor.modbus.overcurrentlimit = v.value;
-      break;
-    }
-      //36
-    case 37:
-    {
-      //Under current
-      v.word[1] = data;
-      currentMonitor.modbus.undercurrentlimit = v.value;
-      break;
-    }
-      //38
-    case 39:
-    {
-      v.word[1] = data;
-      currentMonitor.modbus.overpowerlimit = v.value;
-      break;
-    }
-
-    case 40:
-    {
-      currentMonitor.modbus.shunttempcoefficient = data;
-      break;
-    }
-    case 41:
-    {
-      currentMonitor.modbus.modelnumber = data;
-      break;
-    }
-      //42
-    case 43:
-    {
-      currentMonitor.modbus.firmwareversion = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
-      break;
-    }
-    //44
-    case 45:
-    {
-      currentMonitor.modbus.firmwaredatetime = (((uint32_t)v.word[0]) << 16) | (uint32_t)data;
-      //If we have received the firmware settings, it means we have asked and got a full dump of all the registers
-      //so record it as valid
-      currentMonitor.validReadings = true;
-      break;
-    }
-
-    case 46:
-    {
-      currentMonitor.modbus.watchdogcounter = data;
-      ESP_LOGD(TAG, "WDog = %u", currentMonitor.modbus.watchdogcounter);
-      break;
-    }
-
-    default:
-    {
-      ESP_LOGE(TAG, "Unprocessed register %u = %x", reg, data);
-      break;
-    }
-
-    } //end switch
-
-    //ESP_LOGD(TAG, "%u = %x", reg, data);
-  } //end for
-
-  //ESP_LOGD(TAG, "Volt = %f", currentMonitor.voltage);
-  //ESP_LOGD(TAG, "Curr = %f", currentMonitor.current);
-  //ESP_LOGD(TAG, "Temp = %i", currentMonitor.temperature);
-
-  //ESP_LOGD(TAG, "Out = %f", currentMonitor.amphour_out);
-  //ESP_LOGD(TAG, "In = %f", currentMonitor.amphour_in);
-
-  //ESP_LOGD(TAG, "Ver = %x", currentMonitor.firmwareversion);
-  //ESP_LOGD(TAG, "Date = %u", currentMonitor.firmwaredatetime);
-
-  //ESP_LOG_BUFFER_HEXDUMP(TAG, &currentMonitor.modbus, sizeof(currentmonitor_raw_modbus), esp_log_level_t::ESP_LOG_DEBUG);
-}
-*/
-
-// RS485 receive
-void rs485_rx(void *param)
-{
-  for (;;)
-  {
-    // Wait until this task is triggered (sending task triggers it)
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-    // Delay 50ms for the data to arrive
-    vTaskDelay(pdMS_TO_TICKS(50));
-
-    int len = 0;
-
-    if (hal.GetRS485Mutex())
-    {
-      // Wait 200ms before timeout
-      len = uart_read_bytes(rs485_uart_num, frame, sizeof(frame), (200 / portTICK_RATE_MS));
-      hal.ReleaseRS485Mutex();
-    }
-
-    // Min packet length of 5 bytes
-    if (len > 5)
-    {
-      uint8_t id = frame[0];
-
-      uint16_t crc = ((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
-
-      uint16_t temp = calculateCRC(frame, len - 2);
-      // Swap bytes to match MODBUS ordering
-      uint16_t calculatedCRC = (temp << 8) | (temp >> 8);
-
-      ESP_LOGD(TAG, "Rec %i bytes, id=%u", len, id);
-
-      // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
-
-      if (calculatedCRC == crc)
-      {
-        // if the calculated crc matches the recieved crc continue
-        uint8_t RS485Error = frame[1] & B10000000;
-        if (RS485Error == 0)
-        {
-          uint8_t cmd = frame[1] & B01111111;
-          uint8_t length = frame[2];
-
-          // ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
-
-          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 3)
-          {
-            ProcessCurrentMonitorRegisterReply(length);
-
-            if (_tft_screen_available)
-            {
-              // Refresh the TFT display
-              xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
-            }
-
-          } // end diybms current monitor command 3
-
-          if (id == diyBMSCurrentMonitorModbusAddress && cmd == 16)
-          {
-            ESP_LOGI(TAG, "Write multiple regs, success");
-          }
-        }
-        else
-        {
-          ESP_LOGE(TAG, "RS485 error");
-        }
-      }
-      else
-      {
-        ESP_LOGE(TAG, "CRC error");
-      }
-    }
-    else
-    {
-      // We didn't receive anything on RS485
-      ESP_LOGE(TAG, "Short packet %i bytes", len);
-
-      // Indicate that the current monitor values are now invalid/unknown
-      currentMonitor.validReadings = false;
-    }
-    // for (int i = 0; i < len; i++)    {      dumpByte(data[i]);    }
-  }
 }
 
 void victron_canbus_tx(void *param)
@@ -2612,15 +2207,217 @@ void victron_canbus_rx(void *param)
   }
 }
 
-// This is the request we send to diyBMS current monitor, it pulls back 38 registers
-// this is all the registers diyBMS current monitor has
-// Holding Registers = command 3
+void service_rs485_transmit_q(void *param)
+{
+  for (;;)
+  {
+    uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
+
+    // Wait for a item in the queue, blocking indefinately
+    xQueueReceive(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
+
+    if (hal.GetRS485Mutex())
+    {
+
+      // Ensure we have empty receive buffer
+      // uart_flush_input(rs485_uart_num);
+
+      // Default of 8 bytes for a modbus request (including CRC)
+      size_t packet_length = 8;
+
+      if (cmd[1] == 15 || cmd[1] == 16)
+      {
+        // Calculate length of this packet, add on extra data
+        // Force Multiple Coils (FC=15)
+        // https://www.simplymodbus.ca/FC15.htm
+        // Preset Multiple Registers (FC=16)
+        // https://www.simplymodbus.ca/FC16.htm
+        packet_length = 9 + cmd[6];
+      }
+
+      // Calculate the MODBUS CRC
+      uint16_t temp = calculateCRC(cmd, packet_length - 2);
+      // Byte swap the Hi and Lo bytes
+      uint16_t crc16 = (temp << 8) | (temp >> 8);
+      cmd[packet_length - 2] = crc16 >> 8; // split crc into 2 bytes
+      cmd[packet_length - 1] = crc16 & 0xFF;
+
+      // Send the bytes (actually just put them into the TX FIFO buffer)
+      uart_write_bytes(rs485_uart_num, (char *)cmd, packet_length);
+
+      hal.ReleaseRS485Mutex();
+
+      // Notify the receive task that a packet should be on its way
+      if (rs485_rx_task_handle != NULL)
+      {
+        xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+      }
+
+      ESP_LOGD(TAG, "Send addr=%u, func=%u, len=%u", cmd[0], cmd[1], packet_length);
+      // Debug
+      // ESP_LOG_BUFFER_HEXDUMP(TAG, cmd, packet_length, esp_log_level_t::ESP_LOG_DEBUG);
+
+      // Once we have notified the receive task, we pause here to avoid sending
+      // another request until the last one has been processed (or we timeout after 2 seconds)
+      ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(2000));
+    }
+  }
+}
+
+// RS485 receive
+void rs485_rx(void *param)
+{
+  for (;;)
+  {
+    // Wait until this task is triggered (sending queue task triggers it)
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    // Delay 50ms for the data to arrive
+    vTaskDelay(pdMS_TO_TICKS(50));
+
+    int len = 0;
+
+    if (hal.GetRS485Mutex())
+    {
+      // Wait 200ms before timeout
+      len = uart_read_bytes(rs485_uart_num, frame, sizeof(frame), pdMS_TO_TICKS(200));
+      hal.ReleaseRS485Mutex();
+    }
+
+    // Min packet length of 5 bytes
+    if (len > 5)
+    {
+      uint8_t id = frame[0];
+
+      uint16_t crc = ((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
+
+      uint16_t temp = calculateCRC(frame, len - 2);
+      // Swap bytes to match MODBUS ordering
+      uint16_t calculatedCRC = (temp << 8) | (temp >> 8);
+
+      // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+
+      if (calculatedCRC == crc)
+      {
+        // if the calculated crc matches the recieved crc continue to process data...
+        uint8_t RS485Error = frame[1] & B10000000;
+        if (RS485Error == 0)
+        {
+          uint8_t cmd = frame[1] & B01111111;
+          uint8_t length = frame[2];
+
+          ESP_LOGD(TAG, "Recv %i bytes, id=%u, cmd=%u", len, id, cmd);
+          // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+
+          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
+          {
+            if (cmd == 6 && id == 248)
+            {
+              ESP_LOGI(TAG, "Reply to broadcast/change address");
+            }
+            if (cmd == 6 && id == mysettings.currentMonitoringModBusAddress)
+            {
+              ESP_LOGI(TAG, "Reply to set param");
+            }
+            else if (cmd == 3 && id == mysettings.currentMonitoringModBusAddress)
+            {
+              // 75mV shunt (hard coded for PZEM)
+              currentMonitor.modbus.shuntmillivolt = 75;
+
+              // Shunt type 0x0000 - 0x0003 (100A/50A/200A/300A)
+              switch (((uint32_t)frame[9] << 8 | (uint32_t)frame[10]))
+              {
+              case 0:
+                currentMonitor.modbus.shuntmaxcurrent = 100;
+                break;
+              case 1:
+                currentMonitor.modbus.shuntmaxcurrent = 50;
+                break;
+              case 2:
+                currentMonitor.modbus.shuntmaxcurrent = 200;
+                break;
+              case 3:
+                currentMonitor.modbus.shuntmaxcurrent = 300;
+                break;
+              default:
+                currentMonitor.modbus.shuntmaxcurrent = 0;
+              }
+            }
+            else if (cmd == 4 && id == mysettings.currentMonitoringModBusAddress && len == 21)
+            {
+              // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+
+              // memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
+              currentMonitor.validReadings = true;
+              currentMonitor.timestamp = esp_timer_get_time();
+              // voltage in 0.01V
+              currentMonitor.modbus.voltage = (float)((uint32_t)frame[3] << 8 | (uint32_t)frame[4]) / (float)100.0;
+              // current in 0.01A
+              currentMonitor.modbus.current = (float)((uint32_t)frame[5] << 8 | (uint32_t)frame[6]) / (float)100.0;
+              // power in 0.1W
+              currentMonitor.modbus.power = ((uint32_t)frame[7] << 8 | (uint32_t)frame[8] | (uint32_t)frame[9] << 24 | (uint32_t)frame[10] << 16) / 10.0;
+            }
+            else
+            {
+              // Dump out unhandled reply
+              ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+            }
+          }
+          // ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
+          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+          {
+            if (id == mysettings.currentMonitoringModBusAddress && cmd == 3)
+            {
+              ProcessDIYBMSCurrentMonitorRegisterReply(length);
+
+              if (_tft_screen_available)
+              {
+                // Refresh the TFT display
+                xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
+              }
+            }
+            else if (id == mysettings.currentMonitoringModBusAddress && cmd == 16)
+            {
+              ESP_LOGI(TAG, "Write multiple regs, success");
+            }
+            else
+            {
+              // Dump out unhandled reply
+              ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+            }
+          }
+        }
+        else
+        {
+          ESP_LOGE(TAG, "RS485 error");
+          ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+        }
+      }
+      else
+      {
+        ESP_LOGE(TAG, "CRC error");
+      }
+    }
+    else
+    {
+      // We didn't receive anything on RS485, record error and mark current monitor as invalid
+      ESP_LOGE(TAG, "Short packet %i bytes", len);
+
+      // Indicate that the current monitor values are now invalid/unknown
+      currentMonitor.validReadings = false;
+    }
+
+    // Notify sending queue, to continue
+    xTaskNotify(service_rs485_transmit_q_task_handle, 0x00, eNotifyAction::eNoAction);
+
+  } // infinite loop
+}
 
 // RS485 transmit
 void rs485_tx(void *param)
 {
-  // 8 byte request
-  uint8_t cmd[] = {0, 0, 0, 0, 0, 0, 0, 0};
+  uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
+  memset(&cmd, 0, sizeof(cmd));
 
   for (;;)
   {
@@ -2629,39 +2426,39 @@ void rs485_tx(void *param)
 
     if (mysettings.currentMonitoringEnabled == true)
     {
-      // ESP_LOGD(TAG, "RS485 TX");
-      cmd[0] = diyBMSCurrentMonitorModbusAddress;
-
-      // Input registers - 46 of them (92 bytes + headers + crc = 83 byte reply)
-      cmd[1] = 3;
-      cmd[5] = 46;
-
-      // Ideally we poll the current monitor and only ask it for a small subset of registers
-      // the first 12 registers are the most useful, so only need the others when we want to get the configuration data
-
-      uint16_t temp = calculateCRC(cmd, sizeof(cmd) - 2);
-
-      // Byte swap the Hi and Lo bytes
-      uint16_t crc16 = (temp << 8) | (temp >> 8);
-
-      cmd[sizeof(cmd) - 2] = crc16 >> 8; // split crc into 2 bytes
-      cmd[sizeof(cmd) - 1] = crc16 & 0xFF;
-
-      if (hal.GetRS485Mutex())
+      if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
       {
-        // Ensure we have empty receive buffer
-        uart_flush_input(rs485_uart_num);
+        // This is the request we send to diyBMS current monitor, it pulls back 38 registers
+        // this is all the registers diyBMS current monitor has
+        // Holding Registers = command 3
+        cmd[0] = mysettings.currentMonitoringModBusAddress;
+        // Input registers - 46 of them (92 bytes + headers + crc = 83 byte reply)
+        cmd[1] = 3;
+        cmd[5] = 46;
+        xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
+      }
 
-        // Send the bytes (actually just put them into the TX FIFO buffer)
-        uart_write_bytes(rs485_uart_num, (char *)cmd, sizeof(cmd));
+      if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
+      {
+        // ESP_LOGD(TAG, "RS485 TX");
+        cmd[0] = mysettings.currentMonitoringModBusAddress;
 
-        hal.ReleaseRS485Mutex();
-
-        // Notify the receive task that a packet should be on its way
-        if (rs485_rx_task_handle != NULL)
+        if (currentMonitor.modbus.shuntmillivolt == 0)
         {
-          xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+          ESP_LOGD(TAG, "PZEM_017 Read params");
+          cmd[1] = 0x03;
+          cmd[5] = 0x04;
         }
+        else
+        {
+          // ESP_LOGD(TAG, "PZEM_017 Read values");
+          //  Read the standard voltage/current values
+          //   Input registers
+          cmd[1] = 0x04;
+          // Read 8 registers (0 to 8)
+          cmd[5] = 0x08;
+        }
+        xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
       }
     } // end if
   }
@@ -2756,13 +2553,16 @@ void mqtt1(void *param)
           // Send current monitor data if its valid and not sent before
           doc["voltage"] = currentMonitor.modbus.voltage;
           doc["current"] = currentMonitor.modbus.current;
-          doc["mAhIn"] = currentMonitor.modbus.milliamphour_in;
-          doc["mAhOut"] = currentMonitor.modbus.milliamphour_out;
           doc["power"] = currentMonitor.modbus.power;
-          doc["temperature"] = currentMonitor.modbus.temperature;
-          doc["shuntmV"] = currentMonitor.modbus.shuntmV;
-          doc["relayState"] = currentMonitor.RelayState ? 1 : 0;
-          doc["soc"] = currentMonitor.stateofcharge;
+          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+          {
+            doc["mAhIn"] = currentMonitor.modbus.milliamphour_in;
+            doc["mAhOut"] = currentMonitor.modbus.milliamphour_out;
+            doc["temperature"] = currentMonitor.modbus.temperature;
+            doc["shuntmV"] = currentMonitor.modbus.shuntmV;
+            doc["relayState"] = currentMonitor.RelayState ? 1 : 0;
+            doc["soc"] = currentMonitor.stateofcharge;
+          }
         }
 
         lastcurrentMonitortimestamp = currentMonitor.timestamp;
@@ -2830,6 +2630,7 @@ void LoadConfiguration()
 
   mysettings.currentMonitoringEnabled = false;
   mysettings.currentMonitoringModBusAddress = 90;
+  mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON;
 
   mysettings.rs485baudrate = 19200;
   mysettings.rs485databits = uart_word_length_t::UART_DATA_8_BITS;
@@ -3366,6 +3167,15 @@ void setup()
 
   SetupRS485();
 
+  // Create queue for transmit, each request could be MAX_SEND_RS485_PACKET_LENGTH bytes long, depth of 3 items
+  rs485_transmit_q_handle = xQueueCreate(3, MAX_SEND_RS485_PACKET_LENGTH);
+
+  if (rs485_transmit_q_handle == NULL)
+  {
+    ESP_LOGE("Failed to create queue");
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
+
   xTaskCreate(ledoff_task, "ledoff", 1500, nullptr, 1, &ledoff_task_handle);
   xTaskCreate(tftwakeup_task, "tftwake", 1900, nullptr, 1, &tftwakeup_task_handle);
   xTaskCreate(tftsleep_task, "tftslp", 900, nullptr, 1, &tftsleep_task_handle);
@@ -3383,11 +3193,12 @@ void setup()
   xTaskCreate(mqtt1, "mqtt1", 4096, nullptr, 1, &mqtt1_task_handle);
   xTaskCreate(mqtt2, "mqtt2", 4096, nullptr, 1, &mqtt2_task_handle);
 
-  xTaskCreate(rs485_tx, "RS485TX", 3000, nullptr, 1, &rs485_tx_task_handle);
-  xTaskCreate(rs485_rx, "RS485RX", 3000, nullptr, 1, &rs485_rx_task_handle);
+  xTaskCreate(rs485_tx, "485_TX", 3000, nullptr, 1, &rs485_tx_task_handle);
+  xTaskCreate(rs485_rx, "485_RX", 3000, nullptr, 1, &rs485_rx_task_handle);
+  xTaskCreate(service_rs485_transmit_q, "485_Q", 3000, nullptr, 1, &service_rs485_transmit_q_task_handle);
 
-  xTaskCreate(victron_canbus_tx, "viccantx", 3000, nullptr, 1, &victron_canbus_tx_task_handle);
-  xTaskCreate(victron_canbus_rx, "viccanrx", 3000, nullptr, 1, &victron_canbus_rx_task_handle);
+  xTaskCreate(victron_canbus_tx, "v_cantx", 3000, nullptr, 1, &victron_canbus_tx_task_handle);
+  xTaskCreate(victron_canbus_rx, "v_canrx", 3000, nullptr, 1, &victron_canbus_rx_task_handle);
 
   // We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
   // and slower than it takes a single module to process a command (about 200ms @ 2400baud)
@@ -3485,12 +3296,12 @@ void setup()
 }
 
 unsigned long wifitimer = 0;
+unsigned long heaptimer = 0;
 
 unsigned long taskinfotimer = 0;
 
 void loop()
 {
-
   unsigned long currentMillis = millis();
 
   if (_controller_state != ControllerState::ConfigurationSoftAP)
@@ -3505,83 +3316,7 @@ void loop()
       connectToMqtt();
     }
   }
-  /*
-  if (currentMillis > taskinfotimer)
-  {
-    // High water mark is the minimum free stack space there has been (in bytes
-    // rather than words as found in vanilla FreeRTOS) since the task started.
-    // The smaller the returned number the closer the task has come to overflowing its stack.
-    ESP_LOGD(TAG, "Total number of tasks %u", uxTaskGetNumberOfTasks());
 
-    TaskHandle_t Handles[] = {i2c_task_handle,
-                              ledoff_task_handle,
-                              wifiresetdisable_task_handle,
-                              sdcardlog_task_handle,
-                              sdcardlog_outputs_task_handle,
-                              avrprog_task_handle,
-                              mqtt1_task_handle,
-                              mqtt2_task_handle,
-                              enqueue_task_handle,
-                              transmit_task_handle,
-                              replyqueue_task_handle,
-                              lazy_task_handle,
-                              rule_task_handle,
-                              influxdb_task_handle,
-                              pulse_relay_off_task_handle,
-                              voltageandstatussnapshot_task_handle,
-                              updatetftdisplay_task_handle,
-                              tftsleep_task_handle,
-                              tftwakeup_task_handle};
-
-    for (size_t i = 0; i < sizeof(Handles) / sizeof(TaskHandle_t); i++)
-    {
-      TaskHandle_t thisHandle = Handles[i];
-      UBaseType_t watermark = uxTaskGetStackHighWaterMark(thisHandle);
-      if (watermark < 128)
-      {
-        //Less than 128 bytes before stack overflow, report it...
-        char *name = pcTaskGetTaskName(thisHandle);
-        ESP_LOGW(TAG, "Watermark warn %s %u", name, watermark);
-      }
-
-      if (watermark > 512)
-      {
-        //Less than 128 bytes before stack overflow, report it...
-        char *name = pcTaskGetTaskName(thisHandle);
-        ESP_LOGI(TAG, "Excess stack %s %u", name, watermark);
-      }
-    }
-
-    //Wait 5 mins before next report
-    taskinfotimer = currentMillis + 60000 * 5;
-  }
-*/
-  /*
-  if (touchscreen.tirqTouched())
-  {
-    if (hal.IsVSPIMutexAvailable())
-    {
-      if (hal.GetVSPIMutex())
-      {
-        if (touchscreen.touched())
-        {
-
-      TS_Point p = touchscreen.getPoint();
-      SERIAL_DEBUG.print("Pressure = ");
-      SERIAL_DEBUG.print(p.z);
-      SERIAL_DEBUG.print(", x = ");
-      SERIAL_DEBUG.print(p.x);
-      SERIAL_DEBUG.print(", y = ");
-      SERIAL_DEBUG.print(p.y);
-      SERIAL_DEBUG.println();
-
-        }
-
-        hal.ReleaseVSPIMutex();
-      }
-    }
-  }
-*/
   if (ResetWifi)
   {
     // Password reset, turn LED CYAN
@@ -3592,8 +3327,33 @@ void loop()
     ResetWifi = false;
   }
 
-  ArduinoOTA.handle();
-
   // Call update to receive, decode and process incoming packets
   myPacketSerial.checkInputStream();
+
+  if (currentMillis > heaptimer)
+  {
+    /*
+    size_t total_free_bytes;      ///<  Total free bytes in the heap. Equivalent to multi_free_heap_size().
+    size_t total_allocated_bytes; ///<  Total bytes allocated to data in the heap.
+    size_t largest_free_block;    ///<  Size of largest free block in the heap. This is the largest malloc-able size.
+    size_t minimum_free_bytes;    ///<  Lifetime minimum free heap size. Equivalent to multi_minimum_free_heap_size().
+    size_t allocated_blocks;      ///<  Number of (variable size) blocks allocated in the heap.
+    size_t free_blocks;           ///<  Number of (variable size) free blocks in the heap.
+    size_t total_blocks;          ///<  Total number of (variable size) blocks in the heap.
+    */
+    multi_heap_info_t heap;
+    heap_caps_get_info(&heap, MALLOC_CAP_INTERNAL);
+
+    ESP_LOGD(TAG, "total_free_byte=%u total_allocated_byte=%u largest_free_blk=%u min_free_byte=%u alloc_blk=%u free_blk=%u total_blk=%u",
+             heap.total_free_bytes,
+             heap.total_allocated_bytes,
+             heap.largest_free_block,
+             heap.minimum_free_bytes,
+             heap.allocated_blocks,
+             heap.free_blocks,
+             heap.total_blocks);
+
+    // Report again in 15 seconds
+    heaptimer = currentMillis + 15000;
+  }
 }

@@ -55,67 +55,77 @@ function refreshCurrentMonitorValues() {
         function (data) {
             $("#CurrentMonEnabled").prop("checked", data.enabled);
             $("#modbusAddress").val(data.address);
+            $("#CurrentMonDev").val(data.devicetype);
 
             $("#shuntmaxcur").val(data.shuntmaxcur);
             $("#shuntmv").val(data.shuntmv);
-
             $("#cmvalid").val(data.valid);
-
-            $("#cmbatterycapacity").val(data.batterycapacity);
-            $("#cmfullchargevolt").val(data.fullchargevolt.toFixed(2));
-            $("#cmtailcurrent").val(data.tailcurrent.toFixed(2));
-            $("#cmchargeefficiency").val(data.chargeefficiency.toFixed(1));
-
             $("#cmtimestampage").val(data.timestampage);
-            $("#cmtemperature").val(data.temperature);
-            $("#cmwatchdog").val(data.watchdog);
-            $("#cmactualshuntmv").val(data.actualshuntmv);
-            $("#cmcurrentlsb").val(data.currentlsb);
-            $("#cmresistance").val(data.resistance);
-            $("#cmcalibration").val(data.calibration);
 
-            $("#cmtemplimit").val(data.templimit);
+            if (data.devicetype==0) {
+                $("#cmbatterycapacity").val(data.batterycapacity);
+                $("#cmfullchargevolt").val(data.fullchargevolt.toFixed(2));
+                $("#cmtailcurrent").val(data.tailcurrent.toFixed(2));
+                $("#cmchargeefficiency").val(data.chargeefficiency.toFixed(1));
 
-            $("#cmundervlimit").val(data.undervlimit);
-            $("#cmovervlimit").val(data.overvlimit);
+                $("#cmtemperature").val(data.temperature);
+                $("#cmwatchdog").val(data.watchdog);
+                $("#cmactualshuntmv").val(data.actualshuntmv);
+                $("#cmcurrentlsb").val(data.currentlsb);
+                $("#cmresistance").val(data.resistance);
+                $("#cmcalibration").val(data.calibration);
 
-            $("#cmoverclimit").val(data.overclimit);
-            $("#cmunderclimit").val(data.underclimit);
+                $("#cmtemplimit").val(data.templimit);
 
-            $("#cmoverplimit").val(data.overplimit);
-            //Temperature coefficient
-            $("#cmtempcoeff").val(data.tempcoeff);
+                $("#cmundervlimit").val(data.undervlimit);
+                $("#cmovervlimit").val(data.overvlimit);
 
-            $("#cmmodel").val(data.model.toString(16));
-            $("#cmfirmwarev").val(data.firmwarev.toString(16));
+                $("#cmoverclimit").val(data.overclimit);
+                $("#cmunderclimit").val(data.underclimit);
 
-            var d = new Date(data.firmwaredate * 1000);
-            $("#cmfirmwaredate").val(d.toString());
+                $("#cmoverplimit").val(data.overplimit);
+                //Temperature coefficient
+                $("#cmtempcoeff").val(data.tempcoeff);
+
+                $("#cmmodel").val(data.model.toString(16));
+                $("#cmfirmwarev").val(data.firmwarev.toString(16));
+
+                var d = new Date(data.firmwaredate * 1000);
+                $("#cmfirmwaredate").val(d.toString());
 
 
-            $("#TempCompEnabled").prop("checked", data.TempCompEnabled);
-            $("#cmTemperatureOverLimit").val(data.TMPOL);
+                $("#TempCompEnabled").prop("checked", data.TempCompEnabled);
+                $("#cmTemperatureOverLimit").val(data.TMPOL);
 
-            $("#cmCurrentOverLimit").val(data.CURROL);
-            $("#cmCurrentUnderLimit").val(data.CURRUL);
-            $("#cmVoltageOverLimit").val(data.VOLTOL);
-            $("#cmVoltageUnderLimit").val(data.VOLTUL);
-            $("#cmPowerOverLimit").val(data.POL);
+                $("#cmCurrentOverLimit").val(data.CURROL);
+                $("#cmCurrentUnderLimit").val(data.CURRUL);
+                $("#cmVoltageOverLimit").val(data.VOLTOL);
+                $("#cmVoltageUnderLimit").val(data.VOLTUL);
+                $("#cmPowerOverLimit").val(data.POL);
 
-            $("#cmRelayState").val(data.RelayState ? "CLOSED" : "OPEN");
+                $("#cmRelayState").val(data.RelayState ? "CLOSED" : "OPEN");
 
-            $("#cmTMPOL").prop("checked", data.T_TMPOL);
-            $("#cmCURROL").prop("checked", data.T_CURROL);
-            $("#cmCURRUL").prop("checked", data.T_CURRUL);
-            $("#cmVOLTOL").prop("checked", data.T_VOLTOL);
-            $("#cmVOLTUL").prop("checked", data.T_VOLTUL);
-            $("#cmPOL").prop("checked", data.T_POL);
-
+                $("#cmTMPOL").prop("checked", data.T_TMPOL);
+                $("#cmCURROL").prop("checked", data.T_CURROL);
+                $("#cmCURRUL").prop("checked", data.T_CURRUL);
+                $("#cmVOLTOL").prop("checked", data.T_VOLTOL);
+                $("#cmVOLTUL").prop("checked", data.T_VOLTUL);
+                $("#cmPOL").prop("checked", data.T_POL);
+            }
 
             if (data.enabled) {
-                $("#currentmonadvanced").show();
                 $("#currentmonbasic").show();
-                $("#currentmonrelay").show();
+                if (data.devicetype==0) {
+                    //DIYBMS Current Monitor
+                    $("#currentmonadvanced").show();
+                    
+                    $("#currentmonrelay").show();
+                } else {
+                    //PZEM-017
+                    $("#currentmonadvanced").hide();
+                    
+                    $("#currentmonrelay").hide();
+                }
             } else {
                 $("#currentmonadvanced").hide();
                 $("#currentmonbasic").hide();
@@ -364,13 +374,13 @@ function queryBMS() {
             if (jsondata.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.roundtrip); $("#roundtrip").show(); }
             if (jsondata.oos == 0) { $("#oos").hide(); } else { $("#oos .v").html(jsondata.oos); $("#oos").show(); }
 
-
+            
             if (jsondata.can_fail == 0) { $("#canfail").hide(); } else { $("#canfail .v").html(jsondata.can_fail); $("#canfail").show(); }
 
             if (jsondata.can_sent == 0) { $("#cansent").hide(); } else { $("#cansent .v").html(jsondata.can_sent); $("#cansent").show(); }
             if (jsondata.can_rec == 0) { $("#canrecd").hide(); } else { $("#canrecd .v").html(jsondata.can_rec); $("#canrecd").show(); }
 
-            $("#qlen .v").html(jsondata.qlen); $("#qlen").show();
+            if (jsondata.qlen == 0) { $("#qlen").hide(); } else { $("#qlen .v").html(jsondata.qlen); $("#qlen").show(); }
 
             $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
 
@@ -424,17 +434,29 @@ function queryBMS() {
                 $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
                 $("#shuntv").show();
 
-                $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
-                $("#soc").show();
+                if (data.soc!=0) {
+                    $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
+                    $("#soc").show();
+                } else {
+                    $("#soc").hide();
+                }
 
                 $("#power .v").html(parseFloat(data.p) + "W");
                 $("#power").show();
 
+                if (data.mahout!=0) {
                 $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
                 $("#amphout").show();
+                } else {
+                    $("#amphout").hide();
+                }
 
+                if (data.mahin!=0) {
                 $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
                 $("#amphin").show();
+                } else {
+                    $("#amphin").hide();
+                }
             }
         }
 
