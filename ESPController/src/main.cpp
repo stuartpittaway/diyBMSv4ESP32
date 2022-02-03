@@ -1902,30 +1902,50 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
       // The Function Code 16
       16,
       // Data Address of the first register (|40028|INA_REGISTER::SHUNT_CAL (unsigned int16))
-      0, 27,
+      0,
+      27,
       // number of registers to write
-      0, 13,
+      0,
+      13,
       // number of data bytes to follow (13 registers x 2 bytes each)
       2 * 13,
       // value to write to register 40028
       // 21 = shuntcal
-      (uint8_t)(newvalues.modbus.shuntcal >> 8), (uint8_t)(newvalues.modbus.shuntcal & 0xFF),
+      (uint8_t)(newvalues.modbus.shuntcal >> 8),
+      (uint8_t)(newvalues.modbus.shuntcal & 0xFF),
       // value to write to register 40029
       // temperaturelimit
-      (uint8_t)(newvalues.modbus.temperaturelimit >> 8), (uint8_t)(newvalues.modbus.temperaturelimit & 0xFF),
+      (uint8_t)(newvalues.modbus.temperaturelimit >> 8),
+      (uint8_t)(newvalues.modbus.temperaturelimit & 0xFF),
       // overvoltagelimit 40030
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       // undervoltagelimit 40032
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       // overcurrentlimit 40034
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       // undercurrentlimit 40029
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       // overpowerlimit 40038
-      0, 0, 0, 0,
+      0,
+      0,
+      0,
+      0,
       // shunttempcoefficient 40
-      (uint8_t)(newvalues.modbus.shunttempcoefficient >> 8), (uint8_t)(newvalues.modbus.shunttempcoefficient & 0xFF),
-    };
+      (uint8_t)(newvalues.modbus.shunttempcoefficient >> 8),
+      (uint8_t)(newvalues.modbus.shunttempcoefficient & 0xFF),
+  };
 
   // ESP_LOGD(TAG, "temp limit=%i", newvalues.temperaturelimit);
   // ESP_LOGD(TAG, "shuntcal=%u", newvalues.shuntcal);
@@ -2226,7 +2246,7 @@ void service_rs485_transmit_q(void *param)
 
       ESP_LOGD(TAG, "Send addr=%u, func=%u, len=%u", cmd[0], cmd[1], packet_length);
       // Debug
-      //ESP_LOG_BUFFER_HEXDUMP(TAG, cmd, packet_length, esp_log_level_t::ESP_LOG_DEBUG);
+      // ESP_LOG_BUFFER_HEXDUMP(TAG, cmd, packet_length, esp_log_level_t::ESP_LOG_DEBUG);
 
       // Once we have notified the receive task, we pause here to avoid sending
       // another request until the last one has been processed (or we timeout after 2 seconds)
@@ -2278,7 +2298,7 @@ void rs485_rx(void *param)
           uint8_t length = frame[2];
 
           ESP_LOGD(TAG, "Recv %i bytes, id=%u, cmd=%u", len, id, cmd);
-          //ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+          // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
 
           if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
           {
@@ -3273,6 +3293,7 @@ void setup()
 }
 
 unsigned long wifitimer = 0;
+unsigned long heaptimer = 0;
 
 unsigned long taskinfotimer = 0;
 
@@ -3305,4 +3326,31 @@ void loop()
 
   // Call update to receive, decode and process incoming packets
   myPacketSerial.checkInputStream();
+
+  if (currentMillis > heaptimer)
+  {
+    /*
+    size_t total_free_bytes;      ///<  Total free bytes in the heap. Equivalent to multi_free_heap_size().
+    size_t total_allocated_bytes; ///<  Total bytes allocated to data in the heap.
+    size_t largest_free_block;    ///<  Size of largest free block in the heap. This is the largest malloc-able size.
+    size_t minimum_free_bytes;    ///<  Lifetime minimum free heap size. Equivalent to multi_minimum_free_heap_size().
+    size_t allocated_blocks;      ///<  Number of (variable size) blocks allocated in the heap.
+    size_t free_blocks;           ///<  Number of (variable size) free blocks in the heap.
+    size_t total_blocks;          ///<  Total number of (variable size) blocks in the heap.
+    */
+    multi_heap_info_t heap;
+    heap_caps_get_info(&heap, MALLOC_CAP_INTERNAL);
+
+    ESP_LOGD(TAG, "total_free_byte=%u total_allocated_byte=%u largest_free_blk=%u min_free_byte=%u alloc_blk=%u free_blk=%u total_blk=%u",
+             heap.total_free_bytes,
+             heap.total_allocated_bytes,
+             heap.largest_free_block,
+             heap.minimum_free_bytes,
+             heap.allocated_blocks,
+             heap.free_blocks,
+             heap.total_blocks);
+
+    // Report again in 15 seconds
+    heaptimer = currentMillis + 15000;
+  }
 }
