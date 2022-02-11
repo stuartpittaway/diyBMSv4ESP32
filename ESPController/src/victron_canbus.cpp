@@ -1,6 +1,6 @@
 #include "victron_canbus.h"
 /*
- ____  ____  _  _  ____  __  __  ___ 
+ ____  ____  _  _  ____  __  __  ___
 (  _ \(_  _)( \/ )(  _ \(  \/  )/ __)
  )(_) )_)(_  \  /  ) _ < )    ( \__ \
 (____/(____) (__) (____/(_/\/\_)(___/
@@ -24,7 +24,7 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 
   memcpy(&message.data, buffer, length);
 
-  //Queue message for transmission
+  // Queue message for transmission
   if (can_transmit(&message, pdMS_TO_TICKS(250)) != ESP_OK)
   {
     ESP_LOGE(TAG, "Fail to queue message");
@@ -33,12 +33,12 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 
   else
   {
-    //ESP_LOGD(TAG, "Sent CAN message %u", identifier);
-    //ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(can_message_t), esp_log_level_t::ESP_LOG_DEBUG);
+    // ESP_LOGD(TAG, "Sent CAN message %u", identifier);
+    // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(can_message_t), esp_log_level_t::ESP_LOG_DEBUG);
     canbus_messages_sent++;
   }
 }
-//Transmit the DIYBMS hostname via two CAN Messages
+// Transmit the DIYBMS hostname via two CAN Messages
 void victron_message_370_371()
 {
   send_canbus_message(0x370, (uint8_t *)&hostname, (uint8_t)CAN_MAX_DATA_LEN);
@@ -54,7 +54,7 @@ void victron_message_35f()
 {
   struct data35f
   {
-    //Not used
+    // Not used
     uint16_t BatteryModel;
     uint16_t Firmwareversion;
     uint16_t OnlinecapacityinAh;
@@ -62,14 +62,18 @@ void victron_message_35f()
 
   data35f data;
 
-  //Not used by Victron
+  // Not used by Victron
   data.BatteryModel = 0;
-  //Need to swap bytes for this to make sense.
+  // Need to swap bytes for this to make sense.
   data.Firmwareversion = ((uint16_t)COMPILE_WEEK_NUMBER_BYTE << 8) | COMPILE_YEAR_BYTE;
 
-  if (mysettings.currentMonitoringEnabled)
+  if (mysettings.currentMonitoringEnabled && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
   {
     data.OnlinecapacityinAh = currentMonitor.modbus.batterycapacityamphour;
+  }
+  else
+  {
+    data.OnlinecapacityinAh = 0;
   }
 
   send_canbus_message(0x35f, (uint8_t *)&data, sizeof(data35f));
@@ -80,7 +84,7 @@ void SetBankAndModuleText(char *buffer, uint8_t cellid)
   uint8_t bank = cellid / mysettings.totalNumberOfSeriesModules;
   uint8_t module = cellid - (bank * mysettings.totalNumberOfSeriesModules);
 
-  //Clear all 8 bytes
+  // Clear all 8 bytes
   memset(buffer, 0, 8);
 
   snprintf(buffer, 8, "b%d m%d", bank, module);
@@ -98,33 +102,33 @@ void victron_message_374_375_376_377()
   if (rules.address_LowestCellVoltage < maximum_controller_cell_modules)
   {
     SetBankAndModuleText(data.text, rules.address_LowestCellVoltage);
-    //Min. cell voltage id string [1]
+    // Min. cell voltage id string [1]
     send_canbus_message(0x374, (uint8_t *)&data, sizeof(candata));
   }
 
   if (rules.address_HighestCellVoltage < maximum_controller_cell_modules)
   {
     SetBankAndModuleText(data.text, rules.address_HighestCellVoltage);
-    //Max. cell voltage id string [1]
+    // Max. cell voltage id string [1]
     send_canbus_message(0x375, (uint8_t *)&data, sizeof(candata));
   }
 
   if (rules.address_lowestExternalTemp < maximum_controller_cell_modules)
   {
     SetBankAndModuleText(data.text, rules.address_lowestExternalTemp);
-    //Min. cell voltage id string [1]
+    // Min. cell voltage id string [1]
     send_canbus_message(0x376, (uint8_t *)&data, sizeof(candata));
   }
 
   if (rules.address_highestExternalTemp < maximum_controller_cell_modules)
   {
     SetBankAndModuleText(data.text, rules.address_highestExternalTemp);
-    //Min. cell voltage id string [1]
+    // Min. cell voltage id string [1]
     send_canbus_message(0x377, (uint8_t *)&data, sizeof(candata));
   }
 }
 
-//CVL & CCL implementation
+// CVL & CCL implementation
 /*
 At a fundamental level, Victron's approach to interacting with BMSes is in the form of 3 setpoint parameters:
 * Charge Current Limit (CCL)
@@ -132,7 +136,7 @@ At a fundamental level, Victron's approach to interacting with BMSes is in the f
 * Discharge Current Limit (DCL)
 Once the BMS is communicating with the GX device over CAN-bus, these parameters are listed in the "Parameters" menu in the battery device on the Remote Console.
 
-All three parameter, but at least the CVL (Charge Voltage Limit) and CCL (Charge Current Limit), are sent by the BMS to the Victron system. 
+All three parameter, but at least the CVL (Charge Voltage Limit) and CCL (Charge Current Limit), are sent by the BMS to the Victron system.
 These are the only parameters that control the charging behaviour.
 
 Victron's approach to BMSes and chargers is focused DC-Coupled solar systems where there can be multiple
@@ -171,14 +175,14 @@ void victron_message_351()
 
   struct data351
   {
-    //CVL
+    // CVL
     uint16_t chargevoltagelimit;
-    //CCL
+    // CCL
     int16_t maxchargecurrent;
-    //DCL
+    // DCL
     int16_t maxdischargecurrent;
-    //Not currently used by Victron
-    //uint16_t dischargevoltage;
+    // Not currently used by Victron
+    // uint16_t dischargevoltage;
   };
 
   data351 data;
@@ -186,55 +190,55 @@ void victron_message_351()
   if ((_controller_state != ControllerState::Running) || (number_of_active_errors > 0))
   {
     ESP_LOGW(TAG, "active_errors=%u", number_of_active_errors);
-    //Error condition
+    // Error condition
     data.chargevoltagelimit = mysettings.cvl[VictronDVCC::ControllerError];
     data.maxchargecurrent = mysettings.ccl[VictronDVCC::ControllerError];
     data.maxdischargecurrent = mysettings.dcl[VictronDVCC::ControllerError];
-    //data.dischargevoltage = 0;
+    // data.dischargevoltage = 0;
   }
   else if (rules.numberOfBalancingModules > 0)
   {
-    //Balancing
+    // Balancing
     data.chargevoltagelimit = mysettings.cvl[VictronDVCC::Balance];
     data.maxchargecurrent = mysettings.ccl[VictronDVCC::Balance];
     data.maxdischargecurrent = mysettings.dcl[VictronDVCC::Balance];
-    //data.dischargevoltage = 0;
+    // data.dischargevoltage = 0;
   }
   else
   {
-    //Default - normal behaviour
+    // Default - normal behaviour
     data.chargevoltagelimit = mysettings.cvl[VictronDVCC::Default];
     data.maxchargecurrent = mysettings.ccl[VictronDVCC::Default];
     data.maxdischargecurrent = mysettings.dcl[VictronDVCC::Default];
-    //data.dischargevoltage = 0;
+    // data.dischargevoltage = 0;
   }
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
 }
 
-//S.o.C value
+// S.o.C value
 void victron_message_355()
 {
   struct data355
   {
     uint16_t stateofchargevalue;
-    //uint16_t stateofhealthvalue;
-    //uint16_t highresolutionsoc;
+    // uint16_t stateofhealthvalue;
+    // uint16_t highresolutionsoc;
   };
 
-  if (_controller_state == ControllerState::Running && mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
+  if (_controller_state == ControllerState::Running && mysettings.currentMonitoringEnabled && currentMonitor.validReadings && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
   {
     data355 data;
-    //0 SOC value un16 1 %
+    // 0 SOC value un16 1 %
     data.stateofchargevalue = currentMonitor.stateofcharge;
-    //2 SOH value un16 1 %
-    //data.stateofhealthvalue = 100;
+    // 2 SOH value un16 1 %
+    // data.stateofhealthvalue = 100;
 
     send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
   }
 }
 
-//Battery voltage
+// Battery voltage
 void victron_message_356()
 {
   struct data356
@@ -246,30 +250,30 @@ void victron_message_356()
 
   data356 data;
 
-  //Use highest pack voltage calculated by controller and modules
+  // Use highest pack voltage calculated by controller and modules
   data.voltage = rules.highestPackVoltage / 10;
 
-  //If current shunt is installed, use the voltage from that as it should be more accurate
+  // If current shunt is installed, use the voltage from that as it should be more accurate
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
     data.voltage = currentMonitor.modbus.voltage * 100.0;
   }
 
   data.current = 0;
-  //If current shunt is installed, use it
+  // If current shunt is installed, use it
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
     data.current = currentMonitor.modbus.current * 10;
   }
 
-  //Temperature 0.1 C using external temperature sensor
+  // Temperature 0.1 C using external temperature sensor
   if (rules.moduleHasExternalTempSensor)
   {
     data.temperature = (int16_t)rules.highestExternalTemp * (int16_t)10;
   }
   else
   {
-    //No external temp sensors
+    // No external temp sensors
     data.temperature = 0;
   }
 
@@ -296,12 +300,12 @@ void victron_message_35a()
 
   memset(&data, 0, sizeof(data35a));
 
-  //B00 = Alarm not supported
-  //B10 = Alarm/warning active
-  //B01 = Alarm/warning inactive (status = OK)
+  // B00 = Alarm not supported
+  // B10 = Alarm/warning active
+  // B01 = Alarm/warning inactive (status = OK)
 
-  //These constants are actually bit swapped compared to the notes above
-  //as the Victron kit uses little-endian ordering when transmitting on CANBUS
+  // These constants are actually bit swapped compared to the notes above
+  // as the Victron kit uses little-endian ordering when transmitting on CANBUS
   const uint8_t BIT01_ALARM = B00000001;
   const uint8_t BIT23_ALARM = B00000100;
   const uint8_t BIT45_ALARM = B00010000;
@@ -312,10 +316,10 @@ void victron_message_35a()
   const uint8_t BIT45_OK = B00100000;
   const uint8_t BIT67_OK = B10000000;
 
-  //const uint8_t BIT01_NOTSUP = B00000011;
-  //const uint8_t BIT23_NOTSUP = B00001100;
-  //const uint8_t BIT45_NOTSUP = B00110000;
-  //const uint8_t BIT67_NOTSUP = B11000000;
+  // const uint8_t BIT01_NOTSUP = B00000011;
+  // const uint8_t BIT23_NOTSUP = B00001100;
+  // const uint8_t BIT45_NOTSUP = B00110000;
+  // const uint8_t BIT67_NOTSUP = B11000000;
 
   if (_controller_state == ControllerState::Running)
   {
@@ -327,7 +331,7 @@ void victron_message_35a()
              rules.rule_outcome[Rule::IndividualcellundertemperatureExternal]);
   */
 
-    //BYTE 0
+    // BYTE 0
     //(bit 0+1) General alarm (not implemented)
     //(bit 2+3) Battery low voltage alarm
     data.byte0 |= ((rules.rule_outcome[Rule::BankOverVoltage] | rules.rule_outcome[Rule::CurrentMonitorOverVoltage]) ? BIT23_ALARM : BIT23_OK);
@@ -340,72 +344,72 @@ void victron_message_35a()
       data.byte0 |= (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? BIT67_ALARM : BIT67_OK);
     }
 
-    //BYTE 1
-    //1 (bit 0+1) Battery low temperature alarm
+    // BYTE 1
+    // 1 (bit 0+1) Battery low temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
       data.byte1 |= (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? BIT01_ALARM : BIT01_OK);
     }
-    //1 (bit 2+3) Battery high temperature charge alarm
-    //data.byte1 |= BIT23_NOTSUP;
-    //1 (bit 4+5) Battery low temperature charge alarm
-    //data.byte1 |= BIT45_NOTSUP;
-    //1 (bit 6+7) Battery high current alarm
-    //data.byte1 |= BIT67_NOTSUP;
+    // 1 (bit 2+3) Battery high temperature charge alarm
+    // data.byte1 |= BIT23_NOTSUP;
+    // 1 (bit 4+5) Battery low temperature charge alarm
+    // data.byte1 |= BIT45_NOTSUP;
+    // 1 (bit 6+7) Battery high current alarm
+    // data.byte1 |= BIT67_NOTSUP;
   }
 
-  //2 (bit 0+1) Battery high charge current alarm
-  //data.byte2 |= BIT01_NOTSUP;
-  //2 (bit 2+3) Contactor Alarm (not implemented)
-  //data.byte2 |= BIT23_NOTSUP;
-  //2 (bit 4+5) Short circuit Alarm (not implemented)
-  //data.byte2 |= BIT45_NOTSUP;
+  // 2 (bit 0+1) Battery high charge current alarm
+  // data.byte2 |= BIT01_NOTSUP;
+  // 2 (bit 2+3) Contactor Alarm (not implemented)
+  // data.byte2 |= BIT23_NOTSUP;
+  // 2 (bit 4+5) Short circuit Alarm (not implemented)
+  // data.byte2 |= BIT45_NOTSUP;
 
-  //ESP_LOGI(TAG, "Rule BMSError=%u, EmergencyStop=%u", rules.rule_outcome[Rule::BMSError], rules.rule_outcome[Rule::EmergencyStop]);
+  // ESP_LOGI(TAG, "Rule BMSError=%u, EmergencyStop=%u", rules.rule_outcome[Rule::BMSError], rules.rule_outcome[Rule::EmergencyStop]);
 
-  //2 (bit 6+7) BMS internal alarm
+  // 2 (bit 6+7) BMS internal alarm
   data.byte2 |= ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? BIT67_ALARM : BIT67_OK);
 
-  //3 (bit 0+1) Cell imbalance alarm
-  //data.byte3 |= BIT01_NOTSUP;
-  //3 (bit 2+3) Reserved
-  //3 (bit 4+5) Reserved
-  //3 (bit 6+7) Reserved
+  // 3 (bit 0+1) Cell imbalance alarm
+  // data.byte3 |= BIT01_NOTSUP;
+  // 3 (bit 2+3) Reserved
+  // 3 (bit 4+5) Reserved
+  // 3 (bit 6+7) Reserved
 
-  //4 (bit 0+1) General warning (not implemented)
-  //data.byte4 |= BIT01_NOTSUP;
-  //4 (bit 2+3) Battery low voltage warning
-  //data.byte4 |= BIT23_NOTSUP;
-  //4 (bit 4+5) Battery high voltage warning
-  //data.byte4 |= BIT45_NOTSUP;
-  //4 (bit 6+7) Battery high temperature warning
-  //data.byte4 |= BIT67_NOTSUP;
+  // 4 (bit 0+1) General warning (not implemented)
+  // data.byte4 |= BIT01_NOTSUP;
+  // 4 (bit 2+3) Battery low voltage warning
+  // data.byte4 |= BIT23_NOTSUP;
+  // 4 (bit 4+5) Battery high voltage warning
+  // data.byte4 |= BIT45_NOTSUP;
+  // 4 (bit 6+7) Battery high temperature warning
+  // data.byte4 |= BIT67_NOTSUP;
 
-  //5 (bit 0+1) Battery low temperature warning
-  //data.byte5 |= BIT01_NOTSUP;
-  //5 (bit 2+3) Battery high temperature charge warning
-  //data.byte5 |= BIT23_NOTSUP;
-  //5 (bit 4+5) Battery low temperature charge warning
-  //data.byte5 |= BIT45_NOTSUP;
-  //5 (bit 6+7) Battery high current warning
-  //data.byte5 |= BIT67_NOTSUP;
+  // 5 (bit 0+1) Battery low temperature warning
+  // data.byte5 |= BIT01_NOTSUP;
+  // 5 (bit 2+3) Battery high temperature charge warning
+  // data.byte5 |= BIT23_NOTSUP;
+  // 5 (bit 4+5) Battery low temperature charge warning
+  // data.byte5 |= BIT45_NOTSUP;
+  // 5 (bit 6+7) Battery high current warning
+  // data.byte5 |= BIT67_NOTSUP;
 
-  //6 (bit 0+1) Battery high charge current warning
-  //data.byte6 |= BIT01_NOTSUP;
-  //6 (bit 2+3) Contactor warning (not implemented)
-  //data.byte6 |= BIT23_NOTSUP;
-  //6 (bit 4+5) Short circuit warning (not implemented)
-  //data.byte6 |= BIT45_NOTSUP;
-  //6 (bit 6+7) BMS internal warning
-  //data.byte6 |= (rules.numberOfActiveWarnings > 0 ? BIT67_ALARM : BIT67_OK);
+  // 6 (bit 0+1) Battery high charge current warning
+  // data.byte6 |= BIT01_NOTSUP;
+  // 6 (bit 2+3) Contactor warning (not implemented)
+  // data.byte6 |= BIT23_NOTSUP;
+  // 6 (bit 4+5) Short circuit warning (not implemented)
+  // data.byte6 |= BIT45_NOTSUP;
+  // 6 (bit 6+7) BMS internal warning
+  // data.byte6 |= (rules.numberOfActiveWarnings > 0 ? BIT67_ALARM : BIT67_OK);
 
-  //ESP_LOGI(TAG, "numberOfBalancingModules=%u", rules.numberOfBalancingModules);
+  // ESP_LOGI(TAG, "numberOfBalancingModules=%u", rules.numberOfBalancingModules);
 
-  //7 (bit 0+1) Cell imbalance warning
+  // 7 (bit 0+1) Cell imbalance warning
   data.byte7 |= (rules.numberOfBalancingModules > 0 ? BIT01_ALARM : BIT01_OK);
-  //7 (bit 2+3) System status (online/offline) [1]
+  // 7 (bit 2+3) System status (online/offline) [1]
   data.byte7 |= ((_controller_state != ControllerState::Running) ? BIT23_ALARM : BIT23_OK);
-  //7 (rest) Reserved
+  // 7 (rest) Reserved
 
   send_canbus_message(0x35a, (uint8_t *)&data, sizeof(data35a));
 }
@@ -415,17 +419,17 @@ void victron_message_372()
   struct data372
   {
     uint16_t numberofmodulesok;
-    //uint16_t numberofmodulesblockingcharge;
-    //uint16_t numberofmodulesblockingdischarge;
-    //uint16_t numberofmodulesoffline;
+    // uint16_t numberofmodulesblockingcharge;
+    // uint16_t numberofmodulesblockingdischarge;
+    // uint16_t numberofmodulesoffline;
   };
 
   data372 data;
 
   data.numberofmodulesok = TotalNumberOfCells() - rules.invalidModuleCount;
-  //data.numberofmodulesblockingcharge = 0;
-  //data.numberofmodulesblockingdischarge = 0;
-  //data.numberofmodulesoffline = rules.invalidModuleCount;
+  // data.numberofmodulesblockingcharge = 0;
+  // data.numberofmodulesblockingdischarge = 0;
+  // data.numberofmodulesoffline = rules.invalidModuleCount;
 
   send_canbus_message(0x372, (uint8_t *)&data, sizeof(data372));
 }

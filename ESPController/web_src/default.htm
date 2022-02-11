@@ -30,7 +30,7 @@
         <!-- Overlay content -->
         <div class="overlay-content">
             <a id="integration" href="#integration">Integration</a>
-            <a id="currentmonitor" href="#currentmonitor">diyBMS Current Monitor</a>
+            <a id="currentmonitor" href="#currentmonitor">Current Monitor</a>
             <a id="victroncanbus" href="#victroncanbus">Victron CANBUS BMS</a>
             <a id="storage" href="#storage">Storage</a>
             <a id="avrprogrammer" href="#avrprogrammer">AVR Programmer</a>
@@ -39,7 +39,7 @@
     </div>
 
     <div class="header">
-        <div class="logocontainer"><img class="logo" src="logo.png" width="152" height="48" alt="DIYBMS" /></div>
+        <div class="logocontainer"><img class="logo" src="logo.png" width="118" height="52" alt="DIYBMS" /></div>
         <div class="header-right">
             <div class="notify-container"><a id="home" class="active" href="#home">Home</a></div>
             <div class="notify-container"><a id="modules" href="#modules">Modules</a></div>
@@ -682,11 +682,12 @@
     </div>
 
     <div class="page" id="diybmsCurrentMonitorPage">
-        <h1>diyBMS Current &amp; Voltage Monitor</h1>
+        <h1>Current &amp; Voltage Monitoring</h1>
 
         <div class="region">
             <h2>Connection</h2>
             <p id="b1">Configure the MODBUS connection to the current monitor using the settings below.</p>
+            <p id="b14">PZEM-017 device uses 9600,8,None,2 serial settings</p>
             <form id="diybmsCurrentMonitorForm1" method="POST" action="savecurrentmon.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -694,13 +695,24 @@
                         <input type="checkbox" name="CurrentMonEnabled" id="CurrentMonEnabled">
                     </div>
                     <div>
-                        <label for="modbusAddress">Modbus address</label>
-                        <select name="modbusAddress" id="modbusAddress">
-                            <option value="90">90 [default]</option>
-                            <option value="98">98</option>
+                        <label for="CurrentMonDev">Device</label>
+                        <select name="CurrentMonDev" id="CurrentMonDev">
+                            <option value="0">DIYBMS Current Monitor</option>
+                            <option value="1">PeaceFair PZEM-017</option>
                         </select>
                     </div>
-
+                    <div>
+                        <label for="modbusAddress">Modbus address</label>
+                        <select name="modbusAddress" id="modbusAddress">
+                            <option value="90">90 [default DIYBMS current monitor]</option>
+                            <option value="98">98</option>
+                            <option value="1">01 [PZEM-017]</option>
+                            <option value="2">02</option>
+                            <option value="3">03</option>
+                            <option value="4">04</option>
+                            <option value="5">05</option>
+                        </select>
+                    </div>
                     <button type="submit">Save connection settings</button>
                 </div>
             </form>
@@ -755,10 +767,11 @@
         <div class="region" id="currentmonbasic">
             <h2>Basic Settings</h2>
             <p id="b3">Ensure the current shunt parameters match the data sheet for your particular shunt resistor.</p>
-            <p id="b4">The current monitor uses a 40.96mV maximum scale, so shunt voltages over this will be scaled down
+            <p id="b4">The DIYBMS current monitor uses a 40.96mV maximum scale, so shunt voltages over this will be scaled down
                 proportionally.</p>
             <p id="b11">Battery capacity and charge voltage/tail current are used to calculate the battery 'state of
                 charge' (SOC).</p>
+            <p id="b15">PZEM-017 uses 75mV shunts, state of charge and alarms are not supported on this device. Only 50, 100, 200, 300A shunts are supported.</p>
             <form id="diybmsCurrentMonitorForm2" method="POST" action="savecmbasic.json" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -892,13 +905,8 @@
                         <label for="cmPowerOverLimit">Power over limit</label>
                         <input id="cmPowerOverLimit" name="cmPowerOverLimit" value="" readonly="">
                     </div>
-
-
-
                     <button type="submit">Save basic settings</button>
-
                     <button id="currentmonrefresh" type="button">Refresh values</button>
-
                 </div>
             </form>
         </div>

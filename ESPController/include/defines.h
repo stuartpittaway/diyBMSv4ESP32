@@ -80,6 +80,12 @@ enum RelayType : uint8_t
   RELAY_PULSE = 0x01
 };
 
+enum CurrentMonitorDevice : uint8_t
+{
+  DIYBMS_CURRENT_MON = 0x00,
+  PZEM_017 = 0x01
+};
+
 //Number of rules as defined in Rules.h (enum Rule)
 #define RELAY_RULES 15
 
@@ -124,6 +130,7 @@ struct diybms_eeprom_settings
 
   bool currentMonitoringEnabled;
   uint8_t currentMonitoringModBusAddress;
+  CurrentMonitorDevice currentMonitoringDevice;
 
   int rs485baudrate;
   uart_word_length_t rs485databits;
