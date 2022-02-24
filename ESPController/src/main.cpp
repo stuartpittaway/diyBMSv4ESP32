@@ -1352,10 +1352,7 @@ void enqueue_task(void *param)
 {
   for (;;)
   {
-    // Ensure we service the cell modules every 5 or 10 seconds, depending on number of cells being serviced
-    // slower stops the queues from overflowing when a lot of cells are being monitored
-    // TODO: SCALE THIS BASED ON COMMS BAUD RATES
-    vTaskDelay(pdMS_TO_TICKS((TotalNumberOfCells() <= maximum_cell_modules_per_packet) ? 5000 : 10000));
+    vTaskDelay(pdMS_TO_TICKS(mysettings.interpacketgap));
 
     LED(RGBLED::Green);
     // Fire task to switch off LED in a few ms
@@ -2589,6 +2586,7 @@ void LoadConfiguration()
   // Default serial port speed
   mysettings.baudRate = COMMS_BAUD_RATE;
   mysettings.BypassOverTempShutdown = 65;
+  mysettings.interpacketgap=6000;
   // 4.10V bypass
   mysettings.BypassThresholdmV = 4100;
   mysettings.graph_voltagehigh = 4.5;

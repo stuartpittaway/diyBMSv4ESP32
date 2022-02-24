@@ -191,6 +191,7 @@ void DIYBMSServer::saveConfigurationToSDCard(AsyncWebServerRequest *request)
     root["totalNumberOfBanks"] = _mysettings->totalNumberOfBanks;
     root["totalNumberOfSeriesModules"] = _mysettings->totalNumberOfSeriesModules;
     root["baudRate"] = _mysettings->baudRate;
+    root["interpacketgap"] = _mysettings->interpacketgap;
 
     root["graph_voltagehigh"] = _mysettings->graph_voltagehigh;
     root["graph_voltagelow"] = _mysettings->graph_voltagelow;
@@ -1145,6 +1146,7 @@ void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
   uint8_t totalSeriesModules = 1;
   uint8_t totalBanks = 1;
   uint16_t baudrate = COMMS_BAUD_RATE;
+  uint16_t interpacketgap = 6000;
 
   if (request->hasParam("totalSeriesModules", true))
   {
@@ -1163,12 +1165,18 @@ void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
     AsyncWebParameter *p1 = request->getParam("baudrate", true);
     baudrate = p1->value().toInt();
   }
+  if (request->hasParam("interpacketgap", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("interpacketgap", true);
+    interpacketgap = p1->value().toInt();
+  }
 
   if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
   {
     _mysettings->totalNumberOfSeriesModules = totalSeriesModules;
     _mysettings->totalNumberOfBanks = totalBanks;
     _mysettings->baudRate = baudrate;
+    _mysettings->interpacketgap=interpacketgap;
     saveConfiguration();
 
     SendSuccess(request);
@@ -1457,6 +1465,7 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   settings["totalnumberofbanks"] = _mysettings->totalNumberOfBanks;
   settings["totalseriesmodules"] = _mysettings->totalNumberOfSeriesModules;
   settings["baudrate"] = _mysettings->baudRate;
+  settings["interpacketgap"] = _mysettings->interpacketgap;
 
   settings["bypassthreshold"] = _mysettings->BypassThresholdmV;
   settings["bypassovertemp"] = _mysettings->BypassOverTempShutdown;
