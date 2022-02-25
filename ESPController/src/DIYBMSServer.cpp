@@ -665,6 +665,21 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
     p1->value().toCharArray(_mysettings->influxdb_apitoken, sizeof(_mysettings->influxdb_apitoken));
   }
 
+  if (request->hasParam("influxFreq", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("influxFreq", true);
+    _mysettings->influxdb_loggingFreqSeconds = p1->value().toInt();
+  } else {
+    //Default if not supplied
+    _mysettings->influxdb_loggingFreqSeconds=15;
+  }
+
+  if (_mysettings->influxdb_loggingFreqSeconds<5) {
+    //Safety check
+    _mysettings->influxdb_loggingFreqSeconds=5;
+  }
+
+
   saveConfiguration();
 
   // ConfigHasChanged = REBOOT_COUNT_DOWN;
@@ -1767,6 +1782,7 @@ void DIYBMSServer::integration(AsyncWebServerRequest *request)
   influxdb["bucket"] = _mysettings->influxdb_databasebucket;
   influxdb["apitoken"] = _mysettings->influxdb_apitoken;
   influxdb["orgid"] = _mysettings->influxdb_orgid;
+  influxdb["frequency"] = _mysettings->influxdb_loggingFreqSeconds;
 
   serializeJson(doc, *response);
   request->send(response);

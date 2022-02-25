@@ -1245,7 +1245,7 @@ void pulse_relay_off_task(void *param)
         // We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
         // However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
         // to prevent multiple pulses being sent on each rule refresh
-        hal.SetOutputState(y,  RelayState::RELAY_OFF);
+        hal.SetOutputState(y, RelayState::RELAY_OFF);
 
         previousRelayPulse[y] = false;
       }
@@ -1316,7 +1316,7 @@ void rules_task(void *param)
         ESP_LOGI(TAG, "Set relay %i=%i", n, relay[n] == RelayState::RELAY_ON ? 1 : 0);
         changes++;
 
-        // This would be better if we worked out the bit pattern first and then 
+        // This would be better if we worked out the bit pattern first and then
         // just submitted that as a single i2c read/write transaction
         hal.SetOutputState(n, relay[n]);
 
@@ -1473,10 +1473,18 @@ void influxdb_task(void *param)
 {
   for (;;)
   {
-    //Delay between transmissions
-    vTaskDelay(pdMS_TO_TICKS(8000));
+    // Delay between transmissions
+    for (size_t i = 0; i < mysettings.influxdb_loggingFreqSeconds; i++)
+    {
+      // Wait 1 second
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 
-    if (mysettings.influxdb_enabled && WiFi.isConnected() && rules.invalidModuleCount == 0 && _controller_state == ControllerState::Running && rules.rule_outcome[Rule::BMSError] == false)
+    if (mysettings.influxdb_enabled 
+          && WiFi.isConnected() 
+          && rules.invalidModuleCount == 0 
+          && _controller_state == ControllerState::Running 
+          && rules.rule_outcome[Rule::BMSError] == false)
     {
       ESP_LOGI(TAG, "Influx task");
       influx_task_action();
@@ -2584,7 +2592,7 @@ void LoadConfiguration()
   // Default serial port speed
   mysettings.baudRate = COMMS_BAUD_RATE;
   mysettings.BypassOverTempShutdown = 65;
-  mysettings.interpacketgap=6000;
+  mysettings.interpacketgap = 6000;
   // 4.10V bypass
   mysettings.BypassThresholdmV = 4100;
   mysettings.graph_voltagehigh = 4.5;
@@ -2638,6 +2646,7 @@ void LoadConfiguration()
   strcpy(mysettings.influxdb_serverurl, "http://192.168.0.49:8086/api/v2/write");
   strcpy(mysettings.influxdb_databasebucket, "bucketname");
   strcpy(mysettings.influxdb_orgid, "organisation");
+  mysettings.influxdb_loggingFreqSeconds = 15;
 
   mysettings.timeZone = 0;
   mysettings.minutesTimeZone = 0;
@@ -3146,6 +3155,12 @@ void setup()
 
   LoadConfiguration();
   ESP_LOGI("Config loaded");
+
+  // Check its not zero
+  if (mysettings.influxdb_loggingFreqSeconds < 5)
+  {
+    mysettings.influxdb_loggingFreqSeconds = 15;
+  }
 
   // Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
   SERIAL_DATA.begin(mysettings.baudRate, SERIAL_8N1, 2, 32); // Serial for comms to modules

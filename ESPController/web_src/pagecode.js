@@ -1253,6 +1253,7 @@ $(function () {
                 $("#influxDatabase").val(data.influxdb.bucket);
                 $("#influxToken").val(data.influxdb.apitoken);
                 $("#influxOrgId").val(data.influxdb.orgid);
+                $("#influxFreq").val(data.influxdb.frequency);                
 
                 $("#mqttForm").show();
                 $("#influxForm").show();
