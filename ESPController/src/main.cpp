@@ -786,7 +786,6 @@ void tca9534_isr_task(void *param)
 {
   for (;;)
   {
-    // Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     ESP_LOGD(TAG, "tca9534_isr");
@@ -1246,7 +1245,7 @@ void pulse_relay_off_task(void *param)
         // We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
         // However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
         // to prevent multiple pulses being sent on each rule refresh
-        hal.SetOutputState(y, previousRelayState[y] == RelayState::RELAY_ON ? RelayState::RELAY_OFF : RelayState::RELAY_ON);
+        hal.SetOutputState(y,  RelayState::RELAY_OFF);
 
         previousRelayPulse[y] = false;
       }
@@ -1314,22 +1313,21 @@ void rules_task(void *param)
     {
       if (previousRelayState[n] != relay[n])
       {
+        ESP_LOGI(TAG, "Set relay %i=%i", n, relay[n] == RelayState::RELAY_ON ? 1 : 0);
         changes++;
-        // Would be better here to use the WRITE8 to lower i2c traffic
 
-        ESP_LOGI(TAG, "Set Relay %i=%i", n, relay[n] == RelayState::RELAY_ON ? 1 : 0);
-
-        // This would be better if we worked out the bit pattern first and then just submitted that as a single i2c read/write transaction
-
+        // This would be better if we worked out the bit pattern first and then 
+        // just submitted that as a single i2c read/write transaction
         hal.SetOutputState(n, relay[n]);
 
+        // Record the previous state of the relay, to use on the next loop
+        // to prevent chatter
         previousRelayState[n] = relay[n];
 
         if (mysettings.relaytype[n] == RELAY_PULSE)
         {
           previousRelayPulse[n] = true;
           firePulse = true;
-
           ESP_LOGI(TAG, "Relay %i PULSED", n);
         }
       }

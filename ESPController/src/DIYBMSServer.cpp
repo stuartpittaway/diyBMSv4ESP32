@@ -1012,11 +1012,15 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
         _mysettings->rulerelaydefault[i] = RelayState::RELAY_ON;
       }
     }
+
+    if (_mysettings->relaytype[i] == RelayType::RELAY_PULSE) {
+      //Force pulsed relays to be OFF by default, they pulse "ON"
+      _mysettings->rulerelaydefault[i] = RelayState::RELAY_OFF;
+    }
   }
 
   for (int rule = 0; rule < RELAY_RULES; rule++)
   {
-
     // TODO: This STRING doesnt work properly if its on a single line!
     String name = "rule";
     name = name + (rule);
