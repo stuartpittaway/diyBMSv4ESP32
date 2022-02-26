@@ -348,6 +348,21 @@
                         <label for="influxEnabled">Enabled</label>
                         <input type="checkbox" name="influxEnabled" id="influxEnabled">
                     </div>
+
+                    <div>
+                        <label for="influxFreq">Logging frequency (seconds)</label>
+                        <select name="influxFreq" id="influxFreq">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="25">25</option>
+                            <option value="30">30</option>
+                            <option value="60">60</option>
+                            <option value="120">120</option>
+                        </select>
+                    </div>
+                    
                     <div>
                         <label for="influxUrl">Influx DB write API URL</label>
                         <input type="input" name="influxUrl" id="influxUrl" value="influx" required="" maxlength="128"
@@ -1034,7 +1049,12 @@
                         <select name="baudrate" id="baudrate">
                         </select>
                     </div>
-                    
+
+                    <div>
+                        <label for="interpacketgap">Inter-packet gap (ms)</label>
+                        <select name="interpacketgap" id="interpacketgap">
+                        </select>
+                    </div>                    
                     <button type="submit">Save module &amp; bank settings</button>
                 </div>
             </form>

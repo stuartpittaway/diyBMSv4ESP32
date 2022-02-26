@@ -1093,6 +1093,13 @@ $(function () {
 
                 $("#baudrate").val(data.settings.baudrate);
 
+                $("#interpacketgap").empty();
+                for (let index = 2000; index < 10000; index+=500)
+                {
+                    $("#interpacketgap").append('<option value="'+index+'">'+index+'</option>')
+                }
+
+                $("#interpacketgap").val(data.settings.interpacketgap);
 
                 $("#banksForm").show();
             }).fail(function () { }
@@ -1246,6 +1253,7 @@ $(function () {
                 $("#influxDatabase").val(data.influxdb.bucket);
                 $("#influxToken").val(data.influxdb.apitoken);
                 $("#influxOrgId").val(data.influxdb.orgid);
+                $("#influxFreq").val(data.influxdb.frequency);                
 
                 $("#mqttForm").show();
                 $("#influxForm").show();

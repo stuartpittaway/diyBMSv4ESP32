@@ -191,6 +191,7 @@ void DIYBMSServer::saveConfigurationToSDCard(AsyncWebServerRequest *request)
     root["totalNumberOfBanks"] = _mysettings->totalNumberOfBanks;
     root["totalNumberOfSeriesModules"] = _mysettings->totalNumberOfSeriesModules;
     root["baudRate"] = _mysettings->baudRate;
+    root["interpacketgap"] = _mysettings->interpacketgap;
 
     root["graph_voltagehigh"] = _mysettings->graph_voltagehigh;
     root["graph_voltagelow"] = _mysettings->graph_voltagelow;
@@ -664,6 +665,21 @@ void DIYBMSServer::saveInfluxDBSetting(AsyncWebServerRequest *request)
     p1->value().toCharArray(_mysettings->influxdb_apitoken, sizeof(_mysettings->influxdb_apitoken));
   }
 
+  if (request->hasParam("influxFreq", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("influxFreq", true);
+    _mysettings->influxdb_loggingFreqSeconds = p1->value().toInt();
+  } else {
+    //Default if not supplied
+    _mysettings->influxdb_loggingFreqSeconds=15;
+  }
+
+  if (_mysettings->influxdb_loggingFreqSeconds<5) {
+    //Safety check
+    _mysettings->influxdb_loggingFreqSeconds=5;
+  }
+
+
   saveConfiguration();
 
   // ConfigHasChanged = REBOOT_COUNT_DOWN;
@@ -1011,11 +1027,15 @@ void DIYBMSServer::saveRuleConfiguration(AsyncWebServerRequest *request)
         _mysettings->rulerelaydefault[i] = RelayState::RELAY_ON;
       }
     }
+
+    if (_mysettings->relaytype[i] == RelayType::RELAY_PULSE) {
+      //Force pulsed relays to be OFF by default, they pulse "ON"
+      _mysettings->rulerelaydefault[i] = RelayState::RELAY_OFF;
+    }
   }
 
   for (int rule = 0; rule < RELAY_RULES; rule++)
   {
-
     // TODO: This STRING doesnt work properly if its on a single line!
     String name = "rule";
     name = name + (rule);
@@ -1145,6 +1165,7 @@ void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
   uint8_t totalSeriesModules = 1;
   uint8_t totalBanks = 1;
   uint16_t baudrate = COMMS_BAUD_RATE;
+  uint16_t interpacketgap = 6000;
 
   if (request->hasParam("totalSeriesModules", true))
   {
@@ -1163,12 +1184,18 @@ void DIYBMSServer::saveBankConfiguration(AsyncWebServerRequest *request)
     AsyncWebParameter *p1 = request->getParam("baudrate", true);
     baudrate = p1->value().toInt();
   }
+  if (request->hasParam("interpacketgap", true))
+  {
+    AsyncWebParameter *p1 = request->getParam("interpacketgap", true);
+    interpacketgap = p1->value().toInt();
+  }
 
   if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
   {
     _mysettings->totalNumberOfSeriesModules = totalSeriesModules;
     _mysettings->totalNumberOfBanks = totalBanks;
     _mysettings->baudRate = baudrate;
+    _mysettings->interpacketgap=interpacketgap;
     saveConfiguration();
 
     SendSuccess(request);
@@ -1457,6 +1484,7 @@ void DIYBMSServer::settings(AsyncWebServerRequest *request)
   settings["totalnumberofbanks"] = _mysettings->totalNumberOfBanks;
   settings["totalseriesmodules"] = _mysettings->totalNumberOfSeriesModules;
   settings["baudrate"] = _mysettings->baudRate;
+  settings["interpacketgap"] = _mysettings->interpacketgap;
 
   settings["bypassthreshold"] = _mysettings->BypassThresholdmV;
   settings["bypassovertemp"] = _mysettings->BypassOverTempShutdown;
@@ -1754,6 +1782,7 @@ void DIYBMSServer::integration(AsyncWebServerRequest *request)
   influxdb["bucket"] = _mysettings->influxdb_databasebucket;
   influxdb["apitoken"] = _mysettings->influxdb_apitoken;
   influxdb["orgid"] = _mysettings->influxdb_orgid;
+  influxdb["frequency"] = _mysettings->influxdb_loggingFreqSeconds;
 
   serializeJson(doc, *response);
   request->send(response);
