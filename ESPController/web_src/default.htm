@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="%LANGUAGE%">
+
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
@@ -347,6 +348,21 @@
                         <label for="influxEnabled">Enabled</label>
                         <input type="checkbox" name="influxEnabled" id="influxEnabled">
                     </div>
+
+                    <div>
+                        <label for="influxFreq">Logging frequency (seconds)</label>
+                        <select name="influxFreq" id="influxFreq">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="25">25</option>
+                            <option value="30">30</option>
+                            <option value="60">60</option>
+                            <option value="120">120</option>
+                        </select>
+                    </div>
+                    
                     <div>
                         <label for="influxUrl">Influx DB write API URL</label>
                         <input type="input" name="influxUrl" id="influxUrl" value="influx" required="" maxlength="128"
@@ -788,7 +804,7 @@
                             <option value="150">150</option>
                             <option value="200">200</option>
                             <option value="300">300</option>
-                            <option value="300">400</option>
+                            <option value="400">400</option>
                             <option value="500">500</option>
                             <option value="600">600</option>
                             <option value="750">750</option>
@@ -1036,6 +1052,11 @@
                         </select>
                     </div>
 
+                    <div>
+                        <label for="interpacketgap">Inter-packet gap (ms)</label>
+                        <select name="interpacketgap" id="interpacketgap">
+                        </select>
+                    </div>                    
                     <button type="submit">Save module &amp; bank settings</button>
                 </div>
             </form>

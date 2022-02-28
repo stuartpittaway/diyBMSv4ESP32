@@ -22,6 +22,7 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req)
     uint8_t totalSeriesModules = 1;
     uint8_t totalBanks = 1;
     uint16_t baudrate = COMMS_BAUD_RATE;
+    uint16_t interpacketgap = 6000;
 
     uint32_t tempVariable;
 
@@ -38,15 +39,19 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req)
             if (GetKeyValue(httpbuf, "baudrate", &baudrate, urlEncoded))
             {
 
+            if (GetKeyValue(httpbuf, "interpacketgap", &interpacketgap, urlEncoded))
+            {
                 if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
                 {
                     mysettings.totalNumberOfSeriesModules = totalSeriesModules;
                     mysettings.totalNumberOfBanks = totalBanks;
                     mysettings.baudRate = baudrate;
+                    mysettings.interpacketgap=interpacketgap;
                     saveConfiguration();
 
                     return SendSuccess(req);
                 }
+            }
             }
         }
     }
@@ -242,6 +247,11 @@ esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req)
     {
     }
 
+    mysettings.influxdb_loggingFreqSeconds = 15;
+    if (GetKeyValue(httpbuf, "influxFreq", &mysettings.influxdb_loggingFreqSeconds, urlEncoded))
+    {
+    }
+
     if (GetTextFromKeyValue(httpbuf, "influxUrl", mysettings.influxdb_serverurl, sizeof(mysettings.influxdb_serverurl), urlEncoded))
     {
     }
@@ -253,6 +263,12 @@ esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req)
     }
     if (GetTextFromKeyValue(httpbuf, "influxToken", mysettings.influxdb_apitoken, sizeof(mysettings.influxdb_apitoken), urlEncoded))
     {
+    }
+
+    if (mysettings.influxdb_loggingFreqSeconds < 5)
+    {
+        // Safety check
+        mysettings.influxdb_loggingFreqSeconds = 5;
     }
 
     saveConfiguration();
@@ -323,6 +339,7 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req)
         root["totalNumberOfBanks"] = mysettings.totalNumberOfBanks;
         root["totalNumberOfSeriesModules"] = mysettings.totalNumberOfSeriesModules;
         root["baudRate"] = mysettings.baudRate;
+        root["interpacketgap"] = mysettings.interpacketgap;
 
         root["graph_voltagehigh"] = mysettings.graph_voltagehigh;
         root["graph_voltagelow"] = mysettings.graph_voltagelow;
@@ -364,6 +381,7 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req)
         influxdb["bucket"] = mysettings.influxdb_databasebucket;
         influxdb["org"] = mysettings.influxdb_orgid;
         influxdb["url"] = mysettings.influxdb_serverurl;
+        influxdb["logfreq"] = mysettings.influxdb_loggingFreqSeconds;
 
         JsonObject outputs = root.createNestedObject("outputs");
 

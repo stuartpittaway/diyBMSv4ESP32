@@ -88,7 +88,7 @@ with open(os.path.join(include_dir, 'EmbeddedFiles_Defines.h'), 'w') as f:
     f.write(";\n\n")
 
     f.write("static const uint8_t COMPILE_WEEK_NUMBER_BYTE = ")
-    f.write(datetime.datetime.utcnow().strftime("%W"))
+    f.write(datetime.datetime.utcnow().strftime("%W").lstrip("0"))
     f.write(";\n\n")
 
     f.write("#endif")

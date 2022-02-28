@@ -5,7 +5,7 @@
  )(_) )_)(_  \  /  ) _ < )    ( \__ \   \  /(_  _)
 (____/(____) (__) (____/(_/\/\_)(___/    \/   (_)
 
-  (c) 2017 to 2021 Stuart Pittaway
+  (c) 2017 to 2022 Stuart Pittaway
 
   This is the code for the ESP32 controller - it talks to the V4.X cell modules over isolated serial bus
 
@@ -1055,7 +1055,7 @@ void transmit_task(void *param)
   {
     // Delay based on comms speed, ensure the first module has time to process and clear the request
     // before sending another packet
-    uint16_t delay_ms = 750;
+    uint16_t delay_ms = 900;
 
     if (mysettings.baudRate == 9600)
     {
@@ -1063,7 +1063,7 @@ void transmit_task(void *param)
     }
     else if (mysettings.baudRate == 5000)
     {
-      delay_ms = 600;
+      delay_ms = 700;
     }
 
     vTaskDelay(pdMS_TO_TICKS(delay_ms));
@@ -1254,7 +1254,7 @@ void pulse_relay_off_task(void *param)
         // We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
         // However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
         // to prevent multiple pulses being sent on each rule refresh
-        hal.SetOutputState(y, previousRelayState[y] == RelayState::RELAY_ON ? RelayState::RELAY_OFF : RelayState::RELAY_ON);
+        hal.SetOutputState(y, RelayState::RELAY_OFF);
 
         previousRelayPulse[y] = false;
       }
@@ -1322,22 +1322,21 @@ void rules_task(void *param)
     {
       if (previousRelayState[n] != relay[n])
       {
+        ESP_LOGI(TAG, "Set relay %i=%i", n, relay[n] == RelayState::RELAY_ON ? 1 : 0);
         changes++;
-        // Would be better here to use the WRITE8 to lower i2c traffic
 
-        ESP_LOGI(TAG, "Set Relay %i=%i", n, relay[n] == RelayState::RELAY_ON ? 1 : 0);
-
-        // This would be better if we worked out the bit pattern first and then just submitted that as a single i2c read/write transaction
-
+        // This would be better if we worked out the bit pattern first and then
+        // just submitted that as a single i2c read/write transaction
         hal.SetOutputState(n, relay[n]);
 
+        // Record the previous state of the relay, to use on the next loop
+        // to prevent chatter
         previousRelayState[n] = relay[n];
 
         if (mysettings.relaytype[n] == RELAY_PULSE)
         {
           previousRelayPulse[n] = true;
           firePulse = true;
-
           ESP_LOGI(TAG, "Relay %i PULSED", n);
         }
       }
@@ -1360,10 +1359,7 @@ void enqueue_task(void *param)
 {
   for (;;)
   {
-    // Ensure we service the cell modules every 5 or 10 seconds, depending on number of cells being serviced
-    // slower stops the queues from overflowing when a lot of cells are being monitored
-    // TODO: SCALE THIS BASED ON COMMS BAUD RATES
-    vTaskDelay(pdMS_TO_TICKS((TotalNumberOfCells() <= maximum_cell_modules_per_packet) ? 5000 : 10000));
+    vTaskDelay(pdMS_TO_TICKS(mysettings.interpacketgap));
 
     LED(RGBLED::Green);
     // Fire task to switch off LED in a few ms
@@ -1487,9 +1483,17 @@ void influxdb_task(void *param)
   for (;;)
   {
     // Delay between transmissions
-    vTaskDelay(pdMS_TO_TICKS(8000));
+    for (size_t i = 0; i < mysettings.influxdb_loggingFreqSeconds; i++)
+    {
+      // Wait 1 second
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 
-    if (mysettings.influxdb_enabled && WiFi.isConnected() && rules.invalidModuleCount == 0 && _controller_state == ControllerState::Running && rules.rule_outcome[Rule::BMSError] == false)
+    if (mysettings.influxdb_enabled 
+          && WiFi.isConnected() 
+          && rules.invalidModuleCount == 0 
+          && _controller_state == ControllerState::Running 
+          && rules.rule_outcome[Rule::BMSError] == false)
     {
       ESP_LOGI(TAG, "Influx task");
       influx_task_action();
@@ -2598,6 +2602,7 @@ void LoadConfiguration()
   // Default serial port speed
   mysettings.baudRate = COMMS_BAUD_RATE;
   mysettings.BypassOverTempShutdown = 65;
+  mysettings.interpacketgap = 6000;
   // 4.10V bypass
   mysettings.BypassThresholdmV = 4100;
   mysettings.graph_voltagehigh = 4.5;
@@ -2651,6 +2656,7 @@ void LoadConfiguration()
   strcpy(mysettings.influxdb_serverurl, "http://192.168.0.49:8086/api/v2/write");
   strcpy(mysettings.influxdb_databasebucket, "bucketname");
   strcpy(mysettings.influxdb_orgid, "organisation");
+  mysettings.influxdb_loggingFreqSeconds = 15;
 
   mysettings.timeZone = 0;
   mysettings.minutesTimeZone = 0;
@@ -3159,6 +3165,12 @@ void setup()
 
   LoadConfiguration();
   ESP_LOGI("Config loaded");
+
+  // Check its not zero
+  if (mysettings.influxdb_loggingFreqSeconds < 5)
+  {
+    mysettings.influxdb_loggingFreqSeconds = 15;
+  }
 
   // Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
   SERIAL_DATA.begin(mysettings.baudRate, SERIAL_8N1, 2, 32); // Serial for comms to modules

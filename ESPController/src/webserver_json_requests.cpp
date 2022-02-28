@@ -707,6 +707,7 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   settings["totalnumberofbanks"] = mysettings.totalNumberOfBanks;
   settings["totalseriesmodules"] = mysettings.totalNumberOfSeriesModules;
   settings["baudrate"] = mysettings.baudRate;
+  settings["interpacketgap"] = mysettings.interpacketgap;
 
   settings["bypassthreshold"] = mysettings.BypassThresholdmV;
   settings["bypassovertemp"] = mysettings.BypassOverTempShutdown;
@@ -783,7 +784,8 @@ esp_err_t content_handler_integration(httpd_req_t *req)
   influxdb["bucket"] = mysettings.influxdb_databasebucket;
   influxdb["apitoken"] = mysettings.influxdb_apitoken;
   influxdb["orgid"] = mysettings.influxdb_orgid;
-
+  influxdb["frequency"] = mysettings.influxdb_loggingFreqSeconds;
+  
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
   return httpd_resp_send(req, httpbuf, bufferused);

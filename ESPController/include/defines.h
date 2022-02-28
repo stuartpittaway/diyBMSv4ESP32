@@ -106,6 +106,7 @@ struct diybms_eeprom_settings
   uint8_t totalNumberOfBanks;
   uint8_t totalNumberOfSeriesModules;
   uint16_t baudRate;
+  uint16_t interpacketgap;
 
   uint32_t rulevalue[RELAY_RULES];
   uint32_t rulehysteresis[RELAY_RULES];
@@ -162,6 +163,7 @@ struct diybms_eeprom_settings
   char influxdb_databasebucket[64 + 1];
   char influxdb_apitoken[128 + 1];
   char influxdb_orgid[128 + 1];
+  uint8_t influxdb_loggingFreqSeconds;
 };
 
 typedef union
