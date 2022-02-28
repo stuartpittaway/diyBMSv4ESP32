@@ -177,12 +177,16 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
   {
     if (file.isDirectory())
     {
+      //Hide folders
+      
+      /*
       // Hide the diybms folder where the config files are kept
       if (levels && String(file.name()).startsWith("/diybms") == false)
       {
         bufferused += fileSystemListDirectory(&buffer[bufferused], bufferLen - bufferused, fs, file.name(), levels - 1);
         bufferused += snprintf(&buffer[bufferused], bufferLen - bufferused, ",");
       }
+      */
     }
     else
     {
