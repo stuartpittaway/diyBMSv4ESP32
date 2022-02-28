@@ -6,7 +6,7 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 
 #include <Arduino.h>
 #include "driver/i2c.h"
-#include <driver/can.h>
+#include <driver/twai.h>
 #include "esp32-hal-i2c.h"
 #include <SPI.h>
 

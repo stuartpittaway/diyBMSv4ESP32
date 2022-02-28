@@ -9,7 +9,7 @@
 
 #include "settings.h"
 #include "FS.h"
-#include <LITTLEFS.h>
+#include "LittleFS.h"
 #include "SD.h"
 #include <SPIFFS.h>
 #include "time.h"
@@ -37,6 +37,9 @@ esp_err_t content_handler_settings(httpd_req_t *req);
 esp_err_t content_handler_integration(httpd_req_t *req);
 esp_err_t content_handler_monitor3(httpd_req_t *req);
 esp_err_t content_handler_monitor2(httpd_req_t *req);
+
+esp_err_t api_handler(httpd_req_t *req);
+
 
 esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filename);
 int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t levels);

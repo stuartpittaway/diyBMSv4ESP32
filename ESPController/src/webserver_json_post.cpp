@@ -1173,10 +1173,10 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req)
 
     String manifestfilename = String("/avr/manifest.json");
 
-    if (LITTLEFS.exists(manifestfilename))
+    if (LittleFS.exists(manifestfilename))
     {
         DynamicJsonDocument jsonmanifest(3000);
-        File file = LITTLEFS.open(manifestfilename);
+        File file = LittleFS.open(manifestfilename);
         DeserializationError error = deserializeJson(jsonmanifest, file);
         if (error != DeserializationError::Ok)
         {

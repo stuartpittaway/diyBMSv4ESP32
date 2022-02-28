@@ -257,6 +257,9 @@ esp_err_t get_root_handler(httpd_req_t *req)
 /* URI handler structure for GET /uri */
 httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
 
+
+httpd_uri_t uri_api_get = {.uri = "/api/*", .method = HTTP_GET, .handler = api_handler, .user_ctx = NULL};
+
 httpd_uri_t uri_defaulthtm_get = {.uri = "/default.htm", .method = HTTP_GET, .handler = default_htm_handler, .user_ctx = NULL};
 
 WEBKIT_RESPONSE_ARGS webkit_style_css_args = {file_style_css_gz, size_file_style_css_gz, etag_file_style_css_gz, text_css};
@@ -376,6 +379,7 @@ httpd_handle_t start_webserver(void)
   config.max_open_sockets = 5;
   config.max_resp_headers = 16;
   config.stack_size = 4096;
+  config.uri_match_fn = httpd_uri_match_wildcard;
 
   /* Empty handle to esp_http_server */
   httpd_handle_t server = NULL;
@@ -409,6 +413,10 @@ httpd_handle_t start_webserver(void)
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_en_js_get));
 
     // Web services/API
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_api_get));
+
+    //httpd_uri_match_wildcard()
+    
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_monitor2_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_monitor3_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_integration_json_get));

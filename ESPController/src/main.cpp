@@ -31,7 +31,7 @@ static const char *TAG = "diybms";
 //#define MQTT_LOGGING
 
 #include "FS.h"
-#include <LITTLEFS.h>
+#include "LittleFS.h"
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <SPI.h>
@@ -43,7 +43,8 @@ static const char *TAG = "diybms";
 // Libraries for SD card
 #include "SD.h"
 #include "driver/gpio.h"
-#include "driver/can.h"
+#include "driver/twai.h"
+
 #include "driver/adc.h"
 //#include "driver/twai.h"
 #include <driver/uart.h>
@@ -66,8 +67,7 @@ static const char *TAG = "diybms";
 
 #include "victron_canbus.h"
 
-
-const uart_port_t rs485_uart_num = uart_port_t::UART_NUM_1;
+const uart_port_t rs485_uart_num = UART_NUM_1;
 
 HAL_ESP32 hal;
 
@@ -209,7 +209,7 @@ void ConfigureRS485()
   }
   else
   {
-    ESP_ERROR_CHECK(ESP_FAIL)
+    ESP_ERROR_CHECK(ESP_FAIL);
   }
 }
 
@@ -316,7 +316,7 @@ void avrprog_task(void *param)
     // Wake up the display
     if (tftwakeup_task_handle != NULL)
     {
-      //Pass parameter 1 to force wakeup
+      // Pass parameter 1 to force wakeup
       xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
     }
 
@@ -324,7 +324,7 @@ void avrprog_task(void *param)
     avrprogramsettings *s;
     s = (avrprogramsettings *)param;
 
-    ESP_LOGD(TAG, "AVR inprogress=%i",s->inProgress);
+    ESP_LOGD(TAG, "AVR inprogress=%i", s->inProgress);
     ESP_LOGI(TAG, "AVR setting e=%02X h=%02X l=%02X mcu=%08X file=%s", s->efuse, s->hfuse, s->lfuse, s->mcu, s->filename);
 
     bool old_sd_card_installed = _sd_card_installed;
@@ -335,10 +335,11 @@ void avrprog_task(void *param)
       unmountSDCard();
     }
 
+
     // Now we load the file into program array, from LITTLEFS (SPIFF)
-    if (LITTLEFS.exists(s->filename))
+    if (LittleFS.exists(s->filename))
     {
-      File binaryfile = LITTLEFS.open(s->filename);
+      File binaryfile = LittleFS.open(s->filename);
 
       s->programsize = binaryfile.size();
 
@@ -354,7 +355,7 @@ void avrprog_task(void *param)
 
         // This will block for the 6 seconds it takes to program ATTINY841...
         // although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
-        
+
         uint32_t starttime = millis();
         AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&(hal.vspi), GPIO_NUM_0, false, VSPI_SCK);
 
@@ -855,7 +856,7 @@ void IRAM_ATTR TCA6408Interrupt()
 {
   if (tca6408_isr_task_handle != NULL)
   {
-    xTaskNotifyFromISR(tca6408_isr_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+    xTaskNotifyFromISR(tca6408_isr_task_handle, 0x00, eNotifyAction::eNoAction, 0);
   }
 }
 
@@ -864,7 +865,7 @@ void IRAM_ATTR TCA9534AInterrupt()
 {
   if (tca9534_isr_task_handle != NULL)
   {
-    xTaskNotifyFromISR(tca9534_isr_task_handle, 0x00, eNotifyAction::eNoAction, pdFALSE);
+    xTaskNotifyFromISR(tca9534_isr_task_handle, 0x00, eNotifyAction::eNoAction, 0);
   }
 }
 
@@ -1070,9 +1071,9 @@ void transmit_task(void *param)
     // TODO: Move to proper RTOS QUEUE...
     if (requestQueue.isEmpty() == false)
     {
-      //ESP_LOGD(TAG,"Tx queue len=%i",requestQueue.getCount());
-      // Called to transmit the next packet in the queue need to ensure this procedure
-      // is called more frequently than items are added into the queue
+      // ESP_LOGD(TAG,"Tx queue len=%i",requestQueue.getCount());
+      //  Called to transmit the next packet in the queue need to ensure this procedure
+      //  is called more frequently than items are added into the queue
 
       PacketStruct transmitBuffer;
 
@@ -1489,11 +1490,7 @@ void influxdb_task(void *param)
       vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    if (mysettings.influxdb_enabled 
-          && WiFi.isConnected() 
-          && rules.invalidModuleCount == 0 
-          && _controller_state == ControllerState::Running 
-          && rules.rule_outcome[Rule::BMSError] == false)
+    if (mysettings.influxdb_enabled && WiFi.isConnected() && rules.invalidModuleCount == 0 && _controller_state == ControllerState::Running && rules.rule_outcome[Rule::BMSError] == false)
     {
       ESP_LOGI(TAG, "Influx task");
       influx_task_action();
@@ -1522,7 +1519,7 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   if (!server_running)
   {
     StartServer();
-    //StartServer(&mysettings, &SD, &prg, &receiveProc, &_controller_state, &rules, &sdcardaction_callback, &hal);
+    // StartServer(&mysettings, &SD, &prg, &receiveProc, &_controller_state, &rules, &sdcardaction_callback, &hal);
     server_running = true;
   }
 
@@ -2153,8 +2150,8 @@ void victron_canbus_rx(void *param)
     {
 
       // Wait for message to be received
-      can_message_t message;
-      esp_err_t res = can_receive(&message, pdMS_TO_TICKS(10000));
+      twai_message_t message;
+      esp_err_t res = twai_receive(&message, pdMS_TO_TICKS(10000));
       if (res == ESP_OK)
       {
         canbus_messages_received++;
@@ -3132,16 +3129,15 @@ void setup()
 
   hal.Led(0);
 
-  if (!LITTLEFS.begin(false))
+  if (!LittleFS.begin(false))
   {
-    ESP_LOGE(TAG, "LITTLEFS mount failed, did you upload file system image?");
+    ESP_LOGE(TAG, "LittleFS mount failed, did you upload file system image?");
 
     hal.Halt(RGBLED::White);
   }
   else
   {
-    ESP_LOGI(TAG, "LITTLEFS mounted, totalBytes=%u, usedBytes=%u", LITTLEFS.totalBytes(), LITTLEFS.usedBytes());
-    // listDir(LITTLEFS, "/", 0);
+    ESP_LOGI(TAG, "LittleFS mounted, totalBytes=%u, usedBytes=%u", LittleFS.totalBytes(), LittleFS.usedBytes());
   }
 
   mountSDCard();
@@ -3279,11 +3275,11 @@ void setup()
   {
     /* Explicitly set the ESP to be a WiFi-client, otherwise by default,
       would try to act as both a client and an access-point */
-    WiFi.onEvent(onWifiConnect, system_event_id_t::SYSTEM_EVENT_STA_GOT_IP);
-    WiFi.onEvent(onWifiDisconnect, system_event_id_t::SYSTEM_EVENT_STA_DISCONNECTED);
-    // Newer IDF version will need this...
-    // WiFi.onEvent(onWifiConnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
-    // WiFi.onEvent(onWifiDisconnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+    // WiFi.onEvent(onWifiConnect, system_event_id_t::SYSTEM_EVENT_STA_GOT_IP);
+    // WiFi.onEvent(onWifiDisconnect, system_event_id_t::SYSTEM_EVENT_STA_DISCONNECTED);
+    //  Newer IDF version will need this...
+    WiFi.onEvent(onWifiConnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
+    WiFi.onEvent(onWifiDisconnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
     mqttClient.onConnect(onMqttConnect);
     mqttClient.onDisconnect(onMqttDisconnect);

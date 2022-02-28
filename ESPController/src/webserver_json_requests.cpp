@@ -22,11 +22,11 @@ esp_err_t content_handler_avrstorage(httpd_req_t *req)
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"avrprog\":");
 
   String manifest = String("/avr/manifest.json");
-  if (LITTLEFS.exists(manifest))
+  if (LittleFS.exists(manifest))
   {
     // Use Dynamic to avoid head issues
     DynamicJsonDocument doc(3000);
-    File file = LITTLEFS.open(manifest);
+    File file = LittleFS.open(manifest);
     DeserializationError error = deserializeJson(doc, file);
     if (error)
     {
@@ -228,8 +228,8 @@ esp_err_t content_handler_storage(httpd_req_t *req)
     info.usedkilobytes = 0;
   }
 
-  info.flash_totalkilobytes = LITTLEFS.totalBytes() / 1024;
-  info.flash_usedkilobytes = LITTLEFS.usedBytes() / 1024;
+  info.flash_totalkilobytes = LittleFS.totalBytes() / 1024;
+  info.flash_usedkilobytes = LittleFS.usedBytes() / 1024;
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{\"storage\":{");
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "logging", mysettings.loggingEnabled);
@@ -260,7 +260,7 @@ esp_err_t content_handler_storage(httpd_req_t *req)
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"total\":%u,\"used\":%u,\"files\":[", info.flash_totalkilobytes, info.flash_usedkilobytes);
 
-  bufferused += fileSystemListDirectory(&httpbuf[bufferused], BUFSIZE - bufferused, LITTLEFS, "/", 0);
+  bufferused += fileSystemListDirectory(&httpbuf[bufferused], BUFSIZE - bufferused, LittleFS, "/", 0);
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]}}}");
 
@@ -398,7 +398,7 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
     {
       // Process file from flash storage
       ESP_LOGI(TAG, "Download FLASH file");
-      SendFileInChunks(req, LITTLEFS, file.c_str());
+      SendFileInChunks(req, LittleFS, file.c_str());
       // Indicate last chunk (zero byte length)
       return httpd_resp_send_chunk(req, httpbuf, 0);
     }
@@ -557,6 +557,23 @@ esp_err_t content_handler_avrstatus(httpd_req_t *req)
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
   return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t api_handler(httpd_req_t *req)
+{
+  ESP_LOGD(TAG, "API uri: %s", req->uri);
+
+  if (!validateXSS(req))
+  {
+    return ESP_FAIL;
+  }
+
+  httpd_resp_set_type(req, "application/json");
+  setNoStoreCacheControl(req);
+
+  return ESP_FAIL;
+
+  //return httpd_resp_send(req, httpbuf, bufferused);
 }
 
 esp_err_t content_handler_victron(httpd_req_t *req)

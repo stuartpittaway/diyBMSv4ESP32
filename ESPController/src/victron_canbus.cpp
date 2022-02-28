@@ -17,15 +17,15 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 {
   //static const char *TAG = "canbus";
 
-  can_message_t message;
+  twai_message_t message;
   message.identifier = identifier;
-  message.flags = CAN_MSG_FLAG_NONE;
+  message.flags = TWAI_MSG_FLAG_NONE;
   message.data_length_code = length;
 
   memcpy(&message.data, buffer, length);
 
   // Queue message for transmission
-  if (can_transmit(&message, pdMS_TO_TICKS(250)) != ESP_OK)
+  if (twai_transmit(&message, pdMS_TO_TICKS(250)) != ESP_OK)
   {
     ESP_LOGE(TAG, "Fail to queue message");
     canbus_messages_failed_sent++;
@@ -41,8 +41,8 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 // Transmit the DIYBMS hostname via two CAN Messages
 void victron_message_370_371()
 {
-  send_canbus_message(0x370, (uint8_t *)&hostname, (uint8_t)CAN_MAX_DATA_LEN);
-  send_canbus_message(0x371, (uint8_t *)&hostname[CAN_MAX_DATA_LEN], (uint8_t)CAN_MAX_DATA_LEN);
+  send_canbus_message(0x370, (uint8_t *)&hostname, 8);
+  send_canbus_message(0x371, (uint8_t *)&hostname[8], 8);
 }
 
 void victron_message_35e()
