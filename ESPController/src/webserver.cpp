@@ -258,8 +258,6 @@ esp_err_t get_root_handler(httpd_req_t *req)
 httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
 
 
-httpd_uri_t uri_api_get = {.uri = "/api/*", .method = HTTP_GET, .handler = api_handler, .user_ctx = NULL};
-
 httpd_uri_t uri_defaulthtm_get = {.uri = "/default.htm", .method = HTTP_GET, .handler = default_htm_handler, .user_ctx = NULL};
 
 WEBKIT_RESPONSE_ARGS webkit_style_css_args = {file_style_css_gz, size_file_style_css_gz, etag_file_style_css_gz, text_css};
@@ -313,20 +311,8 @@ httpd_uri_t uri_patron_png_get = {.uri = "/patron.png", .method = HTTP_GET, .han
 WEBKIT_RESPONSE_ARGS webkit_warning_png_args = {file_warning_png, size_file_warning_png, etag_file_warning_png, image_png};
 httpd_uri_t uri_warning_png_get = {.uri = "/warning.png", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = (void *)&webkit_warning_png_args};
 
-httpd_uri_t uri_monitor2_json_get = {.uri = "/monitor2.json", .method = HTTP_GET, .handler = content_handler_monitor2, .user_ctx = NULL};
-httpd_uri_t uri_monitor3_json_get = {.uri = "/monitor3.json", .method = HTTP_GET, .handler = content_handler_monitor3, .user_ctx = NULL};
-httpd_uri_t uri_integration_json_get = {.uri = "/integration.json", .method = HTTP_GET, .handler = content_handler_integration, .user_ctx = NULL};
-httpd_uri_t uri_settings_json_get = {.uri = "/settings.json", .method = HTTP_GET, .handler = content_handler_settings, .user_ctx = NULL};
-httpd_uri_t uri_rules_json_get = {.uri = "/rules.json", .method = HTTP_GET, .handler = content_handler_rules, .user_ctx = NULL};
-httpd_uri_t uri_victron_json_get = {.uri = "/victron.json", .method = HTTP_GET, .handler = content_handler_victron, .user_ctx = NULL};
-httpd_uri_t uri_rs485settings_json_get = {.uri = "/rs485settings.json", .method = HTTP_GET, .handler = content_handler_rs485settings, .user_ctx = NULL};
-httpd_uri_t uri_currentmonitor_json_get = {.uri = "/currentmonitor.json", .method = HTTP_GET, .handler = content_handler_currentmonitor, .user_ctx = NULL};
-httpd_uri_t uri_avrstatus_json_get = {.uri = "/avrstatus.json", .method = HTTP_GET, .handler = content_handler_avrstatus, .user_ctx = NULL};
-httpd_uri_t uri_modules_json_get = {.uri = "/modules.json", .method = HTTP_GET, .handler = content_handler_modules, .user_ctx = NULL};
-httpd_uri_t uri_identifymodule_json_get = {.uri = "/identifyModule.json", .method = HTTP_GET, .handler = content_handler_identifymodule, .user_ctx = NULL};
-httpd_uri_t uri_storage_json_get = {.uri = "/storage.json", .method = HTTP_GET, .handler = content_handler_storage, .user_ctx = NULL};
-httpd_uri_t uri_avrstorage_json_get = {.uri = "/avrstorage.json", .method = HTTP_GET, .handler = content_handler_avrstorage, .user_ctx = NULL};
-
+// GET Requests for API services
+httpd_uri_t uri_api_get = {.uri = "/api/*", .method = HTTP_GET, .handler = api_handler, .user_ctx = NULL};
 httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler = content_handler_downloadfile, .user_ctx = NULL};
 
 /* URI handler structure for POST /uri */
@@ -415,8 +401,7 @@ httpd_handle_t start_webserver(void)
     // Web services/API
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_api_get));
 
-    //httpd_uri_match_wildcard()
-    
+    /*    
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_monitor2_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_monitor3_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_integration_json_get));
@@ -430,6 +415,7 @@ httpd_handle_t start_webserver(void)
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_identifymodule_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_storage_json_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrstorage_json_get));
+    */
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_download_get));
 
     // Post services

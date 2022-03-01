@@ -47,11 +47,11 @@ function switchPage(newPage) {
     $("#myNav").height("0%");
 }
 function identifyModule(button, cellid) {
-    $.getJSON("identifyModule.json", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
+    $.getJSON("/api/identifyModule", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
 
 function refreshCurrentMonitorValues() {
-    $.getJSON("currentmonitor.json",
+    $.getJSON("/api/currentmonitor",
         function (data) {
             $("#CurrentMonEnabled").prop("checked", data.enabled);
             $("#modbusAddress").val(data.address);
@@ -169,7 +169,7 @@ function currentmonitorSubmitForm(form) {
 }
 
 function avrProgrammingStatsUpdate(attempts) {
-    $.getJSON("avrstatus.json",
+    $.getJSON("/api/avrstatus",
         function (data) {
             console.log(data);
 
@@ -228,7 +228,7 @@ function configureModule(button, cellid, attempts) {
     $(button).parent().parent().parent().find(".selected").removeClass("selected");
     $(button).parent().parent().addClass("selected");
 
-    $.getJSON("modules.json", { c: cellid },
+    $.getJSON("/api/modules", { c: cellid },
         function (data) {
             var div = $("#settingConfig .settings");
             $('#c').val(data.settings.id);
@@ -283,7 +283,7 @@ function secondsToHms(seconds) {
 }
 
 function queryBMS() {
-    $.getJSON("monitor2.json", function (jsondata) {
+    $.getJSON("/api/monitor2", function (jsondata) {
         var labels = [];
         var cells = [];
         var bank = [];
@@ -538,10 +538,10 @@ function queryBMS() {
                 $(columns[7]).html(pwm[index].value);
             });
 
-            //As the module page is open, we refresh the last 3 columns using seperate JSON web service to keep the monitor2.json
+            //As the module page is open, we refresh the last 3 columns using seperate JSON web service to keep the monitor2
             //packets as small as possible
 
-            $.getJSON("monitor3.json", function (jsondata) {
+            $.getJSON("/api/monitor3", function (jsondata) {
                 var tbody = $("#modulesRows");
                 var rows = $(tbody).find("tr");
                 $.each(cells, function (index, value) {
@@ -1022,7 +1022,7 @@ $(function () {
         $(this).addClass("active");
         switchPage("#aboutPage");
 
-        $.getJSON("settings.json",
+        $.getJSON("/api/settings",
             function (data) {
                 $("#MinFreeHeap").html(data.settings.MinFreeHeap);
                 $("#FreeHeap").html(data.settings.FreeHeap);
@@ -1047,7 +1047,7 @@ $(function () {
 
         switchPage("#modulesPage");
 
-        $.getJSON("settings.json",
+        $.getJSON("/api/settings",
             function (data) {
                 $("#g1").val(data.settings.bypassovertemp);
                 $("#g2").val(data.settings.bypassthreshold);
@@ -1072,7 +1072,7 @@ $(function () {
 
         switchPage("#settingsPage");
 
-        $.getJSON("settings.json",
+        $.getJSON("/api/settings",
             function (data) {
 
                 $("#NTPServer").val(data.settings.NTPServerName);
@@ -1117,7 +1117,7 @@ $(function () {
 
         switchPage("#rulesPage");
 
-        $.getJSON("rules.json",
+        $.getJSON("/api/rules",
             function (data) {
                 //Rules have loaded
 
@@ -1188,7 +1188,7 @@ $(function () {
         switchPage("#diybmsCurrentMonitorPage");
 
 
-        $.getJSON("rs485settings.json",
+        $.getJSON("/api/rs485settings",
             function (data) {
                 $("#rs485baudrate").val(data.baudrate);
                 $("#rs485databit").val(data.databits);
@@ -1206,7 +1206,7 @@ $(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
 
-        $.getJSON("victron.json",
+        $.getJSON("/api/victron",
             function (data) {
                 $("#VictronEnabled").prop("checked", data.victron.enabled);
 
@@ -1238,7 +1238,7 @@ $(function () {
         $("#mqttForm").hide();
         $("#influxForm").hide();
 
-        $.getJSON("integration.json",
+        $.getJSON("/api/integration",
             function (data) {
 
                 $("#mqttEnabled").prop("checked", data.mqtt.enabled);
@@ -1423,7 +1423,7 @@ $(function () {
         $(this).addClass("active");
         switchPage("#avrprogPage");
 
-        $.getJSON("avrstorage.json",
+        $.getJSON("/api/avrstorage",
             function (data) {
                 $("#avrprog").empty();
                 $("#avrprogconfirm").hide();
@@ -1475,7 +1475,7 @@ $(function () {
         $(this).addClass("active");
         switchPage("#storagePage");
 
-        $.getJSON("storage.json",
+        $.getJSON("/api/storage",
             function (data) {
 
                 //Allow warning to trigger again

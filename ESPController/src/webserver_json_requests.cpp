@@ -4,17 +4,8 @@
 
 esp_err_t content_handler_avrstorage(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
   int bufferused = 0;
 
-  //{"ProgModeEnabled":false,"InProgress":false,"avrprog":{"avrprog":[{"board":"V400","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V400_4fc1ce41.bin","ver":"4fc1ce41"},{"board":"V410","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V410_4fc1ce41.bin","ver":"4fc1ce41"},{"board":"V420","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V420_4fc1ce41.bin","ver":"4fc1ce41"},{"board":"V420_SWAPR19R20","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V420_SWAPR19R20_4fc1ce41.bin","ver":"4fc1ce41"},{"board":"V421","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V421_4fc1ce41.bin","ver":"4fc1ce41"},{"board":"V421_LTO","efuse":"F4","hfuse":"D6","lfuse":"62","mcu":"1e9315","name":"fw_V421_LTO_4fc1ce41.bin","ver":"4fc1ce41"},{"board":"V440","efuse":"F4","hfuse":"D6","lfuse":"6C","mcu":"1e9315","name":"fw_V440_4fc1ce41.bin","ver":"4fc1ce41"}]}}
   // See if we can open and process the AVR PROGRAMMER manifest file
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{");
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "ProgModeEnabled", _avrsettings.programmingModeEnabled);
@@ -53,14 +44,6 @@ esp_err_t content_handler_avrstorage(httpd_req_t *req)
 
 esp_err_t content_handler_currentmonitor(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
   int bufferused = 0;
 
   // Convert to milliseconds
@@ -81,20 +64,6 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
                          currentMonitor.validReadings ? "true" : "false",
                          currentMonitor.modbus.batterycapacityamphour, currentMonitor.modbus.tailcurrentamps,
                          currentMonitor.modbus.fullychargedvoltage, currentMonitor.chargeefficiency);
-/*
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         "\"address\":%u,\"devicetype\":%u,\"timestampage\":%u,",
-                         mysettings.currentMonitoringModBusAddress,
-                         mysettings.currentMonitoringDevice,
-                         timestampage);
-
-  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "valid", currentMonitor.validReadings);
-
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         "\"batterycapacity\":%u,\"tailcurrent\":%.4f,\"fullchargevolt\":%.4f,\"chargeefficiency\":%.4f,",
-                         currentMonitor.modbus.batterycapacityamphour, currentMonitor.modbus.tailcurrentamps,
-                         currentMonitor.modbus.fullychargedvoltage, currentMonitor.chargeefficiency);
-*/
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                          "\"voltage\":%.4f,\"current\":%.4f,\"mahout\":%u,\"mahin\":%u,\"temperature\":%i,\"watchdog\":%u,\"power\":%.4f,\"actualshuntmv\":%.4f,\"currentlsb\":%.4f,\"resistance\":%.4f,\"calibration\":%u,\"templimit\":%i,\"undervlimit\":%.4f,\"overvlimit\":%.4f,\"overclimit\":%.4f,\"underclimit\":%.4f,\"overplimit\":%.4f,\"tempcoeff\":%u,\"model\":%u,\"firmwarev\":%u,\"firmwaredate\":%u,",
@@ -136,14 +105,6 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
 
 esp_err_t content_handler_rs485settings(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
   int bufferused = 0;
 
   // Output the first batch of settings/parameters/values
@@ -158,7 +119,6 @@ esp_err_t content_handler_rs485settings(httpd_req_t *req)
 int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t levels)
 {
   // This needs to check for buffer overrun as too many files are likely to exceed the buffer capacity
-
   int bufferused = 0;
   File root = fs.open(dirname);
   if (!root)
@@ -177,8 +137,8 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
   {
     if (file.isDirectory())
     {
-      //Hide folders
-      
+      // Hide folders
+
       /*
       // Hide the diybms folder where the config files are kept
       if (levels && String(file.name()).startsWith("/diybms") == false)
@@ -204,14 +164,6 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
 
 esp_err_t content_handler_storage(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
   int bufferused = 0;
 
   sdcard_info info;
@@ -321,11 +273,6 @@ esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filenam
 
 esp_err_t content_handler_downloadfile(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
   bool valid = false;
 
   char param[128];
@@ -417,11 +364,6 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
 
 esp_err_t content_handler_identifymodule(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
   uint8_t c;
   bool valid = false;
 
@@ -463,11 +405,6 @@ esp_err_t content_handler_identifymodule(httpd_req_t *req)
 
 esp_err_t content_handler_modules(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
   uint8_t c;
   bool valid = false;
 
@@ -497,8 +434,6 @@ esp_err_t content_handler_modules(httpd_req_t *req)
 
   if (valid)
   {
-    httpd_resp_set_type(req, "application/json");
-    setNoStoreCacheControl(req);
 
     if (cmi[c].settingsCached == false)
     {
@@ -542,14 +477,6 @@ esp_err_t content_handler_modules(httpd_req_t *req)
 
 esp_err_t content_handler_avrstatus(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
   int bufferused = 0;
   StaticJsonDocument<200> doc;
   doc["inprogress"] = _avrsettings.inProgress ? 1 : 0;
@@ -563,33 +490,9 @@ esp_err_t content_handler_avrstatus(httpd_req_t *req)
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
-esp_err_t api_handler(httpd_req_t *req)
-{
-  ESP_LOGD(TAG, "API uri: %s", req->uri);
-
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
-  return ESP_FAIL;
-
-  //return httpd_resp_send(req, httpbuf, bufferused);
-}
 
 esp_err_t content_handler_victron(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
   int bufferused = 0;
 
   DynamicJsonDocument doc(2048);
@@ -616,15 +519,6 @@ esp_err_t content_handler_victron(httpd_req_t *req)
 
 esp_err_t content_handler_rules(httpd_req_t *req)
 {
-
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
   int bufferused = 0;
 
   DynamicJsonDocument doc(2048);
@@ -710,14 +604,6 @@ esp_err_t content_handler_rules(httpd_req_t *req)
 
 esp_err_t content_handler_settings(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
   int bufferused = 0;
 
   DynamicJsonDocument doc(2048);
@@ -758,34 +644,7 @@ esp_err_t content_handler_settings(httpd_req_t *req)
 
 esp_err_t content_handler_integration(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
   int bufferused = 0;
-  /*
-    const char *nullstring = "null";
-
-    // Output the first batch of settings/parameters/values
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
-                           "{\"mqtt\":{\"enabled\":%s,\"topic\":\"%s\",\"port\":%u,\"server\":\"%s\",\"username\":\"%s\"}",
-                           mysettings.mqtt_enabled ? "true" : "false", mysettings.mqtt_topic, mysettings.mqtt_port, mysettings.mqtt_server, mysettings.mqtt_username);
-
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
-                           ",\"influxdb\":{\"enabled\":%s,\"url\":\"%s\",\"bucket\":\"%s\",\"apitoken\":\"%s\",\"orgid\":\"%s\"}}",
-                           mysettings.influxdb_enabled ? "true" : "false", mysettings.influxdb_serverurl, mysettings.influxdb_databasebucket, mysettings.influxdb_apitoken, mysettings.influxdb_orgid);
-
-    // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
-    //  Send it...
-    httpd_resp_send_chunk(req, httpbuf, bufferused);
-
-    // Indicate last chunk (zero byte length)
-    return httpd_resp_send_chunk(req, buf, 0);
-  */
 
   DynamicJsonDocument doc(1024);
   JsonObject root = doc.to<JsonObject>();
@@ -806,7 +665,7 @@ esp_err_t content_handler_integration(httpd_req_t *req)
   influxdb["apitoken"] = mysettings.influxdb_apitoken;
   influxdb["orgid"] = mysettings.influxdb_orgid;
   influxdb["frequency"] = mysettings.influxdb_loggingFreqSeconds;
-  
+
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
   return httpd_resp_send(req, httpbuf, bufferused);
@@ -814,14 +673,6 @@ esp_err_t content_handler_integration(httpd_req_t *req)
 
 esp_err_t content_handler_monitor3(httpd_req_t *req)
 {
-  if (!validateXSS(req))
-  {
-    return ESP_FAIL;
-  }
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
   uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
   uint8_t comma = totalModules - 1;
 
@@ -909,10 +760,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 {
   // Don't valid the cookie here, allow it to return basic information
   // as read only
-
-  httpd_resp_set_type(req, "application/json");
-  setNoStoreCacheControl(req);
-
   uint8_t totalModules = mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules;
 
   int bufferused = 0;
@@ -1241,4 +1088,64 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // Indicate last chunk (zero byte length)
   return httpd_resp_send_chunk(req, httpbuf, 0);
+}
+
+
+
+esp_err_t api_handler(httpd_req_t *req)
+{
+  if (!validateXSS(req))
+  {
+    return ESP_FAIL;
+  }
+
+  const char *uri_array[] = {
+      "monitor2", "monitor3", "integration", "settings", "rules",
+      "victron", "rs485settings", "currentmonitor",
+      "avrstatus", "modules", "identifyModule", "storage",
+      "avrstorage"};
+
+  esp_err_t (*func_ptr[])(httpd_req_t * req) = {
+      content_handler_monitor2,
+      content_handler_monitor3,
+      content_handler_integration,
+      content_handler_settings,
+      content_handler_rules,
+      content_handler_victron,
+      content_handler_rs485settings,
+      content_handler_currentmonitor,
+      content_handler_avrstatus,
+      content_handler_modules,
+      content_handler_identifymodule,
+      content_handler_storage,
+      content_handler_avrstorage      
+  };
+
+  //Sanity check arrays are the same size
+  ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK: ESP_FAIL );
+
+
+  //TODO: Improve the string comparision here to avoid any potential
+  //      security/buffer overflows
+  char name[32];
+  memset(&name, 0, sizeof(name));
+  strncpy(name, &(req->uri[5]), sizeof(name) - 1);
+
+  
+
+  for (size_t i = 0; i < sizeof(uri_array) / sizeof(unsigned int); i++)
+  {
+    if (strncmp(name, uri_array[i], strlen(uri_array[i])) == 0)
+    {
+      // Found it
+      ESP_LOGI(TAG, "API call: %s", name);
+      httpd_resp_set_type(req, "application/json");
+      setNoStoreCacheControl(req);
+      return func_ptr[i](req);
+    }
+  }
+
+  ESP_LOGE(TAG, "No API match: %s", name);
+
+  return httpd_resp_send_500(req);
 }
