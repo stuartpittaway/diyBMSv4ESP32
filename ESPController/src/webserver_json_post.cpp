@@ -4,21 +4,8 @@
 
 #include "SoftAP.h"
 
-esp_err_t post_savebankconfig_json_handler(httpd_req_t *req)
+esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     uint8_t totalSeriesModules = 1;
     uint8_t totalBanks = 1;
     uint16_t baudrate = COMMS_BAUD_RATE;
@@ -39,19 +26,19 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req)
             if (GetKeyValue(httpbuf, "baudrate", &baudrate, urlEncoded))
             {
 
-            if (GetKeyValue(httpbuf, "interpacketgap", &interpacketgap, urlEncoded))
-            {
-                if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
+                if (GetKeyValue(httpbuf, "interpacketgap", &interpacketgap, urlEncoded))
                 {
-                    mysettings.totalNumberOfSeriesModules = totalSeriesModules;
-                    mysettings.totalNumberOfBanks = totalBanks;
-                    mysettings.baudRate = baudrate;
-                    mysettings.interpacketgap=interpacketgap;
-                    saveConfiguration();
+                    if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
+                    {
+                        mysettings.totalNumberOfSeriesModules = totalSeriesModules;
+                        mysettings.totalNumberOfBanks = totalBanks;
+                        mysettings.baudRate = baudrate;
+                        mysettings.interpacketgap = interpacketgap;
+                        saveConfiguration();
 
-                    return SendSuccess(req);
+                        return SendSuccess(req);
+                    }
                 }
-            }
             }
         }
     }
@@ -59,24 +46,8 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req)
     return SendFailure(req);
 }
 
-esp_err_t post_saventp_json_handler(httpd_req_t *req)
+esp_err_t post_saventp_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     // uint32_t tempVariable;
     if (GetKeyValue(httpbuf, "NTPZoneHour", &mysettings.timeZone, urlEncoded))
     {
@@ -100,24 +71,8 @@ esp_err_t post_saventp_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_savemqtt_json_handler(httpd_req_t *req)
+esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     mysettings.mqtt_enabled = false;
 
     if (GetKeyValue(httpbuf, "mqttEnabled", &mysettings.mqtt_enabled, urlEncoded))
@@ -149,24 +104,8 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_saveglobalsetting_json_handler(httpd_req_t *req)
+esp_err_t post_saveglobalsetting_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &mysettings.BypassOverTempShutdown, urlEncoded))
     {
 
@@ -200,48 +139,16 @@ esp_err_t post_saveglobalsetting_json_handler(httpd_req_t *req)
 /*
 Restart controller from web interface
 */
-esp_err_t post_restartcontroller_json_handler(httpd_req_t *req)
+esp_err_t post_restartcontroller_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     // Reboot!
     ESP.restart();
 
     return SendSuccess(req);
 }
 
-esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req)
+esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     mysettings.influxdb_enabled = false;
     if (GetKeyValue(httpbuf, "influxEnabled", &mysettings.influxdb_enabled, urlEncoded))
     {
@@ -276,24 +183,8 @@ esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req)
+esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     if (!_sd_card_installed)
     {
         return SendFailure(req);
@@ -492,24 +383,8 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req)
+esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     if (!_sd_card_installed)
     {
         return SendFailure(req);
@@ -546,24 +421,8 @@ esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_savesetting_json_handler(httpd_req_t *req)
+esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     uint32_t tempVariable;
 
     if (GetKeyValue(httpbuf, "m", &tempVariable, urlEncoded))
@@ -613,24 +472,8 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req)
     return SendFailure(req);
 }
 
-esp_err_t post_savestorage_json_handler(httpd_req_t *req)
+esp_err_t post_savestorage_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     // HTML Boolean value, so element is not POST'ed if FALSE/OFF
     mysettings.loggingEnabled = false;
     if (GetKeyValue(httpbuf, "loggingEnabled", &mysettings.loggingEnabled, urlEncoded))
@@ -652,24 +495,8 @@ esp_err_t post_savestorage_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req)
+esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     // uint32_t tempVariable;
 
     if (GetKeyValue(httpbuf, "VoltageHigh", &mysettings.graph_voltagehigh, urlEncoded))
@@ -695,25 +522,8 @@ esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_resetcounters_json_handler(httpd_req_t *req)
+esp_err_t post_resetcounters_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     // Ask modules to reset bad packet counters
     // If this fails, queue could be full so return error
     if (prg.sendBadPacketCounterReset() && prg.sendResetBalanceCurrentCounter())
@@ -738,24 +548,8 @@ esp_err_t post_resetcounters_json_handler(httpd_req_t *req)
     return SendFailure(req);
 }
 
-esp_err_t post_sdmount_json_handler(httpd_req_t *req)
+esp_err_t post_sdmount_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     if (_avrsettings.programmingModeEnabled)
     {
         return SendFailure(req);
@@ -765,25 +559,8 @@ esp_err_t post_sdmount_json_handler(httpd_req_t *req)
 
     return SendSuccess(req);
 }
-esp_err_t post_sdunmount_json_handler(httpd_req_t *req)
+esp_err_t post_sdunmount_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     if (_avrsettings.programmingModeEnabled)
     {
         return SendFailure(req);
@@ -794,49 +571,16 @@ esp_err_t post_sdunmount_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_enableavrprog_json_handler(httpd_req_t *req)
+esp_err_t post_enableavrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     sdcardaction_callback(0);
 
     _avrsettings.programmingModeEnabled = true;
 
     return SendSuccess(req);
 }
-esp_err_t post_disableavrprog_json_handler(httpd_req_t *req)
+esp_err_t post_disableavrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     _avrsettings.programmingModeEnabled = false;
 
     // Try and remount the SD card
@@ -845,25 +589,8 @@ esp_err_t post_disableavrprog_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_savers485settings_json_handler(httpd_req_t *req)
+esp_err_t post_savers485settings_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     uint32_t tempVariable;
 
     if (GetKeyValue(httpbuf, "rs485baudrate", &tempVariable, urlEncoded))
@@ -892,24 +619,8 @@ esp_err_t post_savers485settings_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_savevictron_json_handler(httpd_req_t *req)
+esp_err_t post_savevictron_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     // uint32_t tempVariable;
 
     mysettings.VictronEnabled = false;
@@ -949,27 +660,9 @@ esp_err_t post_savevictron_json_handler(httpd_req_t *req)
 
     return SendSuccess(req);
 }
-esp_err_t post_savecmrelay_json_handler(httpd_req_t *req)
+
+esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
-    // uint32_t tempVariable;
-
     currentmonitoring_struct newvalues;
     // Set everything to zero/false
     memset(&newvalues, 0, sizeof(currentmonitoring_struct));
@@ -1017,24 +710,8 @@ esp_err_t post_savecmrelay_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_savecmbasic_json_handler(httpd_req_t *req)
+esp_err_t post_savecmbasic_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     int shuntmaxcur = 0;
     if (GetKeyValue(httpbuf, "shuntmaxcur", &shuntmaxcur, urlEncoded))
     {
@@ -1065,25 +742,8 @@ esp_err_t post_savecmbasic_json_handler(httpd_req_t *req)
     return SendFailure(req);
 }
 
-esp_err_t post_savecmadvanced_json_handler(httpd_req_t *req)
+esp_err_t post_savecmadvanced_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     currentmonitoring_struct newvalues;
     // Set everything to zero/false
     memset(&newvalues, 0, sizeof(currentmonitoring_struct));
@@ -1120,24 +780,8 @@ esp_err_t post_savecmadvanced_json_handler(httpd_req_t *req)
     return SendSuccess(req);
 }
 
-esp_err_t post_avrprog_json_handler(httpd_req_t *req)
+esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     uint16_t filenumber;
 
     if (!GetKeyValue(httpbuf, "file", &filenumber, urlEncoded))
@@ -1236,24 +880,8 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req)
     return SendFailure(req);
 }
 
-esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req)
+esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     mysettings.currentMonitoringEnabled = false;
     if (GetKeyValue(httpbuf, "CurrentMonEnabled", &mysettings.currentMonitoringEnabled, urlEncoded))
     {
@@ -1282,24 +910,8 @@ esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req)
 
     return SendSuccess(req);
 }
-esp_err_t post_saverules_json_handler(httpd_req_t *req)
+esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    ESP_LOGI(TAG, "JSON call");
-
-    if (!getPostDataIntoBuffer(req))
-    {
-        // Fail...
-        return httpd_resp_send_500(req);
-    }
-
-    bool urlEncoded = HasURLEncodedHeader(req);
-
-    // Need to validate POST variable XSS....
-    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
-    {
-        return ESP_FAIL;
-    }
-
     char textBuffer[32];
 
     // relaytype
@@ -1393,4 +1005,66 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req)
     saveConfiguration();
 
     return SendSuccess(req);
+}
+
+esp_err_t save_data_handler(httpd_req_t *req)
+{
+    ESP_LOGI(TAG, "JSON call");
+
+    if (!getPostDataIntoBuffer(req))
+    {
+        // Fail...
+        return httpd_resp_send_500(req);
+    }
+
+    bool urlEncoded = HasURLEncodedHeader(req);
+
+    // Need to validate POST variable XSS....
+    if (!validateXSSWithPOST(req, httpbuf, urlEncoded))
+    {
+        return ESP_FAIL;
+    }
+
+    const char *uri_array[] = {
+        "savebankconfig", "saventp", "saveglobalsetting",
+        "savemqtt", "saveinfluxdb", "saveconfigtofile", "wificonfigtofile", "savesetting",
+        "restartcontroller", "saverules", "savedisplaysetting", "savestorage",
+        "resetcounters", "sdmount", "sdunmount", "enableavrprog",
+        "disableavrprog", "avrprog", "savers485settings", "savecurrentmon",
+        "savecmbasic", "savecmadvanced", "savecmrelay", "savevictron"};
+
+    esp_err_t (*func_ptr[])(httpd_req_t * req, bool urlEncoded) = {
+        post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
+        post_savemqtt_json_handler, post_saveinfluxdbsetting_json_handler,
+        post_saveconfigurationtosdcard_json_handler, post_savewificonfigtosdcard_json_handler,
+        post_savesetting_json_handler, post_restartcontroller_json_handler, post_saverules_json_handler,
+        post_savedisplaysetting_json_handler, post_savestorage_json_handler, post_resetcounters_json_handler,
+        post_sdmount_json_handler, post_sdunmount_json_handler, post_enableavrprog_json_handler,
+        post_disableavrprog_json_handler, post_avrprog_json_handler, post_savers485settings_json_handler,
+        post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
+        post_savecmrelay_json_handler, post_savevictron_json_handler};
+
+    // Sanity check arrays are the same size
+    ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);
+
+    // TODO: Improve the string comparision here to avoid any potential
+    //       security/buffer overflows
+    char name[32];
+    memset(&name, 0, sizeof(name));
+    //6= skip over /post/ characters
+    strncpy(name, &(req->uri[6]), sizeof(name) - 1);
+
+    for (size_t i = 0; i < sizeof(uri_array) / sizeof(unsigned int); i++)
+    {
+        if (strncmp(name, uri_array[i], strlen(uri_array[i])) == 0)
+        {
+            // Found it
+            ESP_LOGI(TAG, "API post: %s", name);
+            return func_ptr[i](req,urlEncoded);
+        }
+    }
+
+    ESP_LOGE(TAG, "No API post match: %s", name);
+
+    return httpd_resp_send_500(req);
 }

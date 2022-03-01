@@ -206,7 +206,7 @@
             </table>
             <div id="settingConfig">
                 <h2>Settings for module </h2>
-                <form id="settingsForm" method="POST" action="savesetting.json" autocomplete="off">
+                <form id="settingsForm" method="POST" action="/post/savesetting" autocomplete="off">
                     <div class="settings">
                         <input name="b" id="b" type="hidden" value="">
                         <input name="m" id="m" type="hidden" value="">
@@ -265,7 +265,7 @@
         <div id="globalConfig" class="region">
             <h2>Global Settings</h2>
             <p id="gc1">Configure all modules to use following parameters:</p>
-            <form id="globalSettingsForm" method="POST" action="saveglobalsetting.json" autocomplete="off">
+            <form id="globalSettingsForm" method="POST" action="/post/saveglobalsetting" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="g1">Bypass over temperature</label>
@@ -291,7 +291,7 @@
         <p id="ip3">After changes are made, the controller will need to be rebooted, do this manually.</p>
         <div class="region">
             <h2>MQTT</h2>
-            <form id="mqttForm" method="POST" action="savemqtt.json" autocomplete="off">
+            <form id="mqttForm" method="POST" action="/post/savemqtt" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="mqttEnabled">Enabled</label>
@@ -342,7 +342,7 @@
             <p id="in8">The organisation is not used, just set to the word "organisation".</p>
             <p id="in9">The URL is the same as the v2 example above.</p>
 
-            <form id="influxForm" method="POST" action="saveinfluxdb.json" autocomplete="off">
+            <form id="influxForm" method="POST" action="/post/saveinfluxdb" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="influxEnabled">Enabled</label>
@@ -411,7 +411,7 @@
                 disable.</p>
         </div>
         <div class="region">
-            <form id="rulesForm" method="POST" action="saverules.json" autocomplete="off">
+            <form id="rulesForm" method="POST" action="/post/saverules" autocomplete="off">
                 <div class="settings">
                     <table>
                         <thead>
@@ -633,7 +633,7 @@
 
             <div>
 
-                <form id="victronForm1" method="POST" action="savevictron.json" autocomplete="off">
+                <form id="victronForm1" method="POST" action="/post/savevictron" autocomplete="off">
                     <div class="settings">
 
                         <div>
@@ -703,7 +703,7 @@
             <h2>Connection</h2>
             <p id="b1">Configure the MODBUS connection to the current monitor using the settings below.</p>
             <p id="b14">PZEM-017 device uses 9600,8,None,2 serial settings</p>
-            <form id="diybmsCurrentMonitorForm1" method="POST" action="savecurrentmon.json" autocomplete="off">
+            <form id="diybmsCurrentMonitorForm1" method="POST" action="/post/savecurrentmon" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="CurrentMonEnabled">Enabled</label>
@@ -738,7 +738,7 @@
         <div class="region">
             <h2>RS485</h2>
             <p id="b2">Configuration options for RS485 interface. Communication is half-duplex.</p>
-            <form id="RS485Form" method="POST" action="savers485settings.json" autocomplete="off">
+            <form id="RS485Form" method="POST" action="/post/savers485settings" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="rs485baudrate">Baud rate</label>
@@ -787,7 +787,7 @@
             <p id="b11">Battery capacity and charge voltage/tail current are used to calculate the battery 'state of
                 charge' (SOC).</p>
             <p id="b15">PZEM-017 uses 75mV shunts, state of charge and alarms are not supported on this device. Only 50, 100, 200, 300A shunts are supported.</p>
-            <form id="diybmsCurrentMonitorForm2" method="POST" action="savecmbasic.json" autocomplete="off">
+            <form id="diybmsCurrentMonitorForm2" method="POST" action="/post/savecmbasic" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="shuntmaxcur">Shunt maximum current</label>
@@ -938,7 +938,7 @@
                 temperature. Only
                 positive temperature coefficient is supported.</p>
             <p id="b8">Relay triggers define which rules are used to trigger the relay into a closed state.</p>
-            <form id="diybmsCurrentMonitorForm3" method="POST" action="savecmadvanced.json" autocomplete="off">
+            <form id="diybmsCurrentMonitorForm3" method="POST" action="/post/savecmadvanced" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="cmcalibration">Calibration</label>
@@ -983,7 +983,7 @@
         <div class="region" id="currentmonrelay">
             <h2 id="b10">Current Monitor Relay Settings &amp; Temperature coefficient</h2>
             <p id="b9">Relay triggers define which rules are used to trigger the relay into a closed state.</p>
-            <form id="diybmsCurrentMonitorForm4" method="POST" action="savecmrelay.json" autocomplete="off">
+            <form id="diybmsCurrentMonitorForm4" method="POST" action="/post/savecmrelay" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="TempCompEnabled">Temperature coefficient enabled</label>
@@ -1034,7 +1034,7 @@
             <p id="mb4">Only hardware module version 4.4 or newer support faster communication speeds. You will need to
                 reboot the controller manually if you change the speed, and also ensure all modules are using the
                 correct firmware.</p>
-            <form id="banksForm" method="POST" action="savebankconfig.json" autocomplete="off">
+            <form id="banksForm" method="POST" action="/post/savebankconfig" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="totalSeriesModules">Number of series cells (eg. 8S)</label>
@@ -1068,7 +1068,7 @@
                 be
                 incorrect. This does not automatically correct for daylight saving.</p>
             <p id="b10">Time now is <span id="timenow"></span></p>
-            <form id="ntpForm" method="POST" action="saventp.json" autocomplete="off">
+            <form id="ntpForm" method="POST" action="/post/saventp" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="NTPServer">NTP Server</label>
@@ -1095,7 +1095,7 @@
 
         <div class="region">
             <h2>Display Settings</h2>
-            <form id="displaySettingForm" method="POST" action="savedisplaysetting.json" autocomplete="off">
+            <form id="displaySettingForm" method="POST" action="/post/savedisplaysetting" autocomplete="off">
                 <div class="settings">
 
                     <div>
@@ -1156,7 +1156,7 @@
 
         <div class="region">
             <h2>Reset Counters</h2>
-            <form id="resetCountersForm" method="POST" action="resetcounters.json" autocomplete="off">
+            <form id="resetCountersForm" method="POST" action="/post/resetcounters" autocomplete="off">
                 <div class="settings">
                     <input name="resetCounters" id="resetCounters" type="hidden" value="0">
                     <button type="submit">Reset counters</button>
@@ -1165,7 +1165,7 @@
         </div>
         <div class="region">
             <h2>Restart Controller</h2>
-            <form id="restartControllerForm" method="POST" action="restartcontroller.json" autocomplete="off">
+            <form id="restartControllerForm" method="POST" action="/post/restartcontroller" autocomplete="off">
                 <div class="settings">
                     <input name="handleRestartController" id="handleRestartController" type="hidden" value="0">
                     <button type="submit">Restart Controller</button>
@@ -1246,7 +1246,7 @@
         <div class="region">
             <h2>Logging</h2>
             <p id="b12">Cell data and output states can be stored as log files using an SD card.</p>
-            <form id="loggingForm" method="POST" action="savestorage.json" autocomplete="off">
+            <form id="loggingForm" method="POST" action="/post/savestorage" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="loggingEnabled">SD card logging enabled</label>

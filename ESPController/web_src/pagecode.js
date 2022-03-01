@@ -1268,7 +1268,7 @@ $(function () {
     $("#mount").click(function () {
         $.ajax({
             type: 'POST',
-            url: 'sdmount.json',
+            url: '/post/sdmount',
             data: $.param({mount:1}),
             success: function (data) {
                 //Refresh the storage page
@@ -1284,7 +1284,7 @@ $(function () {
     $("#savewifi").click(function () {
         $.ajax({
             type: 'POST',
-            url: 'wificonfigtofile.json',
+            url: '/post/wificonfigtofile',
             data: $.param({save:1}),
             success: function (data) {
                 //Refresh the storage page
@@ -1299,7 +1299,7 @@ $(function () {
     $("#saveconfig").click(function () {
         $.ajax({
             type: 'POST',
-            url: 'saveconfigtofile.json',
+            url: '/post/saveconfigtofile',
             data: $.param({save:1}),
             success: function (data) {
                 //Refresh the storage page
@@ -1316,7 +1316,7 @@ $(function () {
     $("#unmount").click(function () {
         $.ajax({
             type: 'POST',
-            url: 'sdunmount.json',
+            url: '/post/sdunmount',
             data: $.param({unmount:1}),
             success: function (data) {
                 //Refresh the storage page
@@ -1332,7 +1332,7 @@ $(function () {
     $("#AVRProgDisable").click(function () {
         $.ajax({
             type: 'POST',
-            url: 'disableavrprog.json',
+            url: '/post/disableavrprog',
             data: { 'enable': 0 },
             timeout: 10000
         })
@@ -1359,7 +1359,7 @@ $(function () {
     $("#AVRProgEnable").click(function () {
         $.ajax({
             type: 'POST',
-            url: 'enableavrprog.json',
+            url: '/post/enableavrprog',
             data: { 'enable': 1 },
             timeout: 10000
         })
@@ -1394,7 +1394,7 @@ $(function () {
 
         $.ajax({
             type: 'POST',
-            url: 'avrprog.json',
+            url: '/post/avrprog',
             data: { file: $("#selectedavrindex").val() },
             //Wait up to 30 seconds
             timeout: 30000

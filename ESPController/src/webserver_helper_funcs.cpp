@@ -278,7 +278,7 @@ void url_decode(char *str, char *buf)
     }
     *pbuf = '\0';
 
-    ESP_LOGD(TAG, "Decoded: %s", buf);
+    //ESP_LOGD(TAG, "Decoded: %s", buf);
 }
 
 bool validateXSS(httpd_req_t *req)

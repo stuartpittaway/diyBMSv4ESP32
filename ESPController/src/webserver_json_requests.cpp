@@ -408,21 +408,21 @@ esp_err_t content_handler_modules(httpd_req_t *req)
   uint8_t c;
   bool valid = false;
 
-  char buf[100];
+  char buf[64];
   size_t buf_len = httpd_req_get_url_query_len(req);
   if (buf_len > 1)
   {
     // Only allow up to our pre-defined buffer length (100 bytes)
     if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK)
     {
-      ESP_LOGI(TAG, "Found URL query => %s", buf);
+      //ESP_LOGI(TAG, "Found URL query => %s", buf);
       char param[8];
       /* Get value of expected key from query string */
       if (httpd_query_key_value(buf, "c", param, sizeof(param)) == ESP_OK)
       {
         c = atoi(param);
 
-        ESP_LOGI(TAG, "Found URL query parameter => query1=%s (%u)", param, c);
+        //ESP_LOGI(TAG, "Found URL query parameter => query1=%s (%u)", param, c);
 
         if (c <= mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules)
         {

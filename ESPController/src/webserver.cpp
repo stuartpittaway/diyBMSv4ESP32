@@ -4,11 +4,6 @@
 #include "webserver_json_requests.h"
 #include "webserver_json_post.h"
 
-const char *const text_css = "text/css";
-const char *const application_javascript = "application/javascript";
-const char *const image_png = "image/png";
-const char *const image_x_icon = "image/x-icon";
-
 httpd_handle_t _myserver;
 
 // Shared buffer for all HTTP generated replies
@@ -179,70 +174,116 @@ void SetCacheAndETag(httpd_req_t *req, const char *ETag)
   httpd_resp_set_hdr(req, "Cache-Control", "no-cache, max-age=86400");
 }
 
-typedef struct
-{
-  const uint8_t *resp;
-  size_t resp_len;
-  const char *etag;
-  const char *mimetype;
-} WEBKIT_RESPONSE_ARGS;
-
-// Handle static files which are NOT GZIP compressed
+// Handle static files (images, javascript etc)
 esp_err_t static_content_handler(httpd_req_t *req)
 {
-  WEBKIT_RESPONSE_ARGS *args = (WEBKIT_RESPONSE_ARGS *)(req->user_ctx);
 
-  httpd_resp_set_type(req, args->mimetype);
+  const char *const mime_text_css = "text/css";
+  const char *const mime_application_javascript = "application/javascript";
+  const char *const mime_image_png = "image/png";
+  const char *const mime_image_x_icon = "image/x-icon";
 
-  char buffer[50];
-
-  if (httpd_req_get_hdr_value_str(req, "If-None-Match", buffer, sizeof(buffer)) == ESP_OK)
+  enum enum_mimetype : uint8_t
   {
-    // We have a value in the eTag header
+    text_css ,
+    application_javascript ,
+    image_x_icon ,
+    image_png 
+  };
 
-    if (strncmp(buffer, args->etag, strlen(args->etag)) == 0)
+  typedef struct
+  {
+    const uint8_t *resp;
+    size_t resp_len;
+    const char *etag;
+    enum_mimetype mimetype;
+  } WEBKIT_RESPONSE_ARGS;
+
+  WEBKIT_RESPONSE_ARGS webkit_style_css_args = {file_style_css_gz, size_file_style_css_gz, etag_file_style_css_gz, text_css};
+  WEBKIT_RESPONSE_ARGS webkit_pagecode_js_args = {file_pagecode_js_gz, size_file_pagecode_js_gz, etag_file_pagecode_js_gz, application_javascript};
+  WEBKIT_RESPONSE_ARGS webkit_jquery_js_args = {file_jquery_js_gz, size_file_jquery_js_gz, etag_file_jquery_js_gz, application_javascript};
+  WEBKIT_RESPONSE_ARGS webkit_notify_min_js_args = {file_notify_min_js_gz, size_file_notify_min_js_gz, etag_file_notify_min_js_gz, application_javascript};
+  WEBKIT_RESPONSE_ARGS webkit_echarts_min_js_args = {file_echarts_min_js_gz, size_file_echarts_min_js_gz, etag_file_echarts_min_js_gz, application_javascript};
+  WEBKIT_RESPONSE_ARGS webkit_lang_ru_js_args = {file_lang_ru_js_gz, size_file_lang_ru_js_gz, etag_file_lang_ru_js_gz, application_javascript};
+  WEBKIT_RESPONSE_ARGS webkit_lang_hr_js_args = {file_lang_hr_js_gz, size_file_lang_hr_js_gz, etag_file_lang_hr_js_gz, application_javascript};
+  WEBKIT_RESPONSE_ARGS webkit_lang_nl_js_args = {file_lang_nl_js_gz, size_file_lang_nl_js_gz, etag_file_lang_nl_js_gz, application_javascript};
+  WEBKIT_RESPONSE_ARGS webkit_lang_pt_js_args = {file_lang_pt_js_gz, size_file_lang_pt_js_gz, etag_file_lang_pt_js_gz, application_javascript};
+  WEBKIT_RESPONSE_ARGS webkit_lang_de_js_args = {file_lang_de_js_gz, size_file_lang_de_js_gz, etag_file_lang_de_js_gz, application_javascript};
+  WEBKIT_RESPONSE_ARGS webkit_lang_es_js_args = {file_lang_es_js_gz, size_file_lang_es_js_gz, etag_file_lang_es_js_gz, application_javascript};
+  WEBKIT_RESPONSE_ARGS webkit_lang_en_js_args = {file_lang_en_js_gz, size_file_lang_en_js_gz, etag_file_lang_en_js_gz, application_javascript};
+  WEBKIT_RESPONSE_ARGS webkit_favicon_ico_args = {file_favicon_ico_gz, size_file_favicon_ico_gz, etag_file_favicon_ico_gz, image_x_icon};
+  WEBKIT_RESPONSE_ARGS webkit_logo_png_args = {file_logo_png, size_file_logo_png, etag_file_logo_png, image_png};
+  WEBKIT_RESPONSE_ARGS webkit_wait_png_args = {file_wait_png, size_file_wait_png, etag_file_wait_png, image_png};
+  WEBKIT_RESPONSE_ARGS webkit_patron_png_args = {file_patron_png, size_file_patron_png, etag_file_patron_png, image_png};
+  WEBKIT_RESPONSE_ARGS webkit_warning_png_args = {file_warning_png, size_file_warning_png, etag_file_warning_png, image_png};
+
+  const char *uri_array[] = {
+      "/style.css", "/pagecode.js", "/jquery.js", "/notify.min.js", "/echarts.min.js",
+      "/lang_ru.js", "/lang_hr.js", "/lang_nl.js", "/lang_pt.js", "/lang_de.js", "/lang_es.js", "/lang_en.js",
+      "/favicon.ico", "/logo.png", "/wait.png", "/patron.png", "/warning.png"};
+
+  WEBKIT_RESPONSE_ARGS arguments[] = {
+      webkit_style_css_args, webkit_pagecode_js_args, webkit_jquery_js_args, webkit_notify_min_js_args, webkit_echarts_min_js_args,
+      webkit_lang_ru_js_args, webkit_lang_hr_js_args, webkit_lang_nl_js_args, webkit_lang_pt_js_args, webkit_lang_de_js_args, webkit_lang_es_js_args, webkit_lang_en_js_args, webkit_favicon_ico_args, webkit_logo_png_args, webkit_wait_png_args,
+      webkit_patron_png_args, webkit_warning_png_args};
+
+  // Sanity check arrays are the same size
+  ESP_ERROR_CHECK(sizeof(arguments) / sizeof(WEBKIT_RESPONSE_ARGS) == sizeof(uri_array) / sizeof(unsigned int) ? ESP_OK : ESP_FAIL);
+
+  for (size_t i = 0; i < sizeof(uri_array) / sizeof(unsigned int); i++)
+  {
+    if (strncmp(req->uri, uri_array[i], strlen(uri_array[i])) == 0)
     {
-      ESP_LOGD(TAG, "Cached response for %s", req->uri);
-      // Matched
-      httpd_resp_set_status(req, "304 Not Modified");
-      httpd_resp_send(req, NULL, 0);
-      return ESP_OK;
+      WEBKIT_RESPONSE_ARGS args = arguments[i];
+
+      switch (args.mimetype)
+      {
+      case application_javascript:
+        httpd_resp_set_type(req, mime_application_javascript);
+        break;
+      case text_css:
+        httpd_resp_set_type(req, mime_text_css);
+        break;
+      case image_x_icon:
+        httpd_resp_set_type(req, mime_image_x_icon);
+        break;
+      case image_png:
+        httpd_resp_set_type(req, mime_image_png);
+        break;
+      }
+
+      char buffer[50];
+
+      if (httpd_req_get_hdr_value_str(req, "If-None-Match", buffer, sizeof(buffer)) == ESP_OK)
+      {
+        // We have a value in the eTag header
+        if (strncmp(buffer, args.etag, strlen(args.etag)) == 0)
+        {
+          ESP_LOGD(TAG, "Cached: %s", req->uri);
+          // Matched
+          httpd_resp_set_status(req, "304 Not Modified");
+          httpd_resp_send(req, NULL, 0);
+          return ESP_OK;
+        }
+      }
+
+      if (args.mimetype != image_png)
+      {
+        // Everything is GZIP compressed except PNG images
+        httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+      }
+
+      ESP_LOGD(TAG, "Serve: %s", req->uri);
+      SetCacheAndETag(req, args.etag);
+      return httpd_resp_send(req, (const char *)args.resp, args.resp_len);
     }
   }
 
-  ESP_LOGD(TAG, "Web serve %s", req->uri);
-  SetCacheAndETag(req, args->etag);
-  return httpd_resp_send(req, (const char *)args->resp, args->resp_len);
+  ESP_LOGE(TAG, "Not found: %s", req->uri);
+
+  return httpd_resp_send_404(req);
 }
 
-// Handle static files which are already GZIP compressed
-esp_err_t static_content_handler_gzipped(httpd_req_t *req)
-{
-  WEBKIT_RESPONSE_ARGS *args = (WEBKIT_RESPONSE_ARGS *)(req->user_ctx);
-
-  httpd_resp_set_type(req, args->mimetype);
-
-  char buffer[50];
-
-  if (httpd_req_get_hdr_value_str(req, "If-None-Match", buffer, sizeof(buffer)) == ESP_OK)
-  {
-    // We have a value in the eTag header
-
-    if (strncmp(buffer, args->etag, strlen(args->etag)) == 0)
-    {
-      ESP_LOGD(TAG, "Cached response for %s", req->uri);
-      // Matched
-      httpd_resp_set_status(req, "304 Not Modified");
-      httpd_resp_send(req, NULL, 0);
-      return ESP_OK;
-    }
-  }
-
-  ESP_LOGD(TAG, "Web serve %s", req->uri);
-  httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
-  SetCacheAndETag(req, args->etag);
-  return httpd_resp_send(req, (const char *)args->resp, args->resp_len);
-}
 
 /* Our URI handler function to be called during GET /uri request */
 esp_err_t get_root_handler(httpd_req_t *req)
@@ -256,91 +297,11 @@ esp_err_t get_root_handler(httpd_req_t *req)
 
 /* URI handler structure for GET /uri */
 httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
-
-
 httpd_uri_t uri_defaulthtm_get = {.uri = "/default.htm", .method = HTTP_GET, .handler = default_htm_handler, .user_ctx = NULL};
-
-WEBKIT_RESPONSE_ARGS webkit_style_css_args = {file_style_css_gz, size_file_style_css_gz, etag_file_style_css_gz, text_css};
-httpd_uri_t uri_stylecss_get = {.uri = "/style.css", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_style_css_args};
-
-WEBKIT_RESPONSE_ARGS webkit_pagecode_js_args = {file_pagecode_js_gz, size_file_pagecode_js_gz, etag_file_pagecode_js_gz, application_javascript};
-httpd_uri_t uri_pagecode_js_get = {.uri = "/pagecode.js", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_pagecode_js_args};
-
-WEBKIT_RESPONSE_ARGS webkit_jquery_js_args = {file_jquery_js_gz, size_file_jquery_js_gz, etag_file_jquery_js_gz, application_javascript};
-httpd_uri_t uri_jquery_js_get = {.uri = "/jquery.js", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_jquery_js_args};
-
-WEBKIT_RESPONSE_ARGS webkit_notify_min_js_args = {file_notify_min_js_gz, size_file_notify_min_js_gz, etag_file_notify_min_js_gz, application_javascript};
-httpd_uri_t uri_notify_min_js_get = {.uri = "/notify.min.js", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_notify_min_js_args};
-
-WEBKIT_RESPONSE_ARGS webkit_echarts_min_js_args = {file_echarts_min_js_gz, size_file_echarts_min_js_gz, etag_file_echarts_min_js_gz, application_javascript};
-httpd_uri_t uri_echarts_min_js_get = {.uri = "/echarts.min.js", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_echarts_min_js_args};
-
-WEBKIT_RESPONSE_ARGS webkit_lang_ru_js_args = {file_lang_ru_js_gz, size_file_lang_ru_js_gz, etag_file_lang_ru_js_gz, application_javascript};
-httpd_uri_t uri_lang_ru_js_get = {.uri = "/lang_ru.js", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_lang_ru_js_args};
-
-WEBKIT_RESPONSE_ARGS webkit_lang_hr_js_args = {file_lang_hr_js_gz, size_file_lang_hr_js_gz, etag_file_lang_hr_js_gz, application_javascript};
-httpd_uri_t uri_lang_hr_js_get = {.uri = "/lang_hr.js", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_lang_hr_js_args};
-
-WEBKIT_RESPONSE_ARGS webkit_lang_nl_js_args = {file_lang_nl_js_gz, size_file_lang_nl_js_gz, etag_file_lang_nl_js_gz, application_javascript};
-httpd_uri_t uri_lang_nl_js_get = {.uri = "/lang_nl.js", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_lang_nl_js_args};
-
-WEBKIT_RESPONSE_ARGS webkit_lang_pt_js_args = {file_lang_pt_js_gz, size_file_lang_pt_js_gz, etag_file_lang_pt_js_gz, application_javascript};
-httpd_uri_t uri_lang_pt_js_get = {.uri = "/lang_pt.js", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_lang_pt_js_args};
-
-WEBKIT_RESPONSE_ARGS webkit_lang_de_js_args = {file_lang_de_js_gz, size_file_lang_de_js_gz, etag_file_lang_de_js_gz, application_javascript};
-httpd_uri_t uri_lang_de_js_get = {.uri = "/lang_de.js", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_lang_de_js_args};
-
-WEBKIT_RESPONSE_ARGS webkit_lang_es_js_args = {file_lang_es_js_gz, size_file_lang_es_js_gz, etag_file_lang_es_js_gz, application_javascript};
-httpd_uri_t uri_lang_es_js_get = {.uri = "/lang_es.js", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_lang_es_js_args};
-
-WEBKIT_RESPONSE_ARGS webkit_lang_en_js_args = {file_lang_en_js_gz, size_file_lang_en_js_gz, etag_file_lang_en_js_gz, application_javascript};
-httpd_uri_t uri_lang_en_js_get = {.uri = "/lang_en.js", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_lang_en_js_args};
-
-WEBKIT_RESPONSE_ARGS webkit_favicon_ico_args = {file_favicon_ico_gz, size_file_favicon_ico_gz, etag_file_favicon_ico_gz, image_x_icon};
-httpd_uri_t uri_favicon_ico_get = {.uri = "/favicon.ico", .method = HTTP_GET, .handler = static_content_handler_gzipped, .user_ctx = (void *)&webkit_favicon_ico_args};
-
-WEBKIT_RESPONSE_ARGS webkit_logo_png_args = {file_logo_png, size_file_logo_png, etag_file_logo_png, image_png};
-httpd_uri_t uri_logo_png_get = {.uri = "/logo.png", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = (void *)&webkit_logo_png_args};
-
-WEBKIT_RESPONSE_ARGS webkit_wait_png_args = {file_wait_png, size_file_wait_png, etag_file_wait_png, image_png};
-httpd_uri_t uri_wait_png_get = {.uri = "/wait.png", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = (void *)&webkit_wait_png_args};
-
-WEBKIT_RESPONSE_ARGS webkit_patron_png_args = {file_patron_png, size_file_patron_png, etag_file_patron_png, image_png};
-httpd_uri_t uri_patron_png_get = {.uri = "/patron.png", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = (void *)&webkit_patron_png_args};
-
-WEBKIT_RESPONSE_ARGS webkit_warning_png_args = {file_warning_png, size_file_warning_png, etag_file_warning_png, image_png};
-httpd_uri_t uri_warning_png_get = {.uri = "/warning.png", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = (void *)&webkit_warning_png_args};
-
-// GET Requests for API services
 httpd_uri_t uri_api_get = {.uri = "/api/*", .method = HTTP_GET, .handler = api_handler, .user_ctx = NULL};
 httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler = content_handler_downloadfile, .user_ctx = NULL};
-
-/* URI handler structure for POST /uri */
-httpd_uri_t uri_savebankconfig_json_post = {.uri = "/savebankconfig.json", .method = HTTP_POST, .handler = post_savebankconfig_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_saventp_json_post = {.uri = "/saventp.json", .method = HTTP_POST, .handler = post_saventp_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_saveglobalsetting_json_post = {.uri = "/saveglobalsetting.json", .method = HTTP_POST, .handler = post_saveglobalsetting_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_savemqtt_json_post = {.uri = "/savemqtt.json", .method = HTTP_POST, .handler = post_savemqtt_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_saveinfluxdbsetting_json_post = {.uri = "/saveinfluxdb.json", .method = HTTP_POST, .handler = post_saveinfluxdbsetting_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_saveconfigurationtosdcard_json_post = {.uri = "/saveconfigtofile.json", .method = HTTP_POST, .handler = post_saveconfigurationtosdcard_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_savewificonfigtosdcard_json_post = {.uri = "/wificonfigtofile.json", .method = HTTP_POST, .handler = post_savewificonfigtosdcard_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_savesetting_json_post = {.uri = "/savesetting.json", .method = HTTP_POST, .handler = post_savesetting_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_restartcontroller_json_post = {.uri = "/restartcontroller.json", .method = HTTP_POST, .handler = post_restartcontroller_json_handler, .user_ctx = NULL};
-
-httpd_uri_t uri_saverules_json_post = {.uri = "/saverules.json", .method = HTTP_POST, .handler = post_saverules_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_savedisplaysetting_json_post = {.uri = "/savedisplaysetting.json", .method = HTTP_POST, .handler = post_savedisplaysetting_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_savestorage_json_post = {.uri = "/savestorage.json", .method = HTTP_POST, .handler = post_savestorage_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_resetcounters_json_post = {.uri = "/resetcounters.json", .method = HTTP_POST, .handler = post_resetcounters_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_sdmount_json_post = {.uri = "/sdmount.json", .method = HTTP_POST, .handler = post_sdmount_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_sdunmount_json_post = {.uri = "/sdunmount.json", .method = HTTP_POST, .handler = post_sdunmount_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_enableavrprog_json_post = {.uri = "/enableavrprog.json", .method = HTTP_POST, .handler = post_enableavrprog_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_disableavrprog_json_post = {.uri = "/disableavrprog.json", .method = HTTP_POST, .handler = post_disableavrprog_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_avrprog_json_post = {.uri = "/avrprog.json", .method = HTTP_POST, .handler = post_avrprog_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_savers485settings_json_post = {.uri = "/savers485settings.json", .method = HTTP_POST, .handler = post_savers485settings_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_savecurrentmon_json_post = {.uri = "/savecurrentmon.json", .method = HTTP_POST, .handler = post_savecurrentmon_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_savecmbasic_json_post = {.uri = "/savecmbasic.json", .method = HTTP_POST, .handler = post_savecmbasic_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_savecmadvanced_json_post = {.uri = "/savecmadvanced.json", .method = HTTP_POST, .handler = post_savecmadvanced_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_savecmrelay_json_post = {.uri = "/savecmrelay.json", .method = HTTP_POST, .handler = post_savecmrelay_json_handler, .user_ctx = NULL};
-httpd_uri_t uri_savevictron_json_post = {.uri = "/savevictron.json", .method = HTTP_POST, .handler = post_savevictron_json_handler, .user_ctx = NULL};
+httpd_uri_t uri_save_data_post = {.uri = "/post/*", .method = HTTP_POST, .handler = save_data_handler, .user_ctx = NULL};
+httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = NULL};
 
 void clearModuleValues(uint8_t module)
 {
@@ -361,7 +322,7 @@ httpd_handle_t start_webserver(void)
   /* Generate default configuration */
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-  config.max_uri_handlers = 58;
+  config.max_uri_handlers = 6;
   config.max_open_sockets = 5;
   config.max_resp_headers = 16;
   config.stack_size = 4096;
@@ -373,77 +334,18 @@ httpd_handle_t start_webserver(void)
   /* Start the httpd server */
   if (httpd_start(&server, &config) == ESP_OK)
   {
-
     /* Register URI handlers */
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_root_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_defaulthtm_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_stylecss_get));
-    // Images
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_favicon_ico_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_warning_png_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_patron_png_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_logo_png_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_wait_png_get));
-
-    // Javascript libs...
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_pagecode_js_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_jquery_js_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_notify_min_js_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_echarts_min_js_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_ru_js_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_hr_js_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_nl_js_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_pt_js_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_de_js_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_es_js_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_lang_en_js_get));
-
     // Web services/API
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_api_get));
-
-    /*    
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_monitor2_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_monitor3_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_integration_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_settings_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_rules_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_victron_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_rs485settings_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_currentmonitor_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrstatus_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_modules_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_identifymodule_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_storage_json_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrstorage_json_get));
-    */
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_download_get));
 
     // Post services
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savebankconfig_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saventp_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saveglobalsetting_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savemqtt_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saveinfluxdbsetting_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saveconfigurationtosdcard_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savewificonfigtosdcard_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savesetting_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_restartcontroller_json_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_save_data_post));
 
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_saverules_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savedisplaysetting_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savestorage_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_resetcounters_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_sdmount_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_sdunmount_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_enableavrprog_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_disableavrprog_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_avrprog_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savers485settings_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecurrentmon_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmbasic_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmadvanced_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savecmrelay_json_post));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_savevictron_json_post));
+    // Catch all - this must be last in the list
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_static_content_get));
   }
   /* If server failed to start, handle will be NULL */
   return server;
