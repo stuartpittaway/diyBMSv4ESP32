@@ -44,7 +44,7 @@ def prepare_integrity_hash():
                     block = source.read(2**16)
                 integrity='sha256-{}'.format(base64.b64encode(sha256sum.digest()).decode())                    
 
-            f.write("const char* const integrity_{} = \"\\\"{}\\\"\";\n".format(name,integrity))
+            f.write("const char* const integrity_{} = \"{}\";\n".format(name,integrity))
 
         f.write("#endif")
 
