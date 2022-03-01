@@ -273,6 +273,12 @@ esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filenam
 
 esp_err_t content_handler_downloadfile(httpd_req_t *req)
 {
+
+  if (!validateXSS(req))
+  {
+    return ESP_FAIL;
+  }
+
   bool valid = false;
 
   char param[128];
@@ -312,19 +318,13 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
     // Do some really simple validation here to prevent files being downloaded,
     // which could be a security risk.
     // See: directory traversal vulnerability
-    if (file.startsWith("/") == false)
+    if (file.startsWith("/") == true)
     {
-      // All file names must start at the root
+      // Avoid directory paths
       return httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Bad request");
     }
 
-    if (file.startsWith("//") == true)
-    {
-      // All file names must start at the root
-      return httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Bad request");
-    }
-
-    if (file.startsWith("/diybms/") == true)
+    if (file.startsWith("diybms/") == true)
     {
       // Prevent downloads from /diybms/ folder
       // request.send(401); // 401 Unauthorized
