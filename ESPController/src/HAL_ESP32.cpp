@@ -120,11 +120,8 @@ void HAL_ESP32::ConfigureCAN()
 {
     // Initialize configuration structures using macro initializers
 
-    twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, TWAI_MODE_NORMAL);
-    g_config.mode = twai_mode_t::TWAI_MODE_NORMAL;
-
+    twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, TWAI_MODE_NORMAL);    
     twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
-    twai_filter_config_t f_config = {.acceptance_code = 0, .acceptance_mask = 0xFFFFFFFF, .single_filter = true};
 
     // Filter out all messages except 0x305 and 0x307
     // https://docs.espressif.com/projects/esp-idf/en/v3.3.5/api-reference/peripherals/can.html
@@ -132,8 +129,7 @@ void HAL_ESP32::ConfigureCAN()
     // 01100000111 00000 00000000 00000000 = 0x60E00000  (0x307)
     // 00000000010 11111 11111111 11111111 = 0x005FFFFF
     //          ^ THIS BIT IS IGNORED USING THE MASK SO 0x305 and 0x307 are permitted
-    f_config.acceptance_code = 0x60A00000;
-    f_config.acceptance_mask = 0x005FFFFF;
+    twai_filter_config_t f_config = {.acceptance_code = 0x60A00000, .acceptance_mask = 0x005FFFFF, .single_filter = true};
 
     // Install CAN driver
     if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK)
@@ -236,27 +232,6 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
     // ESP32 = I2C0-SDA / I2C0-SCL
     // I2C Bus 1: uses GPIO 27 (SDA) and GPIO 26 (SCL);
     // I2C Bus 2: uses GPIO 33 (SDA) and GPIO 32 (SCL);
-
-    i2c_mode_t mode;    /*!< I2C mode */
-    int sda_io_num;     /*!< GPIO number for I2C sda signal */
-    int scl_io_num;     /*!< GPIO number for I2C scl signal */
-    bool sda_pullup_en; /*!< Internal GPIO pull mode for I2C sda signal*/
-    bool scl_pullup_en; /*!< Internal GPIO pull mode for I2C scl signal*/
-
-    union
-    {
-        struct
-        {
-            uint32_t clk_speed; /*!< I2C clock frequency for master mode, (no higher than 1MHz for now) */
-        } master;               /*!< I2C master config */
-        struct
-        {
-            uint8_t addr_10bit_en;  /*!< I2C 10bit address mode enable for slave mode */
-            uint16_t slave_addr;    /*!< I2C address for slave mode */
-            uint32_t maximum_speed; /*!< I2C expected clock speed from SCL. */
-        } slave;                    /*!< I2C slave config */
-    };
-    uint32_t clk_flags; /*!< Bitwise of ``I2C_SCLK_SRC_FLAG_**FOR_DFS**`` for clk source choice*/
 
     // Initialize
     i2c_config_t conf = {
