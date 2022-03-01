@@ -267,13 +267,13 @@ esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filenam
   }
   else
   {
+    ESP_LOGE(TAG, "File not found");
     return ESP_ERR_NOT_FOUND;
   }
 }
 
 esp_err_t content_handler_downloadfile(httpd_req_t *req)
 {
-
   if (!validateXSS(req))
   {
     return ESP_FAIL;
@@ -281,13 +281,10 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
 
   bool valid = false;
 
-  char param[128];
+  char type[16];
+  char file[64];
 
-  // TODO: No need for String here...
-  String type;
-  String file;
-
-  char buf[256];
+  char buf[128];
   size_t buf_len = httpd_req_get_url_query_len(req);
   if (buf_len > 1)
   {
@@ -298,15 +295,13 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
 
       /* Get value of expected key from query string */
       // The components of URL query string (keys and values) are not URLdecoded
-      if (httpd_query_key_value(buf, "type", param, sizeof(param)) == ESP_OK)
+      if (httpd_query_key_value(buf, "type", type, sizeof(type)) == ESP_OK)
       {
-        type = String(param);
-        ESP_LOGD(TAG, "type=%s", type.c_str());
+        // ESP_LOGD(TAG, "type=%s", type);
 
-        if (httpd_query_key_value(buf, "file", param, sizeof(param)) == ESP_OK)
+        if (httpd_query_key_value(buf, "file", file, sizeof(file)) == ESP_OK)
         {
-          file = String(param);
-          ESP_LOGD(TAG, "file=%s", file.c_str());
+          // ESP_LOGD(TAG, "file=%s", file);
           valid = true;
         }
       }
@@ -318,38 +313,40 @@ esp_err_t content_handler_downloadfile(httpd_req_t *req)
     // Do some really simple validation here to prevent files being downloaded,
     // which could be a security risk.
     // See: directory traversal vulnerability
-    if (file.startsWith("/") == true)
+    if ((strncmp(file, "/", sizeof(file)) == 0) || (strncmp(file, "/diybms/", sizeof(file)) == 0))
     {
       // Avoid directory paths
       return httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Bad request");
     }
 
-    if (file.startsWith("diybms/") == true)
-    {
-      // Prevent downloads from /diybms/ folder
-      // request.send(401); // 401 Unauthorized
-      return httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Bad request");
-    }
+    // Prepend a / character to front of filename
+    memset(buf, 0, sizeof(buf));
+    buf[0] = '/';
+    strcat(buf, file);
+    strncpy(file, buf, sizeof(file));
 
-    if (type.equals("sdcard") && _sd_card_installed)
+    ESP_LOGI(TAG, "Download %s from %s", file, type);
+
+    if ((strncmp(type, "sdcard", sizeof(type)) == 0) && _sd_card_installed)
     {
       // Process file from SD card
-
       if (hal.GetVSPIMutex())
       {
         // Get the file
-        ESP_LOGI(TAG, "Download SDCard file");
-        SendFileInChunks(req, SD, file.c_str());
+        // ESP_LOGI(TAG, "Download SDCard file");
+        esp_err_t result = SendFileInChunks(req, SD, file);
+        ESP_LOGD(TAG, "Result %i", result);
         hal.ReleaseVSPIMutex();
         // Indicate last chunk (zero byte length)
         return httpd_resp_send_chunk(req, httpbuf, 0);
       }
     }
-    else if (type.equals("flash"))
+    else if ((strncmp(type, "flash", sizeof(type)) == 0))
     {
       // Process file from flash storage
-      ESP_LOGI(TAG, "Download FLASH file");
-      SendFileInChunks(req, LittleFS, file.c_str());
+      // ESP_LOGI(TAG, "Download FLASH file");
+      esp_err_t result = SendFileInChunks(req, LittleFS, file);
+      ESP_LOGD(TAG, "Result %i", result);
       // Indicate last chunk (zero byte length)
       return httpd_resp_send_chunk(req, httpbuf, 0);
     }
@@ -415,14 +412,14 @@ esp_err_t content_handler_modules(httpd_req_t *req)
     // Only allow up to our pre-defined buffer length (100 bytes)
     if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK)
     {
-      //ESP_LOGI(TAG, "Found URL query => %s", buf);
+      // ESP_LOGI(TAG, "Found URL query => %s", buf);
       char param[8];
       /* Get value of expected key from query string */
       if (httpd_query_key_value(buf, "c", param, sizeof(param)) == ESP_OK)
       {
         c = atoi(param);
 
-        //ESP_LOGI(TAG, "Found URL query parameter => query1=%s (%u)", param, c);
+        // ESP_LOGI(TAG, "Found URL query parameter => query1=%s (%u)", param, c);
 
         if (c <= mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules)
         {
@@ -489,7 +486,6 @@ esp_err_t content_handler_avrstatus(httpd_req_t *req)
 
   return httpd_resp_send(req, httpbuf, bufferused);
 }
-
 
 esp_err_t content_handler_victron(httpd_req_t *req)
 {
@@ -1090,8 +1086,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   return httpd_resp_send_chunk(req, httpbuf, 0);
 }
 
-
-
 esp_err_t api_handler(httpd_req_t *req)
 {
   if (!validateXSS(req))
@@ -1118,20 +1112,16 @@ esp_err_t api_handler(httpd_req_t *req)
       content_handler_modules,
       content_handler_identifymodule,
       content_handler_storage,
-      content_handler_avrstorage      
-  };
+      content_handler_avrstorage};
 
-  //Sanity check arrays are the same size
-  ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK: ESP_FAIL );
+  // Sanity check arrays are the same size
+  ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);
 
-
-  //TODO: Improve the string comparision here to avoid any potential
-  //      security/buffer overflows
+  // TODO: Improve the string comparision here to avoid any potential
+  //       security/buffer overflows
   char name[32];
   memset(&name, 0, sizeof(name));
   strncpy(name, &(req->uri[5]), sizeof(name) - 1);
-
-  
 
   for (size_t i = 0; i < sizeof(uri_array) / sizeof(unsigned int); i++)
   {
