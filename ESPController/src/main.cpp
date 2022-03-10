@@ -783,8 +783,10 @@ void ProcessTCA6408Input_States(uint8_t v)
 void ProcessTCA9534Input_States(uint8_t v)
 {
   // P4= J13 PIN 1 = WAKE UP TFT FOR DISPLAYS WITHOUT TOUCH
+  // Also SW1 on V4.4 boards
   InputState[4] = (v & B00010000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
   // P6 = spare I/O (on PCB pin)
+  // Also SW2 on V4.4 boards
   InputState[5] = (v & B01000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
   // P7 = Emergency Stop
   InputState[6] = (v & B10000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
@@ -797,7 +799,7 @@ void ProcessTCA9534Input_States(uint8_t v)
 
   if (InputState[4] == enumInputState::INPUT_LOW)
   {
-    // Wake screen on pin going low
+    // Wake screen on pin going low (SW1 on V4.4 boards)
     if (tftwakeup_task_handle != NULL)
     {
       xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
