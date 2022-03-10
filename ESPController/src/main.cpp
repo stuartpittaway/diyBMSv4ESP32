@@ -121,6 +121,7 @@ TaskHandle_t tftsleep_task_handle = NULL;
 TaskHandle_t tftwakeup_task_handle = NULL;
 
 TaskHandle_t tca6408_isr_task_handle = NULL;
+TaskHandle_t tca6416a_isr_task_handle = NULL;
 TaskHandle_t tca9534_isr_task_handle = NULL;
 
 TaskHandle_t rs485_tx_task_handle = NULL;
@@ -334,7 +335,6 @@ void avrprog_task(void *param)
       // Unmount SD card so we don't have issues on SPI bus
       unmountSDCard();
     }
-
 
     // Now we load the file into program array, from LITTLEFS (SPIFF)
     if (LittleFS.exists(s->filename))
@@ -768,6 +768,63 @@ void ledoff_task(void *param)
   }
 }
 
+void ProcessTCA6408Input_States(uint8_t v)
+{
+  // P0=A
+  InputState[0] = (v & B00000001) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+  // P1=B
+  InputState[1] = (v & B00000010) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+  // P2=C
+  InputState[2] = (v & B00000100) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+  // P3=D
+  InputState[3] = (v & B00001000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+}
+
+void ProcessTCA9534Input_States(uint8_t v)
+{
+  // P4= J13 PIN 1 = WAKE UP TFT FOR DISPLAYS WITHOUT TOUCH
+  InputState[4] = (v & B00010000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+  // P6 = spare I/O (on PCB pin)
+  InputState[5] = (v & B01000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+  // P7 = Emergency Stop
+  InputState[6] = (v & B10000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+
+  // Emergency Stop (J1) has triggered
+  if (InputState[6] == enumInputState::INPUT_LOW)
+  {
+    emergencyStop = true;
+  }
+
+  if (InputState[4] == enumInputState::INPUT_LOW)
+  {
+    // Wake screen on pin going low
+    if (tftwakeup_task_handle != NULL)
+    {
+      xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
+    }
+  }
+}
+
+void tca6416a_isr_task(void *param)
+{
+  for (;;)
+  {
+    // Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    ESP_LOGD(TAG, "tca6416a_isr");
+
+    //Emulate both 9534 and 6408 being installed by mimicking the
+    //registers and processing the status as needed.
+    hal.ReadTCA6416InputRegisters();
+
+    // Read ports
+    // The 9534 deals with internal LED outputs and spare IO on J10
+    ProcessTCA9534Input_States(hal.LastTCA9534APWRValue());
+    // Read ports A/B/C/D inputs (on TCA6408)
+    ProcessTCA6408Input_States(hal.LastTCA6408Value());
+  }
+}
+
 void tca6408_isr_task(void *param)
 {
   for (;;)
@@ -776,17 +833,8 @@ void tca6408_isr_task(void *param)
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     ESP_LOGD(TAG, "tca6408_isr");
-
     // Read ports A/B/C/D inputs (on TCA6408)
-    uint8_t v = hal.ReadTCA6408InputRegisters();
-    // P0=A
-    InputState[0] = (v & B00000001) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-    // P1=B
-    InputState[1] = (v & B00000010) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-    // P2=C
-    InputState[2] = (v & B00000100) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-    // P3=D
-    InputState[3] = (v & B00001000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
+    ProcessTCA6408Input_States(hal.ReadTCA6408InputRegisters());
   }
 }
 
@@ -801,29 +849,7 @@ void tca9534_isr_task(void *param)
 
     // Read ports
     // The 9534 deals with internal LED outputs and spare IO on J10
-    uint8_t v = hal.ReadTCA9534InputRegisters();
-
-    // P4= J13 PIN 1 = WAKE UP TFT FOR DISPLAYS WITHOUT TOUCH
-    InputState[4] = (v & B00010000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-    // P6 = spare I/O (on PCB pin)
-    InputState[5] = (v & B01000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-    // P7 = Emergency Stop
-    InputState[6] = (v & B10000000) == 0 ? enumInputState::INPUT_LOW : enumInputState::INPUT_HIGH;
-
-    // Emergency Stop (J1) has triggered
-    if (InputState[6] == enumInputState::INPUT_LOW)
-    {
-      emergencyStop = true;
-    }
-
-    if (InputState[4] == enumInputState::INPUT_LOW)
-    {
-      // Wake screen on pin going low
-      if (tftwakeup_task_handle != NULL)
-      {
-        xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
-      }
-    }
+    ProcessTCA9534Input_States(hal.ReadTCA9534InputRegisters());
   }
 }
 
@@ -848,6 +874,16 @@ void IRAM_ATTR WifiPasswordClear()
     {
       ResetWifi = true;
     }
+  }
+}
+
+// Triggered when TCA6416A INT pin goes LOW
+// Found on V4.4 controller PCB's onwards
+void IRAM_ATTR TCA6416AInterrupt()
+{
+  if (tca6416a_isr_task_handle != NULL)
+  {
+    xTaskNotifyFromISR(tca6416a_isr_task_handle, 0x00, eNotifyAction::eNoAction, 0);
   }
 }
 
@@ -3083,7 +3119,7 @@ void setup()
   WiFi.mode(WIFI_OFF);
 
   esp_bt_controller_disable();
-  esp_log_level_set("*", ESP_LOG_WARN);    // set all components to WARN level
+  esp_log_level_set("*", ESP_LOG_WARN);     // set all components to WARN level
   esp_log_level_set("wifi", ESP_LOG_WARN);  // enable WARN logs from WiFi stack
   esp_log_level_set("dhcpc", ESP_LOG_WARN); // enable WARN logs from DHCP client
 
@@ -3103,7 +3139,7 @@ void setup()
   ESP_LOGI(TAG, "ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u", chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
   hal.ConfigurePins(WifiPasswordClear);
-  hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt);
+  hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
   hal.ConfigureVSPI();
 
   _avrsettings.inProgress = false;
@@ -3192,8 +3228,15 @@ void setup()
   xTaskCreate(updatetftdisplay_task, "tftupd", 2048, nullptr, 1, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2500, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
 
-  xTaskCreate(tca6408_isr_task, "tca6408", 2048, nullptr, configMAX_PRIORITIES - 3, &tca6408_isr_task_handle);
-  xTaskCreate(tca9534_isr_task, "tca9534", 2048, nullptr, configMAX_PRIORITIES - 3, &tca9534_isr_task_handle);
+  if (hal.TCA6416_Fitted)
+  {
+    xTaskCreate(tca6416a_isr_task, "tca6416", 2048, nullptr, configMAX_PRIORITIES - 3, &tca6416a_isr_task_handle);
+  }
+  else
+  {
+    xTaskCreate(tca6408_isr_task, "tca6408", 2048, nullptr, configMAX_PRIORITIES - 3, &tca6408_isr_task_handle);
+    xTaskCreate(tca9534_isr_task, "tca9534", 2048, nullptr, configMAX_PRIORITIES - 3, &tca9534_isr_task_handle);
+  }
 
   xTaskCreate(wifiresetdisable_task, "wifidbl", 800, nullptr, 1, &wifiresetdisable_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 3600, nullptr, 1, &sdcardlog_task_handle);

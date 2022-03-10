@@ -1,4 +1,3 @@
-
 #include "defines.h"
 #include "HAL_ESP32.h"
 
@@ -8,7 +7,6 @@ uint8_t HAL_ESP32::readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
     // seems to have issues with corrupting i2c data if used from multiple threads
     if (Geti2cMutex())
     {
-
         uint8_t data;
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();
         // Select the correct register on the i2c device
@@ -34,6 +32,72 @@ uint8_t HAL_ESP32::readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
     else
     {
         return 0;
+    }
+}
+
+uint16_t HAL_ESP32::read16bitWord(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
+{
+    // We use the native i2c commands for ESP32 as the Arduino library
+    // seems to have issues with corrupting i2c data if used from multiple threads
+    if (Geti2cMutex())
+    {
+        uint8_t data1;
+        uint8_t data2;
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        // Select the correct register on the i2c device
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_WRITE, true);
+        i2c_master_write_byte(cmd, reg, true);
+        // Send repeated start, and read the register
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_READ, true);
+        // Read 1 byte and expect ACK in reply
+        i2c_master_read(cmd, &data1, 1, i2c_ack_type_t::I2C_MASTER_ACK);
+        // Read 1 byte and expect NACK in reply
+        i2c_master_read(cmd, &data2, 1, i2c_ack_type_t::I2C_MASTER_NACK);
+        i2c_master_stop(cmd);
+        // esp_err_t ret =
+        ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
+
+        i2c_cmd_link_delete(cmd);
+
+        Releasei2cMutex();
+
+        return (((uint16_t)data2 << 8) | (uint16_t)data1);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+// i2c: Writes a single byte to a slave devices register
+esp_err_t HAL_ESP32::write16bitWord(i2c_port_t i2c_num, uint8_t deviceAddress, uint8_t i2cregister, uint16_t data)
+{
+    if (Geti2cMutex())
+    {
+        // We use the native i2c commands for ESP32 as the Arduino library
+        // seems to have issues with corrupting i2c data if used from multiple threads
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (deviceAddress << 1) | I2C_MASTER_WRITE, true);
+
+        uint8_t buffer[3];
+        buffer[0] = i2cregister;
+        buffer[1] = (uint8_t)(data & 0x00FF);
+        buffer[2] = (uint8_t)(data >> 8);
+        i2c_master_write(cmd, buffer, sizeof(buffer), true);
+        i2c_master_stop(cmd);
+
+        esp_err_t ret = ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
+        i2c_cmd_link_delete(cmd);
+
+        Releasei2cMutex();
+        return ret;
+    }
+    else
+    {
+        return ESP_ERR_INVALID_STATE;
     }
 }
 
@@ -69,16 +133,72 @@ esp_err_t HAL_ESP32::writeByte(i2c_port_t i2c_num, uint8_t deviceAddress, uint8_
     }
 }
 
-uint8_t HAL_ESP32::ReadTCA6408InputRegisters()
+// 16 bit register
+uint16_t HAL_ESP32::ReadTCA6416InputRegisters()
 {
-    TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
-    return TCA6408_Value & TCA6408_INPUTMASK;
+    // Update the copy of the pin state
+    TCA6416_Input = read16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_INPUT) & (uint16_t)TCA6416_INPUTMASK;
+
+    // As the TCA6416 pins as mapped similarly to the older style controller with 2 I/O chips
+    // we map the inputs to fake the other devices.
+
+    // TCA6416A pins P0-7 match the old TCA6408 pin out
+    TCA6408_Input = TCA6416_Input & 0x00FF;
+    TCA9534APWR_Input = (TCA6416_Input >> 8) & (uint16_t)0x00FF;
+
+    // ESP_LOGD(TAG, "TCA6416 input=%#04x, TCA6408=%x, TCA9534=%x", TCA6416_Input, TCA6408_Input, TCA9534APWR_Input);
+
+    return TCA6416_Input;
 }
 
+// 8 bit reg, returns masked state and updates pin state variable
+uint8_t HAL_ESP32::ReadTCA6408InputRegisters()
+{
+    //We should never get here if TCA6416_Fitted is true
+    ESP_ERROR_CHECK(TCA6416_Fitted ? ESP_FAIL:ESP_OK);
+    TCA6408_Input = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT) & TCA6408_INPUTMASK;
+    return TCA6408_Input;
+}
+
+// 8 bit reg, returns masked state and updates pin state variable
 uint8_t HAL_ESP32::ReadTCA9534InputRegisters()
 {
-    TCA9534APWR_Value = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
-    return TCA9534APWR_Value & TCA9534APWR_INPUTMASK;
+    //We should never get here if TCA6416_Fitted is true
+    ESP_ERROR_CHECK(TCA6416_Fitted ? ESP_FAIL:ESP_OK);
+
+    // Update pin state copy
+    TCA9534APWR_Input = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT) & TCA9534APWR_INPUTMASK;
+    return TCA9534APWR_Input;
+}
+
+void HAL_ESP32::WriteTCA6416OutputState()
+{
+    //Emulate the 9534 + 6408 and set the state on the 16 bit output
+    TCA6416_Output_Pins = ((uint16_t)TCA9534APWR_Output_Pins<<8) | TCA6408_Output_Pins;
+    ESP_ERROR_CHECK_WITHOUT_ABORT(write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT, TCA6416_Output_Pins));
+}
+
+void HAL_ESP32::WriteTCA9534APWROutputState()
+{
+    if (TCA6416_Fitted)
+    {
+        WriteTCA6416OutputState();
+    }
+    else
+    {
+        ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Output_Pins));
+    }
+}
+void HAL_ESP32::WriteTCA6408OutputState()
+{
+    if (TCA6416_Fitted)
+    {
+        WriteTCA6416OutputState();
+    }
+    else
+    {
+        ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Output_Pins));
+    }
 }
 
 void HAL_ESP32::SetOutputState(uint8_t outputId, RelayState state)
@@ -89,38 +209,28 @@ void HAL_ESP32::SetOutputState(uint8_t outputId, RelayState state)
     // P4 = RELAY1 (outputId=0)
     // P5 = RELAY2 (outputId=1)
     // P6 = RELAY3_SSR (outputId=2)
-    // P7 = EXT_IO_E (outputId=3)
-
+    // P7 = RELAY4_SSR (outputId=3)
     if (outputId <= 3)
     {
-        TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
         uint8_t bit = outputId + 4;
-        TCA6408_Value = (state == RelayState::RELAY_ON) ? (TCA6408_Value | (1 << bit)) : (TCA6408_Value & ~(1 << bit));
-        ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value));
-        // ESP_LOGD(TAG, "TCA6408 reply %i", ret);
-        // TODO: Check return value
-        TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
+        TCA6408_Output_Pins = (state == RelayState::RELAY_ON) ? (TCA6408_Output_Pins | (1 << bit)) : (TCA6408_Output_Pins & ~(1 << bit));
+        WriteTCA6408OutputState();
     }
 }
 
 void HAL_ESP32::Led(uint8_t bits)
 {
     // Clear LED pins
-    TCA9534APWR_Value = TCA9534APWR_Value & B11111000;
+    TCA9534APWR_Output_Pins = TCA9534APWR_Output_Pins & B11111000;
     // Set on
-    TCA9534APWR_Value = TCA9534APWR_Value | (bits & B00000111);
-    // esp_err_t ret =
-    ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value));
-
-    // ESP_LOGD(TAG,"TCA9534 LED reply %i",ret);
-    // TODO: Check return value
+    TCA9534APWR_Output_Pins = TCA9534APWR_Output_Pins | (bits & B00000111);
+    WriteTCA9534APWROutputState();
 }
 
 void HAL_ESP32::ConfigureCAN()
 {
     // Initialize configuration structures using macro initializers
-
-    twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, TWAI_MODE_NORMAL);    
+    twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, TWAI_MODE_NORMAL);
     twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
 
     // Filter out all messages except 0x305 and 0x307
@@ -156,42 +266,46 @@ void HAL_ESP32::ConfigureCAN()
 // True = enable CANBUS
 void HAL_ESP32::CANBUSEnable(bool value)
 {
+    if (TCA6416_Fitted)
+    {
+        // Not fitted/used on newer style PCBs, so ignore request
+        return;
+    }
+
     // Pin P5
     // Low = Normal mode
     // High = Silent
-    TCA9534APWR_Value = TCA9534APWR_Value & B11011111;
+    TCA9534APWR_Output_Pins = TCA9534APWR_Output_Pins & B11011111;
 
     if (value == false)
     {
         // Set on
-        TCA9534APWR_Value = TCA9534APWR_Value | B00100000;
+        TCA9534APWR_Output_Pins = TCA9534APWR_Output_Pins | B00100000;
     }
 
-    ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value));
+    WriteTCA9534APWROutputState();
 }
 
 // Control TFT backlight LED
 void HAL_ESP32::TFTScreenBacklight(bool value)
 {
     // Clear LED pins
-    TCA9534APWR_Value = TCA9534APWR_Value & B11110111;
+    TCA9534APWR_Output_Pins = TCA9534APWR_Output_Pins & B11110111;
 
     if (value == true)
     {
         // Set on
-        TCA9534APWR_Value = TCA9534APWR_Value | B00001000;
+        TCA9534APWR_Output_Pins = TCA9534APWR_Output_Pins | B00001000;
     }
 
-    // esp_err_t ret =
-    ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value));
-    // TODO: Check return value
-    // ESP_LOGD(TAG,"TCA9534 reply %i",ret);
+    WriteTCA9534APWROutputState();
 }
 
 void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void))
 {
     // GPIO39 is interrupt pin from TCA6408 (doesnt have pull up/down resistors)
     pinMode(TCA6408_INTERRUPT_PIN, INPUT);
+    pinMode(TCA6416_INTERRUPT_PIN, INPUT);
 
     // GPIO34 is interrupt pin from TCA9534A (doesnt have pull up/down resistors)
     pinMode(TCA9534A_INTERRUPT_PIN, INPUT);
@@ -203,7 +317,6 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void))
     // For touch screen
     // GPIO_NUM_36 no internal PULLUP
     pinMode(TOUCH_IRQ, INPUT);
-    // attachInterrupt(GPIO_NUM_36, TFTScreenTouch, FALLING);
 
     // Configure the CHIP SELECT pins as OUTPUT and set HIGH
     pinMode(TOUCH_CHIPSELECT, OUTPUT);
@@ -224,7 +337,7 @@ void HAL_ESP32::SwapGPIO0ToOutput()
     digitalWrite(GPIO_NUM_0, HIGH);
 }
 
-void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void))
+void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void), void (*TCA6416Interrupt)(void))
 {
     ESP_LOGI(TAG, "Configure I2C");
 
@@ -248,75 +361,122 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
     ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &conf));
     ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0));
 
-    // https://datasheet.lcsc.com/szlcsc/1809041633_Texas-Instruments-TCA9534APWR_C206010.pdf
-    // TCA9534APWR Remote 8-Bit I2C and Low-Power I/O Expander With Interrupt Output and Configuration Registers
-    // https://lcsc.com/product-detail/Interface-I-O-Expanders_Texas-Instruments-TCA9534APWR_C206010.html
-    // A0/A1/A2 are LOW, so i2c address is 0x38
-
-    // PINS
-    // P0= BLUE
-    // P1= RED
-    // P2= GREEN
-    // P3= DISPLAY BACKLIGHT LED
-    // P4= SPARE on J13
-    // P5= Canbus RS
-    // P6= SPARE on J13
-    // P7= ESTOP (pull to ground to trigger)
-    // INTERRUPT PIN = ESP32 IO34
-
-    // BIT  76543210
-    // PORT 76543210
-    // MASK=10000000
-
-    // All off
-    esp_err_t ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, 0);
-    if (ret != ESP_OK)
+    // Test to see if we have a TCA6416 on the i2c bus, if we have, its a newer controller board V4.4+
+    // on power up the chip has all ports are inputs
+    esp_err_t ret = write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_CONFIGURATION, TCA6416_INPUTMASK);
+    if (ret == ESP_OK)
     {
-        ESP_LOGE(TAG, "TCA9534APWR Error");
-        Halt(RGBLED::Purple);
+        ESP_LOGI(TAG, "Found TCA6416A");
+        TCA6416_Fitted = true;
+        // Update our copy of pin state registers
+        ReadTCA6416InputRegisters();
+
+        TCA6416_Output_Pins = read16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT);
+        // Update the "slave" pins to emulate those devices being installed
+        TCA6408_Output_Pins = TCA6416_Output_Pins & 0x00FF;
+        TCA9534APWR_Output_Pins = (TCA6416_Output_Pins >> 8) & 0x00FF;
+
+        /*
+    TCA6416A pins P0-7 match the old TCA6408 pin out
+    */
+        // P0=EXT_IO_A
+        // P1=EXT_IO_B
+        // P2=EXT_IO_C
+        // P3=EXT_IO_D
+        // P4=RELAY 1
+        // P5=RELAY 2
+        // P6=RELAY 3 (SSR)
+        // P7=RELAY 4 (SSR)
+
+        /*
+    TCA6416 pins P10-17 match the old TCA9534 pin out
+    */
+        // P10= BLUE
+        // P11= RED
+        // P12= GREEN
+        // P13= DISPLAY BACKLIGHT LED
+        // P14= push button 1
+        // P15= NOT USED
+        // P16= push button 2
+        // P17= ESTOP (pull to ground to trigger)
+
+        // INTERRUPT PIN = ESP32 IO39
+        attachInterrupt(TCA6416_INTERRUPT_PIN, TCA6416Interrupt, FALLING);
+
+        return;
+    }
+    else
+    {
+        // https://datasheet.lcsc.com/szlcsc/1809041633_Texas-Instruments-TCA9534APWR_C206010.pdf
+        // TCA9534APWR Remote 8-Bit I2C and Low-Power I/O Expander With Interrupt Output and Configuration Registers
+        // https://lcsc.com/product-detail/Interface-I-O-Expanders_Texas-Instruments-TCA9534APWR_C206010.html
+        // A0/A1/A2 are LOW, so i2c address is 0x38
+
+        // PINS
+        // P0= BLUE
+        // P1= RED
+        // P2= GREEN
+        // P3= DISPLAY BACKLIGHT LED
+        // P4= SPARE on J13
+        // P5= Canbus RS
+        // P6= SPARE on J13
+        // P7= ESTOP (pull to ground to trigger)
+        // INTERRUPT PIN = ESP32 IO34
+
+        // BIT  76543210
+        // PORT 76543210
+        // MASK=10000000
+
+        // All off
+        esp_err_t ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, 0);
+        if (ret != ESP_OK)
+        {
+            ESP_LOGE(TAG, "TCA9534APWR Error");
+            Halt(RGBLED::Purple);
+        }
+
+        // 0×03 Configuration, P7 (estop) and P4 (remote touch) as input, others outputs (0=OUTPUT)
+        ESP_ERROR_CHECK(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, TCA9534APWR_INPUTMASK));
+        ReadTCA9534InputRegisters();
+        TCA9534APWR_Output_Pins = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT);
+        attachInterrupt(TCA9534A_INTERRUPT_PIN, TCA9534AInterrupt, FALLING);
+        ESP_LOGI(TAG, "Found TCA9534A");
+
+        /*
+    Now for the TCA6408
+    */
+
+        // P0=EXT_IO_A
+        // P1=EXT_IO_B
+        // P2=EXT_IO_C
+        // P3=EXT_IO_D
+        // P4=RELAY 1
+        // P5=RELAY 2
+        // P6=RELAY 3 (SSR)
+        // P7=RELAY 4 (SSR)
+
+        // Set ports to off before we set configuration
+        ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, 0);
+        if (ret != ESP_OK)
+        {
+            ESP_LOGE(TAG, "TCA6408 Error");
+            Halt(RGBLED::Green);
+        }
+
+        // Ports A/B/C/D/E inputs, RELAY1/2/3 outputs
+        ESP_ERROR_CHECK(writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_CONFIGURATION, TCA6408_INPUTMASK));
+        ReadTCA6408InputRegisters();
+        TCA6408_Output_Pins = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT);
+
+        ESP_LOGI(TAG, "Found TCA6408");
+        attachInterrupt(TCA6408_INTERRUPT_PIN, TCA6408Interrupt, FALLING);
+
+        TCA6416_Fitted = false;
+
+        return;
     }
 
-    // 0×03 Configuration, P7 (estop) and P4 (remote touch) as input, others outputs (0=OUTPUT)
-    ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, TCA9534APWR_INPUTMASK);
-
-    // 0×02 Polarity Inversion, zero = off
-    // writeByte(TCA9534APWR_ADDRESS, TCA9534APWR_POLARITY_INVERSION, 0);
-    TCA9534APWR_Value = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
-    // SERIAL_DEBUG.println("Found TCA9534APWR");
-
-    attachInterrupt(TCA9534A_INTERRUPT_PIN, TCA9534AInterrupt, FALLING);
-
-    ESP_LOGI(TAG, "Found TCA9534A");
-
-    /*
-Now for the TCA6408
-*/
-
-    // P0=EXT_IO_A
-    // P1=EXT_IO_B
-    // P2=EXT_IO_C
-    // P3=EXT_IO_D
-    // P4=RELAY 1
-    // P5=RELAY 2
-    // P6=RELAY 3 (SSR)
-    // P7=EXT_IO_E
-
-    // Set ports to off before we set configuration
-    ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, 0);
-
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE(TAG, "TCA6408 Error");
-        Halt(RGBLED::Green);
-    }
-
-    // Ports A/B/C/D/E inputs, RELAY1/2/3 outputs
-    ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_CONFIGURATION, TCA6408_INPUTMASK);
-    // ret =writeByte(i2c_port_t::I2C_NUM_0,TCA6408_ADDRESS, TCA6408_POLARITY_INVERSION, B00000000);
-    TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
-    // TODO: Validate if there was a read error or not.
-
-    ESP_LOGI(TAG, "Found TCA6408");
-
-    attachInterrupt(TCA6408_INTERRUPT_PIN, TCA6408Interrupt, FALLING);
+    // Didn't find anything on i2c bus
+    ESP_LOGE(TAG, "No TCA chip found on i2c bus");
+    Halt(RGBLED::Cyan);
 }
