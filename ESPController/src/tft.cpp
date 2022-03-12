@@ -328,6 +328,9 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
 }
 void tftsleep()
 {
+    if (!_tft_screen_available)
+        return;
+
     // Switch screen off
     hal.TFTScreenBacklight(false);
     _screen_awake = false;

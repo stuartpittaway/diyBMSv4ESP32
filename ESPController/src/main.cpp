@@ -81,6 +81,7 @@ uint8_t frame[256];
 
 extern bool _tft_screen_available;
 extern uint8_t tftsleep_timer;
+extern volatile bool _screen_awake;
 
 Rules rules;
 diybms_eeprom_settings mysettings;
@@ -2740,7 +2741,7 @@ void periodic_task(void *param)
       }
     }
 
-    if (tftsleep_timer == 0 &&
+    if (_screen_awake && tftsleep_timer == 0 &&
         (WhatScreenToDisplay() != ScreenTemplateToDisplay::Error && WhatScreenToDisplay() != ScreenTemplateToDisplay::AVRProgrammer))
     {
       // Screen off
