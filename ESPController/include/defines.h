@@ -11,15 +11,15 @@
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
-//Needs to be at least 1550 bytes...
+// Needs to be at least 1550 bytes...
 #define BUFSIZE 1800
 
-//Data uses Rx2/TX2 and debug logs go to serial0 - USB
+// Data uses Rx2/TX2 and debug logs go to serial0 - USB
 #define SERIAL_DATA Serial2
 #define SERIAL_DEBUG Serial
 #define SERIAL_RS485 Serial1
 
-//Total number of cells a single controler can handle (memory limitation)
+// Total number of cells a single controler can handle (memory limitation)
 #define maximum_controller_cell_modules 128
 
 typedef union
@@ -40,6 +40,15 @@ enum RGBLED : uint8_t
   White = B00000111
 };
 
+enum ISRTYPE : uint32_t
+{
+  // Must be unique BIT pattern
+  TCA6408A = 1 << 0,
+  TCA9534 = 1 << 1,
+  TCA6416A = 1 << 2,
+  TFTTOUCH = 1 << 3
+};
+
 enum VictronDVCC : uint8_t
 {
   Default = 0,
@@ -47,14 +56,14 @@ enum VictronDVCC : uint8_t
   ControllerError = 2
 };
 
-//Maximum of 16 cell modules (don't change this!) number of cells to process in a single packet of data
+// Maximum of 16 cell modules (don't change this!) number of cells to process in a single packet of data
 #define maximum_cell_modules_per_packet 16
 
-//Maximum number of banks allowed
-//This also needs changing in default.htm (MAXIMUM_NUMBER_OF_BANKS)
+// Maximum number of banks allowed
+// This also needs changing in default.htm (MAXIMUM_NUMBER_OF_BANKS)
 #define maximum_number_of_banks 16
 
-//Version 4.XX of DIYBMS modules operate at 5000 baud (since 26 Jan 2021)
+// Version 4.XX of DIYBMS modules operate at 5000 baud (since 26 Jan 2021)
 //#define COMMS_BAUD_RATE 5000
 
 enum enumInputState : uint8_t
@@ -89,13 +98,13 @@ enum CurrentMonitorDevice : uint8_t
   PZEM_017 = 0x01
 };
 
-//Number of rules as defined in Rules.h (enum Rule)
+// Number of rules as defined in Rules.h (enum Rule)
 #define RELAY_RULES 15
 
-//Number of relays on board (4)
+// Number of relays on board (4)
 #define RELAY_TOTAL 4
 
-//7 inputs on board
+// 7 inputs on board
 #define INPUTS_TOTAL 7
 
 #define SHOW_TIME_PERIOD 5000
@@ -111,11 +120,11 @@ struct diybms_eeprom_settings
   uint32_t rulevalue[RELAY_RULES];
   uint32_t rulehysteresis[RELAY_RULES];
 
-  //Use a bit pattern to indicate the relay states
+  // Use a bit pattern to indicate the relay states
   RelayState rulerelaystate[RELAY_RULES][RELAY_TOTAL];
-  //Default starting state
+  // Default starting state
   RelayState rulerelaydefault[RELAY_TOTAL];
-  //Default starting state for relay types
+  // Default starting state for relay types
   RelayType relaytype[RELAY_TOTAL];
 
   float graph_voltagehigh;
@@ -149,7 +158,7 @@ struct diybms_eeprom_settings
 
   bool VictronEnabled;
 
-  //NOTE this array is subject to buffer overflow vulnerabilities!
+  // NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
   uint16_t mqtt_port;
   char mqtt_server[64 + 1];
@@ -158,7 +167,7 @@ struct diybms_eeprom_settings
   char mqtt_password[32 + 1];
 
   bool influxdb_enabled;
-  //uint16_t influxdb_httpPort;
+  // uint16_t influxdb_httpPort;
   char influxdb_serverurl[128 + 1];
   char influxdb_databasebucket[64 + 1];
   char influxdb_apitoken[128 + 1];
@@ -190,7 +199,7 @@ enum COMMAND : uint8_t
   ResetBalanceCurrentCounter = 11
 };
 
-//NOTE THIS MUST BE EVEN IN SIZE (BYTES) ESP8266 IS 32 BIT AND WILL ALIGN AS SUCH!
+// NOTE THIS MUST BE EVEN IN SIZE (BYTES) ESP8266 IS 32 BIT AND WILL ALIGN AS SUCH!
 struct PacketStruct
 {
   uint8_t start_address;
@@ -204,19 +213,19 @@ struct PacketStruct
 
 struct CellModuleInfo
 {
-  //Used as part of the enquiry functions
+  // Used as part of the enquiry functions
   bool settingsCached : 1;
-  //Set to true once the module has replied with data
+  // Set to true once the module has replied with data
   bool valid : 1;
-  //Bypass is active
+  // Bypass is active
   bool inBypass : 1;
-  //Bypass active and temperature over set point
+  // Bypass active and temperature over set point
   bool bypassOverTemp : 1;
 
   uint16_t voltagemV;
   uint16_t voltagemVMin;
   uint16_t voltagemVMax;
-  //Signed integer byte (negative temperatures)
+  // Signed integer byte (negative temperatures)
   int8_t internalTemp;
   int8_t externalTemp;
 
@@ -226,19 +235,19 @@ struct CellModuleInfo
 
   // Resistance of bypass load
   float LoadResistance;
-  //Voltage Calibration
+  // Voltage Calibration
   float Calibration;
-  //Reference voltage (millivolt) normally 2.00mV
+  // Reference voltage (millivolt) normally 2.00mV
   float mVPerADC;
-  //Internal Thermistor settings
+  // Internal Thermistor settings
   uint16_t Internal_BCoefficient;
-  //External Thermistor settings
+  // External Thermistor settings
   uint16_t External_BCoefficient;
-  //Version number returned by code of module
+  // Version number returned by code of module
   uint16_t BoardVersionNumber;
-  //Last 4 bytes of GITHUB version
+  // Last 4 bytes of GITHUB version
   uint32_t CodeVersionNumber;
-  //Value of PWM timer for load shedding
+  // Value of PWM timer for load shedding
   uint16_t PWMValue;
 
   uint16_t BalanceCurrentCount;
@@ -265,7 +274,7 @@ struct sdcard_info
   uint32_t flash_usedkilobytes;
 };
 
-//This holds all the cell information in a large array array
+// This holds all the cell information in a large array array
 extern CellModuleInfo cmi[maximum_controller_cell_modules];
 
 struct avrprogramsettings
@@ -283,13 +292,14 @@ struct avrprogramsettings
   bool programmingModeEnabled;
 };
 
-struct currentmonitor_raw_modbus {
-  //These variables are in STRICT order
-  //and must match the MODBUS register sequence and data types!!
+struct currentmonitor_raw_modbus
+{
+  // These variables are in STRICT order
+  // and must match the MODBUS register sequence and data types!!
 
-  //Voltage
+  // Voltage
   float voltage;
-  //Current in AMPS
+  // Current in AMPS
   float current;
   uint32_t milliamphour_out;
   uint32_t milliamphour_in;
@@ -318,13 +328,13 @@ struct currentmonitor_raw_modbus {
   uint32_t firmwareversion;
   uint32_t firmwaredatetime;
   uint16_t watchdogcounter;
-}__attribute__((packed));
+} __attribute__((packed));
 
 struct currentmonitoring_struct
 {
   currentmonitor_raw_modbus modbus;
 
-  //Uses float as these are 4 bytes on ESP32
+  // Uses float as these are 4 bytes on ESP32
   int64_t timestamp;
   bool validReadings;
 
@@ -347,11 +357,7 @@ struct currentmonitoring_struct
   bool RelayTriggerVoltageUnderlimit : 1;
   bool RelayTriggerPowerOverLimit : 1;
   bool RelayState : 1;
-
-
 };
-
-
 
 /*
 struct currentmonitoring_struct

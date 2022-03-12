@@ -42,7 +42,7 @@ void PrepareTFT_Error();
 void PrepareTFT_VoltageFourBank();
 void PrepareTFT_ControlState();
 void PrepareTFT_VoltageOneBank();
-void tftsleep_task(void *param);
+void tftsleep();
 void init_tft_display();
 ScreenTemplateToDisplay WhatScreenToDisplay();
 void SwitchTFTBacklight(bool value);

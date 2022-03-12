@@ -51,7 +51,6 @@ static const char *TAG = "diybms";
 
 #include <esp_http_server.h>
 
-//#include <ESPAsyncWebServer.h>
 #include <AsyncMqttClient.h>
 
 #include <SerialEncoder.h>
@@ -81,6 +80,7 @@ char hostname[16];
 uint8_t frame[256];
 
 extern bool _tft_screen_available;
+extern uint8_t tftsleep_timer;
 
 Rules rules;
 diybms_eeprom_settings mysettings;
@@ -114,18 +114,12 @@ TaskHandle_t rule_task_handle = NULL;
 TaskHandle_t pulse_relay_off_task_handle = NULL;
 TaskHandle_t voltageandstatussnapshot_task_handle = NULL;
 TaskHandle_t updatetftdisplay_task_handle = NULL;
-TaskHandle_t tftsleep_task_handle = NULL;
 TaskHandle_t tftwakeup_task_handle = NULL;
-TaskHandle_t integration_task_handle = NULL;
-
-TaskHandle_t tca6408_isr_task_handle = NULL;
-TaskHandle_t tca6416a_isr_task_handle = NULL;
-TaskHandle_t tca9534_isr_task_handle = NULL;
-
+TaskHandle_t periodic_task_handle = NULL;
+TaskHandle_t interrupt_task_handle = NULL;
 TaskHandle_t rs485_tx_task_handle = NULL;
 TaskHandle_t rs485_rx_task_handle = NULL;
 TaskHandle_t service_rs485_transmit_q_task_handle = NULL;
-
 TaskHandle_t victron_canbus_tx_task_handle = NULL;
 TaskHandle_t victron_canbus_rx_task_handle = NULL;
 
@@ -805,51 +799,52 @@ void ProcessTCA9534Input_States(uint8_t v)
   }
 }
 
-void tca6416a_isr_task(void *param)
+// Handles interrupt requests raised by ESP32 ISR routines
+void interrupt_task(void *param)
 {
+  uint32_t ulInterruptStatus;
+
   for (;;)
   {
-    // Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    ESP_LOGD(TAG, "tca6416a_isr");
+    // ULONG_MAX
+    xTaskNotifyWait(0, 0, &ulInterruptStatus, portMAX_DELAY);
 
-    // Emulate both 9534 and 6408 being installed by mimicking the
-    // registers and processing the status as needed.
-    hal.ReadTCA6416InputRegisters();
+    ESP_LOGD(TAG, "ulInterruptStatus %u", ulInterruptStatus);
 
-    // Read ports
-    // The 9534 deals with internal LED outputs and spare IO on J10
-    ProcessTCA9534Input_States(hal.LastTCA9534APWRValue());
-    // Read ports A/B/C/D inputs (on TCA6408)
-    ProcessTCA6408Input_States(hal.LastTCA6408Value());
-  }
-}
+    if ((ulInterruptStatus & ISRTYPE::TCA6416A) != 0x00)
+    {
+      ulTaskNotifyValueClear(interrupt_task_handle, ISRTYPE::TCA6416A);
 
-void tca6408_isr_task(void *param)
-{
-  for (;;)
-  {
-    // Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+      ESP_LOGD(TAG, "tca6416a_isr");
 
-    ESP_LOGD(TAG, "tca6408_isr");
-    // Read ports A/B/C/D inputs (on TCA6408)
-    ProcessTCA6408Input_States(hal.ReadTCA6408InputRegisters());
-  }
-}
+      // Emulate both 9534 and 6408 being installed by mimicking the
+      // registers and processing the status as needed.
+      hal.ReadTCA6416InputRegisters();
 
-void tca9534_isr_task(void *param)
-{
-  for (;;)
-  {
-    // Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+      // Read ports
+      // The 9534 deals with internal LED outputs and spare IO on J10
+      ProcessTCA9534Input_States(hal.LastTCA9534APWRValue());
+      // Read ports A/B/C/D inputs (on TCA6408)
+      ProcessTCA6408Input_States(hal.LastTCA6408Value());
+    }
 
-    ESP_LOGD(TAG, "tca9534_isr");
+    if ((ulInterruptStatus & ISRTYPE::TCA6408A) != 0x00)
+    {
+      ulTaskNotifyValueClear(interrupt_task_handle, ISRTYPE::TCA6408A);
+      ESP_LOGD(TAG, "tca6408_isr");
+      // Read ports A/B/C/D inputs (on TCA6408)
+      ProcessTCA6408Input_States(hal.ReadTCA6408InputRegisters());
+    }
 
-    // Read ports
-    // The 9534 deals with internal LED outputs and spare IO on J10
-    ProcessTCA9534Input_States(hal.ReadTCA9534InputRegisters());
+    if ((ulInterruptStatus & ISRTYPE::TCA9534) != 0x00)
+    {
+      ulTaskNotifyValueClear(interrupt_task_handle, ISRTYPE::TCA9534);
+      ESP_LOGD(TAG, "tca9534_isr");
+
+      // Read ports
+      // The 9534 deals with internal LED outputs and spare IO on J10
+      ProcessTCA9534Input_States(hal.ReadTCA9534InputRegisters());
+    }
   }
 }
 
@@ -881,27 +876,27 @@ void IRAM_ATTR WifiPasswordClear()
 // Found on V4.4 controller PCB's onwards
 void IRAM_ATTR TCA6416AInterrupt()
 {
-  if (tca6416a_isr_task_handle != NULL)
+  if (interrupt_task_handle != NULL)
   {
-    xTaskNotifyFromISR(tca6416a_isr_task_handle, 0x00, eNotifyAction::eNoAction, 0);
+    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA6416A, eNotifyAction::eSetBits, 0);
   }
 }
 
 // Triggered when TCA6408 INT pin goes LOW
 void IRAM_ATTR TCA6408Interrupt()
 {
-  if (tca6408_isr_task_handle != NULL)
+  if (interrupt_task_handle != NULL)
   {
-    xTaskNotifyFromISR(tca6408_isr_task_handle, 0x00, eNotifyAction::eNoAction, 0);
+    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA6408A, eNotifyAction::eSetBits, 0);
   }
 }
 
 // Triggered when TCA9534A INT pin goes LOW
 void IRAM_ATTR TCA9534AInterrupt()
 {
-  if (tca9534_isr_task_handle != NULL)
+  if (interrupt_task_handle != NULL)
   {
-    xTaskNotifyFromISR(tca9534_isr_task_handle, 0x00, eNotifyAction::eNoAction, 0);
+    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA9534, eNotifyAction::eSetBits, 0);
   }
 }
 
@@ -2714,7 +2709,7 @@ void LoadConfiguration()
   }
 }
 
-void integration_task(void *param)
+void periodic_task(void *param)
 {
   uint8_t countdown_influx = mysettings.influxdb_loggingFreqSeconds;
   uint8_t countdown_mqtt1 = 5;
@@ -2728,6 +2723,14 @@ void integration_task(void *param)
     countdown_influx--;
     countdown_mqtt1--;
     countdown_mqtt2--;
+
+    if (tftsleep_timer > 0)
+    {
+      // If it gets to zero, leave it there
+      tftsleep_timer--;
+    }
+
+    ESP_LOGI(TAG, "mqtt1=%u, mqtt2=%u, influx=%u, tftsleep=%u",countdown_mqtt1,countdown_mqtt2,countdown_influx,tftsleep_timer);
 
     // 5 seconds
     if (countdown_mqtt1 == 0)
@@ -2752,6 +2755,13 @@ void integration_task(void *param)
         ESP_LOGI(TAG, "Influx task");
         influx_task_action();
       }
+    }
+
+    if (tftsleep_timer == 0 &&
+        (WhatScreenToDisplay() != ScreenTemplateToDisplay::Error && WhatScreenToDisplay() != ScreenTemplateToDisplay::AVRProgrammer))
+    {
+      // Screen off
+      tftsleep();
     }
   }
 }
@@ -3233,21 +3243,13 @@ void setup()
 
   xTaskCreate(ledoff_task, "ledoff", 1450, nullptr, 1, &ledoff_task_handle);
   xTaskCreate(tftwakeup_task, "tftwake", 1850, nullptr, 1, &tftwakeup_task_handle);
-  xTaskCreate(tftsleep_task, "tftslp", 850, nullptr, 1, &tftsleep_task_handle);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 1, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
 
-  if (hal.TCA6416_Fitted)
-  {
-    xTaskCreate(tca6416a_isr_task, "tca6416", 2000, nullptr, configMAX_PRIORITIES - 3, &tca6416a_isr_task_handle);
-  }
-  else
-  {
-    xTaskCreate(tca6408_isr_task, "tca6408", 2000, nullptr, configMAX_PRIORITIES - 3, &tca6408_isr_task_handle);
-    xTaskCreate(tca9534_isr_task, "tca9534", 2000, nullptr, configMAX_PRIORITIES - 3, &tca9534_isr_task_handle);
-  }
+  // High priority task
+  xTaskCreate(interrupt_task, "int", 2000, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
 
   xTaskCreate(wifiresetdisable_task, "wifidbl", 800, nullptr, 1, &wifiresetdisable_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 3550, nullptr, 1, &sdcardlog_task_handle);
@@ -3338,10 +3340,10 @@ void setup()
 
     connectToMqtt();
 
-    //Only run these after we have wifi...
+    // Only run these after we have wifi...
     xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
     xTaskCreate(rules_task, "rules", 1800, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-    xTaskCreate(integration_task, "integr", 5500, nullptr, 1, &integration_task_handle);
+    xTaskCreate(periodic_task, "period", 5500, nullptr, 1, &periodic_task_handle);
 
     // We have just started...
     SetControllerState(ControllerState::Stabilizing);
@@ -3414,11 +3416,11 @@ void loop()
              heap.free_blocks,
              heap.total_blocks);
 
-    //uxTaskGetStackHighWaterMark returns bytes not words on ESP32
-    //ESP_LOGD(TAG, "integration_task_handle high water=%i", uxTaskGetStackHighWaterMark(integration_task_handle));
-    //ESP_LOGD(TAG, "rule_task_handle high water=%i", uxTaskGetStackHighWaterMark(rule_task_handle));
-    //ESP_LOGD(TAG, "enqueue_task_handle high water=%i", uxTaskGetStackHighWaterMark(enqueue_task_handle));
-    //ESP_LOGD(TAG, "pulse_relay_off_task high water=%i", uxTaskGetStackHighWaterMark(pulse_relay_off_task_handle));
+    // uxTaskGetStackHighWaterMark returns bytes not words on ESP32
+    // ESP_LOGD(TAG, "periodic_task_handle high water=%i", uxTaskGetStackHighWaterMark(periodic_task_handle));
+    // ESP_LOGD(TAG, "rule_task_handle high water=%i", uxTaskGetStackHighWaterMark(rule_task_handle));
+    // ESP_LOGD(TAG, "enqueue_task_handle high water=%i", uxTaskGetStackHighWaterMark(enqueue_task_handle));
+    // ESP_LOGD(TAG, "pulse_relay_off_task high water=%i", uxTaskGetStackHighWaterMark(pulse_relay_off_task_handle));
 
     // Report again in 15 seconds
     heaptimer = currentMillis + 15000;

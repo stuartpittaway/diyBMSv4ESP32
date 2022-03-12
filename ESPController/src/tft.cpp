@@ -39,6 +39,8 @@ TFT_eSPI tft = TFT_eSPI();
 bool _tft_screen_available = false;
 volatile bool _screen_awake = false;
 
+uint8_t tftsleep_timer = 0;
+
 ScreenTemplateToDisplay _lastScreenToDisplay = ScreenTemplateToDisplay::NotInstalled;
 uint8_t _ScreenToDisplayCounter = 0;
 uint8_t _ScreenPageCounter = 0;
@@ -199,22 +201,22 @@ void PrepareTFT_ControlState()
         spr.deleteSprite();
 
         y = 100;
-        tft.setTextColor(TFT_WHITE, SplashLogoPalette[3]);      
+        tft.setTextColor(TFT_WHITE, SplashLogoPalette[3]);
         tft.setTextDatum(MR_DATUM);
         tft.drawString("Version: ", x, y, 2);
 
         tft.setTextDatum(ML_DATUM);
         tft.setTextColor(TFT_YELLOW, SplashLogoPalette[3]);
         tft.drawString(GIT_VERSION_SHORT, x, y, 2);
-        
-        y += 2*fontHeight_2;
+
+        y += 2 * fontHeight_2;
         tft.setTextColor(TFT_WHITE, SplashLogoPalette[3]);
         tft.setTextDatum(MR_DATUM);
         tft.drawString("Build Date: ", x, y, 2);
-        tft.setTextDatum(ML_DATUM);       
+        tft.setTextDatum(ML_DATUM);
         tft.setTextColor(TFT_YELLOW, SplashLogoPalette[3]);
         tft.drawString(COMPILE_DATE_TIME_SHORT, x, y, 2);
-        y += fontHeight_2;       
+        y += fontHeight_2;
 
         break;
     }
@@ -325,7 +327,15 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
 
     return reply;
 }
-
+void tftsleep()
+{
+    // Switch screen off
+    hal.TFTScreenBacklight(false);
+    _screen_awake = false;
+    _lastScreenToDisplay = ScreenTemplateToDisplay::None;
+    _ScreenToDisplayCounter = 0;
+    ESP_LOGI(TAG, "TFT switched off");
+}
 void init_tft_display()
 {
     if (!_tft_screen_available)
@@ -343,32 +353,6 @@ void init_tft_display()
     DrawTFT_ControlState();
 
     hal.TFTScreenBacklight(true);
-}
-
-// Put the TFT to sleep after a set period of time
-void tftsleep_task(void *param)
-{
-    for (;;)
-    {
-        // Wait until this task is triggered
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-        // Now we go back to sleep to provide a delay
-        // Delay 2 minutes, or forever if an error is active
-        do
-        {
-            vTaskDelay(30000 / portTICK_PERIOD_MS);
-            vTaskDelay(30000 / portTICK_PERIOD_MS);
-            vTaskDelay(30000 / portTICK_PERIOD_MS);
-            vTaskDelay(30000 / portTICK_PERIOD_MS);
-        } while (WhatScreenToDisplay() == ScreenTemplateToDisplay::Error || WhatScreenToDisplay() == ScreenTemplateToDisplay::AVRProgrammer);
-
-        // Switch screen back off
-        hal.TFTScreenBacklight(false);
-        _screen_awake = false;
-        _lastScreenToDisplay = ScreenTemplateToDisplay::None;
-        _ScreenToDisplayCounter = 0;
-    }
 }
 
 // This task switches on/off the TFT screen, and triggers a redraw of its contents
@@ -389,15 +373,16 @@ void tftwakeup_task(void *param)
                 if (hal.GetDisplayMutex())
                 {
                     // Fill screen with a grey colour, to let user know
-                    // we have responded to touch (may may be a few seconds until the display task runs)
+                    // we have responded to touch (may may be a short delay until the display task runs)
                     tft.fillScreen(TFT_LIGHTGREY);
                     hal.ReleaseDisplayMutex();
                 }
 
+                // Keep awake for 120 seconds (2 minutes)
+                tftsleep_timer = 120;
+
                 _screen_awake = true;
                 hal.TFTScreenBacklight(true);
-
-                xTaskNotify(tftsleep_task_handle, 0, eNotifyAction::eNoAction);
             }
 
             // Trigger a refresh of the screen
@@ -414,7 +399,7 @@ void DrawTFT_ControlState()
     tft.setTextFont(4);
     uint16_t x = tft.width() / 2;
     uint16_t y = tft.height() - 72;
-    //Centre/middle text
+    // Centre/middle text
     tft.setTextDatum(TC_DATUM);
 
     switch (_controller_state)
