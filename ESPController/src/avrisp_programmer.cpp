@@ -12,6 +12,9 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 * No additional restrictions — You may not apply legal terms or technological measures that legally restrict others from doing anything the license permits.
 */
 
+#define USE_ESP_IDF_LOG 1
+static constexpr const char * const TAG = "diybms-avrisp";
+
 #include "avrisp_programmer.h"
 #include <esp_task_wdt.h>
 

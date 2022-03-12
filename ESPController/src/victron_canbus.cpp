@@ -1,4 +1,3 @@
-#include "victron_canbus.h"
 /*
  ____  ____  _  _  ____  __  __  ___
 (  _ \(_  _)( \/ )(  _ \(  \/  )/ __)
@@ -12,6 +11,11 @@ This code communicates with VICTRON CERBO GX style devices using CANBUS @ 500kbp
 The code supports the VICTRON CAN BUS BMS style messages.
 
 */
+
+#define USE_ESP_IDF_LOG 1
+static constexpr const char * const TAG = "diybms-victron";
+
+#include "victron_canbus.h"
 
 void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 {

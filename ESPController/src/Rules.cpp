@@ -1,3 +1,6 @@
+#define USE_ESP_IDF_LOG 1
+static constexpr const char * const TAG = "diybms-rules";
+
 #include "Rules.h"
 
 void Rules::ClearValues()

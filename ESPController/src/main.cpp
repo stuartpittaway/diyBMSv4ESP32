@@ -20,7 +20,8 @@
 
 #undef CONFIG_DISABLE_HAL_LOCKS
 
-static const char *TAG = "diybms";
+#define USE_ESP_IDF_LOG 1
+static constexpr const char * const TAG = "diybms";
 
 #include "esp_log.h"
 #include <Arduino.h>
@@ -51,7 +52,10 @@ static const char *TAG = "diybms";
 
 #include <esp_http_server.h>
 
+// Disable IDF log handling as AsyncMqttClient fails to compile. 
+#undef USE_ESP_IDF_LOG
 #include <AsyncMqttClient.h>
+#define USE_ESP_IDF_LOG 1
 
 #include <SerialEncoder.h>
 #include <cppQueue.h>
@@ -2139,23 +2143,13 @@ void victron_canbus_rx(void *param)
       if (res == ESP_OK)
       {
         canbus_messages_received++;
-        // ESP_LOGI(TAG, "CANBUS received message");
-
-        /*
-      SERIAL_DEBUG.println("Message received\n");
-      SERIAL_DEBUG.print("\nID is 0x");
-      SERIAL_DEBUG.print(message.identifier, HEX);
-      SERIAL_DEBUG.print("=");
-      if (!(message.flags & CAN_MSG_FLAG_RTR))
-      {
-        for (int i = 0; i < message.data_length_code; i++)
+        ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
+                 message.identifier, message.data_length_code, message.flags);
+        if (!(message.flags & TWAI_MSG_FLAG_RTR))
         {
-          dumpByte(message.data[i]);
-          SERIAL_DEBUG.print(" ");
+          ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code,
+            ESP_LOG_DEBUG);
         }
-      }
-      SERIAL_DEBUG.println();
-      */
       }
       else if (res == ESP_ERR_TIMEOUT)
       {
@@ -3036,15 +3030,6 @@ void appendFile(fs::FS &fs, const char *path, const char *message)
   file.close();
 }
 
-void dumpByte(uint8_t data)
-{
-  if (data <= 0x0F)
-  {
-    SERIAL_DEBUG.print('0');
-  }
-  SERIAL_DEBUG.print(data, HEX);
-}
-
 // CHECK HERE FOR THE PRESENCE OF A /wifi.json CONFIG FILE ON THE SD CARD TO AUTOMATICALLY CONFIGURE WIFI
 bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
 {
@@ -3127,6 +3112,8 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
 
 void setup()
 {
+  esp_chip_info_t chip_info;
+
   WiFi.mode(WIFI_OFF);
 
   esp_bt_controller_disable();
@@ -3134,20 +3121,19 @@ void setup()
   esp_log_level_set("wifi", ESP_LOG_WARN);  // enable WARN logs from WiFi stack
   esp_log_level_set("dhcpc", ESP_LOG_WARN); // enable WARN logs from DHCP client
 
-  const char *diybms_logo = "\r\n\r\n\r\n                _          __ \r\n    _|  o      |_)  |\\/|  (_  \r\n   (_|  |  \\/  |_)  |  |  __) \r\n           /                  ";
-
-  // ESP32 we use the USB serial interface for console/debug messages
-  SERIAL_DEBUG.begin(115200, SERIAL_8N1);
-  SERIAL_DEBUG.setDebugOutput(true);
-
-  SERIAL_DEBUG.println(diybms_logo);
-
-  ESP_LOGI(TAG, "CONTROLLER - ver:%s compiled %s", GIT_VERSION, COMPILE_DATE_TIME);
-
-  esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
 
-  ESP_LOGI(TAG, "ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u", chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
+  ESP_LOGI(TAG, R"RAW(
+
+
+               _          __ 
+  _|  o       |_)  |\/|  (_  
+ (_|  |  \/   |_)  |  |  __)
+         /
+
+CONTROLLER - ver:%s compiled %s
+ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW", GIT_VERSION, COMPILE_DATE_TIME,
+chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
   hal.ConfigurePins(WifiPasswordClear);
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
@@ -3207,7 +3193,7 @@ void setup()
   resetAllRules();
 
   LoadConfiguration();
-  ESP_LOGI("Config loaded");
+  ESP_LOGI(TAG, "Config loaded");
 
   // Check its not zero
   if (mysettings.influxdb_loggingFreqSeconds < 5)
@@ -3227,7 +3213,7 @@ void setup()
 
   if (rs485_transmit_q_handle == NULL)
   {
-    ESP_LOGE("Failed to create queue");
+    ESP_LOGE(TAG, "Failed to create queue");
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
@@ -3271,7 +3257,8 @@ void setup()
 
   // Allow user to press SPACE BAR key on serial terminal
   // to enter text based WIFI setup
-  SERIAL_DEBUG.print(F("Press SPACE BAR to enter terminal based configuration...."));
+  ESP_LOGI(TAG, "Press SPACE BAR to enter terminal based configuration....");
+  // TODO: move to using stdio reading rather than SERIAL_DEBUG
   for (size_t i = 0; i < (3000 / 250); i++)
   {
     SERIAL_DEBUG.print('.');
@@ -3286,8 +3273,7 @@ void setup()
     }
     delay(250);
   }
-  SERIAL_DEBUG.println(F("skipped"));
-  SERIAL_DEBUG.flush();
+  ESP_LOGI(TAG, "skipped");
 
   // Retrieve the EEPROM WIFI settings
   bool EepromConfigValid = DIYBMSSoftAP::LoadConfigFromEEPROM();
