@@ -3215,7 +3215,7 @@ void setup()
     mysettings.influxdb_loggingFreqSeconds = 15;
   }
 
-  // Receive is IO2 which means the RX1 plug must be disconnected for programming to work!
+  // Serial pins IO2/IO32
   SERIAL_DATA.begin(mysettings.baudRate, SERIAL_8N1, 2, 32); // Serial for comms to modules
 
   myPacketSerial.begin(&SERIAL_DATA, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
@@ -3266,7 +3266,7 @@ void setup()
   xTaskCreate(transmit_task, "tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 2000, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2000, nullptr, 1, &lazy_task_handle);
-  xTaskCreate(pulse_relay_off_task, "pulse", 2000, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
+  xTaskCreate(pulse_relay_off_task, "pulse", 1000, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
   // Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
@@ -3338,9 +3338,10 @@ void setup()
 
     connectToMqtt();
 
-    //xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-    //xTaskCreate(rules_task, "rules", 1800, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-    //xTaskCreate(integration_task, "integr", 5500, nullptr, 1, &integration_task_handle);
+    //Only run these after we have wifi...
+    xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
+    xTaskCreate(rules_task, "rules", 1800, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+    xTaskCreate(integration_task, "integr", 5500, nullptr, 1, &integration_task_handle);
 
     // We have just started...
     SetControllerState(ControllerState::Stabilizing);
@@ -3414,9 +3415,10 @@ void loop()
              heap.total_blocks);
 
     //uxTaskGetStackHighWaterMark returns bytes not words on ESP32
-    ESP_LOGD(TAG, "integration_task_handle high water=%i", uxTaskGetStackHighWaterMark(integration_task_handle));
-    ESP_LOGD(TAG, "rule_task_handle high water=%i", uxTaskGetStackHighWaterMark(rule_task_handle));
-    ESP_LOGD(TAG, "enqueue_task_handle high water=%i", uxTaskGetStackHighWaterMark(enqueue_task_handle));
+    //ESP_LOGD(TAG, "integration_task_handle high water=%i", uxTaskGetStackHighWaterMark(integration_task_handle));
+    //ESP_LOGD(TAG, "rule_task_handle high water=%i", uxTaskGetStackHighWaterMark(rule_task_handle));
+    //ESP_LOGD(TAG, "enqueue_task_handle high water=%i", uxTaskGetStackHighWaterMark(enqueue_task_handle));
+    //ESP_LOGD(TAG, "pulse_relay_off_task high water=%i", uxTaskGetStackHighWaterMark(pulse_relay_off_task_handle));
 
     // Report again in 15 seconds
     heaptimer = currentMillis + 15000;
