@@ -37,6 +37,7 @@ static constexpr const char * const TAG = "diybms";
 #include <ESPmDNS.h>
 #include <SPI.h>
 #include "time.h"
+#include <esp_ipc.h>
 #include <esp_wifi.h>
 #include <esp_bt.h>
 #include <Preferences.h>
@@ -3110,6 +3111,11 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
   return ret;
 }
 
+static void tft_interrupt_attach(void *param)
+{
+    attachInterrupt(TOUCH_IRQ, TFTScreenTouchInterrupt, FALLING);
+}
+
 void setup()
 {
   esp_chip_info_t chip_info;
@@ -3151,7 +3157,8 @@ chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
     ESP_LOGI(TAG, "TFT screen is INSTALLED");
     // Only attach, if device is fitted otherwise false triggers may occur
     // Touch screen IRQ (GPIO_NUM_36) is active LOW (XPT2046 chip)
-    attachInterrupt(TOUCH_IRQ, TFTScreenTouchInterrupt, FALLING);
+    ESP_ERROR_CHECK(
+        esp_ipc_call_blocking(PRO_CPU_NUM, tft_interrupt_attach, nullptr));
   }
   else
   {
