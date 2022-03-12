@@ -154,8 +154,8 @@ uint16_t HAL_ESP32::ReadTCA6416InputRegisters()
 // 8 bit reg, returns masked state and updates pin state variable
 uint8_t HAL_ESP32::ReadTCA6408InputRegisters()
 {
-    //We should never get here if TCA6416_Fitted is true
-    ESP_ERROR_CHECK(TCA6416_Fitted ? ESP_FAIL:ESP_OK);
+    // We should never get here if TCA6416_Fitted is true
+    ESP_ERROR_CHECK(TCA6416_Fitted ? ESP_FAIL : ESP_OK);
     TCA6408_Input = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT) & TCA6408_INPUTMASK;
     return TCA6408_Input;
 }
@@ -163,8 +163,8 @@ uint8_t HAL_ESP32::ReadTCA6408InputRegisters()
 // 8 bit reg, returns masked state and updates pin state variable
 uint8_t HAL_ESP32::ReadTCA9534InputRegisters()
 {
-    //We should never get here if TCA6416_Fitted is true
-    ESP_ERROR_CHECK(TCA6416_Fitted ? ESP_FAIL:ESP_OK);
+    // We should never get here if TCA6416_Fitted is true
+    ESP_ERROR_CHECK(TCA6416_Fitted ? ESP_FAIL : ESP_OK);
 
     // Update pin state copy
     TCA9534APWR_Input = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT) & TCA9534APWR_INPUTMASK;
@@ -173,9 +173,13 @@ uint8_t HAL_ESP32::ReadTCA9534InputRegisters()
 
 void HAL_ESP32::WriteTCA6416OutputState()
 {
-    //Emulate the 9534 + 6408 and set the state on the 16 bit output
-    TCA6416_Output_Pins = ((uint16_t)TCA9534APWR_Output_Pins<<8) | TCA6408_Output_Pins;
+    // Emulate the 9534 + 6408 and set the state on the 16 bit output
+    TCA6416_Output_Pins = ((uint16_t)TCA9534APWR_Output_Pins << 8) | TCA6408_Output_Pins;
     ESP_ERROR_CHECK_WITHOUT_ABORT(write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT, TCA6416_Output_Pins));
+
+    // Update the "slave" pins to emulate those devices being installed
+    TCA6408_Output_Pins = TCA6416_Output_Pins & 0x00FF;
+    TCA9534APWR_Output_Pins = (TCA6416_Output_Pins >> 8) & 0x00FF;
 }
 
 void HAL_ESP32::WriteTCA9534APWROutputState()
@@ -363,18 +367,23 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
 
     // Test to see if we have a TCA6416 on the i2c bus, if we have, its a newer controller board V4.4+
     // on power up the chip has all ports are inputs
-    esp_err_t ret = write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_CONFIGURATION, TCA6416_INPUTMASK);
+
+    esp_err_t ret = write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT, 0);
     if (ret == ESP_OK)
     {
         ESP_LOGI(TAG, "Found TCA6416A");
         TCA6416_Fitted = true;
+
+        // Set configuration
+        ESP_ERROR_CHECK(write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_CONFIGURATION, TCA6416_INPUTMASK));
+
         // Update our copy of pin state registers
         ReadTCA6416InputRegisters();
 
-        TCA6416_Output_Pins = read16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT);
-        // Update the "slave" pins to emulate those devices being installed
-        TCA6408_Output_Pins = TCA6416_Output_Pins & 0x00FF;
-        TCA9534APWR_Output_Pins = (TCA6416_Output_Pins >> 8) & 0x00FF;
+        // All off
+        TCA6416_Output_Pins = 0;
+        WriteTCA6416OutputState();
+
 
         /*
     TCA6416A pins P0-7 match the old TCA6408 pin out
