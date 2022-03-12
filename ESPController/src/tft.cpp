@@ -58,12 +58,11 @@ void IRAM_ATTR TFTScreenTouchInterrupt()
 
     if (tftwakeup_task_handle != NULL)
     {
-        ESP_LOGD(TAG, "Touch");
-
+        //ESP_LOGD(TAG, "Touch");
         BaseType_t xHigherPriorityTaskWoken;
         xHigherPriorityTaskWoken = pdFALSE;
-
         xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
     }
     else
     {

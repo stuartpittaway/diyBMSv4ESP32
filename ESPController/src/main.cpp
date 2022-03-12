@@ -102,7 +102,7 @@ currentmonitoring_struct currentMonitor;
 
 TaskHandle_t i2c_task_handle = NULL;
 TaskHandle_t ledoff_task_handle = NULL;
-TaskHandle_t wifiresetdisable_task_handle = NULL;
+
 TaskHandle_t sdcardlog_task_handle = NULL;
 TaskHandle_t sdcardlog_outputs_task_handle = NULL;
 TaskHandle_t avrprog_task_handle = NULL;
@@ -724,28 +724,6 @@ void sdcardlog_outputs_task(void *param)
   // vTaskDelete( NULL );
 }
 
-// Disable the BOOT button from acting as a WIFI RESET
-// button which clears the EEPROM settings for WIFI connection
-void wifiresetdisable_task(void *param)
-{
-  for (;;)
-  {
-    // Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-    // Wait for 20 seconds before disabling button/pin
-    for (size_t i = 0; i < 20; i++)
-    {
-      // Wait 1 second
-      vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-
-    hal.SwapGPIO0ToOutput();
-  }
-
-  // vTaskDelete( NULL );
-}
-
 void ledoff_task(void *param)
 {
   for (;;)
@@ -878,7 +856,7 @@ void IRAM_ATTR TCA6416AInterrupt()
 {
   if (interrupt_task_handle != NULL)
   {
-    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA6416A, eNotifyAction::eSetBits, 0);
+    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA6416A, eNotifyAction::eSetBits, nullptr);
   }
 }
 
@@ -887,7 +865,7 @@ void IRAM_ATTR TCA6408Interrupt()
 {
   if (interrupt_task_handle != NULL)
   {
-    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA6408A, eNotifyAction::eSetBits, 0);
+    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA6408A, eNotifyAction::eSetBits, nullptr);
   }
 }
 
@@ -896,7 +874,7 @@ void IRAM_ATTR TCA9534AInterrupt()
 {
   if (interrupt_task_handle != NULL)
   {
-    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA9534, eNotifyAction::eSetBits, 0);
+    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA9534, eNotifyAction::eSetBits, nullptr);
   }
 }
 
@@ -1002,8 +980,6 @@ void SetControllerState(ControllerState newState)
       break;
     case ControllerState::Running:
       LED(RGBLED::Green);
-      // Fire task to switch off BOOT button after 30 seconds
-      xTaskNotify(wifiresetdisable_task_handle, 0x00, eNotifyAction::eNoAction);
       break;
     case ControllerState::Unknown:
       // Do nothing
@@ -2714,6 +2690,7 @@ void periodic_task(void *param)
   uint8_t countdown_influx = mysettings.influxdb_loggingFreqSeconds;
   uint8_t countdown_mqtt1 = 5;
   uint8_t countdown_mqtt2 = 25;
+  uint8_t countdown_wifiresetbutton = 45;
 
   for (;;)
   {
@@ -2730,7 +2707,13 @@ void periodic_task(void *param)
       tftsleep_timer--;
     }
 
-    ESP_LOGI(TAG, "mqtt1=%u, mqtt2=%u, influx=%u, tftsleep=%u",countdown_mqtt1,countdown_mqtt2,countdown_influx,tftsleep_timer);
+    if (countdown_wifiresetbutton > 0)
+    {
+      // If it gets to zero, leave it there
+      countdown_wifiresetbutton--;
+    }
+
+    // ESP_LOGI(TAG, "mqtt1=%u, mqtt2=%u, influx=%u, tftsleep=%u, countdown_wifiresetbutton=%u",countdown_mqtt1,countdown_mqtt2,countdown_influx,tftsleep_timer,countdown_wifiresetbutton);
 
     // 5 seconds
     if (countdown_mqtt1 == 0)
@@ -2762,6 +2745,12 @@ void periodic_task(void *param)
     {
       // Screen off
       tftsleep();
+    }
+
+    if (countdown_wifiresetbutton == 0)
+    {
+      // Disable the BOOT button from acting as a WIFI RESET button which clears the EEPROM settings for WIFI connection
+      hal.SwapGPIO0ToOutput();
     }
   }
 }
@@ -3246,12 +3235,11 @@ void setup()
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 1, &updatetftdisplay_task_handle);
-  xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 5, &avrprog_task_handle);
+  xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 3, &avrprog_task_handle);
 
   // High priority task
   xTaskCreate(interrupt_task, "int", 2000, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
 
-  xTaskCreate(wifiresetdisable_task, "wifidbl", 800, nullptr, 1, &wifiresetdisable_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 3550, nullptr, 1, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 3980, nullptr, 1, &sdcardlog_outputs_task_handle);
 
