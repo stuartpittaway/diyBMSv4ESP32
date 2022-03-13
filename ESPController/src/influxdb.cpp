@@ -1,3 +1,19 @@
+/*
+
+ ____  ____  _  _  ____  __  __  ___    _  _  __
+(  _ \(_  _)( \/ )(  _ \(  \/  )/ __)  ( \/ )/. |
+ )(_) )_)(_  \  /  ) _ < )    ( \__ \   \  /(_  _)
+(____/(____) (__) (____/(_/\/\_)(___/    \/   (_)
+
+  (c) 2017 to 2022 Stuart Pittaway
+
+  This is the code for the ESP32 controller - it talks to the V4.X cell modules over isolated serial bus
+
+  This code runs on ESP32 DEVKIT-C and compiles with VS CODE and PLATFORM IO environment.
+
+  Unless you are making code changes, please use the pre-compiled version from GITHUB instead.
+*/
+
 #define USE_ESP_IDF_LOG 1
 static constexpr const char * const TAG = "diybms-influxdb";
 
