@@ -2,207 +2,194 @@
 static constexpr const char * const TAG = "diybms-influxdb";
 
 #include "influxdb.h"
+#include <esp_http_client.h>
+#include <string>
 
-static AsyncClient *influx_Client = NULL;
-static int influx_port;
-static String influx_host;
-static const char invalidChars[] = "$&+,/:;=?@ <>#%{}|\\^~[]`";
-
-//Send a few influx packets and keep track so we send the next batch on following calls
-static uint8_t influx_StartModule = 0;
-
-char hex_digit(char c)
+/// Helper which encodes an integer type to a hex string.
+///
+/// @param w integer to convert
+/// @param hex_len size of hex encoded string (automatically sized).
+///
+/// @return hex encoded string.
+template <typename I> std::string to_hex(I w, size_t hex_len = sizeof(I) << 1)
 {
-    return "0123456789ABCDEF"[c & 0x0F];
+    static const char* digits = "0123456789ABCDEF";
+    std::string rc(hex_len,'0');
+    for (size_t i = 0, j = (hex_len - 1) * 4 ; i < hex_len; ++i , j -= 4)
+    {
+        rc[i] = digits[(w >> j) & 0x0F];
+    }
+    return rc;
 }
 
-String urlEncode(const char *src)
+/// Helper which URL encodes a string as described in RFC-1738 sec. 2.2.
+///
+/// @param source is the string to be encoded.
+///
+/// @return the encoded string.
+///
+/// RFC: https://www.ietf.org/rfc/rfc1738.txt
+static inline std::string url_encode(const std::string source)
 {
-    int n = 0;
-    char c, *s = (char *)src;
-    while ((c = *s++))
+  const std::string reserved_characters = "?#/:;+@&=";
+  const std::string illegal_characters = "%<>{}|\\\"^`!*'()$,[]";
+  std::string encoded = "";
+
+  // reserve the size of the source string plus 25%, this space will be
+  // reclaimed if the final string length is shorter.
+  encoded.reserve(source.length() + (source.length() / 4));
+
+  // process the source string character by character checking for any that
+  // are outside the ASCII printable character range, in the reserve character
+  // list or illegal character list. For accepted characters it will be added
+  // to the encoded string directly, any that require encoding will be hex
+  // encoded before being added to the encoded string.
+  for (auto ch : source)
+  {
+    if (ch <= 0x20 || ch >= 0x7F ||
+        reserved_characters.find(ch) != std::string::npos ||
+        illegal_characters.find(ch) != std::string::npos)
     {
-        if (strchr(invalidChars, c))
-        {
-            n++;
-        }
+      // if it is outside the printable ASCII character *OR* is in either the
+      // reserved or illegal characters we need to encode it as %HH.
+      // NOTE: space will be encoded as "%20" and not as "+", either is an
+      // acceptable option per the RFC.
+      encoded.append("%").append(to_hex(ch));
     }
-    String ret;
-    ret.reserve(strlen(src) + 2 * n + 1);
-    s = (char *)src;
-    while ((c = *s++))
+    else
     {
-        if (strchr(invalidChars, c))
-        {
-            ret += '%';
-            ret += hex_digit(c >> 4);
-            ret += hex_digit(c);
-        }
-        else
-            ret += c;
+      encoded += ch;
     }
-    return ret;
+  }
+  // shrink the buffer to the actual length
+  encoded.shrink_to_fit();
+  return encoded;
 }
 
-void influxdb_onData(void *arg, AsyncClient *client, void *data, size_t len)
+/// HTTP Client event handler
+///
+/// @param evt HTTP client event structure.
+///
+/// @return Always returns ESP_OK.
+static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
-    ESP_LOGD(TAG, "Influx data received");
-
-    //TODO: We should be checking for a HTTP return code of 204 here
-
-    //Serial.printf("\n data received from %s \n", client->remoteIP().toString().c_str());
-    //Serial.write((uint8_t*)data, len);
-    //ESP_LOGI(TAG, "Influx reply %s", (uint8_t *)data);
-};
-
-void influxdb_onError(void *arg, AsyncClient *client, err_t error)
-{
-    ESP_LOGE(TAG, "Influx connect error");
-    influx_Client = NULL;
-    delete client;
-};
-
-void influxdb_onDisconnect(void *arg, AsyncClient *client)
-{
-    ESP_LOGI(TAG, "Influx disconnected");
-    influx_Client = NULL;
-    delete client;
-};
-
-//Called when the TCP stack connects to INFLUXDB server
-void influxdb_onConnect(void *arg, AsyncClient *client)
-{
-    ESP_LOGD(TAG, "Influx connected");
-
-    influx_Client->onError(NULL, NULL);
-    influx_Client->onData(&influxdb_onData, influx_Client);
-    influx_Client->onDisconnect(&influxdb_onDisconnect, influx_Client);
-
-    if (influx_StartModule > (TotalNumberOfCells() - 1))
+    switch(evt->event_id)
     {
-        influx_StartModule = 0;
+        case HTTP_EVENT_ERROR:
+            ESP_LOGE(TAG, "HTTP Client Error encountered");
+            break;
+        case HTTP_EVENT_ON_CONNECTED:
+            ESP_LOGI(TAG, "HTTP Client Connected!");
+            break;
+        case HTTP_EVENT_HEADERS_SENT:
+            ESP_LOGV(TAG, "HTTP Client sent all request headers");
+            break;
+        case HTTP_EVENT_ON_HEADER:
+            ESP_LOGV(TAG, "Header: key=%s, value=%s", evt->header_key, evt->header_value);
+            break;
+        case HTTP_EVENT_ON_DATA:
+            ESP_LOGV(TAG, "HTTP Client data recevied: len=%d", evt->data_len);
+            break;
+        case HTTP_EVENT_ON_FINISH:
+            ESP_LOGI(TAG, "HTTP Client finished");
+            break;
+         case HTTP_EVENT_DISCONNECTED:
+            ESP_LOGI(TAG, "HTTP Client Disconnected!");
+            break;
     }
-
-    String poststring;
-
-    uint8_t counter = 0;
-    uint8_t i = influx_StartModule;
-
-    while (i < TotalNumberOfCells() && counter < 16)
-    {
-        //ESP_LOGD(TAG, "Send Influx for module %u", i);
-        //Only send valid module data
-        if (cmi[i].valid)
-        {
-            uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
-            uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
-
-            //Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v2.0/reference/syntax/line-protocol/
-
-            // Example
-            //  myMeasurement,tag1=value1,tag2=value2 fieldKey="fieldValue" 1556813561098000000
-            poststring = poststring + "cells," + "cell=" + String(bank) + "_" + String(module) + " v=" + String((float)cmi[i].voltagemV / 1000.0, 3) + ",i=" + String(cmi[i].internalTemp) + "i" + ",e=" + String(cmi[i].externalTemp) + "i" + ",b=" + (cmi[i].inBypass ? String("true") : String("false")) + "\n";
-        }
-
-        counter++;
-
-        i++;
-    }
-
-    //After transmitting this many packets to Influx, store our current state
-    //this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
-    influx_StartModule = i;
-
-    String url = String(mysettings.influxdb_serverurl) + String("?org=") + urlEncode(mysettings.influxdb_orgid) + String("&bucket=") + urlEncode(mysettings.influxdb_databasebucket);
-    String token = String("Authorization: Token ") + String(mysettings.influxdb_apitoken);
-
-    //TODO: Need to URLEncode these values
-    String header = "POST " + url + " HTTP/1.1\r\n" + "Host: " + influx_host + "\r\n" + "Connection: close\r\n" + token + "\r\nContent-Length: " + poststring.length() + "\r\n" + "Content-Type: text/plain\r\n" + "\r\n";
-
-    //SERIAL_DEBUG.println(header.c_str());
-    //SERIAL_DEBUG.println(poststring.c_str());
-
-    client->write(header.c_str());
-    client->write(poststring.c_str());
-
-    ESP_LOGD(TAG, "Influx data sent");
+    return ESP_OK;
 }
 
+/// Maximum number of modules to generate data for in a single invocation.
+static constexpr uint8_t MAX_MODULES_PER_CALL = 16;
+
+/// Generates and send module data to InfluxDB.
 void influx_task_action()
 {
-    //client already exists, so don't do this again
-    if (influx_Client)
+    // Index of the first module to send data for, this is static to allow sending
+    // modules in smaller batches (16)
+    static uint8_t moduleIndex = 0;
+    esp_http_client_config_t config = {};
+    esp_http_client_handle_t http_client;
+    std::string authtoken;
+    std::string url;
+    std::string module_data;
+    module_data.reserve(768);
+
+    // Generate data to send to InfluxDB.
+    for (uint8_t remainingModules = MAX_MODULES_PER_CALL;
+         moduleIndex < TotalNumberOfCells() && remainingModules > 0;
+         remainingModules--, moduleIndex++)
     {
-        ESP_LOGE(TAG, "Client already exists");
+        // Only generate data for the module if it is valid.
+        if (cmi[moduleIndex].valid)
+        {
+            char module_voltage[16] = {};
+            uint8_t bank = moduleIndex / mysettings.totalNumberOfSeriesModules;
+            uint8_t module_in_bank = moduleIndex - (bank * mysettings.totalNumberOfSeriesModules);
+            std::string module_id = std::to_string(bank).append("_").append(std::to_string(module_in_bank));
+            std::string module_internal_temp = std::to_string(cmi[moduleIndex].internalTemp);
+            std::string module_external_temp = std::to_string(cmi[moduleIndex].externalTemp);
+            std::string module_bypass = cmi[moduleIndex].inBypass ? "true" : "false";
+            // NOTE: this is not using std::to_string since we want to truncate to 2 decimal places.
+            snprintf(module_voltage, sizeof(module_voltage), "%.2f", cmi[moduleIndex].voltagemV / 1000.0f);
+
+            ESP_LOGV(TAG, "Index:%d, bank:%d, module:%d, id:%s, voltage:%s, int-temp:%d, ext-temp:%s, bypass:%s",
+                moduleIndex, bank, module_in_bank, module_id.c_str(), module_voltage,
+                module_internal_temp.c_str(), module_external_temp.c_str(), module_bypass.c_str());
+
+            //Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v2.0/reference/syntax/line-protocol/
+            module_data.append("cells, cell=").append(module_id);
+            module_data.append(" v=").append(module_voltage);
+            module_data.append(",i=").append(module_internal_temp).append("i");
+            module_data.append(",e=").append(module_external_temp).append("i");
+            module_data.append(",b=").append(module_bypass);
+            module_data.append("\n");
+        }
+    }
+
+    // Ensure moduleIndex remains within bounds.
+    if (moduleIndex > (TotalNumberOfCells() - 1))
+    {
+        moduleIndex = 0;
+    }
+
+    module_data.shrink_to_fit();
+
+    // If we did not generate any module data we can exit early.
+    if (module_data.empty() || module_data.length() == 0)
+    {
+        ESP_LOGI(TAG, "No module data to send to InfluxDB");
         return;
     }
 
-    if (influx_Client == NULL)
-    {
-        ESP_LOGD(TAG, "Create new client");
+    authtoken.reserve(128);
+    authtoken.append("Token ").append(mysettings.influxdb_apitoken);
+    authtoken.shrink_to_fit();
 
-        influx_StartModule = 0;
+    url.reserve(348);
+    url.append(mysettings.influxdb_serverurl);
+    url.append("?org=").append(url_encode(mysettings.influxdb_orgid));
+    url.append("&bucker=").append(url_encode(mysettings.influxdb_databasebucket));
+    url.shrink_to_fit();
 
-        String url = String(mysettings.influxdb_serverurl);
+    config.event_handler = http_event_handler;
+    config.method = HTTP_METHOD_POST;
+    config.url = url.c_str();
 
-        // check for : (http: or https:
-        int index = url.indexOf(':');
-        if (index < 0)
-        {
-            ESP_LOGE(TAG, "Failed to parse protocol");
-        }
-        else
-        {
-            String _protocol = url.substring(0, index);
+    // Initialize http client and prepare to process the request.
+    http_client = esp_http_client_init(&config);
 
-            influx_port = 80;
+    // Set authorization header
+    esp_http_client_set_header(http_client, "Authorization", authtoken.c_str());
 
-            url.remove(0, (index + 3)); // remove http:// or https://
+    // Set Content-Encoding for the post payload
+    esp_http_client_set_header(http_client, "Content-Type", "text/plain");
 
-            index = url.indexOf('/');
-            String host = url.substring(0, index);
-            url.remove(0, index); // remove host part
+    // Add post data to the client.
+    ESP_ERROR_CHECK(
+        esp_http_client_set_post_field(http_client, module_data.c_str(), module_data.length()));
 
-            // get port
-            index = host.indexOf(':');
-            if (index >= 0)
-            {
-                influx_host = host.substring(0, index); // hostname
-                host.remove(0, (index + 1));            // remove hostname + :
-                influx_port = host.toInt();             // get port
-            }
-            else
-            {
-                influx_host = host;
-            }
-
-            ESP_LOGI(TAG, "Influx host %s port %i", influx_host.c_str(), influx_port);
-
-            influx_Client = new AsyncClient();
-
-            if (!influx_Client)
-            {
-                ESP_LOGE(TAG, "Unable to create Client");
-                return;
-            }
-
-            influx_Client->onConnect(&influxdb_onConnect, influx_Client);
-            influx_Client->onError(&influxdb_onError, influx_Client);
-        }
-    }
-
-    if (influx_Client != NULL)
-    {
-        influx_Client->setAckTimeout(2000);
-        influx_Client->setRxTimeout(2);
-
-        //Now trigger the connection, and then send the data
-        if (!influx_Client->connect(influx_host.c_str(), influx_port))
-        {
-            ESP_LOGE(TAG, "Influxdb connect fail");
-            AsyncClient *client = influx_Client;
-            influx_Client = NULL;
-            delete client;
-        }
-    }
+    // Process the http request
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_http_client_perform(http_client));
 }
