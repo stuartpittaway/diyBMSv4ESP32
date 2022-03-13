@@ -1306,6 +1306,20 @@
             return jQuery.ajax(options);
         };
 
+        function ws_opened(event) {
+            console.log('WS connected');
+        }
+
+        function ws_closed(event) {
+            console.warn('WS closed, reconnecting. Reason:', event.reason);
+        }
+
+        function ws_rx(event) {
+            console.log(event.data);
+        }
+        var ws = null;
+
+
         $(document).ready(function () {
             var lang = $("html").attr("lang");
 
@@ -1350,6 +1364,17 @@
             }).fail(function (jqxhr, settings, exception) {
                 $("#jslibrary").show();
             });
+
+            var socketUrl = String.format('ws://{0}:{1}/ws', window.location.host, window.location.port);
+            try {
+                ws = new WebSocket(socketUrl);
+                ws.addEventListener('open', ws_opened);
+                ws.addEventListener('message', ws_rx);
+                ws.addEventListener('error', ws_closed);
+                ws.addEventListener('close', ws_closed);
+            } catch (e) {
+                console.error('Failed to connect to diyBMS!');
+            }
         });
     </script>
 </body>

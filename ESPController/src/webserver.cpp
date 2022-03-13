@@ -1,8 +1,14 @@
 
+#define USE_ESP_IDF_LOG 1
+static constexpr const char * const TAG = "diybms-web";
+
 #include "webserver.h"
 #include "webserver_helper_funcs.h"
 #include "webserver_json_requests.h"
 #include "webserver_json_post.h"
+
+#include <esp_log.h>
+#include <stdarg.h>
 
 httpd_handle_t _myserver;
 
@@ -295,13 +301,21 @@ esp_err_t get_root_handler(httpd_req_t *req)
   return ESP_OK;
 }
 
+// web socket handler
+static esp_err_t ws_handler(httpd_req_t *req)
+{
+  // NO-OP
+  return ESP_OK;
+}
+
 /* URI handler structure for GET /uri */
-httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
-httpd_uri_t uri_defaulthtm_get = {.uri = "/default.htm", .method = HTTP_GET, .handler = default_htm_handler, .user_ctx = NULL};
-httpd_uri_t uri_api_get = {.uri = "/api/*", .method = HTTP_GET, .handler = api_handler, .user_ctx = NULL};
-httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler = content_handler_downloadfile, .user_ctx = NULL};
-httpd_uri_t uri_save_data_post = {.uri = "/post/*", .method = HTTP_POST, .handler = save_data_handler, .user_ctx = NULL};
-httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = NULL};
+static const httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
+static const httpd_uri_t uri_defaulthtm_get = {.uri = "/default.htm", .method = HTTP_GET, .handler = default_htm_handler, .user_ctx = NULL};
+static const httpd_uri_t uri_api_get = {.uri = "/api/*", .method = HTTP_GET, .handler = api_handler, .user_ctx = NULL};
+static const httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler = content_handler_downloadfile, .user_ctx = NULL};
+static const httpd_uri_t uri_save_data_post = {.uri = "/post/*", .method = HTTP_POST, .handler = save_data_handler, .user_ctx = NULL};
+static const httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = NULL};
+static const httpd_uri_t uri_ws_get = {.uri = "/ws", .method = HTTP_GET, .handler = ws_handler, .user_ctx = NULL, .is_websocket = true};
 
 void clearModuleValues(uint8_t module)
 {
@@ -314,6 +328,56 @@ void clearModuleValues(uint8_t module)
   cmi[module].bypassOverTemp = false;
   cmi[module].internalTemp = -40;
   cmi[module].externalTemp = -40;
+}
+
+
+extern "C" int log_output_redirector(const char * format, va_list args)
+{
+  size_t fd_count = 0;
+  int client_fds[CONFIG_LWIP_MAX_LISTENING_TCP] = {0};
+  httpd_ws_frame_t ws_pkt = {};
+  char log_buffer[128];
+  char * temp = &log_buffer[0];
+  va_list copy;
+
+  va_copy(copy, args);
+  int format_len = vsnprintf(temp, sizeof(log_buffer), format, copy);
+  va_end(copy);
+  if (format_len < 0)
+  {
+    va_end(args);
+    return 0;
+  }
+  if (format_len >= sizeof(log_buffer))
+  {
+    temp = (char *)calloc(1, format_len + 1);
+    if (temp == NULL)
+    {
+      va_end(args);
+      return 0;
+    }
+    format_len = vsnprintf(temp, format_len + 1, format, args);
+  }
+  va_end(args);
+  printf(temp);
+  ws_pkt.len = format_len;
+  ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+  ws_pkt.payload = (uint8_t *)(temp);
+
+  // blast the message out to any connected websocket clients
+  httpd_get_client_list(_myserver, &fd_count, client_fds);
+  for (int idx = 0; idx < fd_count ; idx++)
+  {
+    if (httpd_ws_get_fd_info(_myserver, client_fds[idx]) == HTTPD_WS_CLIENT_WEBSOCKET)
+    {
+      httpd_ws_send_frame_async(_myserver, client_fds[idx], &ws_pkt);
+    }
+  }
+  if (temp != log_buffer)
+  {
+    free(temp);
+  }
+  return format_len;
 }
 
 /* Function for starting the webserver */
@@ -337,12 +401,17 @@ httpd_handle_t start_webserver(void)
     /* Register URI handlers */
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_root_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_defaulthtm_get));
+
     // Web services/API
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_api_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_download_get));
 
     // Post services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_save_data_post));
+
+    // Websocket
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_ws_get));
+    esp_log_set_vprintf(log_output_redirector);
 
     // Catch all - this must be last in the list
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_static_content_get));

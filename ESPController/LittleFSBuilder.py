@@ -11,9 +11,6 @@ mklittlefs='x86_64-linux-gnu-mklittlefs'
 
 if os.name == 'nt':
     mklittlefs='x86_64-w64-mklittlefs.exe'
-else:
-    st = os.stat(mklittlefs)
-    os.chmod(mklittlefs, st.st_mode | stat.S_IEXEC)
 
 env.Replace (MKSPIFFSTOOL = os.path.join(env.get('PROJECT_DIR'), mklittlefs) )
 

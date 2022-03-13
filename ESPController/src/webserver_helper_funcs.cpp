@@ -1,3 +1,6 @@
+#define USE_ESP_IDF_LOG 1
+static constexpr const char * const TAG = "diybms-webfuncs";
+
 #include "webserver_helper_funcs.h"
 
 char CookieValue[20 + 1];
