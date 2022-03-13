@@ -3184,31 +3184,23 @@ chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
   }
 
   xTaskCreate(ledoff_task, "ledoff", 1450, nullptr, 1, &ledoff_task_handle);
-  xTaskCreate(tftwakeup_task, "tftwake", 2300, nullptr, 1, &tftwakeup_task_handle);
-
+  xTaskCreate(tftwakeup_task, "tftwake", 2048, nullptr, 1, &tftwakeup_task_handle);
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 1, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 3, &avrprog_task_handle);
 
   // High priority task
   xTaskCreate(interrupt_task, "int", 2000, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
-
   xTaskCreate(sdcardlog_task, "sdlog", 3550, nullptr, 1, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 3980, nullptr, 1, &sdcardlog_outputs_task_handle);
-
   xTaskCreate(rs485_tx, "485_TX", 2950, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2950, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
-
   xTaskCreate(victron_canbus_tx, "v_cantx", 2950, nullptr, 1, &victron_canbus_tx_task_handle);
   xTaskCreate(victron_canbus_rx, "v_canrx", 2950, nullptr, 1, &victron_canbus_rx_task_handle);
-
-  // We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
-  // and slower than it takes a single module to process a command (about 200ms @ 2400baud)
-
-  xTaskCreate(transmit_task, "tx", 2200, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 2200, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
-  xTaskCreate(lazy_tasks, "lazyt", 2200, nullptr, 1, &lazy_task_handle);
+  xTaskCreate(transmit_task, "tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 2000, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(lazy_tasks, "lazyt", 2000, nullptr, 1, &lazy_task_handle);
   xTaskCreate(pulse_relay_off_task, "pulse", 1000, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
   // Set relay defaults
@@ -3282,8 +3274,8 @@ chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
     connectToMqtt();
 
     // Only run these after we have wifi...
-    xTaskCreate(enqueue_task, "enqueue", 2000, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-    xTaskCreate(rules_task, "rules", 2300, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+    xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
+    xTaskCreate(rules_task, "rules", 1800, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
     xTaskCreate(periodic_task, "period", 5500, nullptr, 1, &periodic_task_handle);
 
     // We have just started...

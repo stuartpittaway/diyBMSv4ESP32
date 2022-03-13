@@ -359,7 +359,9 @@ extern "C" int log_output_redirector(const char * format, va_list args)
     format_len = vsnprintf(temp, format_len + 1, format, args);
   }
   va_end(args);
-  printf(temp);
+  //Don't use printf - uses lots of stack space and causes task stack crash/growth.
+  //printf(temp);
+  fputs(temp, stdout);
   ws_pkt.len = format_len;
   ws_pkt.type = HTTPD_WS_TYPE_TEXT;
   ws_pkt.payload = (uint8_t *)(temp);
