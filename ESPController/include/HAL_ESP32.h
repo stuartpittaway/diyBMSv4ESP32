@@ -314,11 +314,13 @@ public:
 
     void ConfigureVSPI()
     {
+        ESP_LOGD(TAG,"Configure VSPI");
         vspi.endTransaction();
         vspi.end();
         // VSPI
         // GPIO23 (MOSI), GPIO19(MISO), GPIO18(CLK) and GPIO5 (CS)
-        vspi.begin(18, 19, 23, -1);
+        vspi.begin(GPIO_NUM_18, GPIO_NUM_19, GPIO_NUM_23, -1);
+                
         // Don't use hardware chip selects on VSPI
         vspi.setHwCs(false);
         vspi.setBitOrder(MSBFIRST);

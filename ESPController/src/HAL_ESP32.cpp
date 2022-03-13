@@ -483,9 +483,10 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
         ReadTCA9534InputRegisters();
         TCA9534APWR_Output_Pins = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT);
 
-        ESP_LOGD(TAG, "About to configure interrupt...");
+        //ESP_LOGD(TAG, "About to configure interrupt...");
         isr_param tca9534_param = {.pin = TCA9534A_INTERRUPT_PIN, .handler = TCA9534AInterrupt};
-        ESP_ERROR_CHECK(esp_ipc_call_blocking(PRO_CPU_NUM, ipc_interrupt_attach, &tca9534_param));
+        //ESP_ERROR_CHECK(esp_ipc_call_blocking(PRO_CPU_NUM, ipc_interrupt_attach, &tca9534_param));
+        ipc_interrupt_attach(&tca9534_param);
 
         ESP_LOGI(TAG, "Found TCA9534A");
 
@@ -518,8 +519,8 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
 
         ESP_LOGI(TAG, "Found TCA6408");
         isr_param tca6408_param = {.pin = TCA6408_INTERRUPT_PIN, .handler = TCA6408Interrupt};
-        ESP_ERROR_CHECK(esp_ipc_call_blocking(PRO_CPU_NUM, ipc_interrupt_attach, &tca6408_param));
-
+        //ESP_ERROR_CHECK(esp_ipc_call_blocking(PRO_CPU_NUM, ipc_interrupt_attach, &tca6408_param));
+        ipc_interrupt_attach(&tca6408_param);
         TCA6416_Fitted = false;
 
         return;

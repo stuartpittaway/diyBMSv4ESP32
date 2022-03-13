@@ -346,6 +346,8 @@ void init_tft_display()
     if (!_tft_screen_available)
         return;
 
+    ESP_LOGD(TAG, "Configure TFT display");
+
     tft.init();
     tft.initDMA(); // Initialise the DMA engine (tested with STM32F446 and STM32F767)
     tft.getSPIinstance().setHwCs(false);

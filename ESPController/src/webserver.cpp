@@ -336,7 +336,7 @@ extern "C" int log_output_redirector(const char * format, va_list args)
   size_t fd_count = 0;
   int client_fds[CONFIG_LWIP_MAX_LISTENING_TCP] = {0};
   httpd_ws_frame_t ws_pkt = {};
-  char log_buffer[128];
+  char log_buffer[64];
   char * temp = &log_buffer[0];
   va_list copy;
 
@@ -386,7 +386,7 @@ httpd_handle_t start_webserver(void)
   /* Generate default configuration */
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-  config.max_uri_handlers = 6;
+  config.max_uri_handlers = 8;
   config.max_open_sockets = 5;
   config.max_resp_headers = 16;
   config.stack_size = 4096;

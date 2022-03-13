@@ -3184,7 +3184,7 @@ chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
   }
 
   xTaskCreate(ledoff_task, "ledoff", 1450, nullptr, 1, &ledoff_task_handle);
-  xTaskCreate(tftwakeup_task, "tftwake", 1850, nullptr, 1, &tftwakeup_task_handle);
+  xTaskCreate(tftwakeup_task, "tftwake", 2048, nullptr, 1, &tftwakeup_task_handle);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 1, &updatetftdisplay_task_handle);
@@ -3282,8 +3282,8 @@ chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
     connectToMqtt();
 
     // Only run these after we have wifi...
-    xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-    xTaskCreate(rules_task, "rules", 1800, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+    xTaskCreate(enqueue_task, "enqueue", 2000, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
+    xTaskCreate(rules_task, "rules", 2048, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
     xTaskCreate(periodic_task, "period", 5500, nullptr, 1, &periodic_task_handle);
 
     // We have just started...
