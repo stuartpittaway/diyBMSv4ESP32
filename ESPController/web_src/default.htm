@@ -110,7 +110,7 @@
             <div id="received" class="stat"><span class="x t">Packets rec'd:</span><span class="x v"></span></div>
             <div id="roundtrip" class="stat"><span class="x t">Roundtrip (ms):</span><span class="x v"></span></div>
             <div id="uptime" class="stat"><span class="x t">Uptime:</span><span class="x v"></span></div>
-            <div id="qlen" class="stat"><span class="x t">Send Q length:</span><span class="x v"></span></div>          
+            <div id="qlen" class="stat"><span class="x t">Send Q length:</span><span class="x v"></span></div>
 
             <div id="cansent" class="stat"><span class="x t">CAN sent:</span><span class="x v"></span></div>
             <div id="canrecd" class="stat"><span class="x t">CAN received:</span><span class="x v"></span></div>
@@ -288,8 +288,8 @@
         <h1 id="ip1">Integration</h1>
         <p id="ip2">For security, you will need to re-enter the password for the service(s) you want to enable or
             modify, before you save.</p>
-        <p id="ip3">After changes are made, the controller will need to be rebooted, do this manually.</p>
-        <div class="region">
+            <p id="ip4">URI should be similar to mqtt://192.168.0.26:1833</p>
+            <div class="region">
             <h2>MQTT</h2>
             <form id="mqttForm" method="POST" action="/post/savemqtt" autocomplete="off">
                 <div class="settings">
@@ -302,8 +302,8 @@
                         <input type="input" name="mqttTopic" id="mqttTopic" value="diybms" required="" maxlength="32">
                     </div>
                     <div>
-                        <label for="mqttServer">Server</label>
-                        <input type="input" name="mqttServer" id="mqttServer" value="" required="" maxlength="64">
+                        <label for="mqttUri">URI</label>
+                        <input type="input" name="mqttUri" id="mqttUri" value="" required="" maxlength="128">
                     </div>
                     <div>
                         <label for="mqttPort">Port</label>
@@ -362,7 +362,7 @@
                             <option value="120">120</option>
                         </select>
                     </div>
-                    
+
                     <div>
                         <label for="influxUrl">Influx DB write API URL</label>
                         <input type="input" name="influxUrl" id="influxUrl" value="influx" required="" maxlength="128"
@@ -782,11 +782,13 @@
         <div class="region" id="currentmonbasic">
             <h2>Basic Settings</h2>
             <p id="b3">Ensure the current shunt parameters match the data sheet for your particular shunt resistor.</p>
-            <p id="b4">The DIYBMS current monitor uses a 40.96mV maximum scale, so shunt voltages over this will be scaled down
+            <p id="b4">The DIYBMS current monitor uses a 40.96mV maximum scale, so shunt voltages over this will be
+                scaled down
                 proportionally.</p>
             <p id="b11">Battery capacity and charge voltage/tail current are used to calculate the battery 'state of
                 charge' (SOC).</p>
-            <p id="b15">PZEM-017 uses 75mV shunts, state of charge and alarms are not supported on this device. Only 50, 100, 200, 300A shunts are supported.</p>
+            <p id="b15">PZEM-017 uses 75mV shunts, state of charge and alarms are not supported on this device. Only 50,
+                100, 200, 300A shunts are supported.</p>
             <form id="diybmsCurrentMonitorForm2" method="POST" action="/post/savecmbasic" autocomplete="off">
                 <div class="settings">
                     <div>
@@ -1056,7 +1058,7 @@
                         <label for="interpacketgap">Inter-packet gap (ms)</label>
                         <select name="interpacketgap" id="interpacketgap">
                         </select>
-                    </div>                    
+                    </div>
                     <button type="submit">Save module &amp; bank settings</button>
                 </div>
             </form>
@@ -1365,7 +1367,7 @@
                 $("#jslibrary").show();
             });
 
-            var socketUrl = 'ws://'+window.location.host+':'+window.location.port+'/ws';
+            var socketUrl = 'ws://' + window.location.host + ':' + window.location.port + '/ws';
             try {
                 ws = new WebSocket(socketUrl);
                 ws.addEventListener('open', ws_opened);

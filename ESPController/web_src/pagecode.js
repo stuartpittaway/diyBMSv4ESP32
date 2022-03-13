@@ -1243,8 +1243,7 @@ $(function () {
 
                 $("#mqttEnabled").prop("checked", data.mqtt.enabled);
                 $("#mqttTopic").val(data.mqtt.topic);
-                $("#mqttServer").val(data.mqtt.server);
-                $("#mqttPort").val(data.mqtt.port);
+                $("#mqttUri").val(data.mqtt.uri);
                 $("#mqttUsername").val(data.mqtt.username);
                 $("#mqttPassword").val("");
 

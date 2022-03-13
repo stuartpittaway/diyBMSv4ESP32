@@ -21,7 +21,7 @@
 #undef CONFIG_DISABLE_HAL_LOCKS
 
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms";
+static constexpr const char *const TAG = "diybms";
 
 #include "esp_log.h"
 #include <Arduino.h>
@@ -46,21 +46,13 @@ static constexpr const char * const TAG = "diybms";
 #include "SD.h"
 #include "driver/gpio.h"
 #include "driver/twai.h"
-
 #include "driver/adc.h"
-//#include "driver/twai.h"
 #include <driver/uart.h>
 
+#include <mqtt_client.h>
 #include <esp_http_server.h>
-
-// Disable IDF log handling as AsyncMqttClient fails to compile. 
-#undef USE_ESP_IDF_LOG
-#include <AsyncMqttClient.h>
-#define USE_ESP_IDF_LOG 1
-
 #include <SerialEncoder.h>
 #include <cppQueue.h>
-
 #include <ArduinoJson.h>
 #include "defines.h"
 #include "HAL_ESP32.h"
@@ -95,6 +87,9 @@ uint16_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysetting
 uint32_t canbus_messages_received = 0;
 uint32_t canbus_messages_sent = 0;
 uint32_t canbus_messages_failed_sent = 0;
+
+bool mqttClient_connected = false;
+esp_mqtt_client_handle_t mqtt_client = nullptr;
 
 bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
@@ -164,8 +159,6 @@ SerialEncoder myPacketSerial;
 uint16_t sequence = 0;
 
 ControllerState _controller_state = ControllerState::Unknown;
-
-AsyncMqttClient mqttClient;
 
 void LED(uint8_t bits)
 {
@@ -1440,26 +1433,88 @@ WiFi.status() only returns:
   WiFi.begin(DIYBMSSoftAP::Config()->wifi_ssid, DIYBMSSoftAP::Config()->wifi_passphrase);
 }
 
+static void mqtt_connected_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+{
+  ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
+  mqttClient_connected = true;
+}
+
+static void mqtt_disconnected_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+{
+  ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
+  mqttClient_connected = false;
+}
+
+static void mqtt_error_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+{
+  ESP_LOGD(TAG, "Event base=%s, event_id=%d", base, event_id);
+  esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
+  esp_mqtt_client_handle_t client = event->client;
+  int msg_id;
+
+  ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
+  if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
+  {
+    // log_error_if_nonzero("reported from esp-tls", event->error_handle->esp_tls_last_esp_err);
+    // log_error_if_nonzero("reported from tls stack", event->error_handle->esp_tls_stack_err);
+    // log_error_if_nonzero("captured as transport's socket errno", event->error_handle->esp_transport_sock_errno);
+    ESP_LOGI(TAG, "Last err no string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
+  }
+}
+void stopMqtt()
+{
+  if (mqtt_client != nullptr)
+  {
+    ESP_LOGI(TAG, "Stopping MQTT client");
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_disconnect(mqtt_client));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_stop(mqtt_client));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_destroy(mqtt_client));
+    mqtt_client=nullptr;
+    mqttClient_connected=false;
+  }
+}
+
+// Connects to MQTT if required
 void connectToMqtt()
 {
-  if (mysettings.mqtt_enabled && WiFi.isConnected())
+  if (mysettings.mqtt_enabled && mqttClient_connected)
   {
-    if (mqttClient.connected() == false)
-    {
-      // ESP_LOGD(TAG, "MQTT Enabled");
-      mqttClient.setServer(mysettings.mqtt_server, mysettings.mqtt_port);
-      mqttClient.setCredentials(mysettings.mqtt_username, mysettings.mqtt_password);
-
-      ESP_LOGI(TAG, "Connect MQTT");
-      mqttClient.connect();
-    }
+    // Already connected and enabled
+    return;
   }
 
-  if (mysettings.mqtt_enabled == false && mqttClient.connected())
+  if (mysettings.mqtt_enabled && WiFi.isConnected())
   {
-    // We are connected but shouldn't be!
-    ESP_LOGI(TAG, "Disconnecting MQTT");
-    mqttClient.disconnect(true);
+    stopMqtt();
+
+    ESP_LOGI(TAG, "Connect MQTT");
+
+    // Need to preset variables in esp_mqtt_client_config_t otherwise LoadProhibited errors
+    esp_mqtt_client_config_t mqtt_cfg{
+        .event_handle = NULL, .host = "", .uri = mysettings.mqtt_uri, .disable_auto_reconnect = false};
+
+    mqtt_cfg.username = mysettings.mqtt_username;
+    mqtt_cfg.password = mysettings.mqtt_password;
+
+    mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
+    if (mqtt_client != NULL)
+    {
+      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_CONNECTED, mqtt_connected_handler, NULL));
+      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_DISCONNECTED, mqtt_disconnected_handler, NULL));
+      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_ERROR, mqtt_error_handler, NULL));
+      if (esp_mqtt_client_start(mqtt_client) != ESP_OK)
+      {
+        ESP_LOGE(TAG, "esp_mqtt_client_start failed");
+      }
+    }
+    else
+    {
+      ESP_LOGE(TAG, "mqtt_client returned NULL");
+    }
+  }
+  else
+  {
+    stopMqtt();
   }
 }
 
@@ -1528,16 +1583,10 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
     xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
   }
 }
-
-void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
-{
-  ESP_LOGE(TAG, "Disconnected from MQTT.");
-}
-
 void mqtt2()
 {
 
-  if (mysettings.mqtt_enabled && mqttClient.connected())
+  if (mysettings.mqtt_enabled && mqttClient_connected)
   {
     // ESP_LOGI(TAG, "Send MQTT Status");
 
@@ -1562,10 +1611,13 @@ void mqtt2()
 
     serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
     sprintf(topic, "%s/status", mysettings.mqtt_topic);
-    mqttClient.publish(topic, 0, false, jsonbuffer);
+
+    int msg_id1 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
+    // MQTT_SKIP_PUBLISH_IF_DISCONNECTED
+    ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id1);
+
 #if defined(MQTT_LOGGING)
     ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-// SERIAL_DEBUG.print("MQTT - ");SERIAL_DEBUG.print(topic);  SERIAL_DEBUG.print('=');  SERIAL_DEBUG.println(jsonbuffer);
 #endif
 
     // Output bank level information (just voltage for now)
@@ -1576,10 +1628,11 @@ void mqtt2()
 
       serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
       sprintf(topic, "%s/bank/%d", mysettings.mqtt_topic, bank);
-      mqttClient.publish(topic, 0, false, jsonbuffer);
+
+      int msg_id2 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
+      ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id2);
 #if defined(MQTT_LOGGING)
       ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-// SERIAL_DEBUG.print("MQTT - ");SERIAL_DEBUG.print(topic);  SERIAL_DEBUG.print('=');  SERIAL_DEBUG.println(jsonbuffer);
 #endif
     }
 
@@ -1594,7 +1647,8 @@ void mqtt2()
 #if defined(MQTT_LOGGING)
     ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
 #endif
-    mqttClient.publish(topic, 0, false, jsonbuffer);
+    int msg_id3 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
+    ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id3);
 
     doc.clear(); // Need to clear the json object for next message
     sprintf(topic, "%s/output", mysettings.mqtt_topic);
@@ -1607,7 +1661,8 @@ void mqtt2()
 #if defined(MQTT_LOGGING)
     ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
 #endif
-    mqttClient.publish(topic, 0, false, jsonbuffer);
+    int msg_id4 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
+    ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id4);
 
   } // end if
 }
@@ -2120,7 +2175,7 @@ void victron_canbus_rx(void *param)
         if (!(message.flags & TWAI_MSG_FLAG_RTR))
         {
           ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code,
-            ESP_LOG_DEBUG);
+                                 ESP_LOG_DEBUG);
         }
       }
       else if (res == ESP_ERR_TIMEOUT)
@@ -2421,12 +2476,12 @@ void mqtt1()
   static uint8_t mqttStartModule = 0;
   static int64_t lastcurrentMonitortimestamp = 0;
 
-  if (mysettings.mqtt_enabled && mqttClient.connected() == false)
+  if (mysettings.mqtt_enabled && mqttClient_connected == false)
   {
     ESP_LOGE(TAG, "MQTT enabled, but not connected");
   }
 
-  if (mysettings.mqtt_enabled && mqttClient.connected())
+  if (mysettings.mqtt_enabled && mqttClient_connected)
   {
 
     char topic[80];
@@ -2468,7 +2523,8 @@ void mqtt1()
 
           sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, module);
 
-          mqttClient.publish(topic, 0, false, jsonbuffer);
+          int msg_id1 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
+          ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id1);
 
 #if defined(MQTT_LOGGING)
           ESP_LOGI(TAG, "MQTT %s %s", topic, jsonbuffer);
@@ -2516,14 +2572,10 @@ void mqtt1()
 #if defined(MQTT_LOGGING)
       ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
 #endif
-      mqttClient.publish(topic, 0, false, jsonbuffer);
+      int msg_id2 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
+      ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id2);
     }
   }
-}
-
-void onMqttConnect(bool sessionPresent)
-{
-  ESP_LOGI(TAG, "Connected to MQTT");
 }
 
 void LoadConfiguration()
@@ -2550,7 +2602,6 @@ void LoadConfiguration()
 
   // EEPROM settings are invalid so default configuration
   mysettings.mqtt_enabled = false;
-  mysettings.mqtt_port = 1883;
 
   mysettings.VictronEnabled = false;
 
@@ -2588,7 +2639,7 @@ void LoadConfiguration()
 
   // Default to EMONPI default MQTT settings
   strcpy(mysettings.mqtt_topic, "emon/diybms");
-  strcpy(mysettings.mqtt_server, "192.168.0.26");
+  strcpy(mysettings.mqtt_uri, "mqtt://192.168.0.26:1883");
   strcpy(mysettings.mqtt_username, "emonpi");
   strcpy(mysettings.mqtt_password, "emonpimqtt2016");
 
@@ -2669,7 +2720,7 @@ void periodic_task(void *param)
 
     if (tftsleep_timer > 0)
     {
-      //Timer can get to 0
+      // Timer can get to 0
       tftsleep_timer--;
     }
 
@@ -2706,7 +2757,6 @@ void periodic_task(void *param)
       // Screen off
       tftsleep();
     }
-
   }
 }
 
@@ -2718,7 +2768,7 @@ void lazy_tasks(void *param)
     // TODO: Perhaps this should be based on some improved logic - based on number of modules in system?
     //  Delay 6.5 seconds
 
-    ESP_LOGI(TAG, "Sleep");
+    // ESP_LOGI(TAG, "Sleep");
     TickType_t delay_ticks = pdMS_TO_TICKS(6500);
     vTaskDelay(delay_ticks);
 
@@ -3072,7 +3122,7 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
 
 static void tft_interrupt_attach(void *param)
 {
-    attachInterrupt(TOUCH_IRQ, TFTScreenTouchInterrupt, FALLING);
+  attachInterrupt(TOUCH_IRQ, TFTScreenTouchInterrupt, FALLING);
 }
 
 struct log_level_t
@@ -3110,8 +3160,8 @@ void setup()
   WiFi.mode(WIFI_OFF);
 
   esp_bt_controller_disable();
+ // Configure log levels
 
-  // Configure log levels
   for (log_level_t log : log_levels)
   {
     esp_log_level_set(log.tag, log.level);
@@ -3128,8 +3178,9 @@ void setup()
          /
 
 CONTROLLER - ver:%s compiled %s
-ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW", GIT_VERSION, COMPILE_DATE_TIME,
-chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
+ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
+           GIT_VERSION, COMPILE_DATE_TIME,
+           chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
   hal.ConfigurePins();
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
@@ -3299,14 +3350,11 @@ chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
     WiFi.onEvent(onWifiConnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
     WiFi.onEvent(onWifiDisconnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
-    mqttClient.onConnect(onMqttConnect);
-    mqttClient.onDisconnect(onMqttDisconnect);
-
-    connectToMqtt();
+    // connectToMqtt();
 
     // Only run these after we have wifi...
     xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-    xTaskCreate(rules_task, "rules", 1800, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+    xTaskCreate(rules_task, "rules", 1900, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
     xTaskCreate(periodic_task, "period", 5500, nullptr, 1, &periodic_task_handle);
 
     // We have just started...
@@ -3340,6 +3388,8 @@ void loop()
       // such as AP reboot, its written to return without action if we are already connected
       connectToWifi();
       wifitimer = currentMillis;
+
+      // Attempt to connect to MQTT if enabled and not already connected
       connectToMqtt();
     }
   }

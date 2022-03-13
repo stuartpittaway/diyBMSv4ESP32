@@ -651,8 +651,7 @@ esp_err_t content_handler_integration(httpd_req_t *req)
   JsonObject mqtt = root.createNestedObject("mqtt");
   mqtt["enabled"] = mysettings.mqtt_enabled;
   mqtt["topic"] = mysettings.mqtt_topic;
-  mqtt["port"] = mysettings.mqtt_port;
-  mqtt["server"] = mysettings.mqtt_server;
+  mqtt["uri"] = mysettings.mqtt_uri;
   mqtt["username"] = mysettings.mqtt_username;
   // We don't output the password in the json file as this could breach security
   // mqtt["password"] =mysettings.mqtt_password;
