@@ -76,6 +76,7 @@ esp_err_t post_saventp_json_handler(httpd_req_t *req, bool urlEncoded)
 
 esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded)
 {
+    //Default to off
     mysettings.mqtt_enabled = false;
 
     if (GetKeyValue(httpbuf, "mqttEnabled", &mysettings.mqtt_enabled, urlEncoded))
@@ -86,11 +87,7 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded)
     {
     }
 
-    if (GetKeyValue(httpbuf, "mqttPort", &mysettings.mqtt_port, urlEncoded))
-    {
-    }
-
-    if (GetTextFromKeyValue(httpbuf, "mqttServer", mysettings.mqtt_server, sizeof(mysettings.mqtt_server), urlEncoded))
+    if (GetTextFromKeyValue(httpbuf, "mqttUri", mysettings.mqtt_uri, sizeof(mysettings.mqtt_uri), urlEncoded))
     {
     }
 
@@ -103,6 +100,11 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded)
     }
 
     saveConfiguration();
+
+
+    //As the settings have changed, force stop of MQTT.
+    //At a later point in time, the loop() will reconnect MQTT client
+    stopMqtt();
 
     return SendSuccess(req);
 }
@@ -263,8 +265,7 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
 
         JsonObject mqtt = root.createNestedObject("mqtt");
         mqtt["enabled"] = mysettings.mqtt_enabled;
-        mqtt["port"] = mysettings.mqtt_port;
-        mqtt["server"] = mysettings.mqtt_server;
+        mqtt["uri"] = mysettings.mqtt_uri;
         mqtt["topic"] = mysettings.mqtt_topic;
         mqtt["username"] = mysettings.mqtt_username;
         mqtt["password"] = mysettings.mqtt_password;
