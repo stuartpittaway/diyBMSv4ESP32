@@ -344,8 +344,6 @@ void avrprog_task(void *param)
         // vTaskSuspend(sdcardlog_task_handle);
         // vTaskSuspend(sdcardlog_outputs_task_handle);
 
-        hal.SwapGPIO0ToOutput();
-
         // This will block for the 6 seconds it takes to program ATTINY841...
         // although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
 
@@ -786,14 +784,12 @@ void interrupt_task(void *param)
   for (;;)
   {
     // ULONG_MAX
-    xTaskNotifyWait(0, 0, &ulInterruptStatus, portMAX_DELAY);
+    xTaskNotifyWait(0, ULONG_MAX, &ulInterruptStatus, portMAX_DELAY);
 
     ESP_LOGD(TAG, "ulInterruptStatus %u", ulInterruptStatus);
 
     if ((ulInterruptStatus & ISRTYPE::TCA6416A) != 0x00)
     {
-      ulTaskNotifyValueClear(interrupt_task_handle, ISRTYPE::TCA6416A);
-
       ESP_LOGD(TAG, "tca6416a_isr");
 
       // Emulate both 9534 and 6408 being installed by mimicking the
@@ -809,7 +805,6 @@ void interrupt_task(void *param)
 
     if ((ulInterruptStatus & ISRTYPE::TCA6408A) != 0x00)
     {
-      ulTaskNotifyValueClear(interrupt_task_handle, ISRTYPE::TCA6408A);
       ESP_LOGD(TAG, "tca6408_isr");
       // Read ports A/B/C/D inputs (on TCA6408)
       ProcessTCA6408Input_States(hal.ReadTCA6408InputRegisters());
@@ -817,9 +812,7 @@ void interrupt_task(void *param)
 
     if ((ulInterruptStatus & ISRTYPE::TCA9534) != 0x00)
     {
-      ulTaskNotifyValueClear(interrupt_task_handle, ISRTYPE::TCA9534);
       ESP_LOGD(TAG, "tca9534_isr");
-
       // Read ports
       // The 9534 deals with internal LED outputs and spare IO on J10
       ProcessTCA9534Input_States(hal.ReadTCA9534InputRegisters());
@@ -827,56 +820,34 @@ void interrupt_task(void *param)
   }
 }
 
-volatile uint32_t WifiPasswordClearTime;
-volatile bool ResetWifi = false;
-
-// Check if BOOT button is pressed, if held down for more than 4 seconds
-// trigger a wifi password reset/clear from EEPROM.
-void IRAM_ATTR WifiPasswordClear()
+void IRAM_ATTR InterruptTrigger(ISRTYPE isrvalue)
 {
-  if (digitalRead(GPIO_NUM_0) == LOW)
+  if (interrupt_task_handle != NULL)
   {
-    // Button pressed, store time
-    WifiPasswordClearTime = millis() + 4000;
-    ResetWifi = false;
-  }
-  else
-  {
-    // Button released
-    // Did user press button for longer than 4 seconds?
-    if (millis() > WifiPasswordClearTime)
+    BaseType_t wokenTask = pdFALSE;
+    xTaskNotifyFromISR(interrupt_task_handle, isrvalue, eNotifyAction::eSetBits, &wokenTask);
+    if (wokenTask == pdTRUE)
     {
-      ResetWifi = true;
+      portYIELD_FROM_ISR(wokenTask);
     }
   }
 }
-
 // Triggered when TCA6416A INT pin goes LOW
 // Found on V4.4 controller PCB's onwards
 void IRAM_ATTR TCA6416AInterrupt()
 {
-  if (interrupt_task_handle != NULL)
-  {
-    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA6416A, eNotifyAction::eSetBits, nullptr);
-  }
+  InterruptTrigger(ISRTYPE::TCA6416A);
 }
-
 // Triggered when TCA6408 INT pin goes LOW
 void IRAM_ATTR TCA6408Interrupt()
 {
-  if (interrupt_task_handle != NULL)
-  {
-    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA6408A, eNotifyAction::eSetBits, nullptr);
-  }
+  InterruptTrigger(ISRTYPE::TCA6408A);
 }
 
 // Triggered when TCA9534A INT pin goes LOW
 void IRAM_ATTR TCA9534AInterrupt()
 {
-  if (interrupt_task_handle != NULL)
-  {
-    xTaskNotifyFromISR(interrupt_task_handle, ISRTYPE::TCA9534, eNotifyAction::eSetBits, nullptr);
-  }
+  InterruptTrigger(ISRTYPE::TCA9534);
 }
 
 const char *packetType(uint8_t cmd)
@@ -2691,7 +2662,6 @@ void periodic_task(void *param)
   uint8_t countdown_influx = mysettings.influxdb_loggingFreqSeconds;
   uint8_t countdown_mqtt1 = 5;
   uint8_t countdown_mqtt2 = 25;
-  uint8_t countdown_wifiresetbutton = 45;
 
   for (;;)
   {
@@ -2704,17 +2674,11 @@ void periodic_task(void *param)
 
     if (tftsleep_timer > 0)
     {
-      // If it gets to zero, leave it there
+      //Timer can get to 0
       tftsleep_timer--;
     }
 
-    if (countdown_wifiresetbutton > 0)
-    {
-      // If it gets to zero, leave it there
-      countdown_wifiresetbutton--;
-    }
-
-    // ESP_LOGI(TAG, "mqtt1=%u, mqtt2=%u, influx=%u, tftsleep=%u, countdown_wifiresetbutton=%u",countdown_mqtt1,countdown_mqtt2,countdown_influx,tftsleep_timer,countdown_wifiresetbutton);
+    // ESP_LOGI(TAG, "mqtt1=%u, mqtt2=%u, influx=%u, tftsleep=%u",countdown_mqtt1,countdown_mqtt2,countdown_influx,tftsleep_timer);
 
     // 5 seconds
     if (countdown_mqtt1 == 0)
@@ -2748,11 +2712,6 @@ void periodic_task(void *param)
       tftsleep();
     }
 
-    if (countdown_wifiresetbutton == 0)
-    {
-      // Disable the BOOT button from acting as a WIFI RESET button which clears the EEPROM settings for WIFI connection
-      hal.SwapGPIO0ToOutput();
-    }
   }
 }
 
@@ -3149,7 +3108,7 @@ void setup()
 
   ESP_LOGI(TAG, "ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u", chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
-  hal.ConfigurePins(WifiPasswordClear);
+  hal.ConfigurePins();
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
   hal.ConfigureVSPI();
 
@@ -3367,16 +3326,6 @@ void loop()
       wifitimer = currentMillis;
       connectToMqtt();
     }
-  }
-
-  if (ResetWifi)
-  {
-    // Password reset, turn LED CYAN
-    LED(RGBLED::Cyan);
-
-    // Wipe EEPROM WIFI setting
-    DIYBMSSoftAP::FactoryReset();
-    ResetWifi = false;
   }
 
   // Call update to receive, decode and process incoming packets

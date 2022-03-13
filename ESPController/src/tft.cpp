@@ -39,7 +39,7 @@ TFT_eSPI tft = TFT_eSPI();
 bool _tft_screen_available = false;
 volatile bool _screen_awake = false;
 
-uint8_t tftsleep_timer = 0;
+int8_t tftsleep_timer = 0;
 
 ScreenTemplateToDisplay _lastScreenToDisplay = ScreenTemplateToDisplay::NotInstalled;
 uint8_t _ScreenToDisplayCounter = 0;

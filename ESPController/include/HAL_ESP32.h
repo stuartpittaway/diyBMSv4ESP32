@@ -12,8 +12,6 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 
 //#define GREEN_LED 2
 
-// 0 is the BOOT button
-#define RESET_WIFI_PIN 0
 #define PFC_INTERRUPT_PIN 33
 
 #ifndef HAL_ESP32_H_
@@ -93,9 +91,9 @@ public:
     uint16_t ReadTCA6416InputRegisters();
 
     void Led(uint8_t bits);
-    void ConfigurePins(void (*WiFiPasswordResetInterrput)(void));
+    void ConfigurePins();
     void TFTScreenBacklight(bool Status);
-    void SwapGPIO0ToOutput();
+    
     void CANBUSEnable(bool value);
     void ConfigureCAN();
 

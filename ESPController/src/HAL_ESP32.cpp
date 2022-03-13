@@ -305,7 +305,7 @@ void HAL_ESP32::TFTScreenBacklight(bool value)
     WriteTCA9534APWROutputState();
 }
 
-void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void))
+void HAL_ESP32::ConfigurePins()
 {
     // GPIO39 is interrupt pin from TCA6408 (doesnt have pull up/down resistors)
     pinMode(TCA6408_INTERRUPT_PIN, INPUT);
@@ -313,10 +313,6 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void))
 
     // GPIO34 is interrupt pin from TCA9534A (doesnt have pull up/down resistors)
     pinMode(TCA9534A_INTERRUPT_PIN, INPUT);
-
-    // BOOT Button on ESP32 module is used for resetting wifi details
-    pinMode(GPIO_NUM_0, INPUT_PULLUP);
-    attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);
 
     // For touch screen
     // GPIO_NUM_36 no internal PULLUP
@@ -331,12 +327,7 @@ void HAL_ESP32::ConfigurePins(void (*WiFiPasswordResetInterrupt)(void))
     pinMode(RS485_ENABLE, OUTPUT);
     // Enable receive
     digitalWrite(RS485_ENABLE, LOW);
-}
 
-void HAL_ESP32::SwapGPIO0ToOutput()
-{
-    // BOOT Button on ESP32 module is used for resetting wifi details
-    detachInterrupt(GPIO_NUM_0);
     pinMode(GPIO_NUM_0, OUTPUT);
     digitalWrite(GPIO_NUM_0, HIGH);
 }
