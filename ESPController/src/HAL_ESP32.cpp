@@ -1,5 +1,5 @@
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms-hal";
+static constexpr const char *const TAG = "diybms-hal";
 
 #include <esp_ipc.h>
 #include "defines.h"
@@ -348,6 +348,19 @@ static void ipc_interrupt_attach(void *param)
     attachInterrupt(params->pin, params->handler, FALLING);
 }
 
+//Attempts connection to i2c device
+esp_err_t HAL_ESP32::Testi2cAddress(i2c_port_t port, uint8_t address)
+{
+    int ret;
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, 1);
+    i2c_master_stop(cmd);
+    ret = i2c_master_cmd_begin(port, cmd, 100 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
+    return ret;
+}
+
 void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInterrupt)(void), void (*TCA6416Interrupt)(void))
 {
     ESP_LOGI(TAG, "Configure I2C");
@@ -375,10 +388,21 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
     // Test to see if we have a TCA6416 on the i2c bus, if we have, its a newer controller board V4.4+
     // on power up the chip has all ports are inputs
 
-    esp_err_t ret = write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT, 0);
-    if (ret == ESP_OK)
+    ESP_LOGI(TAG, "Scanning i2c bus");
+    for (uint8_t i = 1; i < 127; i++)
+    {
+        if (Testi2cAddress(I2C_NUM_0,i) == ESP_OK)
+        {
+            ESP_LOGI(TAG, "Found i2c device at address 0x%2x", i);
+        }
+    }
+
+    if (Testi2cAddress(I2C_NUM_0,TCA6416_ADDRESS) == ESP_OK)
     {
         ESP_LOGI(TAG, "Found TCA6416A");
+
+        ESP_ERROR_CHECK(write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT, 0));
+
         TCA6416_Fitted = true;
 
         // Set configuration
@@ -390,7 +414,6 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
         // All off
         TCA6416_Output_Pins = 0;
         WriteTCA6416OutputState();
-
 
         /*
     TCA6416A pins P0-7 match the old TCA6408 pin out
@@ -424,6 +447,8 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
     }
     else
     {
+        ESP_LOGI(TAG, "TCA6416A not fitted, assume v4.2 board");
+
         // https://datasheet.lcsc.com/szlcsc/1809041633_Texas-Instruments-TCA9534APWR_C206010.pdf
         // TCA9534APWR Remote 8-Bit I2C and Low-Power I/O Expander With Interrupt Output and Configuration Registers
         // https://lcsc.com/product-detail/Interface-I-O-Expanders_Texas-Instruments-TCA9534APWR_C206010.html
@@ -444,19 +469,21 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
         // PORT 76543210
         // MASK=10000000
 
-        // All off
-        esp_err_t ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, 0);
-        if (ret != ESP_OK)
+        if (Testi2cAddress(I2C_NUM_0,TCA9534APWR_ADDRESS) != ESP_OK)
         {
             ESP_LOGE(TAG, "TCA9534APWR Error");
             Halt(RGBLED::Purple);
         }
+
+        // All off
+        ESP_ERROR_CHECK(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, 0));
 
         // 0×03 Configuration, P7 (estop) and P4 (remote touch) as input, others outputs (0=OUTPUT)
         ESP_ERROR_CHECK(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, TCA9534APWR_INPUTMASK));
         ReadTCA9534InputRegisters();
         TCA9534APWR_Output_Pins = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT);
 
+        ESP_LOGD(TAG, "About to configure interrupt...");
         isr_param tca9534_param = {.pin = TCA9534A_INTERRUPT_PIN, .handler = TCA9534AInterrupt};
         ESP_ERROR_CHECK(esp_ipc_call_blocking(PRO_CPU_NUM, ipc_interrupt_attach, &tca9534_param));
 
@@ -475,13 +502,14 @@ void HAL_ESP32::ConfigureI2C(void (*TCA6408Interrupt)(void), void (*TCA9534AInte
         // P6=RELAY 3 (SSR)
         // P7=RELAY 4 (SSR)
 
-        // Set ports to off before we set configuration
-        ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, 0);
-        if (ret != ESP_OK)
+        if (Testi2cAddress(I2C_NUM_0,TCA6408_ADDRESS) != ESP_OK)
         {
             ESP_LOGE(TAG, "TCA6408 Error");
             Halt(RGBLED::Green);
         }
+
+        // Set ports to off before we set configuration
+        ESP_ERROR_CHECK(writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, 0));
 
         // Ports A/B/C/D/E inputs, RELAY1/2/3 outputs
         ESP_ERROR_CHECK(writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_CONFIGURATION, TCA6408_INPUTMASK));

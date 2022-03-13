@@ -3082,7 +3082,7 @@ void setup()
   WiFi.mode(WIFI_OFF);
 
   esp_bt_controller_disable();
-  esp_log_level_set("*", ESP_LOG_WARN);     // set all components to WARN level
+  esp_log_level_set("*", ESP_LOG_DEBUG);     // set all components to WARN level
   esp_log_level_set("wifi", ESP_LOG_WARN);  // enable WARN logs from WiFi stack
   esp_log_level_set("dhcpc", ESP_LOG_WARN); // enable WARN logs from DHCP client
 

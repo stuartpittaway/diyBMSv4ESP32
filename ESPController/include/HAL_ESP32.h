@@ -93,7 +93,7 @@ public:
     void Led(uint8_t bits);
     void ConfigurePins();
     void TFTScreenBacklight(bool Status);
-    
+
     void CANBUSEnable(bool value);
     void ConfigureCAN();
 
@@ -361,6 +361,7 @@ private:
 
     esp_err_t write16bitWord(i2c_port_t i2c_num, uint8_t deviceAddress, uint8_t i2cregister, uint16_t data);
     uint16_t read16bitWord(i2c_port_t i2c_num, uint8_t dev, uint8_t reg);
+    esp_err_t Testi2cAddress(i2c_port_t port, uint8_t address);
 
     void WriteTCA6408OutputState();
     void WriteTCA9534APWROutputState();
