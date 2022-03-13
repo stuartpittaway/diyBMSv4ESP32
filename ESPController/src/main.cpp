@@ -3184,7 +3184,7 @@ chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
   }
 
   xTaskCreate(ledoff_task, "ledoff", 1450, nullptr, 1, &ledoff_task_handle);
-  xTaskCreate(tftwakeup_task, "tftwake", 2048, nullptr, 1, &tftwakeup_task_handle);
+  xTaskCreate(tftwakeup_task, "tftwake", 2300, nullptr, 1, &tftwakeup_task_handle);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 1, &updatetftdisplay_task_handle);
@@ -3206,9 +3206,9 @@ chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
   // We process the transmit queue every 1 second (this needs to be lower delay than the queue fills)
   // and slower than it takes a single module to process a command (about 200ms @ 2400baud)
 
-  xTaskCreate(transmit_task, "tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 2000, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
-  xTaskCreate(lazy_tasks, "lazyt", 2000, nullptr, 1, &lazy_task_handle);
+  xTaskCreate(transmit_task, "tx", 2200, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 2200, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(lazy_tasks, "lazyt", 2200, nullptr, 1, &lazy_task_handle);
   xTaskCreate(pulse_relay_off_task, "pulse", 1000, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
   // Set relay defaults
@@ -3283,7 +3283,7 @@ chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
     // Only run these after we have wifi...
     xTaskCreate(enqueue_task, "enqueue", 2000, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-    xTaskCreate(rules_task, "rules", 2048, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+    xTaskCreate(rules_task, "rules", 2300, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
     xTaskCreate(periodic_task, "period", 5500, nullptr, 1, &periodic_task_handle);
 
     // We have just started...
