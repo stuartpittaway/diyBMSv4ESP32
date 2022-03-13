@@ -3075,6 +3075,34 @@ static void tft_interrupt_attach(void *param)
     attachInterrupt(TOUCH_IRQ, TFTScreenTouchInterrupt, FALLING);
 }
 
+struct log_level_t
+{
+  const char * tag;
+  esp_log_level_t level;
+};
+
+// Default log levels to use for various components.
+log_level_t log_levels[] =
+{
+  { .tag = "*", .level = ESP_LOG_DEBUG },
+  { .tag = "wifi", .level = ESP_LOG_WARN },
+  { .tag = "dhcpc", .level = ESP_LOG_WARN },
+  { .tag = "diybms", .level = ESP_LOG_VERBOSE },
+  { .tag = "diybms-avrisp", .level = ESP_LOG_INFO },
+  { .tag = "diybms-hal", .level = ESP_LOG_INFO },
+  { .tag = "diybms-influxdb", .level = ESP_LOG_INFO },
+  { .tag = "diybms-rx", .level = ESP_LOG_INFO },
+  { .tag = "diybms-tx", .level = ESP_LOG_INFO },
+  { .tag = "diybms-rules", .level = ESP_LOG_INFO },
+  { .tag = "diybms-softap", .level = ESP_LOG_INFO },
+  { .tag = "diybms-tft", .level = ESP_LOG_INFO },
+  { .tag = "diybms-victron", .level = ESP_LOG_INFO },
+  { .tag = "diybms-webfuncs", .level = ESP_LOG_INFO },
+  { .tag = "diybms-webpost", .level = ESP_LOG_INFO },
+  { .tag = "diybms-webreq", .level = ESP_LOG_INFO },
+  { .tag = "diybms-web", .level = ESP_LOG_INFO },
+};
+
 void setup()
 {
   esp_chip_info_t chip_info;
@@ -3082,9 +3110,12 @@ void setup()
   WiFi.mode(WIFI_OFF);
 
   esp_bt_controller_disable();
-  esp_log_level_set("*", ESP_LOG_DEBUG);     // set all components to WARN level
-  esp_log_level_set("wifi", ESP_LOG_WARN);  // enable WARN logs from WiFi stack
-  esp_log_level_set("dhcpc", ESP_LOG_WARN); // enable WARN logs from DHCP client
+
+  // Configure log levels
+  for (log_level_t log : log_levels)
+  {
+    esp_log_level_set(log.tag, log.level);
+  }
 
   esp_chip_info(&chip_info);
 
