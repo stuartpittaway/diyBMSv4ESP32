@@ -1365,7 +1365,7 @@
                 $("#jslibrary").show();
             });
 
-            var socketUrl = String.format('ws://{0}:{1}/ws', window.location.host, window.location.port);
+            var socketUrl = 'ws://'+window.location.host+':'+window.location.port+'/ws';
             try {
                 ws = new WebSocket(socketUrl);
                 ws.addEventListener('open', ws_opened);
