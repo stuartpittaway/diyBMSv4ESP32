@@ -30,7 +30,7 @@ enum ScreenTemplateToDisplay : uint8_t
   VoltageFourBank = 4,
   State = 5,
   AVRProgrammer=6,
-  CurrentMonitor=7
+  CurrentMonitor=7  
 };
 
 

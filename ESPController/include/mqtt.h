@@ -12,9 +12,6 @@
 #include <ArduinoJson.h>
 #include <cppQueue.h>
 
-static void mqtt_connected_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
-static void mqtt_disconnected_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
-static void mqtt_error_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
 void stopMqtt();
 void connectToMqtt();
 void mqtt2(PacketReceiveProcessor *receiveProc,PacketRequestGenerator *prg, uint16_t requestq_count,Rules *rules, RelayState *previousRelayState);

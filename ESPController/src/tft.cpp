@@ -23,7 +23,7 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 */
 
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms-tft";
+static constexpr const char *const TAG = "diybms-tft";
 
 #include "defines.h"
 #include "HAL_ESP32.h"
@@ -61,11 +61,14 @@ void IRAM_ATTR TFTScreenTouchInterrupt()
 
     if (tftwakeup_task_handle != NULL)
     {
-        //ESP_LOGD(TAG, "Touch");
+        // ESP_LOGD(TAG, "Touch");
         BaseType_t xHigherPriorityTaskWoken;
         xHigherPriorityTaskWoken = pdFALSE;
         xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, &xHigherPriorityTaskWoken);
-        portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+        if (xHigherPriorityTaskWoken == pdTRUE)
+        {
+            portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+        }
     }
     else
     {
@@ -133,6 +136,15 @@ void DrawClock()
     }
 }
 
+void PrepareTFT_NoWiFi()
+{
+    // Assumes the Mutex is already obtained by caller
+    tft.fillScreen(TFT_BLACK);
+    tft.fillRoundRect(16, 16, tft.width() - 32, tft.height() - 48, 8, TFT_BLUE);
+    // White outline
+    tft.drawRoundRect(16 + 2, 16 + 2, tft.width() - 36, tft.height() - 52, 8, TFT_LIGHTGREY);
+}
+
 void PrepareTFT_Error()
 {
     // Assumes the Mutex is already obtained by caller
@@ -170,16 +182,16 @@ void PrepareTFT_ControlState()
         tft.drawNumber(_controller_state, x, y, 4);
         break;
     }
-    case ControllerState::ConfigurationSoftAP:
+    case ControllerState::NoWifiConfiguration:
     {
-        // Errors have priority, draw filled red box
-        tft.fillRoundRect(16, 16, tft.width() - 32, tft.height() - 48, 8, TFT_DARKCYAN);
+        tft.setTextColor(TFT_WHITE, TFT_BLUE);
+        tft.fillRoundRect(16, 16, tft.width() - 32, tft.height() - 48, 8, TFT_BLUE);
         tft.drawRoundRect(16 + 2, 16 + 2, tft.width() - 36, tft.height() - 52, 8, TFT_WHITE);
         tft.drawCentreString("Configure", x, y, 4);
         y += fontHeight_4;
-        tft.drawCentreString("Access", x, y, 4);
+        tft.drawCentreString("WiFi", x, y, 4);
         y += fontHeight_4;
-        tft.drawCentreString("Point", x, y, 4);
+        tft.drawCentreString("Settings", x, y, 4);
         break;
     }
     case ControllerState::PowerUp:
@@ -419,11 +431,6 @@ void DrawTFT_ControlState()
     case ControllerState::Unknown:
     {
         tft.drawCentreString("???", x, y, 4);
-        break;
-    }
-    case ControllerState::ConfigurationSoftAP:
-    {
-        // Don't draw anything
         break;
     }
     case ControllerState::PowerUp:
@@ -760,6 +767,23 @@ void DrawTFT_VoltageOneBank()
     x += tft.drawNumber(rules.numberOfBalancingModules, x, y);
     // blank out gap between numbers
     tft.fillRect(x, y, tft.width() - x, fontHeight_4, TFT_BLACK);
+}
+
+void DrawTFT_NoWiFi()
+{
+    tft.setTextColor(TFT_WHITE, TFT_RED);
+    // Centre screen
+    tft.setTextFont(2);
+    uint16_t x = tft.width() / 2;
+    uint16_t y = tft.height() / 2 - fontHeight_4 * 2;
+    // Centre/middle text
+    tft.setTextDatum(TC_DATUM);
+
+    tft.drawCentreString("Module", x, y, 4);
+    y += fontHeight_4;
+    tft.drawCentreString("communications", x, y, 4);
+    y += fontHeight_4;
+    tft.drawCentreString("error", x, y, 4);
 }
 
 void DrawTFT_Error()

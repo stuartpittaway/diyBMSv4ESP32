@@ -32,7 +32,6 @@ static constexpr const char *const TAG = "diybms";
 
 #include "FS.h"
 #include "LittleFS.h"
-#include <WiFi.h>
 #include <ESPmDNS.h>
 #include <SPI.h>
 #include "time.h"
@@ -40,6 +39,7 @@ static constexpr const char *const TAG = "diybms";
 #include <esp_wifi.h>
 #include <esp_bt.h>
 #include <Preferences.h>
+#include <esp_event.h>
 
 // Libraries for SD card
 #include "SD.h"
@@ -615,7 +615,7 @@ void sdcardlog_outputs_task(void *param)
         // ESP_LOGD(TAG, "%04u-%02u-%02u %02u:%02u:%02u", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
         char filename[32];
-        snprintf(filename, sizeof(filename),"/output_status_%04u%02u%02u.csv", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
+        snprintf(filename, sizeof(filename), "/output_status_%04u%02u%02u.csv", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
 
         File file;
 
@@ -670,7 +670,7 @@ void sdcardlog_outputs_task(void *param)
           {
             char dataMessage[255];
 
-            snprintf(dataMessage,sizeof(dataMessage), "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+            snprintf(dataMessage, sizeof(dataMessage), "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
             file.print(dataMessage);
             file.print(hal.LastTCA6408Value(), BIN);
             file.print(',');
@@ -678,7 +678,7 @@ void sdcardlog_outputs_task(void *param)
             for (uint8_t i = 0; i < RELAY_TOTAL; i++)
             {
               // This may output invalid data when controller is first powered up
-              snprintf(dataMessage,sizeof(dataMessage),  "%c", previousRelayState[i] == RelayState::RELAY_ON ? 'Y' : 'N');
+              snprintf(dataMessage, sizeof(dataMessage), "%c", previousRelayState[i] == RelayState::RELAY_ON ? 'Y' : 'N');
               file.print(dataMessage);
               if (i < RELAY_TOTAL - 1)
               {
@@ -831,7 +831,6 @@ void IRAM_ATTR TCA6408Interrupt()
 {
   InterruptTrigger(ISRTYPE::TCA6408A);
 }
-
 // Triggered when TCA9534A INT pin goes LOW
 void IRAM_ATTR TCA9534AInterrupt()
 {
@@ -904,8 +903,8 @@ const char *ControllerStateString(ControllerState value)
   {
   case ControllerState::PowerUp:
     return "PowerUp";
-  case ControllerState::ConfigurationSoftAP:
-    return "ConfigurationSoftAP";
+  case ControllerState::NoWifiConfiguration:
+    return "NoWIFI";
   case ControllerState::Stabilizing:
     return "Stabilizing";
   case ControllerState::Running:
@@ -931,12 +930,11 @@ void SetControllerState(ControllerState newState)
       // Purple during start up, don't use the LED as thats not setup at this state
       hal.Led(RGBLED::Purple);
       break;
-    case ControllerState::ConfigurationSoftAP:
-      // Don't use the LED as thats not setup at this state
-      hal.Led(RGBLED::White);
-      break;
     case ControllerState::Stabilizing:
       LED(RGBLED::Yellow);
+      break;
+    case ControllerState::NoWifiConfiguration:
+      LED(RGBLED::White);
       break;
     case ControllerState::Running:
       LED(RGBLED::Green);
@@ -1380,6 +1378,168 @@ void enqueue_task(void *param)
   }
 }
 
+/* FreeRTOS event group to signal when we are connected*/
+static EventGroupHandle_t s_wifi_event_group;
+
+/* The event group allows multiple bits for each event, but we only care about two events:
+ * - we are connected to the AP with an IP
+ * - we failed to connect after the maximum amount of retries */
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT BIT1
+static int s_retry_num = 0;
+
+static void event_handler(void *arg, esp_event_base_t event_base,
+                          int32_t event_id, void *event_data)
+{
+  if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
+  {
+    esp_wifi_connect();
+  }
+  else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
+  {
+    if (s_retry_num < 200)
+    {
+      esp_wifi_connect();
+      s_retry_num++;
+      ESP_LOGI(TAG, "retry to connect to the AP");
+    }
+    else
+    {
+      xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+    }
+    ESP_LOGI(TAG, "connect to the AP fail");
+  }
+  else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
+  {
+    ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+    ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+    s_retry_num = 0;
+    xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+
+    ESP_LOGI(TAG, "Request NTP from %s", mysettings.ntpServer);
+
+    // Use native ESP32 code
+    configTime(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
+
+    if (!server_running)
+    {
+      StartServer();
+      server_running = true;
+    }
+
+    connectToMqtt();
+
+    // Set up mDNS responder:
+    // - first argument is the domain name, in this example
+    //   the fully-qualified domain name is "esp8266.local"
+    // - second argument is the IP address to advertise
+    //   we send our IP address on the WiFi network
+    if (!MDNS.begin(hostname))
+    {
+      ESP_LOGE(TAG, "Error setting up MDNS responder!");
+    }
+    else
+    {
+      ESP_LOGI(TAG, "mDNS responder started");
+      // Add service to MDNS-SD
+      MDNS.addService("http", "tcp", 80);
+    }
+
+    ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, IP2STR(&event->ip_info.ip));
+
+    // Wake up the screen, this will show the IP address etc.
+    if (tftwakeup_task_handle != NULL)
+    {
+      xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
+    }
+  }
+}
+
+void wifi_init_sta(void)
+{
+  s_wifi_event_group = xEventGroupCreate();
+
+  ESP_ERROR_CHECK(esp_netif_init());
+
+  ESP_ERROR_CHECK(esp_event_loop_create_default());
+  esp_netif_create_default_wifi_sta();
+
+  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+  ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+  esp_event_handler_instance_t instance_any_id;
+  esp_event_handler_instance_t instance_got_ip;
+  ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
+                                                      ESP_EVENT_ANY_ID,
+                                                      &event_handler,
+                                                      NULL,
+                                                      &instance_any_id));
+  ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
+                                                      IP_EVENT_STA_GOT_IP,
+                                                      &event_handler,
+                                                      NULL,
+                                                      &instance_got_ip));
+
+  wifi_config_t wifi_config;
+
+  memset(&wifi_config, 0, sizeof(wifi_config));
+
+  wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+  strncpy((char *)wifi_config.sta.ssid, DIYBMSSoftAP::Config()->wifi_ssid, sizeof(wifi_config.sta.ssid));
+  strncpy((char *)wifi_config.sta.password, DIYBMSSoftAP::Config()->wifi_passphrase, sizeof(wifi_config.sta.password));
+
+  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+  ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+  ESP_ERROR_CHECK(esp_wifi_start());
+
+  uint32_t chipId = 0;
+  for (int i = 0; i < 17; i = i + 8)
+  {
+    chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
+  }
+  // DIYBMS-00000000
+  memset(&hostname,0,sizeof(hostname));
+  snprintf(hostname, sizeof(hostname), "DIYBMS-%08X", chipId);
+  esp_err_t ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
+  if (ret != ESP_OK)
+  {
+    ESP_LOGE(TAG, "failed to set hostname:%d", ret);
+  }
+  ESP_LOGI(TAG, "Hostname: %si", hostname);
+ 
+
+  ESP_LOGI(TAG, "wifi_init_sta finished");
+
+  /* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
+   * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) */
+  EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
+                                         WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+                                         pdFALSE,
+                                         pdFALSE,
+                                         portMAX_DELAY);
+
+  /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
+   * happened. */
+  if (bits & WIFI_CONNECTED_BIT)
+  {
+    ESP_LOGI(TAG, "connected to access point");
+  }
+  else if (bits & WIFI_FAIL_BIT)
+  {
+    ESP_LOGI(TAG, "Failed to connect to access point");
+  }
+  else
+  {
+    ESP_LOGE(TAG, "UNEXPECTED EVENT");
+  }
+
+  /* The event will not be processed after unregister */
+  ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
+  ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
+  vEventGroupDelete(s_wifi_event_group);
+}
+
+/*
 void connectToWifi()
 {
   wl_status_t status = WiFi.status();
@@ -1387,24 +1547,6 @@ void connectToWifi()
   {
     return;
   }
-
-  /*
-WiFi.status() only returns:
-
-    switch(status) {
-        case STATION_GOT_IP:
-            return WL_CONNECTED;
-        case STATION_NO_AP_FOUND:
-            return WL_NO_SSID_AVAIL;
-        case STATION_CONNECT_FAIL:
-        case STATION_WRONG_PASSWORD:
-            return WL_CONNECT_FAILED;
-        case STATION_IDLE:
-            return WL_IDLE_STATUS;
-        default:
-            return WL_DISCONNECTED;
-    }
-*/
 
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
@@ -1415,14 +1557,16 @@ WiFi.status() only returns:
     chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
   }
   // DIYBMS-00000000
-  snprintf(hostname,sizeof(hostname), "DIYBMS-%08X", chipId);
+  snprintf(hostname, sizeof(hostname), "DIYBMS-%08X", chipId);
   WiFi.setHostname(hostname);
 
   ESP_LOGI(TAG, "Hostname: %s, current state %i", hostname, status);
 
   WiFi.begin(DIYBMSSoftAP::Config()->wifi_ssid, DIYBMSSoftAP::Config()->wifi_passphrase);
 }
+*/
 
+/*
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
 
@@ -1433,14 +1577,6 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
   // Use native ESP32 code
   configTime(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
 
-  /*
-  TODO: CHECK ERROR CODES BETTER!
-  0 : WL_IDLE_STATUS when Wi-Fi is in process of changing between statuses
-  1 : WL_NO_SSID_AVAIL in case configured SSID cannot be reached
-  3 : WL_CONNECTED after successful connection is established
-  4 : WL_CONNECT_FAILED if password is incorrect
-  6 : WL_DISCONNECTED if module is not configured in station mode
-  */
   if (!server_running)
   {
     StartServer();
@@ -1474,7 +1610,8 @@ void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
     xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
   }
 }
-
+*/
+/*
 void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
 {
   ESP_LOGE(TAG, "Disconnected from Wi-Fi.");
@@ -1488,6 +1625,7 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
     xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
   }
 }
+*/
 
 uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
 {
@@ -2567,7 +2705,7 @@ void resetAllRules()
   }
 }
 
-bool CaptureSerialInput(HardwareSerial stream, char *buffer, int buffersize, bool OnlyDigits, bool ShowPasswordChar)
+bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool ShowPasswordChar)
 {
   int length = 0;
   unsigned long timer = millis() + 30000;
@@ -2580,134 +2718,162 @@ bool CaptureSerialInput(HardwareSerial stream, char *buffer, int buffersize, boo
       return false;
 
     // We should add a timeout in here, and return FALSE when we abort....
-    while (stream.available())
+
+    // Reset timer on serial input
+    timer = millis() + 30000;
+
+    int data = fgetc(stdin);
+    if (data == '\b' || data == '\177')
+    { // BS and DEL
+      if (length)
+      {
+        length--;
+        fputs("\b \b", stdout);
+      }
+    }
+    else if (data == '\n')
     {
-      // Reset timer on serial input
-      timer = millis() + 30000;
-
-      int data = stream.read();
-      if (data == '\b' || data == '\177')
-      { // BS and DEL
-        if (length)
-        {
-          length--;
-          stream.write("\b \b");
-        }
-      }
-      else if (data == '\n')
+      // Ignore
+    }
+    else if (data == '\r')
+    {
+      if (length > 0)
       {
-        // Ignore
+        fputs("\r\n", stdout); // output CRLF
+        buffer[length] = '\0';
+
+        // Soak up any other characters on the buffer and throw away
+        // while (stream.available())        {          stream.read();        }
+
+        // Return to caller
+        return true;
       }
-      else if (data == '\r')
+
+      length = 0;
+    }
+    else if (length < buffersize - 1)
+    {
+      if (OnlyDigits && (data < '0' || data > '9'))
       {
-        if (length > 0)
-        {
-          stream.write("\r\n"); // output CRLF
-          buffer[length] = '\0';
-
-          // Soak up any other characters on the buffer and throw away
-          while (stream.available())
-          {
-            stream.read();
-          }
-
-          // Return to caller
-          return true;
-        }
-
-        length = 0;
+        // We need to filter out non-digit characters
       }
-      else if (length < buffersize - 1)
+      else
       {
-        if (OnlyDigits && (data < '0' || data > '9'))
+        buffer[length++] = data;
+        if (ShowPasswordChar)
         {
-          // We need to filter out non-digit characters
+          // Hide real character
+          fputc('*', stdout);
         }
         else
         {
-          buffer[length++] = data;
-          if (ShowPasswordChar)
-          {
-            // Hide real character
-            stream.write('*');
-          }
-          else
-          {
-            stream.write(data);
-          }
+          fputc(data, stdout);
         }
       }
     }
   }
 }
 
-void TerminalBasedWifiSetup(HardwareSerial stream)
+void TerminalBasedWifiSetup()
 {
-  stream.println(F("\r\n\r\nDIYBMS CONTROLLER - Scanning Wifi"));
+  SetControllerState(ControllerState::NoWifiConfiguration);
 
-  WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false);
-  WiFi.disconnect();
-
-  int n = WiFi.scanNetworks();
-
-  if (n == 0)
-    stream.println(F("no networks found"));
-  else
+  if (_tft_screen_available)
   {
-    for (int i = 0; i < n; ++i)
+    if (hal.GetDisplayMutex())
     {
-      if (i < 10)
-      {
-        stream.print(' ');
-      }
-      stream.print(i);
-      stream.print(':');
-      stream.print(WiFi.SSID(i));
-
-      // Pad out the wifi names into 2 columns
-      for (size_t spaces = WiFi.SSID(i).length(); spaces < 36; spaces++)
-      {
-        stream.print(' ');
-      }
-
-      if ((i + 1) % 2 == 0)
-      {
-        stream.println();
-      }
-      delay(5);
+      PrepareTFT_ControlState();
+      DrawTFT_ControlState();
+      hal.ReleaseDisplayMutex();
+      hal.TFTScreenBacklight(true);
     }
-    stream.println();
   }
 
-  WiFi.mode(WIFI_OFF);
+  ESP_LOGD(TAG, "TerminalBasedWifiSetup");
 
-  stream.print(F("Enter the NUMBER of the Wifi network to connect to:"));
+  fputs("\n\nDIYBMS CONTROLLER - Scanning Wifi", stdout);
 
-  bool result;
-  char buffer[10];
-  result = CaptureSerialInput(stream, buffer, 10, true, false);
-  if (result)
-  {
-    int index = String(buffer).toInt();
-    stream.print(F("Enter the password to use when connecting to '"));
-    stream.print(WiFi.SSID(index));
-    stream.print("':");
+  ESP_ERROR_CHECK(esp_netif_init());
+  ESP_ERROR_CHECK(esp_event_loop_create_default());
+  esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
+  assert(sta_netif);
 
-    char passwordbuffer[80];
-    result = CaptureSerialInput(stream, passwordbuffer, 80, false, true);
+  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+  ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
+  // Max of 32 stations to return
+  uint16_t number = 32;
+  wifi_ap_record_t ap_info[32];
+  uint16_t ap_count = 0;
+  memset(ap_info, 0, sizeof(ap_info));
+
+  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+  ESP_ERROR_CHECK(esp_wifi_start());
+  esp_wifi_scan_start(NULL, true);
+  ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
+  ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+  ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
+
+  /*
+    if (n == 0)
+      fputs("no networks found", stdout);
+    else
+    {
+      for (int i = 0; i < n; ++i)
+      {
+        if (i < 10)
+        {
+          fputc(' ', stdout);
+        }
+        char number[5];
+        itoa(i, number, 10);
+        fputs(number, stdout);
+        fputc(':', stdout);
+        fputs(WiFi.SSID(i).c_str(), stdout);
+
+        // Pad out the wifi names into 2 columns
+        for (size_t spaces = WiFi.SSID(i).length(); spaces < 36; spaces++)
+        {
+          fputc(' ', stdout);
+        }
+
+        if ((i + 1) % 2 == 0)
+        {
+          fputc('\n', stdout);
+        }
+        delay(5);
+      }
+      fputc('\n', stdout);
+    }
+
+    WiFi.mode(WIFI_OFF);
+
+    fputs("Enter the NUMBER of the Wifi network to connect to:", stdout);
+
+    bool result;
+    char buffer[10];
+    result = CaptureSerialInput(buffer, sizeof(10), true, false);
     if (result)
     {
-      wifi_eeprom_settings config;
-      memset(&config, 0, sizeof(config));
-      WiFi.SSID(index).toCharArray(config.wifi_ssid, sizeof(config.wifi_ssid));
-      strcpy(config.wifi_passphrase, passwordbuffer);
-      Settings::WriteConfig("diybmswifi", (char *)&config, sizeof(config));
-    }
-  }
+      int index = String(buffer).toInt();
+      fputs("Enter the password to use when connecting to '", stdout);
+      fputs(WiFi.SSID(index).c_str(), stdout);
+      fputs("':", stdout);
 
-  stream.println(F("REBOOTING IN 5..."));
+      char passwordbuffer[80];
+      result = CaptureSerialInput(passwordbuffer, sizeof(80), false, true);
+
+      if (result)
+      {
+        wifi_eeprom_settings config;
+        memset(&config, 0, sizeof(config));
+        WiFi.SSID(index).toCharArray(config.wifi_ssid, sizeof(config.wifi_ssid));
+        strcpy(config.wifi_passphrase, passwordbuffer);
+        Settings::WriteConfig("diybmswifi", (char *)&config, sizeof(config));
+      }
+    }
+  */
+  fputs("\n\nREBOOTING IN 5 SECONDS", stdout);
   delay(5000);
   ESP.restart();
 }
@@ -2867,6 +3033,25 @@ log_level_t log_levels[] =
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO}};
 
+void consoleConfigurationCheck()
+{
+  // Allow user to press SPACE BAR key on serial terminal to enter text based WIFI setup
+  // Make sure this is always output regardless of the IDF logging level
+  fputs("\n\n\nPress SPACE BAR to enter console WiFi configuration....\n\n\n", stdout);
+  for (size_t i = 0; i < (5000 / 250); i++)
+  {
+    fputc('.', stdout);
+    uint8_t ch = fgetc(stdin);
+    // SPACE BAR
+    if (ch == 32)
+    {
+      TerminalBasedWifiSetup();
+    }
+    delay(250);
+  }
+  fputs("\n\nNo key press detected\n", stdout);
+}
+
 void setup()
 {
   esp_chip_info_t chip_info;
@@ -2874,6 +3059,7 @@ void setup()
   WiFi.mode(WIFI_OFF);
 
   esp_bt_controller_disable();
+
   // Configure log levels
 
   for (log_level_t log : log_levels)
@@ -2922,7 +3108,32 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   SetControllerState(ControllerState::PowerUp);
 
+  hal.ConfigureVSPI();
+  init_tft_display();
+
   hal.Led(0);
+
+  consoleConfigurationCheck();
+
+  // Retrieve the EEPROM WIFI settings
+  bool EepromConfigValid = DIYBMSSoftAP::LoadConfigFromEEPROM();
+
+  if (LoadWiFiConfigFromSDCard(EepromConfigValid))
+  {
+    // We need to reload the configuration, as it was updated...
+    EepromConfigValid = DIYBMSSoftAP::LoadConfigFromEEPROM();
+  }
+
+  if (!EepromConfigValid)
+  {
+    // We have just started up and the EEPROM is empty of configuration
+    // force terminal wifi setup....
+    TerminalBasedWifiSetup();
+  }
+
+  // Switch CAN chip TJA1051T/3 ON
+  hal.CANBUSEnable(true);
+  hal.ConfigureCAN();
 
   if (!LittleFS.begin(false))
   {
@@ -2936,14 +3147,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   }
 
   mountSDCard();
-
-  // Switch CAN chip TJA1051T/3 ON
-  hal.CANBUSEnable(true);
-
-  hal.ConfigureCAN();
-
-  hal.ConfigureVSPI();
-  init_tft_display();
 
   // Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
@@ -3009,74 +3212,25 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   // Fire task to record state of outputs to SD Card
   xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
 
-  // Allow user to press SPACE BAR key on serial terminal
-  // to enter text based WIFI setup
-  ESP_LOGI(TAG, "Press SPACE BAR to enter terminal based configuration....");
-  // TODO: move to using stdio reading rather than SERIAL_DEBUG
-  for (size_t i = 0; i < (3000 / 250); i++)
+  // We have just started...
+  SetControllerState(ControllerState::Stabilizing);
+
+  /* Explicitly set the ESP to be a WiFi-client, otherwise by default,
+    would try to act as both a client and an access-point */
+  // WiFi.onEvent(onWifiConnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
+  // WiFi.onEvent(onWifiDisconnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+
+  // Only run these after we have wifi...
+  xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
+  xTaskCreate(rules_task, "rules", 2000, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+  xTaskCreate(periodic_task, "period", 4000, nullptr, 1, &periodic_task_handle);
+
+  // Attempt connection in setup(), loop() will also try every 30 seconds
+  // connectToWifi();
+  wifi_init_sta();
+
+  if (tftwakeup_task_handle != NULL)
   {
-    SERIAL_DEBUG.print('.');
-    while (SERIAL_DEBUG.available())
-    {
-      int x = SERIAL_DEBUG.read();
-      // SPACE BAR
-      if (x == 32)
-      {
-        TerminalBasedWifiSetup(SERIAL_DEBUG);
-      }
-    }
-    delay(250);
-  }
-  ESP_LOGI(TAG, "skipped");
-
-  // Retrieve the EEPROM WIFI settings
-  bool EepromConfigValid = DIYBMSSoftAP::LoadConfigFromEEPROM();
-
-  if (LoadWiFiConfigFromSDCard(EepromConfigValid))
-  {
-    // We need to reload the configuration, as it was updated...
-    EepromConfigValid = DIYBMSSoftAP::LoadConfigFromEEPROM();
-  }
-
-  // Temporarly force WIFI settings
-  // wifi_eeprom_settings xxxx;
-  // strcpy(xxxx.wifi_ssid,"XXXXXX");
-  // strcpy(xxxx.wifi_passphrase,"XXXXXX");
-  // Settings::WriteConfig("diybmswifi",(char *)&config, sizeof(config));
-  // clearAPSettings = 0;
-
-  if (!EepromConfigValid)
-  {
-    // We have just started up and the EEPROM is empty of configuration
-    SetControllerState(ControllerState::ConfigurationSoftAP);
-
-    ESP_LOGI(TAG, "Setup Access Point");
-    // We are in initial power on mode (factory reset)
-    // DIYBMSSoftAP::SetupAccessPoint(&server);
-  }
-  else
-  {
-    /* Explicitly set the ESP to be a WiFi-client, otherwise by default,
-      would try to act as both a client and an access-point */
-    // WiFi.onEvent(onWifiConnect, system_event_id_t::SYSTEM_EVENT_STA_GOT_IP);
-    // WiFi.onEvent(onWifiDisconnect, system_event_id_t::SYSTEM_EVENT_STA_DISCONNECTED);
-    //  Newer IDF version will need this...
-    WiFi.onEvent(onWifiConnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
-    WiFi.onEvent(onWifiDisconnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-
-    // Only run these after we have wifi...
-    xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-    xTaskCreate(rules_task, "rules", 1900, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-    xTaskCreate(periodic_task, "period", 4000, nullptr, 1, &periodic_task_handle);
-
-    // We have just started...
-    SetControllerState(ControllerState::Stabilizing);
-
-    hal.TFTScreenBacklight(false);
-
-    // Attempt connection in setup(), loop() will also try every 30 seconds
-    connectToWifi();
-
     // Wake screen on power up
     xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
   }
@@ -3091,14 +3245,15 @@ void loop()
 {
   unsigned long currentMillis = millis();
 
-  if (_controller_state != ControllerState::ConfigurationSoftAP)
+  if (_controller_state != ControllerState::NoWifiConfiguration)
   {
     // on first pass wifitimer is zero
     if (currentMillis - wifitimer > 30000)
     {
       // Attempt to connect to WiFi every 30 seconds, this caters for when WiFi drops
       // such as AP reboot, its written to return without action if we are already connected
-      connectToWifi();
+      // connectToWifi();
+      // wifi_init_sta();
       wifitimer = currentMillis;
 
       // Attempt to connect to MQTT if enabled and not already connected

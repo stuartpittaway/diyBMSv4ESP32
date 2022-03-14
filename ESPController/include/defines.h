@@ -260,7 +260,7 @@ enum ControllerState : uint8_t
   Unknown = 0,
   PowerUp = 1,
   Stabilizing = 2,
-  ConfigurationSoftAP = 3,
+  NoWifiConfiguration=3,
   Running = 255,
 };
 
@@ -358,64 +358,6 @@ struct currentmonitoring_struct
   bool RelayState : 1;
 };
 
-/*
-struct currentmonitoring_struct
-{
-  //Uses float as these are 4 bytes on ESP32
-  int64_t timestamp;
-  bool validReadings;
-  //Voltage
-  float voltage;
-  //Current in AMPS
-  float current;
-  uint32_t milliamphour_out;
-  uint32_t milliamphour_in;
-  int16_t temperature;
-  uint16_t watchdogcounter;
-  float power;
-  float shuntmV;
-  float currentlsb;
-  float shuntresistance;
-  uint16_t shuntmaxcurrent;
-  uint16_t shuntmillivolt;
-  uint16_t shuntcal;
-  int16_t temperaturelimit;
-  float undervoltagelimit;
-  float overvoltagelimit;
-
-  float overpowerlimit;
-  float overcurrentlimit;
-  float undercurrentlimit;
-  uint16_t shunttempcoefficient;
-  uint16_t modelnumber;
-  uint32_t firmwareversion;
-  uint32_t firmwaredatetime;
-
-  bool TemperatureOverLimit : 1;
-  bool CurrentOverLimit : 1;
-  bool CurrentUnderLimit : 1;
-  bool VoltageOverlimit : 1;
-  bool VoltageUnderlimit : 1;
-  bool PowerOverLimit : 1;
-  bool TempCompEnabled : 1;
-  bool ADCRange4096mV : 1;
-
-  bool RelayTriggerTemperatureOverLimit : 1;
-  bool RelayTriggerCurrentOverLimit : 1;
-  bool RelayTriggerCurrentUnderLimit : 1;
-  bool RelayTriggerVoltageOverlimit : 1;
-  bool RelayTriggerVoltageUnderlimit : 1;
-  bool RelayTriggerPowerOverLimit : 1;
-  bool RelayState : 1;
-
-  uint16_t batterycapacityamphour;
-  float tailcurrentamps;
-  float fullychargedvoltage;
-  float chargeefficiency;
-
-  float stateofcharge;
-};
-*/
 
 enum DIAG_ALRT_FIELD : uint16_t
 {
