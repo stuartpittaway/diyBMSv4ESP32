@@ -47,8 +47,8 @@ static constexpr const char *const TAG = "diybms";
 #include "driver/twai.h"
 #include "driver/adc.h"
 #include <driver/uart.h>
-
 #include <esp_http_server.h>
+#include <esp_sntp.h>
 #include <SerialEncoder.h>
 #include <cppQueue.h>
 #include <ArduinoJson.h>
@@ -1379,18 +1379,39 @@ void enqueue_task(void *param)
 }
 
 /* FreeRTOS event group to signal when we are connected*/
-//static EventGroupHandle_t s_wifi_event_group;
+static EventGroupHandle_t s_wifi_event_group;
 
 /* The event group allows multiple bits for each event, but we only care about two events:
  * - we are connected to the AP with an IP
  * - we failed to connect after the maximum amount of retries */
-//#define WIFI_CONNECTED_BIT BIT0
-//#define WIFI_FAIL_BIT BIT1
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT BIT1
 static int s_retry_num = 0;
+
+static void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char* server1)
+{
+    if(sntp_enabled()){
+        sntp_stop();
+    }
+    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    sntp_setservername(0, (char*)server1);
+    //sntp_setservername(1, (char*)server2);
+    //sntp_setservername(2, (char*)server3);
+    sntp_init();
+
+    //TODO: Need to set timezone
+    //setTimeZone(-gmtOffset_sec, daylightOffset_sec);
+    //setenv("TZ", tz, 1);
+    //tzset();
+}
 
 static void event_handler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
+
+//ADD IN...
+//IP_EVENT_STA_LOST_IP 
+
   if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
   {
     esp_wifi_connect();
@@ -1405,7 +1426,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     }
     else
     {
-      //xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+      xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
     }
     ESP_LOGI(TAG, "connect to the AP fail");
   }
@@ -1414,12 +1435,11 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
     ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
     s_retry_num = 0;
-    //xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
     ESP_LOGI(TAG, "Request NTP from %s", mysettings.ntpServer);
 
-    // Use native ESP32 code
-    configTime(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
+    configureSNTP(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
 
     if (!server_running)
     {
@@ -1445,7 +1465,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
       MDNS.addService("http", "tcp", 80);
     }
 
-    ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, IP2STR(&event->ip_info.ip));
+    ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://" IPSTR, hostname, IP2STR(&event->ip_info.ip));
 
     // Wake up the screen, this will show the IP address etc.
     if (tftwakeup_task_handle != NULL)
@@ -1457,7 +1477,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
 void wifi_init_sta(void)
 {
-  //s_wifi_event_group = xEventGroupCreate();
+  s_wifi_event_group = xEventGroupCreate();
 
   ESP_ERROR_CHECK(esp_netif_init());
 
@@ -1488,9 +1508,12 @@ void wifi_init_sta(void)
   strncpy((char *)wifi_config.sta.ssid, DIYBMSSoftAP::Config()->wifi_ssid, sizeof(wifi_config.sta.ssid));
   strncpy((char *)wifi_config.sta.password, DIYBMSSoftAP::Config()->wifi_passphrase, sizeof(wifi_config.sta.password));
 
+  //Avoid issues with GPIO39 interrupt firing all the time - disable power saving
+  ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   ESP_ERROR_CHECK(esp_wifi_start());
+ 
 
   uint32_t chipId = 0;
   for (int i = 0; i < 17; i = i + 8)
