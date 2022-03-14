@@ -3125,7 +3125,6 @@ static void tft_interrupt_attach(void *param)
   attachInterrupt(TOUCH_IRQ, TFTScreenTouchInterrupt, FALLING);
 }
 
-
 struct log_level_t
 {
   const char * tag;
@@ -3162,6 +3161,7 @@ void setup()
 
   esp_bt_controller_disable();
  // Configure log levels
+
   for (log_level_t log : log_levels)
   {
     esp_log_level_set(log.tag, log.level);
