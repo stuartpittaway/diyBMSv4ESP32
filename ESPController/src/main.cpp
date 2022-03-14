@@ -29,7 +29,6 @@ static constexpr const char *const TAG = "diybms";
 //#define PACKET_LOGGING_RECEIVE
 //#define PACKET_LOGGING_SEND
 //#define RULES_LOGGING
-//#define MQTT_LOGGING
 
 #include "FS.h"
 #include "LittleFS.h"
@@ -49,7 +48,6 @@ static constexpr const char *const TAG = "diybms";
 #include "driver/adc.h"
 #include <driver/uart.h>
 
-#include <mqtt_client.h>
 #include <esp_http_server.h>
 #include <SerialEncoder.h>
 #include <cppQueue.h>
@@ -60,7 +58,7 @@ static constexpr const char *const TAG = "diybms";
 #include "avrisp_programmer.h"
 #include "tft.h"
 #include "influxdb.h"
-
+#include "mqtt.h"
 #include "victron_canbus.h"
 
 const uart_port_t rs485_uart_num = UART_NUM_1;
@@ -88,9 +86,6 @@ uint32_t canbus_messages_received = 0;
 uint32_t canbus_messages_sent = 0;
 uint32_t canbus_messages_failed_sent = 0;
 
-bool mqttClient_connected = false;
-esp_mqtt_client_handle_t mqtt_client = nullptr;
-
 bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
@@ -99,11 +94,8 @@ volatile enumInputState InputState[INPUTS_TOTAL];
 
 currentmonitoring_struct currentMonitor;
 
-// AsyncWebServer server(80);
-
 TaskHandle_t i2c_task_handle = NULL;
 TaskHandle_t ledoff_task_handle = NULL;
-
 TaskHandle_t sdcardlog_task_handle = NULL;
 TaskHandle_t sdcardlog_outputs_task_handle = NULL;
 TaskHandle_t avrprog_task_handle = NULL;
@@ -137,10 +129,8 @@ QueueHandle_t rs485_transmit_q_handle;
 #include "crc16.h"
 #include "settings.h"
 #include "SoftAP.h"
-//#include "DIYBMSServer.h"
 #include "PacketRequestGenerator.h"
 #include "PacketReceiveProcessor.h"
-
 #include "webserver.h"
 
 // Instantiate queue to hold packets ready for transmission
@@ -425,7 +415,7 @@ void sdcardlog_task(void *param)
         // ESP_LOGD(TAG, "%04u-%02u-%02u %02u:%02u:%02u", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
         char filename[32];
-        sprintf(filename, "/data_%04u%02u%02u.csv", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
+        snprintf(filename, sizeof(filename), "/data_%04u%02u%02u.csv", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
 
         File file;
 
@@ -493,17 +483,17 @@ void sdcardlog_task(void *param)
           {
             char dataMessage[255];
 
-            sprintf(dataMessage, "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+            snprintf(dataMessage, sizeof(dataMessage), "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
             file.print(dataMessage);
 
             for (uint8_t i = 0; i < TotalNumberOfCells(); i++)
             {
               // This may output invalid data when controller is first powered up
-              sprintf(dataMessage, "%u,%i,%i,%c,%u,%c,%u,%u",
-                      cmi[i].voltagemV, cmi[i].internalTemp,
-                      cmi[i].externalTemp, cmi[i].inBypass ? 'Y' : 'N',
-                      (int)((float)cmi[i].PWMValue / (float)255.0 * 100), cmi[i].bypassOverTemp ? 'Y' : 'N',
-                      cmi[i].badPacketCount, cmi[i].BalanceCurrentCount);
+              snprintf(dataMessage, sizeof(dataMessage), "%u,%i,%i,%c,%u,%c,%u,%u",
+                       cmi[i].voltagemV, cmi[i].internalTemp,
+                       cmi[i].externalTemp, cmi[i].inBypass ? 'Y' : 'N',
+                       (int)((float)cmi[i].PWMValue / (float)255.0 * 100), cmi[i].bypassOverTemp ? 'Y' : 'N',
+                       cmi[i].badPacketCount, cmi[i].BalanceCurrentCount);
               file.print(dataMessage);
               if (i < TotalNumberOfCells() - 1)
               {
@@ -526,7 +516,7 @@ void sdcardlog_task(void *param)
           if (mysettings.currentMonitoringEnabled)
           {
             char cmon_filename[32];
-            sprintf(cmon_filename, "/modbus%02u_%04u%02u%02u.csv", mysettings.currentMonitoringModBusAddress, timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
+            snprintf(cmon_filename, sizeof(cmon_filename), "/modbus%02u_%04u%02u%02u.csv", mysettings.currentMonitoringModBusAddress, timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
 
             File file;
 
@@ -564,15 +554,15 @@ void sdcardlog_task(void *param)
             {
               char dataMessage[255];
 
-              sprintf(dataMessage, "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+              snprintf(dataMessage, sizeof(dataMessage), "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
               file.print(dataMessage);
 
-              sprintf(dataMessage, "%i,%.3f,%.3f,%u,%u,%.3f,%i,%.3f,%i",
-                      currentMonitor.validReadings ? 1 : 0,
-                      currentMonitor.modbus.voltage, currentMonitor.modbus.current,
-                      currentMonitor.modbus.milliamphour_in, currentMonitor.modbus.milliamphour_out,
-                      currentMonitor.modbus.power, currentMonitor.modbus.temperature,
-                      currentMonitor.modbus.shuntmV, currentMonitor.RelayState ? 1 : 0);
+              snprintf(dataMessage, sizeof(dataMessage), "%i,%.3f,%.3f,%u,%u,%.3f,%i,%.3f,%i",
+                       currentMonitor.validReadings ? 1 : 0,
+                       currentMonitor.modbus.voltage, currentMonitor.modbus.current,
+                       currentMonitor.modbus.milliamphour_in, currentMonitor.modbus.milliamphour_out,
+                       currentMonitor.modbus.power, currentMonitor.modbus.temperature,
+                       currentMonitor.modbus.shuntmV, currentMonitor.RelayState ? 1 : 0);
               file.print(dataMessage);
 
               file.println();
@@ -625,7 +615,7 @@ void sdcardlog_outputs_task(void *param)
         // ESP_LOGD(TAG, "%04u-%02u-%02u %02u:%02u:%02u", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
         char filename[32];
-        sprintf(filename, "/output_status_%04u%02u%02u.csv", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
+        snprintf(filename, sizeof(filename),"/output_status_%04u%02u%02u.csv", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
 
         File file;
 
@@ -680,7 +670,7 @@ void sdcardlog_outputs_task(void *param)
           {
             char dataMessage[255];
 
-            sprintf(dataMessage, "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+            snprintf(dataMessage,sizeof(dataMessage), "%04u-%02u-%02u %02u:%02u:%02u,", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
             file.print(dataMessage);
             file.print(hal.LastTCA6408Value(), BIN);
             file.print(',');
@@ -688,7 +678,7 @@ void sdcardlog_outputs_task(void *param)
             for (uint8_t i = 0; i < RELAY_TOTAL; i++)
             {
               // This may output invalid data when controller is first powered up
-              sprintf(dataMessage, "%c", previousRelayState[i] == RelayState::RELAY_ON ? 'Y' : 'N');
+              snprintf(dataMessage,sizeof(dataMessage),  "%c", previousRelayState[i] == RelayState::RELAY_ON ? 'Y' : 'N');
               file.print(dataMessage);
               if (i < RELAY_TOTAL - 1)
               {
@@ -1425,97 +1415,12 @@ WiFi.status() only returns:
     chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
   }
   // DIYBMS-00000000
-  sprintf(hostname, "DIYBMS-%08X", chipId);
+  snprintf(hostname,sizeof(hostname), "DIYBMS-%08X", chipId);
   WiFi.setHostname(hostname);
 
   ESP_LOGI(TAG, "Hostname: %s, current state %i", hostname, status);
 
   WiFi.begin(DIYBMSSoftAP::Config()->wifi_ssid, DIYBMSSoftAP::Config()->wifi_passphrase);
-}
-
-static void mqtt_connected_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
-{
-  ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-  mqttClient_connected = true;
-}
-
-static void mqtt_disconnected_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
-{
-  ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
-  mqttClient_connected = false;
-}
-
-static void mqtt_error_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
-{
-  ESP_LOGD(TAG, "Event base=%s, event_id=%d", base, event_id);
-  esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
-  esp_mqtt_client_handle_t client = event->client;
-  int msg_id;
-
-  ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
-  if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
-  {
-    // log_error_if_nonzero("reported from esp-tls", event->error_handle->esp_tls_last_esp_err);
-    // log_error_if_nonzero("reported from tls stack", event->error_handle->esp_tls_stack_err);
-    // log_error_if_nonzero("captured as transport's socket errno", event->error_handle->esp_transport_sock_errno);
-    ESP_LOGI(TAG, "Last err no string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
-  }
-}
-void stopMqtt()
-{
-  if (mqtt_client != nullptr)
-  {
-    ESP_LOGI(TAG, "Stopping MQTT client");
-    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_disconnect(mqtt_client));
-    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_stop(mqtt_client));
-    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_destroy(mqtt_client));
-    mqtt_client=nullptr;
-    mqttClient_connected=false;
-  }
-}
-
-// Connects to MQTT if required
-void connectToMqtt()
-{
-  if (mysettings.mqtt_enabled && mqttClient_connected)
-  {
-    // Already connected and enabled
-    return;
-  }
-
-  if (mysettings.mqtt_enabled && WiFi.isConnected())
-  {
-    stopMqtt();
-
-    ESP_LOGI(TAG, "Connect MQTT");
-
-    // Need to preset variables in esp_mqtt_client_config_t otherwise LoadProhibited errors
-    esp_mqtt_client_config_t mqtt_cfg{
-        .event_handle = NULL, .host = "", .uri = mysettings.mqtt_uri, .disable_auto_reconnect = false};
-
-    mqtt_cfg.username = mysettings.mqtt_username;
-    mqtt_cfg.password = mysettings.mqtt_password;
-
-    mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
-    if (mqtt_client != NULL)
-    {
-      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_CONNECTED, mqtt_connected_handler, NULL));
-      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_DISCONNECTED, mqtt_disconnected_handler, NULL));
-      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_ERROR, mqtt_error_handler, NULL));
-      if (esp_mqtt_client_start(mqtt_client) != ESP_OK)
-      {
-        ESP_LOGE(TAG, "esp_mqtt_client_start failed");
-      }
-    }
-    else
-    {
-      ESP_LOGE(TAG, "mqtt_client returned NULL");
-    }
-  }
-  else
-  {
-    stopMqtt();
-  }
 }
 
 void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
@@ -1582,89 +1487,6 @@ void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
   {
     xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
   }
-}
-void mqtt2()
-{
-
-  if (mysettings.mqtt_enabled && mqttClient_connected)
-  {
-    // ESP_LOGI(TAG, "Send MQTT Status");
-
-    char topic[80];
-    char jsonbuffer[400];
-    DynamicJsonDocument doc(400);
-    JsonObject root = doc.to<JsonObject>();
-
-    root["banks"] = mysettings.totalNumberOfBanks;
-    root["cells"] = mysettings.totalNumberOfSeriesModules;
-    root["uptime"] = millis() / 1000; // I want to know the uptime of the device.
-
-    // Set error flag if we have attempted to send 2*number of banks without a reply
-    root["commserr"] = receiveProc.HasCommsTimedOut() ? 1 : 0;
-    root["sent"] = prg.packetsGenerated;
-    root["received"] = receiveProc.packetsReceived;
-    root["badcrc"] = receiveProc.totalCRCErrors;
-    root["ignored"] = receiveProc.totalNotProcessedErrors;
-    root["oos"] = receiveProc.totalOutofSequenceErrors;
-    root["sendqlvl"] = requestQueue.getCount();
-    root["roundtrip"] = receiveProc.packetTimerMillisecond;
-
-    serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-    sprintf(topic, "%s/status", mysettings.mqtt_topic);
-
-    int msg_id1 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
-    // MQTT_SKIP_PUBLISH_IF_DISCONNECTED
-    ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id1);
-
-#if defined(MQTT_LOGGING)
-    ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-#endif
-
-    // Output bank level information (just voltage for now)
-    for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
-    {
-      doc.clear();
-      doc["voltage"] = (float)rules.packvoltage[bank] / (float)1000.0;
-
-      serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-      sprintf(topic, "%s/bank/%d", mysettings.mqtt_topic, bank);
-
-      int msg_id2 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
-      ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id2);
-#if defined(MQTT_LOGGING)
-      ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-#endif
-    }
-
-    // Using Json for below reduced MQTT messages from 14 to 2. Could be combined into same json object too. But even better is status + event driven.
-    doc.clear(); // Need to clear the json object for next message
-    sprintf(topic, "%s/rule", mysettings.mqtt_topic);
-    for (uint8_t i = 0; i < RELAY_RULES; i++)
-    {
-      doc[(String)i] = rules.rule_outcome[i] ? 1 : 0; // String conversion should be removed but just quick to get json format nice
-    }
-    serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-#if defined(MQTT_LOGGING)
-    ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-#endif
-    int msg_id3 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
-    ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id3);
-
-    doc.clear(); // Need to clear the json object for next message
-    sprintf(topic, "%s/output", mysettings.mqtt_topic);
-    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
-    {
-      doc[(String)i] = (previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0;
-    }
-
-    serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-#if defined(MQTT_LOGGING)
-    ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-#endif
-    int msg_id4 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
-    ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id4);
-
-  } // end if
 }
 
 uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
@@ -2470,114 +2292,6 @@ void rs485_tx(void *param)
   }
 }
 
-void mqtt1()
-{
-  // Send a few MQTT packets and keep track so we send the next batch on following calls
-  static uint8_t mqttStartModule = 0;
-  static int64_t lastcurrentMonitortimestamp = 0;
-
-  if (mysettings.mqtt_enabled && mqttClient_connected == false)
-  {
-    ESP_LOGE(TAG, "MQTT enabled, but not connected");
-  }
-
-  if (mysettings.mqtt_enabled && mqttClient_connected)
-  {
-
-    char topic[80];
-    char jsonbuffer[300];
-    StaticJsonDocument<300> doc;
-
-    // If the BMS is in error, stop sending MQTT packets for the data
-    if (!rules.rule_outcome[Rule::BMSError])
-    {
-      if (mqttStartModule > (TotalNumberOfCells() - 1))
-      {
-        mqttStartModule = 0;
-      }
-
-      uint8_t counter = 0;
-      uint8_t i = mqttStartModule;
-
-      while (i < TotalNumberOfCells() && counter < 8)
-      {
-        // ESP_LOGI(TAG, "Send MQTT for module %u", i);
-        // Only send valid module data
-        if (cmi[i].valid)
-        {
-          uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
-          uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
-
-          doc.clear();
-          doc["voltage"] = (float)cmi[i].voltagemV / (float)1000.0;
-          doc["vMax"] = (float)cmi[i].voltagemVMax / (float)1000.0;
-          doc["vMin"] = (float)cmi[i].voltagemVMin / (float)1000.0;
-          doc["inttemp"] = cmi[i].internalTemp;
-          doc["exttemp"] = cmi[i].externalTemp;
-          doc["bypass"] = cmi[i].inBypass ? 1 : 0;
-          doc["PWM"] = (int)((float)cmi[i].PWMValue / (float)255.0 * 100);
-          doc["bypassT"] = cmi[i].bypassOverTemp ? 1 : 0;
-          doc["bpc"] = cmi[i].badPacketCount;
-          doc["mAh"] = cmi[i].BalanceCurrentCount;
-          serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-
-          sprintf(topic, "%s/%d/%d", mysettings.mqtt_topic, bank, module);
-
-          int msg_id1 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
-          ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id1);
-
-#if defined(MQTT_LOGGING)
-          ESP_LOGI(TAG, "MQTT %s %s", topic, jsonbuffer);
-#endif
-        }
-
-        counter++;
-
-        i++;
-      }
-
-      // After transmitting this many packets over MQTT, store our current state and exit the function.
-      // this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
-      mqttStartModule = i;
-    }
-
-    if (mysettings.currentMonitoringEnabled)
-    {
-      // Send current monitor data
-      doc.clear(); // Need to clear the json object for next message
-      sprintf(topic, "%s/modbus/A%u", mysettings.mqtt_topic, mysettings.currentMonitoringModBusAddress);
-
-      doc["valid"] = currentMonitor.validReadings ? 1 : 0;
-
-      if (currentMonitor.validReadings && currentMonitor.timestamp != lastcurrentMonitortimestamp)
-      {
-        // Send current monitor data if its valid and not sent before
-        doc["voltage"] = currentMonitor.modbus.voltage;
-        doc["current"] = currentMonitor.modbus.current;
-        doc["power"] = currentMonitor.modbus.power;
-        if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
-        {
-          doc["mAhIn"] = currentMonitor.modbus.milliamphour_in;
-          doc["mAhOut"] = currentMonitor.modbus.milliamphour_out;
-          doc["temperature"] = currentMonitor.modbus.temperature;
-          doc["shuntmV"] = currentMonitor.modbus.shuntmV;
-          doc["relayState"] = currentMonitor.RelayState ? 1 : 0;
-          doc["soc"] = currentMonitor.stateofcharge;
-        }
-      }
-
-      lastcurrentMonitortimestamp = currentMonitor.timestamp;
-
-      serializeJson(doc, jsonbuffer, sizeof(jsonbuffer));
-#if defined(MQTT_LOGGING)
-      ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
-#endif
-      int msg_id2 = esp_mqtt_client_publish(mqtt_client, topic, jsonbuffer, 0, 1, 0);
-      ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id2);
-    }
-  }
-}
-
 void LoadConfiguration()
 {
   if (Settings::ReadConfig("diybms", (char *)&mysettings, sizeof(mysettings)))
@@ -2729,14 +2443,14 @@ void periodic_task(void *param)
     // 5 seconds
     if (countdown_mqtt1 == 0)
     {
-      mqtt1();
+      mqtt1(&currentMonitor, &rules);
       countdown_mqtt1 = 5;
     }
 
     // 25 seconds
     if (countdown_mqtt2 == 0)
     {
-      mqtt2();
+      mqtt2(&receiveProc, &prg, requestQueue.getCount(), &rules, previousRelayState);
       countdown_mqtt2 = 25;
     }
 
@@ -3127,31 +2841,31 @@ static void tft_interrupt_attach(void *param)
 
 struct log_level_t
 {
-  const char * tag;
+  const char *tag;
   esp_log_level_t level;
 };
 
 // Default log levels to use for various components.
 log_level_t log_levels[] =
-{
-  { .tag = "*", .level = ESP_LOG_DEBUG },
-  { .tag = "wifi", .level = ESP_LOG_WARN },
-  { .tag = "dhcpc", .level = ESP_LOG_WARN },
-  { .tag = "diybms", .level = ESP_LOG_VERBOSE },
-  { .tag = "diybms-avrisp", .level = ESP_LOG_INFO },
-  { .tag = "diybms-hal", .level = ESP_LOG_INFO },
-  { .tag = "diybms-influxdb", .level = ESP_LOG_INFO },
-  { .tag = "diybms-rx", .level = ESP_LOG_INFO },
-  { .tag = "diybms-tx", .level = ESP_LOG_INFO },
-  { .tag = "diybms-rules", .level = ESP_LOG_INFO },
-  { .tag = "diybms-softap", .level = ESP_LOG_INFO },
-  { .tag = "diybms-tft", .level = ESP_LOG_INFO },
-  { .tag = "diybms-victron", .level = ESP_LOG_INFO },
-  { .tag = "diybms-webfuncs", .level = ESP_LOG_INFO },
-  { .tag = "diybms-webpost", .level = ESP_LOG_INFO },
-  { .tag = "diybms-webreq", .level = ESP_LOG_INFO },
-  { .tag = "diybms-web", .level = ESP_LOG_INFO },
-};
+    {
+        {.tag = "*", .level = ESP_LOG_DEBUG},
+        {.tag = "wifi", .level = ESP_LOG_WARN},
+        {.tag = "dhcpc", .level = ESP_LOG_WARN},
+        {.tag = "diybms", .level = ESP_LOG_VERBOSE},
+        {.tag = "diybms-avrisp", .level = ESP_LOG_INFO},
+        {.tag = "diybms-hal", .level = ESP_LOG_INFO},
+        {.tag = "diybms-influxdb", .level = ESP_LOG_INFO},
+        {.tag = "diybms-rx", .level = ESP_LOG_INFO},
+        {.tag = "diybms-tx", .level = ESP_LOG_INFO},
+        {.tag = "diybms-rules", .level = ESP_LOG_INFO},
+        {.tag = "diybms-softap", .level = ESP_LOG_INFO},
+        {.tag = "diybms-tft", .level = ESP_LOG_INFO},
+        {.tag = "diybms-victron", .level = ESP_LOG_INFO},
+        {.tag = "diybms-webfuncs", .level = ESP_LOG_INFO},
+        {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
+        {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
+        {.tag = "diybms-web", .level = ESP_LOG_INFO},
+        {.tag = "diybms-mqtt", .level = ESP_LOG_INFO}};
 
 void setup()
 {
@@ -3160,7 +2874,7 @@ void setup()
   WiFi.mode(WIFI_OFF);
 
   esp_bt_controller_disable();
- // Configure log levels
+  // Configure log levels
 
   for (log_level_t log : log_levels)
   {
@@ -3350,12 +3064,10 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
     WiFi.onEvent(onWifiConnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
     WiFi.onEvent(onWifiDisconnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
-    // connectToMqtt();
-
     // Only run these after we have wifi...
     xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
     xTaskCreate(rules_task, "rules", 1900, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-    xTaskCreate(periodic_task, "period", 5500, nullptr, 1, &periodic_task_handle);
+    xTaskCreate(periodic_task, "period", 4000, nullptr, 1, &periodic_task_handle);
 
     // We have just started...
     SetControllerState(ControllerState::Stabilizing);
@@ -3421,7 +3133,7 @@ void loop()
              heap.total_blocks);
 
     // uxTaskGetStackHighWaterMark returns bytes not words on ESP32
-    // ESP_LOGD(TAG, "periodic_task_handle high water=%i", uxTaskGetStackHighWaterMark(periodic_task_handle));
+    ESP_LOGD(TAG, "periodic_task_handle high water=%i", uxTaskGetStackHighWaterMark(periodic_task_handle));
     // ESP_LOGD(TAG, "rule_task_handle high water=%i", uxTaskGetStackHighWaterMark(rule_task_handle));
     // ESP_LOGD(TAG, "enqueue_task_handle high water=%i", uxTaskGetStackHighWaterMark(enqueue_task_handle));
     // ESP_LOGD(TAG, "pulse_relay_off_task high water=%i", uxTaskGetStackHighWaterMark(pulse_relay_off_task_handle));
