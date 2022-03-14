@@ -70,7 +70,7 @@ bool _sd_card_installed = false;
 
 // Used for WIFI hostname and also sent to Victron over CANBUS
 char hostname[16];
-char ip_string[16]; //xxx.xxx.xxx.xxx
+char ip_string[16]; // xxx.xxx.xxx.xxx
 
 bool wifi_isconnected = false;
 
@@ -80,6 +80,7 @@ uint8_t frame[256];
 extern bool _tft_screen_available;
 extern uint8_t tftsleep_timer;
 extern volatile bool _screen_awake;
+extern httpd_handle_t _myserver;
 
 wifi_eeprom_settings _wificonfig;
 
@@ -1384,7 +1385,7 @@ void enqueue_task(void *param)
 }
 
 /* FreeRTOS event group to signal when we are connected*/
-static EventGroupHandle_t s_wifi_event_group;
+// static EventGroupHandle_t s_wifi_event_group;
 
 /* The event group allows multiple bits for each event, but we only care about two events:
  * - we are connected to the AP with an IP
@@ -1395,6 +1396,8 @@ static int s_retry_num = 0;
 
 static void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char *server1)
 {
+  ESP_LOGI(TAG, "Request time from %s", server1);
+
   if (sntp_enabled())
   {
     sntp_stop();
@@ -1409,6 +1412,28 @@ static void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char
   // setTimeZone(-gmtOffset_sec, daylightOffset_sec);
   // setenv("TZ", tz, 1);
   // tzset();
+}
+
+static void stopMDNS() {
+  mdns_free();
+}
+
+static void startMDNS()
+{
+  
+  
+  // initialize mDNS service
+  esp_err_t err = mdns_init();
+  if (err != ESP_OK)
+  {
+    ESP_LOGE(TAG, "MDNS Init failed: %d", err);
+  }
+  else
+  {
+    mdns_hostname_set(hostname);
+    mdns_instance_name_set("diybms");
+    mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
+  }
 }
 
 static void event_handler(void *arg, esp_event_base_t event_base,
@@ -1434,13 +1459,22 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     }
     else
     {
-      xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+      // xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
     }
     ESP_LOGI(TAG, "connect to the AP fail");
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
   {
     wifi_isconnected = false;
+
+    if (server_running)
+    {
+      stop_webserver(_myserver);
+      server_running = false;
+      _myserver = nullptr;
+    }
+    esp_wifi_disconnect();
+    stopMDNS();
     esp_wifi_connect();
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
@@ -1449,9 +1483,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
     ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
     s_retry_num = 0;
-    xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-
-    ESP_LOGI(TAG, "Request NTP from %s", mysettings.ntpServer);
+    // xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
     configureSNTP(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
 
@@ -1463,23 +1495,9 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
     connectToMqtt();
 
-    // Set up mDNS responder:
-    // - first argument is the domain name, in this example
-    //   the fully-qualified domain name is "esp8266.local"
-    // - second argument is the IP address to advertise
-    //   we send our IP address on the WiFi network
-    if (!MDNS.begin(hostname))
-    {
-      ESP_LOGE(TAG, "Error setting up MDNS responder!");
-    }
-    else
-    {
-      ESP_LOGI(TAG, "mDNS responder started");
-      // Add service to MDNS-SD
-      MDNS.addService("http", "tcp", 80);
-    }
+    startMDNS();
 
-    snprintf(ip_string,sizeof(ip_string),IPSTR, IP2STR(&event->ip_info.ip));
+    snprintf(ip_string, sizeof(ip_string), IPSTR, IP2STR(&event->ip_info.ip));
 
     ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, ip_string);
 
@@ -1496,35 +1514,50 @@ bool LoadWiFiConfig()
   return (Settings::ReadConfig("diybmswifi", (char *)&_wificonfig, sizeof(_wificonfig)));
 }
 
+void BuildHostname()
+{
+  uint32_t chipId = 0;
+  for (int i = 0; i < 17; i = i + 8)
+  {
+    chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
+  }
+  // DIYBMS-00000000
+  memset(&hostname, 0, sizeof(hostname));
+  snprintf(hostname, sizeof(hostname), "DIYBMS-%08X", chipId);
+}
+
 void wifi_init_sta(void)
 {
-  s_wifi_event_group = xEventGroupCreate();
+  // Don't do it if already connected....
+  if (wifi_isconnected)
+    return;
+
+  ESP_LOGD(TAG, "starting wifi_init_sta");
+
+  // s_wifi_event_group = xEventGroupCreate();
 
   ESP_ERROR_CHECK(esp_netif_init());
-
   ESP_ERROR_CHECK(esp_event_loop_create_default());
-  esp_netif_create_default_wifi_sta();
+  esp_netif_t *netif = esp_netif_create_default_wifi_sta();
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-  esp_event_handler_instance_t instance_any_id;
-  esp_event_handler_instance_t instance_got_ip;
+  // esp_event_handler_instance_t instance_any_id;
+  // esp_event_handler_instance_t instance_got_ip;
   ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
                                                       ESP_EVENT_ANY_ID,
                                                       &event_handler,
                                                       NULL,
-                                                      &instance_any_id));
+                                                      NULL));
   ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
                                                       IP_EVENT_STA_GOT_IP,
                                                       &event_handler,
                                                       NULL,
-                                                      &instance_got_ip));
+                                                      NULL));
 
   wifi_config_t wifi_config;
-
   memset(&wifi_config, 0, sizeof(wifi_config));
-
   wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
   strncpy((char *)wifi_config.sta.ssid, _wificonfig.wifi_ssid, sizeof(wifi_config.sta.ssid));
   strncpy((char *)wifi_config.sta.password, _wificonfig.wifi_passphrase, sizeof(wifi_config.sta.password));
@@ -1535,23 +1568,12 @@ void wifi_init_sta(void)
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   ESP_ERROR_CHECK(esp_wifi_start());
 
-  uint32_t chipId = 0;
-  for (int i = 0; i < 17; i = i + 8)
-  {
-    chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
-  }
-  // DIYBMS-00000000
-  memset(&hostname, 0, sizeof(hostname));
-  snprintf(hostname, sizeof(hostname), "DIYBMS-%08X", chipId);
+  ESP_ERROR_CHECK_WITHOUT_ABORT(tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname));
+  ESP_ERROR_CHECK_WITHOUT_ABORT(esp_netif_set_hostname(netif, hostname));
 
-  esp_err_t ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
-  if (ret != ESP_OK)
-  {
-    ESP_LOGE(TAG, "failed to set hostname:%d", ret);
-  }
-  ESP_LOGI(TAG, "Hostname: %si", hostname);
+  ESP_LOGI(TAG, "Hostname: %s", hostname);
 
-  ESP_LOGI(TAG, "wifi_init_sta finished");
+  ESP_LOGD(TAG, "wifi_init_sta finished");
 
   /*
   // Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
@@ -1582,94 +1604,6 @@ void wifi_init_sta(void)
   vEventGroupDelete(s_wifi_event_group);
   */
 }
-
-/*
-void connectToWifi()
-{
-  wl_status_t status = WiFi.status();
-  if (status == WL_CONNECTED)
-  {
-    return;
-  }
-
-  WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false);
-
-  uint32_t chipId = 0;
-  for (int i = 0; i < 17; i = i + 8)
-  {
-    chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
-  }
-  // DIYBMS-00000000
-  snprintf(hostname, sizeof(hostname), "DIYBMS-%08X", chipId);
-  WiFi.setHostname(hostname);
-
-  ESP_LOGI(TAG, "Hostname: %s, current state %i", hostname, status);
-
-  WiFi.begin(DIYBMSSoftAP::Config()->wifi_ssid, DIYBMSSoftAP::Config()->wifi_passphrase);
-}
-*/
-
-/*
-void onWifiConnect(WiFiEvent_t event, WiFiEventInfo_t info)
-{
-
-  ESP_LOGI(TAG, "Wi-Fi status=%i", (uint16_t)WiFi.status());
-
-  ESP_LOGI(TAG, "Request NTP from %s", mysettings.ntpServer);
-
-  // Use native ESP32 code
-  configTime(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
-
-  if (!server_running)
-  {
-    StartServer();
-    // StartServer(&mysettings, &SD, &prg, &receiveProc, &_controller_state, &rules, &sdcardaction_callback, &hal);
-    server_running = true;
-  }
-
-  connectToMqtt();
-
-  // Set up mDNS responder:
-  // - first argument is the domain name, in this example
-  //   the fully-qualified domain name is "esp8266.local"
-  // - second argument is the IP address to advertise
-  //   we send our IP address on the WiFi network
-  if (!MDNS.begin(WiFi.getHostname()))
-  {
-    ESP_LOGE(TAG, "Error setting up MDNS responder!");
-  }
-  else
-  {
-    ESP_LOGI(TAG, "mDNS responder started");
-    // Add service to MDNS-SD
-    MDNS.addService("http", "tcp", 80);
-  }
-
-  ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", WiFi.getHostname(), WiFi.localIP().toString().c_str());
-
-  // Wake up the screen, this will show the IP address etc.
-  if (tftwakeup_task_handle != NULL)
-  {
-    xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
-  }
-}
-*/
-/*
-void onWifiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info)
-{
-  ESP_LOGE(TAG, "Disconnected from Wi-Fi.");
-
-  // Indicate to loop() to reconnect, seems to be
-  // ESP issues using Wifi from timers - https://github.com/espressif/arduino-esp32/issues/2686
-
-  // Wake up the screen, this will also trigger it to update the display
-  if (tftwakeup_task_handle != NULL)
-  {
-    xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
-  }
-}
-*/
 
 uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
 {
@@ -2852,10 +2786,17 @@ void TerminalBasedWifiSetup()
   uint16_t ap_count = 0;
   memset(ap_info, 0, sizeof(ap_info));
 
+  ESP_LOGD(TAG,"esp_wifi_set_ps");
+  ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+  ESP_LOGD(TAG,"esp_wifi_set_mode");
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+  ESP_LOGD(TAG,"esp_wifi_start");
   ESP_ERROR_CHECK(esp_wifi_start());
+  ESP_LOGD(TAG,"esp_wifi_scan_start");
   esp_wifi_scan_start(NULL, true);
+  ESP_LOGD(TAG,"esp_wifi_scan_get_ap_records");
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
+  ESP_LOGD(TAG,"esp_wifi_scan_get_ap_num");
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
   ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
 
@@ -3109,7 +3050,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
            chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
   esp_bt_controller_disable();
-  ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_stop());
+  BuildHostname();
   hal.ConfigurePins();
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
   hal.ConfigureVSPI();
@@ -3280,8 +3221,8 @@ void loop()
     {
       // Attempt to connect to WiFi every 30 seconds, this caters for when WiFi drops
       // such as AP reboot, its written to return without action if we are already connected
-      // connectToWifi();
-      // wifi_init_sta();
+
+      wifi_init_sta();
       wifitimer = currentMillis;
 
       // Attempt to connect to MQTT if enabled and not already connected
