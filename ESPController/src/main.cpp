@@ -1414,14 +1414,14 @@ static void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char
   // tzset();
 }
 
-static void stopMDNS() {
+static void stopMDNS()
+{
   mdns_free();
 }
 
 static void startMDNS()
 {
-  
-  
+
   // initialize mDNS service
   esp_err_t err = mdns_init();
   if (err != ESP_OK)
@@ -1539,6 +1539,7 @@ void wifi_init_sta(void)
   ESP_ERROR_CHECK(esp_netif_init());
   ESP_ERROR_CHECK(esp_event_loop_create_default());
   esp_netif_t *netif = esp_netif_create_default_wifi_sta();
+  assert(netif);
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -2759,6 +2760,7 @@ void TerminalBasedWifiSetup()
 
   if (_tft_screen_available)
   {
+    // Show the prompt "configure wifi settings" on TFT screen
     if (hal.GetDisplayMutex())
     {
       PrepareTFT_ControlState();
@@ -2770,7 +2772,7 @@ void TerminalBasedWifiSetup()
 
   ESP_LOGD(TAG, "TerminalBasedWifiSetup");
 
-  fputs("\n\nDIYBMS CONTROLLER - Scanning Wifi", stdout);
+  fputs("\n\nDIYBMS CONTROLLER - Scanning Wifi\n\n", stdout);
 
   ESP_ERROR_CHECK(esp_netif_init());
   ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -2780,24 +2782,30 @@ void TerminalBasedWifiSetup()
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
+  ESP_LOGD(TAG, "esp_wifi_set_ps");
+  ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+
+  ESP_LOGD(TAG, "esp_wifi_set_mode");
+  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+
+  ESP_LOGD(TAG, "esp_wifi_start");
+  ESP_ERROR_CHECK(esp_wifi_start());
+
+  ESP_LOGD(TAG, "esp_wifi_scan_start");
+  esp_wifi_scan_start(NULL, true);
+
   // Max of 32 stations to return
   uint16_t number = 32;
   wifi_ap_record_t ap_info[32];
   uint16_t ap_count = 0;
   memset(ap_info, 0, sizeof(ap_info));
 
-  ESP_LOGD(TAG,"esp_wifi_set_ps");
-  ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-  ESP_LOGD(TAG,"esp_wifi_set_mode");
-  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-  ESP_LOGD(TAG,"esp_wifi_start");
-  ESP_ERROR_CHECK(esp_wifi_start());
-  ESP_LOGD(TAG,"esp_wifi_scan_start");
-  esp_wifi_scan_start(NULL, true);
-  ESP_LOGD(TAG,"esp_wifi_scan_get_ap_records");
+  ESP_LOGD(TAG, "esp_wifi_scan_get_ap_records");
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
-  ESP_LOGD(TAG,"esp_wifi_scan_get_ap_num");
+
+  ESP_LOGD(TAG, "esp_wifi_scan_get_ap_num");
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+
   ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
 
   /*
@@ -2861,7 +2869,7 @@ void TerminalBasedWifiSetup()
   */
   fputs("\n\nREBOOTING IN 5 SECONDS", stdout);
   delay(5000);
-  ESP.restart();
+  esp_restart();
 }
 
 void createFile(fs::FS &fs, const char *path, const char *message)
@@ -3183,11 +3191,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   // We have just started...
   SetControllerState(ControllerState::Stabilizing);
-
-  /* Explicitly set the ESP to be a WiFi-client, otherwise by default,
-    would try to act as both a client and an access-point */
-  // WiFi.onEvent(onWifiConnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
-  // WiFi.onEvent(onWifiDisconnect, arduino_event_id_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
   // Only run these after we have wifi...
   xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
