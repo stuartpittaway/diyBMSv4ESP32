@@ -65,4 +65,7 @@ extern QueueHandle_t queue_i2c;
 extern TaskHandle_t tftwakeup_task_handle;
 extern avrprogramsettings _avrsettings;
 extern currentmonitoring_struct currentMonitor;
+extern bool wifi_isconnected;
+extern char hostname[16];
+extern char ip_string[16];
 #endif

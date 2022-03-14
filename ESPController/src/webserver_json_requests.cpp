@@ -628,7 +628,7 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   settings["HeapSize"] = ESP.getHeapSize();
   settings["SdkVersion"] = ESP.getSdkVersion();
 
-  settings["HostName"] = WiFi.getHostname();
+  settings["HostName"] = hostname;
 
   time_t now;
   if (time(&now))

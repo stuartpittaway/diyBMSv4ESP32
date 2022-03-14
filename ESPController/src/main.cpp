@@ -70,6 +70,9 @@ bool _sd_card_installed = false;
 
 // Used for WIFI hostname and also sent to Victron over CANBUS
 char hostname[16];
+char ip_string[16]; //xxx.xxx.xxx.xxx
+
+bool wifi_isconnected = false;
 
 // holds modbus data
 uint8_t frame[256];
@@ -77,6 +80,8 @@ uint8_t frame[256];
 extern bool _tft_screen_available;
 extern uint8_t tftsleep_timer;
 extern volatile bool _screen_awake;
+
+wifi_eeprom_settings _wificonfig;
 
 Rules rules;
 diybms_eeprom_settings mysettings;
@@ -128,7 +133,7 @@ QueueHandle_t rs485_transmit_q_handle;
 
 #include "crc16.h"
 #include "settings.h"
-#include "SoftAP.h"
+
 #include "PacketRequestGenerator.h"
 #include "PacketReceiveProcessor.h"
 #include "webserver.h"
@@ -1388,36 +1393,39 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_FAIL_BIT BIT1
 static int s_retry_num = 0;
 
-static void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char* server1)
+static void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char *server1)
 {
-    if(sntp_enabled()){
-        sntp_stop();
-    }
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, (char*)server1);
-    //sntp_setservername(1, (char*)server2);
-    //sntp_setservername(2, (char*)server3);
-    sntp_init();
+  if (sntp_enabled())
+  {
+    sntp_stop();
+  }
+  sntp_setoperatingmode(SNTP_OPMODE_POLL);
+  sntp_setservername(0, (char *)server1);
+  // sntp_setservername(1, (char*)server2);
+  // sntp_setservername(2, (char*)server3);
+  sntp_init();
 
-    //TODO: Need to set timezone
-    //setTimeZone(-gmtOffset_sec, daylightOffset_sec);
-    //setenv("TZ", tz, 1);
-    //tzset();
+  // TODO: Need to set timezone
+  // setTimeZone(-gmtOffset_sec, daylightOffset_sec);
+  // setenv("TZ", tz, 1);
+  // tzset();
 }
 
 static void event_handler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
 
-//ADD IN...
-//IP_EVENT_STA_LOST_IP 
+  // ADD IN...
+  // IP_EVENT_STA_LOST_IP
 
   if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
   {
+    wifi_isconnected = false;
     esp_wifi_connect();
   }
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
   {
+    wifi_isconnected = false;
     if (s_retry_num < 200)
     {
       esp_wifi_connect();
@@ -1430,8 +1438,14 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     }
     ESP_LOGI(TAG, "connect to the AP fail");
   }
+  else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
+  {
+    wifi_isconnected = false;
+    esp_wifi_connect();
+  }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
   {
+    wifi_isconnected = true;
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
     ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
     s_retry_num = 0;
@@ -1465,7 +1479,9 @@ static void event_handler(void *arg, esp_event_base_t event_base,
       MDNS.addService("http", "tcp", 80);
     }
 
-    ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://" IPSTR, hostname, IP2STR(&event->ip_info.ip));
+    snprintf(ip_string,sizeof(ip_string),IPSTR, IP2STR(&event->ip_info.ip));
+
+    ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, ip_string);
 
     // Wake up the screen, this will show the IP address etc.
     if (tftwakeup_task_handle != NULL)
@@ -1473,6 +1489,11 @@ static void event_handler(void *arg, esp_event_base_t event_base,
       xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
     }
   }
+}
+
+bool LoadWiFiConfig()
+{
+  return (Settings::ReadConfig("diybmswifi", (char *)&_wificonfig, sizeof(_wificonfig)));
 }
 
 void wifi_init_sta(void)
@@ -1505,15 +1526,14 @@ void wifi_init_sta(void)
   memset(&wifi_config, 0, sizeof(wifi_config));
 
   wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-  strncpy((char *)wifi_config.sta.ssid, DIYBMSSoftAP::Config()->wifi_ssid, sizeof(wifi_config.sta.ssid));
-  strncpy((char *)wifi_config.sta.password, DIYBMSSoftAP::Config()->wifi_passphrase, sizeof(wifi_config.sta.password));
+  strncpy((char *)wifi_config.sta.ssid, _wificonfig.wifi_ssid, sizeof(wifi_config.sta.ssid));
+  strncpy((char *)wifi_config.sta.password, _wificonfig.wifi_passphrase, sizeof(wifi_config.sta.password));
 
-  //Avoid issues with GPIO39 interrupt firing all the time - disable power saving
+  // Avoid issues with GPIO39 interrupt firing all the time - disable power saving
   ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   ESP_ERROR_CHECK(esp_wifi_start());
- 
 
   uint32_t chipId = 0;
   for (int i = 0; i < 17; i = i + 8)
@@ -1521,15 +1541,15 @@ void wifi_init_sta(void)
     chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
   }
   // DIYBMS-00000000
-  memset(&hostname,0,sizeof(hostname));
+  memset(&hostname, 0, sizeof(hostname));
   snprintf(hostname, sizeof(hostname), "DIYBMS-%08X", chipId);
+
   esp_err_t ret = tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname);
   if (ret != ESP_OK)
   {
     ESP_LOGE(TAG, "failed to set hostname:%d", ret);
   }
   ESP_LOGI(TAG, "Hostname: %si", hostname);
- 
 
   ESP_LOGI(TAG, "wifi_init_sta finished");
 
@@ -2620,7 +2640,8 @@ void periodic_task(void *param)
     if (countdown_influx == 0)
     {
       countdown_influx = mysettings.influxdb_loggingFreqSeconds;
-      if (mysettings.influxdb_enabled && WiFi.isConnected() && rules.invalidModuleCount == 0 && _controller_state == ControllerState::Running && rules.rule_outcome[Rule::BMSError] == false)
+
+      if (mysettings.influxdb_enabled && wifi_isconnected && rules.invalidModuleCount == 0 && _controller_state == ControllerState::Running && rules.rule_outcome[Rule::BMSError] == false)
       {
         ESP_LOGI(TAG, "Influx task");
         influx_task_action();
@@ -2976,35 +2997,23 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
 
           JsonObject wifi = json["wifi"];
 
-          wifi_eeprom_settings _config;
-          // Pointer to existing configuration
-          wifi_eeprom_settings *_config_existing;
-
-          _config_existing = DIYBMSSoftAP::Config();
+          wifi_eeprom_settings _new_config;
 
           // Clear config
-          memset(&_config, 0, sizeof(_config));
+          memset(&_new_config, 0, sizeof(_new_config));
 
           String ssid = wifi["ssid"].as<String>();
           String password = wifi["password"].as<String>();
-          ssid.toCharArray(_config.wifi_ssid, sizeof(_config.wifi_ssid));
-          password.toCharArray(_config.wifi_passphrase, sizeof(_config.wifi_passphrase));
+          ssid.toCharArray(_new_config.wifi_ssid, sizeof(_new_config.wifi_ssid));
+          password.toCharArray(_new_config.wifi_passphrase, sizeof(_new_config.wifi_passphrase));
 
           // Our configuration is different, so store the details in EEPROM and flash the LED a few times
-          if (existingConfigValid == false || strcmp(_config_existing->wifi_ssid, _config.wifi_ssid) != 0 || strcmp(_config_existing->wifi_passphrase, _config.wifi_passphrase) != 0)
+          if (existingConfigValid == false || strcmp(_wificonfig.wifi_ssid, _new_config.wifi_ssid) != 0 || strcmp(_wificonfig.wifi_passphrase, _new_config.wifi_passphrase) != 0)
           {
-            ESP_LOGD(TAG, "Wifi JSON SSID=%s", _config.wifi_ssid);
+            memcpy(&_wificonfig, &_new_config, sizeof(_new_config));
             ESP_LOGI(TAG, "Wifi config is different, saving");
 
-            Settings::WriteConfig("diybmswifi", (char *)&_config, sizeof(_config));
-
-            for (size_t i = 0; i < 5; i++)
-            {
-              LED(RGBLED::Purple);
-              delay(150);
-              LED(RGBLED::OFF);
-              delay(150);
-            }
+            Settings::WriteConfig("diybmswifi", (char *)&_new_config, sizeof(_new_config));
 
             ret = true;
           }
@@ -3014,11 +3023,8 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
           }
         }
       }
-      else
-      {
-        // Didn't find the file, but still need to release mutex
-        hal.ReleaseVSPIMutex();
-      }
+
+      hal.ReleaseVSPIMutex();
     }
   }
   return ret;
@@ -3080,10 +3086,6 @@ void setup()
 {
   esp_chip_info_t chip_info;
 
-  WiFi.mode(WIFI_OFF);
-
-  esp_bt_controller_disable();
-
   // Configure log levels
 
   for (log_level_t log : log_levels)
@@ -3106,6 +3108,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
            GIT_VERSION, COMPILE_DATE_TIME,
            chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
+  esp_bt_controller_disable();
+  ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_stop());
   hal.ConfigurePins();
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
   hal.ConfigureVSPI();
@@ -3140,12 +3144,12 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   consoleConfigurationCheck();
 
   // Retrieve the EEPROM WIFI settings
-  bool EepromConfigValid = DIYBMSSoftAP::LoadConfigFromEEPROM();
+  bool EepromConfigValid = LoadWiFiConfig();
 
   if (LoadWiFiConfigFromSDCard(EepromConfigValid))
   {
     // We need to reload the configuration, as it was updated...
-    EepromConfigValid = DIYBMSSoftAP::LoadConfigFromEEPROM();
+    EepromConfigValid = LoadWiFiConfig();
   }
 
   if (!EepromConfigValid)

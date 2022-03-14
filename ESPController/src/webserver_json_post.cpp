@@ -5,8 +5,6 @@ static constexpr const char * const TAG = "diybms-webpost";
 #include "webserver_json_post.h"
 #include "webserver_helper_funcs.h"
 
-#include "SoftAP.h"
-
 esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     uint8_t totalSeriesModules = 1;
@@ -406,8 +404,8 @@ esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool urlEnc
         StaticJsonDocument<512> doc;
 
         JsonObject wifi = doc.createNestedObject("wifi");
-        wifi["ssid"] = DIYBMSSoftAP::Config()->wifi_ssid;
-        wifi["password"] = DIYBMSSoftAP::Config()->wifi_passphrase;
+        wifi["ssid"] = _wificonfig.wifi_ssid;
+        wifi["password"] = _wificonfig.wifi_passphrase;
 
         if (SD.exists(wificonfigfilename))
         {

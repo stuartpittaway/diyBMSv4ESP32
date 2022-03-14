@@ -31,4 +31,5 @@ extern void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcu
 extern void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues);
 extern void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues);
 extern void setCacheControl(httpd_req_t *req);
+extern wifi_eeprom_settings _wificonfig;
 #endif

@@ -379,4 +379,14 @@ enum DIAG_ALRT_FIELD : uint16_t
   MEMSTAT = 0
 };
 
+
+//Where in EEPROM do we store the configuration
+#define EEPROM_WIFI_START_ADDRESS 0
+
+struct wifi_eeprom_settings
+{
+  char wifi_ssid[32 + 1];
+  char wifi_passphrase[63 + 1];
+};
+
 #endif

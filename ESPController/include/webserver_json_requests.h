@@ -3,7 +3,6 @@
 
 #include <stdio.h>
 #include <esp_http_server.h>
-#include <WiFi.h>
 #include "settings.h"
 #include "FS.h"
 #include "LittleFS.h"
@@ -42,5 +41,5 @@ extern ControllerState _controller_state;
 
 extern void setNoStoreCacheControl(httpd_req_t *req);
 extern char CookieValue[20 + 1];
-
+extern char hostname[16];
 #endif

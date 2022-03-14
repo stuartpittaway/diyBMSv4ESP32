@@ -7,7 +7,7 @@
 
 DIYBMS V4.0
 
-(c)2019-2021 Stuart Pittaway
+(c)2019-2022 Stuart Pittaway
 
 COMPILE THIS CODE USING PLATFORM.IO
 
@@ -27,7 +27,6 @@ static constexpr const char *const TAG = "diybms-tft";
 
 #include "defines.h"
 #include "HAL_ESP32.h"
-#include <WiFi.h>
 #include <esp_wifi.h>
 #include <SPI.h>
 
@@ -87,17 +86,18 @@ void TFTDrawWifiDetails()
     tft.setTextColor(TFT_BLACK, TFT_DARKGREY);
     int16_t x = 2;
 
-    if (WiFi.isConnected())
+    if (wifi_isconnected)
     {
-        x += tft.drawString(WiFi.getHostname(), x, y);
+        x += tft.drawString(hostname, x, y);
         x += 10;
-        x += tft.drawString(WiFi.localIP().toString(), x, y);
+        x += tft.drawString(ip_string, x, y);
 
+        // TODO: ADD THIS BACK IN USING NATIVE IDF LIBS
         // Draw RSSI on bottom right corner
         // Received Signal Strength in dBm
-        x += 10;
-        x += tft.drawNumber(WiFi.RSSI(), x, y);
-        x += tft.drawString("dBm", x, y);
+        //x += 10;
+        //x += tft.drawNumber(WiFi.RSSI(), x, y);
+        //x += tft.drawString("dBm", x, y);
     }
     else
     {
