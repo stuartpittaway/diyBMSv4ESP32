@@ -5,7 +5,6 @@
 #include <defines.h>
 
 #include "crc16.h"
-#include <cppQueue.h>
 
 class PacketReceiveProcessor
 {

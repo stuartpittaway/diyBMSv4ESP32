@@ -10,7 +10,6 @@
 
 #include <mqtt_client.h>
 #include <ArduinoJson.h>
-#include <cppQueue.h>
 
 void stopMqtt();
 void connectToMqtt();

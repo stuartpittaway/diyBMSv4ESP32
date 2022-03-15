@@ -50,7 +50,7 @@ static constexpr const char *const TAG = "diybms";
 #include <esp_http_server.h>
 #include <esp_sntp.h>
 #include <SerialEncoder.h>
-#include <cppQueue.h>
+
 #include <ArduinoJson.h>
 #include "defines.h"
 #include "HAL_ESP32.h"
@@ -100,8 +100,9 @@ volatile enumInputState InputState[INPUTS_TOTAL];
 
 currentmonitoring_struct currentMonitor;
 
+TimerHandle_t led_off_timer;
+
 TaskHandle_t i2c_task_handle = NULL;
-TaskHandle_t ledoff_task_handle = NULL;
 TaskHandle_t sdcardlog_task_handle = NULL;
 TaskHandle_t sdcardlog_outputs_task_handle = NULL;
 TaskHandle_t avrprog_task_handle = NULL;
@@ -131,6 +132,8 @@ avrprogramsettings _avrsettings;
 #define MAX_SEND_RS485_PACKET_LENGTH 36
 
 QueueHandle_t rs485_transmit_q_handle;
+QueueHandle_t request_q_handle;
+QueueHandle_t reply_q_handle;
 
 #include "crc16.h"
 #include "settings.h"
@@ -139,12 +142,7 @@ QueueHandle_t rs485_transmit_q_handle;
 #include "PacketReceiveProcessor.h"
 #include "webserver.h"
 
-// Instantiate queue to hold packets ready for transmission
-// TODO: Move to RTOS queues instead
-cppQueue requestQueue(sizeof(PacketStruct), 30, FIFO);
-cppQueue replyQueue(sizeof(PacketStruct), 4, FIFO);
-
-PacketRequestGenerator prg = PacketRequestGenerator(&requestQueue);
+PacketRequestGenerator prg = PacketRequestGenerator();
 PacketReceiveProcessor receiveProc = PacketReceiveProcessor();
 
 // Memory to hold in and out serial buffer
@@ -717,18 +715,10 @@ void sdcardlog_outputs_task(void *param)
   // vTaskDelete( NULL );
 }
 
-void ledoff_task(void *param)
+// Switch the LED off (triggered by timer on 100ms delay)
+void ledoff_timer(TimerHandle_t xTimer)
 {
-  for (;;)
-  {
-    // Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    // Wait 100ms
-    vTaskDelay(100 / portTICK_PERIOD_MS);
-    // LED OFF
-    // ESP_LOGD(TAG, "Led off")
-    LED(RGBLED::OFF);
-  }
+  LED(RGBLED::OFF);
 }
 
 void ProcessTCA6408Input_States(uint8_t v)
@@ -780,7 +770,7 @@ void interrupt_task(void *param)
     // ULONG_MAX
     xTaskNotifyWait(0, ULONG_MAX, &ulInterruptStatus, portMAX_DELAY);
 
-    ESP_LOGD(TAG, "ulInterruptStatus %u", ulInterruptStatus);
+    // ESP_LOGD(TAG, "ulInterruptStatus %u", ulInterruptStatus);
 
     if ((ulInterruptStatus & ISRTYPE::TCA6416A) != 0x00)
     {
@@ -826,6 +816,7 @@ void IRAM_ATTR InterruptTrigger(ISRTYPE isrvalue)
     }
   }
 }
+
 // Triggered when TCA6416A INT pin goes LOW
 // Found on V4.4 controller PCB's onwards
 void IRAM_ATTR TCA6416AInterrupt()
@@ -969,32 +960,27 @@ void replyqueue_task(void *param)
 {
   for (;;)
   {
-    // Delay 500ms second
-    vTaskDelay(pdMS_TO_TICKS(500));
-
-    while (!replyQueue.isEmpty())
+    if (reply_q_handle != NULL)
     {
       PacketStruct ps;
-      replyQueue.pop(&ps);
-
+      if (xQueueReceive(reply_q_handle, &ps, portMAX_DELAY) == pdPASS)
+      {
 #if defined(PACKET_LOGGING_RECEIVE)
 // Process decoded incoming packet
 // dumpPacketToDebug('R', &ps);
 #endif
 
-      if (!receiveProc.ProcessReply(&ps))
-      {
-        // Error blue
-        LED(RGBLED::Blue);
+        if (!receiveProc.ProcessReply(&ps))
+        {
+          // Error blue
+          LED(RGBLED::Blue);
 
-        ESP_LOGE(TAG, "Packet Failed");
+          ESP_LOGE(TAG, "Packet Failed");
 
-        // SERIAL_DEBUG.print(F("*FAIL*"));
-        // dumpPacketToDebug('F', &ps);
+          // SERIAL_DEBUG.print(F("*FAIL*"));
+          // dumpPacketToDebug('F', &ps);
+        }
       }
-
-      // Small delay to allow watchdog to be fed
-      vTaskDelay(pdMS_TO_TICKS(10));
     }
   }
 }
@@ -1014,10 +1000,11 @@ void onPacketReceived()
     ps.crc = CRC16::CalculateArray((uint8_t *)&ps, sizeof(PacketStruct) - 2);
   }
 
-  if (!replyQueue.push(&ps))
+  if (xQueueSendToBack(reply_q_handle, &ps, (TickType_t)100) != pdPASS)
   {
     ESP_LOGE(TAG, "Reply Q full");
   }
+
   // ESP_LOGI(TAG,"Reply Q length %i",replyQueue.getCount());
 }
 
@@ -1025,48 +1012,47 @@ void transmit_task(void *param)
 {
   for (;;)
   {
-    // Delay based on comms speed, ensure the first module has time to process and clear the request
-    // before sending another packet
-    uint16_t delay_ms = 900;
-
-    if (mysettings.baudRate == 9600)
+    PacketStruct transmitBuffer;
+    if (request_q_handle != NULL)
     {
-      delay_ms = 450;
-    }
-    else if (mysettings.baudRate == 5000)
-    {
-      delay_ms = 700;
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(delay_ms));
-    // TODO: Move to proper RTOS QUEUE...
-    if (requestQueue.isEmpty() == false)
-    {
-      // ESP_LOGD(TAG,"Tx queue len=%i",requestQueue.getCount());
-      //  Called to transmit the next packet in the queue need to ensure this procedure
-      //  is called more frequently than items are added into the queue
-
-      PacketStruct transmitBuffer;
-
-      requestQueue.pop(&transmitBuffer);
-      sequence++;
-      transmitBuffer.sequence = sequence;
-
-      if (transmitBuffer.command == COMMAND::Timing)
+      if (xQueueReceive(request_q_handle, &transmitBuffer, portMAX_DELAY) == pdPASS)
       {
-        // Timestamp at the last possible moment
-        uint32_t t = millis();
-        transmitBuffer.moduledata[0] = (t & 0xFFFF0000) >> 16;
-        transmitBuffer.moduledata[1] = t & 0x0000FFFF;
+
+        sequence++;
+        transmitBuffer.sequence = sequence;
+
+        if (transmitBuffer.command == COMMAND::Timing)
+        {
+          // Timestamp at the last possible moment
+          uint32_t t = millis();
+          transmitBuffer.moduledata[0] = (t & 0xFFFF0000) >> 16;
+          transmitBuffer.moduledata[1] = t & 0x0000FFFF;
+        }
+
+        transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
+        myPacketSerial.sendBuffer((byte *)&transmitBuffer);
+
+        // Output the packet we just transmitted to debug console
+        //#if defined(PACKET_LOGGING_SEND)
+        //      dumpPacketToDebug('S', &transmitBuffer);
+        //#endif
       }
 
-      transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
-      myPacketSerial.sendBuffer((byte *)&transmitBuffer);
+      // Delay based on comms speed, ensure the first module has time to process and clear the request
+      // before sending another packet
+      uint16_t delay_ms = 900;
 
-      // Output the packet we just transmitted to debug console
-      //#if defined(PACKET_LOGGING_SEND)
-      //      dumpPacketToDebug('S', &transmitBuffer);
-      //#endif
+      if (mysettings.baudRate == 9600)
+      {
+        delay_ms = 450;
+      }
+      else if (mysettings.baudRate == 5000)
+      {
+        delay_ms = 700;
+      }
+
+      // Delay whilst cell module processes request
+      vTaskDelay(pdMS_TO_TICKS(delay_ms));
     }
   }
 }
@@ -1327,6 +1313,10 @@ void rules_task(void *param)
   }
 }
 
+
+// This task periodically adds requests to the queue
+// to schedule reading data from the cell modules
+// The actual serial comms is handled by the transmit task
 void enqueue_task(void *param)
 {
   for (;;)
@@ -1334,12 +1324,15 @@ void enqueue_task(void *param)
     vTaskDelay(pdMS_TO_TICKS(mysettings.interpacketgap));
 
     LED(RGBLED::Green);
-    // Fire task to switch off LED in a few ms
-    xTaskNotify(ledoff_task_handle, 0x00, eNotifyAction::eNoAction);
+
+    // Fire timer to switch off LED in a few ms
+    if (xTimerStart(led_off_timer, 5) != pdPASS)
+    {
+      ESP_LOGE(TAG, "Timer start error");
+    }
 
     uint16_t i = 0;
     uint16_t max = TotalNumberOfCells();
-
     uint8_t startmodule = 0;
 
     while (i < max)
@@ -1353,25 +1346,16 @@ void enqueue_task(void *param)
       }
 
       // Request voltage, but if queue is full, sleep and try again (other threads will reduce the queue)
-      while (prg.sendCellVoltageRequest(startmodule, endmodule) == false)
-      {
-        vTaskDelay(pdMS_TO_TICKS(500));
-      }
+      prg.sendCellVoltageRequest(startmodule, endmodule);
       // Same for temperature
-      while (prg.sendCellTemperatureRequest(startmodule, endmodule) == false)
-      {
-        vTaskDelay(pdMS_TO_TICKS(500));
-      }
+      prg.sendCellTemperatureRequest(startmodule, endmodule);
 
       // If any module is in bypass then request PWM reading for whole bank
       for (uint8_t m = startmodule; m <= endmodule; m++)
       {
         if (cmi[m].inBypass)
         {
-          while (prg.sendReadBalancePowerRequest(startmodule, endmodule) == false)
-          {
-            vTaskDelay(pdMS_TO_TICKS(500));
-          }
+          prg.sendReadBalancePowerRequest(startmodule, endmodule);
           // We only need 1 reading for whole bank
           break;
         }
@@ -2169,53 +2153,59 @@ void service_rs485_transmit_q(void *param)
   {
     uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
 
-    // Wait for a item in the queue, blocking indefinately
-    xQueueReceive(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
-
-    if (hal.GetRS485Mutex())
+    if (rs485_transmit_q_handle != NULL)
     {
+      // Wait for a item in the queue, blocking indefinately
+      xQueueReceive(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
 
-      // Ensure we have empty receive buffer
-      // uart_flush_input(rs485_uart_num);
-
-      // Default of 8 bytes for a modbus request (including CRC)
-      size_t packet_length = 8;
-
-      if (cmd[1] == 15 || cmd[1] == 16)
+      if (hal.GetRS485Mutex())
       {
-        // Calculate length of this packet, add on extra data
-        // Force Multiple Coils (FC=15)
-        // https://www.simplymodbus.ca/FC15.htm
-        // Preset Multiple Registers (FC=16)
-        // https://www.simplymodbus.ca/FC16.htm
-        packet_length = 9 + cmd[6];
+        // Ensure we have empty receive buffer
+        // uart_flush_input(rs485_uart_num);
+
+        // Default of 8 bytes for a modbus request (including CRC)
+        size_t packet_length = 8;
+
+        if (cmd[1] == 15 || cmd[1] == 16)
+        {
+          // Calculate length of this packet, add on extra data
+          // Force Multiple Coils (FC=15)
+          // https://www.simplymodbus.ca/FC15.htm
+          // Preset Multiple Registers (FC=16)
+          // https://www.simplymodbus.ca/FC16.htm
+          packet_length = 9 + cmd[6];
+        }
+
+        // Calculate the MODBUS CRC
+        uint16_t temp = calculateCRC(cmd, packet_length - 2);
+        // Byte swap the Hi and Lo bytes
+        uint16_t crc16 = (temp << 8) | (temp >> 8);
+        cmd[packet_length - 2] = crc16 >> 8; // split crc into 2 bytes
+        cmd[packet_length - 1] = crc16 & 0xFF;
+
+        // Send the bytes (actually just put them into the TX FIFO buffer)
+        uart_write_bytes(rs485_uart_num, (char *)cmd, packet_length);
+
+        hal.ReleaseRS485Mutex();
+
+        // Notify the receive task that a packet should be on its way
+        if (rs485_rx_task_handle != NULL)
+        {
+          xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+        }
+
+        ESP_LOGD(TAG, "Send addr=%u, func=%u, len=%u", cmd[0], cmd[1], packet_length);
+        // Debug
+        // ESP_LOG_BUFFER_HEXDUMP(TAG, cmd, packet_length, esp_log_level_t::ESP_LOG_DEBUG);
+
+        // Once we have notified the receive task, we pause here to avoid sending
+        // another request until the last one has been processed (or we timeout after 2 seconds)
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(2000));
       }
-
-      // Calculate the MODBUS CRC
-      uint16_t temp = calculateCRC(cmd, packet_length - 2);
-      // Byte swap the Hi and Lo bytes
-      uint16_t crc16 = (temp << 8) | (temp >> 8);
-      cmd[packet_length - 2] = crc16 >> 8; // split crc into 2 bytes
-      cmd[packet_length - 1] = crc16 & 0xFF;
-
-      // Send the bytes (actually just put them into the TX FIFO buffer)
-      uart_write_bytes(rs485_uart_num, (char *)cmd, packet_length);
-
-      hal.ReleaseRS485Mutex();
-
-      // Notify the receive task that a packet should be on its way
-      if (rs485_rx_task_handle != NULL)
-      {
-        xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
-      }
-
-      ESP_LOGD(TAG, "Send addr=%u, func=%u, len=%u", cmd[0], cmd[1], packet_length);
-      // Debug
-      // ESP_LOG_BUFFER_HEXDUMP(TAG, cmd, packet_length, esp_log_level_t::ESP_LOG_DEBUG);
-
-      // Once we have notified the receive task, we pause here to avoid sending
-      // another request until the last one has been processed (or we timeout after 2 seconds)
-      ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(2000));
+    }
+    else
+    {
+      ESP_LOGE(TAG, "rs485_transmit_q_handle is NULL");
     }
   }
 }
@@ -2580,7 +2570,7 @@ void periodic_task(void *param)
     // 25 seconds
     if (countdown_mqtt2 == 0)
     {
-      mqtt2(&receiveProc, &prg, requestQueue.getCount(), &rules, previousRelayState);
+      mqtt2(&receiveProc, &prg, prg.queueLength(), &rules, previousRelayState);
       countdown_mqtt2 = 25;
     }
 
@@ -2620,10 +2610,7 @@ void lazy_tasks(void *param)
     // Task 1
     ESP_LOGI(TAG, "Task 1");
     //  Send a "ping" message through the cells to get a round trip time
-    while (prg.sendTimingRequest() == false)
-    {
-      vTaskDelay(pdMS_TO_TICKS(1000));
-    }
+    prg.sendTimingRequest();
 
     // Sleep between sections to give the ESP a chance to do other stuff
     vTaskDelay(delay_ticks);
@@ -2636,10 +2623,7 @@ void lazy_tasks(void *param)
     {
       if (cmi[module].valid && !cmi[module].settingsCached)
       {
-        while (prg.sendGetSettingsRequest(module) == false)
-        {
-          vTaskDelay(pdMS_TO_TICKS(1000));
-        };
+        prg.sendGetSettingsRequest(module);
         counter++;
       }
     }
@@ -2665,18 +2649,9 @@ void lazy_tasks(void *param)
       }
 
       ESP_LOGI(TAG, "Task 3, s=%i e=%i", startmodule, endmodule);
-      while (prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule) == false)
-      {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-      }
-      while (prg.sendReadPacketsReceivedRequest(startmodule, endmodule) == false)
-      {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-      }
-      while (prg.sendReadBadPacketCounter(startmodule, endmodule) == false)
-      {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-      }
+      prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule);
+      prg.sendReadPacketsReceivedRequest(startmodule, endmodule);
+      prg.sendReadBadPacketCounter(startmodule, endmodule);
 
       // Delay per bank/loop
       vTaskDelay(delay_ticks);
@@ -3154,14 +3129,17 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   // Create queue for transmit, each request could be MAX_SEND_RS485_PACKET_LENGTH bytes long, depth of 3 items
   rs485_transmit_q_handle = xQueueCreate(3, MAX_SEND_RS485_PACKET_LENGTH);
+  assert(rs485_transmit_q_handle);
 
-  if (rs485_transmit_q_handle == NULL)
-  {
-    ESP_LOGE(TAG, "Failed to create queue");
-    ESP_ERROR_CHECK(ESP_FAIL);
-  }
+  request_q_handle = xQueueCreate(30, sizeof(PacketStruct));
+  assert(request_q_handle);
+  prg.setQueueHandle(request_q_handle);
 
-  xTaskCreate(ledoff_task, "ledoff", 1450, nullptr, 1, &ledoff_task_handle);
+  reply_q_handle = xQueueCreate(4, sizeof(PacketStruct));
+  assert(reply_q_handle);
+
+  led_off_timer = xTimerCreate("LEDOFF", pdMS_TO_TICKS(100), pdFALSE, (void *)1, &ledoff_timer);
+
   xTaskCreate(tftwakeup_task, "tftwake", 2048, nullptr, 1, &tftwakeup_task_handle);
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 1, &updatetftdisplay_task_handle);

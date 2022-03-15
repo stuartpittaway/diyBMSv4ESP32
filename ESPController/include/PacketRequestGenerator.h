@@ -2,7 +2,6 @@
 #define PacketRequestGenerator_H_
 
 #include <Arduino.h>
-#include <cppQueue.h>
 #include <defines.h>
 
 // command byte
@@ -22,8 +21,6 @@
 class PacketRequestGenerator
 {
 public:
-  PacketRequestGenerator(cppQueue *requestQ) { _requestq = requestQ; }
-  ~PacketRequestGenerator() {}
   bool sendGetSettingsRequest(uint8_t cellid);
   bool sendIdentifyModuleRequest(uint8_t cellid);
   bool sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration);
@@ -39,8 +36,9 @@ public:
   bool sendTimingRequest();
   bool sendResetBalanceCurrentCounter();
 
-  uint16_t queueLength() {
-    return _requestq->getCount();
+  uint16_t queueLength()
+  {
+    return (uint16_t)uxQueueMessagesWaiting(_requestq);
   }
 
   void ResetCounters()
@@ -48,20 +46,24 @@ public:
     packetsGenerated = 0;
   }
 
+  void setQueueHandle(QueueHandle_t q)
+  {
+    _requestq = q;
+  }
+
   uint32_t packetsGenerated = 0;
-  
+
 private:
-  cppQueue *_requestq;
+  QueueHandle_t _requestq=nullptr;
+  bool pushPacketToQueue(PacketStruct *_packetbuffer, TickType_t ticksToWait);
   bool pushPacketToQueue(PacketStruct *_packetbuffer);
   void setPacketAddress(PacketStruct *_packetbuffer, uint8_t module);
   void setPacketAddressModuleRange(PacketStruct *_packetbuffer, uint8_t startmodule, uint8_t endmodule);
   void setPacketAddressBroadcast(PacketStruct *_packetbuffer);
   void setmoduledataFFFF(PacketStruct *_packetbuffer);
   void clearSettingsForAllModules();
-
   bool BuildAndSendRequest(COMMAND command, uint8_t startmodule, uint8_t endmodule);
   bool BuildAndSendRequest(COMMAND command);
-
   void clearPacket(PacketStruct *_packetbuffer)
   {
     memset(_packetbuffer, 0, sizeof(PacketStruct));
