@@ -187,7 +187,7 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
         rule_status.reserve(128);
         for (uint8_t i = 0; i < RELAY_RULES; i++)
         {
-            statrule_statusus.append("\"").append(std::to_string(i)).append("\":").append(std::to_string(rules->rule_outcome[i] ? 1 : 0));
+            rule_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string(rules->rule_outcome[i] ? 1 : 0));
             if (i < (RELAY_RULES - 1))
             {
                 rule_status.append(",");
