@@ -1567,6 +1567,7 @@ void wifi_init_sta(void)
   ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+  ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
   ESP_ERROR_CHECK(esp_wifi_start());
 
   ESP_ERROR_CHECK_WITHOUT_ABORT(tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname));
@@ -2411,6 +2412,8 @@ void rs485_tx(void *param)
 
 void LoadConfiguration()
 {
+  ESP_LOGI(TAG, "Fetch config");
+
   if (Settings::ReadConfig("diybms", (char *)&mysettings, sizeof(mysettings)))
     return;
 
@@ -2690,20 +2693,24 @@ bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool Show
   int length = 0;
   unsigned long timer = millis() + 30000;
 
+  // Ensure buffer is all zeros
+  memset(buffer, 0, buffersize);
+
   while (true)
   {
-
-    // Abort after 30 seconds of inactivity
-    if (millis() > timer)
-      return false;
-
     // We should add a timeout in here, and return FALSE when we abort....
 
-    // Reset timer on serial input
-    timer = millis() + 30000;
-
+    // fgetc is blocking call
     int data = fgetc(stdin);
-    if (data == '\b' || data == '\177')
+
+    if (data == EOF)
+    {
+      // Ignore
+      // Abort after 30 seconds of inactivity
+      if (millis() > timer)
+        return false;
+    }
+    else if (data == '\b' || data == '\177')
     { // BS and DEL
       if (length)
       {
@@ -2711,15 +2718,18 @@ bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool Show
         fputs("\b \b", stdout);
       }
     }
-    else if (data == '\n')
-    {
-      // Ignore
-    }
-    else if (data == '\r')
+    /*    else if (data == '\n')
+        {
+          // Ignore
+          fputc('\n', stdout); // output CRLF
+        }*/
+    else if (data == '\n' || data == '\r')
     {
       if (length > 0)
       {
-        fputs("\r\n", stdout); // output CRLF
+        fputs("\n", stdout); // output newline
+
+        // Mark end of string
         buffer[length] = '\0';
 
         // Soak up any other characters on the buffer and throw away
@@ -2733,6 +2743,9 @@ bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool Show
     }
     else if (length < buffersize - 1)
     {
+      // Reset timer on serial input
+      timer = millis() + 30000;
+
       if (OnlyDigits && (data < '0' || data > '9'))
       {
         // We need to filter out non-digit characters
@@ -2770,28 +2783,18 @@ void TerminalBasedWifiSetup()
     }
   }
 
-  ESP_LOGD(TAG, "TerminalBasedWifiSetup");
-
   fputs("\n\nDIYBMS CONTROLLER - Scanning Wifi\n\n", stdout);
 
   ESP_ERROR_CHECK(esp_netif_init());
   ESP_ERROR_CHECK(esp_event_loop_create_default());
   esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
   assert(sta_netif);
-
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-  ESP_LOGD(TAG, "esp_wifi_set_ps");
   ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-
-  ESP_LOGD(TAG, "esp_wifi_set_mode");
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-
-  ESP_LOGD(TAG, "esp_wifi_start");
+  ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
   ESP_ERROR_CHECK(esp_wifi_start());
-
-  ESP_LOGD(TAG, "esp_wifi_scan_start");
   esp_wifi_scan_start(NULL, true);
 
   // Max of 32 stations to return
@@ -2800,75 +2803,82 @@ void TerminalBasedWifiSetup()
   uint16_t ap_count = 0;
   memset(ap_info, 0, sizeof(ap_info));
 
-  ESP_LOGD(TAG, "esp_wifi_scan_get_ap_records");
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
-
-  ESP_LOGD(TAG, "esp_wifi_scan_get_ap_num");
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
 
-  ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
+  // ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
 
-  /*
-    if (n == 0)
-      fputs("no networks found", stdout);
-    else
+  fputs("Number\tSSID Name                             RSSI\tChannel\n", stdout);
+  for (int i = 0; (i < 32) && (i < ap_count); i++)
+  {
+    char text[10];
+    itoa(i, text, 10);
+    // Cyan
+    fputs("\033[36m", stdout);
+    fputs(text, stdout);
+    fputs(":\t", stdout);
+    // Yellow
+    fputs("\033[33m", stdout);
+    fputs((char *)ap_info[i].ssid, stdout);
+    // Default
+    fputs("\033[39m", stdout);
+    // fputs("\t\t\t\t", stdout);
+
+    // Pad out to 38 characters on screen
+    size_t len = strlen((char *)ap_info[i].ssid);
+    for (; len < 38; len++)
     {
-      for (int i = 0; i < n; ++i)
-      {
-        if (i < 10)
-        {
-          fputc(' ', stdout);
-        }
-        char number[5];
-        itoa(i, number, 10);
-        fputs(number, stdout);
-        fputc(':', stdout);
-        fputs(WiFi.SSID(i).c_str(), stdout);
-
-        // Pad out the wifi names into 2 columns
-        for (size_t spaces = WiFi.SSID(i).length(); spaces < 36; spaces++)
-        {
-          fputc(' ', stdout);
-        }
-
-        if ((i + 1) % 2 == 0)
-        {
-          fputc('\n', stdout);
-        }
-        delay(5);
-      }
-      fputc('\n', stdout);
+      fputc(' ', stdout);
     }
 
-    WiFi.mode(WIFI_OFF);
+    itoa(ap_info[i].rssi, text, 10);
+    fputs(text, stdout);
+    fputc('\t', stdout);
+    itoa(ap_info[i].primary, text, 10);
+    fputs(text, stdout);
 
-    fputs("Enter the NUMBER of the Wifi network to connect to:", stdout);
+    // New line
+    fputc('\n', stdout);
+  }
 
-    bool result;
-    char buffer[10];
-    result = CaptureSerialInput(buffer, sizeof(10), true, false);
+  // Green
+  fputs("\033[32mEnter the NUMBER of the Wifi network to connect to:\033[37m", stdout);
+
+  bool result;
+  char buffer[64];
+  result = CaptureSerialInput(buffer, 3, true, false);
+  if (result)
+  {
+    int index = atoi(buffer);
+    fputs("", stdout);
+    fputs("\033[32mEnter the password to use when connecting to '", stdout);
+    fputs((char *)ap_info[index].ssid, stdout);
+    fputs("':\033[37m", stdout);
+
+    result = CaptureSerialInput(buffer, sizeof(buffer), false, true);
+
     if (result)
     {
-      int index = String(buffer).toInt();
-      fputs("Enter the password to use when connecting to '", stdout);
-      fputs(WiFi.SSID(index).c_str(), stdout);
-      fputs("':", stdout);
-
-      char passwordbuffer[80];
-      result = CaptureSerialInput(passwordbuffer, sizeof(80), false, true);
-
-      if (result)
-      {
-        wifi_eeprom_settings config;
-        memset(&config, 0, sizeof(config));
-        WiFi.SSID(index).toCharArray(config.wifi_ssid, sizeof(config.wifi_ssid));
-        strcpy(config.wifi_passphrase, passwordbuffer);
-        Settings::WriteConfig("diybmswifi", (char *)&config, sizeof(config));
-      }
+      wifi_eeprom_settings config;
+      memset(&config, 0, sizeof(config));
+      strncpy(config.wifi_ssid, (char *)ap_info[index].ssid, sizeof(config.wifi_ssid));
+      strncpy(config.wifi_passphrase, buffer, sizeof(config.wifi_passphrase));
+      Settings::WriteConfig("diybmswifi", (char *)&config, sizeof(config));
     }
-  */
-  fputs("\n\nREBOOTING IN 5 SECONDS", stdout);
-  delay(5000);
+  }
+
+  fputc('\n', stdout);
+  fputc('\n', stdout);
+  for (size_t i = 10; i > 0; i--)
+  {
+    char number[5];
+    itoa(i, number, 10);
+    fputs("Rebooting In ", stdout);
+    fputs(number, stdout);
+    fputs(" seconds\n", stdout);
+    delay(1000);
+  }
+
   esp_restart();
 }
 
@@ -3057,7 +3067,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
            GIT_VERSION, COMPILE_DATE_TIME,
            chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
-  esp_bt_controller_disable();
+  ESP_ERROR_CHECK_WITHOUT_ABORT(esp_bt_controller_disable());
   BuildHostname();
   hal.ConfigurePins();
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
@@ -3069,44 +3079,12 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   // See if we can get a sensible reading from the TFT touch chip XPT2046
   // if we can, then a screen is fitted, so enable it
   _tft_screen_available = hal.IsScreenAttached();
-
-  if (_tft_screen_available)
-  {
-    ESP_LOGI(TAG, "TFT screen is INSTALLED");
-    // Only attach, if device is fitted otherwise false triggers may occur
-    // Touch screen IRQ (GPIO_NUM_36) is active LOW (XPT2046 chip)
-    ESP_ERROR_CHECK(
-        esp_ipc_call_blocking(PRO_CPU_NUM, tft_interrupt_attach, nullptr));
-  }
-  else
-  {
-    ESP_LOGI(TAG, "TFT screen is NOT installed");
-  }
-
   SetControllerState(ControllerState::PowerUp);
-
   hal.ConfigureVSPI();
   init_tft_display();
-
   hal.Led(0);
 
   consoleConfigurationCheck();
-
-  // Retrieve the EEPROM WIFI settings
-  bool EepromConfigValid = LoadWiFiConfig();
-
-  if (LoadWiFiConfigFromSDCard(EepromConfigValid))
-  {
-    // We need to reload the configuration, as it was updated...
-    EepromConfigValid = LoadWiFiConfig();
-  }
-
-  if (!EepromConfigValid)
-  {
-    // We have just started up and the EEPROM is empty of configuration
-    // force terminal wifi setup....
-    TerminalBasedWifiSetup();
-  }
 
   // Switch CAN chip TJA1051T/3 ON
   hal.CANBUSEnable(true);
@@ -3125,6 +3103,15 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   mountSDCard();
 
+  // Retrieve the EEPROM WIFI settings
+  bool EepromConfigValid = LoadWiFiConfig();
+
+  if (LoadWiFiConfigFromSDCard(EepromConfigValid))
+  {
+    // We need to reload the configuration, as it was updated...
+    EepromConfigValid = LoadWiFiConfig();
+  }
+
   // Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
   for (size_t i = 0; i < maximum_controller_cell_modules; i++)
@@ -3135,12 +3122,17 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   resetAllRules();
 
   LoadConfiguration();
-  ESP_LOGI(TAG, "Config loaded");
 
   // Check its not zero
   if (mysettings.influxdb_loggingFreqSeconds < 5)
   {
     mysettings.influxdb_loggingFreqSeconds = 15;
+  }
+
+  if (!EepromConfigValid)
+  {
+    // We don't have a valid WIFI configuration, so force terminal based setup
+    TerminalBasedWifiSetup();
   }
 
   // Serial pins IO2/IO32
@@ -3200,6 +3192,18 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   // Attempt connection in setup(), loop() will also try every 30 seconds
   // connectToWifi();
   wifi_init_sta();
+
+  if (_tft_screen_available)
+  {
+    ESP_LOGI(TAG, "TFT screen is INSTALLED");
+    // Only attach, if device is fitted otherwise false triggers may occur
+    // Touch screen IRQ (GPIO_NUM_36) is active LOW (XPT2046 chip)
+    ESP_ERROR_CHECK(esp_ipc_call_blocking(PRO_CPU_NUM, tft_interrupt_attach, nullptr));
+  }
+  else
+  {
+    ESP_LOGI(TAG, "TFT screen is NOT installed");
+  }
 
   if (tftwakeup_task_handle != NULL)
   {
