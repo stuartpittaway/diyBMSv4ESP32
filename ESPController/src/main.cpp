@@ -1542,6 +1542,14 @@ void wifi_init_sta(void)
   assert(netif);
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+
+  cfg.static_tx_buf_num = 0;
+  cfg.dynamic_tx_buf_num = 32;
+  cfg.tx_buf_type = 1;
+  cfg.cache_tx_buf_num = 1;
+  cfg.static_rx_buf_num = 4;
+  cfg.dynamic_rx_buf_num = 32;
+
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
   // esp_event_handler_instance_t instance_any_id;
@@ -1568,7 +1576,7 @@ void wifi_init_sta(void)
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-  //Generates WIFI_EVENT_STA_BSS_RSSI_LOW events when RSS goes low
+  // Generates WIFI_EVENT_STA_BSS_RSSI_LOW events when RSS goes low
   ESP_ERROR_CHECK(esp_wifi_set_rssi_threshold(-80));
   ESP_ERROR_CHECK(esp_wifi_start());
 
