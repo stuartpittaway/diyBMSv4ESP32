@@ -101,6 +101,7 @@ volatile enumInputState InputState[INPUTS_TOTAL];
 currentmonitoring_struct currentMonitor;
 
 TimerHandle_t led_off_timer;
+TimerHandle_t pulse_relay_off_timer;
 
 TaskHandle_t i2c_task_handle = NULL;
 TaskHandle_t sdcardlog_task_handle = NULL;
@@ -111,7 +112,7 @@ TaskHandle_t transmit_task_handle = NULL;
 TaskHandle_t replyqueue_task_handle = NULL;
 TaskHandle_t lazy_task_handle = NULL;
 TaskHandle_t rule_task_handle = NULL;
-TaskHandle_t pulse_relay_off_task_handle = NULL;
+
 TaskHandle_t voltageandstatussnapshot_task_handle = NULL;
 TaskHandle_t updatetftdisplay_task_handle = NULL;
 TaskHandle_t tftwakeup_task_handle = NULL;
@@ -716,7 +717,7 @@ void sdcardlog_outputs_task(void *param)
 }
 
 // Switch the LED off (triggered by timer on 100ms delay)
-void ledoff_timer(TimerHandle_t xTimer)
+void ledoff(TimerHandle_t xTimer)
 {
   LED(RGBLED::OFF);
 }
@@ -1195,6 +1196,26 @@ void ProcessRules()
   }
 }
 
+void pulse_relay_off(TimerHandle_t xTimer)
+{
+  for (int8_t y = 0; y < RELAY_TOTAL; y++)
+  {
+    if (previousRelayPulse[y])
+    {
+      // We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
+      // However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
+      // to prevent multiple pulses being sent on each rule refresh
+      hal.SetOutputState(y, RelayState::RELAY_OFF);
+
+      previousRelayPulse[y] = false;
+    }
+  }
+
+  // Fire task to record state of outputs to SD Card
+  xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
+}
+
+/*
 void pulse_relay_off_task(void *param)
 {
   for (;;)
@@ -1222,6 +1243,7 @@ void pulse_relay_off_task(void *param)
     xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
   }
 }
+*/
 
 void rules_task(void *param)
 {
@@ -1302,7 +1324,11 @@ void rules_task(void *param)
 
     if (firePulse)
     {
-      xTaskNotify(pulse_relay_off_task_handle, 0x00, eNotifyAction::eNoAction);
+      // Fire timer to switch off LED in a few ms
+      if (xTimerStart(pulse_relay_off_timer, 10) != pdPASS)
+      {
+        ESP_LOGE(TAG, "Pulse timer start error");
+      }
     }
 
     if (changes)
@@ -1312,7 +1338,6 @@ void rules_task(void *param)
     }
   }
 }
-
 
 // This task periodically adds requests to the queue
 // to schedule reading data from the cell modules
@@ -1374,9 +1399,40 @@ void enqueue_task(void *param)
 /* The event group allows multiple bits for each event, but we only care about two events:
  * - we are connected to the AP with an IP
  * - we failed to connect after the maximum amount of retries */
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT BIT1
+//#define WIFI_CONNECTED_BIT BIT0
+//#define WIFI_FAIL_BIT BIT1
 static int s_retry_num = 0;
+
+static void setTimeZone(long offset, int daylight)
+{
+  char cst[17] = {0};
+  char cdt[17] = "DST";
+  char tz[33] = {0};
+
+  if (offset % 3600)
+  {
+    sprintf(cst, "UTC%ld:%02u:%02u", offset / 3600, abs((offset % 3600) / 60), abs(offset % 60));
+  }
+  else
+  {
+    sprintf(cst, "UTC%ld", offset / 3600);
+  }
+  if (daylight != 3600)
+  {
+    long tz_dst = offset - daylight;
+    if (tz_dst % 3600)
+    {
+      sprintf(cdt, "DST%ld:%02u:%02u", tz_dst / 3600, abs((tz_dst % 3600) / 60), abs(tz_dst % 60));
+    }
+    else
+    {
+      sprintf(cdt, "DST%ld", tz_dst / 3600);
+    }
+  }
+  sprintf(tz, "%s%s", cst, cdt);
+  setenv("TZ", tz, 1);
+  tzset();
+}
 
 static void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char *server1)
 {
@@ -1392,8 +1448,8 @@ static void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char
   // sntp_setservername(2, (char*)server3);
   sntp_init();
 
-  // TODO: Need to set timezone
-  // setTimeZone(-gmtOffset_sec, daylightOffset_sec);
+  // TODO: Fix this with native IDF library
+  setTimeZone(-gmtOffset_sec, daylightOffset_sec);
   // setenv("TZ", tz, 1);
   // tzset();
 }
@@ -1682,6 +1738,7 @@ void PZEM017_SetShuntType(uint8_t modbusAddress, uint16_t shuntMaxCurrent)
 
   ESP_LOGD(TAG, "Set PZEM017 max current %uA=%u", shuntMaxCurrent, shuntType);
 
+  // Blocking call
   xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
 
   // Zero all data
@@ -3138,7 +3195,10 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   reply_q_handle = xQueueCreate(4, sizeof(PacketStruct));
   assert(reply_q_handle);
 
-  led_off_timer = xTimerCreate("LEDOFF", pdMS_TO_TICKS(100), pdFALSE, (void *)1, &ledoff_timer);
+  led_off_timer = xTimerCreate("LEDOFF", pdMS_TO_TICKS(100), pdFALSE, (void *)1, &ledoff);
+  assert(led_off_timer);
+  pulse_relay_off_timer = xTimerCreate("PULSE", pdMS_TO_TICKS(250), pdFALSE, (void *)2, &pulse_relay_off);
+  assert(pulse_relay_off_timer);
 
   xTaskCreate(tftwakeup_task, "tftwake", 2048, nullptr, 1, &tftwakeup_task_handle);
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
@@ -3157,7 +3217,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   xTaskCreate(transmit_task, "tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 2000, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2000, nullptr, 1, &lazy_task_handle);
-  xTaskCreate(pulse_relay_off_task, "pulse", 1000, nullptr, configMAX_PRIORITIES - 1, &pulse_relay_off_task_handle);
 
   // Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
@@ -3174,8 +3233,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   // Only run these after we have wifi...
   xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-  xTaskCreate(rules_task, "rules", 2000, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-  xTaskCreate(periodic_task, "period", 2200, nullptr, 1, &periodic_task_handle);
+  xTaskCreate(rules_task, "rules", 1900, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+  xTaskCreate(periodic_task, "period", 2500, nullptr, 1, &periodic_task_handle);
 
   // Start the wifi and connect to access point
   wifi_init_sta();
@@ -3201,7 +3260,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
 unsigned long wifitimer = 0;
 unsigned long heaptimer = 0;
-
 unsigned long taskinfotimer = 0;
 
 void loop()
@@ -3251,10 +3309,13 @@ void loop()
              heap.total_blocks);
 
     // uxTaskGetStackHighWaterMark returns bytes not words on ESP32
+    /*
     ESP_LOGD(TAG, "periodic_task_handle high water=%i", uxTaskGetStackHighWaterMark(periodic_task_handle));
-    // ESP_LOGD(TAG, "rule_task_handle high water=%i", uxTaskGetStackHighWaterMark(rule_task_handle));
-    // ESP_LOGD(TAG, "enqueue_task_handle high water=%i", uxTaskGetStackHighWaterMark(enqueue_task_handle));
-    // ESP_LOGD(TAG, "pulse_relay_off_task high water=%i", uxTaskGetStackHighWaterMark(pulse_relay_off_task_handle));
+    ESP_LOGD(TAG, "rule_task_handle high water=%i", uxTaskGetStackHighWaterMark(rule_task_handle));
+    ESP_LOGD(TAG, "enqueue_task_handle high water=%i", uxTaskGetStackHighWaterMark(enqueue_task_handle));
+    ESP_LOGD(TAG, "sdcardlog_task_handle high water=%i", uxTaskGetStackHighWaterMark(sdcardlog_task_handle));
+    ESP_LOGD(TAG, "sdcardlog_outputs_task_handle high water=%i", uxTaskGetStackHighWaterMark(sdcardlog_outputs_task_handle));
+    */
 
     // Report again in 15 seconds
     heaptimer = currentMillis + 15000;
