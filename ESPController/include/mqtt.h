@@ -9,7 +9,6 @@
 #include "PacketReceiveProcessor.h"
 
 #include <mqtt_client.h>
-#include <ArduinoJson.h>
 
 void stopMqtt();
 void connectToMqtt();

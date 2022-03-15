@@ -12,7 +12,7 @@ static constexpr const char *const TAG = "diybms-mqtt";
 
 #include "mqtt.h"
 
-//#define MQTT_LOGGING
+#define MQTT_LOGGING
 
 bool mqttClient_connected = false;
 esp_mqtt_client_handle_t mqtt_client = nullptr;
@@ -121,82 +121,95 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
             return;
         }
 
+        // Cast to char *
+        char *buf = (char *)jsonbuffer;
+
         char topic[60];
 
-        // DynamicJsonDocument doc(400);
-        DynamicJsonDocument doc(jsonbuffer_size);
-        JsonObject root = doc.to<JsonObject>();
+        memset(buf, 0, jsonbuffer_size);
+        int bufferused = 0;
+        bufferused += snprintf(buf, jsonbuffer_size,
+                               "{\"banks\":%u,\"cells\":%u,\"uptime\":%u,\"commserr\":%i,\"sent\":%u,\"received\":%u,\"badcrc\":%u,\"ignored\":%u,\"oos\":%u,\"sendqlvl\":%u,\"roundtrip\":%u}",
+                               mysettings.totalNumberOfBanks,
+                               mysettings.totalNumberOfSeriesModules,
+                               millis() / 1000,
+                               receiveProc->HasCommsTimedOut() ? 1 : 0,
+                               prg->packetsGenerated,
+                               receiveProc->packetsReceived,
+                               receiveProc->totalCRCErrors,
+                               receiveProc->totalNotProcessedErrors,
+                               receiveProc->totalOutofSequenceErrors,
+                               requestq_count,
+                               receiveProc->packetTimerMillisecond);
 
-        root["banks"] = mysettings.totalNumberOfBanks;
-        root["cells"] = mysettings.totalNumberOfSeriesModules;
-        root["uptime"] = millis() / 1000;
-        root["commserr"] = receiveProc->HasCommsTimedOut() ? 1 : 0;
-        root["sent"] = prg->packetsGenerated;
-        root["received"] = receiveProc->packetsReceived;
-        root["badcrc"] = receiveProc->totalCRCErrors;
-        root["ignored"] = receiveProc->totalNotProcessedErrors;
-        root["oos"] = receiveProc->totalOutofSequenceErrors;
-        root["sendqlvl"] = requestq_count;
-        root["roundtrip"] = receiveProc->packetTimerMillisecond;
-
-        size_t len = serializeJson(doc, jsonbuffer, jsonbuffer_size);
         snprintf(topic, sizeof(topic), "%s/status", mysettings.mqtt_topic);
 
-        int msg_id1 = esp_mqtt_client_publish(mqtt_client, topic, (char *)jsonbuffer, len, 1, 0);
+        int msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
         // MQTT_SKIP_PUBLISH_IF_DISCONNECTED
-        ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id1);
+        ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
 
 #if defined(MQTT_LOGGING)
-        ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+        ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
 #endif
-
         // Output bank level information (just voltage for now)
         for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
         {
-            doc.clear();
-            doc["voltage"] = (float)rules->packvoltage[bank] / (float)1000.0;
+            memset(buf, 0, jsonbuffer_size);
+            bufferused = 0;
+            bufferused += snprintf(buf, jsonbuffer_size,
+                                   "{\"voltage\":%.4f}",
+                                   (float)rules->packvoltage[bank] / (float)1000.0);
+
             snprintf(topic, sizeof(topic), "%s/bank/%d", mysettings.mqtt_topic, bank);
-
-            len = serializeJson(doc, jsonbuffer, jsonbuffer_size);
-
-            int msg_id2 = esp_mqtt_client_publish(mqtt_client, topic, (char *)jsonbuffer, len, 1, 0);
-            ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id2);
+            msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
+            ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
 #if defined(MQTT_LOGGING)
-            ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+            ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
 #endif
         }
 
-        // Using Json for below reduced MQTT messages from 14 to 2. Could be combined into same json object too. But even better is status + event driven.
-        doc.clear(); // Need to clear the json object for next message
         snprintf(topic, sizeof(topic), "%s/rule", mysettings.mqtt_topic);
+
+        memset(buf, 0, jsonbuffer_size);
+        buf[0] = '{';
+        bufferused = 1;
+        // bufferused += snprintf(buf, jsonbuffer_size, "{");
+
         for (uint8_t i = 0; i < RELAY_RULES; i++)
         {
-            doc[(String)i] = rules->rule_outcome[i] ? 1 : 0; // String conversion should be removed but just quick to get json format nice
+            bufferused += snprintf(&buf[bufferused], jsonbuffer_size, "\"%i\":%i%c",
+                                   i,
+                                   rules->rule_outcome[i] ? 1 : 0,
+                                   i < (RELAY_RULES - 1) ? ',' : '}');
         }
-        len = serializeJson(doc, jsonbuffer, jsonbuffer_size);
 #if defined(MQTT_LOGGING)
-        ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+        ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
 #endif
-        int msg_id3 = esp_mqtt_client_publish(mqtt_client, topic, (char *)jsonbuffer, len, 1, 0);
-        ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id3);
+        msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
+        ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
 
-        doc.clear(); // Need to clear the json object for next message
         snprintf(topic, sizeof(topic), "%s/output", mysettings.mqtt_topic);
+        memset(buf, 0, jsonbuffer_size);
+        buf[0] = '{';
+        bufferused = 1;
+        // bufferused += snprintf(buf, jsonbuffer_size, "{");
+
         for (uint8_t i = 0; i < RELAY_TOTAL; i++)
         {
-            doc[(String)i] = (previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0;
+            bufferused += snprintf(&buf[bufferused], jsonbuffer_size, "\"%i\":%i%c",
+                                   i,
+                                   (previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0,
+                                   i < (RELAY_TOTAL - 1) ? ',' : '}');
         }
 
-        len = serializeJson(doc, jsonbuffer, jsonbuffer_size);
 #if defined(MQTT_LOGGING)
-        ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+        ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
 #endif
-        int msg_id4 = esp_mqtt_client_publish(mqtt_client, topic, (char *)jsonbuffer, len, 1, 0);
-        ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id4);
+        msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
+        ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
 
         // Unallocate the buffer
         free(jsonbuffer);
-
     } // end if
 }
 
@@ -216,8 +229,6 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
     {
         ESP_LOGI(TAG, "MQTT 1");
         char topic[60];
-        // StaticJsonDocument<300> doc;
-        DynamicJsonDocument doc(jsonbuffer_size);
 
         void *jsonbuffer = malloc(jsonbuffer_size);
         if (jsonbuffer == NULL)
@@ -225,6 +236,10 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
             ESP_LOGE(TAG, "Failed to malloc");
             return;
         }
+
+        // Cast to char *
+        char *buf = (char *)jsonbuffer;
+        int bufferused = 0;
 
         // If the BMS is in error, stop sending MQTT packets for the data
         if (!rules->rule_outcome[Rule::BMSError])
@@ -239,33 +254,25 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
 
             while (i < TotalNumberOfCells() && counter < 8)
             {
-                // ESP_LOGI(TAG, "Send MQTT for module %u", i);
                 // Only send valid module data
                 if (cmi[i].valid)
                 {
                     uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
                     uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
 
-                    doc.clear();
-                    doc["voltage"] = (float)cmi[i].voltagemV / (float)1000.0;
-                    doc["vMax"] = (float)cmi[i].voltagemVMax / (float)1000.0;
-                    doc["vMin"] = (float)cmi[i].voltagemVMin / (float)1000.0;
-                    doc["inttemp"] = cmi[i].internalTemp;
-                    doc["exttemp"] = cmi[i].externalTemp;
-                    doc["bypass"] = cmi[i].inBypass ? 1 : 0;
-                    doc["PWM"] = (int)((float)cmi[i].PWMValue / (float)255.0 * 100);
-                    doc["bypassT"] = cmi[i].bypassOverTemp ? 1 : 0;
-                    doc["bpc"] = cmi[i].badPacketCount;
-                    doc["mAh"] = cmi[i].BalanceCurrentCount;
-                    size_t len = serializeJson(doc, jsonbuffer, jsonbuffer_size);
+                    memset(buf, 0, jsonbuffer_size);
+                    bufferused = 0;
+                    bufferused += snprintf(buf, jsonbuffer_size,
+                                           "{\"voltage\":%.4f,\"vMax\":%.4f,\"vMin\":%.4f,\"inttemp\":%i,\"exttemp\":%i,\"bypass\":%i,\"PWM\":%i,\"bypassT\":%i,\"bpc\":%u,\"mAh\":%u}",
+                                           (float)cmi[i].voltagemV / (float)1000.0, (float)cmi[i].voltagemVMax / (float)1000.0, (float)cmi[i].voltagemVMin / (float)1000.0, cmi[i].internalTemp, cmi[i].externalTemp, cmi[i].inBypass ? 1 : 0, (int)((float)cmi[i].PWMValue / (float)255.0 * 100), cmi[i].bypassOverTemp ? 1 : 0, cmi[i].badPacketCount, cmi[i].BalanceCurrentCount);
 
                     snprintf(topic, sizeof(topic), "%s/%d/%d", mysettings.mqtt_topic, bank, module);
 
-                    int msg_id1 = esp_mqtt_client_publish(mqtt_client, topic, (char *)jsonbuffer, len, 1, 0);
-                    ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id1);
+                    int msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
+                    ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
 
 #if defined(MQTT_LOGGING)
-                    ESP_LOGI(TAG, "MQTT %s %s", topic, jsonbuffer);
+                    ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
 #endif
                 }
 
@@ -282,36 +289,48 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
         if (mysettings.currentMonitoringEnabled)
         {
             // Send current monitor data
-            doc.clear(); // Need to clear the json object for next message
             snprintf(topic, sizeof(topic), "%s/modbus/A%u", mysettings.mqtt_topic, mysettings.currentMonitoringModBusAddress);
 
-            doc["valid"] = currentMonitor->validReadings ? 1 : 0;
+            memset(buf, 0, jsonbuffer_size);
+            bufferused = 0;
+            bufferused += snprintf(&buf[bufferused], jsonbuffer_size, "{\"valid\":%i", currentMonitor->validReadings ? 1 : 0);
 
             if (currentMonitor->validReadings && currentMonitor->timestamp != lastcurrentMonitortimestamp)
             {
                 // Send current monitor data if its valid and not sent before
-                doc["voltage"] = currentMonitor->modbus.voltage;
-                doc["current"] = currentMonitor->modbus.current;
-                doc["power"] = currentMonitor->modbus.power;
+
+                bufferused += snprintf(&buf[bufferused], jsonbuffer_size,
+                                       ",\"voltage\":%.4f,\"current\":%.4f,\"power\":%.4f",
+                                       currentMonitor->modbus.voltage,
+                                       currentMonitor->modbus.current,
+                                       currentMonitor->modbus.power);
+
                 if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
                 {
-                    doc["mAhIn"] = currentMonitor->modbus.milliamphour_in;
-                    doc["mAhOut"] = currentMonitor->modbus.milliamphour_out;
-                    doc["temperature"] = currentMonitor->modbus.temperature;
-                    doc["shuntmV"] = currentMonitor->modbus.shuntmV;
-                    doc["relayState"] = currentMonitor->RelayState ? 1 : 0;
-                    doc["soc"] = currentMonitor->stateofcharge;
+                    bufferused += snprintf(&buf[bufferused], jsonbuffer_size,
+                                           ",\"mAhIn\":%u,\"mAhOut\":%u,\"temperature\":%i,\"shuntmV\":%.4f,\"relayState\":%i,\"soc\":%.4f",
+                                           currentMonitor->modbus.milliamphour_in,
+                                           currentMonitor->modbus.milliamphour_out,
+                                           currentMonitor->modbus.temperature,
+                                           currentMonitor->modbus.shuntmV,
+                                           currentMonitor->RelayState ? 1 : 0,
+                                           currentMonitor->stateofcharge
+
+                    );
                 }
             }
 
+            // Closing brace
+            buf[bufferused] = '}';
+            bufferused++;
+
             lastcurrentMonitortimestamp = currentMonitor->timestamp;
 
-            size_t len2 = serializeJson(doc, jsonbuffer, jsonbuffer_size);
 #if defined(MQTT_LOGGING)
-            ESP_LOGD(TAG, "MQTT %s %s", topic, jsonbuffer);
+            ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
 #endif
-            int msg_id2 = esp_mqtt_client_publish(mqtt_client, topic, (char *)jsonbuffer, len2, 1, 0);
-            ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id2);
+            int msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
+            ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
         }
 
         free(jsonbuffer);
