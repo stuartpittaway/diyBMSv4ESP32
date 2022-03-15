@@ -92,12 +92,13 @@ void TFTDrawWifiDetails()
         x += 10;
         x += tft.drawString(ip_string, x, y);
 
-        // TODO: ADD THIS BACK IN USING NATIVE IDF LIBS
         // Draw RSSI on bottom right corner
         // Received Signal Strength in dBm
-        //x += 10;
-        //x += tft.drawNumber(WiFi.RSSI(), x, y);
-        //x += tft.drawString("dBm", x, y);
+        wifi_ap_record_t ap;
+        esp_wifi_sta_get_ap_info(&ap);
+        x += 10;
+        x += tft.drawNumber(ap.rssi, x, y);
+        x += tft.drawString("dBm", x, y);
     }
     else
     {

@@ -1439,11 +1439,11 @@ static void startMDNS()
 static void event_handler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
-
-  // ADD IN...
-  // IP_EVENT_STA_LOST_IP
-
-  if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
+  if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_BSS_RSSI_LOW)
+  {
+    ESP_LOGW(TAG, "WiFi signal strength low");
+  }
+  else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
   {
     wifi_isconnected = false;
     esp_wifi_connect();
@@ -1457,10 +1457,10 @@ static void event_handler(void *arg, esp_event_base_t event_base,
       s_retry_num++;
       ESP_LOGI(TAG, "retry to connect to the AP");
     }
-    else
-    {
-      // xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-    }
+    // else
+    //{
+    //  xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+    //}
     ESP_LOGI(TAG, "connect to the AP fail");
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
@@ -1568,6 +1568,8 @@ void wifi_init_sta(void)
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+  //Generates WIFI_EVENT_STA_BSS_RSSI_LOW events when RSS goes low
+  ESP_ERROR_CHECK(esp_wifi_set_rssi_threshold(-80));
   ESP_ERROR_CHECK(esp_wifi_start());
 
   ESP_ERROR_CHECK_WITHOUT_ABORT(tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname));
@@ -3187,9 +3189,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   // Only run these after we have wifi...
   xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
   xTaskCreate(rules_task, "rules", 2000, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-  xTaskCreate(periodic_task, "period", 2000, nullptr, 1, &periodic_task_handle);
+  xTaskCreate(periodic_task, "period", 2200, nullptr, 1, &periodic_task_handle);
 
-  //Start the wifi and connect to access point
+  // Start the wifi and connect to access point
   wifi_init_sta();
 
   if (_tft_screen_available)
