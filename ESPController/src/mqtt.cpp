@@ -112,6 +112,7 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
 #define jsonbuffer_size 400
     if (mysettings.mqtt_enabled && mqttClient_connected)
     {
+        ESP_LOGI(TAG, "MQTT 2");
 
         void *jsonbuffer = malloc(jsonbuffer_size);
         if (jsonbuffer == NULL)
@@ -212,6 +213,7 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
 
     if (mysettings.mqtt_enabled && mqttClient_connected)
     {
+        ESP_LOGI(TAG, "MQTT 1");
         char topic[60];
         StaticJsonDocument<300> doc;
 
