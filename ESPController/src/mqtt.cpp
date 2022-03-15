@@ -123,7 +123,8 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
 
         char topic[60];
 
-        DynamicJsonDocument doc(400);
+        // DynamicJsonDocument doc(400);
+        DynamicJsonDocument doc(jsonbuffer_size);
         JsonObject root = doc.to<JsonObject>();
 
         root["banks"] = mysettings.totalNumberOfBanks;
@@ -139,7 +140,7 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
         root["roundtrip"] = receiveProc->packetTimerMillisecond;
 
         size_t len = serializeJson(doc, jsonbuffer, jsonbuffer_size);
-        snprintf(topic,sizeof(topic), "%s/status", mysettings.mqtt_topic);
+        snprintf(topic, sizeof(topic), "%s/status", mysettings.mqtt_topic);
 
         int msg_id1 = esp_mqtt_client_publish(mqtt_client, topic, (char *)jsonbuffer, len, 1, 0);
         // MQTT_SKIP_PUBLISH_IF_DISCONNECTED
@@ -154,7 +155,7 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
         {
             doc.clear();
             doc["voltage"] = (float)rules->packvoltage[bank] / (float)1000.0;
-            snprintf(topic, sizeof(topic),"%s/bank/%d", mysettings.mqtt_topic, bank);
+            snprintf(topic, sizeof(topic), "%s/bank/%d", mysettings.mqtt_topic, bank);
 
             len = serializeJson(doc, jsonbuffer, jsonbuffer_size);
 
@@ -167,7 +168,7 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
 
         // Using Json for below reduced MQTT messages from 14 to 2. Could be combined into same json object too. But even better is status + event driven.
         doc.clear(); // Need to clear the json object for next message
-        snprintf(topic, sizeof(topic),"%s/rule", mysettings.mqtt_topic);
+        snprintf(topic, sizeof(topic), "%s/rule", mysettings.mqtt_topic);
         for (uint8_t i = 0; i < RELAY_RULES; i++)
         {
             doc[(String)i] = rules->rule_outcome[i] ? 1 : 0; // String conversion should be removed but just quick to get json format nice
@@ -180,7 +181,7 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
         ESP_LOGD(TAG, "mqtt msg_id=%d", msg_id3);
 
         doc.clear(); // Need to clear the json object for next message
-        snprintf(topic,sizeof(topic), "%s/output", mysettings.mqtt_topic);
+        snprintf(topic, sizeof(topic), "%s/output", mysettings.mqtt_topic);
         for (uint8_t i = 0; i < RELAY_TOTAL; i++)
         {
             doc[(String)i] = (previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0;
@@ -215,7 +216,8 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
     {
         ESP_LOGI(TAG, "MQTT 1");
         char topic[60];
-        StaticJsonDocument<300> doc;
+        // StaticJsonDocument<300> doc;
+        DynamicJsonDocument doc(jsonbuffer_size);
 
         void *jsonbuffer = malloc(jsonbuffer_size);
         if (jsonbuffer == NULL)
