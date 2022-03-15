@@ -3187,10 +3187,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   // Only run these after we have wifi...
   xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
   xTaskCreate(rules_task, "rules", 2000, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-  xTaskCreate(periodic_task, "period", 4000, nullptr, 1, &periodic_task_handle);
+  xTaskCreate(periodic_task, "period", 2000, nullptr, 1, &periodic_task_handle);
 
-  // Attempt connection in setup(), loop() will also try every 30 seconds
-  // connectToWifi();
+  //Start the wifi and connect to access point
   wifi_init_sta();
 
   if (_tft_screen_available)
