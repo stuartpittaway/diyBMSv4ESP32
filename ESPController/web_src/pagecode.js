@@ -62,7 +62,7 @@ function refreshCurrentMonitorValues() {
             $("#cmvalid").val(data.valid);
             $("#cmtimestampage").val(data.timestampage);
 
-            if (data.devicetype==0) {
+            if (data.devicetype == 0) {
                 $("#cmbatterycapacity").val(data.batterycapacity);
                 $("#cmfullchargevolt").val(data.fullchargevolt.toFixed(2));
                 $("#cmtailcurrent").val(data.tailcurrent.toFixed(2));
@@ -115,15 +115,15 @@ function refreshCurrentMonitorValues() {
 
             if (data.enabled) {
                 $("#currentmonbasic").show();
-                if (data.devicetype==0) {
+                if (data.devicetype == 0) {
                     //DIYBMS Current Monitor
                     $("#currentmonadvanced").show();
-                    
+
                     $("#currentmonrelay").show();
                 } else {
                     //PZEM-017
                     $("#currentmonadvanced").hide();
-                    
+
                     $("#currentmonrelay").hide();
                 }
             } else {
@@ -218,7 +218,6 @@ function avrProgrammingStatsUpdate(attempts) {
         }).fail(function () {
             $("#iperror").show();
         });
-
 }
 
 function configureModule(button, cellid, attempts) {
@@ -366,21 +365,27 @@ function queryBMS() {
         if (minVoltage < 2.5) { minVoltage = 0; }
 
         if (jsondata) {
-            //Ignore and hide any errors which are zero
-            if (jsondata.badcrc == 0) { $("#badcrc").hide(); } else { $("#badcrc .v").html(jsondata.badcrc); $("#badcrc").show(); }
-            if (jsondata.ignored == 0) { $("#ignored").hide(); } else { $("#ignored .v").html(jsondata.ignored); $("#ignored").show(); }
-            if (jsondata.sent == 0) { $("#sent").hide(); } else { $("#sent .v").html(jsondata.sent); $("#sent").show(); }
-            if (jsondata.received == 0) { $("#received").hide(); } else { $("#received .v").html(jsondata.received); $("#received").show(); }
-            if (jsondata.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.roundtrip); $("#roundtrip").show(); }
-            if (jsondata.oos == 0) { $("#oos").hide(); } else { $("#oos .v").html(jsondata.oos); $("#oos").show(); }
+            if (jsondata.badcrc != 0) { $("#badcrc").show(); }
+            if (jsondata.ignored != 0) { $("#ignored").show(); }
+            if (jsondata.sent != 0) { $("#sent").show(); }
+            if (jsondata.received != 0) { $("#received").show(); }
+            if (jsondata.roundtrip != 0) { $("#roundtrip").show(); }
+            if (jsondata.oos != 0) { $("#oos").show(); }
+            if (jsondata.can_fail != 0) { $("#canfail").show(); }
+            if (jsondata.can_sent != 0) { $("#cansent").show(); }
+            if (jsondata.can_rec != 0) { $("#canrecd").show(); }
+            if (jsondata.qlen != 0) { $("#qlen").show(); }
 
-            
-            if (jsondata.can_fail == 0) { $("#canfail").hide(); } else { $("#canfail .v").html(jsondata.can_fail); $("#canfail").show(); }
-
-            if (jsondata.can_sent == 0) { $("#cansent").hide(); } else { $("#cansent .v").html(jsondata.can_sent); $("#cansent").show(); }
-            if (jsondata.can_rec == 0) { $("#canrecd").hide(); } else { $("#canrecd .v").html(jsondata.can_rec); $("#canrecd").show(); }
-
-            if (jsondata.qlen == 0) { $("#qlen").hide(); } else { $("#qlen .v").html(jsondata.qlen); $("#qlen").show(); }
+            $("#badcrc .v").html(jsondata.badcrc);
+            $("#ignored .v").html(jsondata.ignored);
+            $("#sent .v").html(jsondata.sent);
+            $("#received .v").html(jsondata.received);
+            $("#roundtrip .v").html(jsondata.roundtrip);
+            $("#oos .v").html(jsondata.oos);
+            $("#canfail .v").html(jsondata.can_fail);
+            $("#cansent .v").html(jsondata.can_sent);
+            $("#canrecd .v").html(jsondata.can_rec);
+            $("#qlen .v").html(jsondata.qlen);
 
             $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
 
@@ -434,7 +439,7 @@ function queryBMS() {
                 $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
                 $("#shuntv").show();
 
-                if (data.soc!=0) {
+                if (data.soc != 0) {
                     $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
                     $("#soc").show();
                 } else {
@@ -444,16 +449,16 @@ function queryBMS() {
                 $("#power .v").html(parseFloat(data.p) + "W");
                 $("#power").show();
 
-                if (data.mahout!=0) {
-                $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
-                $("#amphout").show();
+                if (data.mahout != 0) {
+                    $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
+                    $("#amphout").show();
                 } else {
                     $("#amphout").hide();
                 }
 
-                if (data.mahin!=0) {
-                $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
-                $("#amphin").show();
+                if (data.mahin != 0) {
+                    $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
+                    $("#amphin").show();
                 } else {
                     $("#amphin").hide();
                 }
@@ -947,6 +952,7 @@ $(window).on('resize', function () {
 $(function () {
     $("#loading").show();
     $("#avrprogconfirm").hide();
+    $(".stat").hide();
 
     $("#more").on("click"
         , function (e) {
@@ -1094,9 +1100,8 @@ $(function () {
                 $("#baudrate").val(data.settings.baudrate);
 
                 $("#interpacketgap").empty();
-                for (let index = 2000; index < 10000; index+=500)
-                {
-                    $("#interpacketgap").append('<option value="'+index+'">'+index+'</option>')
+                for (let index = 2000; index < 10000; index += 500) {
+                    $("#interpacketgap").append('<option value="' + index + '">' + index + '</option>')
                 }
 
                 $("#interpacketgap").val(data.settings.interpacketgap);
@@ -1252,7 +1257,7 @@ $(function () {
                 $("#influxDatabase").val(data.influxdb.bucket);
                 $("#influxToken").val(data.influxdb.apitoken);
                 $("#influxOrgId").val(data.influxdb.orgid);
-                $("#influxFreq").val(data.influxdb.frequency);                
+                $("#influxFreq").val(data.influxdb.frequency);
 
                 $("#mqttForm").show();
                 $("#influxForm").show();
@@ -1262,13 +1267,13 @@ $(function () {
         return true;
     });
 
-   
+
 
     $("#mount").click(function () {
         $.ajax({
             type: 'POST',
             url: '/post/sdmount',
-            data: $.param({mount:1}),
+            data: $.param({ mount: 1 }),
             success: function (data) {
                 //Refresh the storage page
                 $("#storage").trigger("click");
@@ -1284,7 +1289,7 @@ $(function () {
         $.ajax({
             type: 'POST',
             url: '/post/wificonfigtofile',
-            data: $.param({save:1}),
+            data: $.param({ save: 1 }),
             success: function (data) {
                 //Refresh the storage page
                 showSuccess();
@@ -1299,7 +1304,7 @@ $(function () {
         $.ajax({
             type: 'POST',
             url: '/post/saveconfigtofile',
-            data: $.param({save:1}),
+            data: $.param({ save: 1 }),
             success: function (data) {
                 //Refresh the storage page
                 showSuccess();
@@ -1316,7 +1321,7 @@ $(function () {
         $.ajax({
             type: 'POST',
             url: '/post/sdunmount',
-            data: $.param({unmount:1}),
+            data: $.param({ unmount: 1 }),
             success: function (data) {
                 //Refresh the storage page
                 $("#storage").trigger("click");
