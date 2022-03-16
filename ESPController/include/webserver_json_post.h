@@ -19,9 +19,8 @@ extern TaskHandle_t avrprog_task_handle;
 extern uint32_t canbus_messages_received;
 extern uint32_t canbus_messages_sent;
 extern uint32_t canbus_messages_failed_sent;
-extern void sdcardaction_callback(uint8_t action);
 extern Rules rules;
-
+extern CardAction card_action;
 
 extern avrprogramsettings _avrsettings;
 

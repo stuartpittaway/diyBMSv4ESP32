@@ -1,5 +1,5 @@
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms-webreq";
+static constexpr const char *const TAG = "diybms-webreq";
 
 #include "webserver.h"
 #include "webserver_helper_funcs.h"
@@ -169,39 +169,50 @@ esp_err_t content_handler_storage(httpd_req_t *req)
 {
   int bufferused = 0;
 
-  sdcard_info info;
+  bool available;
+  uint32_t totalkilobytes;
+  uint32_t usedkilobytes;
+  uint32_t flash_totalkilobytes;
+  uint32_t flash_usedkilobytes;
 
-  info.available = _sd_card_installed;
+  available = _sd_card_installed;
+
+  if (_avrsettings.programmingModeEnabled)
+  {
+    //If programming mode is enabled, don't read SD card as the VSPI bus may be in use.
+    //We can still return the remaining data/LittleFS stuff..
+    available = false;
+  }
 
   // Lock VSPI bus during operation (not sure if this is acutally needed, as the SD class may have cached these values)
-  if (hal.GetVSPIMutex())
+  if (available && hal.GetVSPIMutex())
   {
     // Convert to KiB
-    info.totalkilobytes = SD.totalBytes() / 1024;
-    info.usedkilobytes = SD.usedBytes() / 1024;
+    totalkilobytes = SD.totalBytes() / 1024;
+    usedkilobytes = SD.usedBytes() / 1024;
     hal.ReleaseVSPIMutex();
   }
   else
   {
-    info.totalkilobytes = 0;
-    info.usedkilobytes = 0;
+    totalkilobytes = 0;
+    usedkilobytes = 0;
   }
 
-  info.flash_totalkilobytes = LittleFS.totalBytes() / 1024;
-  info.flash_usedkilobytes = LittleFS.usedBytes() / 1024;
+  flash_totalkilobytes = LittleFS.totalBytes() / 1024;
+  flash_usedkilobytes = LittleFS.usedBytes() / 1024;
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{\"storage\":{");
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "logging", mysettings.loggingEnabled);
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"frequency\":%u,\"sdcard\":{", mysettings.loggingFrequencySeconds);
-  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "available", info.available);
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"total\":%u,\"used\":%u,\"files\":[", info.totalkilobytes, info.usedkilobytes);
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "available", available);
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"total\":%u,\"used\":%u,\"files\":[", totalkilobytes, usedkilobytes);
 
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
   bufferused = 0;
 
   // File listing goes here
-  if (info.available)
+  if (available)
   {
     if (hal.GetVSPIMutex())
     {
@@ -216,14 +227,10 @@ esp_err_t content_handler_storage(httpd_req_t *req)
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   bufferused = 0;
-
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"total\":%u,\"used\":%u,\"files\":[", info.flash_totalkilobytes, info.flash_usedkilobytes);
-
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"total\":%u,\"used\":%u,\"files\":[", flash_totalkilobytes, flash_usedkilobytes);
   bufferused += fileSystemListDirectory(&httpbuf[bufferused], BUFSIZE - bufferused, LittleFS, "/", 0);
-
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]}}}");
 
-  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 

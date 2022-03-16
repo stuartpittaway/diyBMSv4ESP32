@@ -264,14 +264,14 @@ enum ControllerState : uint8_t
   Running = 255,
 };
 
-struct sdcard_info
+enum CardAction : uint8_t
 {
-  bool available;
-  uint32_t totalkilobytes;
-  uint32_t usedkilobytes;
-  uint32_t flash_totalkilobytes;
-  uint32_t flash_usedkilobytes;
+  Idle = 0,
+  Mount = 1,
+  Unmount = 2,
+  Remount = 3
 };
+
 
 // This holds all the cell information in a large array array
 extern CellModuleInfo cmi[maximum_controller_cell_modules];

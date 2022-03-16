@@ -77,6 +77,8 @@ bool wifi_isconnected = false;
 // holds modbus data
 uint8_t frame[256];
 
+CardAction card_action = CardAction::Idle;
+
 // Screen variables in tft.cpp
 extern bool _tft_screen_available;
 extern uint8_t tftsleep_timer;
@@ -243,6 +245,8 @@ void SetupRS485()
 
 void mountSDCard()
 {
+  card_action = CardAction::Idle;
+
   if (_avrsettings.programmingModeEnabled)
   {
     ESP_LOGW(TAG, "Attempt to mount sd but AVR prog mode enabled");
@@ -268,7 +272,7 @@ void mountSDCard()
     }
     else
     {
-      ESP_LOGE(TAG, "Card Mount Failed");
+      ESP_LOGE(TAG, "Card mount failed");
     }
     hal.ReleaseVSPIMutex();
   }
@@ -276,8 +280,16 @@ void mountSDCard()
 
 void unmountSDCard()
 {
+  card_action = CardAction::Idle;
+
   if (_sd_card_installed == false)
     return;
+
+  if (_avrsettings.programmingModeEnabled)
+  {
+    ESP_LOGW(TAG, "Attempt to UNMOUNT SD card but AVR prog mode enabled");
+    return;
+  }
 
   ESP_LOGI(TAG, "Unmounting SD card");
   if (hal.GetVSPIMutex())
@@ -285,17 +297,6 @@ void unmountSDCard()
     SD.end();
     hal.ReleaseVSPIMutex();
     _sd_card_installed = false;
-  }
-}
-void sdcardaction_callback(uint8_t action)
-{
-  if (action == 0)
-  {
-    unmountSDCard();
-  }
-  else
-  {
-    mountSDCard();
   }
 }
 
@@ -323,13 +324,14 @@ void avrprog_task(void *param)
     ESP_LOGD(TAG, "AVR inprogress=%i", s->inProgress);
     ESP_LOGI(TAG, "AVR setting e=%02X h=%02X l=%02X mcu=%08X file=%s", s->efuse, s->hfuse, s->lfuse, s->mcu, s->filename);
 
-    bool old_sd_card_installed = _sd_card_installed;
-
-    if (_sd_card_installed)
-    {
-      // Unmount SD card so we don't have issues on SPI bus
-      unmountSDCard();
-    }
+    /*
+        bool old_sd_card_installed = _sd_card_installed;
+        if (_sd_card_installed)
+        {
+          // Unmount SD card so we don't have issues on SPI bus
+          unmountSDCard();
+        }
+    */
 
     // Now we load the file into program array, from LITTLEFS (SPIFF)
     if (LittleFS.exists(s->filename))
@@ -353,12 +355,13 @@ void avrprog_task(void *param)
         AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&(hal.vspi), GPIO_NUM_0, false, VSPI_SCK);
 
         ESP_LOGI(TAG, "Programming AVR");
-        // This would be much better using a stream instead of a in ram buffer
-        s->progresult = isp.ProgramAVRDevice(&tftdisplay_avrprogrammer_progress, s->mcu, s->programsize, binaryfile, s->lfuse, s->hfuse, s->efuse);
 
+        s->progresult = isp.ProgramAVRDevice(&tftdisplay_avrprogrammer_progress, s->mcu, s->programsize, binaryfile, s->lfuse, s->hfuse, s->efuse);
         s->duration = millis() - starttime;
 
+        // Return VSPI to default speed/settings
         hal.ConfigureVSPI();
+
         hal.ReleaseVSPIMutex();
 
         if (s->progresult == AVRISP_PROGRAMMER_RESULT::SUCCESS)
@@ -380,11 +383,13 @@ void avrprog_task(void *param)
       }
       else
       {
+        s->progresult = AVRISP_PROGRAMMER_RESULT::OTHER_FAILURE;
         ESP_LOGE(TAG, "Unable to obtain Mutex");
       }
     }
     else
     {
+      s->progresult = AVRISP_PROGRAMMER_RESULT::OTHER_FAILURE;
       ESP_LOGE(TAG, "AVR file not found %s", s->filename);
     }
 
@@ -392,12 +397,6 @@ void avrprog_task(void *param)
 
     // Refresh the display, after programming is complete
     xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
-
-    // If we unmounted the SD card, remount it here
-    if (old_sd_card_installed)
-    {
-      mountSDCard();
-    }
 
   } // end for
 }
@@ -414,7 +413,11 @@ void sdcardlog_task(void *param)
       vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
-    if (_sd_card_installed && !_avrsettings.programmingModeEnabled && mysettings.loggingEnabled && _controller_state == ControllerState::Running && hal.IsVSPIMutexAvailable())
+    if (_sd_card_installed &&
+        !_avrsettings.programmingModeEnabled &&
+        mysettings.loggingEnabled &&
+        _controller_state == ControllerState::Running &&
+        hal.IsVSPIMutexAvailable())
     {
       // ESP_LOGD(TAG, "sdcardlog_task");
 
@@ -602,8 +605,6 @@ void sdcardlog_task(void *param)
       }
     }
   } // end for loop
-
-  // vTaskDelete( NULL );
 }
 
 // Writes a status log of the OUTPUT STATUES to the SD Card in CSV format
@@ -614,7 +615,11 @@ void sdcardlog_outputs_task(void *param)
     // Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    if (_sd_card_installed && !_avrsettings.programmingModeEnabled && mysettings.loggingEnabled)
+    if (_sd_card_installed &&
+        !_avrsettings.programmingModeEnabled &&
+        mysettings.loggingEnabled &&
+        _controller_state == ControllerState::Running &&
+        hal.IsVSPIMutexAvailable())
     {
       ESP_LOGD(TAG, "sdcardlog_outputs_task");
 
@@ -636,7 +641,6 @@ void sdcardlog_outputs_task(void *param)
         // Prevent other devices using the VSPI bus
         if (hal.GetVSPIMutex())
         {
-
           if (SD.exists(filename))
           {
             // Open existing file (assumes there is enough SD card space to log)
@@ -1203,7 +1207,7 @@ void ProcessRules()
     // Wake up the screen, this will also trigger it to update the display
     if (tftwake_timer != NULL)
     {
-      force_tft_wake = true;
+      //force_tft_wake = true;
       if (xTimerStart(tftwake_timer, 10) != pdPASS)
       {
         ESP_LOGE(TAG, "TFT wake timer error");
@@ -3154,13 +3158,10 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   if (!LittleFS.begin(false))
   {
     ESP_LOGE(TAG, "LittleFS mount failed, did you upload file system image?");
-
     hal.Halt(RGBLED::White);
   }
-  else
-  {
-    ESP_LOGI(TAG, "LittleFS mounted, totalBytes=%u, usedBytes=%u", LittleFS.totalBytes(), LittleFS.usedBytes());
-  }
+
+  ESP_LOGI(TAG, "LittleFS mounted, total=%u, used=%u", LittleFS.totalBytes(), LittleFS.usedBytes());
 
   mountSDCard();
 
@@ -3288,6 +3289,22 @@ unsigned long taskinfotimer = 0;
 
 void loop()
 {
+
+  if (card_action == CardAction::Mount)
+  {
+    mountSDCard();
+  }
+  if (card_action == CardAction::Unmount)
+  {
+    unmountSDCard();
+  }
+
+  if (card_action == CardAction::Remount)
+  {
+    unmountSDCard();
+    mountSDCard();
+  }
+
   unsigned long currentMillis = millis();
 
   if (_controller_state != ControllerState::NoWifiConfiguration)

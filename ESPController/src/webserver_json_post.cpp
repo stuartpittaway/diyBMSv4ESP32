@@ -1,5 +1,5 @@
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms-webpost";
+static constexpr const char *const TAG = "diybms-webpost";
 
 #include "webserver.h"
 #include "webserver_json_post.h"
@@ -74,7 +74,7 @@ esp_err_t post_saventp_json_handler(httpd_req_t *req, bool urlEncoded)
 
 esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    //Default to off
+    // Default to off
     mysettings.mqtt_enabled = false;
 
     if (GetKeyValue(httpbuf, "mqttEnabled", &mysettings.mqtt_enabled, urlEncoded))
@@ -99,9 +99,8 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded)
 
     saveConfiguration();
 
-
-    //As the settings have changed, force stop of MQTT.
-    //At a later point in time, the loop() will reconnect MQTT client
+    // As the settings have changed, force stop of MQTT.
+    // At a later point in time, the loop() will reconnect MQTT client
     stopMqtt();
 
     return SendSuccess(req);
@@ -193,6 +192,11 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
         return SendFailure(req);
     }
 
+    if (_avrsettings.programmingModeEnabled)
+    {
+        return SendFailure(req);
+    }
+
     if (hal.GetVSPIMutex())
     {
 
@@ -211,7 +215,7 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
         }
 
         char filename[128];
-        snprintf(filename,sizeof(filename), "/backup_config_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        snprintf(filename, sizeof(filename), "/backup_config_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
         // ESP_LOGI(TAG, "Creating folder");
         //_sdcard->mkdir("/diybms");
@@ -392,6 +396,11 @@ esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool urlEnc
         return SendFailure(req);
     }
 
+    if (_avrsettings.programmingModeEnabled)
+    {
+        return SendFailure(req);
+    }
+
     if (hal.GetVSPIMutex())
     {
         const char *wificonfigfilename = "/diybms/wifi.json";
@@ -499,8 +508,6 @@ esp_err_t post_savestorage_json_handler(httpd_req_t *req, bool urlEncoded)
 
 esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    // uint32_t tempVariable;
-
     if (GetKeyValue(httpbuf, "VoltageHigh", &mysettings.graph_voltagehigh, urlEncoded))
     {
     }
@@ -557,7 +564,8 @@ esp_err_t post_sdmount_json_handler(httpd_req_t *req, bool urlEncoded)
         return SendFailure(req);
     }
 
-    sdcardaction_callback(1);
+    card_action = CardAction::Mount;
+    // mountSDCard();
 
     return SendSuccess(req);
 }
@@ -568,14 +576,17 @@ esp_err_t post_sdunmount_json_handler(httpd_req_t *req, bool urlEncoded)
         return SendFailure(req);
     }
 
-    sdcardaction_callback(0);
+    // Raise a flag to indicate the action we want, the actual SD card mount/unmount
+    // takes place in loop()
+    // unmountSDCard();
+    card_action = CardAction::Unmount;
 
     return SendSuccess(req);
 }
 
 esp_err_t post_enableavrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    sdcardaction_callback(0);
+    // unmountSDCard();
 
     _avrsettings.programmingModeEnabled = true;
 
@@ -586,7 +597,7 @@ esp_err_t post_disableavrprog_json_handler(httpd_req_t *req, bool urlEncoded)
     _avrsettings.programmingModeEnabled = false;
 
     // Try and remount the SD card
-    sdcardaction_callback(1);
+    // mountSDCard();
 
     return SendSuccess(req);
 }
@@ -795,6 +806,7 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 
     int bufferused = 0;
 
+/*
     if (_sd_card_installed)
     {
         httpd_resp_set_type(req, "application/json");
@@ -805,6 +817,7 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 
         return httpd_resp_send(req, httpbuf, bufferused);
     }
+    */
 
     if (!_avrsettings.programmingModeEnabled)
     {
@@ -1053,7 +1066,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
     //       security/buffer overflows
     char name[32];
     memset(&name, 0, sizeof(name));
-    //6= skip over /post/ characters
+    // 6= skip over /post/ characters
     strncpy(name, &(req->uri[6]), sizeof(name) - 1);
 
     for (size_t i = 0; i < sizeof(uri_array) / sizeof(unsigned int); i++)
@@ -1062,7 +1075,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         {
             // Found it
             ESP_LOGI(TAG, "API post: %s", name);
-            return func_ptr[i](req,urlEncoded);
+            return func_ptr[i](req, urlEncoded);
         }
     }
 

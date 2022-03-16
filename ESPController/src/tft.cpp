@@ -374,7 +374,7 @@ void init_tft_display()
 // This task switches on/off the TFT screen, and triggers a redraw of its contents
 void tftwakeup(TimerHandle_t xTimer)
 {
-    ESP_LOGI(TAG, "force=%u", force_tft_wake);
+    // ESP_LOGI(TAG, "force=%u", force_tft_wake);
 
     // Use parameter to force a refresh (used when realtime events occur like wifi disconnect)
     if (_tft_screen_available)
@@ -883,6 +883,9 @@ void PrepareTFT_AVRProgrammer()
     tft.drawCentreString("AVR", x, y, 4);
     y += fontHeight_4;
     tft.drawCentreString("Programming", x, y, 4);
+
+    y += fontHeight_4+fontHeight_2;
+    tft.drawCentreString(_avrsettings.filename, x, y, 2);
 
     y = 140;
     x = 58;
