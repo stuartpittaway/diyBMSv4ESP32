@@ -11,11 +11,48 @@
 static constexpr const char *const TAG = "diybms-mqtt";
 
 #include "mqtt.h"
-
-#define MQTT_LOGGING
+#include "string_utils.h"
+#include <string>
 
 bool mqttClient_connected = false;
 esp_mqtt_client_handle_t mqtt_client = nullptr;
+
+/// Utility function for publishing an MQTT message.
+///
+/// @param topic Topic to publish the message to.
+/// @param payload Message payload to be published.
+/// @param clear_payload When true @param payload will be cleared upon sending.
+static inline void publish_message(std::string &topic, std::string &payload, bool clear_payload = true)
+{
+    static constexpr int MQTT_QUALITY_OF_SERVICE = 1;
+    static constexpr int MQTT_RETAIN_MESSAGE = 0;
+
+    if (mqtt_client && mqttClient_connected)
+    {
+        int id = esp_mqtt_client_publish(
+            mqtt_client, topic.c_str(), payload.c_str(), payload.length(),
+            MQTT_QUALITY_OF_SERVICE, MQTT_RETAIN_MESSAGE);
+        ESP_LOGD(TAG, "Topic:%s, ID:%d, Length:%i", topic.c_str(), id, payload.length());
+        ESP_LOGV(TAG, "Payload:%s", payload.c_str());
+    }
+
+    if (clear_payload)
+    {
+        payload.clear();
+        payload.shrink_to_fit();
+    }
+}
+
+/// Utility function returning the uptime of the ESP32 in seconds.
+///
+/// @return The uptime of the ESP32 in seconds.
+static inline uint32_t uptime_in_seconds()
+{
+    uint64_t uptime_time_msec = esp_timer_get_time();
+    uint64_t uptime_time_millis = uptime_time_msec / 1000;
+    uint32_t uptime_time_seconds = uptime_time_millis / 1000;
+    return uptime_time_seconds;
+}
 
 static void mqtt_connected_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
@@ -45,6 +82,7 @@ static void mqtt_error_handler(void *handler_args, esp_event_base_t base, int32_
         ESP_LOGE(TAG, "Last err no string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
     }
 }
+
 void stopMqtt()
 {
     if (mqtt_client != nullptr)
@@ -86,7 +124,7 @@ void connectToMqtt()
             ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_CONNECTED, mqtt_connected_handler, NULL));
             ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_DISCONNECTED, mqtt_disconnected_handler, NULL));
             ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_ERROR, mqtt_error_handler, NULL));
-            if (esp_mqtt_client_start(mqtt_client) != ESP_OK)
+            if (ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_start(mqtt_client)) != ESP_OK)
             {
                 ESP_LOGE(TAG, "esp_mqtt_client_start failed");
             }
@@ -108,108 +146,74 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
            Rules *rules,
            RelayState *previousRelayState)
 {
-
-#define jsonbuffer_size 400
     if (mysettings.mqtt_enabled && mqttClient_connected)
     {
-        ESP_LOGI(TAG, "MQTT 2");
+        ESP_LOGI(TAG, "Generating general status MQTT Payload");
+        std::string status;
+        status.reserve(400);
+        status.append("{\"banks\":").append(std::to_string(mysettings.totalNumberOfBanks));
+        status.append(",\"cells\":").append(std::to_string(mysettings.totalNumberOfSeriesModules));
+        status.append(",\"uptime\":").append(std::to_string(uptime_in_seconds()));
+        status.append(",\"commserr\":").append(std::to_string(receiveProc->HasCommsTimedOut() ? 1 : 0));
+        status.append(",\"sent\":").append(std::to_string(prg->packetsGenerated));
+        status.append(",\"received\":").append(std::to_string(receiveProc->packetsReceived));
+        status.append(",\"badcrc\":").append(std::to_string(receiveProc->totalCRCErrors));
+        status.append(",\"ignored\":").append(std::to_string(receiveProc->totalNotProcessedErrors));
+        status.append(",\"oos\":").append(std::to_string(receiveProc->totalOutofSequenceErrors));
+        status.append(",\"sendqlvl\":").append(std::to_string(requestq_count));
+        status.append(",\"roundtrip\":").append(std::to_string(receiveProc->packetTimerMillisecond));
+        status.append("}");
 
-        void *jsonbuffer = malloc(jsonbuffer_size);
-        if (jsonbuffer == NULL)
-        {
-            ESP_LOGE(TAG, "Failed to malloc");
-            return;
-        }
+        std::string topic = mysettings.mqtt_topic;
+        topic.append("/status");
 
-        // Cast to char *
-        char *buf = (char *)jsonbuffer;
+        publish_message(topic, status);
 
-        char topic[60];
-
-        memset(buf, 0, jsonbuffer_size);
-        int bufferused = 0;
-        bufferused += snprintf(buf, jsonbuffer_size,
-                               "{\"banks\":%u,\"cells\":%u,\"uptime\":%u,\"commserr\":%i,\"sent\":%u,\"received\":%u,\"badcrc\":%u,\"ignored\":%u,\"oos\":%u,\"sendqlvl\":%u,\"roundtrip\":%u}",
-                               mysettings.totalNumberOfBanks,
-                               mysettings.totalNumberOfSeriesModules,
-                               millis() / 1000,
-                               receiveProc->HasCommsTimedOut() ? 1 : 0,
-                               prg->packetsGenerated,
-                               receiveProc->packetsReceived,
-                               receiveProc->totalCRCErrors,
-                               receiveProc->totalNotProcessedErrors,
-                               receiveProc->totalOutofSequenceErrors,
-                               requestq_count,
-                               receiveProc->packetTimerMillisecond);
-
-        snprintf(topic, sizeof(topic), "%s/status", mysettings.mqtt_topic);
-
-        int msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
-        // MQTT_SKIP_PUBLISH_IF_DISCONNECTED
-        ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
-
-#if defined(MQTT_LOGGING)
-        ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
-#endif
         // Output bank level information (just voltage for now)
         for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
         {
-            memset(buf, 0, jsonbuffer_size);
-            bufferused = 0;
-            bufferused += snprintf(buf, jsonbuffer_size,
-                                   "{\"voltage\":%.4f}",
-                                   (float)rules->packvoltage[bank] / (float)1000.0);
+            ESP_LOGI(TAG, "Generating bank(%d) status MQTT Payload", bank);
+            std::string bank_status;
+            bank_status.reserve(128);
+            bank_status.append("{\"voltage\":").append(float_to_string(rules->packvoltage[bank] / 1000.0f)).append("}");
+            topic = mysettings.mqtt_topic;
+            topic.append("/bank/").append(std::to_string(bank));
 
-            snprintf(topic, sizeof(topic), "%s/bank/%d", mysettings.mqtt_topic, bank);
-            msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
-            ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
-#if defined(MQTT_LOGGING)
-            ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
-#endif
+            publish_message(topic, bank_status);
         }
 
-        snprintf(topic, sizeof(topic), "%s/rule", mysettings.mqtt_topic);
-
-        memset(buf, 0, jsonbuffer_size);
-        buf[0] = '{';
-        bufferused = 1;
-        // bufferused += snprintf(buf, jsonbuffer_size, "{");
-
+        ESP_LOGI(TAG, "Generating rule status MQTT Payload");
+        std::string rule_status;
+        rule_status.reserve(128);
         for (uint8_t i = 0; i < RELAY_RULES; i++)
         {
-            bufferused += snprintf(&buf[bufferused], jsonbuffer_size, "\"%i\":%i%c",
-                                   i,
-                                   rules->rule_outcome[i] ? 1 : 0,
-                                   i < (RELAY_RULES - 1) ? ',' : '}');
+            rule_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string(rules->rule_outcome[i] ? 1 : 0));
+            if (i < (RELAY_RULES - 1))
+            {
+                rule_status.append(",");
+            }
         }
-#if defined(MQTT_LOGGING)
-        ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
-#endif
-        msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
-        ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
+        rule_status.append("}");
+        topic = mysettings.mqtt_topic;
+        topic.append("/rule");
+        publish_message(topic, rule_status);
 
-        snprintf(topic, sizeof(topic), "%s/output", mysettings.mqtt_topic);
-        memset(buf, 0, jsonbuffer_size);
-        buf[0] = '{';
-        bufferused = 1;
-        // bufferused += snprintf(buf, jsonbuffer_size, "{");
-
+        ESP_LOGI(TAG, "Generating outputs status MQTT Payload");
+        std::string relay_status;
+        relay_status.reserve(128);
         for (uint8_t i = 0; i < RELAY_TOTAL; i++)
         {
-            bufferused += snprintf(&buf[bufferused], jsonbuffer_size, "\"%i\":%i%c",
-                                   i,
-                                   (previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0,
-                                   i < (RELAY_TOTAL - 1) ? ',' : '}');
+            relay_status.append("\"").append(std::to_string(i)).append("\":");
+            relay_status.append(std::to_string((previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0));
+            if (i < (RELAY_RULES - 1))
+            {
+                relay_status.append(",");
+            }
         }
-
-#if defined(MQTT_LOGGING)
-        ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
-#endif
-        msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
-        ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
-
-        // Unallocate the buffer
-        free(jsonbuffer);
+        relay_status.append("}");
+        topic = mysettings.mqtt_topic;
+        topic.append("/output");
+        publish_message(topic, relay_status);
     } // end if
 }
 
@@ -218,8 +222,8 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
     // Send a few MQTT packets and keep track so we send the next batch on following calls
     static uint8_t mqttStartModule = 0;
     static int64_t lastcurrentMonitortimestamp = 0;
+    static constexpr uint8_t MAX_MODULES_PER_ITERATION = 8;
 
-#define jsonbuffer_size 400
     if (mysettings.mqtt_enabled && mqttClient_connected == false)
     {
         ESP_LOGE(TAG, "MQTT enabled, but not connected");
@@ -227,20 +231,6 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
 
     if (mysettings.mqtt_enabled && mqttClient_connected)
     {
-        ESP_LOGI(TAG, "MQTT 1");
-        char topic[60];
-
-        void *jsonbuffer = malloc(jsonbuffer_size);
-        if (jsonbuffer == NULL)
-        {
-            ESP_LOGE(TAG, "Failed to malloc");
-            return;
-        }
-
-        // Cast to char *
-        char *buf = (char *)jsonbuffer;
-        int bufferused = 0;
-
         // If the BMS is in error, stop sending MQTT packets for the data
         if (!rules->rule_outcome[Rule::BMSError])
         {
@@ -252,28 +242,33 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
             uint8_t counter = 0;
             uint8_t i = mqttStartModule;
 
-            while (i < TotalNumberOfCells() && counter < 8)
+            while (i < TotalNumberOfCells() && counter < MAX_MODULES_PER_ITERATION)
             {
                 // Only send valid module data
                 if (cmi[i].valid)
                 {
+                    ESP_LOGI(TAG, "Generating MQTT Payload for module:%d", i);
+                    std::string status;
+                    std::string topic = mysettings.mqtt_topic;
+                    status.reserve(128);
+
                     uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
                     uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
 
-                    memset(buf, 0, jsonbuffer_size);
-                    bufferused = 0;
-                    bufferused += snprintf(buf, jsonbuffer_size,
-                                           "{\"voltage\":%.4f,\"vMax\":%.4f,\"vMin\":%.4f,\"inttemp\":%i,\"exttemp\":%i,\"bypass\":%i,\"PWM\":%i,\"bypassT\":%i,\"bpc\":%u,\"mAh\":%u}",
-                                           (float)cmi[i].voltagemV / (float)1000.0, (float)cmi[i].voltagemVMax / (float)1000.0, (float)cmi[i].voltagemVMin / (float)1000.0, cmi[i].internalTemp, cmi[i].externalTemp, cmi[i].inBypass ? 1 : 0, (int)((float)cmi[i].PWMValue / (float)255.0 * 100), cmi[i].bypassOverTemp ? 1 : 0, cmi[i].badPacketCount, cmi[i].BalanceCurrentCount);
+                    status.append("{\"voltage\":").append(float_to_string(cmi[i].voltagemV / 1000.0f));
+                    status.append(",\"vMax\":").append(float_to_string(cmi[i].voltagemVMax / 1000.0f));
+                    status.append(",\"vMin\":").append(float_to_string(cmi[i].voltagemVMin / 1000.0f));
+                    status.append(",\"inttemp\":").append(std::to_string(cmi[i].internalTemp));
+                    status.append(",\"exttemp\":").append(std::to_string(cmi[i].externalTemp));
+                    status.append(",\"bypass\":").append(std::to_string(cmi[i].inBypass ? 1 : 0));
+                    status.append(",\"PWM\":").append(std::to_string((int)((float)cmi[i].PWMValue / (float)255.0 * 100)));
+                    status.append(",\"bypassT\":").append(std::to_string(cmi[i].bypassOverTemp ? 1 : 0));
+                    status.append(",\"bpc\":").append(std::to_string(cmi[i].badPacketCount));
+                    status.append(",\"mAh\":").append(std::to_string(cmi[i].BalanceCurrentCount));
+                    status.append("}");
 
-                    snprintf(topic, sizeof(topic), "%s/%d/%d", mysettings.mqtt_topic, bank, module);
-
-                    int msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
-                    ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
-
-#if defined(MQTT_LOGGING)
-                    ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
-#endif
+                    topic.append("/").append(std::to_string(bank)).append("/").append(std::to_string(module));
+                    publish_message(topic, status);
                 }
 
                 counter++;
@@ -288,51 +283,34 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
 
         if (mysettings.currentMonitoringEnabled)
         {
-            // Send current monitor data
-            snprintf(topic, sizeof(topic), "%s/modbus/A%u", mysettings.mqtt_topic, mysettings.currentMonitoringModBusAddress);
-
-            memset(buf, 0, jsonbuffer_size);
-            bufferused = 0;
-            bufferused += snprintf(&buf[bufferused], jsonbuffer_size, "{\"valid\":%i", currentMonitor->validReadings ? 1 : 0);
+            std::string status;
+            status.reserve(256);
+            status.append("{\"valid\":").append(std::to_string(currentMonitor->validReadings ? 1 : 0));
 
             if (currentMonitor->validReadings && currentMonitor->timestamp != lastcurrentMonitortimestamp)
             {
                 // Send current monitor data if its valid and not sent before
-
-                bufferused += snprintf(&buf[bufferused], jsonbuffer_size,
-                                       ",\"voltage\":%.4f,\"current\":%.4f,\"power\":%.4f",
-                                       currentMonitor->modbus.voltage,
-                                       currentMonitor->modbus.current,
-                                       currentMonitor->modbus.power);
+                status.append(",\"voltage\":").append(float_to_string(currentMonitor->modbus.voltage));
+                status.append(",\"current\":").append(float_to_string(currentMonitor->modbus.current));
+                status.append(",\"power\":").append(float_to_string(currentMonitor->modbus.power));
 
                 if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
                 {
-                    bufferused += snprintf(&buf[bufferused], jsonbuffer_size,
-                                           ",\"mAhIn\":%u,\"mAhOut\":%u,\"temperature\":%i,\"shuntmV\":%.4f,\"relayState\":%i,\"soc\":%.4f",
-                                           currentMonitor->modbus.milliamphour_in,
-                                           currentMonitor->modbus.milliamphour_out,
-                                           currentMonitor->modbus.temperature,
-                                           currentMonitor->modbus.shuntmV,
-                                           currentMonitor->RelayState ? 1 : 0,
-                                           currentMonitor->stateofcharge
-
-                    );
+                    status.append(",\"mAhIn\":").append(std::to_string(currentMonitor->modbus.milliamphour_in));
+                    status.append(",\"mAhOut\":").append(std::to_string(currentMonitor->modbus.milliamphour_out));
+                    status.append(",\"temperature\":").append(std::to_string(currentMonitor->modbus.temperature));
+                    status.append(",\"shuntmV\":").append(std::to_string(currentMonitor->modbus.shuntmV));
+                    status.append(",\"relayState\":").append(std::to_string(currentMonitor->RelayState ? 1 : 0));
+                    status.append(",\"soc\":").append(float_to_string(currentMonitor->stateofcharge));
                 }
             }
-
-            // Closing brace
-            buf[bufferused] = '}';
-            bufferused++;
+            status.append("}");
 
             lastcurrentMonitortimestamp = currentMonitor->timestamp;
 
-#if defined(MQTT_LOGGING)
-            ESP_LOGD(TAG, "MQTT %s %s", topic, buf);
-#endif
-            int msg_id = esp_mqtt_client_publish(mqtt_client, topic, buf, bufferused, 1, 0);
-            ESP_LOGD(TAG, "mqtt msg_id=%d, len=%i", msg_id, bufferused);
+            std::string topic = mysettings.mqtt_topic;
+            topic.append("/").append(std::to_string(mysettings.currentMonitoringModBusAddress));
+            publish_message(topic, status);
         }
-
-        free(jsonbuffer);
     }
 }

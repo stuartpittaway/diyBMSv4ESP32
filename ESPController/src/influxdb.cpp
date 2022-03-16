@@ -1,23 +1,17 @@
 /*
-
  ____  ____  _  _  ____  __  __  ___    _  _  __
 (  _ \(_  _)( \/ )(  _ \(  \/  )/ __)  ( \/ )/. |
  )(_) )_)(_  \  /  ) _ < )    ( \__ \   \  /(_  _)
 (____/(____) (__) (____/(_/\/\_)(___/    \/   (_)
 
   (c) 2017 to 2022 Stuart Pittaway
-
-  This is the code for the ESP32 controller - it talks to the V4.X cell modules over isolated serial bus
-
-  This code runs on ESP32 DEVKIT-C and compiles with VS CODE and PLATFORM IO environment.
-
-  Unless you are making code changes, please use the pre-compiled version from GITHUB instead.
 */
 
 #define USE_ESP_IDF_LOG 1
 static constexpr const char * const TAG = "diybms-influxdb";
 
 #include "influxdb.h"
+#include "string_utils.h"
 #include <esp_http_client.h>
 #include <string>
 
@@ -140,18 +134,16 @@ void influx_task_action()
         // Only generate data for the module if it is valid.
         if (cmi[moduleIndex].valid)
         {
-            char module_voltage[16] = {};
             uint8_t bank = moduleIndex / mysettings.totalNumberOfSeriesModules;
             uint8_t module_in_bank = moduleIndex - (bank * mysettings.totalNumberOfSeriesModules);
             std::string module_id = std::to_string(bank).append("_").append(std::to_string(module_in_bank));
             std::string module_internal_temp = std::to_string(cmi[moduleIndex].internalTemp);
             std::string module_external_temp = std::to_string(cmi[moduleIndex].externalTemp);
             std::string module_bypass = cmi[moduleIndex].inBypass ? "true" : "false";
-            // NOTE: this is not using std::to_string since we want to truncate to 2 decimal places.
-            snprintf(module_voltage, sizeof(module_voltage), "%.2f", cmi[moduleIndex].voltagemV / 1000.0f);
+            std::string module_voltage = float_to_string(cmi[moduleIndex].voltagemV / 1000.0f);
 
             ESP_LOGV(TAG, "Index:%d, bank:%d, module:%d, id:%s, voltage:%s, int-temp:%d, ext-temp:%s, bypass:%s",
-                moduleIndex, bank, module_in_bank, module_id.c_str(), module_voltage,
+                moduleIndex, bank, module_in_bank, module_id.c_str(), module_voltage.c_str(),
                 module_internal_temp.c_str(), module_external_temp.c_str(), module_bypass.c_str());
 
             //Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v2.0/reference/syntax/line-protocol/
