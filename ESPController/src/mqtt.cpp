@@ -140,177 +140,211 @@ void connectToMqtt()
     }
 }
 
+void GeneralStatusPayload(PacketRequestGenerator *prg, PacketReceiveProcessor *receiveProc, uint16_t requestq_count)
+{
+    ESP_LOGI(TAG, "General status payload");
+    std::string status;
+    status.reserve(400);
+    status.append("{\"banks\":").append(std::to_string(mysettings.totalNumberOfBanks));
+    status.append(",\"cells\":").append(std::to_string(mysettings.totalNumberOfSeriesModules));
+    status.append(",\"uptime\":").append(std::to_string(uptime_in_seconds()));
+    status.append(",\"commserr\":").append(std::to_string(receiveProc->HasCommsTimedOut() ? 1 : 0));
+    status.append(",\"sent\":").append(std::to_string(prg->packetsGenerated));
+    status.append(",\"received\":").append(std::to_string(receiveProc->packetsReceived));
+    status.append(",\"badcrc\":").append(std::to_string(receiveProc->totalCRCErrors));
+    status.append(",\"ignored\":").append(std::to_string(receiveProc->totalNotProcessedErrors));
+    status.append(",\"oos\":").append(std::to_string(receiveProc->totalOutofSequenceErrors));
+    status.append(",\"sendqlvl\":").append(std::to_string(requestq_count));
+    status.append(",\"roundtrip\":").append(std::to_string(receiveProc->packetTimerMillisecond));
+    status.append("}");
+
+    std::string topic = mysettings.mqtt_topic;
+    topic.append("/status");
+
+    publish_message(topic, status);
+}
+
+void BankLevelInformation(Rules *rules)
+{
+    // Output bank level information (just voltage for now)
+    for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
+    {
+        ESP_LOGI(TAG, "Bank(%d) status payload", bank);
+        std::string bank_status;
+        bank_status.reserve(128);
+        bank_status.append("{\"voltage\":").append(float_to_string(rules->packvoltage[bank] / 1000.0f)).append("}");
+
+        std::string topic = mysettings.mqtt_topic;
+        topic.append("/bank/").append(std::to_string(bank));
+        publish_message(topic, bank_status);
+    }
+}
+
+void RuleStatus(Rules *rules)
+{
+    ESP_LOGI(TAG, "Rule status payload");
+    std::string rule_status;
+    rule_status.reserve(128);
+    rule_status.append("{");
+    for (uint8_t i = 0; i < RELAY_RULES; i++)
+    {
+        rule_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string(rules->rule_outcome[i] ? 1 : 0));
+        if (i < (RELAY_RULES - 1))
+        {
+            rule_status.append(",");
+        }
+    }
+    rule_status.append("}");
+    std::string topic = mysettings.mqtt_topic;
+    topic.append("/rule");
+    publish_message(topic, rule_status);
+}
+
+void OutputStatus(RelayState *previousRelayState)
+{
+    ESP_LOGI(TAG, "Outputs status payload");
+    std::string relay_status;
+    relay_status.reserve(128);
+    relay_status.append("{");
+    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+    {
+        relay_status.append("\"").append(std::to_string(i)).append("\":");
+        relay_status.append(std::to_string((previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0));
+        if (i < (RELAY_TOTAL - 1))
+        {
+            relay_status.append(",");
+        }
+    }
+    relay_status.append("}");
+    std::string topic = mysettings.mqtt_topic;
+    topic.append("/output");
+    publish_message(topic, relay_status);
+}
+
+void MQTTCurrentMonitoring(currentmonitoring_struct *currentMonitor)
+{
+    static int64_t lastcurrentMonitortimestamp = 0;
+
+    ESP_LOGI(TAG, "MQTT Payload for current data");
+    std::string status;
+    status.reserve(256);
+    status.append("{\"valid\":").append(std::to_string(currentMonitor->validReadings ? 1 : 0));
+
+    if (currentMonitor->validReadings && currentMonitor->timestamp != lastcurrentMonitortimestamp)
+    {
+        // Send current monitor data if its valid and not sent before
+        status.append(",\"voltage\":").append(float_to_string(currentMonitor->modbus.voltage));
+        status.append(",\"current\":").append(float_to_string(currentMonitor->modbus.current));
+        status.append(",\"power\":").append(float_to_string(currentMonitor->modbus.power));
+
+        if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+        {
+            status.append(",\"mAhIn\":").append(std::to_string(currentMonitor->modbus.milliamphour_in));
+            status.append(",\"mAhOut\":").append(std::to_string(currentMonitor->modbus.milliamphour_out));
+            status.append(",\"temperature\":").append(std::to_string(currentMonitor->modbus.temperature));
+            status.append(",\"shuntmV\":").append(std::to_string(currentMonitor->modbus.shuntmV));
+            status.append(",\"relayState\":").append(std::to_string(currentMonitor->RelayState ? 1 : 0));
+            status.append(",\"soc\":").append(float_to_string(currentMonitor->stateofcharge));
+        }
+    }
+    status.append("}");
+
+    lastcurrentMonitortimestamp = currentMonitor->timestamp;
+
+    std::string topic = mysettings.mqtt_topic;
+    topic.append("/modbus_A").append(std::to_string(mysettings.currentMonitoringModBusAddress));
+    publish_message(topic, status);
+}
+
+void MQTTCellData()
+{
+    // Send a few MQTT packets and keep track so we send the next batch on following calls
+    static uint8_t mqttStartModule = 0;
+    static constexpr uint8_t MAX_MODULES_PER_ITERATION = 8;
+
+    if (mqttStartModule > (TotalNumberOfCells() - 1))
+    {
+        mqttStartModule = 0;
+    }
+
+    uint8_t counter = 0;
+    uint8_t i = mqttStartModule;
+
+    ESP_LOGI(TAG, "MQTT Payload for cell data");
+
+    while (i < TotalNumberOfCells() && counter < MAX_MODULES_PER_ITERATION)
+    {
+        // Only send valid module data
+        if (cmi[i].valid)
+        {
+
+            std::string status;
+            std::string topic = mysettings.mqtt_topic;
+            status.reserve(128);
+
+            uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
+            uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
+
+            status.append("{\"voltage\":").append(float_to_string(cmi[i].voltagemV / 1000.0f));
+            status.append(",\"vMax\":").append(float_to_string(cmi[i].voltagemVMax / 1000.0f));
+            status.append(",\"vMin\":").append(float_to_string(cmi[i].voltagemVMin / 1000.0f));
+            status.append(",\"inttemp\":").append(std::to_string(cmi[i].internalTemp));
+            status.append(",\"exttemp\":").append(std::to_string(cmi[i].externalTemp));
+            status.append(",\"bypass\":").append(std::to_string(cmi[i].inBypass ? 1 : 0));
+            status.append(",\"PWM\":").append(std::to_string((int)((float)cmi[i].PWMValue / (float)255.0 * 100)));
+            status.append(",\"bypassT\":").append(std::to_string(cmi[i].bypassOverTemp ? 1 : 0));
+            status.append(",\"bpc\":").append(std::to_string(cmi[i].badPacketCount));
+            status.append(",\"mAh\":").append(std::to_string(cmi[i].BalanceCurrentCount));
+            status.append("}");
+
+            topic.append("/").append(std::to_string(bank)).append("/").append(std::to_string(module));
+            publish_message(topic, status);
+        }
+
+        counter++;
+
+        i++;
+    }
+
+    // After transmitting this many packets over MQTT, store our current state and exit the function.
+    // this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
+    mqttStartModule = i;
+}
+
+void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
+{
+    if (mysettings.mqtt_enabled && mqttClient_connected == false)
+    {
+        ESP_LOGE(TAG, "MQTT enabled, but not connected");
+        return;
+    }
+
+    // If the BMS is in error, stop sending MQTT packets for the data
+    if (!rules->rule_outcome[Rule::BMSError])
+    {
+        MQTTCellData();
+    }
+
+    if (mysettings.currentMonitoringEnabled)
+    {
+        MQTTCurrentMonitoring(currentMonitor);
+    }
+}
+
 void mqtt2(PacketReceiveProcessor *receiveProc,
            PacketRequestGenerator *prg,
            uint16_t requestq_count,
            Rules *rules,
            RelayState *previousRelayState)
 {
-    if (mysettings.mqtt_enabled && mqttClient_connected)
-    {
-        ESP_LOGI(TAG, "Generating general status MQTT Payload");
-        std::string status;
-        status.reserve(400);
-        status.append("{\"banks\":").append(std::to_string(mysettings.totalNumberOfBanks));
-        status.append(",\"cells\":").append(std::to_string(mysettings.totalNumberOfSeriesModules));
-        status.append(",\"uptime\":").append(std::to_string(uptime_in_seconds()));
-        status.append(",\"commserr\":").append(std::to_string(receiveProc->HasCommsTimedOut() ? 1 : 0));
-        status.append(",\"sent\":").append(std::to_string(prg->packetsGenerated));
-        status.append(",\"received\":").append(std::to_string(receiveProc->packetsReceived));
-        status.append(",\"badcrc\":").append(std::to_string(receiveProc->totalCRCErrors));
-        status.append(",\"ignored\":").append(std::to_string(receiveProc->totalNotProcessedErrors));
-        status.append(",\"oos\":").append(std::to_string(receiveProc->totalOutofSequenceErrors));
-        status.append(",\"sendqlvl\":").append(std::to_string(requestq_count));
-        status.append(",\"roundtrip\":").append(std::to_string(receiveProc->packetTimerMillisecond));
-        status.append("}");
-
-        std::string topic = mysettings.mqtt_topic;
-        topic.append("/status");
-
-        publish_message(topic, status);
-
-        // Output bank level information (just voltage for now)
-        for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
-        {
-            ESP_LOGI(TAG, "Generating bank(%d) status MQTT Payload", bank);
-            std::string bank_status;
-            bank_status.reserve(128);
-            bank_status.append("{\"voltage\":").append(float_to_string(rules->packvoltage[bank] / 1000.0f)).append("}");
-            topic = mysettings.mqtt_topic;
-            topic.append("/bank/").append(std::to_string(bank));
-
-            publish_message(topic, bank_status);
-        }
-
-        ESP_LOGI(TAG, "Generating rule status MQTT Payload");
-        std::string rule_status;
-        rule_status.reserve(128);
-        for (uint8_t i = 0; i < RELAY_RULES; i++)
-        {
-            rule_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string(rules->rule_outcome[i] ? 1 : 0));
-            if (i < (RELAY_RULES - 1))
-            {
-                rule_status.append(",");
-            }
-        }
-        rule_status.append("}");
-        topic = mysettings.mqtt_topic;
-        topic.append("/rule");
-        publish_message(topic, rule_status);
-
-        ESP_LOGI(TAG, "Generating outputs status MQTT Payload");
-        std::string relay_status;
-        relay_status.reserve(128);
-        for (uint8_t i = 0; i < RELAY_TOTAL; i++)
-        {
-            relay_status.append("\"").append(std::to_string(i)).append("\":");
-            relay_status.append(std::to_string((previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0));
-            if (i < (RELAY_RULES - 1))
-            {
-                relay_status.append(",");
-            }
-        }
-        relay_status.append("}");
-        topic = mysettings.mqtt_topic;
-        topic.append("/output");
-        publish_message(topic, relay_status);
-    } // end if
-}
-
-void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
-{
-    // Send a few MQTT packets and keep track so we send the next batch on following calls
-    static uint8_t mqttStartModule = 0;
-    static int64_t lastcurrentMonitortimestamp = 0;
-    static constexpr uint8_t MAX_MODULES_PER_ITERATION = 8;
-
     if (mysettings.mqtt_enabled && mqttClient_connected == false)
     {
         ESP_LOGE(TAG, "MQTT enabled, but not connected");
+        return;
     }
 
-    if (mysettings.mqtt_enabled && mqttClient_connected)
-    {
-        // If the BMS is in error, stop sending MQTT packets for the data
-        if (!rules->rule_outcome[Rule::BMSError])
-        {
-            if (mqttStartModule > (TotalNumberOfCells() - 1))
-            {
-                mqttStartModule = 0;
-            }
-
-            uint8_t counter = 0;
-            uint8_t i = mqttStartModule;
-
-            while (i < TotalNumberOfCells() && counter < MAX_MODULES_PER_ITERATION)
-            {
-                // Only send valid module data
-                if (cmi[i].valid)
-                {
-                    ESP_LOGI(TAG, "Generating MQTT Payload for module:%d", i);
-                    std::string status;
-                    std::string topic = mysettings.mqtt_topic;
-                    status.reserve(128);
-
-                    uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
-                    uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
-
-                    status.append("{\"voltage\":").append(float_to_string(cmi[i].voltagemV / 1000.0f));
-                    status.append(",\"vMax\":").append(float_to_string(cmi[i].voltagemVMax / 1000.0f));
-                    status.append(",\"vMin\":").append(float_to_string(cmi[i].voltagemVMin / 1000.0f));
-                    status.append(",\"inttemp\":").append(std::to_string(cmi[i].internalTemp));
-                    status.append(",\"exttemp\":").append(std::to_string(cmi[i].externalTemp));
-                    status.append(",\"bypass\":").append(std::to_string(cmi[i].inBypass ? 1 : 0));
-                    status.append(",\"PWM\":").append(std::to_string((int)((float)cmi[i].PWMValue / (float)255.0 * 100)));
-                    status.append(",\"bypassT\":").append(std::to_string(cmi[i].bypassOverTemp ? 1 : 0));
-                    status.append(",\"bpc\":").append(std::to_string(cmi[i].badPacketCount));
-                    status.append(",\"mAh\":").append(std::to_string(cmi[i].BalanceCurrentCount));
-                    status.append("}");
-
-                    topic.append("/").append(std::to_string(bank)).append("/").append(std::to_string(module));
-                    publish_message(topic, status);
-                }
-
-                counter++;
-
-                i++;
-            }
-
-            // After transmitting this many packets over MQTT, store our current state and exit the function.
-            // this prevents flooding the ESP controllers wifi stack and potentially causing reboots/fatal exceptions
-            mqttStartModule = i;
-        }
-
-        if (mysettings.currentMonitoringEnabled)
-        {
-            std::string status;
-            status.reserve(256);
-            status.append("{\"valid\":").append(std::to_string(currentMonitor->validReadings ? 1 : 0));
-
-            if (currentMonitor->validReadings && currentMonitor->timestamp != lastcurrentMonitortimestamp)
-            {
-                // Send current monitor data if its valid and not sent before
-                status.append(",\"voltage\":").append(float_to_string(currentMonitor->modbus.voltage));
-                status.append(",\"current\":").append(float_to_string(currentMonitor->modbus.current));
-                status.append(",\"power\":").append(float_to_string(currentMonitor->modbus.power));
-
-                if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
-                {
-                    status.append(",\"mAhIn\":").append(std::to_string(currentMonitor->modbus.milliamphour_in));
-                    status.append(",\"mAhOut\":").append(std::to_string(currentMonitor->modbus.milliamphour_out));
-                    status.append(",\"temperature\":").append(std::to_string(currentMonitor->modbus.temperature));
-                    status.append(",\"shuntmV\":").append(std::to_string(currentMonitor->modbus.shuntmV));
-                    status.append(",\"relayState\":").append(std::to_string(currentMonitor->RelayState ? 1 : 0));
-                    status.append(",\"soc\":").append(float_to_string(currentMonitor->stateofcharge));
-                }
-            }
-            status.append("}");
-
-            lastcurrentMonitortimestamp = currentMonitor->timestamp;
-
-            std::string topic = mysettings.mqtt_topic;
-            topic.append("/").append(std::to_string(mysettings.currentMonitoringModBusAddress));
-            publish_message(topic, status);
-        }
-    }
+    GeneralStatusPayload(prg, receiveProc, requestq_count);
+    BankLevelInformation(rules);
+    RuleStatus(rules);
+    OutputStatus(previousRelayState);
 }

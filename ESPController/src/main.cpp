@@ -3082,7 +3082,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
-        {.tag = "diybms-mqtt", .level = ESP_LOG_DEBUG}};
+        {.tag = "diybms-mqtt", .level = ESP_LOG_INFO}};
 
 void consoleConfigurationCheck()
 {
