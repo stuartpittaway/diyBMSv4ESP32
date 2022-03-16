@@ -85,7 +85,7 @@ extern bool _tft_screen_available;
 extern uint8_t tftsleep_timer;
 extern volatile bool _screen_awake;
 extern bool force_tft_wake;
-
+extern TimerHandle_t tftwake_timer;
 extern void tftwakeup(TimerHandle_t xTimer);
 
 // HTTPD server handle in webserver.cpp
@@ -111,7 +111,6 @@ currentmonitoring_struct currentMonitor;
 
 TimerHandle_t led_off_timer;
 TimerHandle_t pulse_relay_off_timer;
-TimerHandle_t tftwake_timer;
 
 TaskHandle_t i2c_task_handle = NULL;
 TaskHandle_t sdcardlog_task_handle = NULL;
@@ -301,6 +300,19 @@ void unmountSDCard()
   }
 }
 
+void wake_up_tft(bool force)
+{
+  // Wake up the display
+  if (tftwake_timer != NULL)
+  {
+    force_tft_wake = force;
+    if (xTimerStart(tftwake_timer, pdMS_TO_TICKS(10)) != pdPASS)
+    {
+      ESP_LOGE(TAG, "TFT wake timer error");
+    }
+  }
+}
+
 void avrprog_task(void *param)
 {
   for (;;)
@@ -308,15 +320,7 @@ void avrprog_task(void *param)
     // Wait until this task is triggered
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-    // Wake up the display
-    if (tftwake_timer != NULL)
-    {
-      force_tft_wake = true;
-      if (xTimerStart(tftwake_timer, 10) != pdPASS)
-      {
-        ESP_LOGE(TAG, "TFT wake timer error");
-      }
-    }
+    wake_up_tft(true);
 
     // TODO: This needs to be passed into this as a parameter
     avrprogramsettings *s;
@@ -471,10 +475,13 @@ void sdcardlog_task(void *param)
                   {
                     header.append(",");
                   }
+                  else
+                  {
+                    header.append("\r\n");
+                  }
 
                   file.write((uint8_t *)header.c_str(), header.length());
                 }
-                file.println();
               }
             }
             else
@@ -500,7 +507,8 @@ void sdcardlog_task(void *param)
                 .append(":")
                 .append(pad_zero(2, timeinfo.tm_min))
                 .append(":")
-                .append(pad_zero(2, timeinfo.tm_sec));
+                .append(pad_zero(2, timeinfo.tm_sec))
+                .append(",");
 
             for (uint8_t i = 0; i < TotalNumberOfCells(); i++)
             {
@@ -525,10 +533,15 @@ void sdcardlog_task(void *param)
               {
                 dataMessage.append(",");
               }
+              else
+              {
+                dataMessage.append("\r\n");
+              }
 
               file.write((uint8_t *)dataMessage.c_str(), dataMessage.length());
+
+              dataMessage.clear();
             }
-            file.println();
             file.close();
 
             ESP_LOGD(TAG, "Wrote to SD log");
@@ -812,13 +825,7 @@ void ProcessTCA9534Input_States(uint8_t v)
   if (InputState[4] == enumInputState::INPUT_LOW)
   {
     // Wake screen on pin going low (SW1 on V4.4 boards)
-    if (tftwake_timer != NULL)
-    {
-      if (xTimerStart(tftwake_timer, 10) != pdPASS)
-      {
-        ESP_LOGE(TAG, "TFT wake timer error");
-      }
-    }
+    wake_up_tft(false);
   }
 }
 
@@ -1248,16 +1255,10 @@ void ProcessRules()
   if (rules.numberOfActiveErrors > 0 || rules.WarningCodes[InternalWarningCode::AVRProgrammingMode] != InternalWarningCode::NoWarning)
   {
     // We have active errors, or AVR programming mode is enabled
+    ESP_LOGI(TAG,"Active errors=%u",rules.numberOfActiveErrors);
 
     // Wake up the screen, this will also trigger it to update the display
-    if (tftwake_timer != NULL)
-    {
-      // force_tft_wake = true;
-      if (xTimerStart(tftwake_timer, 10) != pdPASS)
-      {
-        ESP_LOGE(TAG, "TFT wake timer error");
-      }
-    }
+    wake_up_tft(true);
   }
 }
 
@@ -1606,15 +1607,9 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
     ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, ip_string);
 
-    // Wake up the screen, this will show the IP address etc.
-    if (tftwake_timer != NULL)
-    {
-      force_tft_wake = true;
-      if (xTimerStart(tftwake_timer, 10) != pdPASS)
-      {
-        ESP_LOGE(TAG, "TFT wake timer error");
-      }
-    }
+    //Wake up the screen, this will show the IP address etc.
+    //Don't enable this, causes a cascade effect/race condition
+    //wake_up_tft(true);
   }
 }
 
@@ -3083,7 +3078,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-tx", .level = ESP_LOG_INFO},
         {.tag = "diybms-rules", .level = ESP_LOG_INFO},
         {.tag = "diybms-softap", .level = ESP_LOG_INFO},
-        {.tag = "diybms-tft", .level = ESP_LOG_INFO},
+        {.tag = "diybms-tft", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-victron", .level = ESP_LOG_INFO},
         {.tag = "diybms-webfuncs", .level = ESP_LOG_INFO},
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
@@ -3233,8 +3228,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   // High priority task
   xTaskCreate(interrupt_task, "int", 2000, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
-  xTaskCreate(sdcardlog_task, "sdlog", 3550, nullptr, 1, &sdcardlog_task_handle);
-  xTaskCreate(sdcardlog_outputs_task, "sdout", 3980, nullptr, 1, &sdcardlog_outputs_task_handle);
+  xTaskCreate(sdcardlog_task, "sdlog", 3000, nullptr, 1, &sdcardlog_task_handle);
+  xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 1, &sdcardlog_outputs_task_handle);
   xTaskCreate(rs485_tx, "485_TX", 2950, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2950, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
@@ -3275,14 +3270,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   else
   {
     ESP_LOGI(TAG, "TFT screen is NOT installed");
-  }
-
-  if (tftwake_timer != NULL)
-  {
-    if (xTimerStart(tftwake_timer, 10) != pdPASS)
-    {
-      ESP_LOGE(TAG, "TFT wake timer error");
-    }
   }
 }
 
@@ -3353,13 +3340,13 @@ void loop()
              heap.total_blocks);
 
     // uxTaskGetStackHighWaterMark returns bytes not words on ESP32
-
-    ESP_LOGD(TAG, "periodic_task_handle high water=%i", uxTaskGetStackHighWaterMark(periodic_task_handle));
-    ESP_LOGD(TAG, "rule_task_handle high water=%i", uxTaskGetStackHighWaterMark(rule_task_handle));
-    ESP_LOGD(TAG, "enqueue_task_handle high water=%i", uxTaskGetStackHighWaterMark(enqueue_task_handle));
-    ESP_LOGD(TAG, "sdcardlog_task_handle high water=%i", uxTaskGetStackHighWaterMark(sdcardlog_task_handle));
-    ESP_LOGD(TAG, "sdcardlog_outputs_task_handle high water=%i", uxTaskGetStackHighWaterMark(sdcardlog_outputs_task_handle));
-
+    /*
+        ESP_LOGD(TAG, "periodic_task_handle high water=%i", uxTaskGetStackHighWaterMark(periodic_task_handle));
+        ESP_LOGD(TAG, "rule_task_handle high water=%i", uxTaskGetStackHighWaterMark(rule_task_handle));
+        ESP_LOGD(TAG, "enqueue_task_handle high water=%i", uxTaskGetStackHighWaterMark(enqueue_task_handle));
+        ESP_LOGD(TAG, "sdcardlog_task_handle high water=%i", uxTaskGetStackHighWaterMark(sdcardlog_task_handle));
+        ESP_LOGD(TAG, "sdcardlog_outputs_task_handle high water=%i", uxTaskGetStackHighWaterMark(sdcardlog_outputs_task_handle));
+    */
     // Report again in 15 seconds
     heaptimer = currentMillis + 15000;
   }

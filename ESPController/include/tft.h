@@ -65,5 +65,5 @@ extern currentmonitoring_struct currentMonitor;
 extern bool wifi_isconnected;
 extern char hostname[16];
 extern char ip_string[16];
-extern TimerHandle_t tftwake_timer;
+
 #endif

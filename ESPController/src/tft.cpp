@@ -40,24 +40,34 @@ TFT_eSPI tft = TFT_eSPI();
 
 bool _tft_screen_available = false;
 volatile bool _screen_awake = false;
+volatile uint32_t _interrupt_triggered = 0;
 bool force_tft_wake = false;
-
+TimerHandle_t tftwake_timer;
 int8_t tftsleep_timer = 0;
 
 ScreenTemplateToDisplay _lastScreenToDisplay = ScreenTemplateToDisplay::NotInstalled;
-uint8_t _ScreenToDisplayCounter = 0;
+uint8_t _ScreenToDisplayDelay = 0;
 uint8_t _ScreenPageCounter = 0;
 
 int16_t fontHeight_2;
 int16_t fontHeight_4;
 
+TouchScreenValues _lastTouch;
+
 void IRAM_ATTR TFTScreenTouchInterrupt()
 {
+    // Keep track of interrupts (debug)
+    uint32_t _interrupt_triggered_on_entry = _interrupt_triggered;
+    _interrupt_triggered++;
+
+    if (_interrupt_triggered_on_entry > 0)
+        return;
+
     if (!_tft_screen_available)
         return;
 
-    if (_screen_awake)
-        return;
+    // if (_screen_awake)
+    // return;
 
     if (tftwake_timer != NULL)
     {
@@ -106,7 +116,6 @@ void TFTDrawWifiDetails()
 
 void DrawClock()
 {
-
     struct tm timeinfo;
     time_t now;
     time(&now);
@@ -286,11 +295,11 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
     }
 
     // Rotating screen showing information
-    if (_ScreenToDisplayCounter > 5)
+    if (_ScreenToDisplayDelay > 5)
     {
-        // Move to the next page after the "_ScreenToDisplayCounter" delay
+        // Move to the next page after the "_ScreenToDisplayDelay" delay
         _ScreenPageCounter++;
-        _ScreenToDisplayCounter = 0;
+        _ScreenToDisplayDelay = 0;
     }
 
     if (_ScreenPageCounter > 1)
@@ -328,12 +337,12 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
     // so we can use that to drive page rotation
     if (reply == _lastScreenToDisplay)
     {
-        _ScreenToDisplayCounter++;
+        _ScreenToDisplayDelay++;
     }
     else
     {
         // Its a new type of screen/page, so reset count
-        _ScreenToDisplayCounter = 0;
+        _ScreenToDisplayDelay = 0;
     }
 
     return reply;
@@ -347,7 +356,7 @@ void tftsleep()
     hal.TFTScreenBacklight(false);
     _screen_awake = false;
     _lastScreenToDisplay = ScreenTemplateToDisplay::None;
-    _ScreenToDisplayCounter = 0;
+    _ScreenToDisplayDelay = 0;
     ESP_LOGI(TAG, "TFT switched off");
 }
 void init_tft_display()
@@ -374,14 +383,41 @@ void init_tft_display()
 // This task switches on/off the TFT screen, and triggers a redraw of its contents
 void tftwakeup(TimerHandle_t xTimer)
 {
-    // ESP_LOGI(TAG, "force=%u", force_tft_wake);
-
     // Use parameter to force a refresh (used when realtime events occur like wifi disconnect)
     if (_tft_screen_available)
     {
+        if (_screen_awake && _interrupt_triggered > 0)
+        {
+            // If the screen is already awake, take a reading of the touch position
+            // the first touch simply wakes up the screen, second touch can drive an action
+            _lastTouch = hal.TouchScreenUpdate();
+
+            // Screen is already awake, so can we process a touch command?
+            // ESP_LOGD(TAG, "touched=%u, pressure=%u, X=%u, Y=%u", _lastTouch.touched, _lastTouch.pressure, _lastTouch.X, _lastTouch.Y);
+
+            if (_lastTouch.touched)
+            {
+                // X range is 0-4096
+                if (_lastTouch.X < 1000)
+                {
+                    ESP_LOGD(TAG, "Touched LEFT");
+                }
+                else if (_lastTouch.X > 3000)
+                {
+                    ESP_LOGD(TAG, "Touched RIGHT");
+                }
+            }
+        }
+
         if (_screen_awake == false || force_tft_wake == true)
         {
             ESP_LOGI(TAG, "Wake up screen");
+            _screen_awake = true;
+            // Keep awake for 120 seconds (2 minutes)
+            tftsleep_timer = 120;
+
+            // Debug 30 seconds
+            //tftsleep_timer = 30;
 
             if (hal.GetDisplayMutex())
             {
@@ -391,10 +427,6 @@ void tftwakeup(TimerHandle_t xTimer)
                 hal.ReleaseDisplayMutex();
             }
 
-            // Keep awake for 120 seconds (2 minutes)
-            tftsleep_timer = 120;
-
-            _screen_awake = true;
             hal.TFTScreenBacklight(true);
         }
 
@@ -404,6 +436,9 @@ void tftwakeup(TimerHandle_t xTimer)
 
     // Reset force flag value
     force_tft_wake = false;
+
+    // Allow interrupt to trigger again
+    _interrupt_triggered = 0;
 }
 
 void DrawTFT_ControlState()
@@ -884,7 +919,7 @@ void PrepareTFT_AVRProgrammer()
     y += fontHeight_4;
     tft.drawCentreString("Programming", x, y, 4);
 
-    y += fontHeight_4+fontHeight_2;
+    y += fontHeight_4 + fontHeight_2;
     tft.drawCentreString(_avrsettings.filename, x, y, 2);
 
     y = 140;
@@ -919,6 +954,8 @@ void updatetftdisplay_task(void *param)
     for (;;)
     {
         uint32_t force = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        ESP_LOGD(TAG, "Update TFT display");
 
         if (_tft_screen_available && (_screen_awake == true || force == 1))
         {
