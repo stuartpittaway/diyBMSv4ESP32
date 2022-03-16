@@ -392,7 +392,7 @@ void sdcardlog_task(void *param)
     for (size_t i = 0; i < mysettings.loggingFrequencySeconds; i++)
     {
       // Delay 1 second
-      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
     if (_sd_card_installed &&

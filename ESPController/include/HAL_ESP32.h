@@ -111,7 +111,7 @@ public:
             return false;
 
         // Wait 50ms max
-        bool reply = (xSemaphoreTake(xDisplayMutex, (TickType_t)50 / portTICK_PERIOD_MS) == pdTRUE);
+        bool reply = (xSemaphoreTake(xDisplayMutex, pdMS_TO_TICKS(50)) == pdTRUE);
         if (!reply)
         {
             ESP_LOGE(TAG, "Unable to get Display mutex");
@@ -132,7 +132,7 @@ public:
             return false;
 
         // Wait 25ms max
-        bool reply = (xSemaphoreTake(xVSPIMutex, (TickType_t)25 / portTICK_PERIOD_MS) == pdTRUE);
+        bool reply = (xSemaphoreTake(xVSPIMutex, pdMS_TO_TICKS(25)) == pdTRUE);
         if (!reply)
         {
             ESP_LOGE(TAG, "Unable to get VSPI mutex");
@@ -153,7 +153,7 @@ public:
             return false;
 
         // Wait 100ms max
-        bool reply = (xSemaphoreTake(xi2cMutex, (TickType_t)100 / portTICK_PERIOD_MS) == pdTRUE);
+        bool reply = (xSemaphoreTake(xi2cMutex, pdMS_TO_TICKS(100)) == pdTRUE);
         if (!reply)
         {
             ESP_LOGE(TAG, "Unable to get I2C mutex");
@@ -174,7 +174,7 @@ public:
             return false;
 
         // Wait 100ms max
-        bool reply = (xSemaphoreTake(RS485Mutex, (TickType_t)100 / portTICK_PERIOD_MS) == pdTRUE);
+        bool reply = (xSemaphoreTake(RS485Mutex, pdMS_TO_TICKS(100)) == pdTRUE);
         if (!reply)
         {
             ESP_LOGE(TAG, "Unable to get RS485 mutex");
