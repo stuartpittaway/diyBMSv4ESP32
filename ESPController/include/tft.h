@@ -59,13 +59,11 @@ extern Rules rules;
 extern diybms_eeprom_settings mysettings;
 extern HAL_ESP32 hal;
 extern ControllerState _controller_state;
-extern TaskHandle_t tftsleep_task_handle;
 extern TaskHandle_t updatetftdisplay_task_handle;
-extern QueueHandle_t queue_i2c;
-extern TaskHandle_t tftwakeup_task_handle;
 extern avrprogramsettings _avrsettings;
 extern currentmonitoring_struct currentMonitor;
 extern bool wifi_isconnected;
 extern char hostname[16];
 extern char ip_string[16];
+extern TimerHandle_t tftwake_timer;
 #endif

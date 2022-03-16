@@ -131,8 +131,8 @@ public:
         if (xVSPIMutex == NULL)
             return false;
 
-        // Wait 50ms max
-        bool reply = (xSemaphoreTake(xVSPIMutex, (TickType_t)50 / portTICK_PERIOD_MS) == pdTRUE);
+        // Wait 25ms max
+        bool reply = (xSemaphoreTake(xVSPIMutex, (TickType_t)25 / portTICK_PERIOD_MS) == pdTRUE);
         if (!reply)
         {
             ESP_LOGE(TAG, "Unable to get VSPI mutex");
@@ -299,7 +299,7 @@ public:
             // X also needs to be greater than zero
             reply.touched = reply.pressure > 135 && reply.X > 0;
 
-            ESP_LOGD(TAG, "Touch = touch=%i pressure=%u x=%u y=%u", reply.touched, reply.pressure, reply.X, reply.Y);
+            //ESP_LOGI(TAG, "Touch = touch=%i pressure=%u x=%u y=%u", reply.touched, reply.pressure, reply.X, reply.Y);
         }
 
         return reply;
@@ -308,7 +308,7 @@ public:
     bool IsScreenAttached()
     {
         TouchScreenValues v = TouchScreenUpdate();
-
+        //ESP_LOGD(TAG,"Touch pressure=%u, X=%u, Y=%u",v.pressure, v.X, v.Y);
         return !(v.pressure == 0 && v.X == 0 && v.Y == 0);
     }
 

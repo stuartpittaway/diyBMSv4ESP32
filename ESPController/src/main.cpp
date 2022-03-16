@@ -77,9 +77,15 @@ bool wifi_isconnected = false;
 // holds modbus data
 uint8_t frame[256];
 
+// Screen variables in tft.cpp
 extern bool _tft_screen_available;
 extern uint8_t tftsleep_timer;
 extern volatile bool _screen_awake;
+extern bool force_tft_wake;
+
+extern void tftwakeup(TimerHandle_t xTimer);
+
+// HTTPD server handle in webserver.cpp
 extern httpd_handle_t _myserver;
 
 wifi_eeprom_settings _wificonfig;
@@ -102,6 +108,7 @@ currentmonitoring_struct currentMonitor;
 
 TimerHandle_t led_off_timer;
 TimerHandle_t pulse_relay_off_timer;
+TimerHandle_t tftwake_timer;
 
 TaskHandle_t i2c_task_handle = NULL;
 TaskHandle_t sdcardlog_task_handle = NULL;
@@ -115,7 +122,6 @@ TaskHandle_t rule_task_handle = NULL;
 
 TaskHandle_t voltageandstatussnapshot_task_handle = NULL;
 TaskHandle_t updatetftdisplay_task_handle = NULL;
-TaskHandle_t tftwakeup_task_handle = NULL;
 TaskHandle_t periodic_task_handle = NULL;
 TaskHandle_t interrupt_task_handle = NULL;
 TaskHandle_t rs485_tx_task_handle = NULL;
@@ -301,10 +307,13 @@ void avrprog_task(void *param)
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
     // Wake up the display
-    if (tftwakeup_task_handle != NULL)
+    if (tftwake_timer != NULL)
     {
-      // Pass parameter 1 to force wakeup
-      xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
+      force_tft_wake = true;
+      if (xTimerStart(tftwake_timer, 10) != pdPASS)
+      {
+        ESP_LOGE(TAG, "TFT wake timer error");
+      }
     }
 
     // TODO: This needs to be passed into this as a parameter
@@ -754,9 +763,12 @@ void ProcessTCA9534Input_States(uint8_t v)
   if (InputState[4] == enumInputState::INPUT_LOW)
   {
     // Wake screen on pin going low (SW1 on V4.4 boards)
-    if (tftwakeup_task_handle != NULL)
+    if (tftwake_timer != NULL)
     {
-      xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
+      if (xTimerStart(tftwake_timer, 10) != pdPASS)
+      {
+        ESP_LOGE(TAG, "TFT wake timer error");
+      }
     }
   }
 }
@@ -1184,14 +1196,18 @@ void ProcessRules()
     LED(RGBLED::Red);
   }
 
-  if (rules.numberOfActiveErrors > 0 && _tft_screen_available)
+  if (rules.numberOfActiveErrors > 0 || rules.WarningCodes[InternalWarningCode::AVRProgrammingMode] != InternalWarningCode::NoWarning)
   {
-    // We have active errors
+    // We have active errors, or AVR programming mode is enabled
 
     // Wake up the screen, this will also trigger it to update the display
-    if (tftwakeup_task_handle != NULL)
+    if (tftwake_timer != NULL)
     {
-      xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
+      force_tft_wake = true;
+      if (xTimerStart(tftwake_timer, 10) != pdPASS)
+      {
+        ESP_LOGE(TAG, "TFT wake timer error");
+      }
     }
   }
 }
@@ -1542,9 +1558,13 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, ip_string);
 
     // Wake up the screen, this will show the IP address etc.
-    if (tftwakeup_task_handle != NULL)
+    if (tftwake_timer != NULL)
     {
-      xTaskNotify(tftwakeup_task_handle, 0x01, eNotifyAction::eSetValueWithOverwrite);
+      force_tft_wake = true;
+      if (xTimerStart(tftwake_timer, 10) != pdPASS)
+      {
+        ESP_LOGE(TAG, "TFT wake timer error");
+      }
     }
   }
 }
@@ -3062,7 +3082,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
-        {.tag = "diybms-mqtt", .level = ESP_LOG_INFO}};
+        {.tag = "diybms-mqtt", .level = ESP_LOG_DEBUG}};
 
 void consoleConfigurationCheck()
 {
@@ -3088,7 +3108,6 @@ void setup()
   esp_chip_info_t chip_info;
 
   // Configure log levels
-
   for (log_level_t log : log_levels)
   {
     esp_log_level_set(log.tag, log.level);
@@ -3109,7 +3128,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
            GIT_VERSION, COMPILE_DATE_TIME,
            chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
-  ESP_ERROR_CHECK_WITHOUT_ABORT(esp_bt_controller_disable());
+  // ESP_ERROR_CHECK_WITHOUT_ABORT(esp_bt_controller_disable());
   BuildHostname();
   hal.ConfigurePins();
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
@@ -3197,10 +3216,13 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   led_off_timer = xTimerCreate("LEDOFF", pdMS_TO_TICKS(100), pdFALSE, (void *)1, &ledoff);
   assert(led_off_timer);
+
   pulse_relay_off_timer = xTimerCreate("PULSE", pdMS_TO_TICKS(250), pdFALSE, (void *)2, &pulse_relay_off);
   assert(pulse_relay_off_timer);
 
-  xTaskCreate(tftwakeup_task, "tftwake", 2048, nullptr, 1, &tftwakeup_task_handle);
+  tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(2), pdFALSE, (void *)3, &tftwakeup);
+  assert(tftwake_timer);
+
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 1, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 3, &avrprog_task_handle);
@@ -3233,7 +3255,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   // Only run these after we have wifi...
   xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-  xTaskCreate(rules_task, "rules", 1900, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+  xTaskCreate(rules_task, "rules", 2048, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
   xTaskCreate(periodic_task, "period", 2500, nullptr, 1, &periodic_task_handle);
 
   // Start the wifi and connect to access point
@@ -3251,10 +3273,12 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
     ESP_LOGI(TAG, "TFT screen is NOT installed");
   }
 
-  if (tftwakeup_task_handle != NULL)
+  if (tftwake_timer != NULL)
   {
-    // Wake screen on power up
-    xTaskNotify(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction);
+    if (xTimerStart(tftwake_timer, 10) != pdPASS)
+    {
+      ESP_LOGE(TAG, "TFT wake timer error");
+    }
   }
 }
 

@@ -40,6 +40,7 @@ TFT_eSPI tft = TFT_eSPI();
 
 bool _tft_screen_available = false;
 volatile bool _screen_awake = false;
+bool force_tft_wake = false;
 
 int8_t tftsleep_timer = 0;
 
@@ -58,20 +59,15 @@ void IRAM_ATTR TFTScreenTouchInterrupt()
     if (_screen_awake)
         return;
 
-    if (tftwakeup_task_handle != NULL)
+    if (tftwake_timer != NULL)
     {
-        // ESP_LOGD(TAG, "Touch");
         BaseType_t xHigherPriorityTaskWoken;
         xHigherPriorityTaskWoken = pdFALSE;
-        xTaskNotifyFromISR(tftwakeup_task_handle, 0x00, eNotifyAction::eNoAction, &xHigherPriorityTaskWoken);
+        xTimerStartFromISR(tftwake_timer, &xHigherPriorityTaskWoken);
         if (xHigherPriorityTaskWoken == pdTRUE)
         {
             portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
         }
-    }
-    else
-    {
-        ESP_LOGE(TAG, "tftwakeup_task_handle=NULL");
     }
 }
 
@@ -376,39 +372,38 @@ void init_tft_display()
 }
 
 // This task switches on/off the TFT screen, and triggers a redraw of its contents
-void tftwakeup_task(void *param)
+void tftwakeup(TimerHandle_t xTimer)
 {
-    for (;;)
+    ESP_LOGI(TAG, "force=%u", force_tft_wake);
+
+    // Use parameter to force a refresh (used when realtime events occur like wifi disconnect)
+    if (_tft_screen_available)
     {
-        // Wait until this task is triggered
-        uint32_t force = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-        // Use parameter to force a refresh (used when realtime events occur like wifi disconnect)
-        if (_tft_screen_available)
+        if (_screen_awake == false || force_tft_wake == true)
         {
-            if (!_screen_awake || force == 1)
+            ESP_LOGI(TAG, "Wake up screen");
+
+            if (hal.GetDisplayMutex())
             {
-                ESP_LOGI(TAG, "Wake up screen");
-
-                if (hal.GetDisplayMutex())
-                {
-                    // Fill screen with a grey colour, to let user know
-                    // we have responded to touch (may may be a short delay until the display task runs)
-                    tft.fillScreen(TFT_LIGHTGREY);
-                    hal.ReleaseDisplayMutex();
-                }
-
-                // Keep awake for 120 seconds (2 minutes)
-                tftsleep_timer = 120;
-
-                _screen_awake = true;
-                hal.TFTScreenBacklight(true);
+                // Fill screen with a grey colour, to let user know
+                // we have responded to touch (may may be a short delay until the display task runs)
+                tft.fillScreen(TFT_LIGHTGREY);
+                hal.ReleaseDisplayMutex();
             }
 
-            // Trigger a refresh of the screen
-            xTaskNotify(updatetftdisplay_task_handle, force, eNotifyAction::eSetValueWithOverwrite);
+            // Keep awake for 120 seconds (2 minutes)
+            tftsleep_timer = 120;
+
+            _screen_awake = true;
+            hal.TFTScreenBacklight(true);
         }
+
+        // Trigger a refresh of the screen
+        xTaskNotify(updatetftdisplay_task_handle, force_tft_wake ? 1 : 0, eNotifyAction::eSetValueWithOverwrite);
     }
+
+    // Reset force flag value
+    force_tft_wake = false;
 }
 
 void DrawTFT_ControlState()
@@ -922,13 +917,18 @@ void updatetftdisplay_task(void *param)
     {
         uint32_t force = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        if (_tft_screen_available && (_screen_awake || force == 1))
+        if (_tft_screen_available && (_screen_awake == true || force == 1))
         {
             // Set default to top left
             tft.setTextDatum(TL_DATUM);
 
             ScreenTemplateToDisplay screenToDisplay = WhatScreenToDisplay();
 
+            // Force will "force" a redraw of the full screen regardless
+            // of previous state.
+
+            // Step 1: Prepare the screen layout (boxes, bars, titles etc.)
+            //         stuff which doesn't change (static)
             if (_lastScreenToDisplay != screenToDisplay || force == 1)
             {
                 if (hal.GetDisplayMutex())
@@ -963,6 +963,7 @@ void updatetftdisplay_task(void *param)
                 _lastScreenToDisplay = screenToDisplay;
             }
 
+            // Step2: Draw the variable screen layouts
             if (hal.GetDisplayMutex())
             {
                 switch (screenToDisplay)
@@ -971,6 +972,7 @@ void updatetftdisplay_task(void *param)
                     // Update is done via call back, so don't do anything here
                     break;
                 case ScreenTemplateToDisplay::NotInstalled:
+                    break;
                 case ScreenTemplateToDisplay::None:
                     break;
                 case ScreenTemplateToDisplay::State:
@@ -992,21 +994,6 @@ void updatetftdisplay_task(void *param)
 
                 hal.ReleaseDisplayMutex();
             } // endif mutex
-
-            /*
-            //Debug
-            if (hal.GetDisplayMutex())
-            {
-
-                tft.setTextDatum(TL_DATUM);
-                tft.setTextColor(TFT_WHITE, TFT_BLACK);
-                tft.setTextFont(2);
-                int16_t y = 0;
-                int16_t x = 0;
-                x += tft.drawNumber(_ScreenToDisplayCounter, x, y);
-                hal.ReleaseDisplayMutex();
-            }
-            */
         }
     } // end for
 }
