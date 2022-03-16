@@ -2993,48 +2993,6 @@ void TerminalBasedWifiSetup()
   esp_restart();
 }
 
-void createFile(fs::FS &fs, const char *path, const char *message)
-{
-  ESP_LOGD(TAG, "Writing file: %s", path);
-
-  File file = fs.open(path, FILE_WRITE);
-  if (!file)
-  {
-    ESP_LOGE(TAG, "Failed to open file for writing");
-    return;
-  }
-  if (file.print(message))
-  {
-    ESP_LOGD(TAG, "File written");
-  }
-  else
-  {
-    ESP_LOGE(TAG, "Write failed");
-  }
-  file.close();
-}
-
-void appendFile(fs::FS &fs, const char *path, const char *message)
-{
-  ESP_LOGD(TAG, "Appending to file: %s", path);
-
-  File file = fs.open(path, FILE_APPEND);
-  if (!file)
-  {
-    ESP_LOGE(TAG, "Failed to open file for appending");
-    return;
-  }
-  if (file.print(message))
-  {
-    ESP_LOGD(TAG, "Message appended");
-  }
-  else
-  {
-    ESP_LOGE(TAG, "Append failed");
-  }
-  file.close();
-}
-
 // CHECK HERE FOR THE PRESENCE OF A /wifi.json CONFIG FILE ON THE SD CARD TO AUTOMATICALLY CONFIGURE WIFI
 bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
 {
