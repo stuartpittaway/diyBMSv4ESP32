@@ -198,6 +198,9 @@ void influx_task_action()
     ESP_ERROR_CHECK(
         esp_http_client_set_post_field(http_client, module_data.c_str(), module_data.length()));
 
-    // Process the http request
+    // Process the http request.
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_http_client_perform(http_client));
+ 
+    // Cleanup the http client.
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_http_client_cleanup(http_client));
 }
