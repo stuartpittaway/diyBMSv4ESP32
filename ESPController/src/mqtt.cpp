@@ -313,7 +313,12 @@ void MQTTCellData()
 
 void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
 {
-    if (mysettings.mqtt_enabled && mqttClient_connected == false)
+    if (!mysettings.mqtt_enabled)
+    {
+        return;
+    }
+
+    if (mqttClient_connected == false)
     {
         ESP_LOGE(TAG, "MQTT enabled, but not connected");
         return;
@@ -337,7 +342,12 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
            Rules *rules,
            RelayState *previousRelayState)
 {
-    if (mysettings.mqtt_enabled && mqttClient_connected == false)
+    if (!mysettings.mqtt_enabled)
+    {
+        return;
+    }
+
+    if (mqttClient_connected == false)
     {
         ESP_LOGE(TAG, "MQTT enabled, but not connected");
         return;
