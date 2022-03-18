@@ -176,13 +176,12 @@ void influx_task_action()
         return;
     }
 
-    authtoken.reserve(128);  
+    authtoken.reserve(sizeof(mysettings.influxdb_apitoken));
     authtoken.append("Token ").append(mysettings.influxdb_apitoken);
     authtoken.shrink_to_fit();
 
-    url.reserve(256);
+    url.reserve(sizeof(mysettings.influxdb_serverurl)+sizeof(mysettings.influxdb_orgid)+sizeof(mysettings.influxdb_databasebucket));
     url.append(mysettings.influxdb_serverurl);
-    //influxdb_orgid seems to be over sized in the configuration, these are typically like this... "5852aba5c418c9e3"
     url.append("?org=").append(url_encode(mysettings.influxdb_orgid));
     url.append("&bucket=").append(url_encode(mysettings.influxdb_databasebucket));
     url.shrink_to_fit();
@@ -194,29 +193,38 @@ void influx_task_action()
     // Initialize http client and prepare to process the request.
     http_client = esp_http_client_init(&config);
 
-    // Set authorization header
-    esp_http_client_set_header(http_client, "Authorization", authtoken.c_str());
-
-    // Set Content-Encoding for the post payload
-    esp_http_client_set_header(http_client, "Content-Type", "text/plain");
-
-    // Add post data to the client.
-    ESP_ERROR_CHECK(
-        esp_http_client_set_post_field(http_client, module_data.c_str(), module_data.length()));
-
-    // Process the http request.
-    esp_err_t err = esp_http_client_perform(http_client);
-
-    if (err == ESP_OK)
+    if (http_client == nullptr)
     {
-        ESP_LOGI(TAG, "Status = %d, content_length = %d",
-                 esp_http_client_get_status_code(http_client),
-                 esp_http_client_get_content_length(http_client));
+        ESP_LOGD(TAG, "esp_http_client_init return NULL");
     }
     else
     {
-        ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
+        // Set authorization header
+        esp_http_client_set_header(http_client, "Authorization", authtoken.c_str());
+
+        // Set Content-Encoding for the post payload
+        esp_http_client_set_header(http_client, "Content-Type", "text/plain");
+
+        // Add post data to the client.
+        ESP_ERROR_CHECK(esp_http_client_set_post_field(http_client, module_data.c_str(), module_data.length()));
+
+        // Process the http request.
+        esp_err_t err = esp_http_client_perform(http_client);
+
+        if (err == ESP_OK)
+        {
+            int status_code = esp_http_client_get_status_code(http_client);
+            if (status_code != 200)
+            {
+                ESP_LOGE(TAG, "HTTP error returned, status code = %d", status_code);
+            }
+            ESP_LOGD(TAG, "Content_length = %d",esp_http_client_get_content_length(http_client));
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
+        }
+        // Cleanup the http client.
+        ESP_ERROR_CHECK_WITHOUT_ABORT(esp_http_client_cleanup(http_client));
     }
-    // Cleanup the http client.
-    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_http_client_cleanup(http_client));
 }
