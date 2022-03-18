@@ -99,6 +99,7 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
         ESP_LOGV(TAG, "Header: key=%s, value=%s", evt->header_key, evt->header_value);
         break;
     case HTTP_EVENT_ON_DATA:
+        // ESP_LOG_BUFFER_HEXDUMP(TAG, evt->data, evt->data_len, esp_log_level_t::ESP_LOG_DEBUG);
         ESP_LOGV(TAG, "HTTP Client data recevied: len=%d", evt->data_len);
         break;
     case HTTP_EVENT_ON_FINISH:
@@ -138,26 +139,32 @@ void influx_task_action()
             uint8_t bank = moduleIndex / mysettings.totalNumberOfSeriesModules;
             uint8_t module_in_bank = moduleIndex - (bank * mysettings.totalNumberOfSeriesModules);
             std::string module_id = std::to_string(bank).append("_").append(std::to_string(module_in_bank));
-            std::string module_internal_temp = std::to_string(cmi[moduleIndex].internalTemp);
-            std::string module_external_temp = std::to_string(cmi[moduleIndex].externalTemp);
+            std::string module_internal_temp = std::to_string(cmi[moduleIndex].internalTemp).append("i");
+            std::string module_external_temp = std::to_string(cmi[moduleIndex].externalTemp).append("i");
             std::string module_bypass = cmi[moduleIndex].inBypass ? "true" : "false";
             std::string module_voltage = float_to_string(cmi[moduleIndex].voltagemV / 1000.0f);
-
-            ESP_LOGV(TAG, "Index:%d, bank:%d, module:%d, id:%s, voltage:%s, int-temp:%s, ext-temp:%s, bypass:%s",
-                     moduleIndex, bank, module_in_bank,
-                     module_id.c_str(),
-                     module_voltage.c_str(),
-                     module_internal_temp.c_str(),
-                     module_external_temp.c_str(),
-                     module_bypass.c_str());
-
+            /*
+                        ESP_LOGV(TAG, "Index:%d, bank:%d, module:%d, id:%s, voltage:%s, int-temp:%s, ext-temp:%s, bypass:%s",
+                                 moduleIndex, bank, module_in_bank,
+                                 module_id.c_str(),
+                                 module_voltage.c_str(),
+                                 module_internal_temp.c_str(),
+                                 module_external_temp.c_str(),
+                                 module_bypass.c_str());
+            */
             // Data in LINE PROTOCOL format https://docs.influxdata.com/influxdb/v2.0/reference/syntax/line-protocol/
-            module_data.append("cells,cell=").append(module_id);
-            module_data.append(" v=").append(module_voltage);
-            module_data.append(",i=").append(module_internal_temp).append("i");
-            module_data.append(",e=").append(module_external_temp).append("i");
-            module_data.append(",b=").append(module_bypass);
-            module_data.append("\n");
+
+            module_data.append("cells,cell=")
+                .append(module_id)
+                .append(" v=")
+                .append(module_voltage)
+                .append(",i=")
+                .append(module_internal_temp)
+                .append(",e=")
+                .append(module_external_temp)
+                .append(",b=")
+                .append(module_bypass)
+                .append("\n");
         }
     }
 
@@ -169,18 +176,19 @@ void influx_task_action()
 
     module_data.shrink_to_fit();
 
-    // If we did not generate any module data we can exit early.
+    // ESP_LOGD(TAG, "%s", module_data.c_str());
+
+    // If we did not generate any module data we can exit early, although this should never happen.
     if (module_data.empty() || module_data.length() == 0)
     {
         ESP_LOGI(TAG, "No module data to send to InfluxDB");
         return;
     }
 
-    authtoken.reserve(sizeof(mysettings.influxdb_apitoken));
-    authtoken.append("Token ").append(mysettings.influxdb_apitoken);
-    authtoken.shrink_to_fit();
+    // Show URL we are logging to...
+    ESP_LOGD(TAG, "URL %s", mysettings.influxdb_serverurl);
 
-    url.reserve(sizeof(mysettings.influxdb_serverurl)+sizeof(mysettings.influxdb_orgid)+sizeof(mysettings.influxdb_databasebucket));
+    url.reserve(sizeof(mysettings.influxdb_serverurl) + sizeof(mysettings.influxdb_orgid) + sizeof(mysettings.influxdb_databasebucket));
     url.append(mysettings.influxdb_serverurl);
     url.append("?org=").append(url_encode(mysettings.influxdb_orgid));
     url.append("&bucket=").append(url_encode(mysettings.influxdb_databasebucket));
@@ -189,6 +197,9 @@ void influx_task_action()
     config.event_handler = http_event_handler;
     config.method = HTTP_METHOD_POST;
     config.url = url.c_str();
+    config.timeout_ms = 5000;
+    // We are not going to re-use this in the next few seconds
+    config.keep_alive_enable = false;
 
     // Initialize http client and prepare to process the request.
     http_client = esp_http_client_init(&config);
@@ -200,6 +211,9 @@ void influx_task_action()
     else
     {
         // Set authorization header
+        authtoken.reserve(sizeof(mysettings.influxdb_apitoken));
+        authtoken.append("Token ").append(mysettings.influxdb_apitoken);
+        authtoken.shrink_to_fit();
         esp_http_client_set_header(http_client, "Authorization", authtoken.c_str());
 
         // Set Content-Encoding for the post payload
@@ -214,11 +228,15 @@ void influx_task_action()
         if (err == ESP_OK)
         {
             int status_code = esp_http_client_get_status_code(http_client);
-            if (status_code != 200)
+            if (status_code != 204)
             {
                 ESP_LOGE(TAG, "HTTP error returned, status code = %d", status_code);
+                ESP_LOGD(TAG, "Content_length = %d", esp_http_client_get_content_length(http_client));
             }
-            ESP_LOGD(TAG, "Content_length = %d",esp_http_client_get_content_length(http_client));
+            else
+            {
+                ESP_LOGI(TAG, "Successful");
+            }
         }
         else
         {
