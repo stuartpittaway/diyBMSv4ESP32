@@ -178,7 +178,7 @@ void influx_task_action()
     url.reserve(348);
     url.append(mysettings.influxdb_serverurl);
     url.append("?org=").append(url_encode(mysettings.influxdb_orgid));
-    url.append("&bucker=").append(url_encode(mysettings.influxdb_databasebucket));
+    url.append("&bucket=").append(url_encode(mysettings.influxdb_databasebucket));
     url.shrink_to_fit();
 
     config.event_handler = http_event_handler;
