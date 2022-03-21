@@ -2,6 +2,9 @@
 #ifndef DIYBMS_TFT_H_
 #define DIYBMS_TFT_H_
 
+#include "PacketRequestGenerator.h"
+#include "PacketReceiveProcessor.h"
+
 /*
 #define USER_SETUP_LOADED
 #define USE_DMA_TO_TFT
@@ -30,9 +33,9 @@ enum ScreenTemplateToDisplay : uint8_t
   VoltageFourBank = 4,
   State = 5,
   AVRProgrammer=6,
-  CurrentMonitor=7  
+  CurrentMonitor=7,
+  SystemInformation=8
 };
-
 
 
 void tftwakeup_task(void *param);
@@ -52,6 +55,10 @@ void DrawClock();
 void PrepareTFT_AVRProgrammer();
 void tftdisplay_avrprogrammer_progress(uint8_t programingMode,size_t current, size_t maximum);
 void tftdisplay_avrprogrammer_stop();
+void IncreaseDelayCounter();
+void PageForward();
+void PageBackward();
+void ResetScreenSequence();
 
 
 //I hate EXTERN....
@@ -65,5 +72,11 @@ extern currentmonitoring_struct currentMonitor;
 extern bool wifi_isconnected;
 extern char hostname[16];
 extern char ip_string[16];
+extern PacketRequestGenerator prg;
+extern PacketReceiveProcessor receiveProc;
+extern uint32_t canbus_messages_received;
+extern uint32_t canbus_messages_sent;
+extern uint32_t canbus_messages_failed_sent;
+
 
 #endif

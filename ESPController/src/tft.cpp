@@ -47,19 +47,28 @@ int8_t tftsleep_timer = 0;
 
 ScreenTemplateToDisplay _lastScreenToDisplay = ScreenTemplateToDisplay::NotInstalled;
 uint8_t _ScreenToDisplayDelay = 0;
-uint8_t _ScreenPageCounter = 0;
+int8_t _ScreenPageCounter = 0;
 
 int16_t fontHeight_2;
 int16_t fontHeight_4;
 
 TouchScreenValues _lastTouch;
 
+void ResetScreenSequence()
+{
+    _ScreenToDisplayDelay = 0;
+    _ScreenPageCounter = 0;
+    _lastScreenToDisplay = ScreenTemplateToDisplay::None;
+    tftsleep_timer = 120;
+}
+
 void IRAM_ATTR TFTScreenTouchInterrupt()
 {
-    // Keep track of interrupts (debug)
+    // Keep track of interrupts
     uint32_t _interrupt_triggered_on_entry = _interrupt_triggered;
     _interrupt_triggered++;
 
+    // Avoid multiple touches/ISR until the last one has been processed
     if (_interrupt_triggered_on_entry > 0)
         return;
 
@@ -69,6 +78,7 @@ void IRAM_ATTR TFTScreenTouchInterrupt()
     // if (_screen_awake)
     // return;
 
+    // Trigger timer to wake up the screen
     if (tftwake_timer != NULL)
     {
         BaseType_t xHigherPriorityTaskWoken;
@@ -271,6 +281,71 @@ void PrepareTFT_VoltageOneBank()
     TFTDrawWifiDetails();
 }
 
+void PageForward()
+{
+    //"Right" touch or delay counter has expired
+    _ScreenPageCounter++;
+
+    if (_ScreenPageCounter == 1 && mysettings.currentMonitoringEnabled == false)
+    {
+        // Don't show current if its not fitted/installed
+        // Skip to next page
+        _ScreenPageCounter++;
+    }
+
+    if (_ScreenPageCounter > 2)
+    {
+        // Loop back to first page
+        _ScreenPageCounter = 0;
+    }
+
+    // Trigger a refresh of the screen
+    if (updatetftdisplay_task_handle != NULL)
+    {
+        xTaskNotify(updatetftdisplay_task_handle, 0, eNotifyAction::eSetValueWithOverwrite);
+    }
+}
+
+void PageBackward()
+{
+    //"Left" touch or delay counter has expired
+    _ScreenPageCounter--;
+
+    if (_ScreenPageCounter == 1 && mysettings.currentMonitoringEnabled == false)
+    {
+        // Don't show current if its not fitted/installed
+        // Skip to next page
+        _ScreenPageCounter--;
+    }
+
+    if (_ScreenPageCounter < 0)
+    {
+        // Loop back to last page
+        _ScreenPageCounter = 2;
+    }
+
+    // Trigger a refresh of the screen
+    if (updatetftdisplay_task_handle != NULL)
+    {
+        xTaskNotify(updatetftdisplay_task_handle, 0, eNotifyAction::eSetValueWithOverwrite);
+    }
+}
+
+// This gets called by the "periodic" task in main.cpp, every second.
+void IncreaseDelayCounter()
+{
+    _ScreenToDisplayDelay++;
+
+    // Switch pages if rotation delay exceeded
+    // 15 seconds between pages
+    if (_ScreenToDisplayDelay > 15)
+    {
+        // Move to the next page after the "_ScreenToDisplayDelay" delay
+        _ScreenToDisplayDelay = 0;
+        PageForward();
+    }
+}
+
 // Determine what screen to show on the TFT based on priority/severity
 ScreenTemplateToDisplay WhatScreenToDisplay()
 {
@@ -294,52 +369,30 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
         return ScreenTemplateToDisplay::Error;
     }
 
-    // Rotating screen showing information
-    if (_ScreenToDisplayDelay > 5)
+    switch (_ScreenPageCounter)
     {
-        // Move to the next page after the "_ScreenToDisplayDelay" delay
-        _ScreenPageCounter++;
-        _ScreenToDisplayDelay = 0;
-    }
-
-    if (_ScreenPageCounter > 1)
-    {
-        // Loop back to first page
-        _ScreenPageCounter = 0;
-    }
-
-    if (_ScreenPageCounter == 1 && mysettings.currentMonitoringEnabled == false)
-    {
-        // Don't show current if its not fitted/installed
-        _ScreenPageCounter = 0;
-    }
-
-    // Voltage page
-    if (_ScreenPageCounter == 0)
-    {
+    case 0:
+        // Voltage page
         if (mysettings.totalNumberOfBanks == 1)
         {
             reply = ScreenTemplateToDisplay::VoltageOneBank;
         }
-        else if (mysettings.totalNumberOfBanks > 1)
+        else
         {
             reply = ScreenTemplateToDisplay::VoltageFourBank;
         }
-    }
-
-    if (_ScreenPageCounter == 1)
-    {
+        break;
+    case 1:
         // Show the current monitor
         reply = ScreenTemplateToDisplay::CurrentMonitor;
+        break;
+    case 2:
+        // System Information
+        reply = ScreenTemplateToDisplay::SystemInformation;
+        break;
     }
 
-    // If we are drawing the same screen, increment a counter
-    // so we can use that to drive page rotation
-    if (reply == _lastScreenToDisplay)
-    {
-        _ScreenToDisplayDelay++;
-    }
-    else
+    if (reply != _lastScreenToDisplay)
     {
         // Its a new type of screen/page, so reset count
         _ScreenToDisplayDelay = 0;
@@ -359,6 +412,7 @@ void tftsleep()
     _ScreenToDisplayDelay = 0;
     ESP_LOGI(TAG, "TFT switched off");
 }
+
 void init_tft_display()
 {
     if (!_tft_screen_available)
@@ -401,10 +455,12 @@ void tftwakeup(TimerHandle_t xTimer)
                 if (_lastTouch.X < 1000)
                 {
                     ESP_LOGD(TAG, "Touched LEFT");
+                    PageBackward();
                 }
                 else if (_lastTouch.X > 3000)
                 {
                     ESP_LOGD(TAG, "Touched RIGHT");
+                    PageForward();
                 }
             }
         }
@@ -413,11 +469,9 @@ void tftwakeup(TimerHandle_t xTimer)
         {
             ESP_LOGI(TAG, "Wake up screen");
             _screen_awake = true;
-            // Keep awake for 120 seconds (2 minutes)
-            tftsleep_timer = 120;
 
-            // Debug 30 seconds
-            //tftsleep_timer = 30;
+            // Always start on the same screen/settings
+            ResetScreenSequence();
 
             if (hal.GetDisplayMutex())
             {
@@ -431,7 +485,10 @@ void tftwakeup(TimerHandle_t xTimer)
         }
 
         // Trigger a refresh of the screen
-        xTaskNotify(updatetftdisplay_task_handle, force_tft_wake ? 1 : 0, eNotifyAction::eSetValueWithOverwrite);
+        if (updatetftdisplay_task_handle != NULL)
+        {
+            xTaskNotify(updatetftdisplay_task_handle, force_tft_wake ? 1 : 0, eNotifyAction::eSetValueWithOverwrite);
+        }
     }
 
     // Reset force flag value
@@ -598,6 +655,102 @@ void DrawTFT_CurrentMonitor()
     }
     x += tft.drawFloat(ahin, decimals, x, y);
     tft.fillRect(x, y, w - x, tft.fontHeight(), TFT_BLACK);
+}
+
+void PrepareTFT_SystemInfo()
+{
+    tft.fillScreen(TFT_BLACK);
+
+    int16_t w = tft.width();
+    // Take off the wifi banner height
+    int16_t h = tft.height() - fontHeight_2;
+    int16_t yhalfway = h / 2;
+
+    int16_t column0 = 0;
+    int16_t column1 = w / 3;
+    int16_t column2 = column1 * 2;
+
+    int16_t row0 = 0;
+    int16_t row1 = h / 4;
+    int16_t row2 = row1 * 2;
+    int16_t row3 = row1 * 3;
+
+    // Grid lines
+    tft.drawLine(column1, 0, column1, row3, TFT_DARKGREY);
+    tft.drawLine(column2, 0, column2, row3, TFT_DARKGREY);
+    tft.drawLine(column0, row1, w, row1, TFT_DARKGREY);
+    tft.drawLine(column0, row2, w, row2, TFT_DARKGREY);
+    tft.drawLine(column0, row3, w, row3, TFT_DARKGREY);
+
+    column1 += 2;
+    column2 += 2;
+    row1 += 2;
+    row2 += 2;
+    row3 += 2;
+
+    tft.setTextFont(2);
+    // Need to think about multilingual strings!
+    tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    tft.drawString("Packets sent", column0, row0);
+    tft.drawString("Packets rec'd", column1, row0);
+    tft.drawString("Round trip (ms)", column2, row0);
+
+    tft.drawString("Error - OOS", column0, row1);
+    tft.drawString("Error - CRC", column1, row1);
+    tft.drawString("Error - Ignored", column2, row1);
+
+    tft.drawString("CAN - Sent", column0, row2);
+    tft.drawString("CAN - Received", column1, row2);
+    tft.drawString("CAN - Send fail", column2, row2);
+
+    tft.drawString("Uptime", column0, row3);
+
+    TFTDrawWifiDetails();
+}
+
+void DrawTFT_SystemInfo()
+{
+    // Split screen for multiple banks, maximum of 4 banks on the display
+
+    int16_t w = tft.width();
+    int16_t h = tft.height() - fontHeight_2;
+    int16_t halfway = h / 2;
+
+    int16_t column0 = 0;
+    int16_t column1 = 2 + (w / 3);
+    int16_t column2 = 2 + 2 * (w / 3);
+
+    int16_t row0 = 2 + fontHeight_2;
+    int16_t row1 = 2 + fontHeight_2 + (h / 4);
+    int16_t row2 = 2 + fontHeight_2 + 2 * (h / 4);
+    int16_t row3 = 2 + fontHeight_2 + 3 * (h / 4);
+
+    int16_t x = 0;
+
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.setTextFont(4);
+    x += tft.drawNumber(prg.packetsGenerated, column0, row0);
+    x += tft.drawNumber(receiveProc.packetsReceived, column1, row0);
+    x += tft.drawNumber(receiveProc.packetTimerMillisecond, column2, row0);
+
+    x += tft.drawNumber(receiveProc.totalOutofSequenceErrors, column0, row1);
+    x += tft.drawNumber(receiveProc.totalCRCErrors, column1, row1);
+    x += tft.drawNumber(receiveProc.totalNotProcessedErrors, column2, row1);
+
+    x += tft.drawNumber(canbus_messages_sent, column0, row2);
+    x += tft.drawNumber(canbus_messages_received, column1, row2);
+    x += tft.drawNumber(canbus_messages_failed_sent, column2, row2);
+
+    uint32_t uptime = (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6);
+
+    std::string uptime_string;
+    uptime_string.reserve(20);
+    uptime_string.append(std::to_string(uptime / (3600 * 24))).append("d ");
+    uptime_string.append(std::to_string(uptime % (3600 * 24) / 3600)).append("h ");
+    uptime_string.append(std::to_string(uptime % 3600 / 60)).append("m ");
+    uptime_string.append(std::to_string(uptime % 60)).append("s");
+
+    x += tft.drawString(uptime_string.c_str(), column0, row3);
 }
 
 void PrepareTFT_VoltageFourBank()
@@ -955,10 +1108,10 @@ void updatetftdisplay_task(void *param)
     {
         uint32_t force = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        ESP_LOGD(TAG, "Update TFT display");
-
         if (_tft_screen_available && (_screen_awake == true || force == 1))
         {
+            ESP_LOGD(TAG, "Update TFT display");
+
             // Set default to top left
             tft.setTextDatum(TL_DATUM);
 
@@ -997,6 +1150,9 @@ void updatetftdisplay_task(void *param)
                     case ScreenTemplateToDisplay::State:
                         PrepareTFT_ControlState();
                         break;
+                    case ScreenTemplateToDisplay::SystemInformation:
+                        PrepareTFT_SystemInfo();
+                        break;
                     }
                     hal.ReleaseDisplayMutex();
                 }
@@ -1029,6 +1185,9 @@ void updatetftdisplay_task(void *param)
                     break;
                 case ScreenTemplateToDisplay::CurrentMonitor:
                     DrawTFT_CurrentMonitor();
+                    break;
+                case ScreenTemplateToDisplay::SystemInformation:
+                    DrawTFT_SystemInfo();
                     break;
                 }
 

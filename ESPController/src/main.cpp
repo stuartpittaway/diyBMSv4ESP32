@@ -824,8 +824,29 @@ void ProcessTCA9534Input_States(uint8_t v)
 
   if (InputState[4] == enumInputState::INPUT_LOW)
   {
+    // LEFT BUTTON PUSH
     // Wake screen on pin going low (SW1 on V4.4 boards)
-    wake_up_tft(false);
+    if (_screen_awake)
+    {
+      PageBackward();
+    }
+    else
+    {
+      wake_up_tft(false);
+    }
+  }
+  if (InputState[5] == enumInputState::INPUT_LOW)
+  {
+    // RIGHT BUTTON PUSH
+    // Wake screen on pin going low (SW1 on V4.4 boards)
+    if (_screen_awake)
+    {
+      PageForward();
+    }
+    else
+    {
+      wake_up_tft(false);
+    }
   }
 }
 
@@ -1255,7 +1276,7 @@ void ProcessRules()
   if (rules.numberOfActiveErrors > 0 || rules.WarningCodes[InternalWarningCode::AVRProgrammingMode] != InternalWarningCode::NoWarning)
   {
     // We have active errors, or AVR programming mode is enabled
-    ESP_LOGI(TAG,"Active errors=%u",rules.numberOfActiveErrors);
+    ESP_LOGI(TAG, "Active errors=%u", rules.numberOfActiveErrors);
 
     // Wake up the screen, this will also trigger it to update the display
     wake_up_tft(true);
@@ -1607,9 +1628,9 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
     ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, ip_string);
 
-    //Wake up the screen, this will show the IP address etc.
-    //Don't enable this, causes a cascade effect/race condition
-    //wake_up_tft(true);
+    // Wake up the screen, this will show the IP address etc.
+    // Don't enable this, causes a cascade effect/race condition
+    // wake_up_tft(true);
   }
 }
 
@@ -2677,6 +2698,8 @@ void periodic_task(void *param)
     {
       // Timer can get to 0
       tftsleep_timer--;
+
+      IncreaseDelayCounter();
     }
 
     // ESP_LOGI(TAG, "mqtt1=%u, mqtt2=%u, influx=%u, tftsleep=%u",countdown_mqtt1,countdown_mqtt2,countdown_influx,tftsleep_timer);
@@ -3078,7 +3101,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-tx", .level = ESP_LOG_INFO},
         {.tag = "diybms-rules", .level = ESP_LOG_INFO},
         {.tag = "diybms-softap", .level = ESP_LOG_INFO},
-        {.tag = "diybms-tft", .level = ESP_LOG_INFO},
+        {.tag = "diybms-tft", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-victron", .level = ESP_LOG_INFO},
         {.tag = "diybms-webfuncs", .level = ESP_LOG_INFO},
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
@@ -3141,9 +3164,10 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   // See if we can get a sensible reading from the TFT touch chip XPT2046
   // if we can, then a screen is fitted, so enable it
+  // Touch is on VSPI bus
   _tft_screen_available = hal.IsScreenAttached();
   SetControllerState(ControllerState::PowerUp);
-  hal.ConfigureVSPI();
+  //hal.ConfigureVSPI();
   init_tft_display();
   hal.Led(0);
 
