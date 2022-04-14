@@ -2942,16 +2942,9 @@ void TerminalBasedWifiSetup()
   {
     char text[10];
     itoa(i, text, 10);
-    // Cyan
-    fputs("\033[36m", stdout);
     fputs(text, stdout);
     fputs(":\t", stdout);
-    // Yellow
-    fputs("\033[33m", stdout);
     fputs((char *)ap_info[i].ssid, stdout);
-    // Default
-    fputs("\033[39m", stdout);
-    // fputs("\t\t\t\t", stdout);
 
     // Pad out to 38 characters on screen
     size_t len = strlen((char *)ap_info[i].ssid);
@@ -2971,7 +2964,7 @@ void TerminalBasedWifiSetup()
   }
 
   // Green
-  fputs("\033[32mEnter the NUMBER of the Wifi network to connect to:\033[37m", stdout);
+  fputs("Enter the NUMBER of the Wifi network to connect to: ", stdout);
 
   bool result;
   char buffer[64];
@@ -2980,9 +2973,9 @@ void TerminalBasedWifiSetup()
   {
     int index = atoi(buffer);
     fputs("", stdout);
-    fputs("\033[32mEnter the password to use when connecting to '", stdout);
+    fputs("Enter the password to use when connecting to '", stdout);
     fputs((char *)ap_info[index].ssid, stdout);
-    fputs("':\033[37m", stdout);
+    fputs("':", stdout);
 
     result = CaptureSerialInput(buffer, sizeof(buffer), false, true);
 
@@ -3002,7 +2995,7 @@ void TerminalBasedWifiSetup()
   {
     char number[5];
     itoa(i, number, 10);
-    fputs("Rebooting In ", stdout);
+    fputs("Rebooting in ", stdout);
     fputs(number, stdout);
     fputs(" seconds\n", stdout);
     delay(1000);
