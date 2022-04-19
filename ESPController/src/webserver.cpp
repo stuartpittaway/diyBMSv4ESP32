@@ -333,7 +333,7 @@ void clearModuleValues(uint8_t module)
 
 extern "C" int log_output_redirector(const char * format, va_list args)
 {
-  size_t fd_count = 0;
+  size_t fd_count = CONFIG_LWIP_MAX_LISTENING_TCP;
   int client_fds[CONFIG_LWIP_MAX_LISTENING_TCP] = {0};
   httpd_ws_frame_t ws_pkt = {};
   char log_buffer[64];
