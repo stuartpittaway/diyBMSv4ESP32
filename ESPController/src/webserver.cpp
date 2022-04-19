@@ -2,6 +2,11 @@
 #define USE_ESP_IDF_LOG 1
 static constexpr const char * const TAG = "diybms-web";
 
+//Enable USE_WEBSOCKET_DEBUG_LOG to redirect console/debug serial port output
+//to a websocket stream, viewable in the browser DEBUG window/console.
+//Experimental feature
+//#define USE_WEBSOCKET_DEBUG_LOG
+
 #include "webserver.h"
 #include "webserver_helper_funcs.h"
 #include "webserver_json_requests.h"
@@ -301,12 +306,15 @@ esp_err_t get_root_handler(httpd_req_t *req)
   return ESP_OK;
 }
 
+#ifdef USE_WEBSOCKET_DEBUG_LOG
 // web socket handler
 static esp_err_t ws_handler(httpd_req_t *req)
 {
   // NO-OP
   return ESP_OK;
 }
+static const httpd_uri_t uri_ws_get = {.uri = "/ws", .method = HTTP_GET, .handler = ws_handler, .user_ctx = NULL, .is_websocket = true};
+#endif
 
 /* URI handler structure for GET /uri */
 static const httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
@@ -315,7 +323,6 @@ static const httpd_uri_t uri_api_get = {.uri = "/api/*", .method = HTTP_GET, .ha
 static const httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler = content_handler_downloadfile, .user_ctx = NULL};
 static const httpd_uri_t uri_save_data_post = {.uri = "/post/*", .method = HTTP_POST, .handler = save_data_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = NULL};
-static const httpd_uri_t uri_ws_get = {.uri = "/ws", .method = HTTP_GET, .handler = ws_handler, .user_ctx = NULL, .is_websocket = true};
 
 void clearModuleValues(uint8_t module)
 {
@@ -330,7 +337,7 @@ void clearModuleValues(uint8_t module)
   cmi[module].externalTemp = -40;
 }
 
-
+#ifdef USE_WEBSOCKET_DEBUG_LOG
 extern "C" int log_output_redirector(const char * format, va_list args)
 {
   size_t fd_count = CONFIG_LWIP_MAX_LISTENING_TCP;
@@ -381,6 +388,8 @@ extern "C" int log_output_redirector(const char * format, va_list args)
   }
   return format_len;
 }
+#endif
+
 
 /* Function for starting the webserver */
 httpd_handle_t start_webserver(void)
@@ -411,9 +420,11 @@ httpd_handle_t start_webserver(void)
     // Post services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_save_data_post));
 
+#ifdef USE_WEBSOCKET_DEBUG_LOG
     // Websocket
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_ws_get));
     esp_log_set_vprintf(log_output_redirector);
+#endif
 
     // Catch all - this must be last in the list
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_static_content_get));

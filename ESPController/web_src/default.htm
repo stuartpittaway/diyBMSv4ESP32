@@ -288,8 +288,8 @@
         <h1 id="ip1">Integration</h1>
         <p id="ip2">For security, you will need to re-enter the password for the service(s) you want to enable or
             modify, before you save.</p>
-            <p id="ip4">URI should be similar to mqtt://192.168.0.26:1833</p>
-            <div class="region">
+        <p id="ip4">URI should be similar to mqtt://192.168.0.26:1833</p>
+        <div class="region">
             <h2>MQTT</h2>
             <form id="mqttForm" method="POST" action="/post/savemqtt" autocomplete="off">
                 <div class="settings">
@@ -397,12 +397,15 @@
                 value of "X" means
                 don't care/leave at value defined by lower priority rules.</p>
             <p id="rt3">Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will
-                only disable when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing on/off rapidly.</p>
-            <p id="rt4">'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of minutes past
+                only disable when the value then passes the 'reset' value. This can help prevent relay clatter and rules
+                firing on/off rapidly.</p>
+            <p id="rt4">'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of
+                minutes past
                 midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch
                 on at 8:15am and off at 9:15am. This only works if connected to internet for regular time updates.</p>
             <p id="rt5">Minutes since midnight now is: <span id='minutesnow'></span></p>
-            <p id="rt6">Emergency stop is triggered by connector J1, once triggered controller needs to be reset to disable.</p>
+            <p id="rt6">Emergency stop is triggered by connector J1, once triggered controller needs to be reset to
+                disable.</p>
         </div>
         <div class="region">
             <form id="rulesForm" method="POST" action="/post/saverules" autocomplete="off">
@@ -1369,7 +1372,9 @@
                 ws.addEventListener('error', ws_closed);
                 ws.addEventListener('close', ws_closed);
             } catch (e) {
-                console.error('Failed to connect to diyBMS!');
+                console.warn(
+                    'Failed to connect to debug websocket, not an issue unless debug redirection is enabled.'
+                    );
             }
         });
     </script>
