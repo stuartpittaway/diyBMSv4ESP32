@@ -3086,7 +3086,7 @@ log_level_t log_levels[] =
         {.tag = "*", .level = ESP_LOG_DEBUG},
         {.tag = "wifi", .level = ESP_LOG_WARN},
         {.tag = "dhcpc", .level = ESP_LOG_WARN},
-        {.tag = "diybms", .level = ESP_LOG_INFO},
+        {.tag = "diybms", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-avrisp", .level = ESP_LOG_INFO},
         {.tag = "diybms-hal", .level = ESP_LOG_INFO},
         {.tag = "diybms-influxdb", .level = ESP_LOG_INFO},
@@ -3094,7 +3094,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-tx", .level = ESP_LOG_INFO},
         {.tag = "diybms-rules", .level = ESP_LOG_INFO},
         {.tag = "diybms-softap", .level = ESP_LOG_INFO},
-        {.tag = "diybms-tft", .level = ESP_LOG_DEBUG},
+        {.tag = "diybms-tft", .level = ESP_LOG_INFO},
         {.tag = "diybms-victron", .level = ESP_LOG_INFO},
         {.tag = "diybms-webfuncs", .level = ESP_LOG_INFO},
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
@@ -3271,7 +3271,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   // Only run these after we have wifi...
   xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-  xTaskCreate(rules_task, "rules", 2048, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+  xTaskCreate(rules_task, "rules", 3500, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
   xTaskCreate(periodic_task, "period", 3500, nullptr, 1, &periodic_task_handle);
 
   // Start the wifi and connect to access point
