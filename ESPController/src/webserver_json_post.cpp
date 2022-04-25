@@ -738,10 +738,10 @@ esp_err_t post_savecmbasic_json_handler(httpd_req_t *req, bool urlEncoded)
                 if (GetKeyValue(httpbuf, "cmfullchargevolt", &fullchargevolt, urlEncoded))
                 {
                     float tailcurrent = 0;
-                    if (GetKeyValue(httpbuf, "cmtailcurrent", &fullchargevolt, urlEncoded))
+                    if (GetKeyValue(httpbuf, "cmtailcurrent", &tailcurrent, urlEncoded))
                     {
                         float chargeefficiency = 0;
-                        if (GetKeyValue(httpbuf, "cmchargeefficiency", &fullchargevolt, urlEncoded))
+                        if (GetKeyValue(httpbuf, "cmchargeefficiency", &chargeefficiency, urlEncoded))
                         {
                             CurrentMonitorSetBasicSettings(shuntmv, shuntmaxcur, batterycapacity, fullchargevolt, tailcurrent, chargeefficiency);
                             return SendSuccess(req);
