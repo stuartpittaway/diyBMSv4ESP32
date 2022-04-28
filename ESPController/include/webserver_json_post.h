@@ -31,4 +31,5 @@ extern void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues
 extern void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues);
 extern void setCacheControl(httpd_req_t *req);
 extern wifi_eeprom_settings _wificonfig;
+extern void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char *server1);
 #endif

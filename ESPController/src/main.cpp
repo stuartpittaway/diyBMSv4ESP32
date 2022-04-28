@@ -1490,6 +1490,15 @@ void enqueue_task(void *param)
 //#define WIFI_FAIL_BIT BIT1
 static int s_retry_num = 0;
 
+void formatCurrentDateTime(char *buf, size_t buf_size)
+{
+  time_t now;
+  time(&now);
+  struct tm timeinfo;
+  localtime_r(&now, &timeinfo);
+  strftime(buf, buf_size, "%c", &timeinfo);
+}
+
 static void setTimeZone(long offset, int daylight)
 {
   char cst[17] = {0};
@@ -1518,10 +1527,15 @@ static void setTimeZone(long offset, int daylight)
   }
   sprintf(tz, "%s%s", cst, cdt);
   setenv("TZ", tz, 1);
+  ESP_LOGI(TAG, "Timezone=%s", tz);
   tzset();
+
+  char strftime_buf[64];
+  formatCurrentDateTime(strftime_buf, sizeof(strftime_buf));
+  ESP_LOGI(TAG, "The current date/time is: %s", strftime_buf);
 }
 
-static void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char *server1)
+void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char *server1)
 {
   ESP_LOGI(TAG, "Request time from %s", server1);
 
@@ -1612,7 +1626,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     s_retry_num = 0;
     // xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
-    configureSNTP(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight * 3600, mysettings.ntpServer);
+    configureSNTP(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight ? 3600 : 0, mysettings.ntpServer);
 
     if (!server_running)
     {
@@ -3097,7 +3111,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-tft", .level = ESP_LOG_INFO},
         {.tag = "diybms-victron", .level = ESP_LOG_INFO},
         {.tag = "diybms-webfuncs", .level = ESP_LOG_INFO},
-        {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
+        {.tag = "diybms-webpost", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO}};
@@ -3160,7 +3174,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   // Touch is on VSPI bus
   _tft_screen_available = hal.IsScreenAttached();
   SetControllerState(ControllerState::PowerUp);
-  //hal.ConfigureVSPI();
+  // hal.ConfigureVSPI();
   init_tft_display();
   hal.Led(0);
 

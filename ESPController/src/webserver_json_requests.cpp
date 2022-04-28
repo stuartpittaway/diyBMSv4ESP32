@@ -179,8 +179,8 @@ esp_err_t content_handler_storage(httpd_req_t *req)
 
   if (_avrsettings.programmingModeEnabled)
   {
-    //If programming mode is enabled, don't read SD card as the VSPI bus may be in use.
-    //We can still return the remaining data/LittleFS stuff..
+    // If programming mode is enabled, don't read SD card as the VSPI bus may be in use.
+    // We can still return the remaining data/LittleFS stuff..
     available = false;
   }
 
@@ -527,7 +527,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
 {
   int bufferused = 0;
 
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(3000);
   JsonObject root = doc.to<JsonObject>();
 
   struct tm timeinfo;
@@ -554,6 +554,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
       defaultArray.add(true);
       break;
     default:
+      // Null value
       defaultArray.add((char *)0);
       break;
     }
@@ -597,6 +598,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
         data.add(true);
         break;
       default:
+      //Null
         data.add((char *)0);
         break;
       }
@@ -642,6 +644,11 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   {
     settings["now"] = now;
   }
+
+  char strftime_buf[64];
+  formatCurrentDateTime(strftime_buf,sizeof(strftime_buf));
+  settings["datetime"]= String(strftime_buf);
+
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 

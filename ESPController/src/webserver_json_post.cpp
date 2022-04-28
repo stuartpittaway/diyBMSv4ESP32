@@ -69,6 +69,8 @@ esp_err_t post_saventp_json_handler(httpd_req_t *req, bool urlEncoded)
 
     saveConfiguration();
 
+    configureSNTP(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight ? 3600 : 0, mysettings.ntpServer);
+
     return SendSuccess(req);
 }
 
@@ -806,18 +808,18 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 
     int bufferused = 0;
 
-/*
-    if (_sd_card_installed)
-    {
-        httpd_resp_set_type(req, "application/json");
-        setNoStoreCacheControl(req);
+    /*
+        if (_sd_card_installed)
+        {
+            httpd_resp_set_type(req, "application/json");
+            setNoStoreCacheControl(req);
 
-        doc["message"] = "Failed: Unable to program AVR whilst SD Card is mounted";
-        bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+            doc["message"] = "Failed: Unable to program AVR whilst SD Card is mounted";
+            bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
-        return httpd_resp_send(req, httpbuf, bufferused);
-    }
-    */
+            return httpd_resp_send(req, httpbuf, bufferused);
+        }
+        */
 
     if (!_avrsettings.programmingModeEnabled)
     {
@@ -929,14 +931,16 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     char textBuffer[32];
 
+    char keyBuffer[32];
+
     // relaytype
     for (int i = 0; i < RELAY_TOTAL; i++)
     {
-        String name = "relaytype";
-        name = name + (i + 1);
+        snprintf(keyBuffer, sizeof(keyBuffer), "relaytype%i", (i + 1));
 
-        if (GetTextFromKeyValue(httpbuf, name.c_str(), textBuffer, sizeof(textBuffer), urlEncoded))
+        if (GetTextFromKeyValue(httpbuf, keyBuffer, textBuffer, sizeof(textBuffer), urlEncoded))
         {
+            ESP_LOGD(TAG, "%s=%s", keyBuffer, textBuffer);
 
             // Default
             RelayType oldValue = mysettings.relaytype[i];
@@ -961,10 +965,12 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
     // Relay default
     for (int i = 0; i < RELAY_TOTAL; i++)
     {
-        String name = "defaultrelay";
-        name = name + (i + 1);
-        if (GetTextFromKeyValue(httpbuf, name.c_str(), textBuffer, sizeof(textBuffer), urlEncoded))
+        snprintf(keyBuffer, sizeof(keyBuffer), "defaultrelay%i", (i + 1));
+
+        if (GetTextFromKeyValue(httpbuf, keyBuffer, textBuffer, sizeof(textBuffer), urlEncoded))
         {
+            ESP_LOGD(TAG, "%s=%s", keyBuffer, textBuffer);
+
             // Default
             mysettings.rulerelaydefault[i] = RelayState::RELAY_OFF;
             if (strcmp(textBuffer, "On") == 0)
@@ -976,35 +982,32 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
 
     for (int rule = 0; rule < RELAY_RULES; rule++)
     {
+        snprintf(keyBuffer, sizeof(keyBuffer), "rule%ivalue", rule);
 
-        // TODO: This STRING doesnt work properly if its on a single line!
-        String name = "rule";
-        name = name + (rule);
-        name = name + "value";
-
-        if (GetKeyValue(httpbuf, name.c_str(), &mysettings.rulevalue[rule], urlEncoded))
+        uint32_t tempuint32;
+        if (GetKeyValue(httpbuf, keyBuffer, &tempuint32, urlEncoded))
         {
+            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempuint32);
+
+            mysettings.rulevalue[rule] = tempuint32;
         }
 
-        // TODO: This STRING doesnt work properly if its on a single line!
-        String hname = "rule";
-        hname = hname + (rule);
-        hname = hname + "hysteresis";
-        if (GetKeyValue(httpbuf, name.c_str(), &mysettings.rulehysteresis[rule], urlEncoded))
+        snprintf(keyBuffer, sizeof(keyBuffer), "rule%ihysteresis", rule);
+        if (GetKeyValue(httpbuf, keyBuffer, &tempuint32, urlEncoded))
         {
+            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempuint32);
+
+            mysettings.rulehysteresis[rule] = tempuint32;
         }
 
         // Rule/relay processing
         for (int i = 0; i < RELAY_TOTAL; i++)
         {
-            // TODO: This STRING doesnt work properly if its on a single line!
-            String name = "rule";
-            name = name + (rule);
-            name = name + "relay";
-            name = name + (i + 1);
+            snprintf(keyBuffer, sizeof(keyBuffer), "rule%irelay%i", rule, (i + 1));
 
-            if (GetTextFromKeyValue(httpbuf, name.c_str(), textBuffer, sizeof(textBuffer), urlEncoded))
+            if (GetTextFromKeyValue(httpbuf, keyBuffer, textBuffer, sizeof(textBuffer), urlEncoded))
             {
+                ESP_LOGD(TAG, "%s=%s", keyBuffer, textBuffer);
                 mysettings.rulerelaystate[rule][i] = strcmp(textBuffer, "X") == 0 ? RELAY_X : strcmp(textBuffer, "On") == 0 ? RelayState::RELAY_ON
                                                                                                                             : RelayState::RELAY_OFF;
             }

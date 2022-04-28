@@ -38,6 +38,7 @@ extern uint32_t canbus_messages_failed_sent;
 extern void sdcardaction_callback(uint8_t action);
 extern Rules rules;
 extern ControllerState _controller_state;
+extern void formatCurrentDateTime(char* buf, size_t buf_size);
 
 extern void setNoStoreCacheControl(httpd_req_t *req);
 extern char CookieValue[20 + 1];
