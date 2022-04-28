@@ -3111,7 +3111,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-tft", .level = ESP_LOG_INFO},
         {.tag = "diybms-victron", .level = ESP_LOG_INFO},
         {.tag = "diybms-webfuncs", .level = ESP_LOG_INFO},
-        {.tag = "diybms-webpost", .level = ESP_LOG_DEBUG},
+        {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO}};
