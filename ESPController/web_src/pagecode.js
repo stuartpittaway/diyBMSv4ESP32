@@ -1086,8 +1086,7 @@ $(function () {
                 $("#NTPZoneMin").val(data.settings.MinutesTimeZone);
                 $("#NTPDST").prop("checked", data.settings.DST);
 
-                var d = new Date(1000 * data.settings.now);
-                $("#timenow").html(d.toJSON());
+                $("#timenow").html(data.settings.datetime);
 
                 $("#totalSeriesModules").val(data.settings.totalseriesmodules);
                 $("#totalBanks").val(data.settings.totalnumberofbanks);
