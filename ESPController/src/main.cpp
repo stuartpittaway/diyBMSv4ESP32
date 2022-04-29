@@ -2566,6 +2566,128 @@ void rs485_tx(void *param)
   }
 }
 
+void DefaultConfiguration(diybms_eeprom_settings *_myset)
+{
+  ESP_LOGI(TAG, "Apply default config");
+
+  // Zero all the bytes
+  memset(_myset, 0, sizeof(diybms_eeprom_settings));
+
+  // Default to a single module
+  _myset->totalNumberOfBanks = 1;
+  _myset->totalNumberOfSeriesModules = 1;
+  // Default serial port speed
+  _myset->baudRate = COMMS_BAUD_RATE;
+  _myset->BypassOverTempShutdown = 65;
+  _myset->interpacketgap = 6000;
+  // 4.10V bypass
+  _myset->BypassThresholdmV = 4100;
+  _myset->graph_voltagehigh = 4.5;
+  _myset->graph_voltagelow = 2.75;
+
+  // EEPROM settings are invalid so default configuration
+  _myset->mqtt_enabled = false;
+
+  _myset->VictronEnabled = false;
+
+  // Charge current limit (CCL)
+  _myset->ccl[VictronDVCC::Default] = 10 * 10;
+  // Charge voltage limit (CVL)
+  _myset->cvl[VictronDVCC::Default] = 12 * 10;
+  // Discharge current limit (DCL)
+  _myset->dcl[VictronDVCC::Default] = 10 * 10;
+
+  // Balance
+  _myset->ccl[VictronDVCC::Balance] = 10 * 10;
+  _myset->cvl[VictronDVCC::Balance] = 10 * 10;
+  _myset->dcl[VictronDVCC::Balance] = 10 * 10;
+  // Error
+  _myset->ccl[VictronDVCC::ControllerError] = 0 * 10;
+  _myset->cvl[VictronDVCC::ControllerError] = 0 * 10;
+  _myset->dcl[VictronDVCC::ControllerError] = 0 * 10;
+
+  _myset->loggingEnabled = false;
+  _myset->loggingFrequencySeconds = 15;
+
+  _myset->currentMonitoringEnabled = false;
+  _myset->currentMonitoringModBusAddress = 90;
+  _myset->currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
+
+  _myset->rs485baudrate = 19200;
+  _myset->rs485databits = uart_word_length_t::UART_DATA_8_BITS;
+  _myset->rs485parity = uart_parity_t::UART_PARITY_DISABLE;
+  _myset->rs485stopbits = uart_stop_bits_t::UART_STOP_BITS_1;
+
+  _myset->currentMonitoringEnabled = false;
+
+  strcpy(_myset->language, "en");
+
+  // Default to EMONPI default MQTT settings
+  strcpy(_myset->mqtt_topic, "emon/diybms");
+  strcpy(_myset->mqtt_uri, "mqtt://192.168.0.26:1883");
+  strcpy(_myset->mqtt_username, "emonpi");
+  strcpy(_myset->mqtt_password, "emonpimqtt2016");
+
+  _myset->influxdb_enabled = false;
+  strcpy(_myset->influxdb_serverurl, "http://192.168.0.49:8086/api/v2/write");
+  strcpy(_myset->influxdb_databasebucket, "bucketname");
+  strcpy(_myset->influxdb_orgid, "organisation");
+  _myset->influxdb_loggingFreqSeconds = 15;
+
+  _myset->timeZone = 0;
+  _myset->minutesTimeZone = 0;
+  _myset->daylight = false;
+  strcpy(_myset->ntpServer, "time.google.com");
+
+  for (size_t x = 0; x < RELAY_TOTAL; x++)
+  {
+    _myset->rulerelaydefault[x] = RELAY_OFF;
+  }
+
+  // Emergency stop
+  _myset->rulevalue[Rule::EmergencyStop] = 0;
+  // Internal BMS error (communication issues, fault readings from modules etc)
+  _myset->rulevalue[Rule::BMSError] = 0;
+  // Current monitoring maximum AMPS
+  _myset->rulevalue[Rule::CurrentMonitorOverCurrentAmps] = 100;
+  // Individual cell over voltage
+  _myset->rulevalue[Rule::ModuleOverVoltage] = 4150;
+  // Individual cell under voltage
+  _myset->rulevalue[Rule::ModuleUnderVoltage] = 3000;
+  // Individual cell over temperature (external probe)
+  _myset->rulevalue[Rule::ModuleOverTemperatureExternal] = 55;
+  // Pack over voltage (mV)
+  _myset->rulevalue[Rule::ModuleUnderTemperatureExternal] = 5;
+  // Pack under voltage (mV)
+  _myset->rulevalue[Rule::BankOverVoltage] = 4200 * 8;
+  // RULE_PackUnderVoltage
+  _myset->rulevalue[Rule::BankUnderVoltage] = 3000 * 8;
+  _myset->rulevalue[Rule::Timer1] = 60 * 8;  // 8am
+  _myset->rulevalue[Rule::Timer2] = 60 * 17; // 5pm
+
+  _myset->rulevalue[Rule::ModuleOverTemperatureInternal] = 60;
+  _myset->rulevalue[Rule::ModuleUnderTemperatureInternal] = 5;
+
+  _myset->rulevalue[Rule::CurrentMonitorOverVoltage] = 4200 * 8;
+  _myset->rulevalue[Rule::CurrentMonitorUnderVoltage] = 3000 * 8;
+
+  for (size_t i = 0; i < RELAY_RULES; i++)
+  {
+    _myset->rulehysteresis[i] = _myset->rulevalue[i];
+
+    // Set all relays to don't care
+    for (size_t x = 0; x < RELAY_TOTAL; x++)
+    {
+      _myset->rulerelaystate[i][x] = RELAY_X;
+    }
+  }
+
+  for (size_t x = 0; x < RELAY_TOTAL; x++)
+  {
+    _myset->relaytype[x] = RELAY_STANDARD;
+  }
+}
+
 void LoadConfiguration()
 {
   ESP_LOGI(TAG, "Fetch config");
@@ -2573,124 +2695,7 @@ void LoadConfiguration()
   if (Settings::ReadConfig("diybms", (char *)&mysettings, sizeof(mysettings)))
     return;
 
-  ESP_LOGI(TAG, "Apply default config");
-
-  // Zero all the bytes
-  memset(&mysettings, 0, sizeof(mysettings));
-
-  // Default to a single module
-  mysettings.totalNumberOfBanks = 1;
-  mysettings.totalNumberOfSeriesModules = 1;
-  // Default serial port speed
-  mysettings.baudRate = COMMS_BAUD_RATE;
-  mysettings.BypassOverTempShutdown = 65;
-  mysettings.interpacketgap = 6000;
-  // 4.10V bypass
-  mysettings.BypassThresholdmV = 4100;
-  mysettings.graph_voltagehigh = 4.5;
-  mysettings.graph_voltagelow = 2.75;
-
-  // EEPROM settings are invalid so default configuration
-  mysettings.mqtt_enabled = false;
-
-  mysettings.VictronEnabled = false;
-
-  // Charge current limit (CCL)
-  mysettings.ccl[VictronDVCC::Default] = 10 * 10;
-  // Charge voltage limit (CVL)
-  mysettings.cvl[VictronDVCC::Default] = 12 * 10;
-  // Discharge current limit (DCL)
-  mysettings.dcl[VictronDVCC::Default] = 10 * 10;
-
-  // Balance
-  mysettings.ccl[VictronDVCC::Balance] = 10 * 10;
-  mysettings.cvl[VictronDVCC::Balance] = 10 * 10;
-  mysettings.dcl[VictronDVCC::Balance] = 10 * 10;
-  // Error
-  mysettings.ccl[VictronDVCC::ControllerError] = 0 * 10;
-  mysettings.cvl[VictronDVCC::ControllerError] = 0 * 10;
-  mysettings.dcl[VictronDVCC::ControllerError] = 0 * 10;
-
-  mysettings.loggingEnabled = false;
-  mysettings.loggingFrequencySeconds = 15;
-
-  mysettings.currentMonitoringEnabled = false;
-  mysettings.currentMonitoringModBusAddress = 90;
-  mysettings.currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
-
-  mysettings.rs485baudrate = 19200;
-  mysettings.rs485databits = uart_word_length_t::UART_DATA_8_BITS;
-  mysettings.rs485parity = uart_parity_t::UART_PARITY_DISABLE;
-  mysettings.rs485stopbits = uart_stop_bits_t::UART_STOP_BITS_1;
-
-  mysettings.currentMonitoringEnabled = false;
-
-  strcpy(mysettings.language, "en");
-
-  // Default to EMONPI default MQTT settings
-  strcpy(mysettings.mqtt_topic, "emon/diybms");
-  strcpy(mysettings.mqtt_uri, "mqtt://192.168.0.26:1883");
-  strcpy(mysettings.mqtt_username, "emonpi");
-  strcpy(mysettings.mqtt_password, "emonpimqtt2016");
-
-  mysettings.influxdb_enabled = false;
-  strcpy(mysettings.influxdb_serverurl, "http://192.168.0.49:8086/api/v2/write");
-  strcpy(mysettings.influxdb_databasebucket, "bucketname");
-  strcpy(mysettings.influxdb_orgid, "organisation");
-  mysettings.influxdb_loggingFreqSeconds = 15;
-
-  mysettings.timeZone = 0;
-  mysettings.minutesTimeZone = 0;
-  mysettings.daylight = false;
-  strcpy(mysettings.ntpServer, "time.google.com");
-
-  for (size_t x = 0; x < RELAY_TOTAL; x++)
-  {
-    mysettings.rulerelaydefault[x] = RELAY_OFF;
-  }
-
-  // Emergency stop
-  mysettings.rulevalue[Rule::EmergencyStop] = 0;
-  // Internal BMS error (communication issues, fault readings from modules etc)
-  mysettings.rulevalue[Rule::BMSError] = 0;
-  // Current monitoring maximum AMPS
-  mysettings.rulevalue[Rule::CurrentMonitorOverCurrentAmps] = 100;
-  // Individual cell over voltage
-  mysettings.rulevalue[Rule::ModuleOverVoltage] = 4150;
-  // Individual cell under voltage
-  mysettings.rulevalue[Rule::ModuleUnderVoltage] = 3000;
-  // Individual cell over temperature (external probe)
-  mysettings.rulevalue[Rule::ModuleOverTemperatureExternal] = 55;
-  // Pack over voltage (mV)
-  mysettings.rulevalue[Rule::ModuleUnderTemperatureExternal] = 5;
-  // Pack under voltage (mV)
-  mysettings.rulevalue[Rule::BankOverVoltage] = 4200 * 8;
-  // RULE_PackUnderVoltage
-  mysettings.rulevalue[Rule::BankUnderVoltage] = 3000 * 8;
-  mysettings.rulevalue[Rule::Timer1] = 60 * 8;  // 8am
-  mysettings.rulevalue[Rule::Timer2] = 60 * 17; // 5pm
-
-  mysettings.rulevalue[Rule::ModuleOverTemperatureInternal] = 60;
-  mysettings.rulevalue[Rule::ModuleUnderTemperatureInternal] = 5;
-
-  mysettings.rulevalue[Rule::CurrentMonitorOverVoltage] = 4200 * 8;
-  mysettings.rulevalue[Rule::CurrentMonitorUnderVoltage] = 3000 * 8;
-
-  for (size_t i = 0; i < RELAY_RULES; i++)
-  {
-    mysettings.rulehysteresis[i] = mysettings.rulevalue[i];
-
-    // Set all relays to don't care
-    for (size_t x = 0; x < RELAY_TOTAL; x++)
-    {
-      mysettings.rulerelaystate[i][x] = RELAY_X;
-    }
-  }
-
-  for (size_t x = 0; x < RELAY_TOTAL; x++)
-  {
-    mysettings.relaytype[x] = RELAY_STANDARD;
-  }
+  DefaultConfiguration(&mysettings);
 }
 
 void periodic_task(void *param)

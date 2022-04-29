@@ -5,7 +5,10 @@
 
 #include "defines.h"
 
-//Needs to match the ordering on the HTML screen
+// Needs to match the ordering on the HTML screen
+// You also need to update "RuleTextDescription"
+// Define a max constant for the highest value (change if you add more rules)
+#define MAXIMUM_RuleNumber 14
 enum Rule : uint8_t
 {
     EmergencyStop = 0,
@@ -25,7 +28,7 @@ enum Rule : uint8_t
     Timer1 = 14
 };
 
-//Define a max constant for the highest value (change if you add more warnings)
+// Define a max constant for the highest value (change if you add more warnings)
 #define MAXIMUM_InternalWarningCode 6
 enum InternalWarningCode : uint8_t
 {
@@ -35,10 +38,10 @@ enum InternalWarningCode : uint8_t
     ModuleInconsistantCodeVersion = 3,
     ModuleInconsistantBoardRevision = 4,
     LoggingEnabledNoSDCard = 5,
-    AVRProgrammingMode =6
+    AVRProgrammingMode = 6
 };
 
-//Define a max constant for the highest value (change if you add more errors)
+// Define a max constant for the highest value (change if you add more errors)
 #define MAXIMUM_InternalErrorCode 7
 enum InternalErrorCode : uint8_t
 {
@@ -49,7 +52,7 @@ enum InternalErrorCode : uint8_t
     WaitingForModulesToReply = 4,
     ZeroVoltModule = 5,
     ControllerMemoryError = 6,
-    ErrorEmergencyStop =7
+    ErrorEmergencyStop = 7
 };
 
 class Rules
@@ -57,7 +60,7 @@ class Rules
 
 public:
     bool rule_outcome[RELAY_RULES];
-    //Number of TRUE values in array rule_outcome
+    // Number of TRUE values in array rule_outcome
     uint8_t active_rule_count;
 
     uint32_t packvoltage[maximum_number_of_banks];
@@ -71,8 +74,8 @@ public:
     uint32_t lowestPackVoltage;
     uint16_t highestCellVoltage;
     uint16_t lowestCellVoltage;
-    
-    //Identify address (id) of which module reports the highest/lowest values
+
+    // Identify address (id) of which module reports the highest/lowest values
     uint8_t address_HighestCellVoltage;
     uint8_t address_LowestCellVoltage;
     uint8_t address_highestExternalTemp;
@@ -82,14 +85,14 @@ public:
     int8_t lowestExternalTemp;
     int8_t highestInternalTemp;
     int8_t lowestInternalTemp;
-    
+
     InternalErrorCode ErrorCodes[1 + MAXIMUM_InternalErrorCode];
     InternalWarningCode WarningCodes[1 + MAXIMUM_InternalWarningCode];
 
-    //True if at least 1 module has an external temp sensor fitted
+    // True if at least 1 module has an external temp sensor fitted
     bool moduleHasExternalTempSensor;
 
-    //Number of modules which have not yet reported back to the controller
+    // Number of modules which have not yet reported back to the controller
     uint8_t invalidModuleCount;
 
     int8_t numberOfActiveErrors;
@@ -119,7 +122,7 @@ public:
         uint32_t *value,
         uint32_t *hysteresisvalue,
         bool emergencyStop,
-        uint16_t mins,currentmonitoring_struct *currentMonitor);
+        uint16_t mins, currentmonitoring_struct *currentMonitor);
 };
 
 #endif

@@ -400,7 +400,7 @@ httpd_handle_t start_webserver(void)
   config.max_uri_handlers = 8;
   config.max_open_sockets = 5;
   config.max_resp_headers = 16;
-  config.stack_size = 4096;
+  config.stack_size = 5000;
   config.uri_match_fn = httpd_uri_match_wildcard;
 
   /* Empty handle to esp_http_server */

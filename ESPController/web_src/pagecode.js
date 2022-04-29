@@ -50,6 +50,26 @@ function identifyModule(button, cellid) {
     $.getJSON("/api/identifyModule", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
 
+function restoreconfig(filename) {
+    let isConfirmed = confirm("Are you sure you wish to restore '"+filename+"' configuration file?");
+
+    if (isConfirmed) {
+
+        $.ajax({
+            type: 'POST',
+            url: '/post/restoreconfig',
+            data: $.param({ filename: filename }),
+            success: function (data) {
+                location.reload();
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+
+    }
+}
+
 function refreshCurrentMonitorValues() {
     $.getJSON("/api/currentmonitor",
         function (data) {
@@ -1503,7 +1523,11 @@ $(function () {
                 if (data.storage.sdcard.files) {
                     $.each(data.storage.sdcard.files, function (index, value) {
                         if (value != null) {
-                            $("#sdcardfiles").append("<li><a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a></li>");
+                            link="<a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a>";
+                            if (value.startsWith("backup_config_")) {
+                                link+="<button class='small' onclick='restoreconfig(\"" + encodeURI(value) + "\")'>Restore</button>";                            
+                            }
+                            $("#sdcardfiles").append("<li>"+link+"</li>");
                         }
                     });
                 }

@@ -3,6 +3,26 @@ static constexpr const char * const TAG = "diybms-rules";
 
 #include "Rules.h"
 
+
+// Its critical these are in the same order as "enum Rule", and occupy the same index position
+const char *RuleTextDescription[] = {
+    "EmergencyStop",
+    "BMSError",
+    "CurrentMonitorOverCurrentAmps",
+    "ModuleOverVoltage",
+    "ModuleUnderVoltage",
+    "ModuleOverTemperatureInternal",
+    "ModuleUnderTemperatureInternal",
+    "ModuleOverTemperatureExternal",
+    "ModuleUnderTemperatureExternal",
+    "CurrentMonitorOverVoltage",
+    "CurrentMonitorUnderVoltage",
+    "BankOverVoltage",
+    "BankUnderVoltage",
+    "Timer2",
+    "Timer1"};
+
+
 void Rules::ClearValues()
 {
     //Array to hold the total voltage of each bank/pack (in millivolts)

@@ -295,57 +295,18 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
         JsonObject rules = root.createNestedObject("rules");
         for (uint8_t rr = 0; rr < RELAY_RULES; rr++)
         {
+            // This is a default "catch all"
             String elementName = String("rule") + String(rr);
 
-            // Map enum to string so when this file is re-imported we are not locked to specific index offsets
-            // which may no longer map to the correct rule
-            switch (rr)
+            if (rr >= 0 && rr <= MAXIMUM_RuleNumber)
             {
-            case Rule::EmergencyStop:
-                elementName = String("EmergencyStop");
-                break;
-            case Rule::BMSError:
-                elementName = String("BMSError");
-                break;
-            case Rule::CurrentMonitorOverCurrentAmps:
-                elementName = String("CurrentMonitorOverCurrentAmps");
-                break;
-            case Rule::ModuleOverVoltage:
-                elementName = String("ModuleOverVoltage");
-                break;
-            case Rule::ModuleUnderVoltage:
-                elementName = String("ModuleUnderVoltage");
-                break;
-            case Rule::ModuleOverTemperatureInternal:
-                elementName = String("ModuleOverTemperatureInternal");
-                break;
-            case Rule::ModuleUnderTemperatureInternal:
-                elementName = String("ModuleUnderTemperatureInternal");
-                break;
-            case Rule::ModuleOverTemperatureExternal:
-                elementName = String("ModuleOverTemperatureExternal");
-                break;
-            case Rule::ModuleUnderTemperatureExternal:
-                elementName = String("ModuleUnderTemperatureExternal");
-                break;
-            case Rule::CurrentMonitorOverVoltage:
-                elementName = String("CurrentMonitorOverVoltage");
-                break;
-            case Rule::CurrentMonitorUnderVoltage:
-                elementName = String("CurrentMonitorUnderVoltage");
-                break;
-            case Rule::BankOverVoltage:
-                elementName = String("BankOverVoltage");
-                break;
-            case Rule::BankUnderVoltage:
-                elementName = String("BankUnderVoltage");
-                break;
-            case Rule::Timer2:
-                elementName = String("Timer2");
-                break;
-            case Rule::Timer1:
-                elementName = String("Timer1");
-                break;
+                // Map enum to string so when this file is re-imported we are not locked to specific index offsets
+                // which may no longer map to the correct rule
+                elementName = String(RuleTextDescription[rr]);
+            }
+            else
+            {
+                ESP_LOGE(TAG, "Loop outside bounds of MAXIMUM_RuleNumber");
             }
 
             JsonObject state = rules.createNestedObject(elementName);
@@ -1025,9 +986,261 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendSuccess(req);
 }
 
+esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    bool success = false;
+
+    if (!_sd_card_installed)
+    {
+        return SendFailure(req);
+    }
+
+    if (_avrsettings.programmingModeEnabled)
+    {
+        return SendFailure(req);
+    }
+
+    char filename[128];
+    //Prepend "/"
+    strcpy(filename, "/");
+
+    if (!GetTextFromKeyValue(httpbuf, "filename", &filename[1], sizeof(filename) - 1, urlEncoded))
+    {
+        ESP_LOGE(TAG, "Unable to decode filename");
+        return SendFailure(req);
+    }
+
+    if (hal.GetVSPIMutex())
+    {
+
+        if (SD.exists(filename))
+        {
+            ESP_LOGI(TAG, "Restore configuration from %s", filename);
+
+            DynamicJsonDocument doc(4096);
+
+            File file = SD.open(filename, "r");
+
+            // Deserialize the JSON document
+            DeserializationError error = deserializeJson(doc, file);
+            if (error)
+            {
+                ESP_LOGE(TAG, "Deserialization Error");
+            }
+            else
+            {
+                // Restore the config...
+                JsonObject root = doc["diybms_settings"];
+
+                diybms_eeprom_settings myset;
+
+                DefaultConfiguration(&myset);
+
+                myset.totalNumberOfBanks = root["totalNumberOfBanks"];
+                myset.totalNumberOfSeriesModules = root["totalNumberOfSeriesModules"];
+                myset.baudRate = root["baudRate"];
+                myset.interpacketgap = root["interpacketgap"];
+
+                myset.graph_voltagehigh = root["graph_voltagehigh"];
+                myset.graph_voltagelow = root["graph_voltagelow"];
+
+                myset.BypassOverTempShutdown = root["BypassOverTempShutdown"];
+                myset.BypassThresholdmV = root["BypassThresholdmV"];
+
+                myset.timeZone = root["timeZone"];
+                myset.minutesTimeZone = root["minutesTimeZone"];
+                myset.daylight = root["daylight"];
+                strncpy(myset.ntpServer, root["ntpServer"].as<String>().c_str(), sizeof(myset.ntpServer));
+
+                myset.loggingEnabled = root["loggingEnabled"];
+                myset.loggingFrequencySeconds = root["loggingFrequencySeconds"];
+
+                myset.currentMonitoringEnabled = root["currentMonitoringEnabled"];
+                myset.currentMonitoringModBusAddress = root["currentMonitoringModBusAddress"];
+
+                myset.rs485baudrate = root["rs485baudrate"];
+                myset.rs485databits = root["rs485databits"];
+                myset.rs485parity = root["rs485parity"];
+                myset.rs485stopbits = root["rs485stopbits"];
+
+                strncpy(myset.language, root["language"].as<String>().c_str(), sizeof(myset.language));
+
+                myset.VictronEnabled = root["VictronEnabled"];
+
+                JsonObject mqtt = root["mqtt"];
+                if (!mqtt.isNull())
+                {
+                    myset.mqtt_enabled = mqtt["enabled"];
+                    strncpy(myset.mqtt_uri, mqtt["uri"].as<String>().c_str(), sizeof(myset.mqtt_uri));
+                    strncpy(myset.mqtt_topic, mqtt["topic"].as<String>().c_str(), sizeof(myset.mqtt_topic));
+                    strncpy(myset.mqtt_username, mqtt["username"].as<String>().c_str(), sizeof(myset.mqtt_username));
+                    strncpy(myset.mqtt_password, mqtt["password"].as<String>().c_str(), sizeof(myset.mqtt_password));
+                }
+
+                JsonObject influxdb = root["influxdb"];
+                if (!influxdb.isNull())
+                {
+                    myset.influxdb_enabled = influxdb["enabled"];
+                    strncpy(myset.influxdb_apitoken, influxdb["apitoken"].as<String>().c_str(), sizeof(myset.influxdb_apitoken));
+                    strncpy(myset.influxdb_databasebucket, influxdb["bucket"].as<String>().c_str(), sizeof(myset.influxdb_databasebucket));
+                    strncpy(myset.influxdb_orgid, influxdb["org"].as<String>().c_str(), sizeof(myset.influxdb_orgid));
+                    strncpy(myset.influxdb_serverurl, influxdb["url"].as<String>().c_str(), sizeof(myset.influxdb_serverurl));
+                    myset.influxdb_loggingFreqSeconds = influxdb["logfreq"];
+                }
+
+                JsonObject outputs = root["outputs"];
+                if (!outputs.isNull())
+                {
+                    JsonArray d = outputs["default"].as<JsonArray>();
+
+                    uint8_t i = 0;
+                    for (JsonVariant v : d)
+                    {
+                        myset.rulerelaydefault[i] = (RelayState)v.as<uint8_t>();
+
+                        // ESP_LOGI(TAG, "relay default %u=%u", i, myset.rulerelaydefault[i]);
+
+                        i++;
+
+                        if (i > RELAY_TOTAL)
+                        {
+                            break;
+                        }
+                    }
+
+                    JsonArray t = outputs["type"].as<JsonArray>();
+                    i = 0;
+                    for (JsonVariant v : t)
+                    {
+                        myset.relaytype[i] = (RelayType)v.as<uint8_t>();
+                        // ESP_LOGI(TAG, "relay type %u=%u", i, myset.relaytype[i]);
+                        i++;
+                        if (i > RELAY_TOTAL)
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                JsonObject rules = root["rules"];
+                if (!rules.isNull())
+                {
+                    for (JsonPair kv : rules)
+                    {
+                        char key[64];
+                        strncpy(key, kv.key().c_str(), sizeof(key));
+                        ESP_LOGI(TAG, "rule %s", key);
+
+                        for (size_t rulenumber = 0; rulenumber < MAXIMUM_RuleNumber; rulenumber++)
+                        {
+                            if (strcmp(RuleTextDescription[rulenumber], key) == 0)
+                            {
+                                ESP_LOGI(TAG, "Matched to rule %u", rulenumber);
+                                JsonVariant v = kv.value();
+
+                                myset.rulevalue[rulenumber] = v["value"].as<uint32_t>();
+                                // ESP_LOGI(TAG, "value=%u", myset.rulevalue[rulenumber]);
+
+                                myset.rulehysteresis[rulenumber] = v["hysteresis"].as<uint32_t>();
+                                // ESP_LOGI(TAG, "hysteresis=%u", myset.rulehysteresis[rulenumber]);
+
+                                JsonArray states = v["state"].as<JsonArray>();
+
+                                uint8_t i = 0;
+                                for (JsonVariant v : states)
+                                {
+                                    myset.rulerelaystate[rulenumber][i] = (RelayState)v.as<uint8_t>();
+                                    // ESP_LOGI(TAG, "rulerelaystate %u", myset.rulerelaystate[rulenumber][i]);
+                                    i++;
+                                    if (i > RELAY_TOTAL)
+                                    {
+                                        break;
+                                    }
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Victron
+                JsonObject victron = root["victron"];
+                if (!victron.isNull())
+                {
+
+                    JsonArray cvl = victron["cvl"].as<JsonArray>();
+
+                    uint8_t i = 0;
+                    for (JsonVariant v : cvl)
+                    {
+                        myset.cvl[i] = v.as<uint16_t>();
+                        ESP_LOGI(TAG, "cvl %u %u", i, myset.cvl[i]);
+                        i++;
+                        if (i > 3)
+                        {
+                            break;
+                        }
+                    }
+
+                    JsonArray ccl = victron["ccl"].as<JsonArray>();
+
+                    i = 0;
+                    for (JsonVariant v : ccl)
+                    {
+                        myset.ccl[i] = v.as<uint16_t>();
+                        ESP_LOGI(TAG, "ccl %u %u", i, myset.ccl[i]);
+                        i++;
+                        if (i > 3)
+                        {
+                            break;
+                        }
+                    }
+
+                    JsonArray dcl = victron["dcl"].as<JsonArray>();
+
+                    i = 0;
+                    for (JsonVariant v : dcl)
+                    {
+                        myset.dcl[i] = v.as<uint16_t>();
+                        ESP_LOGI(TAG, "dcl %u %u", i, myset.dcl[i]);
+                        i++;
+                        if (i > 3)
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                // Copy the new settings over top of old
+                memcpy(&mysettings, &myset, sizeof(mysettings));
+
+                saveConfiguration();
+
+                success = true;
+            }
+
+            file.close();
+        }
+        else
+        {
+            ESP_LOGE(TAG, "File does not exist %s", filename);
+        }
+
+        hal.ReleaseVSPIMutex();
+    }
+
+    if (success)
+    {
+        return SendSuccess(req);
+    }
+
+    return SendFailure(req);
+}
+
 esp_err_t save_data_handler(httpd_req_t *req)
 {
-    ESP_LOGI(TAG, "JSON call");
+    // ESP_LOGI(TAG, "JSON call");
 
     if (!getPostDataIntoBuffer(req))
     {
@@ -1049,7 +1262,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "restartcontroller", "saverules", "savedisplaysetting", "savestorage",
         "resetcounters", "sdmount", "sdunmount", "enableavrprog",
         "disableavrprog", "avrprog", "savers485settings", "savecurrentmon",
-        "savecmbasic", "savecmadvanced", "savecmrelay", "savevictron"};
+        "savecmbasic", "savecmadvanced", "savecmrelay", "savevictron", "restoreconfig"};
 
     esp_err_t (*func_ptr[])(httpd_req_t * req, bool urlEncoded) = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
@@ -1060,7 +1273,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_sdmount_json_handler, post_sdunmount_json_handler, post_enableavrprog_json_handler,
         post_disableavrprog_json_handler, post_avrprog_json_handler, post_savers485settings_json_handler,
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
-        post_savecmrelay_json_handler, post_savevictron_json_handler};
+        post_savecmrelay_json_handler, post_savevictron_json_handler, post_restoreconfig_json_handler};
 
     // Sanity check arrays are the same size
     ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);
