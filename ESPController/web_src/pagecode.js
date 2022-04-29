@@ -55,6 +55,8 @@ function restoreconfig(filename) {
 
     if (isConfirmed) {
 
+        alert("Note: Passwords are not restored, you will need to manually change these in the integration page if required.");
+
         $.ajax({
             type: 'POST',
             url: '/post/restoreconfig',
