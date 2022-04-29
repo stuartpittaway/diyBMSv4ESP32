@@ -1131,7 +1131,7 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                         strncpy(key, kv.key().c_str(), sizeof(key));
                         ESP_LOGI(TAG, "rule %s", key);
 
-                        for (size_t rulenumber = 0; rulenumber < MAXIMUM_RuleNumber; rulenumber++)
+                        for (size_t rulenumber = 0; rulenumber <= MAXIMUM_RuleNumber; rulenumber++)
                         {
                             if (strcmp(RuleTextDescription[rulenumber], key) == 0)
                             {
