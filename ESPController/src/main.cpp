@@ -2915,6 +2915,31 @@ bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool Show
   }
 }
 
+
+const char *wificonfigfilename = "/diybms/wifi.json";
+
+bool DeleteWiFiConfigFromSDCard() {
+  bool ret = false;
+  if (_sd_card_installed)
+  {
+    ESP_LOGI(TAG, "Delete check for %s", wificonfigfilename);
+
+    if (hal.GetVSPIMutex())
+    {
+      if (SD.exists(wificonfigfilename))
+      {
+        ESP_LOGD(TAG, "Delete file %s", wificonfigfilename);
+        ret=SD.remove(wificonfigfilename);
+      }
+
+      hal.ReleaseVSPIMutex();
+
+    }
+  }
+
+  return ret;
+}
+
 void TerminalBasedWifiSetup()
 {
   SetControllerState(ControllerState::NoWifiConfiguration);
@@ -3005,6 +3030,9 @@ void TerminalBasedWifiSetup()
       strncpy(config.wifi_ssid, (char *)ap_info[index].ssid, sizeof(config.wifi_ssid));
       strncpy(config.wifi_passphrase, buffer, sizeof(config.wifi_passphrase));
       Settings::WriteConfig("diybmswifi", (char *)&config, sizeof(config));
+
+      //Now delete the WIFICONFIG backup from the SDCard to prevent boot loops/resetting defaults
+      DeleteWiFiConfigFromSDCard();
     }
   }
 
@@ -3029,7 +3057,6 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
   bool ret = false;
   if (_sd_card_installed)
   {
-    const char *wificonfigfilename = "/diybms/wifi.json";
 
     ESP_LOGI(TAG, "Checking for %s", wificonfigfilename);
 
