@@ -318,9 +318,15 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
         return;
     }
 
+    if (!wifi_isconnected)
+    {
+        ESP_LOGE(TAG, "MQTT enabled, but WIFI not connected");
+        return;
+    }
+
     if (mqttClient_connected == false)
     {
-        ESP_LOGE(TAG, "MQTT enabled, but not connected");
+        ESP_LOGE(TAG, "MQTT enabled, but not connected to broker");
         return;
     }
 
@@ -344,6 +350,11 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
 {
     if (!mysettings.mqtt_enabled)
     {
+        return;
+    }
+    if (!wifi_isconnected)
+    {
+        ESP_LOGE(TAG, "MQTT enabled, but WIFI not connected");
         return;
     }
 

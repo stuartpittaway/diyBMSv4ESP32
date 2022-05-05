@@ -1577,6 +1577,7 @@ static void startMDNS()
   }
 }
 
+// WIFI Event Handler
 static void event_handler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
@@ -1596,13 +1597,13 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     {
       esp_wifi_connect();
       s_retry_num++;
-      ESP_LOGI(TAG, "retry to connect to the AP");
+      ESP_LOGI(TAG, "Retry %i, connect to Wifi AP", s_retry_num);
     }
     // else
     //{
     //  xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
     //}
-    ESP_LOGI(TAG, "connect to the AP fail");
+    ESP_LOGE(TAG, "Connect to the Wifi AP failed");
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
   {
@@ -1673,10 +1674,12 @@ void wifi_init_sta(void)
 
   ESP_LOGD(TAG, "starting wifi_init_sta");
 
-  // s_wifi_event_group = xEventGroupCreate();
-
-  ESP_ERROR_CHECK(esp_netif_init());
+  // Create ESP IDF default event loop to service WIFI events
   ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+  // s_wifi_event_group = xEventGroupCreate();
+  ESP_ERROR_CHECK(esp_netif_init());
+
   esp_netif_t *netif = esp_netif_create_default_wifi_sta();
   assert(netif);
 
@@ -1709,6 +1712,8 @@ void wifi_init_sta(void)
   wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
   strncpy((char *)wifi_config.sta.ssid, _wificonfig.wifi_ssid, sizeof(wifi_config.sta.ssid));
   strncpy((char *)wifi_config.sta.password, _wificonfig.wifi_passphrase, sizeof(wifi_config.sta.password));
+
+  ESP_LOGI(TAG, "WIFI SSID: %s", _wificonfig.wifi_ssid);
 
   // Avoid issues with GPIO39 interrupt firing all the time - disable power saving
   ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
@@ -2915,10 +2920,10 @@ bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool Show
   }
 }
 
-
 const char *wificonfigfilename = "/diybms/wifi.json";
 
-bool DeleteWiFiConfigFromSDCard() {
+bool DeleteWiFiConfigFromSDCard()
+{
   bool ret = false;
   if (_sd_card_installed)
   {
@@ -2928,12 +2933,11 @@ bool DeleteWiFiConfigFromSDCard() {
     {
       if (SD.exists(wificonfigfilename))
       {
-        ESP_LOGD(TAG, "Delete file %s", wificonfigfilename);
-        ret=SD.remove(wificonfigfilename);
+        ESP_LOGI(TAG, "Deleted file %s", wificonfigfilename);
+        ret = SD.remove(wificonfigfilename);
       }
 
       hal.ReleaseVSPIMutex();
-
     }
   }
 
@@ -3031,7 +3035,7 @@ void TerminalBasedWifiSetup()
       strncpy(config.wifi_passphrase, buffer, sizeof(config.wifi_passphrase));
       Settings::WriteConfig("diybmswifi", (char *)&config, sizeof(config));
 
-      //Now delete the WIFICONFIG backup from the SDCard to prevent boot loops/resetting defaults
+      // Now delete the WIFICONFIG backup from the SDCard to prevent boot loops/resetting defaults
       DeleteWiFiConfigFromSDCard();
     }
   }
@@ -3210,8 +3214,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   init_tft_display();
   hal.Led(0);
 
-  consoleConfigurationCheck();
-
   // Switch CAN chip TJA1051T/3 ON
   hal.CANBUSEnable(true);
   hal.ConfigureCAN();
@@ -3225,6 +3227,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   ESP_LOGI(TAG, "LittleFS mounted, total=%u, used=%u", LittleFS.totalBytes(), LittleFS.usedBytes());
 
   mountSDCard();
+
+  // consoleConfigurationCheck needs to be after SD card mount, as it attempts to remove wifi.json if it exists
+  consoleConfigurationCheck();
 
   // Retrieve the EEPROM WIFI settings
   bool EepromConfigValid = LoadWiFiConfig();
@@ -3366,9 +3371,13 @@ void loop()
     if (currentMillis - wifitimer > 30000)
     {
       // Attempt to connect to WiFi every 30 seconds, this caters for when WiFi drops
-      // such as AP reboot, its written to return without action if we are already connected
+      // such as AP reboot
 
-      wifi_init_sta();
+      // wifi_init_sta();
+      if (!wifi_isconnected)
+      {
+        esp_wifi_connect();
+      }
       wifitimer = currentMillis;
 
       // Attempt to connect to MQTT if enabled and not already connected

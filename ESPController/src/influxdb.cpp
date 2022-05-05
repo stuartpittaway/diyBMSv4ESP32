@@ -118,6 +118,13 @@ static constexpr uint8_t MAX_MODULES_PER_CALL = 16;
 /// Generates and send module data to InfluxDB.
 void influx_task_action()
 {
+
+    if (!wifi_isconnected)
+    {
+        ESP_LOGE(TAG, "Influx enabled, but WIFI not connected");
+        return;
+    }
+
     // Index of the first module to send data for, this is static to allow sending
     // modules in smaller batches (16)
     static uint8_t moduleIndex = 0;

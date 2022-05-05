@@ -17,6 +17,6 @@ void mqtt1(currentmonitoring_struct *currentMonitor,Rules *rules);
 
 extern uint16_t TotalNumberOfCells();
 extern diybms_eeprom_settings mysettings;
-
+extern bool wifi_isconnected;
 
 #endif
