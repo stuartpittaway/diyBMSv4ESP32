@@ -1599,34 +1599,42 @@ static void event_handler(void *arg, esp_event_base_t event_base,
       s_retry_num++;
       ESP_LOGI(TAG, "Retry %i, connect to Wifi AP", s_retry_num);
     }
-    // else
-    //{
-    //  xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-    //}
-    ESP_LOGE(TAG, "Connect to the Wifi AP failed");
+    else
+    {
+      //  xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+      ESP_LOGE(TAG, "Connect to the Wifi AP failed");
+    }
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
   {
     wifi_isconnected = false;
 
+    ESP_LOGI(TAG, "IP_EVENT_STA_LOST_IP");
+
+    // Shut down all TCP/IP reliant services
     if (server_running)
     {
       stop_webserver(_myserver);
       server_running = false;
       _myserver = nullptr;
     }
-    esp_wifi_disconnect();
+    stopMqtt();
     stopMDNS();
+
+    esp_wifi_disconnect();
+
+    // Try and reconnect
     esp_wifi_connect();
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
   {
     wifi_isconnected = true;
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-    ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+    ESP_LOGI(TAG, "Got ip:" IPSTR, IP2STR(&event->ip_info.ip));
     s_retry_num = 0;
     // xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
+    // Start up all the services after TCP/IP is established
     configureSNTP(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight ? 3600 : 0, mysettings.ntpServer);
 
     if (!server_running)

@@ -89,6 +89,7 @@ void stopMqtt()
     {
         ESP_LOGI(TAG, "Stopping MQTT client");
         mqttClient_connected = false;
+
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_disconnect(mqtt_client));
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_stop(mqtt_client));
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_destroy(mqtt_client));
