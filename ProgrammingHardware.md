@@ -64,9 +64,7 @@ Firmware successfully flashed. Unplug/replug or reset device
 to switch back to normal boot mode.
 ```
 
-1. Once you see the message "Firmware successfully flashed.", reset the ESP device using the button marked "EN"
-1. After a few seconds the LED on the controller board should turn SOLID WHITE, this means the WIFI configuration access point has started
-
+Once you see the message "Firmware successfully flashed.", reset the ESP device using the button marked "EN"
 
 ## Connecting To WiFi
 
