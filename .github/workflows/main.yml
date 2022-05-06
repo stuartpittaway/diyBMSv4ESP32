@@ -77,7 +77,7 @@ jobs:
         cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin ~/OUTPUT/Controller/
         cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.elf ~/OUTPUT/Controller/
         cp ./ESPController/.pio/build/esp32-devkitc/partitions.bin ~/OUTPUT/Controller/
-        cp ~/.platformio/packages/framework-arduinoespressif32/tools/tools/sdk/esp32/bin/bootloader_dout_40m.bin ~/OUTPUT/Controller/
+        cp ~/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/bin/bootloader_dout_40m.bin ~/OUTPUT/Controller/
         cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin ~/OUTPUT/Controller/
         cp ./ESPController/data/avr/manifest.json ~/OUTPUT/Modules/
 
