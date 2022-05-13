@@ -77,8 +77,8 @@ jobs:
         cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin ~/OUTPUT/Controller/
         cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.elf ~/OUTPUT/Controller/
         cp ./ESPController/.pio/build/esp32-devkitc/partitions.bin ~/OUTPUT/Controller/
-        cp ~/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/bin/bootloader_dout_40m.bin ~/OUTPUT/Controller/
-        cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin ~/OUTPUT/Controller/
+        cp ./ESPController/.pio/build/esp32-devkitc/bootloader_dout_40m.bin ~/OUTPUT/Controller/
+        cp ./ESPController/.pio/build/esp32-devkitc/boot_app0.bin ~/OUTPUT/Controller/
         cp ./ESPController/data/avr/manifest.json ~/OUTPUT/Modules/
 
     - name: Build File System Image for ESP32
@@ -90,7 +90,7 @@ jobs:
 
     - name: Build single ESP32 image
       run: |
-        python -m esptool --chip esp32 merge_bin -o ~/OUTPUT/Controller/esp32-controller-firmware-complete.bin --flash_mode dio --flash_size 4MB 0x1000 ~/OUTPUT/Controller/bootloader_dout_40m.bin  0x8000 ~/OUTPUT/Controller/partitions.bin  0xe000 ~/OUTPUT/Controller/boot_app0.bin  0x10000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x1C0000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x370000 ~/OUTPUT/Controller/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
+        python -m esptool --chip esp32 merge_bin -o ~/OUTPUT/Controller/esp32-controller-firmware-complete.bin --flash_mode=keep --flash_size 4MB 0x1000 ~/OUTPUT/Controller/bootloader_dout_40m.bin  0x8000 ~/OUTPUT/Controller/partitions.bin  0xe000 ~/OUTPUT/Controller/boot_app0.bin  0x10000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x1C0000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x370000 ~/OUTPUT/Controller/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
 
     - name: Board test code for ESP32 controller
       run: pio run --project-dir=./ESP32BoardTest --environment esp32-devkitc --project-conf=./ESP32BoardTest/platformio.ini
