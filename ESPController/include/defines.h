@@ -158,6 +158,8 @@ struct diybms_eeprom_settings
 
   bool VictronEnabled;
 
+  bool PylonEmulation;
+
   // NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
   char mqtt_uri[128 + 1];

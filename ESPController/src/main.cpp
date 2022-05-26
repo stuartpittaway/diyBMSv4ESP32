@@ -60,6 +60,7 @@ static constexpr const char *const TAG = "diybms";
 #include "influxdb.h"
 #include "mqtt.h"
 #include "victron_canbus.h"
+#include "pylon_canbus.h"
 #include "string_utils.h"
 
 const uart_port_t rs485_uart_num = UART_NUM_1;
@@ -129,8 +130,8 @@ TaskHandle_t interrupt_task_handle = NULL;
 TaskHandle_t rs485_tx_task_handle = NULL;
 TaskHandle_t rs485_rx_task_handle = NULL;
 TaskHandle_t service_rs485_transmit_q_task_handle = NULL;
-TaskHandle_t victron_canbus_tx_task_handle = NULL;
-TaskHandle_t victron_canbus_rx_task_handle = NULL;
+TaskHandle_t canbus_tx_task_handle = NULL;
+TaskHandle_t canbus_rx_task_handle = NULL;
 
 // This large array holds all the information about the modules
 CellModuleInfo cmi[maximum_controller_cell_modules];
@@ -2218,12 +2219,48 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 */
 }
 
-void victron_canbus_tx(void *param)
+void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
+{
+  twai_message_t message;
+  message.identifier = identifier;
+  message.flags = TWAI_MSG_FLAG_NONE;
+  message.data_length_code = length;
+
+  memcpy(&message.data, buffer, length);
+
+  // Queue message for transmission
+  if (twai_transmit(&message, pdMS_TO_TICKS(250)) != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Fail to queue CANBUS message");
+    canbus_messages_failed_sent++;
+  }
+
+  else
+  {
+    // ESP_LOGD(TAG, "Sent CAN message %u", identifier);
+    // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(can_message_t), esp_log_level_t::ESP_LOG_DEBUG);
+    canbus_messages_sent++;
+  }
+}
+
+void canbus_tx(void *param)
 {
   for (;;)
   {
     // Delay 1 seconds
     vTaskDelay(pdMS_TO_TICKS(1000));
+
+    if (mysettings.PylonEmulation)
+    {
+      // Pylon Tech Battery Emulation
+      // https://github.com/PaulSturbo/DIY-BMS-CAN/blob/main/SEPLOS%20BMS%20CAN%20Protocoll%20V1.0.pdf
+      // https://www.setfirelabs.com/green-energy/pylontech-can-reading-can-replication
+      // https://github.com/juamiso/PYLON_EMU
+
+      pylon_message_356();
+      // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
+      // vTaskDelay(pdMS_TO_TICKS(100));
+    }
 
     if (mysettings.VictronEnabled)
     {
@@ -2259,7 +2296,7 @@ void victron_canbus_tx(void *param)
   }
 }
 
-void victron_canbus_rx(void *param)
+void canbus_rx(void *param)
 {
   for (;;)
   {
@@ -2602,6 +2639,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
   _myset->mqtt_enabled = false;
 
   _myset->VictronEnabled = false;
+  _myset->PylonEmulation = false;
 
   // Charge current limit (CCL)
   _myset->ccl[VictronDVCC::Default] = 10 * 10;
@@ -3309,9 +3347,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   xTaskCreate(rs485_tx, "485_TX", 2950, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2950, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
-  xTaskCreate(victron_canbus_tx, "v_cantx", 2950, nullptr, 1, &victron_canbus_tx_task_handle);
-  xTaskCreate(victron_canbus_rx, "v_canrx", 2950, nullptr, 1, &victron_canbus_rx_task_handle);
-  xTaskCreate(transmit_task, "tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, 1, &canbus_tx_task_handle);
+  xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
+  xTaskCreate(transmit_task, "Tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 2000, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2000, nullptr, 1, &lazy_task_handle);
 

@@ -51,7 +51,7 @@ function identifyModule(button, cellid) {
 }
 
 function restoreconfig(filename) {
-    let isConfirmed = confirm("Are you sure you wish to restore '"+filename+"' configuration file?");
+    let isConfirmed = confirm("Are you sure you wish to restore '" + filename + "' configuration file?");
 
     if (isConfirmed) {
 
@@ -1228,6 +1228,19 @@ $(function () {
         return true;
     });
 
+    $("#canbus").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        $.getJSON("/api/canbus",
+            function (data) {
+                $("#PylonEmulation").prop("checked", data.pylonemulation);
+                switchPage("#canbusPage");
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            );
+        return true;
+    });
+
+
     $("#victroncanbus").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
@@ -1525,11 +1538,11 @@ $(function () {
                 if (data.storage.sdcard.files) {
                     $.each(data.storage.sdcard.files, function (index, value) {
                         if (value != null) {
-                            link="<a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a>";
+                            link = "<a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a>";
                             if (value.startsWith("backup_config_")) {
-                                link+="<button class='small' onclick='restoreconfig(\"" + encodeURI(value) + "\")'>Restore</button>";                            
+                                link += "<button class='small' onclick='restoreconfig(\"" + encodeURI(value) + "\")'>Restore</button>";
                             }
-                            $("#sdcardfiles").append("<li>"+link+"</li>");
+                            $("#sdcardfiles").append("<li>" + link + "</li>");
                         }
                     });
                 }

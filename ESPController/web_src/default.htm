@@ -31,7 +31,8 @@
         <div class="overlay-content">
             <a id="integration" href="#integration">Integration</a>
             <a id="currentmonitor" href="#currentmonitor">Current Monitor</a>
-            <a id="victroncanbus" href="#victroncanbus">Victron CANBUS BMS</a>
+            <a id="canbus" href="#canbus">CANBUS</a>
+            <a id="victroncanbus" href="#victroncanbus">Victron BMS</a>
             <a id="storage" href="#storage">Storage</a>
             <a id="avrprogrammer" href="#avrprogrammer">AVR Programmer</a>
             <a id="about" href="#about">About</a>
@@ -692,6 +693,34 @@
         </div>
 
     </div>
+
+    <div class="page" id="canbusPage">
+        <h1 id="v0">CANBUS integration</h1>
+
+        <div class="region">
+            <p id="v1">This feature allows diyBMS to provide battery and BMS data to CANBUS devices using various 3rd
+                party protocols.</p>
+            <p id="v2">Remember to install terminator resistors on the CAN L/H connections. On the controller, jumper
+                JP1 can be soldered closed for this purpose.</p>
+                <p id="v2">Victron CANBUS settings can be found on the Victron BMS page.</p>
+            </div>
+
+        <div class="region">
+            <form id="canbusForm1" method="POST" action="/post/savecanbus" autocomplete="off">
+                <div class="settings">
+                    <div>
+                        <label for="PylonEmulation">Enable PylonTech battery/BMS emulation</label>
+                        <input type="checkbox" name="PylonEmulation" id="PylonEmulation">
+                    </div>
+
+                    <button type="submit">Save CANBUS settings</button>
+                </div>
+            </form>
+
+        </div>
+
+    </div>
+
 
     <div class="page" id="diybmsCurrentMonitorPage">
         <h1>Current &amp; Voltage Monitoring</h1>
@@ -1374,7 +1403,7 @@
             } catch (e) {
                 console.warn(
                     'Failed to connect to debug websocket, not an issue unless debug redirection is enabled.'
-                    );
+                );
             }
         });
     </script>

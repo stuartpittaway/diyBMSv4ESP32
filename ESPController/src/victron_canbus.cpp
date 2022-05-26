@@ -17,31 +17,6 @@ static constexpr const char * const TAG = "diybms-victron";
 
 #include "victron_canbus.h"
 
-void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
-{
-  //static const char *TAG = "canbus";
-
-  twai_message_t message;
-  message.identifier = identifier;
-  message.flags = TWAI_MSG_FLAG_NONE;
-  message.data_length_code = length;
-
-  memcpy(&message.data, buffer, length);
-
-  // Queue message for transmission
-  if (twai_transmit(&message, pdMS_TO_TICKS(250)) != ESP_OK)
-  {
-    ESP_LOGE(TAG, "Fail to queue message");
-    canbus_messages_failed_sent++;
-  }
-
-  else
-  {
-    // ESP_LOGD(TAG, "Sent CAN message %u", identifier);
-    // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(can_message_t), esp_log_level_t::ESP_LOG_DEBUG);
-    canbus_messages_sent++;
-  }
-}
 // Transmit the DIYBMS hostname via two CAN Messages
 void victron_message_370_371()
 {

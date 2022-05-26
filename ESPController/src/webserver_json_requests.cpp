@@ -497,6 +497,20 @@ esp_err_t content_handler_avrstatus(httpd_req_t *req)
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
+esp_err_t content_handler_canbus(httpd_req_t *req)
+{
+    int bufferused = 0;
+
+  DynamicJsonDocument doc(2048);
+  JsonObject root = doc.to<JsonObject>();
+
+  root["pylonemulation"] = mysettings.PylonEmulation;
+
+  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
 esp_err_t content_handler_victron(httpd_req_t *req)
 {
   int bufferused = 0;
@@ -1113,7 +1127,7 @@ esp_err_t api_handler(httpd_req_t *req)
       "monitor2", "monitor3", "integration", "settings", "rules",
       "victron", "rs485settings", "currentmonitor",
       "avrstatus", "modules", "identifyModule", "storage",
-      "avrstorage"};
+      "avrstorage","canbus"};
 
   esp_err_t (*func_ptr[])(httpd_req_t * req) = {
       content_handler_monitor2,
@@ -1128,7 +1142,8 @@ esp_err_t api_handler(httpd_req_t *req)
       content_handler_modules,
       content_handler_identifymodule,
       content_handler_storage,
-      content_handler_avrstorage};
+      content_handler_avrstorage,
+      content_handler_canbus};
 
   // Sanity check arrays are the same size
   ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);

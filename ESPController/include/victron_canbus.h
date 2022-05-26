@@ -15,7 +15,8 @@ void victron_message_372();
 void victron_message_373();
 void victron_message_35f();
 void victron_message_374_375_376_377();
-void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length);
+
+extern void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length);
 
 extern uint16_t TotalNumberOfCells();
 extern Rules rules;
