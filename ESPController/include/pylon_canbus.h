@@ -7,6 +7,11 @@
 
 void pylon_message_356();
 void pylon_message_35e();
+void pylon_message_351();
+void pylon_message_355();
+void pylon_message_359();
+void pylon_message_35c();
+
 
 extern uint16_t TotalNumberOfCells();
 extern Rules rules;

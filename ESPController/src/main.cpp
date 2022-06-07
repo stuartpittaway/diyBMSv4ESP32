@@ -2257,8 +2257,30 @@ void canbus_tx(void *param)
       // https://www.setfirelabs.com/green-energy/pylontech-can-reading-can-replication
       // https://github.com/juamiso/PYLON_EMU
 
+      /*
+      PYLON TECH battery transmits these values....
+
+      CAN ID – followed by 2 to 8 bytes of data:
+      0x351 – 14 02 74 0E 74 0E CC 01 – Battery voltage + current limits
+      0x355 – 1A 00 64 00 – State of Health (SOH) / State of Charge (SOC)
+      0x356 – 4e 13 02 03 04 05 – Voltage / Current / Temp
+      0x359 – 00 00 00 00 0A 50 4E – Protection & Alarm flags
+      0x35C – C0 00 – Battery charge request flags
+      0x35E – 50 59 4C 4F 4E 20 20 20 – Manufacturer name (“PYLON “)
+
+
+      If you are watching the bus, you will also see a 0x305 ID message which is output by the ME3000SP once per second.
+*/
+      pylon_message_351();
+
+      if (_controller_state == ControllerState::Running)
+      {
+        pylon_message_355();
+        pylon_message_356();
+      }
+      pylon_message_359();
+      pylon_message_35c();
       pylon_message_35e();
-      pylon_message_356();
       // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
       // vTaskDelay(pdMS_TO_TICKS(100));
     }
