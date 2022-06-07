@@ -2272,14 +2272,19 @@ void canbus_tx(void *param)
       If you are watching the bus, you will also see a 0x305 ID message which is output by the ME3000SP once per second.
 */
       pylon_message_351();
+      vTaskDelay(pdMS_TO_TICKS(20));
 
       if (_controller_state == ControllerState::Running)
       {
         pylon_message_355();
+        vTaskDelay(pdMS_TO_TICKS(20));
         pylon_message_356();
+        vTaskDelay(pdMS_TO_TICKS(20));
       }
       pylon_message_359();
+      vTaskDelay(pdMS_TO_TICKS(20));
       pylon_message_35c();
+      vTaskDelay(pdMS_TO_TICKS(20));
       pylon_message_35e();
       // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
       // vTaskDelay(pdMS_TO_TICKS(100));
