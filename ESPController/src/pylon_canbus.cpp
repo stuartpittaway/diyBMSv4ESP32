@@ -84,16 +84,95 @@ void pylon_message_351()
 // 0x355 – 1A 00 64 00 – State of Health (SOH) / State of Charge (SOC)
 void pylon_message_355()
 {
+  struct data355
+  {
+    uint16_t stateofchargevalue;
+    uint16_t stateofhealthvalue;
+  };
+
+  if (_controller_state == ControllerState::Running && mysettings.currentMonitoringEnabled && currentMonitor.validReadings && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+  {
+    data355 data;
+    // 0 SOC value un16 1 %
+    data.stateofchargevalue = currentMonitor.stateofcharge;
+    // 2 SOH value un16 1 %
+    data.stateofhealthvalue = 100;
+    send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
+  }
 }
 
 // 0x359 – 00 00 00 00 0A 50 4E – Protection & Alarm flags
 void pylon_message_359()
 {
+  struct data359
+  {
+    uint8_t byte0;
+    uint8_t byte1;
+    uint8_t byte2;
+    uint8_t byte3;
+    uint8_t byte4;
+    uint8_t byte5;
+    uint8_t byte6;
+    uint8_t byte7;
+  };
+
+  data359 data;
+
+  memset(&data, 0, sizeof(data359));
+
+  // Byte0 = Protection 1
+  // Byte1 = Protection 2
+  // Byte2 = Warning 1
+  // Byte3 = Warning 2
+  // Byte4 = Quantity of packs in parallel
+  // Byte5 = unused
+  // Byte6 = unused
+  // Byte7 = Address of packs in parallel
+
+  if (_controller_state == ControllerState::Running)
+  {
+    //(bit 1) Battery high voltage alarm
+    data.byte0 |= ((rules.rule_outcome[Rule::BankUnderVoltage] | rules.rule_outcome[Rule::CurrentMonitorUnderVoltage]) ? B00000010 : 0);
+    //(bit 2) Battery low voltage alarm
+    data.byte0 |= ((rules.rule_outcome[Rule::BankOverVoltage] | rules.rule_outcome[Rule::CurrentMonitorOverVoltage]) ? B00000100 : 0);
+
+    //(bit 3) Battery high temperature alarm
+    if (rules.moduleHasExternalTempSensor)
+    {
+      data.byte0 |= (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? B00001000 : 0);
+    }
+
+    // (bit 4) Battery low temperature alarm
+    if (rules.moduleHasExternalTempSensor)
+    {
+      data.byte0 |= (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? B00010000 : 0);
+    }
+
+    // Bit7 = Discharge over current
+  }
+
+  data.byte3 |= ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? B00001000 : 0);
+  data.byte3 |= ((_controller_state != ControllerState::Running) ? B00001000 : 0);
+
+  send_canbus_message(0x359, (uint8_t *)&data, sizeof(data359));
 }
 
 // 0x35C – C0 00 – Battery charge request flags
 void pylon_message_35c()
 {
+  struct data35c
+  {
+    uint8_t byte0;
+    uint8_t byte1;
+  };
+
+  data35c data;
+
+  // Charge enable/Discharge enable
+  data.byte0 = B11000000;
+  data.byte1 = 0;
+
+  send_canbus_message(0x35c, (uint8_t *)&data, sizeof(data35c));
 }
 
 // 0x35E – 50 59 4C 4F 4E 20 20 20 – Manufacturer name ("PYLON ")
