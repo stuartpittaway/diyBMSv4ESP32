@@ -6,6 +6,7 @@
 #include <driver/twai.h>
 
 void pylon_message_356();
+void pylon_message_35e();
 
 extern uint16_t TotalNumberOfCells();
 extern Rules rules;

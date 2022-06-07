@@ -15,6 +15,13 @@ static constexpr const char * const TAG = "diybms-pylon";
 
 #include "pylon_canbus.h"
 
+void pylon_message_35e()
+{
+  //Send 8 byte "magic string" PYLON (with 3 trailing zero bytes)
+  const char pylon[]="\x50\x59\x4c\x4f\x4e\x00\x00\x00";
+  send_canbus_message(0x35e, (uint8_t *)&pylon, sizeof(pylon)-1);
+}
+
 
 // Battery voltage
 void pylon_message_356()

@@ -2257,6 +2257,7 @@ void canbus_tx(void *param)
       // https://www.setfirelabs.com/green-energy/pylontech-can-reading-can-replication
       // https://github.com/juamiso/PYLON_EMU
 
+      pylon_message_35e();
       pylon_message_356();
       // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
       // vTaskDelay(pdMS_TO_TICKS(100));
