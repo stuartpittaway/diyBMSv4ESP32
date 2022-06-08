@@ -77,7 +77,7 @@ void pylon_message_351()
   }
 
   // Hardcoded for now!
-  data.battery_discharge_voltage = data.battery_charge_voltage - 50;
+  data.battery_discharge_voltage = 0;//data.battery_charge_voltage - 50;
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
 }
@@ -130,6 +130,7 @@ void pylon_message_359()
   // Byte6 = unused
   // Byte7 = Address of packs in parallel
 
+
   if (_controller_state == ControllerState::Running)
   {
     //(bit 1) Battery high voltage alarm
@@ -154,6 +155,11 @@ void pylon_message_359()
 
   data.byte3 |= ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? B00001000 : 0);
   data.byte3 |= ((_controller_state != ControllerState::Running) ? B00001000 : 0);
+
+  //number of modules
+  data.byte4=1;
+  data.byte5=0x50;
+  data.byte6=0x4e;
 
   send_canbus_message(0x359, (uint8_t *)&data, sizeof(data359));
 }

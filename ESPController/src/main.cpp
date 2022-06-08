@@ -2256,6 +2256,7 @@ void canbus_tx(void *param)
       // https://github.com/PaulSturbo/DIY-BMS-CAN/blob/main/SEPLOS%20BMS%20CAN%20Protocoll%20V1.0.pdf
       // https://www.setfirelabs.com/green-energy/pylontech-can-reading-can-replication
       // https://github.com/juamiso/PYLON_EMU
+      // https://www.studocu.com/row/document/abasyn-university/electronics-engineering/can-bus-protocol-pylon-low-voltage-v1/17205338
 
       /*
       PYLON TECH battery transmits these values....
