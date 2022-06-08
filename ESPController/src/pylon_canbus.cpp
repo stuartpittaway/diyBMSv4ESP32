@@ -16,6 +16,7 @@ static constexpr const char *const TAG = "diybms-pylon";
 #include "pylon_canbus.h"
 
 // 0x351 – 14 02 74 0E 74 0E CC 01 – Battery voltage + current limits
+// 0x351 - 0x44 0x02 0x64 0x00 0x9C 0xFF 0x3F 0x02
 void pylon_message_351()
 {
 
@@ -76,7 +77,7 @@ void pylon_message_351()
   }
 
   // Hardcoded for now!
-  data.battery_discharge_voltage = data.battery_charge_voltage - 5;
+  data.battery_discharge_voltage = data.battery_charge_voltage - 50;
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
 }
