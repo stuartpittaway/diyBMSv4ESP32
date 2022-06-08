@@ -2330,7 +2330,7 @@ void canbus_rx(void *param)
   for (;;)
   {
 
-    if (mysettings.VictronEnabled)
+    if (mysettings.VictronEnabled || mysettings.PylonEmulation)
     {
 
       // Wait for message to be received
