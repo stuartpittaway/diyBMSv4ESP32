@@ -2228,17 +2228,18 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 
   memcpy(&message.data, buffer, length);
 
+  esp_err_t result=twai_transmit(&message, pdMS_TO_TICKS(250));
+
   // Queue message for transmission
-  if (twai_transmit(&message, pdMS_TO_TICKS(250)) != ESP_OK)
+  if (result != ESP_OK)
   {
-    ESP_LOGE(TAG, "Fail to queue CANBUS message");
+    ESP_LOGE(TAG, "Fail to queue CANBUS message (0x%x)",result);
     canbus_messages_failed_sent++;
   }
-
   else
   {
-    // ESP_LOGD(TAG, "Sent CAN message %u", identifier);
-    // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(can_message_t), esp_log_level_t::ESP_LOG_DEBUG);
+    ESP_LOGD(TAG, "Sent CAN message 0x%x", identifier);
+    //ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
     canbus_messages_sent++;
   }
 }
@@ -2247,7 +2248,7 @@ void canbus_tx(void *param)
 {
   for (;;)
   {
-    // Delay 1 seconds
+    // Delay 1 second
     vTaskDelay(pdMS_TO_TICKS(1000));
 
     if (mysettings.PylonEmulation)
@@ -2269,8 +2270,7 @@ void canbus_tx(void *param)
       0x35C – C0 00 – Battery charge request flags
       0x35E – 50 59 4C 4F 4E 20 20 20 – Manufacturer name (“PYLON “)
 
-
-      If you are watching the bus, you will also see a 0x305 ID message which is output by the ME3000SP once per second.
+      If you are watching the bus, you will also see a 0x305 ID message which is output by the inverter once per second.
 */
       pylon_message_351();
       vTaskDelay(pdMS_TO_TICKS(20));
@@ -2343,8 +2343,7 @@ void canbus_rx(void *param)
                  message.identifier, message.data_length_code, message.flags);
         if (!(message.flags & TWAI_MSG_FLAG_RTR))
         {
-          ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code,
-                                 ESP_LOG_DEBUG);
+          ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
         }
       }
       else if (res == ESP_ERR_TIMEOUT)
