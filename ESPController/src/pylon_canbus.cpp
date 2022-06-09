@@ -17,9 +17,12 @@ static constexpr const char *const TAG = "diybms-pylon";
 
 // 0x351 – 14 02 74 0E 74 0E CC 01 – Battery voltage + current limits
 // 0x351 - 0x44 0x02 0x64 0x00 0x9C 0xFF 0x3F 0x02
+//  0x0214 = 53.2V
+//  0x0e74 = B111001110100 = 3700
+//  0x0e74 = B111001110100 = 3700
+//  0x01CC = 46.0V
 void pylon_message_351()
 {
-
   uint8_t number_of_active_errors = 0;
 
   if (_controller_state == ControllerState::Running)
@@ -55,25 +58,25 @@ void pylon_message_351()
 
   if ((_controller_state != ControllerState::Running) || (number_of_active_errors > 0))
   {
-    ESP_LOGW(TAG, "active_errors=%u", number_of_active_errors);
+    //ESP_LOGW(TAG, "active_errors=%u", number_of_active_errors);
     // Error condition
     data.battery_charge_voltage = mysettings.cvl[VictronDVCC::ControllerError];
     data.battery_charge_current_limit = mysettings.ccl[VictronDVCC::ControllerError];
-    data.battery_discharge_current_limit = -(mysettings.dcl[VictronDVCC::ControllerError]);
+    data.battery_discharge_current_limit = mysettings.dcl[VictronDVCC::ControllerError];
   }
   else if (rules.numberOfBalancingModules > 0)
   {
     // Balancing
     data.battery_charge_voltage = mysettings.cvl[VictronDVCC::Balance];
     data.battery_charge_current_limit = mysettings.ccl[VictronDVCC::Balance];
-    data.battery_discharge_current_limit = -(mysettings.dcl[VictronDVCC::Balance]);
+    data.battery_discharge_current_limit = mysettings.dcl[VictronDVCC::Balance];
   }
   else
   {
     // Default - normal behaviour
     data.battery_charge_voltage = mysettings.cvl[VictronDVCC::Default];
     data.battery_charge_current_limit = mysettings.ccl[VictronDVCC::Default];
-    data.battery_discharge_current_limit = -(mysettings.dcl[VictronDVCC::Default]);
+    data.battery_discharge_current_limit = mysettings.dcl[VictronDVCC::Default];
   }
 
   // Hardcoded for now!
@@ -149,15 +152,14 @@ void pylon_message_359()
     {
       data.byte0 |= (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? B00010000 : 0);
     }
-
-    // Bit7 = Discharge over current
   }
 
   data.byte3 |= ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? B00001000 : 0);
   data.byte3 |= ((_controller_state != ControllerState::Running) ? B00001000 : 0);
 
-  //number of modules
+  //number of modules (each of 74Ah capacity)
   data.byte4=1;
+
   data.byte5=0x50;
   data.byte6=0x4e;
 
