@@ -99,10 +99,14 @@ void pylon_message_355()
     data355 data;
     // 0 SOC value un16 1 %
     data.stateofchargevalue = currentMonitor.stateofcharge;
+    //Fake SOC based on cell voltage
+    //data.stateofchargevalue = min((uint16_t)100,(uint16_t)((100/3.65)*(rules.highestPackVoltage/mysettings.totalNumberOfSeriesModules)));
     // 2 SOH value un16 1 %
     data.stateofhealthvalue = 100;
     send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
   }
+
+  
 }
 
 // 0x359 – 00 00 00 00 0A 50 4E – Protection & Alarm flags
