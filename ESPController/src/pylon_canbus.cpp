@@ -58,8 +58,8 @@ void pylon_message_351()
 
   if ((_controller_state != ControllerState::Running) || (number_of_active_errors > 0))
   {
-    //ESP_LOGW(TAG, "active_errors=%u", number_of_active_errors);
-    // Error condition
+    // ESP_LOGW(TAG, "active_errors=%u", number_of_active_errors);
+    //  Error condition
     data.battery_charge_voltage = mysettings.cvl[VictronDVCC::ControllerError];
     data.battery_charge_current_limit = mysettings.ccl[VictronDVCC::ControllerError];
     data.battery_discharge_current_limit = mysettings.dcl[VictronDVCC::ControllerError];
@@ -80,7 +80,7 @@ void pylon_message_351()
   }
 
   // Hardcoded for now!
-  data.battery_discharge_voltage = 0;//data.battery_charge_voltage - 50;
+  data.battery_discharge_voltage = 0; // data.battery_charge_voltage - 50;
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
 }
@@ -99,14 +99,12 @@ void pylon_message_355()
     data355 data;
     // 0 SOC value un16 1 %
     data.stateofchargevalue = currentMonitor.stateofcharge;
-    //Fake SOC based on cell voltage
-    //data.stateofchargevalue = min((uint16_t)100,(uint16_t)((100/3.65)*(rules.highestPackVoltage/mysettings.totalNumberOfSeriesModules)));
-    // 2 SOH value un16 1 %
+    // Fake SOC based on cell voltage
+    //data.stateofchargevalue = min((uint16_t)100,(uint16_t)(100/(3.5 - 3.0)*(((rules.highestPackVoltage/10)/mysettings.totalNumberOfSeriesModules)-3.0)));
+    //  2 SOH value un16 1 %
     data.stateofhealthvalue = 100;
     send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
   }
-
-  
 }
 
 // 0x359 – 00 00 00 00 0A 50 4E – Protection & Alarm flags
@@ -137,13 +135,12 @@ void pylon_message_359()
   // Byte6 = unused
   // Byte7 = Address of packs in parallel
 
-
   if (_controller_state == ControllerState::Running)
   {
     //(bit 1) Battery high voltage alarm
-    data.byte0 |= ((rules.rule_outcome[Rule::BankUnderVoltage] | rules.rule_outcome[Rule::CurrentMonitorUnderVoltage]) ? B00000010 : 0);
+    data.byte0 |= ((rules.rule_outcome[Rule::BankOverVoltage] | rules.rule_outcome[Rule::CurrentMonitorOverVoltage]) ? B00000010 : 0);
     //(bit 2) Battery low voltage alarm
-    data.byte0 |= ((rules.rule_outcome[Rule::BankOverVoltage] | rules.rule_outcome[Rule::CurrentMonitorOverVoltage]) ? B00000100 : 0);
+    data.byte0 |= ((rules.rule_outcome[Rule::BankUnderVoltage] | rules.rule_outcome[Rule::CurrentMonitorUnderVoltage]) ? B00000100 : 0);
 
     //(bit 3) Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
@@ -161,11 +158,19 @@ void pylon_message_359()
   data.byte3 |= ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? B00001000 : 0);
   data.byte3 |= ((_controller_state != ControllerState::Running) ? B00001000 : 0);
 
-  //number of modules (each of 74Ah capacity)
-  data.byte4=1;
+  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
+  {
+    // Pylon can have multiple battery each 74Ah capacity, so emulate this based on total Ah capacity
+    data.byte4 = min((uint8_t)1, (uint8_t)round(currentMonitor.modbus.batterycapacityamphour / 74.0));
+  }
+  else
+  {
+    // Default 1 battery
+    data.byte4 = 1;
+  }
 
-  data.byte5=0x50;
-  data.byte6=0x4e;
+  data.byte5 = 0x50; // P
+  data.byte6 = 0x4e; // N
 
   send_canbus_message(0x359, (uint8_t *)&data, sizeof(data359));
 }
