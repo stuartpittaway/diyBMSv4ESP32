@@ -918,7 +918,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
     if (cmi[i].valid)
     {
-      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].voltagemVMin);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", cmi[i].voltagemVMax);
     }
     else
     {
