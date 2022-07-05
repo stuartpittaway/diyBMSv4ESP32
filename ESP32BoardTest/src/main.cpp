@@ -89,6 +89,7 @@ static constexpr const char *const TAG = "diybms";
 #define RS485_TX GPIO_NUM_22
 #define RS485_ENABLE GPIO_NUM_25
 
+
 enum RGBLED : uint8_t
 {
     OFF = 0,
@@ -101,6 +102,15 @@ enum RGBLED : uint8_t
     White = B00000111
 };
 
+// Prototype functions
+void Halt(RGBLED colour);
+void WriteTCA9534APWROutputState();
+void WriteTCA6408OutputState();
+void WriteTCA6416OutputState();
+void Led(uint8_t bits);
+uint8_t readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg);
+uint16_t read16bitWord(i2c_port_t i2c_num, uint8_t dev, uint8_t reg);
+
 SPIClass vspi;
 // Copy of pin state for TCA9534
 uint8_t TCA9534APWR_Value;
@@ -108,11 +118,7 @@ uint8_t TCA9534APWR_Value;
 uint8_t TCA6408_Value;
 
 TFT_eSPI tft = TFT_eSPI();
-// Don't enable IRQ on touchscreen class (we do that later)
-// XPT2046_Touchscreen touchscreen(TOUCH_CHIPSELECT, TOUCH_IRQ);
 
-// Prototype functions
-void Halt(RGBLED colour);
 
 uint8_t readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
 {
@@ -131,7 +137,6 @@ uint8_t readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
     // Read single byte and expect NACK in reply
     i2c_master_read_byte(cmd, &data, i2c_ack_type_t::I2C_MASTER_NACK);
     i2c_master_stop(cmd);
-    // esp_err_t ret =
     ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
 
     // ESP_LOGD(TAG,"I2C reply %i",ret);
@@ -160,7 +165,7 @@ uint16_t read16bitWord(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
     // Read 1 byte and expect NACK in reply
     i2c_master_read(cmd, &data2, 1, i2c_ack_type_t::I2C_MASTER_NACK);
     i2c_master_stop(cmd);
-    // esp_err_t ret =
+
     ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
 
     i2c_cmd_link_delete(cmd);
@@ -295,6 +300,9 @@ void WriteTCA6416OutputState()
 {
     // Emulate the 9534 + 6408 and set the state on the 16 bit output
     TCA6416_Output_Pins = ((uint16_t)TCA9534APWR_Output_Pins << 8) | TCA6408_Output_Pins;
+
+    //ESP_LOGD(TAG, "TCA6416_Output_Pins=%x", TCA6416_Output_Pins);
+
     ESP_ERROR_CHECK_WITHOUT_ABORT(write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT, TCA6416_Output_Pins));
 
     // Update the "slave" pins to emulate those devices being installed
@@ -382,7 +390,6 @@ void ConfigureI2C()
 
         // INTERRUPT PIN = ESP32 IO39
         // isr_param tca6416_param = {.pin = TCA6416_INTERRUPT_PIN, .handler = TCA6416Interrupt};
-        // ESP_ERROR_CHECK(esp_ipc_call_blocking(PRO_CPU_NUM, ipc_interrupt_attach, &tca6416_param));
         // ipc_interrupt_attach(&tca6416_param);
 
         return;
@@ -473,14 +480,24 @@ void ConfigureI2C()
     Halt(RGBLED::Cyan);
 }
 
+void WriteTCA9534APWROutputState()
+{
+    if (TCA6416_Fitted)
+    {
+        WriteTCA6416OutputState();
+    }
+    else
+    {
+        ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Output_Pins));
+    }
+}
 void Led(uint8_t bits)
 {
     // Clear LED pins
-    TCA9534APWR_Value = TCA9534APWR_Value & B11111000;
+    TCA9534APWR_Output_Pins = TCA9534APWR_Output_Pins & B11111000;
     // Set on
-    TCA9534APWR_Value = TCA9534APWR_Value | (bits & B00000111);
-    // esp_err_t ret =
-    ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value));
+    TCA9534APWR_Output_Pins = TCA9534APWR_Output_Pins | (bits & B00000111);
+    WriteTCA9534APWROutputState();
 }
 
 // Infinite loop flashing the LED RED/WHITE
@@ -510,17 +527,6 @@ void ConfigureVSPI()
     vspi.setFrequency(10000000);
 }
 
-void WriteTCA9534APWROutputState()
-{
-    if (TCA6416_Fitted)
-    {
-        WriteTCA6416OutputState();
-    }
-    else
-    {
-        ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Output_Pins));
-    }
-}
 void WriteTCA6408OutputState()
 {
     if (TCA6416_Fitted)
@@ -533,23 +539,19 @@ void WriteTCA6408OutputState()
     }
 }
 
+// Control TFT backlight LED
 void TFTScreenBacklight(bool value)
 {
     // Clear LED pins
-    TCA9534APWR_Value = TCA9534APWR_Value & B11110111;
+    TCA9534APWR_Output_Pins = TCA9534APWR_Output_Pins & B11110111;
 
     if (value == true)
     {
         // Set on
-        TCA9534APWR_Value = TCA9534APWR_Value | B00001000;
+        TCA9534APWR_Output_Pins = TCA9534APWR_Output_Pins | B00001000;
     }
 
     WriteTCA9534APWROutputState();
-
-    // esp_err_t ret =
-    // ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value));
-    // TODO: Check return value
-    // ESP_LOGD(TAG,"TCA9534 reply %i",ret);
 }
 
 void init_tft_display()
@@ -637,36 +639,38 @@ void setup()
     ConfigureI2C();
     ConfigureVSPI();
 
-    mountSDCard();
+    /*
+        mountSDCard();
 
-    // Create a test file
+        // Create a test file
+        File file;
+        const char *filename = "/burnin.txt";
 
-    File file;
-    const char *filename = "/burnin.txt";
-
-    if (SD.exists(filename))
-    {
-        file = SD.open(filename, FILE_APPEND);
-        ESP_LOGD(TAG, "Open %s", filename);
-    }
-    else
-    {
-        File file = SD.open(filename, FILE_WRITE);
-        if (file)
+        if (SD.exists(filename))
         {
-            ESP_LOGI(TAG, "Created %s", filename);
+            file = SD.open(filename, FILE_APPEND);
+            ESP_LOGD(TAG, "Open %s", filename);
         }
         else
         {
-            Halt(RGBLED::Blue);
+            File file = SD.open(filename, FILE_WRITE);
+            if (file)
+            {
+                ESP_LOGI(TAG, "Created %s", filename);
+            }
+            else
+            {
+                Halt(RGBLED::Blue);
+            }
         }
-    }
 
-    file.println("Mary had a little lamb...");
-    file.close();
+        file.println("Mary had a little lamb...");
+        file.close();
 
-    ESP_LOGI(TAG, "All good for SD card file %s", filename);
-    SD.end();
+        ESP_LOGI(TAG, "All good for SD card file %s", filename);
+        SD.end();
+
+    */
 
     // Test SERIAL
     SERIAL_DATA.begin(2400, SERIAL_8N1, 2, 32); // Serial for comms to modules
@@ -683,23 +687,12 @@ void SetOutputState(uint8_t outputId, bool state)
     // P4 = RELAY1 (outputId=0)
     // P5 = RELAY2 (outputId=1)
     // P6 = RELAY3_SSR (outputId=2)
-    // P7 = EXT_IO_E (outputId=3)
-
+    // P7 = RELAY4_SSR (outputId=3)
     if (outputId <= 3)
     {
-        TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
         uint8_t bit = outputId + 4;
-        TCA6408_Value = (state == true) ? (TCA6408_Value | (1 << bit)) : (TCA6408_Value & ~(1 << bit));
-        esp_err_t ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
-        // ESP_LOGD(TAG, "TCA6408 reply %i", ret);
-
-        if (ret != ESP_OK)
-        {
-            Halt(RGBLED::Green);
-        }
-
-        // TODO: Check return value
-        TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
+        TCA6408_Output_Pins = (state == true) ? (TCA6408_Output_Pins | (1 << bit)) : (TCA6408_Output_Pins & ~(1 << bit));
+        WriteTCA6408OutputState();
     }
 }
 
@@ -819,6 +812,23 @@ void loop()
         output = 0;
         state = !state;
     }
+
+    if (TCA6416_Fitted) {
+        ReadTCA6416InputRegisters();
+    } else {
+        ReadTCA6408InputRegisters();
+        ReadTCA9534InputRegisters();
+    }
+
+  
+    //Hex dump the input status
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.setCursor(0, 150, 4);
+    tft.print("INPUTS= ");
+    tft.print(TCA6408_Input,16);
+    tft.print(" / ");
+    tft.print(TCA9534APWR_Input,16);
+
 
     TouchScreenValues touchscreen = TouchScreenUpdate();
 
