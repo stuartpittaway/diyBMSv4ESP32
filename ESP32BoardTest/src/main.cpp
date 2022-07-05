@@ -23,6 +23,9 @@ Quickly flashing Green = All good
 #error ESP8266 is not supported by this code
 #endif
 
+#define USE_ESP_IDF_LOG 1
+static constexpr const char *const TAG = "diybms";
+
 #undef CONFIG_DISABLE_HAL_LOCKS
 
 #include <Arduino.h>
@@ -33,8 +36,10 @@ Quickly flashing Green = All good
 #include <WiFi.h>
 #include <SPI.h>
 #include "driver/gpio.h"
-#include "driver/can.h"
-#include <XPT2046_Touchscreen.h>
+#include "driver/twai.h"
+#include "driver/adc.h"
+#include <driver/uart.h>
+//#include <XPT2046_Touchscreen.h>
 #include "TFT_eSPI.h"
 #include "driver/i2c.h"
 #include "esp32-hal-i2c.h"
@@ -47,7 +52,20 @@ Quickly flashing Green = All good
 #define SERIAL_DEBUG Serial
 #define SERIAL_RS485 Serial1
 
-//GPIO34 (input only pin)
+#define TCA6416_INTERRUPT_PIN GPIO_NUM_39
+#define TCA6416_ADDRESS 0x21
+#define TCA6416_INPUT 0x00
+#define TCA6416_OUTPUT 0x02
+#define TCA6416_POLARITY_INVERSION 0x04
+#define TCA6416_CONFIGURATION 0x06
+// byte 1   * byte 2
+// P7 to P0 * P17 to P10
+// 00000000 * 11010000
+//  P17, 16 and 14 are inputs
+//  i2c output is written as low byte, high byte
+#define TCA6416_INPUTMASK 0xD000
+
+// GPIO34 (input only pin)
 #define TCA9534A_INTERRUPT_PIN GPIO_NUM_34
 #define TCA9534APWR_ADDRESS 0x38
 #define TCA9534APWR_INPUT 0x00
@@ -56,7 +74,7 @@ Quickly flashing Green = All good
 #define TCA9534APWR_CONFIGURATION 0x03
 #define TCA9534APWR_INPUTMASK B10000000
 
-//GPIO39 (input only pin)
+// GPIO39 (input only pin)
 #define TCA6408_INTERRUPT_PIN GPIO_NUM_39
 #define TCA6408_ADDRESS 0x20
 #define TCA6408_INPUT 0x00
@@ -84,49 +102,98 @@ enum RGBLED : uint8_t
 };
 
 SPIClass vspi;
-//Copy of pin state for TCA9534
+// Copy of pin state for TCA9534
 uint8_t TCA9534APWR_Value;
-//Copy of pin state for TCA6408
+// Copy of pin state for TCA6408
 uint8_t TCA6408_Value;
 
 TFT_eSPI tft = TFT_eSPI();
-//Don't enable IRQ on touchscreen class (we do that later)
-XPT2046_Touchscreen touchscreen(TOUCH_CHIPSELECT, TOUCH_IRQ);
+// Don't enable IRQ on touchscreen class (we do that later)
+// XPT2046_Touchscreen touchscreen(TOUCH_CHIPSELECT, TOUCH_IRQ);
 
-//Prototype functions
+// Prototype functions
 void Halt(RGBLED colour);
 
 uint8_t readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
 {
-    //We use the native i2c commands for ESP32 as the Arduino library
-    //seems to have issues with corrupting i2c data if used from multiple threads
+    // We use the native i2c commands for ESP32 as the Arduino library
+    // seems to have issues with corrupting i2c data if used from multiple threads
 
     uint8_t data;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    //Select the correct register on the i2c device
+    // Select the correct register on the i2c device
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_WRITE, true);
     i2c_master_write_byte(cmd, reg, true);
     // Send repeated start, and read the register
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_READ, true);
-    //Read single byte and expect NACK in reply
+    // Read single byte and expect NACK in reply
     i2c_master_read_byte(cmd, &data, i2c_ack_type_t::I2C_MASTER_NACK);
     i2c_master_stop(cmd);
-    //esp_err_t ret =
+    // esp_err_t ret =
     ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
 
-    //ESP_LOGD(TAG,"I2C reply %i",ret);
+    // ESP_LOGD(TAG,"I2C reply %i",ret);
 
     i2c_cmd_link_delete(cmd);
 
     return data;
 }
 
+uint16_t read16bitWord(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
+{
+    // We use the native i2c commands for ESP32 as the Arduino library
+    // seems to have issues with corrupting i2c data if used from multiple threads
+    uint8_t data1;
+    uint8_t data2;
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    // Select the correct register on the i2c device
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd, reg, true);
+    // Send repeated start, and read the register
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (dev << 1) | I2C_MASTER_READ, true);
+    // Read 1 byte and expect ACK in reply
+    i2c_master_read(cmd, &data1, 1, i2c_ack_type_t::I2C_MASTER_ACK);
+    // Read 1 byte and expect NACK in reply
+    i2c_master_read(cmd, &data2, 1, i2c_ack_type_t::I2C_MASTER_NACK);
+    i2c_master_stop(cmd);
+    // esp_err_t ret =
+    ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
+
+    i2c_cmd_link_delete(cmd);
+
+    return (((uint16_t)data2 << 8) | (uint16_t)data1);
+}
+
+// i2c: Writes a single byte to a slave devices register
+esp_err_t write16bitWord(i2c_port_t i2c_num, uint8_t deviceAddress, uint8_t i2cregister, uint16_t data)
+{
+    // We use the native i2c commands for ESP32 as the Arduino library
+    // seems to have issues with corrupting i2c data if used from multiple threads
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (deviceAddress << 1) | I2C_MASTER_WRITE, true);
+
+    uint8_t buffer[3];
+    buffer[0] = i2cregister;
+    buffer[1] = (uint8_t)(data & 0x00FF);
+    buffer[2] = (uint8_t)(data >> 8);
+    i2c_master_write(cmd, buffer, sizeof(buffer), true);
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = ESP_ERROR_CHECK_WITHOUT_ABORT(i2c_master_cmd_begin(i2c_num, cmd, pdMS_TO_TICKS(100)));
+    i2c_cmd_link_delete(cmd);
+
+    return ret;
+}
+
 esp_err_t writeByte(i2c_port_t i2c_num, uint8_t deviceAddress, uint8_t i2cregister, uint8_t data)
 {
-    //We use the native i2c commands for ESP32 as the Arduino library
-    //seems to have issues with corrupting i2c data if used from multiple threads
+    // We use the native i2c commands for ESP32 as the Arduino library
+    // seems to have issues with corrupting i2c data if used from multiple threads
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, (deviceAddress << 1) | I2C_MASTER_WRITE, true);
@@ -147,123 +214,276 @@ uint8_t ReadTCA6408InputRegisters()
 
 uint8_t ReadTCA9534InputRegisters()
 {
-    TCA9534APWR_Value = readByte(i2c_port_t::I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
+    TCA9534APWR_Value = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
     return TCA9534APWR_Value & TCA9534APWR_INPUTMASK;
 }
 
 void ConfigurePins()
 {
-    //GPIO39 is interrupt pin from TCA6408 (doesnt have pull up/down resistors)
+    // GPIO39 is interrupt pin from TCA6408 (doesnt have pull up/down resistors)
     pinMode(TCA6408_INTERRUPT_PIN, INPUT);
 
-    //GPIO34 is interrupt pin from TCA9534A (doesnt have pull up/down resistors)
+    // GPIO34 is interrupt pin from TCA9534A (doesnt have pull up/down resistors)
     pinMode(TCA9534A_INTERRUPT_PIN, INPUT);
 
-    //BOOT Button on ESP32 module is used for resetting wifi details
+    // BOOT Button on ESP32 module is used for resetting wifi details
     pinMode(GPIO_NUM_0, INPUT_PULLUP);
-    //attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);
+    // attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);
 
-    //For touch screen
+    // For touch screen
     pinMode(TOUCH_IRQ, INPUT_PULLUP);
-    //attachInterrupt(TOUCH_IRQ, TFTScreenTouch, FALLING);
+    // attachInterrupt(TOUCH_IRQ, TFTScreenTouchInterrupt, FALLING);
 
-    //Configure the CHIP SELECT pins as OUTPUT and set HIGH
+    // Configure the CHIP SELECT pins as OUTPUT and set HIGH
     pinMode(TOUCH_CHIPSELECT, OUTPUT);
     digitalWrite(TOUCH_CHIPSELECT, HIGH);
     pinMode(SDCARD_CHIPSELECT, OUTPUT);
     digitalWrite(SDCARD_CHIPSELECT, HIGH);
 
     pinMode(RS485_ENABLE, OUTPUT);
-    //Enable receive
+    // Enable receive
     digitalWrite(RS485_ENABLE, LOW);
+}
+
+// Attempts connection to i2c device
+esp_err_t Testi2cAddress(i2c_port_t port, uint8_t address)
+{
+    int ret;
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, 1);
+    i2c_master_stop(cmd);
+    ret = i2c_master_cmd_begin(port, cmd, 100 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
+    return ret;
+}
+
+// Input pin state for TCA9534
+uint8_t TCA9534APWR_Input;
+// Input pin state for TCA6408
+uint8_t TCA6408_Input;
+// Input pin state for TCA6416
+uint16_t TCA6416_Input;
+
+// Output pin state for TCA9534
+uint8_t TCA9534APWR_Output_Pins;
+// Output pin state for TCA6408
+uint8_t TCA6408_Output_Pins;
+// Output pin state for TCA6416
+uint16_t TCA6416_Output_Pins;
+bool TCA6416_Fitted;
+
+// 16 bit register
+uint16_t ReadTCA6416InputRegisters()
+{
+    // Update the copy of the pin state
+    TCA6416_Input = read16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_INPUT) & (uint16_t)TCA6416_INPUTMASK;
+
+    // As the TCA6416 pins as mapped similarly to the older style controller with 2 I/O chips
+    // we map the inputs to fake the other devices.
+
+    // TCA6416A pins P0-7 match the old TCA6408 pin out
+    TCA6408_Input = TCA6416_Input & 0x00FF;
+    TCA9534APWR_Input = (TCA6416_Input >> 8) & (uint16_t)0x00FF;
+
+    // ESP_LOGD(TAG, "TCA6416 input=%#04x, TCA6408=%x, TCA9534=%x", TCA6416_Input, TCA6408_Input, TCA9534APWR_Input);
+
+    return TCA6416_Input;
+}
+
+void WriteTCA6416OutputState()
+{
+    // Emulate the 9534 + 6408 and set the state on the 16 bit output
+    TCA6416_Output_Pins = ((uint16_t)TCA9534APWR_Output_Pins << 8) | TCA6408_Output_Pins;
+    ESP_ERROR_CHECK_WITHOUT_ABORT(write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT, TCA6416_Output_Pins));
+
+    // Update the "slave" pins to emulate those devices being installed
+    TCA6408_Output_Pins = TCA6416_Output_Pins & 0x00FF;
+    TCA9534APWR_Output_Pins = (TCA6416_Output_Pins >> 8) & 0x00FF;
 }
 
 void ConfigureI2C()
 {
     ESP_LOGI(TAG, "Configure I2C");
 
-    //SDA / SCL
-    //ESP32 = I2C0-SDA / I2C0-SCL
-    //I2C Bus 1: uses GPIO 27 (SDA) and GPIO 26 (SCL);
-    //I2C Bus 2: uses GPIO 33 (SDA) and GPIO 32 (SCL);
+    // SDA / SCL
+    // ESP32 = I2C0-SDA / I2C0-SCL
+    // I2C Bus 1: uses GPIO 27 (SDA) and GPIO 26 (SCL);
+    // I2C Bus 2: uses GPIO 33 (SDA) and GPIO 32 (SCL);
 
     // Initialize
-    i2c_config_t conf;
-    conf.mode = I2C_MODE_MASTER;
-    conf.sda_io_num = gpio_num_t::GPIO_NUM_27;
-    conf.scl_io_num = gpio_num_t::GPIO_NUM_26;
-    //conf.sda_pullup_en = GPIO_PULLUP_DISABLE;
-    //conf.scl_pullup_en = GPIO_PULLUP_DISABLE;
-    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = gpio_num_t::GPIO_NUM_27,
+        .scl_io_num = gpio_num_t::GPIO_NUM_26,
+        .sda_pullup_en = GPIO_PULLUP_DISABLE,
+        .scl_pullup_en = GPIO_PULLUP_DISABLE,
+        .clk_flags = I2C_SCLK_SRC_FLAG_FOR_NOMAL};
+
+    // 400khz
     conf.master.clk_speed = 400000;
-    i2c_param_config(I2C_NUM_0, &conf);
-    i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0);
 
-    //All off
-    esp_err_t ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, 0);
-    if (ret != ESP_OK)
+    ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &conf));
+    ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0));
+
+    // Test to see if we have a TCA6416 on the i2c bus, if we have, its a newer controller board V4.4+
+    // on power up the chip has all ports are inputs
+
+    ESP_LOGI(TAG, "Scanning i2c bus");
+    for (uint8_t i = 1; i < 127; i++)
     {
-        ESP_LOGE(TAG, "TCA9534APWR Error");
-        Halt(RGBLED::Purple);
+        if (Testi2cAddress(I2C_NUM_0, i) == ESP_OK)
+        {
+            ESP_LOGI(TAG, "Found i2c device at address 0x%2x", i);
+        }
     }
 
-    //0×03 Configuration, P7 as input, others outputs (0=OUTPUT)
-    ret = writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, TCA9534APWR_INPUTMASK);
-
-    //0×02 Polarity Inversion, zero = off
-    //writeByte(TCA9534APWR_ADDRESS, TCA9534APWR_POLARITY_INVERSION, 0);
-    TCA9534APWR_Value = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_INPUT);
-    //SERIAL_DEBUG.println("Found TCA9534APWR");
-
-    //    attachInterrupt(TCA9534A_INTERRUPT_PIN, TCA9534AInterrupt, FALLING);
-
-    ESP_LOGI(TAG, "Found TCA9534A");
-
-    /*
-Now for the TCA6408
-*/
-
-    //P0=EXT_IO_A
-    //P1=EXT_IO_B
-    //P2=EXT_IO_C
-    //P3=EXT_IO_D
-    //P4=RELAY 1
-    //P5=RELAY 2
-    //P6=RELAY 3 (SSR)
-    //P7=EXT_IO_E
-
-    //Set ports to off before we set configuration
-    ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, 0);
-
-    if (ret != ESP_OK)
+    if (Testi2cAddress(I2C_NUM_0, TCA6416_ADDRESS) == ESP_OK)
     {
-        ESP_LOGE(TAG, "TCA6408 Error");
-        Halt(RGBLED::Green);
+        ESP_LOGI(TAG, "Found TCA6416A");
+
+        ESP_ERROR_CHECK(write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT, 0));
+
+        TCA6416_Fitted = true;
+
+        // Set configuration
+        ESP_ERROR_CHECK(write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_CONFIGURATION, TCA6416_INPUTMASK));
+
+        // Update our copy of pin state registers
+        ReadTCA6416InputRegisters();
+
+        // All off
+        TCA6416_Output_Pins = 0;
+        WriteTCA6416OutputState();
+
+        /*
+    TCA6416A pins P0-7 match the old TCA6408 pin out
+    */
+        // P0=EXT_IO_A
+        // P1=EXT_IO_B
+        // P2=EXT_IO_C
+        // P3=EXT_IO_D
+        // P4=RELAY 1
+        // P5=RELAY 2
+        // P6=RELAY 3 (SSR)
+        // P7=RELAY 4 (SSR)
+
+        /*
+    TCA6416 pins P10-17 match the old TCA9534 pin out
+    */
+        // P10= BLUE
+        // P11= RED
+        // P12= GREEN
+        // P13= DISPLAY BACKLIGHT LED
+        // P14= push button 1
+        // P15= NOT USED
+        // P16= push button 2
+        // P17= ESTOP (pull to ground to trigger)
+
+        // INTERRUPT PIN = ESP32 IO39
+        // isr_param tca6416_param = {.pin = TCA6416_INTERRUPT_PIN, .handler = TCA6416Interrupt};
+        // ESP_ERROR_CHECK(esp_ipc_call_blocking(PRO_CPU_NUM, ipc_interrupt_attach, &tca6416_param));
+        // ipc_interrupt_attach(&tca6416_param);
+
+        return;
+    }
+    else
+    {
+        ESP_LOGI(TAG, "TCA6416A not fitted, assume v4.2 board");
+
+        // https://datasheet.lcsc.com/szlcsc/1809041633_Texas-Instruments-TCA9534APWR_C206010.pdf
+        // TCA9534APWR Remote 8-Bit I2C and Low-Power I/O Expander With Interrupt Output and Configuration Registers
+        // https://lcsc.com/product-detail/Interface-I-O-Expanders_Texas-Instruments-TCA9534APWR_C206010.html
+        // A0/A1/A2 are LOW, so i2c address is 0x38
+
+        // PINS
+        // P0= BLUE
+        // P1= RED
+        // P2= GREEN
+        // P3= DISPLAY BACKLIGHT LED
+        // P4= SPARE on J13
+        // P5= Canbus RS
+        // P6= SPARE on J13
+        // P7= ESTOP (pull to ground to trigger)
+        // INTERRUPT PIN = ESP32 IO34
+
+        // BIT  76543210
+        // PORT 76543210
+        // MASK=10000000
+
+        if (Testi2cAddress(I2C_NUM_0, TCA9534APWR_ADDRESS) != ESP_OK)
+        {
+            ESP_LOGE(TAG, "TCA9534APWR Error");
+            Halt(RGBLED::Purple);
+        }
+
+        // All off
+        ESP_ERROR_CHECK(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, 0));
+
+        // 0×03 Configuration, P7 (estop) and P4 (remote touch) as input, others outputs (0=OUTPUT)
+        ESP_ERROR_CHECK(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_CONFIGURATION, TCA9534APWR_INPUTMASK));
+        ReadTCA9534InputRegisters();
+        TCA9534APWR_Output_Pins = readByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT);
+
+        // ESP_LOGD(TAG, "About to configure interrupt...");
+        // isr_param tca9534_param = {.pin = TCA9534A_INTERRUPT_PIN, .handler = TCA9534AInterrupt};
+        // ESP_ERROR_CHECK(esp_ipc_call_blocking(PRO_CPU_NUM, ipc_interrupt_attach, &tca9534_param));
+        // ipc_interrupt_attach(&tca9534_param);
+
+        ESP_LOGI(TAG, "Found TCA9534A");
+
+        /*
+    Now for the TCA6408
+    */
+
+        // P0=EXT_IO_A
+        // P1=EXT_IO_B
+        // P2=EXT_IO_C
+        // P3=EXT_IO_D
+        // P4=RELAY 1
+        // P5=RELAY 2
+        // P6=RELAY 3 (SSR)
+        // P7=RELAY 4 (SSR)
+
+        if (Testi2cAddress(I2C_NUM_0, TCA6408_ADDRESS) != ESP_OK)
+        {
+            ESP_LOGE(TAG, "TCA6408 Error");
+            Halt(RGBLED::Green);
+        }
+
+        // Set ports to off before we set configuration
+        ESP_ERROR_CHECK(writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, 0));
+
+        // Ports A/B/C/D/E inputs, RELAY1/2/3 outputs
+        ESP_ERROR_CHECK(writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_CONFIGURATION, TCA6408_INPUTMASK));
+        ReadTCA6408InputRegisters();
+        TCA6408_Output_Pins = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT);
+
+        ESP_LOGI(TAG, "Found TCA6408");
+        // isr_param tca6408_param = {.pin = TCA6408_INTERRUPT_PIN, .handler = TCA6408Interrupt};
+        // ESP_ERROR_CHECK(esp_ipc_call_blocking(PRO_CPU_NUM, ipc_interrupt_attach, &tca6408_param));
+        // ipc_interrupt_attach(&tca6408_param);
+        TCA6416_Fitted = false;
+
+        return;
     }
 
-    //Ports A/B/C/D inputs, RELAY1/2/3/4 outputs
-    ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_CONFIGURATION, TCA6408_INPUTMASK);
-    //ret =writeByte(i2c_port_t::I2C_NUM_0,TCA6408_ADDRESS, TCA6408_POLARITY_INVERSION, B00000000);
-    TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
-    //TODO: Validate if there was a read error or not.
-
-    ESP_LOGI(TAG, "Found TCA6408");
-
-    //    attachInterrupt(TCA6408_INTERRUPT_PIN, TCA6408Interrupt, FALLING);
+    // Didn't find anything on i2c bus
+    ESP_LOGE(TAG, "No TCA chip found on i2c bus");
+    Halt(RGBLED::Cyan);
 }
 
 void Led(uint8_t bits)
 {
-    //Clear LED pins
+    // Clear LED pins
     TCA9534APWR_Value = TCA9534APWR_Value & B11111000;
-    //Set on
+    // Set on
     TCA9534APWR_Value = TCA9534APWR_Value | (bits & B00000111);
-    //esp_err_t ret =
+    // esp_err_t ret =
     ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value));
 }
 
-//Infinite loop flashing the LED RED/WHITE
+// Infinite loop flashing the LED RED/WHITE
 void Halt(RGBLED colour)
 {
     while (true)
@@ -279,32 +499,57 @@ void ConfigureVSPI()
 {
     vspi.endTransaction();
     vspi.end();
-    //VSPI
-    //GPIO23 (MOSI), GPIO19(MISO), GPIO18(CLK) and GPIO5 (CS)
+    // VSPI
+    // GPIO23 (MOSI), GPIO19(MISO), GPIO18(CLK) and GPIO5 (CS)
     vspi.begin(18, 19, 23, -1);
-    //Don't use hardware chip selects on VSPI
+    // Don't use hardware chip selects on VSPI
     vspi.setHwCs(false);
     vspi.setBitOrder(MSBFIRST);
     vspi.setDataMode(SPI_MODE0);
-    //10mhz
+    // 10mhz
     vspi.setFrequency(10000000);
+}
+
+void WriteTCA9534APWROutputState()
+{
+    if (TCA6416_Fitted)
+    {
+        WriteTCA6416OutputState();
+    }
+    else
+    {
+        ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Output_Pins));
+    }
+}
+void WriteTCA6408OutputState()
+{
+    if (TCA6416_Fitted)
+    {
+        WriteTCA6416OutputState();
+    }
+    else
+    {
+        ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Output_Pins));
+    }
 }
 
 void TFTScreenBacklight(bool value)
 {
-    //Clear LED pins
+    // Clear LED pins
     TCA9534APWR_Value = TCA9534APWR_Value & B11110111;
 
     if (value == true)
     {
-        //Set on
+        // Set on
         TCA9534APWR_Value = TCA9534APWR_Value | B00001000;
     }
 
-    //esp_err_t ret =
-    ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value));
-    //TODO: Check return value
-    //ESP_LOGD(TAG,"TCA9534 reply %i",ret);
+    WriteTCA9534APWROutputState();
+
+    // esp_err_t ret =
+    // ESP_ERROR_CHECK_WITHOUT_ABORT(writeByte(I2C_NUM_0, TCA9534APWR_ADDRESS, TCA9534APWR_OUTPUT, TCA9534APWR_Value));
+    // TODO: Check return value
+    // ESP_LOGD(TAG,"TCA9534 reply %i",ret);
 }
 
 void init_tft_display()
@@ -352,7 +597,7 @@ void testSerial()
     for (size_t i = 0; i < 10; i++)
     {
         delay(100);
-        //Clear send and reply buffers
+        // Clear send and reply buffers
         SERIAL_DATA.flush();
         while (SERIAL_DATA.available())
         {
@@ -377,7 +622,7 @@ void testSerial()
 
 void setup()
 {
-    //We are not testing ESP32, so switch off WIFI + BT
+    // We are not testing ESP32, so switch off WIFI + BT
     WiFi.mode(WIFI_OFF);
 
     btStop();
@@ -394,7 +639,7 @@ void setup()
 
     mountSDCard();
 
-    //Create a test file
+    // Create a test file
 
     File file;
     const char *filename = "/burnin.txt";
@@ -423,25 +668,22 @@ void setup()
     ESP_LOGI(TAG, "All good for SD card file %s", filename);
     SD.end();
 
-    //Test SERIAL
+    // Test SERIAL
     SERIAL_DATA.begin(2400, SERIAL_8N1, 2, 32); // Serial for comms to modules
-    SERIAL_DATA.setRxBufferSize(128);
     testSerial();
 
     init_tft_display();
-
-    touchscreen.begin(vspi);
 }
 
 void SetOutputState(uint8_t outputId, bool state)
 {
     ESP_LOGD(TAG, "SetOutputState %u=%u", outputId, state);
 
-    //Relays connected to TCA6408A
-    //P4 = RELAY1 (outputId=0)
-    //P5 = RELAY2 (outputId=1)
-    //P6 = RELAY3_SSR (outputId=2)
-    //P7 = EXT_IO_E (outputId=3)
+    // Relays connected to TCA6408A
+    // P4 = RELAY1 (outputId=0)
+    // P5 = RELAY2 (outputId=1)
+    // P6 = RELAY3_SSR (outputId=2)
+    // P7 = EXT_IO_E (outputId=3)
 
     if (outputId <= 3)
     {
@@ -449,16 +691,121 @@ void SetOutputState(uint8_t outputId, bool state)
         uint8_t bit = outputId + 4;
         TCA6408_Value = (state == true) ? (TCA6408_Value | (1 << bit)) : (TCA6408_Value & ~(1 << bit));
         esp_err_t ret = writeByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_OUTPUT, TCA6408_Value);
-        //ESP_LOGD(TAG, "TCA6408 reply %i", ret);
+        // ESP_LOGD(TAG, "TCA6408 reply %i", ret);
 
         if (ret != ESP_OK)
         {
             Halt(RGBLED::Green);
         }
 
-        //TODO: Check return value
+        // TODO: Check return value
         TCA6408_Value = readByte(I2C_NUM_0, TCA6408_ADDRESS, TCA6408_INPUT);
     }
+}
+
+struct TouchScreenValues
+{
+    bool touched;
+    uint8_t pressure;
+    uint16_t X;
+    uint16_t Y;
+};
+
+TouchScreenValues TouchScreenUpdate()
+{
+    /*
+        Features and Specification of XPT2046
+        * 12 bit SAR type A/D converter with S/H circuit
+        * Low voltage operations (VCC = 2.2V - 3.6V)
+        * Low power consumption (260uA)
+        * 125 kHz sampling frequency
+        * On-chip reference voltage - 2.5V
+        * Pen pressure measurement
+        * On-chip thermo sensor
+        * Direct battery measurement
+        * 4-wire I/F
+
+        DataSheet
+        https://components101.com/admin/sites/default/files/component_datasheet/XPT2046-Datasheet.pdf
+
+        // BIT7(MSB) BIT6 BIT5 BIT4 BIT3 BIT2      BIT1 BIT0(LSB)
+        // S         A2   A1   A0   MODE SER/——DFR PD1  PD0
+
+        // S = START BIT
+        // A2/A1/A0 = Channel address bits 011 = Z1, 100=Z2, 001=X, 101=Y
+        // MODE = 12bit/8bit (12bit=low)
+        // SER/DFR = SingleEnded/Differential ADC mode (differential mode)
+        // PD0 and PD1 control power delivery, 0/0 = all enabled, 1=1=disabled.
+    */
+    // Z is touch (depth)
+    // const uint8_t ADD_TEMPERATURE = 0B00000000;
+    // const uint8_t ADD_VBATTERY = 0B00100000;
+    const uint8_t ADD_Z1 = 0B00110000;
+    const uint8_t ADD_Z2 = 0B01000000;
+    const uint8_t ADD_X = 0B00010000;
+    const uint8_t ADD_Y = 0B01010000;
+    const uint8_t STARTBIT = 0B10000000;
+    // internal reference voltage is only used in the single-ended mode for battery monitoring, temperature measurement
+    const uint8_t PWR_ALLOFF = 0B00000000;
+    const uint8_t PWR_REFOFF_ADCON = 0B00000001;
+    // const uint8_t PWR_REFON_ADCOFF = 0B00000010;
+    // const uint8_t PWR_REFON_ADCON = 0B00000011;
+
+    // Differential Reference Mode (SER/DFR low) should be used for reading X/Y/Z
+    // Single ended mode (SER/DFR high) should be used for temperature and battery
+    const uint8_t ADC_DIFFERENTIAL = 0B00000000;
+    // const uint8_t ADC_SINGLEENDED = 0B00000100;
+
+    const uint8_t ADC_8BIT = 0B00001000;
+    const uint8_t ADC_12BIT = 0B00000000;
+
+    TouchScreenValues reply;
+    reply.touched = false;
+    reply.pressure = 0;
+    reply.X = 0;
+    reply.Y = 0;
+
+    // Landscape orientation screen
+    // X is zero when not touched, left of screen is about 290, right of screen is about 3900
+    // Y is 3130 when not touched, top of screen is 250, bottom is 3150
+
+    // Slow down to 2Mhz SPI bus
+    vspi.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
+
+    digitalWrite(TOUCH_CHIPSELECT, LOW);
+
+    // We don't need accurate touch pressure for this application, so
+    // only read Z2 register, we just want a boolean value at the end of the day
+
+    // The transfers are always a step behind, so the transfer reads the previous value/command
+    vspi.write(STARTBIT | PWR_REFOFF_ADCON | ADC_8BIT | ADC_DIFFERENTIAL | ADD_Z1);
+
+    // Read Z2 (1 byte) and request X
+    reply.pressure = vspi.transfer(STARTBIT | PWR_REFOFF_ADCON | ADC_12BIT | ADC_DIFFERENTIAL | ADD_X);
+
+    // Read X (2 bytes) and request Y
+    reply.X = vspi.transfer16(STARTBIT | PWR_REFOFF_ADCON | ADC_12BIT | ADC_DIFFERENTIAL | ADD_Y) >> 3;
+    // Take Y reading, then power down after this sample
+    reply.Y = vspi.transfer16(STARTBIT | PWR_ALLOFF | ADC_8BIT | ADC_DIFFERENTIAL | ADD_Z2) >> 3;
+
+    // Final transfer to ensure device goes into sleep
+    // In order to turn the reference off, an additional write to the XPT2046 is required after the channel has been converted.  Page 24 datasheet
+    // uint16_t Z2 =
+    vspi.transfer(0);
+
+    digitalWrite(TOUCH_CHIPSELECT, HIGH);
+    vspi.endTransaction();
+
+    // Screen connected and not touched
+    // Touch = 128, x=0 , y around 3130-3140
+
+    // 135 controls the minimum amount of pressure needed to "touch"
+    // X also needs to be greater than zero
+    reply.touched = reply.pressure > 135 && reply.X > 0;
+
+    // ESP_LOGI(TAG, "Touch = touch=%i pressure=%u x=%u y=%u", reply.touched, reply.pressure, reply.X, reply.Y);
+
+    return reply;
 }
 
 uint8_t output = 0;
@@ -473,19 +820,19 @@ void loop()
         state = !state;
     }
 
-    if (touchscreen.tirqTouched() && touchscreen.touched())
-    {
-        TS_Point p = touchscreen.getPoint();
+    TouchScreenValues touchscreen = TouchScreenUpdate();
 
+    if (touchscreen.touched)
+    {
         tft.setTextColor(TFT_GREEN, TFT_BLACK);
         tft.setCursor(0, 100, 2);
         tft.print(millis());
         tft.print("Pressure = ");
-        tft.print(p.z);
+        tft.print(touchscreen.pressure);
         tft.print(", x = ");
-        tft.print(p.x);
+        tft.print(touchscreen.X);
         tft.print(", y = ");
-        tft.print(p.y);
+        tft.print(touchscreen.Y);
     }
     else
     {
@@ -497,9 +844,9 @@ void loop()
     tft.print(millis());
 
     Led(RGBLED::Green);
-    //Don't do anything
+    // Don't do anything
     delay(250);
     Led(RGBLED::OFF);
-    //Don't do anything
+    // Don't do anything
     delay(250);
 }
