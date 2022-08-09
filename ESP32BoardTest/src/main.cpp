@@ -596,7 +596,7 @@ SD CARD TEST
 void testSerial()
 {
     ESP_LOGI(TAG, "Test serial TX1/RX1");
-    for (size_t i = 0; i < 10; i++)
+    for (size_t i = 0; i < 5; i++)
     {
         delay(100);
         // Clear send and reply buffers
@@ -672,11 +672,25 @@ void setup()
 
     */
 
+    //RGB led test
+    ESP_LOGD(TAG, "RED");
+    Led(RGBLED::Red);
+    delay(1000);
+    ESP_LOGD(TAG, "GREEN");
+    Led(RGBLED::Green);
+    delay(1000);
+    ESP_LOGD(TAG, "BLUE");
+    Led(RGBLED::Blue);
+    delay(1000);
+    Led(RGBLED::OFF);
+
+
     // Test SERIAL
     SERIAL_DATA.begin(2400, SERIAL_8N1, 2, 32); // Serial for comms to modules
     testSerial();
 
     init_tft_display();
+
 }
 
 void SetOutputState(uint8_t outputId, bool state)
@@ -854,9 +868,7 @@ void loop()
     tft.print(millis());
 
     Led(RGBLED::Green);
-    // Don't do anything
     delay(250);
     Led(RGBLED::OFF);
-    // Don't do anything
     delay(250);
 }
