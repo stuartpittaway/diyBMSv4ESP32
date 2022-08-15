@@ -21,8 +21,15 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #error You need to specify the DIYBMSMODULEVERSION define
 #endif
 
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION > 450
+#error Incorrect value for DIYBMSMODULEVERSION
+#endif
+
+
 //This is where the data begins in EEPROM
 #define EEPROM_CONFIG_ADDRESS 0
+
+
 
 // Only the lowest 4 bits can be used!
 enum COMMAND: uint8_t

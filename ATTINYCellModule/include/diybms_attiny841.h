@@ -22,6 +22,7 @@
 #error Expected ATTINYCORE
 #endif
 
+#define MAXIUMUM_ATTINY_ADC_SCALE 1023.0F
 /*
 This class wraps the hardware pins of DIYBMS away from the core logic/code
 if you are porting to another chipset, clone this class and modify it.

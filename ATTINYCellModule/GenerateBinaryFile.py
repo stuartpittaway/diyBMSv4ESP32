@@ -62,6 +62,9 @@ def generatejson(target, source, env):
 
     if str(env["BOARD_MCU"]).lower()=="ATtiny1614":
         signature="1e9422"
+
+    if str(env["BOARD_MCU"]).lower()=="ATtiny1624":
+        signature="1e942a"
         
 
     # Delete entry if it currently exists
@@ -70,7 +73,7 @@ def generatejson(target, source, env):
             del data['avrprog'][i] 
             break
 
-    if env.get("BOARD")=="ATtiny1614":
+    if env.get("BOARD")=="ATtiny1624":
         #Add the new entry
         data['avrprog'].append({'board': board, 'name':  newfilename, 'ver': env["git_sha_short"],'mcu':signature,'efuse':0,'hfuse':0,'lfuse':0})
 

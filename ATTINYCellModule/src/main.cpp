@@ -17,15 +17,11 @@ UK)
 https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 * Non-Commercial — You may not use the material for commercial purposes.
-* Attribution — You must give appropriate credit, provide a link to the license,
-and indicate if changes were made.
-  You may do so in any reasonable manner, but not in any way that suggests the
-licensor endorses you or your use.
-* ShareAlike — If you remix, transform, or build upon the material, you must
-distribute your
+* Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made.
+  You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+* ShareAlike — If you remix, transform, or build upon the material, you must distribute your
   contributions under the same license as the original.
-* No additional restrictions — You may not apply legal terms or technological
-measures
+* No additional restrictions — You may not apply legal terms or technological measures
   that legally restrict others from doing anything the license permits.
 */
 /*
@@ -34,8 +30,7 @@ IMPORTANT
 You need to configure the correct DIYBMSMODULEVERSION in defines.h file to build
 for your module
 
-ATTINY chip frequency dropped to 2Mhz to comply with datasheet at low voltages
-(<2V)
+ATTINY841 chip frequency dropped to 2Mhz to comply with datasheet at low voltages (<2V)
 Baud rate changed to 5000bits/second from 26 Jan 2021, 5000 chosen due to 2Mhz
 frequency and ATTINY bad freq regulation
 https://trolsoft.ru/en/uart-calc
@@ -47,8 +42,16 @@ https://trolsoft.ru/en/uart-calc
 #include <Arduino.h>
 
 // Include both of these, they have #define checks to work out what to do
-#include "diybms_attiny1614.h"
+#include "diybms_attiny1624.h"
 #include "diybms_attiny841.h"
+
+#if !defined(DIYBMSBAUD)
+#error Expected DIYBMSBAUD define
+#endif
+
+#if !defined(SAMPLEAVERAGING)
+#error Expected SAMPLEAVERAGING define
+#endif
 
 // Our project code includes
 #include "defines.h"
@@ -64,8 +67,6 @@ SerialEncoder myPacketSerial;
 // Default values which get overwritten by EEPROM on power up
 CellModuleConfig myConfig;
 
-// diyBMSHAL hardware;
-
 PacketProcessor PP(&myConfig);
 
 volatile bool wdt_triggered = false;
@@ -77,11 +78,12 @@ volatile uint16_t OnPulseCount = 0;
 
 void DefaultConfig()
 {
-  // About 2.2007 seems about right
+#if defined(__AVR_ATtiny1624__)
+  myConfig.Calibration = 1.0;
+#else
+  // About 2.2007 seems about right on ATTINY841
   myConfig.Calibration = 2.2007;
-
-  // 2mV per ADC resolution
-  // myConfig.mVPerADC = 2.0; //2048.0/1024.0;
+#endif
 
 #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
   // Keep temperature low for modules with R19 and R20 not swapped
@@ -94,8 +96,19 @@ void DefaultConfig()
   // Start bypass at 4.1V
   myConfig.BypassThresholdmV = 4100;
 
+  //#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 430 || DIYBMSMODULEVERSION == 420 || DIYBMSMODULEVERSION == 421)
+  // Murata Electronics NCP18WB473J03RB = 47K ±5% 4050K ±2% 100mW 0603 NTC Thermistors RoHS
+  // myConfig.Internal_BCoefficient = 4050;
+  //#else
+  // 4150 = B constant (25-50℃)
+  // myConfig.Internal_BCoefficient = 4150;
+  //#endif
+
+  // 4150 = B constant (25-50℃)
+  // myConfig.External_BCoefficient = 4150;
+
   // Resistance @ 25℃ = 47k, B Constant 4150, 0.20mA max current
-  // Using  https://www.thinksrs.com/downloads/programs/therm%20calc/ntccalibrator/ntccalculator.html
+  // Using https://www.thinksrs.com/downloads/programs/therm%20calc/ntccalibrator/ntccalculator.html
 }
 
 void watchdog()
@@ -160,19 +173,22 @@ FastPID myPID(5.0, 1.0, 0.1, 3, 8, false);
 
 void ValidateConfiguration()
 {
-  if (myConfig.Calibration < 1.9)
+  if (myConfig.Calibration < 0.8 || myConfig.Calibration > 10.0)
   {
-    myConfig.Calibration = 2.21000;
+#if defined(__AVR_ATtiny1624__)
+    myConfig.Calibration = 1.0;
+#else
+    // About 2.2007 seems about right on ATTINY841
+    myConfig.Calibration = 2.2007;
+#endif
   }
 
-  if (myConfig.BypassTemperatureSetPoint >
-      DIYBMS_MODULE_SafetyTemperatureCutoff)
+  if (myConfig.BypassTemperatureSetPoint > DIYBMS_MODULE_SafetyTemperatureCutoff)
   {
-    myConfig.BypassTemperatureSetPoint = 55;
+    myConfig.BypassTemperatureSetPoint = DIYBMS_MODULE_SafetyTemperatureCutoff-10;
   }
 
-#if defined(DIYBMSMODULEVERSION) && \
-    (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
+#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
   // Keep temperature low for modules with R19 and R20 not swapped
   if (myConfig.BypassTemperatureSetPoint > 45)
   {
@@ -202,7 +218,7 @@ void setup()
   wdt_disable();
   wdt_reset();
 
-  //Did we have a watchdog reboot?
+  // Did we have a watchdog reboot?
   if (RSTCTRL.RSTFR & RSTCTRL_WDRF_bm)
   {
     watchdog();
@@ -220,14 +236,10 @@ void setup()
   diyBMSHAL::double_tap_Notification_led();
 
   // Check if setup routine needs to be run
-  if (!Settings::ReadConfigFromEEPROM((uint8_t *)&myConfig, sizeof(myConfig),
-                                      EEPROM_CONFIG_ADDRESS))
+  if (!Settings::ReadConfigFromEEPROM((uint8_t *)&myConfig, sizeof(myConfig), EEPROM_CONFIG_ADDRESS))
   {
     DefaultConfig();
-    // No need to save here as the default config will load every time if the
-    // CRC is wrong
-    // Settings::WriteConfigToEEPROM((uint8_t *)&myConfig, sizeof(myConfig),
-    // EEPROM_CONFIG_ADDRESS);
+    // No need to save here as the default config will load every time if the CRC is wrong
   }
 
   ValidateConfiguration();
@@ -241,15 +253,10 @@ void setup()
 
   StopBalance();
 
-#if (!defined(DIYBMSBAUD))
-#error Expected DIYBMSBAUD define
-#endif
   // Set up data handler
   Serial.begin(DIYBMSBAUD, SERIAL_8N1);
 
-  myPacketSerial.begin(&Serial, &onPacketReceived, sizeof(PacketStruct),
-                       SerialPacketReceiveBuffer,
-                       sizeof(SerialPacketReceiveBuffer));
+  myPacketSerial.begin(&Serial, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 }
 void BalanceTimer()
 {
@@ -319,15 +326,15 @@ ISR(TIMER1_COMPA_vect)
 }
 #endif
 
-#if defined(__AVR_ATtiny1614__)
-//We don't use ADC interrupts on ATtiny1614 as there is no benefit
+#if defined(__AVR_ATtiny1624__)
+// We don't use ADC interrupts on ATtiny1614 as there is no benefit
 ISR(TCA0_OVF_vect)
 {
-  //This ISR is called every 1ms when balancing is in operation
+  // This ISR is called every 1ms when balancing is in operation
 
-  //diyBMSHAL::SpareOn();
+  // diyBMSHAL::SpareOn();
   BalanceTimer();
-  //diyBMSHAL::SpareOff();
+  // diyBMSHAL::SpareOff();
   TCA0.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
 }
 #endif
@@ -353,6 +360,16 @@ inline void identifyModule()
     }
   }
 }
+
+/*
+void loop()
+{
+  // This loop runs around 3 times per second when the module is in bypass
+  wdt_reset();
+
+  Serial.println("Hello world!");
+}
+*/
 
 void loop()
 {
@@ -391,107 +408,90 @@ void loop()
     diyBMSHAL::double_tap_Notification_led();
 #endif
 
-    // If we have just woken up, we shouldn't be in balance safety check that we
-    // are not
+    // If we have just woken up, we shouldn't be in balance safety check that we are not
     StopBalance();
   }
 
-  // We always take a voltage and temperature reading on every loop cycle to
-  // check if we need to go into bypass
-  // this is also triggered by the watchdog should comms fail or the module is
-  // running standalone
+  // We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass
+  // this is also triggered by the watchdog should comms fail or the module is running standalone
   diyBMSHAL::ReferenceVoltageOn();
 
   // Internal temperature
   PP.TakeAnAnalogueReading(ADC_INTERNAL_TEMP);
-
-  // Disable the PWM/load during voltage readings
-  // if (PP.bypassCountDown > 0) { diyBMSHAL::PausePWM(); }
 
   // Only take these readings when we are NOT in bypass....
   // this causes the voltage and temperature to "freeze" during bypass cycles
   if (PP.bypassCountDown == 0)
   {
     // Just for debug purposes, shows when voltage is read
-    //#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
-    //    diyBMSHAL::BlueLedOn();
+    //#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 430
+    //     diyBMSHAL::BlueLedOn();
     //#endif
 
     // External temperature
     PP.TakeAnAnalogueReading(ADC_EXTERNAL_TEMP);
 
+#if (SAMPLEAVERAGING == 1)
+    // Sample averaging not enabled
     // Do voltage reading last to give as much time for voltage to settle
     PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
-
-    //#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
-    //    diyBMSHAL::BlueLedOff();
-    //#endif
+#else
+    // Take several samples and average the result
+    for (size_t i = 0; i < SAMPLEAVERAGING; i++)
+    {
+      PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
+    }
+#endif
   }
-
-  // Switch balance PWM back on if needed
-  // if (PP.bypassCountDown > 0) { diyBMSHAL::ResumePWM(); }
 
   // Switch reference off if we are not in bypass (otherwise leave on)
   diyBMSHAL::ReferenceVoltageOff();
 
-  if (wdt_triggered)
+  if (wdt_triggered && Serial.available() == 0)
   {
-    // We got here because the watchdog (after 8 seconds) went off - we didn't
-    // receive a packet of data
-    wdt_triggered = false;
+    // If the WDT trigered, and NO serial is available, don't do anything here
+    // this avoids waiting 200ms for data that is never going to arrive.
   }
   else
   {
     // Loop here processing any packets then go back to sleep
 
-    // NOTE this loop size is dependant on the size of the packet buffer (40
-    // bytes)
-    //     too small a loop will prevent anything being processed as we go back
-    //     to Sleep
-    //     before packet is received correctly
+    // NOTE this loop size is dependant on the size of the packet buffer (40 bytes)
+    //      too small a loop will prevent anything being processed as we go back to Sleep
+    //      before packet is received correctly
     // PacketProcessed = false;
     for (size_t i = 0; i < 200; i++)
     {
       // Call update to receive, decode and process incoming packets.
       myPacketSerial.checkInputStream();
 
-      // Abort loop if we just processed a packet
-      // if (PacketProcessed) break;
-
-      // Allow data to be received in buffer (delay must be AFTER)
-      // checkInputStream and before DisableSerial0TX
+      // Allow data to be received in buffer (delay must be AFTER) checkInputStream and before DisableSerial0TX
       delay(1);
     }
   }
 
-  // We should probably check for invalid InternalTemperature ranges here and
-  // throw error (shorted or unconnecter thermistor for example)
+  // We should probably check for invalid InternalTemperature ranges here and throw error (shorted or unconnecter thermistor for example)
   int16_t internal_temperature = PP.InternalTemperature();
 
-  if (internal_temperature > DIYBMS_MODULE_SafetyTemperatureCutoff ||
-      internal_temperature > (myConfig.BypassTemperatureSetPoint + 10))
+  if (internal_temperature > DIYBMS_MODULE_SafetyTemperatureCutoff || internal_temperature > (myConfig.BypassTemperatureSetPoint + 10))
   {
-    // Force shut down if temperature is too high although this does run the
-    // risk that the voltage on the cell will go high
+    // Force shut down if temperature is too high although this does run the risk that the voltage on the cell will go high
     // but the BMS controller should shut off the charger in this situation
     myPID.clear();
     StopBalance();
   }
 
   // Only enter bypass if the board temperature is below safety
-  if (PP.BypassCheck() &&
-      internal_temperature < DIYBMS_MODULE_SafetyTemperatureCutoff)
+  if (PP.BypassCheck() && internal_temperature < DIYBMS_MODULE_SafetyTemperatureCutoff)
   {
-    // Our cell voltage is OVER the voltage setpoint limit, start draining cell
-    // using bypass resistor
+    // Our cell voltage is OVER the voltage setpoint limit, start draining cell using bypass resistor
 
     if (!PP.WeAreInBypass)
     {
       // We have just entered the bypass code
       PP.WeAreInBypass = true;
 
-      // This controls how many cycles of loop() we make before re-checking the
-      // situation
+      // This controls how many cycles of loop() we make before re-checking the situation
       // about every 30 seconds
       PP.bypassCountDown = 50;
       PP.bypassHasJustFinished = 0;
@@ -506,16 +506,13 @@ void loop()
   {
     if (internal_temperature < (myConfig.BypassTemperatureSetPoint - 6))
     {
-      // Full power if we are no where near the setpoint (more than 6 degrees C
-      // away)
+      // Full power if we are no where near the setpoint (more than 6 degrees C away)
       PP.PWMSetPoint = 0xFF;
     }
     else
     {
-      // Compare the real temperature against max setpoint, we want the PID to
-      // keep at this temperature
-      PP.PWMSetPoint =
-          myPID.step(myConfig.BypassTemperatureSetPoint, internal_temperature);
+      // Compare the real temperature against max setpoint, we want the PID to keep at this temperature
+      PP.PWMSetPoint = myPID.step(myConfig.BypassTemperatureSetPoint, internal_temperature);
 
       if (myPID.err())
       {
@@ -535,12 +532,10 @@ void loop()
     {
       // Switch everything off for this cycle
       StopBalance();
-      // On the next iteration of loop, don't sleep so we are forced to take
-      // another
+      // On the next iteration of loop, don't sleep so we are forced to take another
       // cell voltage reading without the bypass being enabled, and we can then
       // evaluate if we need to stay in bypass mode, we do this a few times
-      // as the cell has a tendancy to float back up in voltage once load
-      // resistor is removed
+      // as the cell has a tendancy to float back up in voltage once load resistor is removed
       PP.bypassHasJustFinished = 200;
     }
   }
@@ -550,21 +545,5 @@ void loop()
     PP.bypassHasJustFinished--;
   }
 
-  /*
-  if (PP.bypassCountDown > 0)
-  {
-    //If we are trying to drain the cell/balance, then we need
-    //to wait around a bit here whilst the balancing works
-    //otherwise the loop() will start again and switch balance off!
-    //wait 500ms before continuing, or we exit when some Serial data arrives
-    uint16_t i = 500 / 5;
-    while (i > 0)
-    {
-      // Call update to receive, decode and process incoming packets (if any)
-      myPacketSerial.checkInputStream();
-      delay(5);
-      i--;
-    }
-  }
-*/
+  wdt_triggered = false;
 }

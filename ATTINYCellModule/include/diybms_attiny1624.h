@@ -1,29 +1,26 @@
-#if defined(__AVR_ATtiny1614__)
+#if defined(__AVR_ATtiny1624__)
 
-#ifndef DIYBMS_ATTINY1614_H
+#ifndef DIYBMS_ATTINY1624_H
 
-#define DIYBMS_ATTINY1614_H
+#define DIYBMS_ATTINY1624_H
 
 #pragma once
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 450
-#error Incorrect value for DIYBMSMODULEVERSION should be 450 or higher for tiny1614
+#error Incorrect value for DIYBMSMODULEVERSION should be 450 or higher for tiny1624
 #endif
 
-#if !(F_CPU == 4000000)
-#error Processor speed should be 4Mhz
-#endif
-
-/*
-#if !defined(ATTINY_CORE)
-#error Expected ATTINYCORE
-#endif
-*/
+//#if !(F_CPU == 4000000)
+//#error Processor speed should be 4Mhz
+//#endif
 
 #include <Arduino.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
 #include <avr/wdt.h>
+
+//Used for temperature readings only (13 bit ADC with oversample)
+#define MAXIUMUM_ATTINY_ADC_SCALE 8191.0F
 
 /*
 This class wraps the hardware pins of DIYBMS away from the core logic/code
@@ -36,7 +33,7 @@ public:
 
   static void ResumePWM()
   {
-    TCA0.SINGLE.CTRLA |=TCA_SINGLE_ENABLE_bm;
+    TCA0.SINGLE.CTRLA |= TCA_SINGLE_ENABLE_bm;
     interrupts();
   }
 
@@ -47,12 +44,12 @@ public:
 
   static void StartTimer1()
   {
-    //Top value...
-    TCA0.SINGLE.PER= (F_CPU / 64) / 1000;
-    //CMP0, Compare Channel 0 interrupt = Match between the counter value and the Compare 0 register
-    //TCA0.SINGLE.CMP0=0x1000;
-    TCA0.SINGLE.INTCTRL=TCA_SINGLE_OVF_bm;
-    TCA0.SINGLE.CTRLA=TCA_SINGLE_CLKSEL_DIV64_gc;
+    // Top value...
+    TCA0.SINGLE.PER = (F_CPU / 64) / 1000;
+    // CMP0, Compare Channel 0 interrupt = Match between the counter value and the Compare 0 register
+    // TCA0.SINGLE.CMP0=0x1000;
+    TCA0.SINGLE.INTCTRL = TCA_SINGLE_OVF_bm;
+    TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV64_gc;
     ResumePWM();
   }
 
@@ -64,7 +61,7 @@ public:
 
   static void SetPrescaler()
   {
-    // This isn't needed for tiny1614, chip runs at 4Mhz internal clock (to
+    // This isn't needed for tiny1624, chip runs at 5Mhz internal clock (to
     // allow down to 1.8V operation)
   }
 
@@ -82,12 +79,12 @@ public:
     PORTB.OUTSET = PIN0_bm;
 
     // allow reference voltage to stabilize
-    delayMicroseconds(50);
+    // delayMicroseconds(50);
   }
 
   static void ReferenceVoltageOff()
   {
-    // Ref voltage ON (PA1)
+    // Ref voltage (PA1)
     PORTA.OUTCLR = PIN1_bm;
     // PB0 (ENABLE)
     PORTB.OUTCLR = PIN0_bm;
@@ -105,19 +102,19 @@ public:
 
   static inline void DisableSerial0TX()
   {
-    //On tiny1614 this saves about 10mA of current
+    // On tiny1624 this saves about 7mA of current
     USART0.CTRLB &= ~(USART_TXEN_bm); /* Transmitter Enable bit mask. */
   }
 
   static inline void EnableSerial0TX()
   {
-    //When the transmitter is disabled, it will no longer override the TXD pin, and the pin
-    //direction is automatically set as input by hardware, even if it was configured as output by the user
-    PORTB.DIRSET = PIN2_bm;
+    // When the transmitter is disabled, it will no longer override the TXD pin, and the pin
+    // direction is automatically set as input by hardware, even if it was configured as output by the user
     USART0.CTRLB |= USART_TXEN_bm; /* Transmitter Enable bit mask. */
+    PORTB.DIRSET = PIN2_bm;
   }
 
-  //The Start-of-Frame Detection feature enables the USART to wake up from Standby Sleep mode upon data reception.
+  // The Start-of-Frame Detection feature enables the USART to wake up from Standby Sleep mode upon data reception.
   static inline void EnableStartFrameDetection()
   {
     USART0.CTRLB |= USART_SFDEN_bm;
@@ -126,11 +123,9 @@ public:
   static void SetWatchdog8sec()
   {
     // Setup a watchdog timer for 8 seconds
-
     CCP = 0xD8;
-    //8 seconds
-    WDT.CTRLA = WDT_PERIOD_8CLK_gc;
-
+    // 8 seconds
+    WDT.CTRLA = WDT_PERIOD_8KCLK_gc;
     wdt_reset();
   }
 
@@ -143,9 +138,9 @@ public:
     // Switch of TX - save power
     diyBMSHAL::DisableSerial0TX();
 
-    //RUNSTBY
+    // RUNSTBY
 
-    //Standby mode is needed to allow the "USART Start-of-Frame interrupts" to wake CPU
+    // Standby mode is needed to allow the "USART Start-of-Frame interrupts" to wake CPU
 
     // Wake up on Serial port RX
     diyBMSHAL::EnableStartFrameDetection();
@@ -154,26 +149,35 @@ public:
     sleep_enable();
     sleep_cpu();
 
-    //Snoring can be heard at this point....
+    // Snoring can be heard at this point....
 
     sleep_disable();
   }
 
   static void SelectCellVoltageChannel()
   {
-    // Nothing to do... ADC1 is fixed to read the cell voltage
+    // FREERUN / LEFTADJ / SAMPNUM[3:0]
+    ADC0.CTRLF = ADC_SAMPNUM_enum::ADC_SAMPNUM_ACC128_gc;
+    // PA5 = VREF pin
+    ADC0.MUXPOS = ADC_MUXPOS_enum::ADC_MUXPOS_AIN5_gc;
   }
 
   static inline void SelectInternalTemperatureChannel()
   {
     // PA7
+    // FREERUN / LEFTADJ / SAMPNUM[3:0]
+    ADC0.CTRLF = ADC_SAMPNUM_enum::ADC_SAMPNUM_ACC2_gc;
+    // PA5 = VREF pin
     ADC0.MUXPOS = ADC_MUXPOS_enum::ADC_MUXPOS_AIN7_gc;
   }
 
   static inline void SelectExternalTemperatureChannel()
   {
     // PA3
-    ADC0.MUXPOS = ADC_MUXPOS_enum::ADC_MUXPOS_AIN3_gc;
+    // FREERUN / LEFTADJ / SAMPNUM[3:0]
+    ADC0.CTRLF = ADC_SAMPNUM_enum::ADC_SAMPNUM_ACC2_gc;
+    // PA5 = VREF pin
+    ADC0.MUXPOS = ADC_MUXPOS_enum::ADC_MUXPOS_AIN3_gc; 
   }
 
   static void double_tap_Notification_led();

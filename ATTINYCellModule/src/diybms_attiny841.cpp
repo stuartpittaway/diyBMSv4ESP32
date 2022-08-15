@@ -110,7 +110,7 @@ void diyBMSHAL::ConfigurePorts()
   //Digital Input Disable Register 0
   //PA4 (ADC4), PB2 (ADC8) and PB0 (ADC11) analog inputs, so disable digital pins to save power
   DIDR0 = _BV(ADC4D);
-  DIDR1 = _BV(ADC8D) | _BV(ADC11D);
+  DIDR1 = _BV(ADC8D) |_BV(ADC11D);
 
 #else
   //4.4 boards don't have blue led
@@ -122,7 +122,7 @@ void diyBMSHAL::ConfigurePorts()
 
   //Digital Input Disable Register 0
   //PA3 (ADC3), PA4 (ADC4) and PA5 (ADC5) are analog inputs, so disable digital pins to save power
-  DIDR0 = _BV(ADC3D) | _BV(ADC4D) | _BV(ADC5D);
+  DIDR0 = _BV(ADC3D) | _BV(ADC4D) |_BV(ADC5D);
 #endif
 
   //Set the extra high sink capability of pin PA7 is enabled.

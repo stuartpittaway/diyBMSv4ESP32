@@ -9,7 +9,7 @@
 
 
 //Include both of these, they have #define checks to work out what to do
-#include "diybms_attiny1614.h"
+#include "diybms_attiny1624.h"
 #include "diybms_attiny841.h"
 
 #include "Steinhart.h"
@@ -58,12 +58,14 @@ public:
   }
   ~PacketProcessor() {}
 
+  PacketProcessor(); 
+
   bool onPacketReceived(PacketStruct *receivebuffer);
 
   void ADCReading(uint16_t value);
   void TakeAnAnalogueReading(uint8_t mode);
   uint16_t CellVoltage();
-  
+
   uint16_t IncrementWatchdogCounter()
   {
     watchdog_counter++;
@@ -75,8 +77,6 @@ public:
   uint8_t identifyModule;
   bool BypassOverheatCheck();
 
-  //Raw value returned from ADC (10bit)
-  uint16_t RawADCValue();
   int16_t InternalTemperature();
 
   volatile float MilliAmpHourBalanceCounter = 0;
@@ -117,8 +117,14 @@ private:
   //Count of number of WDT events which have triggered, could indicate standalone mode or problems with serial comms
   volatile uint16_t watchdog_counter = 0;
 
-  uint16_t PacketReceivedCounter=0;
+  uint16_t PacketReceivedCounter = 0;
 
+#if (SAMPLEAVERAGING > 1)
+  volatile uint16_t readings[SAMPLEAVERAGING]; // the readings from the analog input
+  volatile uint16_t readIndex = 0;             // the index of the current reading
+  volatile uint16_t total = 0;                 // the running total
+  volatile uint16_t average = 0;               // the average
+#endif
 };
 
 #endif
