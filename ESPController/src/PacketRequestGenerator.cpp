@@ -1,3 +1,6 @@
+#define USE_ESP_IDF_LOG 1
+static constexpr const char *const TAG = "diybms-tx";
+
 #include "PacketRequestGenerator.h"
 
 void PacketRequestGenerator::clearSettingsForAllModules()
@@ -9,34 +12,39 @@ void PacketRequestGenerator::clearSettingsForAllModules()
   }
 }
 
-void PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
+bool PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown)
 {
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
 
-  //Ask all modules to set bypass and temperature value
+  // Ask all modules to set bypass and temperature value
   setPacketAddressBroadcast(&_packetbuffer);
-  //Command - WriteSettings
+  // Command - WriteSettings
   _packetbuffer.command = COMMAND::WriteSettings;
 
-  //Fill packet with 0xFFFF values - module ignores settings with this value
+  // Fill packet with 0xFFFF values - module ignores settings with this value
   setmoduledataFFFF(&_packetbuffer);
   _packetbuffer.moduledata[6] = BypassOverTempShutdown;
   _packetbuffer.moduledata[7] = BypassThresholdmV;
-  pushPacketToQueue(&_packetbuffer);
+  if (pushPacketToQueue(&_packetbuffer))
+  {
+    clearSettingsForAllModules();
 
-  clearSettingsForAllModules();
+    return true;
+  }
+
+  return false;
 }
 
-void PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration)
+bool PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration)
 {
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
   setPacketAddressModuleRange(&_packetbuffer, m, m);
-  //Command - WriteSettings
+  // Command - WriteSettings
   _packetbuffer.command = COMMAND::WriteSettings;
 
-  //Fill packet with 0xFFFF values - module ignores settings with this value
+  // Fill packet with 0xFFFF values - module ignores settings with this value
   setmoduledataFFFF(&_packetbuffer);
 
   // Force refresh of settings
@@ -44,7 +52,7 @@ void PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThreshold
 
   FLOATUNION_t myFloat;
 
-  //myFloat.number = LoadResistance;
+  // myFloat.number = LoadResistance;
   //_packetbuffer.moduledata[0] = myFloat.word[0];
   //_packetbuffer.moduledata[1] = myFloat.word[1];
 
@@ -54,7 +62,7 @@ void PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThreshold
   _packetbuffer.moduledata[3] = myFloat.word[1];
 
   // Arduino float(4 byte)
-  //myFloat.number = mVPerADC;
+  // myFloat.number = mVPerADC;
   //_packetbuffer.moduledata[4] = myFloat.word[0];
   //_packetbuffer.moduledata[5] = myFloat.word[1];
 
@@ -62,86 +70,101 @@ void PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThreshold
   _packetbuffer.moduledata[7] = BypassThresholdmV;
   //_packetbuffer.moduledata[8] = Internal_BCoefficient;
   //_packetbuffer.moduledata[9] = External_BCoefficient;
-  pushPacketToQueue(&_packetbuffer);
+  return pushPacketToQueue(&_packetbuffer);
 }
 
-void PacketRequestGenerator::sendReadBadPacketCounter(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendReadBadPacketCounter(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadBadPacketCounter, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadBadPacketCounter, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendCellVoltageRequest(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendCellVoltageRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadVoltageAndStatus, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadVoltageAndStatus, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendIdentifyModuleRequest(uint8_t cellid)
+bool PacketRequestGenerator::sendIdentifyModuleRequest(uint8_t cellid)
 {
-  BuildAndSendRequest(COMMAND::Identify, cellid, cellid);
+  return BuildAndSendRequest(COMMAND::Identify, cellid, cellid);
 }
 
-void PacketRequestGenerator::sendTimingRequest()
+bool PacketRequestGenerator::sendTimingRequest()
 {
-  //Ask all modules to simple pass on a NULL request/packet for timing purposes
-  BuildAndSendRequest(COMMAND::Timing);
+  // Ask all modules to simple pass on a NULL request/packet for timing purposes
+  return BuildAndSendRequest(COMMAND::Timing);
 }
 
-void PacketRequestGenerator::sendGetSettingsRequest(uint8_t cellid)
+bool PacketRequestGenerator::sendGetSettingsRequest(uint8_t cellid)
 {
-  BuildAndSendRequest(COMMAND::ReadSettings, cellid, cellid);
+  return BuildAndSendRequest(COMMAND::ReadSettings, cellid, cellid);
 }
 
-void PacketRequestGenerator::sendCellTemperatureRequest(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendCellTemperatureRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadTemperature, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadTemperature, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendReadBalanceCurrentCountRequest(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendReadBalanceCurrentCountRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadBalanceCurrentCounter, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadBalanceCurrentCounter, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendReadPacketsReceivedRequest(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendReadPacketsReceivedRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadPacketReceivedCounter, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadPacketReceivedCounter, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendReadBalancePowerRequest(uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::sendReadBalancePowerRequest(uint8_t startmodule, uint8_t endmodule)
 {
-  BuildAndSendRequest(COMMAND::ReadBalancePowerPWM, startmodule, endmodule);
+  return BuildAndSendRequest(COMMAND::ReadBalancePowerPWM, startmodule, endmodule);
 }
 
-void PacketRequestGenerator::sendBadPacketCounterReset()
+bool PacketRequestGenerator::sendBadPacketCounterReset()
 {
-  BuildAndSendRequest(COMMAND::ResetBadPacketCounter);
+  return BuildAndSendRequest(COMMAND::ResetBadPacketCounter);
 }
-void PacketRequestGenerator::sendResetBalanceCurrentCounter()
+bool PacketRequestGenerator::sendResetBalanceCurrentCounter()
 {
-  BuildAndSendRequest(COMMAND::ResetBalanceCurrentCounter);
+  return BuildAndSendRequest(COMMAND::ResetBalanceCurrentCounter);
 }
 
-void PacketRequestGenerator::BuildAndSendRequest(COMMAND command)
+bool PacketRequestGenerator::BuildAndSendRequest(COMMAND command)
 {
+  // ESP_LOGD(TAG,"Build %u",command);
+
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
   setPacketAddressBroadcast(&_packetbuffer);
   _packetbuffer.command = command;
-  pushPacketToQueue(&_packetbuffer);
+  return pushPacketToQueue(&_packetbuffer);
 }
 
-void PacketRequestGenerator::BuildAndSendRequest(COMMAND command, uint8_t startmodule, uint8_t endmodule)
+bool PacketRequestGenerator::BuildAndSendRequest(COMMAND command, uint8_t startmodule, uint8_t endmodule)
 {
+  // ESP_LOGD(TAG,"Build %u, %u to %u",command,startmodule,endmodule);
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
   setPacketAddressModuleRange(&_packetbuffer, startmodule, endmodule);
   _packetbuffer.command = command;
-  pushPacketToQueue(&_packetbuffer);
+  return pushPacketToQueue(&_packetbuffer);
 }
 
-void PacketRequestGenerator::pushPacketToQueue(PacketStruct *_packetbuffer)
+// Blocking call to push packet - blocks until there is space on the queue
+bool PacketRequestGenerator::pushPacketToQueue(PacketStruct *_packetbuffer)
 {
-  _requestq->push(_packetbuffer);
+  return pushPacketToQueue(_packetbuffer, portMAX_DELAY);
+}
+
+bool PacketRequestGenerator::pushPacketToQueue(PacketStruct *_packetbuffer, TickType_t ticksToWait)
+{
+  if (xQueueSendToBack(_requestq, _packetbuffer, ticksToWait) != pdPASS)
+  {
+    // Failed to post the message, even after delay
+    return false;
+  }
+
   packetsGenerated++;
+  return true;
 }
 
 void PacketRequestGenerator::setPacketAddressModuleRange(PacketStruct *_packetbuffer, uint8_t startmodule, uint8_t endmodule)
@@ -155,7 +178,7 @@ void PacketRequestGenerator::setPacketAddressBroadcast(PacketStruct *_packetbuff
   setPacketAddressModuleRange(_packetbuffer, 0, maximum_controller_cell_modules);
 }
 
-//Fill packet with 0xFFFF values - module ignores settings with this value
+// Fill packet with 0xFFFF values - module ignores settings with this value
 void PacketRequestGenerator::setmoduledataFFFF(PacketStruct *_packetbuffer)
 {
   for (int a = 0; a < maximum_cell_modules_per_packet; a++)

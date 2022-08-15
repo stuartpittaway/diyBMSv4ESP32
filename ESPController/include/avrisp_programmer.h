@@ -27,7 +27,8 @@ enum AVRISP_PROGRAMMER_RESULT : uint8_t
     FAILED_ENTER_PROG_MODE = 3,
     FAIL_VERIFY = 4,
     FAIL_PROG_FUSE = 5,
-    INCORRECT_PAGE_CONFIG = 6
+    INCORRECT_PAGE_CONFIG = 6,
+    OTHER_FAILURE=7
 };
 
 class AVRISP_PROGRAMMER
@@ -39,6 +40,10 @@ public:
         _resetGPIO = resetGPIO;
         _resetActiveHigh = resetActiveHigh;
         _spiClockGPIO = spiClockGPIO;
+
+        //May need a slower frequency for different devices
+        //200khz
+        _freq = 200000;
     }
 
     uint32_t device_signature;
@@ -49,7 +54,13 @@ public:
     //Fuse Extended
     uint8_t efuse;
 
-    AVRISP_PROGRAMMER_RESULT ProgramAVRDevice(uint32_t deviceid, uint32_t byteLength, File &file, uint8_t fuse, uint8_t fusehigh, uint8_t fuseext);
+    AVRISP_PROGRAMMER_RESULT ProgramAVRDevice(void (*avrprogrammer_progress_callback)(uint8_t,size_t, size_t),
+                                              uint32_t deviceid,
+                                              uint32_t byteLength,
+                                              File &file,
+                                              uint8_t fuse,
+                                              uint8_t fusehigh,
+                                              uint8_t fuseext);
 
 private:
     SPIClass *_spi = NULL;

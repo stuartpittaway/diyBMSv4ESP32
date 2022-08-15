@@ -1,5 +1,8 @@
 #include "settings.h"
 
+#define USE_ESP_IDF_LOG 1
+static constexpr const char *const TAG = "diybms-set";
+
 void Settings::WriteConfig(const char *tag, char *settings, int size)
 {
   ESP_LOGD(TAG, "WriteConfig %s", tag);
@@ -39,6 +42,7 @@ bool Settings::ReadConfig(const char *tag, char *settings, int size)
     if (checksum == existingChecksum)
     {
       //Return TRUE
+      ESP_LOGD(TAG, "checksum verified");
       return true;
     }
   }

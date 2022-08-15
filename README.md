@@ -10,7 +10,7 @@ THIS CODE IS FOR THE NEW CONTROLLER (AFTER FEB 2021) AND ESP32 DEVKIT-C
 
 If you find the BMS useful, please consider buying me a beer, check out [Patreon](https://www.patreon.com/StuartP) for more information.
 
-You can also send beer tokens via Paypal - [paypal.me/stuart2222](paypal.me/stuart2222)
+You can also send beer tokens via Paypal - [https://paypal.me/stuart2222](https://paypal.me/stuart2222)
 
 Any donations go towards the on going development and prototype costs of the project.
 

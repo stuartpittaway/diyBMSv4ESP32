@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="%LANGUAGE%">
 
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -7,14 +7,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet" />
     <link href="style.css" rel="stylesheet" />
     <script type="text/javascript">
-        const MAXIMUM_NUMBER_OF_BANKS = 16;
+        const MAXIMUM_NUMBER_OF_BANKS = parseInt('%maxnumberofbanks%', 10);
+        const MAXIMUM_NUMBER_OF_SERIES_MODULES = parseInt('%noofseriesmodules%', 10);
         const MAXIMUM_NUMBER_OF_MODULES_PER_DATA_PACKET = 16;
 
         var DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat('%graph_voltagehigh%');
         var DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat('%graph_voltagelow%');
         var XSS_KEY = '%XSS_KEY%';
     </script>
-    <script type='text/javascript' src='jquery.js' integrity='%integrity_file_jquery_js%' crossorigin='anonymous'>
+    <script type="text/javascript" src="/jquery.js" integrity="%integrity_file_jquery_js%" crossorigin="anonymous">
     </script>
     <title>DIY BMS CONTROLLER v4</title>
 </head>
@@ -29,6 +30,8 @@
         <!-- Overlay content -->
         <div class="overlay-content">
             <a id="integration" href="#integration">Integration</a>
+            <a id="currentmonitor" href="#currentmonitor">Current Monitor</a>
+            <a id="victroncanbus" href="#victroncanbus">Victron CANBUS BMS</a>
             <a id="storage" href="#storage">Storage</a>
             <a id="avrprogrammer" href="#avrprogrammer">AVR Programmer</a>
             <a id="about" href="#about">About</a>
@@ -36,13 +39,18 @@
     </div>
 
     <div class="header">
-        <div class="logocontainer"><img class="logo" src="logo.png" width="152" height="48" alt="DIYBMS" /></div>
+        <div class="logocontainer"><img class="logo" src="logo.png" width="118" height="52" alt="DIYBMS" /></div>
         <div class="header-right">
-            <a id="home" class="active" href="#home">Home</a>
-            <a id="modules" href="#modules">Modules</a>
-            <a id="settings" href="#settings">Settings</a>
-            <a id="rules" href="#rules">Rules</a>
-            <a id="more" href="#">More</a>
+            <div class="notify-container"><a id="home" class="active" href="#home">Home</a></div>
+            <div class="notify-container"><a id="modules" href="#modules">Modules</a></div>
+            <div class="notify-container"><a id="settings" href="#settings">Settings</a></div>
+
+            <div class="notify-container">
+                <span class="notify-bubble" id="activerules"></span>
+                <a id="rules" href="#rules">Rules</a>
+            </div>
+
+            <div class="notify-container"><a id="more" href="#">More</a></div>
         </div>
     </div>
 
@@ -55,7 +63,7 @@
         <div id='error4' class='error'>Waiting for modules to reply</div>
         <div id='error5' class='error'>Module has returned ZERO volt reading, check configuration</div>
         <div id='error6' class='error'>Controller has run out of memory.</div>
-
+        <div id='error7' class='error'>Emergency Stop</div>
         <div id='iperror' class='error'>Cannot communicate with the controller for status updates.</div>
         <div id='genericerror' class='error'>Controller error <span id="genericerrcode"></span></div>
 
@@ -70,42 +78,68 @@
         <div id='warning3' class='warning'>Warning: Modules have mixed versions of code, may cause instability</div>
         <div id='warning4' class='warning'>Warning: Modules have mixed versions of hardware/boards</div>
         <div id='warning5' class='warning'>Warning: Logging enabled but SD card not installed/found</div>
+        <div id='warning6' class='warning'>Some features are disabled whilst AVR programming mode enabled</div>
+        <div id='warning7' class='warning'>Web page is unsynchronised with controller, refresh web page (F5)</div>
     </div>
     <div id="info" class="info">
+        <div id="soc" class="stat"><span class="x t">S.o.C:</span><span class="x v"></span></div>
         <div id="current" class="stat"><span class="x t">Current:</span><span class="x v"></span></div>
-        <div id="sent" class="stat"><span class="x t">Packets sent:</span><span class="x v"></span></div>
-        <div id="received" class="stat"><span class="x t">Packets rec'd:</span><span class="x v"></span></div>
-        <div id="oos" class="stat"><span class="x t" title="Out of sequence error">OOS errors:</span><span
+        <div id="shuntv" class="stat"><span class="x t">Shunt voltage:</span><span class="x v"></span></div>
+        <div id="power" class="stat"><span class="x t">Power:</span><span class="x v"></span></div>
+        <div id="amphout" class="stat"><span class="x t">Ah out:</span><span class="x v"></span></div>
+        <div id="amphin" class="stat"><span class="x t">Ah in:</span><span class="x v"></span></div>
+        <div id="oos" class="stat"><span class="x t" title="Out of sequence error">O.O.S errors:</span><span
                 class="x v"></span></div>
-        <div id="roundtrip" class="stat"><span class="x t">Roundtrip (ms):</span><span class="x v"></span></div>
         <div id="badcrc" class="stat"><span class="x t">CRC Errors:</span><span class="x v"></span></div>
-        <div id="ignored" class="stat"><span class="x t">Ignored request errors:</span><span class="x v"></span></div>
+        <div id="ignored" class="stat"><span class="x t" title="Ignored request errors">Ignored requests:</span><span
+                class="x v"></span></div>
 
+        <div id="canfail" class="stat"><span class="x t" title="CAN send failure">CAN send error:</span><span
+                class="x v"></span></div>
     </div>
+
+
     <div class="page" id="homePage">
         <div class="graphs">
             <div id="graph1" style="width:100%%; height:100%%;"></div>
             <div id="graph2" style="width:100%%; height:100%%;"></div>
         </div>
-        <div id="graphOptions">
-            <a id='view2d' href="">2D</a>
-            <a id='view3d' href="">3D</a>
+
+        <div id="info" class="info">
+            <div id="sent" class="stat"><span class="x t">Packets sent:</span><span class="x v"></span></div>
+            <div id="received" class="stat"><span class="x t">Packets rec'd:</span><span class="x v"></span></div>
+            <div id="roundtrip" class="stat"><span class="x t">Roundtrip (ms):</span><span class="x v"></span></div>
+            <div id="uptime" class="stat"><span class="x t">Uptime:</span><span class="x v"></span></div>
+            <div id="qlen" class="stat"><span class="x t">Send Q length:</span><span class="x v"></span></div>
+
+            <div id="cansent" class="stat"><span class="x t">CAN sent:</span><span class="x v"></span></div>
+            <div id="canrecd" class="stat"><span class="x t">CAN received:</span><span class="x v"></span></div>
+
+            <div id="graphOptions" class="stat"><span class="x t">Graph:</span>
+                <span class="x v">
+                    <a id='view2d' href="">2D</a>
+                    <a id='view3d' href="">3D</a>
+                </span>
+            </div>
+
         </div>
+
     </div>
 
     <div class="page" id="aboutPage">
         <h1>About</h1>
         <div class="region">
-            <h2>Source Code &amp; Hardware</h2>
+            <h2 id="ap1">Source Code &amp; Hardware</h2>
             <p>Code:<a href="https://github.com/stuartpittaway/diyBMSv4ESP32" rel="noreferrer"
                     target="_blank">https://github.com/stuartpittaway/diyBMSv4ESP32</a></p>
             <p>Hardware: <a href="https://github.com/stuartpittaway/diyBMSv4" rel="noreferrer"
                     target="_blank">https://github.com/stuartpittaway/diyBMSv4</a></p>
-            <h2>Videos</h2>
-            <a href="https://youtube.com/playlist?list=PLHhwQCDPuRcZW3u0jJucsiCCsUbNbMy-c" rel="noreferrer"
+            <h2 id="ap2">Videos</h2>
+            <a id="b13" href="https://youtube.com/playlist?list=PLHhwQCDPuRcZW3u0jJucsiCCsUbNbMy-c" rel="noreferrer"
                 target="_blank">YouTube videos on installation and configuration</a>
-            <h2>Patreon</h2>
-            <p>Remember, this product is free for personal use, if you would like to make a regular donation to keep the
+            <h2 id="ap3">Patreon</h2>
+            <p id="ap4">Remember, this product is free for personal use, if you would like to make a regular donation to
+                keep the
                 features and improvements flowing, use the Patreon link below. Even just a coffee/beer a month makes a
                 difference. Thank you!
                 <a href="https://www.patreon.com/StuartP" rel="noreferrer" target="_blank"><img src="patron.png"
@@ -113,33 +147,37 @@
             </p>
         </div>
         <div class="region">
-            <h2>WARNING</h2>
-            <p>This is a DIY product/solution so don’t use this for safety critical systems or in any situation where
+            <h2 id="ap5">WARNING</h2>
+            <p id="ap6">This is a DIY product/solution so don’t use this for safety critical systems or in any situation
+                where
                 there could be a risk to life.</p>
-            <p>There is no warranty, it may not work as expected or at all.</p>
-            <p>The use of this project is done so entirely at your own risk. It may involve electrical voltages which
+            <p id="ap7">There is no warranty, it may not work as expected or at all.</p>
+            <p id="ap8">The use of this project is done so entirely at your own risk. It may involve electrical voltages
+                which
                 could kill - if in doubt, seek help.</p>
-            <p>The use of this project may not be compliant with local laws or regulations - if in doubt, seek help.</p>
+            <p id="ap8a">The use of this project may not be compliant with local laws or regulations - if in doubt, seek
+                help.</p>
         </div>
         <div class="region">
-            <h2>License</h2>
-            <p>This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 2.0 UK: England &
+            <h2 id="ap9">License</h2>
+            <p id="ap10">This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 2.0 UK:
+                England &
                 Wales License.</p>
             <a href="https://creativecommons.org/licenses/by-nc-sa/2.0/uk/" rel="noreferrer"
                 target="_blank">https://creativecommons.org/licenses/by-nc-sa/2.0/uk/</a>
         </div>
         <div class="region">
-            <h2>Platform &amp; Version</h2>
-            <p>Host name:<span id="HostName"></span></p>
+            <h2 id="ap11">Platform &amp; Version</h2>
+            <p id="hn">Host name:<span id="HostName"></span></p>
             <p>Processor: %PLATFORM%</p>
             <p>Version: <a href="https://github.com/stuartpittaway/diyBMSv4ESP32/commit/%GIT_VERSION%" rel="noreferrer"
                     target="_blank">%GIT_VERSION%</a></p>
             <p>Compiled: %COMPILE_DATE_TIME%</p>
-            <p>Language: <span id='lang'>language</span></p>
-            <p>SDK Version:<span id="SdkVersion"></span></p>
-            <p>Min free Heap:<span id="MinFreeHeap"></span></p>
-            <p>Free heap:<span id="FreeHeap"></span></p>
-            <p>Heap size:<span id="HeapSize"></span></p>
+            <p>Language: <span id='lang'>%LANGUAGE%</span></p>
+            <p id="sdk">SDK Version:<span id="SdkVersion"></span></p>
+            <p id="mfheap">Min free Heap:<span id="MinFreeHeap"></span></p>
+            <p id="fheap">Free heap:<span id="FreeHeap"></span></p>
+            <p id="heapz">Heap size:<span id="HeapSize"></span></p>
         </div>
     </div>
     <div class="page" id="modulesPage">
@@ -148,17 +186,17 @@
             <table id="modulesTable">
                 <thead>
                     <tr>
-                        <th>Bank</th>
-                        <th>Module</th>
-                        <th>Voltage</th>
-                        <th class='hide'>V. Min</th>
-                        <th class='hide'>V. Max</th>
-                        <th class='hide'>Temp Int °C</th>
-                        <th class='hide'>Temp Ext °C</th>
-                        <th class='hide'>Bypass PWM %</th>
-                        <th class='hide'>Bad packet count</th>
-                        <th class='hide'>Packets received</th>
-                        <th class='hide'>Balance energy used (mAh)</th>
+                        <th id="mpBank">Bank</th>
+                        <th id="mpModule">Module</th>
+                        <th id="mpVoltage">Voltage</th>
+                        <th id="mpvmin" class='hide'>V. Min</th>
+                        <th id="mpvmax" class='hide'>V. Max</th>
+                        <th id="mptint" class='hide'>Temp Int &deg;C</th>
+                        <th id="mptext" class='hide'>Temp Ext &deg;C</th>
+                        <th id="mpbypass" class='hide'>Bypass PWM &percnt;</th>
+                        <th id="mpbpc" class='hide'>Bad packet count</th>
+                        <th id="mppktr" class='hide'>Packets received</th>
+                        <th id="mpbal" class='hide'>Balance energy used (mAh)</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -168,7 +206,7 @@
             </table>
             <div id="settingConfig">
                 <h2>Settings for module </h2>
-                <form id="settingsForm" method="POST" action="savesetting.json" autocomplete="off">
+                <form id="settingsForm" method="POST" action="/post/savesetting" autocomplete="off">
                     <div class="settings">
                         <input name="b" id="b" type="hidden" value="">
                         <input name="m" id="m" type="hidden" value="">
@@ -219,15 +257,15 @@
                             <input id="mVPerADC" name="mVPerADC" type="number" value="" readonly="">
                         </div>
 
-                        <input type="submit" value="Save settings" />
+                        <button type="submit">Save settings</button>
                     </div>
                 </form>
             </div>
         </div>
         <div id="globalConfig" class="region">
             <h2>Global Settings</h2>
-            <p>Configure all modules to use following parameters:</p>
-            <form id="globalSettingsForm" method="POST" action="saveglobalsetting.json" autocomplete="off">
+            <p id="gc1">Configure all modules to use following parameters:</p>
+            <form id="globalSettingsForm" method="POST" action="/post/saveglobalsetting" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="g1">Bypass over temperature</label>
@@ -240,20 +278,20 @@
                             value="4100" required="">
                     </div>
                 </div>
-                <input id="globalSettingsButton" type="submit" value="Save settings" />
+                <button id="globalSettingsButton" type="submit">Save settings</button>
             </form>
         </div>
     </div>
 
 
     <div class="page" id="integrationPage">
-        <h1>Integration</h1>
-        <p>For security, you will need to re-enter the password for the service(s) you want to enable or modify, before
-            you save.</p>
-        <p>After changes are made, the controller will need to be rebooted, do this manually.</p>
+        <h1 id="ip1">Integration</h1>
+        <p id="ip2">For security, you will need to re-enter the password for the service(s) you want to enable or
+            modify, before you save.</p>
+        <p id="ip4">URI should be similar to mqtt://192.168.0.26:1833</p>
         <div class="region">
             <h2>MQTT</h2>
-            <form id="mqttForm" method="POST" action="savemqtt.json" autocomplete="off">
+            <form id="mqttForm" method="POST" action="/post/savemqtt" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="mqttEnabled">Enabled</label>
@@ -264,8 +302,8 @@
                         <input type="input" name="mqttTopic" id="mqttTopic" value="diybms" required="" maxlength="32">
                     </div>
                     <div>
-                        <label for="mqttServer">Server</label>
-                        <input type="input" name="mqttServer" id="mqttServer" value="" required="" maxlength="64">
+                        <label for="mqttUri">URI</label>
+                        <input type="input" name="mqttUri" id="mqttUri" value="" required="" maxlength="128">
                     </div>
                     <div>
                         <label for="mqttPort">Port</label>
@@ -282,45 +320,68 @@
                         <input type="password" autocomplete="current-password" name="mqttPassword" id="mqttPassword"
                             value="" required="" maxlength="32">
                     </div>
-                    <input type="submit" value="Save MQTT settings" />
+                    <button type="submit">Save MQTT settings</button>
                 </div>
             </form>
         </div>
 
         <div class="region">
-            <h2>Influx Database</h2>
-            <form id="influxForm" method="POST" action="saveinfluxdb.json" autocomplete="off">
+            <h2 id="in1">Influx DB</h2>
+            <h3 id="in2">API Version 2.X</h3>
+            <p id="in3">Influx DB version 2 protocol is supported. Server URL should be the full URL to the <a
+                    target="_blank" rel="noreferrer"
+                    href="https://docs.influxdata.com/influxdb/v2.0/write-data/developer-tools/api/">write API</a>, for
+                example http://192.168.0.49:8086/api/v2/write</p>
+            <p id="in4">Only HTTP is supported, for local servers use the IP address not a domain name.</p>
+            <h3 id="in5">API Version 1.X</h3>
+            <p id="in6">Influx DB v1.8 has forward <a target="_blank" rel="noreferrer"
+                    href="https://docs.influxdata.com/influxdb/v1.8/tools/api/#apiv2write-http-endpoint">compatibility
+                    APIs</a> which mimic the v2 protocol.</p>
+            <p id="in7">For this to work, use the v1 username and password as the token, in the format of
+                <i>username:password</i></p>
+            <p id="in8">The organisation is not used, just set to the word "organisation".</p>
+            <p id="in9">The URL is the same as the v2 example above.</p>
+
+            <form id="influxForm" method="POST" action="/post/saveinfluxdb" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="influxEnabled">Enabled</label>
                         <input type="checkbox" name="influxEnabled" id="influxEnabled">
                     </div>
+
                     <div>
-                        <label for="influxServer">Host server</label>
-                        <input type="input" name="influxServer" id="influxServer" value="influx" required=""
-                            maxlength="64">
+                        <label for="influxFreq">Logging frequency (seconds)</label>
+                        <select name="influxFreq" id="influxFreq">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="25">25</option>
+                            <option value="30">30</option>
+                            <option value="60">60</option>
+                            <option value="120">120</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="influxUrl">Influx DB write API URL</label>
+                        <input type="input" name="influxUrl" id="influxUrl" value="influx" required="" maxlength="128"
+                            title="Example:  http://192.168.0.49:8086/api/v2/write">
                     </div>
                     <div>
-                        <label for="influxPort">Port</label>
-                        <input type="number" min="1" max="65535" step="1" name="influxPort" id="influxPort" value="1883"
-                            required="">
+                        <label for="influxToken">API authentication token</label>
+                        <input type="input" name="influxToken" id="influxToken" value="" required="" maxlength="128">
                     </div>
                     <div>
-                        <label for="influxDatabase">Database name</label>
+                        <label for="influxOrgId">Influx DB 2 organization id</label>
+                        <input type="input" name="influxOrgId" id="influxOrgId" value="" required="" maxlength="64">
+                    </div>
+                    <div>
+                        <label for="influxDatabase">Bucket or database name</label>
                         <input type="input" name="influxDatabase" id="influxDatabase" value="database" required=""
                             maxlength="64">
                     </div>
-                    <div>
-                        <label for="influxUsername">Username</label>
-                        <input type="input" autocomplete="username" name="influxUsername" id="influxUsername"
-                            value="myusername" required="" maxlength="32">
-                    </div>
-                    <div>
-                        <label for="influxPassword">Password</label>
-                        <input type="password" autocomplete="current-password" name="influxPassword" id="influxPassword"
-                            value="" required="" maxlength="32">
-                    </div>
-                    <input type="submit" value="Save Influx DB settings" />
+                    <button type="submit">Save Influx settings</button>
                 </div>
             </form>
         </div>
@@ -336,11 +397,8 @@
                 value of "X" means
                 don't care/leave at value defined by lower priority rules.</p>
             <p id="rt3">Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will
-                only
-                disable
-                when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing
-                on/off
-                rapidly.</p>
+                only disable when the value then passes the 'reset' value. This can help prevent relay clatter and rules
+                firing on/off rapidly.</p>
             <p id="rt4">'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of
                 minutes past
                 midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch
@@ -350,30 +408,40 @@
                 disable.</p>
         </div>
         <div class="region">
-            <form id="rulesForm" method="POST" action="saverules.json" autocomplete="off">
+            <form id="rulesForm" method="POST" action="/post/saverules" autocomplete="off">
                 <div class="settings">
                     <table>
                         <thead>
                             <tr>
-                                <th>Rule</th>
-                                <th>Trigger value</th>
-                                <th>Reset value</th>
-                                <th>Relay state</th>
+                                <th id="rf1">Rule</th>
+                                <th id="rf2">Trigger value</th>
+                                <th id="rf3">Reset value</th>
+                                <th id="rf4">Relay state</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td><label for="rule1value">Emergency stop</label></td>
+                                <td><label for="rule0value">Emergency stop</label></td>
+                                <td><input type="hidden" name="rule0value" id="rule0value" value="0"></td>
+                                <td><input type="hidden" name="rule0hysteresis" id="rule0hysteresis" value="0"></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule1value">Internal BMS error</label></td>
                                 <td><input type="hidden" name="rule1value" id="rule1value" value="0"></td>
                                 <td><input type="hidden" name="rule1hysteresis" id="rule1hysteresis" value="0"></td>
                                 <td class="relayset"></td>
                             </tr>
+
                             <tr>
-                                <td><label for="rule2value">Internal BMS error</label></td>
-                                <td><input type="hidden" name="rule2value" id="rule2value" value="0"></td>
-                                <td><input type="hidden" name="rule2hysteresis" id="rule2hysteresis" value="0"></td>
+                                <td><label for="rule2value">Current monitoring over current (Amps)</label></td>
+                                <td><input type="number" min="0" max="5000" step="1" name="rule2value" id="rule2value"
+                                        value="100" required=""></td>
+                                <td><input type="number" min="0" max="5000" step="1" name="rule2hysteresis"
+                                        id="rule2hysteresis" value="95" required=""></td>
                                 <td class="relayset"></td>
                             </tr>
+
                             <tr>
                                 <td><label for="rule3value">Individual cell over voltage (mV)</label></td>
                                 <td><input type="number" min="1800" max="4500" step="10" name="rule3value"
@@ -391,7 +459,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule5value">Module over temperature (internal) °C</label></td>
+                                <td><label for="rule5value">Module over temperature (internal) &deg;C</label></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule5value" id="rule5value"
                                         value="60" required=""></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule5hysteresis"
@@ -399,7 +467,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule6value">Module under temperature (internal) °C</label></td>
+                                <td><label for="rule6value">Module under temperature (internal) &deg;C</label></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule6value" id="rule6value"
                                         value="5" required=""></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule6hysteresis"
@@ -407,7 +475,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule7value">Cell over temperature (external) °C</label></td>
+                                <td><label for="rule7value">Cell over temperature (external) &deg;C</label></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule7value" id="rule7value"
                                         value="45" required=""></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule7hysteresis"
@@ -415,7 +483,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule8value">Cell under temperature (external) °C</label></td>
+                                <td><label for="rule8value">Cell under temperature (external) &deg;C</label></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule8value" id="rule8value"
                                         value="5" required=""></td>
                                 <td><input type="number" min="0" max="90" step="1" name="rule8hysteresis"
@@ -423,7 +491,7 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule9value">Pack over voltage (mV)</label></td>
+                                <td><label for="rule9value">Current monitor over voltage (mV)</label></td>
                                 <td><input type="number" min="1000" max="99999999" step="100" name="rule9value"
                                         id="rule9value" value="16000" required=""></td>
                                 <td><input type="number" min="1000" max="99999999" step="100" name="rule9hysteresis"
@@ -431,27 +499,44 @@
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule10value">Pack under voltage (mV)</label></td>
+                                <td><label for="rule10value">Current monitor under voltage (mV)</label></td>
                                 <td><input type="number" min="1000" max="99999999" step="100" name="rule10value"
                                         id="rule10value" value="12000" required=""></td>
                                 <td><input type="number" min="1000" max="99999999" step="100" name="rule10hysteresis"
                                         id="rule10hysteresis" value="12000" required=""></td>
                                 <td class="relayset"></td>
                             </tr>
+
                             <tr>
-                                <td><label for="rule11value">Timer 2</label></td>
-                                <td><input type="number" min="0" max="1440" step="1" name="rule11value" id="rule11value"
-                                        value="0" required=""></td>
-                                <td><input type="number" min="0" max="1440" step="1" name="rule11hysteresis"
-                                        id="rule11hysteresis" value="0" required=""></td>
+                                <td><label for="rule11value">Pack over voltage (mV)</label></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule11value"
+                                        id="rule11value" value="16000" required=""></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule11hysteresis"
+                                        id="rule11hysteresis" value="16000" required=""></td>
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
-                                <td><label for="rule12value">Timer 1</label></td>
-                                <td><input type="number" min="0" max="1440" step="1" name="rule12value" id="rule12value"
+                                <td><label for="rule12value">Pack under voltage (mV)</label></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule12value"
+                                        id="rule12value" value="12000" required=""></td>
+                                <td><input type="number" min="1000" max="99999999" step="100" name="rule12hysteresis"
+                                        id="rule12hysteresis" value="12000" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule13value">Timer 2</label></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule13value" id="rule13value"
                                         value="0" required=""></td>
-                                <td><input type="number" min="0" max="1440" step="1" name="rule12hysteresis"
-                                        id="rule12hysteresis" value="0" required=""></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule13hysteresis"
+                                        id="rule13hysteresis" value="0" required=""></td>
+                                <td class="relayset"></td>
+                            </tr>
+                            <tr>
+                                <td><label for="rule14value">Timer 1</label></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule14value" id="rule14value"
+                                        value="0" required=""></td>
+                                <td><input type="number" min="0" max="1440" step="1" name="rule14hysteresis"
+                                        id="rule14hysteresis" value="0" required=""></td>
                                 <td class="relayset"></td>
                             </tr>
                             <tr>
@@ -501,19 +586,454 @@
                         </tbody>
                     </table>
                 </div>
-                <input type="submit" value="Save rules" />
+                <button type="submit">Save rules</button>
             </form>
         </div>
     </div>
 
+    <div class="page" id="victroncanbusPage">
+        <h1 id="v0">Victron CANBUS integration</h1>
+
+        <div class="region">
+            <p id="v1">This feature allows diyBMS to provide battery and BMS data to Victron "GX" devices using the
+                Victron CAN BMS protocol.</p>
+            <p id="v2">Remember to install terminator resistors on the CAN L/H connections. On the controller, jumper
+                JP1 can be soldered closed for this purpose.</p>
+            <p id="v3">diyBMS will send alarms to the Victron device based off the rules for low/high
+                voltages and temperatures.</p>
+            <p id="v4">This allows Victron devices to operate in <a rel="noreferrer"
+                    href="https://www.victronenergy.com/media/pg/CCGX/en/dvcc---distributed-voltage-and-current-control.html"
+                    target="_blank">Distributed Voltage and Current Control "DVCC"</a> mode (optional).</p>
+
+            <div>
+                <p>These parameters can be controlled:</p>
+                <ul>
+                    <li>Charge voltage limit (CVL): the maximum charge voltage that the battery currently accepts</li>
+                    <li>Charge current limit (CCL): the maximum charge current requested by the battery</li>
+                    <li>Discharge current limit (DCL): the maximum discharge current as requested by the battery</li>
+                </ul>
+            </div>
+
+            <div>
+                <p id="v5">
+                    <img src="warning.png" width="48" height="41" alt="Warning" />Incorrect use of these
+                    settings could destroy your battery and cause harm!
+                </p>
+                <p id="v5">
+                    <img src="warning.png" width="48" height="41" alt="Warning" />Victron integration is currently at an
+                    EXPERIMENTAL stage, please report issues
+                </p>
+            </div>
+        </div>
+
+        <div class="region">
+
+            <div>
+
+                <form id="victronForm1" method="POST" action="/post/savevictron" autocomplete="off">
+                    <div class="settings">
+
+                        <div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>When?</th>
+                                        <th>Charge voltage limit (CVL)</th>
+                                        <th>Charge current limit (CCL)</th>
+                                        <th>Discharge current limit (DCL)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Default</td>
+                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                                name="cvl0" id="cvl0" value="0" required=""></td>
+                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                                name="ccl0" id="ccl0" value="0" required=""></td>
+                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                                name="dcl0" id="dcl0" value="0" required=""></td>
+                                    </tr>
+
+                                    <tr>
+                                        <td>Balancing</td>
+                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                                name="cvl1" id="cvl1" value="0" required=""></td>
+                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                                name="ccl1" id="ccl1" value="0" required=""></td>
+                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                                name="dcl1" id="dcl1" value="0" required=""></td>
+                                    </tr>
+
+                                    <tr>
+                                        <td>Error</td>
+                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                                name="cvl2" id="cvl2" value="0" required=""></td>
+                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                                name="ccl2" id="ccl2" value="0" required=""></td>
+                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
+                                                name="dcl2" id="dcl2" value="0" required=""></td>
+                                    </tr>
+
+                                </tbody>
+                            </table>
+                        </div>
+
+
+                        <div>
+                            <label for="VictronEnabled">Enable CANBUS BMS communication to Victron devices</label>
+                            <input type="checkbox" name="VictronEnabled" id="VictronEnabled">
+                        </div>
+
+                        <button type="submit">Save Victron settings</button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="page" id="diybmsCurrentMonitorPage">
+        <h1>Current &amp; Voltage Monitoring</h1>
+
+        <div class="region">
+            <h2>Connection</h2>
+            <p id="b1">Configure the MODBUS connection to the current monitor using the settings below.</p>
+            <p id="b14">PZEM-017 device uses 9600,8,None,2 serial settings</p>
+            <form id="diybmsCurrentMonitorForm1" method="POST" action="/post/savecurrentmon" autocomplete="off">
+                <div class="settings">
+                    <div>
+                        <label for="CurrentMonEnabled">Enabled</label>
+                        <input type="checkbox" name="CurrentMonEnabled" id="CurrentMonEnabled">
+                    </div>
+                    <div>
+                        <label for="CurrentMonDev">Device</label>
+                        <select name="CurrentMonDev" id="CurrentMonDev">
+                            <option value="0">DIYBMS Current Monitor</option>
+                            <option value="1">PeaceFair PZEM-017</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="modbusAddress">Modbus address</label>
+                        <select name="modbusAddress" id="modbusAddress">
+                            <option value="90">90 [default DIYBMS current monitor]</option>
+                            <option value="98">98</option>
+                            <option value="1">01 [PZEM-017]</option>
+                            <option value="2">02</option>
+                            <option value="3">03</option>
+                            <option value="4">04</option>
+                            <option value="5">05</option>
+                        </select>
+                    </div>
+                    <button type="submit">Save connection settings</button>
+                </div>
+            </form>
+        </div>
+
+
+
+        <div class="region">
+            <h2>RS485</h2>
+            <p id="b2">Configuration options for RS485 interface. Communication is half-duplex.</p>
+            <form id="RS485Form" method="POST" action="/post/savers485settings" autocomplete="off">
+                <div class="settings">
+                    <div>
+                        <label for="rs485baudrate">Baud rate</label>
+                        <select name="rs485baudrate" id="rs485baudrate">
+                            <option value="9600">9600</option>
+                            <option value="19200">19200</option>
+                            <option value="38400">38400</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="rs485databit">Data bits</label>
+                        <select name="rs485databit" id="rs485databit">
+                            <option value="0">5</option>
+                            <option value="1">6</option>
+                            <option value="2">7</option>
+                            <option value="3">8</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="rs485parity">Data bits</label>
+                        <select name="rs485parity" id="rs485parity">
+                            <option value="3">Odd</option>
+                            <option value="2">Even</option>
+                            <option value="0">None</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="rs485stopbit">Stop bits</label>
+                        <select name="rs485stopbit" id="rs485stopbit">
+                            <option value="1">1</option>
+                            <option value="2">1.5</option>
+                            <option value="3">2</option>
+                        </select>
+                    </div>
+                    <button type="submit">Save RS485 settings</button>
+                </div>
+            </form>
+        </div>
+
+
+        <div class="region" id="currentmonbasic">
+            <h2>Basic Settings</h2>
+            <p id="b3">Ensure the current shunt parameters match the data sheet for your particular shunt resistor.</p>
+            <p id="b4">The DIYBMS current monitor uses a 40.96mV maximum scale, so shunt voltages over this will be
+                scaled down
+                proportionally.</p>
+            <p id="b11">Battery capacity and charge voltage/tail current are used to calculate the battery 'state of
+                charge' (SOC).</p>
+            <p id="b15">PZEM-017 uses 75mV shunts, state of charge and alarms are not supported on this device. Only 50,
+                100, 200, 300A shunts are supported.</p>
+            <form id="diybmsCurrentMonitorForm2" method="POST" action="/post/savecmbasic" autocomplete="off">
+                <div class="settings">
+                    <div>
+                        <label for="shuntmaxcur">Shunt maximum current</label>
+                        <select name="shuntmaxcur" id="shuntmaxcur">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="15">15</option>
+                            <option value="20">20</option>
+                            <option value="30">30</option>
+                            <option value="40">40</option>
+                            <option value="50">50</option>
+                            <option value="75">75</option>
+                            <option value="100">100</option>
+                            <option value="150">150</option>
+                            <option value="200">200</option>
+                            <option value="300">300</option>
+                            <option value="400">400</option>
+                            <option value="500">500</option>
+                            <option value="600">600</option>
+                            <option value="750">750</option>
+                            <option value="800">800</option>
+                            <option value="1000">1000</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="shuntmv">Shunt output voltage (mV)</label>
+                        <select name="shuntmv" id="shuntmv">
+                            <option value="50">50</option>
+                            <option value="60">60</option>
+                            <option value="75">75</option>
+                            <option value="100">100</option>
+                            <option value="150">150</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="cmbatterycapacity">Battery capacity (Ah)</label>
+                        <input id="cmbatterycapacity" name="cmbatterycapacity" value="" type="number" min="1"
+                            max="65535" step="1" />
+                    </div>
+                    <div>
+                        <label for="cmfullchargevolt">Fully charged voltage</label>
+                        <input id="cmfullchargevolt" name="cmfullchargevolt" value="" type="number" min="1" max="999.99"
+                            step="0.01" />
+                    </div>
+                    <div>
+                        <label for="cmtailcurrent">Tail current (Amps)</label>
+                        <input id="cmtailcurrent" name="cmtailcurrent" value="" type="number" min="0.01" max="1000"
+                            step="0.01" />
+                    </div>
+                    <div>
+                        <label for="cmchargeefficiency">Charge efficiency factor &percnt;</label>
+                        <input id="cmchargeefficiency" name="cmchargeefficiency" value="" type="number" min="1"
+                            max="100" step="0.1" />
+                    </div>
+
+                    <div>
+                        <label for="cmvalid">Values valid?</label>
+                        <input id="cmvalid" name="cmvalid" value="" readonly="" />
+                    </div>
+                    <div>
+                        <label for="cmtimestampage">Last communication (milliseconds)</label>
+                        <input id="cmtimestampage" name="cmtimestampage" value="" readonly="" />
+                    </div>
+                    <div>
+                        <label for="cmwatchdog">Watchdog counter</label>
+                        <input id="cmwatchdog" name="cmwatchdog" value="" readonly="" />
+                    </div>
+
+                    <div>
+                        <label for="cmtemperature">Die temperature &deg;C</label>
+                        <input id="cmtemperature" name="cmtemperature" value="" readonly="" />
+                    </div>
+                    <div>
+                        <label for="cmactualshuntmv">Actual shunt mV reading</label>
+                        <input id="cmactualshuntmv" name="cmactualshuntmv" value="" readonly="" />
+                    </div>
+                    <div>
+                        <label for="cmcurrentlsb">Current LSB size</label>
+                        <input id="cmcurrentlsb" name="cmcurrentlsb" value="" readonly="" />
+                    </div>
+                    <div>
+                        <label for="cmresistance">Shunt resistance</label>
+                        <input id="cmresistance" name="cmresistance" value="" readonly="" />
+                    </div>
+                    <div>
+                        <label for="cmmodel">Sensor model</label>
+                        <input id="cmmodel" name="cmmodel" value="" readonly="" />
+                    </div>
+                    <div>
+                        <label for="cmfirmwarev">Firmware version</label>
+                        <input id="cmfirmwarev" name="cmfirmwarev" value="" readonly="" />
+                    </div>
+                    <div>
+                        <label for="cmfirmwaredate">Firmware date</label>
+                        <input id="cmfirmwaredate" name="cmfirmwaredate" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmRelayState">Relay state</label>
+                        <input id="cmRelayState" name="cmRelayState" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmTemperatureOverLimit">Temperature over limit</label>
+                        <input id="cmTemperatureOverLimit" name="cmTemperatureOverLimit" value="" readonly="">
+                    </div>
+                    <div>
+                        <label for="cmCurrentOverLimit">Current over limit</label>
+                        <input id="cmCurrentOverLimit" name="cmCurrentOverLimit" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmCurrentUnderLimit">Current under limit</label>
+                        <input id="cmCurrentUnderLimit" name="cmCurrentUnderLimit" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmVoltageOverLimit">Voltage over limit</label>
+                        <input id="cmVoltageOverLimit" name="cmVoltageOverLimit" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmVoltageUnderLimit">Voltage under limit</label>
+                        <input id="cmVoltageUnderLimit" name="cmVoltageUnderLimit" value="" readonly="">
+                    </div>
+
+                    <div>
+                        <label for="cmPowerOverLimit">Power over limit</label>
+                        <input id="cmPowerOverLimit" name="cmPowerOverLimit" value="" readonly="">
+                    </div>
+                    <button type="submit">Save basic settings</button>
+                    <button id="currentmonrefresh" type="button">Refresh values</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="region" id="currentmonadvanced">
+            <h2>Advanced Current Monitor Settings</h2>
+            <p id="b5">If you wish to use the relay control on the shunt monitor, set the parameters here. <u>You should
+                    not
+                    normally need to change the calibration value.</u></p>
+            <p id="b6">Current limit is for use whilst discharging the battery, under current limit is used when
+                charging, so
+                different discharge/charge current limits can be used.</p>
+            <p id="b7">Temperature limit is based on the chip die temperature, which may not match the shunt
+                temperature. Only
+                positive temperature coefficient is supported.</p>
+            <p id="b8">Relay triggers define which rules are used to trigger the relay into a closed state.</p>
+            <form id="diybmsCurrentMonitorForm3" method="POST" action="/post/savecmadvanced" autocomplete="off">
+                <div class="settings">
+                    <div>
+                        <label for="cmcalibration">Calibration</label>
+                        <input id="cmcalibration" name="cmcalibration" value="">
+                    </div>
+                    <div>
+                        <label for="cmtemplimit">Temperature limit</label>
+                        <input id="cmtemplimit" name="cmtemplimit" value="">
+                    </div>
+                    <div>
+                        <label for="cmundervlimit">Under voltage limit</label>
+                        <input id="cmundervlimit" name="cmundervlimit" value="">
+                    </div>
+                    <div>
+                        <label for="cmovervlimit">Over voltage limit</label>
+                        <input id="cmovervlimit" name="cmovervlimit" value="">
+                    </div>
+                    <div>
+                        <label for="cmoverclimit">Over current limit</label>
+                        <input id="cmoverclimit" name="cmoverclimit" value="">
+                    </div>
+                    <div>
+                        <label for="cmunderclimit">Under current limit</label>
+                        <input id="cmunderclimit" name="cmunderclimit" value="">
+                    </div>
+                    <div>
+                        <label for="cmoverplimit">Over power limit</label>
+                        <input id="cmoverplimit" name="cmoverplimit" value="">
+                    </div>
+                    <div>
+                        <label for="cmtempcoeff">Temperature coefficient ppm/&deg;C</label>
+                        <input id="cmtempcoeff" name="cmtempcoeff" value="">
+                    </div>
+
+
+                    <button type="submit">Save advanced settings</button>
+                </div>
+            </form>
+        </div>
+
+
+        <div class="region" id="currentmonrelay">
+            <h2 id="b10">Current Monitor Relay Settings &amp; Temperature coefficient</h2>
+            <p id="b9">Relay triggers define which rules are used to trigger the relay into a closed state.</p>
+            <form id="diybmsCurrentMonitorForm4" method="POST" action="/post/savecmrelay" autocomplete="off">
+                <div class="settings">
+                    <div>
+                        <label for="TempCompEnabled">Temperature coefficient enabled</label>
+                        <input type="checkbox" name="TempCompEnabled" id="TempCompEnabled">
+                    </div>
+
+                    <div>
+                        <label for="cmTMPOL">Relay Trigger: Temperature</label>
+                        <input type="checkbox" name="cmTMPOL" id="cmTMPOL">
+                    </div>
+                    <div>
+                        <label for="cmCURROL">Relay Trigger: Current over</label>
+                        <input type="checkbox" name="cmCURROL" id="cmCURROL">
+                    </div>
+                    <div>
+                        <label for="cmCURRUL">Relay Trigger: Current under</label>
+                        <input type="checkbox" name="cmCURRUL" id="cmCURRUL">
+                    </div>
+                    <div>
+                        <label for="cmVOLTOL">Relay Trigger: Voltage over</label>
+                        <input type="checkbox" name="cmVOLTOL" id="cmVOLTOL">
+                    </div>
+                    <div>
+                        <label for="cmVOLTUL">Relay Trigger: Voltage under</label>
+                        <input type="checkbox" name="cmVOLTUL" id="cmVOLTUL">
+                    </div>
+                    <div>
+                        <label for="cmPOL">Relay Trigger: Power</label>
+                        <input type="checkbox" name="cmPOL" id="cmPOL">
+                    </div>
+
+                    <button type="submit">Save relay triggers</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- End of page-->
+    </div>
+
+
     <div class="page" id="settingsPage">
         <h1>Controller Settings</h1>
         <div class="region">
-            <h2>Modules &amp; Banks</h2>
-            <p>DIYBMS supports up to 100 modules in total. These modules can be split into banks to support parallel
-                configurations.</p>
-            <p>Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).</p>
-            <form id="banksForm" method="POST" action="savebankconfig.json" autocomplete="off">
+            <h2 id="mb1">Modules &amp; Banks</h2>
+            <p id="mb2">DIYBMS supports up to <span id='labelMaxModules'>X</span> modules in total. These modules can be
+                split into banks to support parallel configurations.</p>
+            <p id="mb3">Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).</p>
+            <p id="mb4">Only hardware module version 4.4 or newer support faster communication speeds. You will need to
+                reboot the controller manually if you change the speed, and also ensure all modules are using the
+                correct firmware.</p>
+            <form id="banksForm" method="POST" action="/post/savebankconfig" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="totalSeriesModules">Number of series cells (eg. 8S)</label>
@@ -525,17 +1045,29 @@
                         <select name="totalBanks" id="totalBanks">
                         </select>
                     </div>
-                    <input type="submit" value="Save module &amp; bank settings" />
+                    <div>
+                        <label for="baudrate">Communication speed</label>
+                        <select name="baudrate" id="baudrate">
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="interpacketgap">Inter-packet gap (ms)</label>
+                        <select name="interpacketgap" id="interpacketgap">
+                        </select>
+                    </div>
+                    <button type="submit">Save module &amp; bank settings</button>
                 </div>
             </form>
         </div>
 
         <div class="region">
             <h2>Network Time Protocol</h2>
-            <p>Time is set via NTP, if your controller is not connected to the Internet. Time based rules will be
+            <p id="b9">Time is set via NTP, if your controller is not connected to the Internet. Time based rules will
+                be
                 incorrect. This does not automatically correct for daylight saving.</p>
-            <p>Time now is <span id="timenow"></span></p>
-            <form id="ntpForm" method="POST" action="saventp.json" autocomplete="off">
+            <p id="b10">Controller time is <span id="timenow"></span></p>
+            <form id="ntpForm" method="POST" action="/post/saventp" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="NTPServer">NTP Server</label>
@@ -555,15 +1087,30 @@
                         <label for="NTPDST">Daylight Saving Enabled</label>
                         <input type="checkbox" name="NTPDST" id="NTPDST">
                     </div>
-                    <input type="submit" value="Save NTP settings" />
+                    <button type="submit">Save NTP settings</button>
                 </div>
             </form>
         </div>
 
         <div class="region">
             <h2>Display Settings</h2>
-            <form id="displaySettingForm" method="POST" action="savedisplaysetting.json" autocomplete="off">
+            <form id="displaySettingForm" method="POST" action="/post/savedisplaysetting" autocomplete="off">
                 <div class="settings">
+
+                    <div>
+                        <label for="Language">Language</label>
+                        <select name="Language" id="Language">
+                            <option value="en">English</option>
+                            <option value="fr">French</option>
+                            <option value="es">Spanish</option>
+                            <option value="pt">Portuguese</option>
+                            <option value="de">German</option>
+                            <option value="nl">Dutch</option>
+                            <option value="hr">Croatian</option>
+                            <option value="ru">Russian</option>
+                        </select>
+                    </div>
+
                     <div>
                         <label for="VoltageHigh">Graph voltage scale (high)</label>
                         <select name="VoltageHigh" id="VoltageHigh">
@@ -580,6 +1127,7 @@
                             <option>2.00</option>
                         </select>
                     </div>
+
                     <div>
                         <label for="VoltageLow">Graph voltage scale (low)</label>
                         <select name="VoltageLow" id="VoltageLow">
@@ -601,50 +1149,71 @@
                             <option>0.00</option>
                         </select>
                     </div>
-                    <input type="submit" value="Save display settings" />
+                    <button type="submit">Save display settings</button>
                 </div>
             </form>
         </div>
 
         <div class="region">
             <h2>Reset Counters</h2>
-            <form id="resetCountersForm" method="POST" action="resetcounters.json" autocomplete="off">
+            <form id="resetCountersForm" method="POST" action="/post/resetcounters" autocomplete="off">
                 <div class="settings">
                     <input name="resetCounters" id="resetCounters" type="hidden" value="0">
-                    <input type="submit" value="Reset counters" />
+                    <button type="submit">Reset counters</button>
                 </div>
             </form>
         </div>
         <div class="region">
             <h2>Restart Controller</h2>
-            <form id="restartControllerForm" method="POST" action="restartcontroller.json" autocomplete="off">
+            <form id="restartControllerForm" method="POST" action="/post/restartcontroller" autocomplete="off">
                 <div class="settings">
                     <input name="handleRestartController" id="handleRestartController" type="hidden" value="0">
-                    <input type="submit" value="Restart Controller" />
+                    <button type="submit">Restart Controller</button>
                 </div>
             </form>
         </div>
+        <!-- End of page-->
     </div>
 
     <div class="page" id="avrprogPage">
         <h1>AVR Programmer</h1>
         <div class="region">
-            <p>Controller can program modules and devices using the files below.</p>
+            <p id="b11">Controller can program modules and devices using the files below. <strong>Do not
+                    connect</strong> a
+                device to be programmed before enabling programming mode.</p>
+            <p>Instructions:
+                <ol>
+                    <li>"Enable programming mode", this will stop SD card logging and TFT touch screen response.
+                    </li>
+                    <li>Select the relevant file to program</li>
+                    <li>Read the warnings</li>
+                    <li>Attach/connect device to be programmed to the ISP connector on the controller</li>
+                    <li>Select "Program Device"</li>
+                    <li>When complete, remove the device</li>
+                    <li>Program other devices as needed</li>
+                    <li>Disable programming mode</li>
+                </ol>
+            </p>
             <ul id="avrprog">
 
             </ul>
+            <div>
+                <button type="button" id="AVRProgEnable">Enable programming mode</button>
+                <button type="button" id="AVRProgDisable">Disable programming mode</button>
+            </div>
             <div id="avrprogconfirm">
                 <input type="hidden" value="" id="selectedavrindex" />
                 <img class="warnicon" src="warning.png" width="48" height="41" alt="Warning" />
                 <ul>
                     <li>Ensure you disconnect all battery and communication cables from the module/device before
                         programming.</li>
-                    <li>Connect the module to the ISP port on the controller using a ribbon cable, ensure the notch
-                        is aligned with pin 1 on the module.</li>
-                    <li>Unmount SD Card before programming (if installed)</li>
+                    <li>Connect the module to the ISP port on the controller using a ribbon cable or adapter, ensure
+                        the
+                        notch is
+                        aligned with pin 1 on the module.</li>
                     <li>Click 'Program Device' to start programming</li>
+                    <li>Remove cable as soon as programming is complete</li>
                 </ul>
-
                 <button type="button" id="ProgAVR">Program Device</button>
                 <button type="button" id="ProgAVRCancel">Cancel</button>
                 <p id='avrinfo'></p>
@@ -656,27 +1225,28 @@
         <h1>Storage</h1>
         <div class="region">
             <h2>SD Card</h2>
-            <p id='sdcardmissing' class="warning">SD card not installed</p>
-            Used <span id="sdcard_used"></span>KiB (<span id="sdcard_used_percent"></span>%%) of <span
+            <p id='sdcardmissing' class="warning">SD card not installed/currently available</p>
+            Used <span id="sdcard_used"></span>KiB (<span id="sdcard_used_percent"></span>&percnt;) of <span
                 id="sdcard_total"></span>KiB
             <p>
                 <button type="button" id="unmount">Unmount</button>
                 <button type="button" id="mount">Mount</button>
                 <button type="button" id="savewifi">Save Wifi</button>
+                <button type="button" id="saveconfig">Save Configuration</button>
             </p>
             <ul id="sdcardfiles"></ul>
         </div>
         <div class="region">
             <h2>Flash Memory</h2>
-            <p>Used <span id="flash_used"></span>KiB (<span id="flash_used_percent"></span>%%) of <span
+            <p>Used <span id="flash_used"></span>KiB (<span id="flash_used_percent"></span>&percnt;) of <span
                     id="flash_total"></span>KiB</p>
             <ul id="flashfiles"></ul>
         </div>
 
         <div class="region">
             <h2>Logging</h2>
-            <p>Cell data and output states can be stored as log files using an SD card.</p>
-            <form id="loggingForm" method="POST" action="savestorage.json" autocomplete="off">
+            <p id="b12">Cell data and output states can be stored as log files using an SD card.</p>
+            <form id="loggingForm" method="POST" action="/post/savestorage" autocomplete="off">
                 <div class="settings">
                     <div>
                         <label for="loggingEnabled">SD card logging enabled</label>
@@ -693,7 +1263,7 @@
                             <option>300</option>
                         </select>
                     </div>
-                    <input type="submit" value="Save logging settings" />
+                    <button type="submit">Save logging settings</button>
                 </div>
             </form>
         </div>
@@ -704,6 +1274,28 @@
         var g1 = null;
         var g2 = null;
         var g3 = null;
+        var Graph3DAvailable = false;
+
+        function dumpTextElementsForLanguageTranslation() {
+            $('.warning').each(function (index, value) {
+                console.log("$(\"#" + $(this).attr("id") + "\").text(\"" + $(this).text() + "\");");
+            });
+            $('.error').each(function (index, value) {
+                console.log("$(\"#" + $(this).attr("id") + "\").text(\"" + $(this).text() + "\");");
+            });
+            $('label').each(function (index, value) {
+                console.log("$(\"label[for='" + $(this).attr("for") + "'\").text(\"" + $(this).text() + "\");");
+            });
+            $('p').each(function (index, value) {
+                console.log("$(\"#" + $(this).attr("id") + ").text(\"" + $(this).text() + "\");");
+            });
+            $('.stat').each(function (index, value) {
+                console.log("$(\"#" + $(this).attr("id") + " span .x\").text(\"" + $(this).text() + "\");");
+            });
+            $('a').each(function (index, value) {
+                console.log("$(\"#" + $(this).attr("id") + "\").text(\"" + $(this).text() + "\");");
+            });
+        }
 
         jQuery.cachedScript = function (url, options) {
             options = $.extend(options || {}, {
@@ -714,22 +1306,77 @@
             return jQuery.ajax(options);
         };
 
+        function ws_opened(event) {
+            console.log('WS connected');
+        }
+
+        function ws_closed(event) {
+            console.warn('WS closed, reconnecting. Reason:', event.reason);
+        }
+
+        function ws_rx(event) {
+            console.log(event.data);
+        }
+        var ws = null;
+
+
         $(document).ready(function () {
-            $.cachedScript("echarts.min.js").done(function (script, textStatus) {
-                    $.cachedScript("echarts_gl.min.js").done(function (script, textStatus) {
-                            $.cachedScript("pagecode.js").done(function (script, textStatus) {
-                                //All done
+            var lang = $("html").attr("lang");
+
+            $("#Language").val(lang);
+
+
+            //Load dependant scripts - one at a time so we don't task ESP32
+            $.cachedScript("lang_" + lang + ".js").done(function (script, textStatus) {
+                $.cachedScript("echarts.min.js").done(function (script, textStatus) {
+
+                        //Get GL library from CDN to avoid having it on ESP32 (save flash space)
+                        //if it fails to load (no internet) disable the 3d view
+                        $.cachedScript(
+                            "https://cdnjs.cloudflare.com/ajax/libs/echarts-gl/2.0.4/echarts-gl.min.js"
+                        ).done(function (script, textStatus) {
+                            //Script loaded
+                            Graph3DAvailable = true;
+                            $("#graphOptions").show();
+
+                        }).fail(function (jqxhr, settings, exception) {
+                            console.log("3d charts not available")
+                            Graph3DAvailable = false;
+                            $("#graphOptions").hide();
+                        });
+
+                        $.cachedScript("notify.min.js").done(function (script, textStatus) {
+                            $.cachedScript("pagecode.js").done(function (script,
+                                textStatus) {
+                                //All done, scripts loaded
                             }).fail(function (jqxhr, settings, exception) {
                                 $("#jslibrary").show();
                             });
-                        })
-                        .fail(function (jqxhr, settings, exception) {
+
+
+                        }).fail(function (jqxhr, settings, exception) {
                             $("#jslibrary").show();
                         });
-                })
-                .fail(function (jqxhr, settings, exception) {
-                    $("#jslibrary").show();
-                });
+                    })
+                    .fail(function (jqxhr, settings, exception) {
+                        $("#jslibrary").show();
+                    })
+            }).fail(function (jqxhr, settings, exception) {
+                $("#jslibrary").show();
+            });
+
+            var socketUrl = 'ws://' + window.location.host + ':' + window.location.port + '/ws';
+            try {
+                ws = new WebSocket(socketUrl);
+                ws.addEventListener('open', ws_opened);
+                ws.addEventListener('message', ws_rx);
+                ws.addEventListener('error', ws_closed);
+                ws.addEventListener('close', ws_closed);
+            } catch (e) {
+                console.warn(
+                    'Failed to connect to debug websocket, not an issue unless debug redirection is enabled.'
+                    );
+            }
         });
     </script>
 </body>

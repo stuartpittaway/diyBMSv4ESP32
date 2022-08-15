@@ -1,10 +1,29 @@
+const INTERNALRULENUMBER = {
+    EmergencyStop: 0,
+    BMSError: 1,
+    CurrentMonitorOverCurrentAmps: 2,
+    Individualcellovervoltage: 3,
+    Individualcellundervoltage: 4,
+    ModuleOverTemperatureInternal: 5,
+    ModuleUnderTemperatureInternal: 6,
+    IndividualcellovertemperatureExternal: 7,
+    IndividualcellundertemperatureExternal: 8,
+    PackOverVoltage: 9,
+    PackUnderVoltage: 10,
+    Timer2: 11,
+    Timer1: 12
+}
+Object.freeze(INTERNALRULENUMBER);
+
 const INTERNALWARNINGCODE = {
     NoWarning: 0,
     ModuleInconsistantBypassVoltage: 1,
     ModuleInconsistantBypassTemperature: 2,
     ModuleInconsistantCodeVersion: 3,
     ModuleInconsistantBoardRevision: 4,
-    LoggingEnabledNoSDCard: 5
+    LoggingEnabledNoSDCard: 5,
+    AVRProgrammingMode: 6,
+    XSSKEYSync: 7
 }
 Object.freeze(INTERNALWARNINGCODE);
 
@@ -16,8 +35,8 @@ const INTERNALERRORCODE =
     TooManyModules: 3,
     WaitingForModulesToReply: 4,
     ZeroVoltModule: 5,
-    ControllerMemoryError: 6
-
+    ControllerMemoryError: 6,
+    EmergencyStop: 7
 };
 Object.freeze(INTERNALERRORCODE);
 
@@ -28,12 +47,151 @@ function switchPage(newPage) {
     $("#myNav").height("0%");
 }
 function identifyModule(button, cellid) {
-    $.getJSON("identifyModule.json", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
+    $.getJSON("/api/identifyModule", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
 
+function restoreconfig(filename) {
+    let isConfirmed = confirm("Are you sure you wish to restore '"+filename+"' configuration file?");
+
+    if (isConfirmed) {
+
+        alert("Note: Passwords are not restored, you will need to manually change these in the integration page if required.");
+
+        $.ajax({
+            type: 'POST',
+            url: '/post/restoreconfig',
+            data: $.param({ filename: filename }),
+            success: function (data) {
+                location.reload();
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+
+    }
+}
+
+function refreshCurrentMonitorValues() {
+    $.getJSON("/api/currentmonitor",
+        function (data) {
+            $("#CurrentMonEnabled").prop("checked", data.enabled);
+            $("#modbusAddress").val(data.address);
+            $("#CurrentMonDev").val(data.devicetype);
+
+            $("#shuntmaxcur").val(data.shuntmaxcur);
+            $("#shuntmv").val(data.shuntmv);
+            $("#cmvalid").val(data.valid);
+            $("#cmtimestampage").val(data.timestampage);
+
+            if (data.devicetype == 0) {
+                $("#cmbatterycapacity").val(data.batterycapacity);
+                $("#cmfullchargevolt").val(data.fullchargevolt.toFixed(2));
+                $("#cmtailcurrent").val(data.tailcurrent.toFixed(2));
+                $("#cmchargeefficiency").val(data.chargeefficiency.toFixed(1));
+
+                $("#cmtemperature").val(data.temperature);
+                $("#cmwatchdog").val(data.watchdog);
+                $("#cmactualshuntmv").val(data.actualshuntmv);
+                $("#cmcurrentlsb").val(data.currentlsb);
+                $("#cmresistance").val(data.resistance);
+                $("#cmcalibration").val(data.calibration);
+
+                $("#cmtemplimit").val(data.templimit);
+
+                $("#cmundervlimit").val(data.undervlimit);
+                $("#cmovervlimit").val(data.overvlimit);
+
+                $("#cmoverclimit").val(data.overclimit);
+                $("#cmunderclimit").val(data.underclimit);
+
+                $("#cmoverplimit").val(data.overplimit);
+                //Temperature coefficient
+                $("#cmtempcoeff").val(data.tempcoeff);
+
+                $("#cmmodel").val(data.model.toString(16));
+                $("#cmfirmwarev").val(data.firmwarev.toString(16));
+
+                var d = new Date(data.firmwaredate * 1000);
+                $("#cmfirmwaredate").val(d.toString());
+
+
+                $("#TempCompEnabled").prop("checked", data.TempCompEnabled);
+                $("#cmTemperatureOverLimit").val(data.TMPOL);
+
+                $("#cmCurrentOverLimit").val(data.CURROL);
+                $("#cmCurrentUnderLimit").val(data.CURRUL);
+                $("#cmVoltageOverLimit").val(data.VOLTOL);
+                $("#cmVoltageUnderLimit").val(data.VOLTUL);
+                $("#cmPowerOverLimit").val(data.POL);
+
+                $("#cmRelayState").val(data.RelayState ? "CLOSED" : "OPEN");
+
+                $("#cmTMPOL").prop("checked", data.T_TMPOL);
+                $("#cmCURROL").prop("checked", data.T_CURROL);
+                $("#cmCURRUL").prop("checked", data.T_CURRUL);
+                $("#cmVOLTOL").prop("checked", data.T_VOLTOL);
+                $("#cmVOLTUL").prop("checked", data.T_VOLTUL);
+                $("#cmPOL").prop("checked", data.T_POL);
+            }
+
+            if (data.enabled) {
+                $("#currentmonbasic").show();
+                if (data.devicetype == 0) {
+                    //DIYBMS Current Monitor
+                    $("#currentmonadvanced").show();
+
+                    $("#currentmonrelay").show();
+                } else {
+                    //PZEM-017
+                    $("#currentmonadvanced").hide();
+
+                    $("#currentmonrelay").hide();
+                }
+            } else {
+                $("#currentmonadvanced").hide();
+                $("#currentmonbasic").hide();
+                $("#currentmonrelay").hide();
+            }
+
+        }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+        );
+
+}
+
+function showFailure() {
+    $.notify($("#saveerror").text(), { className: 'error', autoHideDelay: 15000 });
+}
+
+function showSuccess() {
+    $.notify($("#savesuccess").text(), { className: 'success' });
+}
+
+function currentmonitorSubmitForm(form) {
+    $.ajax({
+        type: $(form).attr('method'),
+        url: $(form).attr('action'),
+        data: $(form).serialize(),
+        success: function (data) {
+            $("#currentmonadvanced").hide();
+            $("#currentmonbasic").hide();
+            $("#currentmonrelay").hide();
+
+            showSuccess();
+
+            //Show spinner for 6 seconds, then refresh page
+            $("#loading").show().delay(6000).hide("fast", function () {
+                $("#currentmonitor").click();
+            });
+        },
+        error: function (data) {
+            showFailure();
+        },
+    });
+}
 
 function avrProgrammingStatsUpdate(attempts) {
-    $.getJSON("avrstatus.json",
+    $.getJSON("/api/avrstatus",
         function (data) {
             console.log(data);
 
@@ -82,7 +240,6 @@ function avrProgrammingStatsUpdate(attempts) {
         }).fail(function () {
             $("#iperror").show();
         });
-
 }
 
 function configureModule(button, cellid, attempts) {
@@ -92,7 +249,7 @@ function configureModule(button, cellid, attempts) {
     $(button).parent().parent().parent().find(".selected").removeClass("selected");
     $(button).parent().parent().addClass("selected");
 
-    $.getJSON("modules.json", { c: cellid },
+    $.getJSON("/api/modules", { c: cellid },
         function (data) {
             var div = $("#settingConfig .settings");
             $('#c').val(data.settings.id);
@@ -132,9 +289,22 @@ function configureModule(button, cellid, attempts) {
         });
 }
 
+function secondsToHms(seconds) {
+    seconds = Number(seconds);
+    var d = Math.floor(seconds / (3600 * 24));
+    var h = Math.floor(seconds % (3600 * 24) / 3600);
+    var m = Math.floor(seconds % 3600 / 60);
+    var s = Math.floor(seconds % 60);
+
+    var dDisplay = d > 0 ? d + "d" : "";
+    var hDisplay = h > 0 ? h + "h" : "";
+    var mDisplay = m > 0 ? m + "m" : "";
+    var sDisplay = h > 0 ? "" : (s > 0 ? s + "s" : "");
+    return dDisplay + hDisplay + mDisplay + sDisplay;
+}
 
 function queryBMS() {
-    $.getJSON("monitor2.json", function (jsondata) {
+    $.getJSON("/api/monitor2", function (jsondata) {
         var labels = [];
         var cells = [];
         var bank = [];
@@ -163,13 +333,13 @@ function queryBMS() {
 
         var markLineData = [];
 
-        markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
-        markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
-        markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start' } });
+        markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+        markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+        markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
 
         var xAxis = 0;
         for (let index = 0; index < jsondata.banks; index++) {
-            markLineData.push({ name: "Bank " + index, xAxis: xAxis });
+            markLineData.push({ name: "Bank " + index, xAxis: xAxis, lineStyle: { color: colours[index], width: 4, type: 'dashed', opacity: 0.5 }, label: { show: true, distance: [0, 0], formatter: '{b}', color: '#eeeeee', textBorderColor: colours[index], textBorderWidth: 2 } });
             xAxis += jsondata.seriesmodules;
         }
 
@@ -217,13 +387,36 @@ function queryBMS() {
         if (minVoltage < 2.5) { minVoltage = 0; }
 
         if (jsondata) {
-            //Ignore and hide any errors which are zero
-            if (jsondata.badcrc == 0) { $("#badcrc").hide(); } else { $("#badcrc .v").html(jsondata.badcrc); $("#badcrc").show(); }
-            if (jsondata.ignored == 0) { $("#ignored").hide(); } else { $("#ignored .v").html(jsondata.ignored); $("#ignored").show(); }
-            if (jsondata.sent == 0) { $("#sent").hide(); } else { $("#sent .v").html(jsondata.sent); $("#sent").show(); }
-            if (jsondata.received == 0) { $("#received").hide(); } else { $("#received .v").html(jsondata.received); $("#received").show(); }
-            if (jsondata.roundtrip == 0) { $("#roundtrip").hide(); } else { $("#roundtrip .v").html(jsondata.roundtrip); $("#roundtrip").show(); }
-            if (jsondata.oos == 0) { $("#oos").hide(); } else { $("#oos .v").html(jsondata.oos); $("#oos").show(); }
+            if (jsondata.badcrc != 0) { $("#badcrc").show(); }
+            if (jsondata.ignored != 0) { $("#ignored").show(); }
+            if (jsondata.sent != 0) { $("#sent").show(); }
+            if (jsondata.received != 0) { $("#received").show(); }
+            if (jsondata.roundtrip != 0) { $("#roundtrip").show(); }
+            if (jsondata.oos != 0) { $("#oos").show(); }
+            if (jsondata.can_fail != 0) { $("#canfail").show(); }
+            if (jsondata.can_sent != 0) { $("#cansent").show(); }
+            if (jsondata.can_rec != 0) { $("#canrecd").show(); }
+            if (jsondata.qlen != 0) { $("#qlen").show(); }
+
+            $("#badcrc .v").html(jsondata.badcrc);
+            $("#ignored .v").html(jsondata.ignored);
+            $("#sent .v").html(jsondata.sent);
+            $("#received .v").html(jsondata.received);
+            $("#roundtrip .v").html(jsondata.roundtrip);
+            $("#oos .v").html(jsondata.oos);
+            $("#canfail .v").html(jsondata.can_fail);
+            $("#cansent .v").html(jsondata.can_sent);
+            $("#canrecd .v").html(jsondata.can_rec);
+            $("#qlen .v").html(jsondata.qlen);
+
+            $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
+
+            if (jsondata.activerules == 0) {
+                $("#activerules").hide();
+            } else {
+                $("#activerules").html(jsondata.activerules);
+                $("#activerules").show(400);
+            }
         }
 
         if (jsondata.bankv) {
@@ -242,30 +435,80 @@ function queryBMS() {
             }
         }
 
-        //Not currently supported
-        if (jsondata.current) {
-            if (jsondata.current[0] == null) {
-                $("#current").hide();
-            } else {
-                $("#current .v").html((parseFloat(jsondata.current[0]) / 1000.0).toFixed(2));
-                $("#current").show();
+        if (jsondata.sec) {
+            if (!XSS_KEY.endsWith(jsondata.sec)) {
+                if ($("#warning7").data("notify") == undefined) {
+                    $("#warning7").data("notify", 1);
+                    $.notify($("#warning7").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
+                }
             }
         }
 
+        if (jsondata.current) {
+            if (jsondata.current[0] == null) {
+                $("#current").hide();
+                $("#shuntv").hide();
+                $("#soc").hide();
+                $("#amphout").hide();
+                $("#amphin").hide();
+                $("#power").hide();
+            } else {
+                var data = jsondata.current[0];
+
+                $("#current .v").html(parseFloat(data.c).toFixed(2) + "A");
+                $("#current").show();
+
+                $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
+                $("#shuntv").show();
+
+                if (data.soc != 0) {
+                    $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
+                    $("#soc").show();
+                } else {
+                    $("#soc").hide();
+                }
+
+                $("#power .v").html(parseFloat(data.p) + "W");
+                $("#power").show();
+
+                if (data.mahout != 0) {
+                    $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
+                    $("#amphout").show();
+                } else {
+                    $("#amphout").hide();
+                }
+
+                if (data.mahin != 0) {
+                    $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
+                    $("#amphin").show();
+                } else {
+                    $("#amphin").hide();
+                }
+            }
+        }
+
+
+
+
         //Needs increasing when more warnings are added
         if (jsondata.warnings) {
-            for (let warning = 1; warning <= 5; warning++) {
+            for (let warning = 1; warning <= 6; warning++) {
                 if (jsondata.warnings.includes(warning)) {
-                    $("#warning" + warning).show();
-                } else {
-                    $("#warning" + warning).hide();
+                    //Once a warning has triggered, hide it from showing in the future
+                    if ($("#warning" + warning).data("notify") == undefined) {
+                        $("#warning" + warning).data("notify", 1);
+                        $.notify($("#warning" + warning).text(), { autoHideDelay: 15000, globalPosition: 'top left', className: 'warn' });
+                    }
                 }
+                //else {
+                //$("#warning" + warning).hide();
+                //}
             }
         }
 
         //Needs increasing when more errors are added
         if (jsondata.errors) {
-            for (let error = 1; error <= 6; error++) {
+            for (let error = 1; error <= 7; error++) {
                 if (jsondata.errors.includes(error)) {
                     $("#error" + error).show();
 
@@ -322,10 +565,10 @@ function queryBMS() {
                 $(columns[7]).html(pwm[index].value);
             });
 
-            //As the module page is open, we refresh the last 3 columns using seperate JSON web service to keep the monitor2.json
+            //As the module page is open, we refresh the last 3 columns using seperate JSON web service to keep the monitor2
             //packets as small as possible
 
-            $.getJSON("monitor3.json", function (jsondata) {
+            $.getJSON("/api/monitor3", function (jsondata) {
                 var tbody = $("#modulesRows");
                 var rows = $(tbody).find("tr");
                 $.each(cells, function (index, value) {
@@ -435,8 +678,7 @@ function queryBMS() {
                             markLine: {
                                 silent: true,
                                 symbol: 'none',
-                                lineStyle: { width: 5, type: 'dashed', opacity: 0.1 },
-                                label: { show: true, distance: [0, 0], formatter: '{b}' },
+
                                 data: markLineData
                             },
                             itemStyle: { color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
@@ -606,7 +848,7 @@ function queryBMS() {
 
             }
 
-            if (window.g2 == null && $('#graph2').css('display') != 'none') {
+            if (window.g2 == null && $('#graph2').css('display') != 'none' && window.Graph3DAvailable === true) {
                 window.g2 = echarts.init(document.getElementById('graph2'));
 
                 var Option3dBar = {
@@ -732,6 +974,7 @@ $(window).on('resize', function () {
 $(function () {
     $("#loading").show();
     $("#avrprogconfirm").hide();
+    $(".stat").hide();
 
     $("#more").on("click"
         , function (e) {
@@ -748,12 +991,15 @@ $(function () {
     //Populate all the setting rules with relay select lists
     $.each($(".settings table tbody tr td:empty"), function (index, value) {
         $.each([1, 2, 3, 4], function (index1, relay) {
-            $(value).append('<select id="rule' + (index + 1) + 'relay' + relay + '" name="rule' + (index + 1) + 'relay' + relay + '"><option>On</option><option>Off</option><option>X</option></select>');
+            $(value).append('<select id="rule' + (index) + 'relay' + relay + '" name="rule' + (index) + 'relay' + relay + '"><option>On</option><option>Off</option><option>X</option></select>');
         });
     }
     );
 
-    for (var n = 1; n <= 32; n++) {
+    $("#labelMaxModules").text(MAXIMUM_NUMBER_OF_SERIES_MODULES);
+
+
+    for (var n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }
     for (var n = MAXIMUM_NUMBER_OF_BANKS - 1; n >= 0; n--) {
@@ -774,15 +1020,9 @@ $(function () {
         if ($(event.target).text() == "2D") {
             $("#graph1").show();
             $("#graph2").hide();
-
-            //Hide 3d graph
-            //if (window.g2 != null) {window.g2.clear();            }
         } else {
             $("#graph1").hide();
             $("#graph2").show();
-
-            //Hide 2d graph
-            //if (window.g1 != null) {window.g1.clear();            }
         }
         $(window).trigger('resize');
     });
@@ -810,14 +1050,14 @@ $(function () {
         $(this).addClass("active");
         switchPage("#aboutPage");
 
-        $.getJSON("settings.json",
+        $.getJSON("/api/settings",
             function (data) {
                 $("#MinFreeHeap").html(data.settings.MinFreeHeap);
                 $("#FreeHeap").html(data.settings.FreeHeap);
                 $("#HeapSize").html(data.settings.HeapSize);
                 $("#SdkVersion").html(data.settings.SdkVersion);
                 $("#HostName").html("<a href='http://" + data.settings.HostName + "'>" + data.settings.HostName + "</a>");
-            }).fail(function () { }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -835,13 +1075,13 @@ $(function () {
 
         switchPage("#modulesPage");
 
-        $.getJSON("settings.json",
+        $.getJSON("/api/settings",
             function (data) {
                 $("#g1").val(data.settings.bypassovertemp);
                 $("#g2").val(data.settings.bypassthreshold);
 
                 $("#modulesPage").show();
-            }).fail(function () { }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
         return true;
     });
@@ -860,7 +1100,7 @@ $(function () {
 
         switchPage("#settingsPage");
 
-        $.getJSON("settings.json",
+        $.getJSON("/api/settings",
             function (data) {
 
                 $("#NTPServer").val(data.settings.NTPServerName);
@@ -868,14 +1108,27 @@ $(function () {
                 $("#NTPZoneMin").val(data.settings.MinutesTimeZone);
                 $("#NTPDST").prop("checked", data.settings.DST);
 
-                var d = new Date(1000 * data.settings.now);
-                $("#timenow").html(d.toJSON());
+                $("#timenow").html(data.settings.datetime);
 
                 $("#totalSeriesModules").val(data.settings.totalseriesmodules);
                 $("#totalBanks").val(data.settings.totalnumberofbanks);
 
+                $("#baudrate").empty();
+                $("#baudrate").append('<option value="2400">Standard</option>')
+                $("#baudrate").append('<option value="5000">5K</option>')
+                $("#baudrate").append('<option value="9600">9K6</option>')
+
+                $("#baudrate").val(data.settings.baudrate);
+
+                $("#interpacketgap").empty();
+                for (let index = 2000; index < 10000; index += 500) {
+                    $("#interpacketgap").append('<option value="' + index + '">' + index + '</option>')
+                }
+
+                $("#interpacketgap").val(data.settings.interpacketgap);
+
                 $("#banksForm").show();
-            }).fail(function () { }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -890,7 +1143,7 @@ $(function () {
 
         switchPage("#rulesPage");
 
-        $.getJSON("rules.json",
+        $.getJSON("/api/rules",
             function (data) {
                 //Rules have loaded
 
@@ -914,8 +1167,8 @@ $(function () {
                 var i = 1;
                 var allrules = $(".settings table tbody tr td label");
                 $.each(data.rules, function (index, value) {
-                    $("#rule" + (index + 1) + "value").val(value.value);
-                    $("#rule" + (index + 1) + "hysteresis").val(value.hysteresis);
+                    $("#rule" + (index) + "value").val(value.value);
+                    $("#rule" + (index) + "hysteresis").val(value.hysteresis);
 
                     //Highlight rules which are active
                     if (value.triggered) {
@@ -931,23 +1184,75 @@ $(function () {
                         if (value2 === true) { relay_value = "On"; }
                         if (value2 === false) { relay_value = "Off"; }
 
-                        $("#rule" + (index + 1) + "relay" + (index2 + 1)).val(relay_value);
-
+                        $("#rule" + (index) + "relay" + (index2 + 1)).val(relay_value);
                     });
                 });
 
                 if (data.ControlState != 0xff) {
                     //Controller is not in running state yet, so some rules are disabled
-                    $.each([2, 3, 4, 5, 6, 7], function (index, value) {
+                    $.each([INTERNALRULENUMBER.Individualcellovervoltage,
+                    INTERNALRULENUMBER.Individualcellundervoltage,
+                    INTERNALRULENUMBER.ModuleOverTemperatureInternal,
+                    INTERNALRULENUMBER.ModuleUnderTemperatureInternal,
+                    INTERNALRULENUMBER.IndividualcellovertemperatureExternal,
+                    INTERNALRULENUMBER.IndividualcellundertemperatureExternal], function (index, value) {
                         $(allrules[value]).addClass("disablerule");
                     });
                 }
 
                 $("#rulesForm").show();
-            }).fail(function () { }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
+    });
+
+    $("#currentmonitor").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+
+        switchPage("#diybmsCurrentMonitorPage");
+
+
+        $.getJSON("/api/rs485settings",
+            function (data) {
+                $("#rs485baudrate").val(data.baudrate);
+                $("#rs485databit").val(data.databits);
+                $("#rs485parity").val(data.parity);
+                $("#rs485stopbit").val(data.stopbits);
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            );
+
+        refreshCurrentMonitorValues();
+
+        return true;
+    });
+
+    $("#victroncanbus").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+
+        $.getJSON("/api/victron",
+            function (data) {
+                $("#VictronEnabled").prop("checked", data.victron.enabled);
+
+                for (let index = 0; index < data.victron.cvl.length; index++) {
+                    $("#cvl" + index).val((data.victron.cvl[index] / 10).toFixed(2));
+                    $("#ccl" + index).val((data.victron.ccl[index] / 10).toFixed(2));
+                    $("#dcl" + index).val((data.victron.dcl[index] / 10).toFixed(2));
+                }
+
+                switchPage("#victroncanbusPage");
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            );
+
+        return true;
+    });
+
+
+    $("#currentmonrefresh").click(function (e) {
+        e.preventDefault();
+        refreshCurrentMonitorValues();
     });
 
     $("#integration").click(function () {
@@ -959,43 +1264,43 @@ $(function () {
         $("#mqttForm").hide();
         $("#influxForm").hide();
 
-        $.getJSON("integration.json",
+        $.getJSON("/api/integration",
             function (data) {
 
                 $("#mqttEnabled").prop("checked", data.mqtt.enabled);
                 $("#mqttTopic").val(data.mqtt.topic);
-                $("#mqttServer").val(data.mqtt.server);
-                $("#mqttPort").val(data.mqtt.port);
+                $("#mqttUri").val(data.mqtt.uri);
                 $("#mqttUsername").val(data.mqtt.username);
                 $("#mqttPassword").val("");
 
                 $("#influxEnabled").prop("checked", data.influxdb.enabled);
-                $("#influxServer").val(data.influxdb.server);
-                $("#influxPort").val(data.influxdb.port);
-                $("#influxDatabase").val(data.influxdb.database);
-                $("#influxUsername").val(data.influxdb.username);
-                $("#influxPassword").val("");
+                $("#influxUrl").val(data.influxdb.url);
+                $("#influxDatabase").val(data.influxdb.bucket);
+                $("#influxToken").val(data.influxdb.apitoken);
+                $("#influxOrgId").val(data.influxdb.orgid);
+                $("#influxFreq").val(data.influxdb.frequency);
 
                 $("#mqttForm").show();
                 $("#influxForm").show();
-            }).fail(function () { }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
     });
 
 
+
     $("#mount").click(function () {
         $.ajax({
-            type: 'post',
-            url: 'sdmount.json',
-            data: 'mount=1',
+            type: 'POST',
+            url: '/post/sdmount',
+            data: $.param({ mount: 1 }),
             success: function (data) {
                 //Refresh the storage page
                 $("#storage").trigger("click");
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1003,38 +1308,107 @@ $(function () {
 
     $("#savewifi").click(function () {
         $.ajax({
-            type: 'post',
-            url: 'wificonfigtofile.json',
-            data: 'save=1',
+            type: 'POST',
+            url: '/post/wificonfigtofile',
+            data: $.param({ save: 1 }),
             success: function (data) {
                 //Refresh the storage page
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
 
+    $("#saveconfig").click(function () {
+        $.ajax({
+            type: 'POST',
+            url: '/post/saveconfigtofile',
+            data: $.param({ save: 1 }),
+            success: function (data) {
+                //Refresh the storage page
+                showSuccess();
+                $("#storage").trigger("click");
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+    });
+
+
     $("#unmount").click(function () {
         $.ajax({
-            type: 'post',
-            url: 'sdunmount.json',
-            data: 'unmount=1',
+            type: 'POST',
+            url: '/post/sdunmount',
+            data: $.param({ unmount: 1 }),
             success: function (data) {
                 //Refresh the storage page
                 $("#storage").trigger("click");
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
+    });
+
+
+    $("#AVRProgDisable").click(function () {
+        $.ajax({
+            type: 'POST',
+            url: '/post/disableavrprog',
+            data: { 'enable': 0 },
+            timeout: 10000
+        })
+            .done(
+                function (data) {
+                    $("#AVRProgEnable").prop('disabled', false).css({ opacity: 1.0 });
+                    $("#AVRProgDisable").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
+                    //Allow warning to trigger again
+                    $("#warning7").removeData("notify");
+                })
+            .fail(function (data) {
+                $("#avrinfo").html("Failed");
+            })
+            .always(function (data) {
+                //$("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
+                //$("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+            });
+
+        return true;
+    });
+
+    $("#AVRProgEnable").click(function () {
+        $.ajax({
+            type: 'POST',
+            url: '/post/enableavrprog',
+            data: { 'enable': 1 },
+            timeout: 10000
+        })
+            .done(
+                function (data) {
+                    $("#AVRProgEnable").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#AVRProgDisable").prop('disabled', false).css({ opacity: 1.0 });
+                    $("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
+                    $("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+                })
+            .fail(function (data) {
+                $("#avrinfo").html("Failed");
+            })
+            .always(function (data) {
+                //$("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
+                //$("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+            });
+
+        return true;
     });
 
     $("#ProgAVRCancel").click(function () {
         $("#avrprogconfirm").hide();
         $("#avrinfo").empty();
-
         return true;
     });
 
@@ -1043,10 +1417,9 @@ $(function () {
         $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
         $("#avrinfo").empty();
 
-
         $.ajax({
-            type: 'post',
-            url: 'avrprog.json',
+            type: 'POST',
+            url: '/post/avrprog',
             data: { file: $("#selectedavrindex").val() },
             //Wait up to 30 seconds
             timeout: 30000
@@ -1054,11 +1427,9 @@ $(function () {
             .done(
                 function (data) {
                     $("#avrinfo").html(data.message);
-
                     if (data.started) {
                         setTimeout(avrProgrammingStatsUpdate, 250, 20);
                     }
-
                 })
             .fail(function (data) {
                 $("#avrinfo").html("Failed");
@@ -1077,11 +1448,26 @@ $(function () {
         $(this).addClass("active");
         switchPage("#avrprogPage");
 
-        $.getJSON("avrstorage.json",
+        $.getJSON("/api/avrstorage",
             function (data) {
                 $("#avrprog").empty();
                 $("#avrprogconfirm").hide();
                 $("#selectedavrindex").val("");
+
+                if (data.ProgModeEnabled == true) {
+                    //Programming mode enabled
+                    $("#AVRProgEnable").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#AVRProgDisable").prop('disabled', false).css({ opacity: 1.0 });
+
+                    $("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
+                    $("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+                } else {
+                    $("#AVRProgEnable").prop('disabled', false).css({ opacity: 1.0 });
+                    $("#AVRProgDisable").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
+                    $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
+                }
+
                 if (data.avrprog.avrprog) {
                     $.each(data.avrprog.avrprog, function (index, value) {
 
@@ -1101,7 +1487,7 @@ $(function () {
                         $(li).append(aref);
                     });
                 }
-            }).fail(function () { }
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;
@@ -1114,8 +1500,12 @@ $(function () {
         $(this).addClass("active");
         switchPage("#storagePage");
 
-        $.getJSON("storage.json",
+        $.getJSON("/api/storage",
             function (data) {
+
+                //Allow warning to trigger again
+                $("#warning5").removeData("notify");
+
                 $("#loggingEnabled").prop("checked", data.storage.logging);
                 $("#loggingFreq").val(data.storage.frequency);
 
@@ -1135,7 +1525,11 @@ $(function () {
                 if (data.storage.sdcard.files) {
                     $.each(data.storage.sdcard.files, function (index, value) {
                         if (value != null) {
-                            $("#sdcardfiles").append("<li><a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a></li>");
+                            link="<a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a>";
+                            if (value.startsWith("backup_config_")) {
+                                link+="<button class='small' onclick='restoreconfig(\"" + encodeURI(value) + "\")'>Restore</button>";                            
+                            }
+                            $("#sdcardfiles").append("<li>"+link+"</li>");
                         }
                     });
                 }
@@ -1157,7 +1551,9 @@ $(function () {
                     });
                 }
 
-            }).fail(function () { }
+            }).fail(function () {
+                $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
+            }
             );
 
         return true;
@@ -1172,13 +1568,60 @@ $(function () {
             url: $(this).attr('action'),
             data: $(this).serialize(),
             success: function (data) {
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
+
+
+    $("#diybmsCurrentMonitorForm2").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        currentmonitorSubmitForm(this);
+    });
+    $("#diybmsCurrentMonitorForm3").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        currentmonitorSubmitForm(this);
+    });
+    $("#diybmsCurrentMonitorForm4").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        currentmonitorSubmitForm(this);
+    });
+    $("#diybmsCurrentMonitorForm1").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        currentmonitorSubmitForm(this);
+    });
+
+    /*
+        $("#victronForm1").unbind('submit').submit(function (e) {
+            e.preventDefault();        
+        });
+    */
+
+    $("#globalSettingsForm").unbind('submit').submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+            type: $(this).attr('method'),
+            url: $(this).attr('action'),
+            data: $(this).serialize(),
+            success: function (data) {
+                showSuccess();
+
+                //Allow warning to trigger again
+                $("#warning1").removeData("notify");
+                $("#warning2").removeData("notify");
+                $("#warning3").removeData("notify");
+                $("#warning4").removeData("notify");
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+    });
+
 
     $("#settingsForm").unbind('submit').submit(function (e) {
         e.preventDefault();
@@ -1189,10 +1632,17 @@ $(function () {
             data: $(this).serialize(),
             success: function (data) {
                 $('#settingConfig').hide();
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
+
+                //Allow warning to trigger again
+                $("#warning1").removeData("notify");
+                $("#warning2").removeData("notify");
+                $("#warning3").removeData("notify");
+                $("#warning4").removeData("notify");
+
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1207,10 +1657,10 @@ $(function () {
             success: function (data) {
                 DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat($("#VoltageHigh").val());
                 DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat($("#VoltageLow").val());
-                $("#savesuccess").show().delay(2000).fadeOut(500);
+                showSuccess();
             },
             error: function (data) {
-                $("#saveerror").show().delay(2000).fadeOut(500);
+                showFailure();
             },
         });
     });
@@ -1233,15 +1683,26 @@ $(function () {
         }
     });
 
-    $.ajaxSetup({
-        beforeSend: function (xhr, settings) { settings.data += '&xss=' + XSS_KEY; }
+    $.ajaxPrefilter(function (options, originalOptions, jqXHR) {
+        if (originalOptions.type.toUpperCase() !== 'POST' || options.type.toUpperCase() !== 'POST') {
+            return;
+        }
+
+        if (options.data.length > 0) {
+            options.data += '&';
+        }
+
+        options.data += $.param({ xss: XSS_KEY });
     });
 
-    //$(document).ajaxStart(function(){ });
-    //$(document).ajaxStop(function(){ });
+    $(".stat").mouseenter(function () {
+        $(this).addClass("hover");
+    }).mouseleave(function () {
+        $(this).removeClass("hover");
+    });
 
     $("#homePage").show();
 
     //On page ready
     queryBMS();
-});
+}); // end $(function ()

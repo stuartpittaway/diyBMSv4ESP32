@@ -238,8 +238,8 @@ public:
 
    static void SelectExternalTemperatureChannel()
    {
-      //External sensor
-      //ADMUXA – ADC Multiplexer Selection Register A
+//External sensor
+//ADMUXA – ADC Multiplexer Selection Register A
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
       //ADC11 (single end) MUX[5:0] 00 1011

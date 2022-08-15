@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+#include <driver/uart.h>
+
 #include "EmbeddedFiles_Defines.h"
 
 #include "EmbeddedFiles_Integrity.h"
@@ -9,13 +11,22 @@
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
-//Data uses Rx2/TX2 and debug logs go to serial0 - USB
+// Needs to be at least 1550 bytes...
+#define BUFSIZE 1800
+
+// Data uses Rx2/TX2 and debug logs go to serial0 - USB
 #define SERIAL_DATA Serial2
 #define SERIAL_DEBUG Serial
 #define SERIAL_RS485 Serial1
 
-//Total number of cells a single controler can handle (memory limitation)
+// Total number of cells a single controler can handle (memory limitation)
 #define maximum_controller_cell_modules 128
+
+typedef union
+{
+  float value;
+  uint16_t word[2];
+} FloatUnionType;
 
 enum RGBLED : uint8_t
 {
@@ -29,14 +40,30 @@ enum RGBLED : uint8_t
   White = B00000111
 };
 
-//Maximum of 16 cell modules (don't change this!) number of cells to process in a single packet of data
+enum ISRTYPE : uint32_t
+{
+  // Must be unique BIT pattern
+  TCA6408A = 1 << 0,
+  TCA9534 = 1 << 1,
+  TCA6416A = 1 << 2,
+  TFTTOUCH = 1 << 3
+};
+
+enum VictronDVCC : uint8_t
+{
+  Default = 0,
+  Balance = 1,
+  ControllerError = 2
+};
+
+// Maximum of 16 cell modules (don't change this!) number of cells to process in a single packet of data
 #define maximum_cell_modules_per_packet 16
 
-//Maximum number of banks allowed
-//This also needs changing in default.htm (MAXIMUM_NUMBER_OF_BANKS)
+// Maximum number of banks allowed
+// This also needs changing in default.htm (MAXIMUM_NUMBER_OF_BANKS)
 #define maximum_number_of_banks 16
 
-//Version 4.XX of DIYBMS modules operate at 5000 baud (since 26 Jan 2021)
+// Version 4.XX of DIYBMS modules operate at 5000 baud (since 26 Jan 2021)
 //#define COMMS_BAUD_RATE 5000
 
 enum enumInputState : uint8_t
@@ -65,11 +92,19 @@ enum RelayType : uint8_t
   RELAY_PULSE = 0x01
 };
 
-#define RELAY_RULES 12
-//Number of relays on board (4)
+enum CurrentMonitorDevice : uint8_t
+{
+  DIYBMS_CURRENT_MON = 0x00,
+  PZEM_017 = 0x01
+};
+
+// Number of rules as defined in Rules.h (enum Rule)
+#define RELAY_RULES 15
+
+// Number of relays on board (4)
 #define RELAY_TOTAL 4
 
-//7 inputs on board
+// 7 inputs on board
 #define INPUTS_TOTAL 7
 
 #define SHOW_TIME_PERIOD 5000
@@ -79,15 +114,17 @@ struct diybms_eeprom_settings
 {
   uint8_t totalNumberOfBanks;
   uint8_t totalNumberOfSeriesModules;
+  uint16_t baudRate;
+  uint16_t interpacketgap;
 
   uint32_t rulevalue[RELAY_RULES];
   uint32_t rulehysteresis[RELAY_RULES];
 
-  //Use a bit pattern to indicate the relay states
+  // Use a bit pattern to indicate the relay states
   RelayState rulerelaystate[RELAY_RULES][RELAY_TOTAL];
-  //Default starting state
+  // Default starting state
   RelayState rulerelaydefault[RELAY_TOTAL];
-  //Default starting state for relay types
+  // Default starting state for relay types
   RelayType relaytype[RELAY_TOTAL];
 
   float graph_voltagehigh;
@@ -104,23 +141,41 @@ struct diybms_eeprom_settings
   bool loggingEnabled;
   uint16_t loggingFrequencySeconds;
 
-  //NOTE this array is subject to buffer overflow vulnerabilities!
+  bool currentMonitoringEnabled;
+  uint8_t currentMonitoringModBusAddress;
+  CurrentMonitorDevice currentMonitoringDevice;
+
+  int rs485baudrate;
+  uart_word_length_t rs485databits;
+  uart_parity_t rs485parity;
+  uart_stop_bits_t rs485stopbits;
+
+  char language[2 + 1];
+
+  uint16_t cvl[3];
+  int16_t ccl[3];
+  int16_t dcl[3];
+
+  bool VictronEnabled;
+
+  // NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
-  uint16_t mqtt_port;
-  char mqtt_server[64 + 1];
+  char mqtt_uri[128 + 1];
   char mqtt_topic[32 + 1];
   char mqtt_username[32 + 1];
   char mqtt_password[32 + 1];
 
   bool influxdb_enabled;
-  uint16_t influxdb_httpPort;
-  char influxdb_host[64 + 1];
-  char influxdb_database[32 + 1];
-  char influxdb_user[32 + 1];
-  char influxdb_password[32 + 1];
+  // uint16_t influxdb_httpPort;
+  char influxdb_serverurl[128 + 1];
+  char influxdb_databasebucket[64 + 1];
+  char influxdb_apitoken[128 + 1];
+  char influxdb_orgid[128 + 1];
+  uint8_t influxdb_loggingFreqSeconds;
 };
 
-typedef union {
+typedef union
+{
   float number;
   uint8_t bytes[4];
   uint16_t word[2];
@@ -143,7 +198,7 @@ enum COMMAND : uint8_t
   ResetBalanceCurrentCounter = 11
 };
 
-//NOTE THIS MUST BE EVEN IN SIZE (BYTES) ESP8266 IS 32 BIT AND WILL ALIGN AS SUCH!
+// NOTE THIS MUST BE EVEN IN SIZE (BYTES) ESP8266 IS 32 BIT AND WILL ALIGN AS SUCH!
 struct PacketStruct
 {
   uint8_t start_address;
@@ -157,19 +212,19 @@ struct PacketStruct
 
 struct CellModuleInfo
 {
-  //Used as part of the enquiry functions
+  // Used as part of the enquiry functions
   bool settingsCached : 1;
-  //Set to true once the module has replied with data
+  // Set to true once the module has replied with data
   bool valid : 1;
-  //Bypass is active
+  // Bypass is active
   bool inBypass : 1;
-  //Bypass active and temperature over set point
+  // Bypass active and temperature over set point
   bool bypassOverTemp : 1;
 
   uint16_t voltagemV;
   uint16_t voltagemVMin;
   uint16_t voltagemVMax;
-  //Signed integer byte (negative temperatures)
+  // Signed integer byte (negative temperatures)
   int8_t internalTemp;
   int8_t externalTemp;
 
@@ -179,19 +234,19 @@ struct CellModuleInfo
 
   // Resistance of bypass load
   float LoadResistance;
-  //Voltage Calibration
+  // Voltage Calibration
   float Calibration;
-  //Reference voltage (millivolt) normally 2.00mV
+  // Reference voltage (millivolt) normally 2.00mV
   float mVPerADC;
-  //Internal Thermistor settings
+  // Internal Thermistor settings
   uint16_t Internal_BCoefficient;
-  //External Thermistor settings
+  // External Thermistor settings
   uint16_t External_BCoefficient;
-  //Version number returned by code of module
+  // Version number returned by code of module
   uint16_t BoardVersionNumber;
-  //Last 4 bytes of GITHUB version
+  // Last 4 bytes of GITHUB version
   uint32_t CodeVersionNumber;
-  //Value of PWM timer for load shedding
+  // Value of PWM timer for load shedding
   uint16_t PWMValue;
 
   uint16_t BalanceCurrentCount;
@@ -205,20 +260,20 @@ enum ControllerState : uint8_t
   Unknown = 0,
   PowerUp = 1,
   Stabilizing = 2,
-  ConfigurationSoftAP = 3,
+  NoWifiConfiguration=3,
   Running = 255,
 };
 
-struct sdcard_info
+enum CardAction : uint8_t
 {
-  bool available;
-  uint32_t totalkilobytes;
-  uint32_t usedkilobytes;
-  uint32_t flash_totalkilobytes;
-  uint32_t flash_usedkilobytes;
+  Idle = 0,
+  Mount = 1,
+  Unmount = 2,
+  Remount = 3
 };
 
-//This holds all the cell information in a large array array
+
+// This holds all the cell information in a large array array
 extern CellModuleInfo cmi[maximum_controller_cell_modules];
 
 struct avrprogramsettings
@@ -232,6 +287,106 @@ struct avrprogramsettings
   char filename[64];
   uint8_t progresult;
   size_t programsize;
+
+  bool programmingModeEnabled;
+};
+
+struct currentmonitor_raw_modbus
+{
+  // These variables are in STRICT order
+  // and must match the MODBUS register sequence and data types!!
+
+  // Voltage
+  float voltage;
+  // Current in AMPS
+  float current;
+  uint32_t milliamphour_out;
+  uint32_t milliamphour_in;
+  int16_t temperature;
+  uint16_t flags;
+  float power;
+  float shuntmV;
+  float currentlsb;
+  float shuntresistance;
+  uint16_t shuntmaxcurrent;
+  uint16_t shuntmillivolt;
+  uint16_t batterycapacityamphour;
+  float fullychargedvoltage;
+  float tailcurrentamps;
+  uint16_t raw_chargeefficiency;
+  uint16_t raw_stateofcharge;
+  uint16_t shuntcal;
+  int16_t temperaturelimit;
+  float overvoltagelimit;
+  float undervoltagelimit;
+  float overcurrentlimit;
+  float undercurrentlimit;
+  float overpowerlimit;
+  uint16_t shunttempcoefficient;
+  uint16_t modelnumber;
+  uint32_t firmwareversion;
+  uint32_t firmwaredatetime;
+  uint16_t watchdogcounter;
+} __attribute__((packed));
+
+struct currentmonitoring_struct
+{
+  currentmonitor_raw_modbus modbus;
+
+  // Uses float as these are 4 bytes on ESP32
+  int64_t timestamp;
+  bool validReadings;
+
+  float chargeefficiency;
+  float stateofcharge;
+
+  bool TemperatureOverLimit : 1;
+  bool CurrentOverLimit : 1;
+  bool CurrentUnderLimit : 1;
+  bool VoltageOverlimit : 1;
+  bool VoltageUnderlimit : 1;
+  bool PowerOverLimit : 1;
+  bool TempCompEnabled : 1;
+  bool ADCRange4096mV : 1;
+
+  bool RelayTriggerTemperatureOverLimit : 1;
+  bool RelayTriggerCurrentOverLimit : 1;
+  bool RelayTriggerCurrentUnderLimit : 1;
+  bool RelayTriggerVoltageOverlimit : 1;
+  bool RelayTriggerVoltageUnderlimit : 1;
+  bool RelayTriggerPowerOverLimit : 1;
+  bool RelayState : 1;
+};
+
+
+enum DIAG_ALRT_FIELD : uint16_t
+{
+  ALATCH = 15,
+  CNVR = 14,
+  SLOWALERT = 13,
+  APOL = 12,
+  ENERGYOF = 11,
+  CHARGEOF = 10,
+  MATHOF = 9,
+  RESERVED = 8,
+  TMPOL = 7,
+  SHNTOL = 6,
+  SHNTUL = 5,
+  BUSOL = 4,
+  BUSUL = 3,
+  POL = 2,
+  CNVRF = 1,
+  MEMSTAT = 0
+};
+
+
+//Where in EEPROM do we store the configuration
+#define EEPROM_WIFI_START_ADDRESS 0
+
+struct wifi_eeprom_settings
+{
+  char wifi_ssid[32 + 1];
+  char wifi_passphrase[63 + 1];
 };
 
 #endif

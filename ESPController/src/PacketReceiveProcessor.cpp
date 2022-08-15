@@ -1,3 +1,6 @@
+#define USE_ESP_IDF_LOG 1
+static constexpr const char * const TAG = "diybms-rx";
+
 #include "PacketReceiveProcessor.h"
 
 bool PacketReceiveProcessor::HasCommsTimedOut()
@@ -27,11 +30,12 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
     totalModulesFound = _packetbuffer.hops;
 
-    if (packetLastReceivedSequence > 0 && _packetbuffer.sequence != packetLastReceivedSequence + 1)
+    //Careful of overflowing the uint16_t in sequence
+    if (packetLastReceivedSequence > 0 && _packetbuffer.sequence > 0 && _packetbuffer.sequence != packetLastReceivedSequence + 1)
     {
       SERIAL_DEBUG.println();
       SERIAL_DEBUG.print(F("OOS Error, expected="));
-      SERIAL_DEBUG.print(packetLastReceivedSequence+1, HEX);
+      SERIAL_DEBUG.print(packetLastReceivedSequence + 1, HEX);
       SERIAL_DEBUG.print(", got=");
       SERIAL_DEBUG.println(_packetbuffer.sequence, HEX);
       totalOutofSequenceErrors++;
@@ -41,6 +45,7 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
     if (ReplyWasProcessedByAModule())
     {
+      //ESP_LOGD(TAG, "Hops %u, start %u end %u, command=%u", _packetbuffer.hops, _packetbuffer.start_address, _packetbuffer.end_address,ReplyForCommand());
 
       switch (ReplyForCommand())
       {
@@ -63,6 +68,23 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
       }
       case COMMAND::ReadVoltageAndStatus:
         ProcessReplyVoltage();
+
+        //ESP_LOGD(TAG, "Updated volt status cells %u to %u", _packetbuffer.start_address, _packetbuffer.end_address);
+
+
+        //TODO: REVIEW THIS LOGIC
+        if (_packetbuffer.end_address == _packetbuffer.hops - 1)
+        {
+          //We have just processed a voltage reading for the entire chain of modules (all banks)
+          //at this point we should update any display or rules logic
+          //as we have a clean snapshot of voltages and statues
+
+          ESP_LOGD(TAG, "Finished all reads");
+          if (voltageandstatussnapshot_task_handle != NULL)
+          {
+            xTaskNotify(voltageandstatussnapshot_task_handle, 0x00, eNotifyAction::eNoAction);
+          }
+        }
         break;
 
       case COMMAND::ReadBadPacketCounter:
@@ -84,27 +106,25 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
         ProcessReplyBalancePower();
         break;
 
-    case COMMAND::ReadBalanceCurrentCounter:
+      case COMMAND::ReadBalanceCurrentCounter:
         ProcessReplyReadBalanceCurrentCounter();
         break;
-    case COMMAND::ReadPacketReceivedCounter:
+      case COMMAND::ReadPacketReceivedCounter:
         ProcessReplyReadPacketReceivedCounter();
         break;
-
       }
 
 #if defined(PACKET_LOGGING_RECEIVE)
       SERIAL_DEBUG.println(F("*OK*"));
 #endif
+
       return true;
     }
     else
     {
       //Error count for a request that was not processed by any module in the string
       totalNotProcessedErrors++;
-#if defined(PACKET_LOGGING_RECEIVE)
-      SERIAL_DEBUG.println(F("*IGNORE*"));
-#endif
+      ESP_LOGD(TAG, "Modules ignored request");
     }
   }
   else
@@ -115,7 +135,7 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
     SERIAL_DEBUG.println(F("*CRC Error*"));
 #endif
   }
- 
+
   return false;
 }
 
@@ -144,7 +164,6 @@ void PacketReceiveProcessor::ProcessReplyTemperature()
   }
 }
 
-
 void PacketReceiveProcessor::ProcessReplyReadBalanceCurrentCounter()
 {
   uint8_t q = 0;
@@ -163,7 +182,6 @@ void PacketReceiveProcessor::ProcessReplyReadPacketReceivedCounter()
     q++;
   }
 }
-
 
 void PacketReceiveProcessor::ProcessReplyBalancePower()
 {
@@ -249,5 +267,5 @@ void PacketReceiveProcessor::ProcessReplySettings()
   // uint16_t
   cmi[m].BoardVersionNumber = _packetbuffer.moduledata[10];
 
-  cmi[m].CodeVersionNumber = (_packetbuffer.moduledata[14] << 16) +_packetbuffer.moduledata[15];
+  cmi[m].CodeVersionNumber = (_packetbuffer.moduledata[14] << 16) + _packetbuffer.moduledata[15];
 }
