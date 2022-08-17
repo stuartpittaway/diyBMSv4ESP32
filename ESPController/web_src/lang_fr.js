@@ -1,6 +1,6 @@
-// This file is for FRENCH language translation
+  // This file is for FRENCH language translation
 
-$("#home").text("Home"); 
+$("#home").text("Acceuil"); 
 $("#modules").text("Modules");
 $("#settings").text("Réglages");
 $("#rules").text("Régles");
@@ -9,8 +9,8 @@ $("#more").text("Plus...");
 $("#integration").text("Integration");
 $("#currentmonitor").text("Moniteur de courant");
 $("#victroncanbus").text("BMS CAN bus emulateur pylontech/victron");
-$("#storage").text("Paramétres stockage et Logg");
-$("#avrprogrammer").text("Programmateur modules (AVR)");
+$("#storage").text("Paramétres SDCard et Logg");
+$("#avrprogrammer").text("Programmateur de module (AVR)");
 $("#about").text("Informations");
 
 $("#modulesPage > h1").text("Modules");
@@ -22,12 +22,12 @@ $("#mpModule").text("Cellule");
 $("#mpVoltage").text("Tension");
 $("#mpvmin").text("U.min");
 $("#mpvmax").text("U.max");
-$("#mptint").text("Temp int °C");
+$("#mptint").text("Temp PCB °C");
 $("#mptext").text("Temp ext °C");
 $("#mpbypass").text("Bypass %");
 $("#mpbpc").text("Nb erreur paquet");
 $("#mppktr").text("Paquets reçus");
-$("#mpbal").text("Energie utilisée pour balance (mAh)");
+$("#mpbal").text("Energie utilisée pour balancing (mAh)");
 
 $("#error1").text("Probleme de communication entre le contrôleur et les modules.");
 $("#error3").text("Le contrôleur est configuré pour utiliser plus de modules qu'il ne peut en gérer.");
@@ -61,9 +61,9 @@ $("label[for='VoltageLow']").text("Echelle tension basse graphique");
 //DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules allow you to configure the relays for your situation.
 $("#rt1").text("DIYBMS prend en charge les modules de relais pour déconnecter en toute sécurité les chargeurs, les contacteurs ou les consommateurs. Les règles permettent de configurer les relais selon votre installation.");
 //Rules are processed from lowest priorty to highest (bottom up). Control the relays using the options. A value of "X" means don't care/leave at value defined by lower priority rules.
-$("#rt2").text("Les règles sont traitées de la priorité la plus faible à la plus élevée (de bas en haut). Contrôler les relais à l'aide des options. La valeur "X" signifie pas d'action/laisser à la valeur définie par des règles de priorité basse..");
+$("#rt2").text("Les règles sont traitées de la priorité la plus faible à la plus élevée (de bas en haut). Contrôler les relais à l'aide des options. La valeur signifie pas d'action/laisser à la valeur définie par des règles de priorité basse..");
 //Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will only disable when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing on/off rapidly.
-$("#rt3").text("Les règles sont déclenchées lorsque la valeur seuil est atteinte ou dépassée « déclencheur ». La règle ne sera désactivée que lorsque la valeur passera ensuite la valeur "réinitialiser". Cet hysthérésys permet d'éviter les battements relais..");
+$("#rt3").text("Les règles sont déclenchées lorsque la valeur seuil est atteinte ou dépassée « déclencheur ».La règle ne sera désactivée que lorsque la valeur passera ensuite la valeur (réinitialiser). Cet hysthérésys permet d'éviter les battements relais..");
 //'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of  minutes past midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch on at 8:15am and off at 9:15am. This only works if connected to internet for regular time updates.
 $("#rt4").text("Les règles 'Tempo 1' et 'Tempo 2' permettent un fonctionnement temporisé, cette règle est active lorsque le nombre de minutes après minuit a été atteint, par exemple, régler le déclencheur 'Tempo 1' sur 495 et réinitialiser sur 555 = actif à 8h15 et innactif à 9h15. Cela ne fonctionne que si vous êtes connecté à Internet pour des mises à jour NTP.");
 //Minutes since midnight now is: 
@@ -83,21 +83,23 @@ $("#rf4").text("Etat relais");
 
 
 //Emergency Stop
-$("label[for='rule1value']").text("Arret d'urgence");
+$("label[for='rule0value']").text("Arret d'urgence");
 //Internal BMS error= 
-$("label[for='rule2value']").text("Erreur interne BMS");
+$("label[for='rule1value']").text("Erreur interne BMS");
+//overcuerrent
+$("label[for='rule2value']").text("Surintensité vu par le moniteur de courant (A)");
 //Individual cell over voltage (mV)
-$("label[for='rule3value']").text("Seuil de SURtension cellule individuelle (mV)");
+$("label[for='rule3value']").text("Seuil de surtension cellule individuelle (mV)");
 //Cell under voltage (mV)
-$("label[for='rule4value']").text("Seuil de SOUStension cellule individuelle (mV))");
+$("label[for='rule4value']").text("Seuil de soustension cellule individuelle (mV))");
 //Module over temperature (internal) °C	= 
-$("label[for='rule5value']").text("Module Surtemperature (interne) °C);
+$("label[for='rule5value']").text("PCB Surtemperature °C");
 //Module under temperature (internal)
-$("label[for='rule6value']").text("Module Soustemperature (interne) °C");
+$("label[for='rule6value']").text("PCB Soustemperature °C");
 //Cell over temperature (external)
-$("label[for='rule7value']").text("Cellule Surtemperature (Externe) °C");
+$("label[for='rule7value']").text("Cellule Surtemperature (Ext) °C");
 //Cell under temperature (external)
-$("label[for='rule8value']").text("Cellule Soustemperature (Externe) °C");
+$("label[for='rule8value']").text("Cellule Soustemperature (Ext) °C");
 //Pack over voltage (mV)
 $("label[for='rule9value']").text("Surtention chaîne (mV)");
 //Pack under voltage (mV)
@@ -136,8 +138,7 @@ $("#ap6").text("Il s'agit d'un produit/solution non professionnels, ne l'utilise
 //There is no warranty, it may not work as expected or at all.
 $("#ap7").text("Il n'y a aucune garantie, cela peut ne pas fonctionner comme prévu ou pas du tout..");
 //The use of this project is done so entirely at your own risk. It may involve electrical voltages which could kill - if in doubt, seek help.
-$("#ap8").text("
-L'utilisation de ce projet se fait entièrement à vos risques et périls. Cela peut impliquer des tensions électriques qui pourraient tuer - en cas de doute, demandez de l'aide.");
+$("#ap8").text("L'utilisation de ce projet se fait entièrement à vos risques et périls. Cela peut impliquer des tensions électriques qui pourraient tuer - en cas de doute, demandez de l'aide.");
 //The use of this project may not be compliant with local laws or regulations - if in doubt, seek help.
 $("#ap8a").text("L'utilisation de ce projet peut ne pas être conforme aux lois ou réglementations locales - en cas de doute, demandez de l'aide.");
 
@@ -147,7 +148,7 @@ $("#mb1").text("Modules & Chaines");
 $("#mb2").text("DIYBMS prend en charge jusqu'à 128 modules au total. Ces modules peuvent être divisés en chaines pour prendre en charge des configurations parallèles.");
 //Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).
 $("#mb3").text("Exemple : Vous avez 16 cellules configurées avec 8 en série et 2 en parallèle (8S2P)");
-$("#mb4").text("Seule la version 4.4 ou ultérieure du module matériel prend en charge des vitesses de communication plus rapides. Vous devait redémarrez le contrôleur manuellement si vous modifiez la vitesse, et assurez-vous également que tous les modules utilisent le bon firmware.");
-                 
+$("#mb4").text("Seule la version 4.4 ou ultérieure du module prend en charge des vitesses de communication plus rapides. Vous devez redémarrer le contrôleur manuellement si vous modifiez la vitesse, et assurez-vous également que tous les modules utilisent le bon firmware.");
+                                
 
 
