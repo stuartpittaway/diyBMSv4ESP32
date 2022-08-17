@@ -1117,6 +1117,9 @@ $(function () {
                 $("#baudrate").append('<option value="2400">Standard</option>')
                 $("#baudrate").append('<option value="5000">5K</option>')
                 $("#baudrate").append('<option value="9600">9K6</option>')
+                $("#baudrate").append('<option value="10000">10K</option>')
+                $("#baudrate").append('<option value="12000">12K</option>')
+                $("#baudrate").append('<option value="14000">14K</option>')
 
                 $("#baudrate").val(data.settings.baudrate);
 
