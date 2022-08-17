@@ -185,7 +185,7 @@ void ValidateConfiguration()
 
   if (myConfig.BypassTemperatureSetPoint > DIYBMS_MODULE_SafetyTemperatureCutoff)
   {
-    myConfig.BypassTemperatureSetPoint = DIYBMS_MODULE_SafetyTemperatureCutoff-10;
+    myConfig.BypassTemperatureSetPoint = DIYBMS_MODULE_SafetyTemperatureCutoff - 10;
   }
 
 #if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
@@ -414,7 +414,7 @@ void loop()
 
   // We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass
   // this is also triggered by the watchdog should comms fail or the module is running standalone
-  diyBMSHAL::ReferenceVoltageOn();
+  diyBMSHAL::TemperatureVoltageOn();
 
   // Internal temperature
   PP.TakeAnAnalogueReading(ADC_INTERNAL_TEMP);
@@ -431,6 +431,8 @@ void loop()
     // External temperature
     PP.TakeAnAnalogueReading(ADC_EXTERNAL_TEMP);
 
+    diyBMSHAL::ReferenceVoltageOn();
+
 #if (SAMPLEAVERAGING == 1)
     // Sample averaging not enabled
     // Do voltage reading last to give as much time for voltage to settle
@@ -446,6 +448,7 @@ void loop()
 
   // Switch reference off if we are not in bypass (otherwise leave on)
   diyBMSHAL::ReferenceVoltageOff();
+  diyBMSHAL::TemperatureVoltageOff();
 
   if (wdt_triggered && Serial.available() == 0)
   {

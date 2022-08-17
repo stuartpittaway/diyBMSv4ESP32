@@ -127,6 +127,7 @@ void diyBMSHAL::ConfigurePorts()
   // Set pins to initial state
   DumpLoadOff();
   ReferenceVoltageOff();
+  TemperatureVoltageOff();
   NotificationLedOff();
 
   // More power saving changes

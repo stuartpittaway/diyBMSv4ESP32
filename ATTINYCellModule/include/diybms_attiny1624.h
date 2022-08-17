@@ -19,7 +19,7 @@
 #include <avr/power.h>
 #include <avr/wdt.h>
 
-//Used for temperature readings only (13 bit ADC with oversample)
+// Used for temperature readings only (13 bit ADC with oversample)
 #define MAXIUMUM_ATTINY_ADC_SCALE 8191.0F
 
 /*
@@ -71,22 +71,26 @@ public:
 
   static void ReferenceVoltageOn()
   {
-    // Switch REFERENCE VOLTAGE and ENABLE pins ON
-
+    // Switch REFERENCE VOLTAGE on
     // Ref voltage ON (PA1)
     PORTA.OUTSET = PIN1_bm;
-    // PB0 (ENABLE)
-    PORTB.OUTSET = PIN0_bm;
-
-    // allow reference voltage to stabilize
-    // delayMicroseconds(50);
   }
 
   static void ReferenceVoltageOff()
   {
     // Ref voltage (PA1)
     PORTA.OUTCLR = PIN1_bm;
-    // PB0 (ENABLE)
+  }
+
+  static void TemperatureVoltageOn()
+  {
+    // PB0
+    PORTB.OUTSET = PIN0_bm;
+  }
+
+  static void TemperatureVoltageOff()
+  {
+    // PB0
     PORTB.OUTCLR = PIN0_bm;
   }
 
@@ -177,7 +181,7 @@ public:
     // FREERUN / LEFTADJ / SAMPNUM[3:0]
     ADC0.CTRLF = ADC_SAMPNUM_enum::ADC_SAMPNUM_ACC2_gc;
     // PA5 = VREF pin
-    ADC0.MUXPOS = ADC_MUXPOS_enum::ADC_MUXPOS_AIN3_gc; 
+    ADC0.MUXPOS = ADC_MUXPOS_enum::ADC_MUXPOS_AIN3_gc;
   }
 
   static void double_tap_Notification_led();
