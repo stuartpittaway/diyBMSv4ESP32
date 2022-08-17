@@ -31,13 +31,13 @@ class diyBMSHAL
 public:
   static void ConfigurePorts();
 
-  static void ResumePWM()
+  inline static void ResumePWM() __attribute__((always_inline))
   {
     TCA0.SINGLE.CTRLA |= TCA_SINGLE_ENABLE_bm;
     interrupts();
   }
 
-  static void StopTimer1()
+  inline static void StopTimer1() __attribute__((always_inline))
   {
     TCA0.SINGLE.CTRLA &= ~TCA_SINGLE_ENABLE_bm;
   }
@@ -69,48 +69,48 @@ public:
 
   static inline void DumpLoadOff() { PORTB.OUTCLR = PIN1_bm; }
 
-  static void ReferenceVoltageOn()
+  inline static void ReferenceVoltageOn() __attribute__((always_inline))
   {
     // Switch REFERENCE VOLTAGE on
     // Ref voltage ON (PA1)
     PORTA.OUTSET = PIN1_bm;
   }
 
-  static void ReferenceVoltageOff()
+  inline static void ReferenceVoltageOff() __attribute__((always_inline))
   {
     // Ref voltage (PA1)
     PORTA.OUTCLR = PIN1_bm;
   }
 
-  static void TemperatureVoltageOn()
+  inline static void TemperatureVoltageOn() __attribute__((always_inline))
   {
     // PB0
     PORTB.OUTSET = PIN0_bm;
   }
 
-  static void TemperatureVoltageOff()
+  inline static void TemperatureVoltageOff() __attribute__((always_inline))
   {
     // PB0
     PORTB.OUTCLR = PIN0_bm;
   }
 
-  static inline void NotificationLedOn() { PORTA.OUTSET = PIN6_bm; }
+  static inline void NotificationLedOn() __attribute__((always_inline)) { PORTA.OUTSET = PIN6_bm; }
 
-  static inline void NotificationLedOff() { PORTA.OUTCLR = PIN6_bm; }
+  static inline void NotificationLedOff() __attribute__((always_inline)) { PORTA.OUTCLR = PIN6_bm; }
 
-  static void SpareOn() { PORTA.OUTSET = PIN2_bm; }
+  static inline void SpareOn() __attribute__((always_inline)) { PORTA.OUTSET = PIN2_bm; }
 
-  static void SpareOff() { PORTA.OUTCLR = PIN2_bm; }
+  static inline void SpareOff() __attribute__((always_inline)) { PORTA.OUTCLR = PIN2_bm; }
 
-  static inline void FlushSerial0() { Serial.flush(); }
+  static inline void FlushSerial0() __attribute__((always_inline)) { Serial.flush(); }
 
-  static inline void DisableSerial0TX()
+  static inline void DisableSerial0TX() __attribute__((always_inline))
   {
     // On tiny1624 this saves about 7mA of current
     USART0.CTRLB &= ~(USART_TXEN_bm); /* Transmitter Enable bit mask. */
   }
 
-  static inline void EnableSerial0TX()
+  static inline void EnableSerial0TX() __attribute__((always_inline))
   {
     // When the transmitter is disabled, it will no longer override the TXD pin, and the pin
     // direction is automatically set as input by hardware, even if it was configured as output by the user
@@ -119,7 +119,7 @@ public:
   }
 
   // The Start-of-Frame Detection feature enables the USART to wake up from Standby Sleep mode upon data reception.
-  static inline void EnableStartFrameDetection()
+  static inline void EnableStartFrameDetection() __attribute__((always_inline))
   {
     USART0.CTRLB |= USART_SFDEN_bm;
   }

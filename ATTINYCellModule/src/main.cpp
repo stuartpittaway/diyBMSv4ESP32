@@ -218,11 +218,13 @@ void setup()
   wdt_disable();
   wdt_reset();
 
+#if defined(__AVR_ATtiny1624__)
   // Did we have a watchdog reboot?
   if (RSTCTRL.RSTFR & RSTCTRL_WDRF_bm)
   {
     watchdog();
   }
+#endif
 
   // below 2Mhz is required for running ATTINY at low voltages (less than 2V)
   diyBMSHAL::SetPrescaler();
