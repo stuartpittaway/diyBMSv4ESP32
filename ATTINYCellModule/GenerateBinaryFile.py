@@ -77,6 +77,10 @@ def generatejson(target, source, env):
         #Add the new entry
         data['avrprog'].append({'board': board, 'name':  newfilename, 'ver': env["git_sha_short"],'mcu':signature,'efuse':0,'hfuse':0,'lfuse':0})
 
+    if env.get("BOARD")=="ATtiny824":
+        #Add the new entry
+        data['avrprog'].append({'board': board, 'name':  newfilename, 'ver': env["git_sha_short"],'mcu':signature,'efuse':0,'hfuse':0,'lfuse':0})
+
     if env.get("BOARD")=="attiny841":
         efuse=hex(int(env.GetProjectOption("board_fuses.efuse"), 2)).upper()[2:4]
         hfuse=hex(int(env.GetProjectOption("board_fuses.hfuse"), 2)).upper()[2:4]

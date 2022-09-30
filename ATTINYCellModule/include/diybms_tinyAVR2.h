@@ -61,7 +61,7 @@ public:
 
   static void SetPrescaler()
   {
-    // This isn't needed for tiny1624, chip runs at 5Mhz internal clock (to
+    // This isn't needed for tiny2, chip runs at 5Mhz internal clock (to
     // allow down to 1.8V operation)
   }
 
