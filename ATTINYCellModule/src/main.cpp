@@ -229,6 +229,7 @@ void setup()
   if ((GPIOR0 & RSTCTRL_WDRF_bm) == RSTCTRL_WDRF_bm)
   {
     watchdog();
+    //Its not a power on reset, its a watchdog reset
     just_powered_up = false;
   }
 #endif
