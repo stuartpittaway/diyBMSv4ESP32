@@ -42,7 +42,7 @@ https://trolsoft.ru/en/uart-calc
 #include <Arduino.h>
 
 // Include both of these, they have #define checks to work out what to do
-#include "diybms_attiny1624.h"
+#include "diybms_tinyAVR2.h"
 #include "diybms_attiny841.h"
 
 #if !defined(DIYBMSBAUD)
@@ -78,7 +78,7 @@ volatile uint16_t OnPulseCount = 0;
 
 void DefaultConfig()
 {
-#if defined(__AVR_ATtiny1624__)
+#if defined(__AVR_ATtinyx24__)
   myConfig.Calibration = 1.0;
 #else
   // About 2.2007 seems about right on ATTINY841
@@ -175,7 +175,7 @@ void ValidateConfiguration()
 {
   if (myConfig.Calibration < 0.8 || myConfig.Calibration > 10.0)
   {
-#if defined(__AVR_ATtiny1624__)
+#if defined(__AVR_ATtinyx24__)
     myConfig.Calibration = 1.0;
 #else
     // About 2.2007 seems about right on ATTINY841
@@ -221,7 +221,7 @@ void setup()
   // Hold flag to cater for tinyAVR2 chips
   bool just_powered_up = true;
 
-#if defined(__AVR_ATtiny1624__)
+#if defined(__AVR_ATtinyx24__)
   // Did we have a watchdog reboot?
   // The megaTinycore copies the RSTCTRL.RSTFR register into GPIOR0 on reset (watchdog, power up etc)
   // RSTFR is cleared before our code runs, so this is the only way to identify a watchdog reset
@@ -339,7 +339,7 @@ ISR(TIMER1_COMPA_vect)
 }
 #endif
 
-#if defined(__AVR_ATtiny1624__)
+#if defined(__AVR_ATtinyx24__)
 // We don't use ADC interrupts on ATtiny1614 as there is no benefit
 ISR(TCA0_OVF_vect)
 {

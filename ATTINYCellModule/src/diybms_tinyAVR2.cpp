@@ -4,8 +4,8 @@
   )(_) )_)(_  \  /  ) _ < )    ( \__ \   \  /(_  _)
  (____/(____) (__) (____/(_/\/\_)(___/    \/   (_)
 
-DIYBMS V4.0
-CELL MODULE FOR ATTINY1624
+DIYBMS V4.5 +
+CELL MODULE FOR tinyAVR2
 
 (c)2019-2021 Stuart Pittaway
 
@@ -30,12 +30,15 @@ measures
 */
 /*
 
-HARDWARE ABSTRACTION CODE FOR ATTINY1624
+HARDWARE ABSTRACTION CODE FOR tinyAVR2
 
 */
-#if defined(__AVR_ATtiny1624__)
 
-#include "diybms_attiny1624.h"
+#include <Arduino.h>
+
+#if defined(__AVR_ATtinyx24__)
+
+#include "diybms_tinyAVR2.h"
 
 void diyBMSHAL::FlashNotificationLed(size_t times, uint32_t milliseconds)
 {

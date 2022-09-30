@@ -59,6 +59,7 @@ PA5 = EXT THERMISTOR ADC
 
 BLUE LED DOES NOT EXIST ON V440 (Well it does, but the green has been replaced with blue!)
 */
+#include <Arduino.h>
 
 #if defined(__AVR_ATtiny841__)
 

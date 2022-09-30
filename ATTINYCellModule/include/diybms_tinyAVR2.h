@@ -1,13 +1,13 @@
-#if defined(__AVR_ATtiny1624__)
+#if defined(__AVR_ATtinyx24__)
 
-#ifndef DIYBMS_ATTINY1624_H
+#ifndef DIYBMS_tinyAVR2_H
 
-#define DIYBMS_ATTINY1624_H
+#define DIYBMS_tinyAVR2_H
 
 #pragma once
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 450
-#error Incorrect value for DIYBMSMODULEVERSION should be 450 or higher for tiny1624
+#error Incorrect value for DIYBMSMODULEVERSION should be 450 or higher for tinyAVR 2 series
 #endif
 
 //#if !(F_CPU == 4000000)

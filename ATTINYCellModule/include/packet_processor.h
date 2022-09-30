@@ -9,7 +9,7 @@
 
 
 //Include both of these, they have #define checks to work out what to do
-#include "diybms_attiny1624.h"
+#include "diybms_tinyAVR2.h"
 #include "diybms_attiny841.h"
 
 #include "Steinhart.h"
