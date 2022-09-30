@@ -94,6 +94,9 @@ public:
     PORTB.OUTCLR = PIN0_bm;
   }
 
+  static void FlashNotificationLed(size_t times, uint32_t milliseconds);
+  static void PowerOn_Notification_led();
+
   static inline void NotificationLedOn() __attribute__((always_inline)) { PORTA.OUTSET = PIN6_bm; }
 
   static inline void NotificationLedOff() __attribute__((always_inline)) { PORTA.OUTCLR = PIN6_bm; }

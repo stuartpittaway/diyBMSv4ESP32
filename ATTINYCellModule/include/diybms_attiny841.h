@@ -127,6 +127,9 @@ public:
    {
    }
 
+   static void FlashNotificationLed(size_t times, uint32_t milliseconds);
+   static void PowerOn_Notification_led();
+
    inline static void NotificationLedOn() __attribute__((always_inline))
    {
       PORTA |= _BV(PORTA6);

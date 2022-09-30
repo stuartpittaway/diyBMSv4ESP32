@@ -37,15 +37,25 @@ HARDWARE ABSTRACTION CODE FOR ATTINY1624
 
 #include "diybms_attiny1624.h"
 
+void diyBMSHAL::FlashNotificationLed(size_t times, uint32_t milliseconds)
+{
+  for (size_t i = 0; i < times; i++)
+  {
+    NotificationLedOn();
+    delay(milliseconds);
+    NotificationLedOff();
+    delay(milliseconds);
+  }
+}
+
+void diyBMSHAL::PowerOn_Notification_led()
+{
+  FlashNotificationLed(4, 150);
+}
+
 void diyBMSHAL::double_tap_Notification_led()
 {
-  NotificationLedOn();
-  delay(40);
-  NotificationLedOff();
-  delay(40);
-  NotificationLedOn();
-  delay(40);
-  NotificationLedOff();
+  FlashNotificationLed(2, 50);
 }
 
 void diyBMSHAL::ConfigurePorts()
@@ -138,14 +148,12 @@ uint16_t diyBMSHAL::BeginADCReading(uint8_t mode)
 {
   uint16_t value = 0;
 
-    // RUNSTDBY / LOWLAT / ENABLE
-    // Enable ADC
-    ADC0.CTRLA = ADC_ENABLE_bm;
-
+  // RUNSTDBY / LOWLAT / ENABLE
+  // Enable ADC
+  ADC0.CTRLA = ADC_ENABLE_bm;
 
   // TIMEBASE[4:0] / REFSEL[2:0]
   ADC0.CTRLC = TIMEBASE_1US | ADC_REFSEL_enum::ADC_REFSEL_VDD_gc; // FOR READING VREF
-
 
   // Take multiple samples (over sample)
   ADC0.COMMAND = ADC_MODE_BURST_SCALING_gc | ADC_START_IMMEDIATE_gc;

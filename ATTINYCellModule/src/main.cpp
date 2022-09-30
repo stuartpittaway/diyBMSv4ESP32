@@ -218,15 +218,22 @@ void setup()
   wdt_disable();
   wdt_reset();
 
+  // Hold flag to cater for tinyAVR2 chips
+  bool just_powered_up = true;
+
 #if defined(__AVR_ATtiny1624__)
   // Did we have a watchdog reboot?
-  if (RSTCTRL.RSTFR & RSTCTRL_WDRF_bm)
+  // The megaTinycore copies the RSTCTRL.RSTFR register into GPIOR0 on reset (watchdog, power up etc)
+  // RSTFR is cleared before our code runs, so this is the only way to identify a watchdog reset
+  // when using megaTinycore and tinyAVR chips.
+  if ((GPIOR0 & RSTCTRL_WDRF_bm) == RSTCTRL_WDRF_bm)
   {
     watchdog();
+    just_powered_up = false;
   }
 #endif
 
-  // below 2Mhz is required for running ATTINY at low voltages (less than 2V)
+  // below 2Mhz is required for running ATTINY841 at low voltages (less than 2V)
   diyBMSHAL::SetPrescaler();
 
   // 8 second between watchdogs
@@ -235,7 +242,11 @@ void setup()
   // Setup IO ports
   diyBMSHAL::ConfigurePorts();
 
-  diyBMSHAL::double_tap_Notification_led();
+  if (just_powered_up)
+  {
+    // 4 flashes
+    diyBMSHAL::PowerOn_Notification_led();
+  }
 
   // Check if setup routine needs to be run
   if (!Settings::ReadConfigFromEEPROM((uint8_t *)&myConfig, sizeof(myConfig), EEPROM_CONFIG_ADDRESS))
@@ -297,7 +308,6 @@ void BalanceTimer()
 
   if (PulsePeriod == 1000)
   {
-
     // Floats are not good on ATTINY/8bit controllers, need to look at moving to
     // fixed decimal/integer calculations
 
@@ -386,18 +396,16 @@ void loop()
     StopBalance();
   }
 
-  if (!PP.WeAreInBypass && PP.bypassHasJustFinished == 0 &&
-      Serial.available() == 0)
+  if (!PP.WeAreInBypass && PP.bypassHasJustFinished == 0 && 
+      Serial.available() == 0 && wdt_triggered == false)
   {
-    // Go to SLEEP, we are not in bypass anymore and no serial data waiting...
-
+    // Go to SLEEP, we are not in bypass and no serial data waiting...
     // Reset PID to defaults, in case we want to start balancing
     myPID.clear();
 
     // Program stops here until woken by watchdog or Serial port ISR
     diyBMSHAL::Sleep();
   }
-
   // We are awake....
 
   if (wdt_triggered)
@@ -437,8 +445,8 @@ void loop()
 
 #if (SAMPLEAVERAGING == 1)
     // Sample averaging not enabled
-    // Do voltage reading last to give as much time for voltage to settle
     PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
+
 #else
     // Take several samples and average the result
     for (size_t i = 0; i < SAMPLEAVERAGING; i++)
@@ -452,7 +460,7 @@ void loop()
   diyBMSHAL::ReferenceVoltageOff();
   diyBMSHAL::TemperatureVoltageOff();
 
-  if (wdt_triggered && Serial.available() == 0)
+  if (wdt_triggered == true && Serial.available() == 0)
   {
     // If the WDT trigered, and NO serial is available, don't do anything here
     // this avoids waiting 200ms for data that is never going to arrive.
@@ -541,7 +549,7 @@ void loop()
       // cell voltage reading without the bypass being enabled, and we can then
       // evaluate if we need to stay in bypass mode, we do this a few times
       // as the cell has a tendancy to float back up in voltage once load resistor is removed
-      PP.bypassHasJustFinished = 200;
+      PP.bypassHasJustFinished = 150;
     }
   }
 
@@ -550,5 +558,6 @@ void loop()
     PP.bypassHasJustFinished--;
   }
 
+  // Clear watchdog assertion if its set
   wdt_triggered = false;
 }
