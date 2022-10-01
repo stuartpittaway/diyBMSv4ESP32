@@ -229,9 +229,18 @@ void setup()
   if ((GPIOR0 & RSTCTRL_WDRF_bm) == RSTCTRL_WDRF_bm)
   {
     watchdog();
-    //Its not a power on reset, its a watchdog reset
+    // Its not a power on reset, its a watchdog reset
     just_powered_up = false;
   }
+
+
+/*
+//Brown Out Detection
+  if ((GPIOR0 & RSTCTRL_BORF_bm) == RSTCTRL_BORF_bm)
+  {
+    diyBMSHAL::FlashNotificationLed(6, 250);
+  }
+*/
 #endif
 
   // below 2Mhz is required for running ATTINY841 at low voltages (less than 2V)
@@ -287,12 +296,10 @@ void BalanceTimer()
   {
     InterruptCounter = 0;
   }
-
   // Switch the load on if the counter is below the SETPOINT
   if (InterruptCounter <= PP.PWMSetPoint)
   {
     // Enable the pin
-    // diyBMSHAL::SparePinOn();
     diyBMSHAL::DumpLoadOn();
 
     // Count the number of "on" periods, so we can calculate the amount of
@@ -303,11 +310,10 @@ void BalanceTimer()
   else
   {
     // Off
-    // diyBMSHAL::SparePinOff();
     diyBMSHAL::DumpLoadOff();
   }
 
-  if (PulsePeriod == 1000)
+  if (PulsePeriod == 1000 && OnPulseCount != 0)
   {
     // Floats are not good on ATTINY/8bit controllers, need to look at moving to
     // fixed decimal/integer calculations
@@ -340,14 +346,14 @@ ISR(TIMER1_COMPA_vect)
 #endif
 
 #if defined(__AVR_ATtinyx24__)
-// We don't use ADC interrupts on ATtiny1614 as there is no benefit
+// We don't use ADC interrupts on ATtinyX24 as there is no benefit
 ISR(TCA0_OVF_vect)
 {
   // This ISR is called every 1ms when balancing is in operation
 
-  // diyBMSHAL::SpareOn();
+  //diyBMSHAL::SpareToggle();
   BalanceTimer();
-  // diyBMSHAL::SpareOff();
+  //diyBMSHAL::SpareOff();
   TCA0.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
 }
 #endif
@@ -397,18 +403,6 @@ void loop()
     StopBalance();
   }
 
-  if (!PP.WeAreInBypass && PP.bypassHasJustFinished == 0 && 
-      Serial.available() == 0 && wdt_triggered == false)
-  {
-    // Go to SLEEP, we are not in bypass and no serial data waiting...
-    // Reset PID to defaults, in case we want to start balancing
-    myPID.clear();
-
-    // Program stops here until woken by watchdog or Serial port ISR
-    diyBMSHAL::Sleep();
-  }
-  // We are awake....
-
   if (wdt_triggered)
   {
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
@@ -422,6 +416,9 @@ void loop()
     // If we have just woken up, we shouldn't be in balance safety check that we are not
     StopBalance();
   }
+
+  // DEBUG
+  //diyBMSHAL::NotificationLedOn();
 
   // We always take a voltage and temperature reading on every loop cycle to check if we need to go into bypass
   // this is also triggered by the watchdog should comms fail or the module is running standalone
@@ -447,7 +444,6 @@ void loop()
 #if (SAMPLEAVERAGING == 1)
     // Sample averaging not enabled
     PP.TakeAnAnalogueReading(ADC_CELL_VOLTAGE);
-
 #else
     // Take several samples and average the result
     for (size_t i = 0; i < SAMPLEAVERAGING; i++)
@@ -460,6 +456,9 @@ void loop()
   // Switch reference off if we are not in bypass (otherwise leave on)
   diyBMSHAL::ReferenceVoltageOff();
   diyBMSHAL::TemperatureVoltageOff();
+
+  // DEBUG
+  //diyBMSHAL::NotificationLedOff();
 
   if (wdt_triggered == true && Serial.available() == 0)
   {
@@ -479,7 +478,7 @@ void loop()
       // Call update to receive, decode and process incoming packets.
       myPacketSerial.checkInputStream();
 
-      // Allow data to be received in buffer (delay must be AFTER) checkInputStream and before DisableSerial0TX
+      // Allow data to be received in buffer (delay must be AFTER) checkInputStream
       delay(1);
     }
   }
@@ -533,10 +532,6 @@ void loop()
         // Clear the error and stop balancing
         myPID.clear();
         StopBalance();
-// Just for debug...
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
-        diyBMSHAL::BlueLedOn();
-#endif
       }
     }
 
@@ -561,4 +556,16 @@ void loop()
 
   // Clear watchdog assertion if its set
   wdt_triggered = false;
+
+  // Determine if we should sleep or repeat loop (if balancing)
+  if (!PP.WeAreInBypass && PP.bypassHasJustFinished == 0 && Serial.available() == 0)
+  {
+    // Go to SLEEP, we are not in bypass and no serial data waiting...
+    // Reset PID to defaults, in case we want to start balancing
+    myPID.clear();
+
+    // Program stops here until woken by watchdog or Serial port ISR
+    diyBMSHAL::Sleep();
+    // We are awake again....
+  }
 }

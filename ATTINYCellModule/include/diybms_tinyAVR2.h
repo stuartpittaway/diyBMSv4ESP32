@@ -1,5 +1,6 @@
 #if defined(__AVR_ATtinyx24__)
 
+
 #ifndef DIYBMS_tinyAVR2_H
 
 #define DIYBMS_tinyAVR2_H
@@ -43,13 +44,15 @@ public:
   }
 
   static void StartTimer1()
-  {
+  {    
     // Top value...
-    TCA0.SINGLE.PER = (F_CPU / 64) / 1000;
+    TCA0.SINGLE.PER = (F_CPU / 4) / 1000;   
+    //5000000/4/1000 = 1250
+
     // CMP0, Compare Channel 0 interrupt = Match between the counter value and the Compare 0 register
-    // TCA0.SINGLE.CMP0=0x1000;
+    //TCA0.SINGLE.CMP0=0x1000;
     TCA0.SINGLE.INTCTRL = TCA_SINGLE_OVF_bm;
-    TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV64_gc;
+    TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV4_gc;
     ResumePWM();
   }
 
@@ -61,8 +64,7 @@ public:
 
   static void SetPrescaler()
   {
-    // This isn't needed for tiny2, chip runs at 5Mhz internal clock (to
-    // allow down to 1.8V operation)
+    // This isn't needed for tiny2, chip runs at 5Mhz internal clock (to allow down to 1.8V operation)
   }
 
   static inline void DumpLoadOn() { PORTB.OUTSET = PIN1_bm; }
@@ -100,6 +102,8 @@ public:
   static inline void NotificationLedOn() __attribute__((always_inline)) { PORTA.OUTSET = PIN6_bm; }
 
   static inline void NotificationLedOff() __attribute__((always_inline)) { PORTA.OUTCLR = PIN6_bm; }
+
+  static inline void SpareToggle() __attribute__((always_inline)) { PORTA.OUTTGL = PIN2_bm; }
 
   static inline void SpareOn() __attribute__((always_inline)) { PORTA.OUTSET = PIN2_bm; }
 

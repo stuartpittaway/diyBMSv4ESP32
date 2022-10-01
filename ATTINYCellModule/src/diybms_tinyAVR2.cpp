@@ -40,6 +40,15 @@ HARDWARE ABSTRACTION CODE FOR tinyAVR2
 
 #include "diybms_tinyAVR2.h"
 
+
+#ifdef MILLIS_USE_TIMERA0
+#error "This sketch takes over TCA0 - please use a different timer for millis"
+#endif
+#ifndef MILLIS_USE_TIMERB0
+  #error "This sketch is written for use with TCB0 as the millis timing source"
+#endif
+
+
 void diyBMSHAL::FlashNotificationLed(size_t times, uint32_t milliseconds)
 {
   for (size_t i = 0; i < times; i++)
@@ -63,6 +72,8 @@ void diyBMSHAL::double_tap_Notification_led()
 
 void diyBMSHAL::ConfigurePorts()
 {
+  takeOverTCA0();
+
   // pin out
   // https://github.com/SpenceKonde/megaTinyCore/blob/master/megaavr/extras/ATtiny_x24.md
 
