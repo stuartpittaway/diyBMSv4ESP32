@@ -33,16 +33,15 @@ void pylon_message_351()
     // Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
+      // Battery high temperature alarm
       number_of_active_errors += (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? 1 : 0);
-    }
 
-    if (rules.moduleHasExternalTempSensor)
-    {
+      // Battery low temperature alarm
       number_of_active_errors += (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? 1 : 0);
     }
-
-    number_of_active_errors += ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? 1 : 0);
   }
+
+  number_of_active_errors += ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? 1 : 0);
 
   struct data351
   {
@@ -60,31 +59,49 @@ void pylon_message_351()
   {
     // ESP_LOGW(TAG, "active_errors=%u", number_of_active_errors);
     //  Error condition
-    data.battery_charge_voltage = mysettings.cvl[VictronDVCC::ControllerError];
-    data.battery_charge_current_limit = mysettings.ccl[VictronDVCC::ControllerError];
-    data.battery_discharge_current_limit = mysettings.dcl[VictronDVCC::ControllerError];
+    data.battery_charge_voltage = 0;
+    data.battery_charge_current_limit = 0;
+    data.battery_discharge_current_limit = 0;
   }
-  else if (rules.numberOfBalancingModules > 0)
+  else if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
   {
     // Balancing
-    data.battery_charge_voltage = mysettings.cvl[VictronDVCC::Balance];
-    data.battery_charge_current_limit = mysettings.ccl[VictronDVCC::Balance];
-    data.battery_discharge_current_limit = mysettings.dcl[VictronDVCC::Balance];
+    data.battery_charge_voltage = 0;
+    data.battery_charge_current_limit = 0;
+    // Allow battery to discharge (but no charge)
+    data.battery_discharge_current_limit =  mysettings.dischargecurrent;
   }
   else
   {
     // Default - normal behaviour
-    data.battery_charge_voltage = mysettings.cvl[VictronDVCC::Default];
-    data.battery_charge_current_limit = mysettings.ccl[VictronDVCC::Default];
-    data.battery_discharge_current_limit = mysettings.dcl[VictronDVCC::Default];
+    data.battery_charge_voltage = mysettings.chargevolt;
+    data.battery_charge_current_limit = mysettings.chargecurrent;
+    data.battery_discharge_current_limit =  mysettings.dischargecurrent;
   }
 
-  // Hardcoded for now!
-  data.battery_discharge_voltage = 0; // data.battery_charge_voltage - 50;
+  data.battery_discharge_voltage = mysettings.dischargevolt;
+
+  //Check battery temperature against charge/discharge parameters
+  if (_controller_state == ControllerState::Running && rules.moduleHasExternalTempSensor)
+  {
+    if (rules.lowestExternalTemp< mysettings.dischargetemplow | rules.highestExternalTemp>mysettings.dischargetemphigh) {
+      //Stop discharge - temperature out of range
+      data.battery_discharge_current_limit=0;
+
+      ESP_LOGW(TAG, "Stop discharge - temperature out of range");
+    }
+
+    if (rules.lowestExternalTemp< mysettings.chargetemplow | rules.highestExternalTemp>mysettings.chargetemphigh) {
+      //Stop charge - temperature out of range
+      data.battery_charge_voltage=0;
+      data.battery_charge_current_limit=0;
+
+      ESP_LOGW(TAG, "Stop charge - temperature out of range");
+    }
+  }
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
 }
-
 // 0x355 – 1A 00 64 00 – State of Health (SOH) / State of Charge (SOC)
 void pylon_message_355()
 {
@@ -100,7 +117,7 @@ void pylon_message_355()
     // 0 SOC value un16 1 %
     data.stateofchargevalue = currentMonitor.stateofcharge;
     // Fake SOC based on cell voltage
-    //data.stateofchargevalue = min((uint16_t)100,(uint16_t)(100/(3.5 - 3.0)*(((rules.highestPackVoltage/10)/mysettings.totalNumberOfSeriesModules)-3.0)));
+    // data.stateofchargevalue = min((uint16_t)100,(uint16_t)(100/(3.5 - 3.0)*(((rules.highestPackVoltage/10)/mysettings.totalNumberOfSeriesModules)-3.0)));
     //  2 SOH value un16 1 %
     data.stateofhealthvalue = 100;
     send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
@@ -161,6 +178,7 @@ void pylon_message_359()
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
     // Pylon can have multiple battery each 74Ah capacity, so emulate this based on total Ah capacity
+    // this drives the inverter to assume certain charge/discharge parameters based on number of battery packs installed
     data.byte4 = min((uint8_t)1, (uint8_t)round(currentMonitor.modbus.batterycapacityamphour / 74.0));
   }
   else
@@ -213,13 +231,15 @@ void pylon_message_356()
 
   data356 data;
 
-  // Use highest pack voltage calculated by controller and modules
-  data.voltage = rules.highestPackVoltage / 10;
-
   // If current shunt is installed, use the voltage from that as it should be more accurate
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
     data.voltage = currentMonitor.modbus.voltage * 100.0;
+  }
+  else
+  {
+    // Use highest pack voltage calculated by controller and modules
+    data.voltage = rules.highestPackVoltage / 10;
   }
 
   data.current = 0;

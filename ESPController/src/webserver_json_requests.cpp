@@ -497,6 +497,7 @@ esp_err_t content_handler_avrstatus(httpd_req_t *req)
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
+/*
 esp_err_t content_handler_canbus(httpd_req_t *req)
 {
     int bufferused = 0;
@@ -510,7 +511,8 @@ esp_err_t content_handler_canbus(httpd_req_t *req)
 
   return httpd_resp_send(req, httpbuf, bufferused);
 }
-
+*/
+/*
 esp_err_t content_handler_victron(httpd_req_t *req)
 {
   int bufferused = 0;
@@ -536,7 +538,43 @@ esp_err_t content_handler_victron(httpd_req_t *req)
 
   return httpd_resp_send(req, httpbuf, bufferused);
 }
+*/
 
+esp_err_t content_handler_chargeconfig(httpd_req_t *req)
+{
+  int bufferused = 0;
+
+  DynamicJsonDocument doc(2048);
+  JsonObject root = doc.to<JsonObject>();
+  JsonObject settings = root.createNestedObject("chargeconfig");
+
+  settings["canbusprotocol"] = mysettings.canbusprotocol;
+  settings["nominalbatcap"] = mysettings.nominalbatcap;
+  settings["chargevolt"] = mysettings.chargevolt;
+  settings["chargecurrent"] = mysettings.chargecurrent;
+  settings["dischargecurrent"] = mysettings.dischargecurrent;
+  settings["dischargevolt"] = mysettings.dischargevolt;
+  settings["chargetemplow"] = mysettings.chargetemplow;
+  settings["chargetemphigh"] = mysettings.chargetemphigh;
+  settings["dischargetemplow"] = mysettings.dischargetemplow;
+  settings["dischargetemphigh"] = mysettings.dischargetemphigh;
+  settings["stopchargebalance"] = mysettings.stopchargebalance;
+
+  /*settings["enabled"] = mysettings.VictronEnabled;
+  JsonArray cvl = settings.createNestedArray("cvl");
+  JsonArray ccl = settings.createNestedArray("ccl");
+  JsonArray dcl = settings.createNestedArray("dcl");
+  for (uint8_t i = 0; i < 3; i++)
+  {
+    cvl.add(mysettings.cvl[i]);
+    ccl.add(mysettings.ccl[i]);
+    dcl.add(mysettings.dcl[i]);
+  }*/
+
+  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
 esp_err_t content_handler_rules(httpd_req_t *req)
 {
   int bufferused = 0;
@@ -612,7 +650,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
         data.add(true);
         break;
       default:
-      //Null
+        // Null
         data.add((char *)0);
         break;
       }
@@ -660,9 +698,8 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   }
 
   char strftime_buf[64];
-  formatCurrentDateTime(strftime_buf,sizeof(strftime_buf));
-  settings["datetime"]= String(strftime_buf);
-
+  formatCurrentDateTime(strftime_buf, sizeof(strftime_buf));
+  settings["datetime"] = String(strftime_buf);
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
@@ -1125,9 +1162,9 @@ esp_err_t api_handler(httpd_req_t *req)
 
   const char *uri_array[] = {
       "monitor2", "monitor3", "integration", "settings", "rules",
-      "victron", "rs485settings", "currentmonitor",
+      "rs485settings", "currentmonitor",
       "avrstatus", "modules", "identifyModule", "storage",
-      "avrstorage","canbus"};
+      "avrstorage", "chargeconfig"};
 
   esp_err_t (*func_ptr[])(httpd_req_t * req) = {
       content_handler_monitor2,
@@ -1135,7 +1172,6 @@ esp_err_t api_handler(httpd_req_t *req)
       content_handler_integration,
       content_handler_settings,
       content_handler_rules,
-      content_handler_victron,
       content_handler_rs485settings,
       content_handler_currentmonitor,
       content_handler_avrstatus,
@@ -1143,7 +1179,7 @@ esp_err_t api_handler(httpd_req_t *req)
       content_handler_identifymodule,
       content_handler_storage,
       content_handler_avrstorage,
-      content_handler_canbus};
+      content_handler_chargeconfig};
 
   // Sanity check arrays are the same size
   ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);

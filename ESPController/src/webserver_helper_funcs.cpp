@@ -252,12 +252,9 @@ char from_hex(char ch)
 }
 
 /* Returns a url-decoded version of str */
-/* IMPORTANT: be sure to free() the returned string after use */
 void url_decode(char *str, char *buf)
 {
-
     // ESP_LOGD(TAG, "Encoded: %s", str);
-    //*buf = malloc(strlen(str) + 1),
     char *pstr = str, *pbuf = buf;
     while (*pstr)
     {
@@ -281,7 +278,7 @@ void url_decode(char *str, char *buf)
     }
     *pbuf = '\0';
 
-    //ESP_LOGD(TAG, "Decoded: %s", buf);
+    ESP_LOGD(TAG, "Decoded: %s", buf);
 }
 
 bool validateXSS(httpd_req_t *req)

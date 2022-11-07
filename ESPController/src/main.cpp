@@ -2251,7 +2251,7 @@ void canbus_tx(void *param)
     // Delay 1 second
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    if (mysettings.PylonEmulation)
+    if (mysettings.canbusprotocol==CanBusProtocolEmulation::CANBUS_PYLONTECH)
     {
       // Pylon Tech Battery Emulation
       // https://github.com/PaulSturbo/DIY-BMS-CAN/blob/main/SEPLOS%20BMS%20CAN%20Protocoll%20V1.0.pdf
@@ -2291,7 +2291,7 @@ void canbus_tx(void *param)
       // vTaskDelay(pdMS_TO_TICKS(100));
     }
 
-    if (mysettings.VictronEnabled)
+    if (mysettings.canbusprotocol==CanBusProtocolEmulation::CANBUS_VICTRON)
     {
       // minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
 
@@ -2330,7 +2330,7 @@ void canbus_rx(void *param)
   for (;;)
   {
 
-    if (mysettings.VictronEnabled || mysettings.PylonEmulation)
+    if (mysettings.canbusprotocol!=CanBusProtocolEmulation::CANBUS_DISABLED)
     {
 
       // Wait for message to be received
@@ -2666,24 +2666,36 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
   // EEPROM settings are invalid so default configuration
   _myset->mqtt_enabled = false;
 
-  _myset->VictronEnabled = false;
-  _myset->PylonEmulation = false;
+  //_myset->VictronEnabled = false;
+  //_myset->PylonEmulation = false;
 
   // Charge current limit (CCL)
-  _myset->ccl[VictronDVCC::Default] = 10 * 10;
+  //_myset->ccl[VictronDVCC::Default] = 10 * 10;
   // Charge voltage limit (CVL)
-  _myset->cvl[VictronDVCC::Default] = 12 * 10;
+  //_myset->cvl[VictronDVCC::Default] = 12 * 10;
   // Discharge current limit (DCL)
-  _myset->dcl[VictronDVCC::Default] = 10 * 10;
+  //_myset->dcl[VictronDVCC::Default] = 10 * 10;
 
   // Balance
-  _myset->ccl[VictronDVCC::Balance] = 10 * 10;
-  _myset->cvl[VictronDVCC::Balance] = 10 * 10;
-  _myset->dcl[VictronDVCC::Balance] = 10 * 10;
+  //_myset->ccl[VictronDVCC::Balance] = 10 * 10;
+  //_myset->cvl[VictronDVCC::Balance] = 10 * 10;
+  //_myset->dcl[VictronDVCC::Balance] = 10 * 10;
   // Error
-  _myset->ccl[VictronDVCC::ControllerError] = 0 * 10;
-  _myset->cvl[VictronDVCC::ControllerError] = 0 * 10;
-  _myset->dcl[VictronDVCC::ControllerError] = 0 * 10;
+  //_myset->ccl[VictronDVCC::ControllerError] = 0 * 10;
+  //_myset->cvl[VictronDVCC::ControllerError] = 0 * 10;
+  //_myset->dcl[VictronDVCC::ControllerError] = 0 * 10;
+
+  _myset->canbusprotocol=CanBusProtocolEmulation::CANBUS_DISABLED;
+  _myset->nominalbatcap=280;
+  _myset->chargevolt=568; //Scale 0.1
+  _myset->chargecurrent=100; //Scale 0.1
+  _myset->dischargecurrent=100; //Scale 0.1
+  _myset->dischargevolt=480; //Scale 0.1
+  _myset->chargetemplow=0;
+  _myset->chargetemphigh=50;
+  _myset->dischargetemplow=-30;
+  _myset->dischargetemphigh=55;
+  _myset->stopchargebalance=true;
 
   _myset->loggingEnabled = false;
   _myset->loggingFrequencySeconds = 15;

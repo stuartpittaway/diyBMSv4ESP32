@@ -1228,39 +1228,7 @@ $(function () {
         return true;
     });
 
-    $("#canbus").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
-        $.getJSON("/api/canbus",
-            function (data) {
-                $("#PylonEmulation").prop("checked", data.pylonemulation);
-                switchPage("#canbusPage");
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
-            );
-        return true;
-    });
 
-
-    $("#victroncanbus").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
-
-        $.getJSON("/api/victron",
-            function (data) {
-                $("#VictronEnabled").prop("checked", data.victron.enabled);
-
-                for (let index = 0; index < data.victron.cvl.length; index++) {
-                    $("#cvl" + index).val((data.victron.cvl[index] / 10).toFixed(2));
-                    $("#ccl" + index).val((data.victron.ccl[index] / 10).toFixed(2));
-                    $("#dcl" + index).val((data.victron.dcl[index] / 10).toFixed(2));
-                }
-
-                switchPage("#victroncanbusPage");
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
-            );
-
-        return true;
-    });
 
 
     $("#currentmonrefresh").click(function (e) {
@@ -1507,7 +1475,34 @@ $(function () {
     });
 
 
+    $("#charging").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        switchPage("#chargingPage");
+        $.getJSON("/api/chargeconfig",
+            function (data) {
 
+                $("#canbusprotocol").val(data.chargeconfig.canbusprotocol);
+                $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
+
+                $("#chargevolt").val((data.chargeconfig.chargevolt/10.0).toFixed(1));
+                $("#chargecurrent").val((data.chargeconfig.chargecurrent/10.0).toFixed(1));
+                $("#dischargecurrent").val((data.chargeconfig.dischargecurrent/10.0).toFixed(1));
+                $("#dischargevolt").val((data.chargeconfig.dischargevolt/10.0).toFixed(1));
+
+                $("#chargetemplow").val(data.chargeconfig.chargetemplow);
+                $("#chargetemphigh").val(data.chargeconfig.chargetemphigh);
+                $("#dischargetemplow").val(data.chargeconfig.dischargetemplow);
+                $("#dischargetemphigh").val(data.chargeconfig.dischargetemphigh);
+                $("#stopchargebalance").prop("checked", data.chargeconfig.stopchargebalance);
+
+            }).fail(function () {
+                $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
+            }
+            );
+
+        return true;
+    });
     $("#storage").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
@@ -1606,12 +1601,6 @@ $(function () {
         e.preventDefault();
         currentmonitorSubmitForm(this);
     });
-
-    /*
-        $("#victronForm1").unbind('submit').submit(function (e) {
-            e.preventDefault();        
-        });
-    */
 
     $("#globalSettingsForm").unbind('submit').submit(function (e) {
         e.preventDefault();

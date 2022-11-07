@@ -31,8 +31,7 @@
         <div class="overlay-content">
             <a id="integration" href="#integration">Integration</a>
             <a id="currentmonitor" href="#currentmonitor">Current Monitor</a>
-            <a id="canbus" href="#canbus">CANBUS</a>
-            <a id="victroncanbus" href="#victroncanbus">Victron BMS</a>
+            <a id="charging" href="#charging">Charge/Discharge settings</a>
             <a id="storage" href="#storage">Storage</a>
             <a id="avrprogrammer" href="#avrprogrammer">AVR Programmer</a>
             <a id="about" href="#about">About</a>
@@ -592,134 +591,102 @@
         </div>
     </div>
 
-    <div class="page" id="victroncanbusPage">
-        <h1 id="v0">Victron CANBUS integration</h1>
+
+    <div class="page" id="chargingPage">
+        <h1 id="v0">Charge/Discharge configuration</h1>
 
         <div class="region">
-            <p id="v1">This feature allows diyBMS to provide battery and BMS data to Victron "GX" devices using the
-                Victron CAN BMS protocol.</p>
-            <p id="v2">Remember to install terminator resistors on the CAN L/H connections. On the controller, jumper
-                JP1 can be soldered closed for this purpose.</p>
-            <p id="v3">diyBMS will send alarms to the Victron device based off the rules for low/high
-                voltages and temperatures.</p>
-            <p id="v4">This allows Victron devices to operate in <a rel="noreferrer"
-                    href="https://www.victronenergy.com/media/pg/CCGX/en/dvcc---distributed-voltage-and-current-control.html"
-                    target="_blank">Distributed Voltage and Current Control "DVCC"</a> mode (optional).</p>
+            <p id="v1">This feature allows diyBMS to provide battery and BMS data to CANBUS devices using various 3rd
+                party protocols.</p>
+            <p id="v2">These settings require an external inverter/charger to be able to integrate using CANBUS to
+                control charge/discharge parameters.</p>
+            <p id="v3">Temperature control utilises the external temperature sensors on the diyBMS modules.</p>
+            <p id="v7">Current shunt/monitor is required for reliable integration with external inverter/chargers.</p>
 
-            <div>
-                <p>These parameters can be controlled:</p>
-                <ul>
-                    <li>Charge voltage limit (CVL): the maximum charge voltage that the battery currently accepts</li>
-                    <li>Charge current limit (CCL): the maximum charge current requested by the battery</li>
-                    <li>Discharge current limit (DCL): the maximum discharge current as requested by the battery</li>
-                </ul>
-            </div>
+            <form id="chargingForm" method="POST" action="/post/savechargeconfig" autocomplete="off">
+                <div class="settings">
+                    <div>
+                        <label for="canbusprotocol">CANBUS protocol emulation</label>
+                        <select name="canbusprotocol" id="canbusprotocol">
+                            <option value="0">Disabled</option>
+                            <option value="1">Victron Cerbo GX</option>
+                            <option value="2">PylonTech</option>
+                        </select>
+                    </div>
 
+
+                    <div>
+                        <label for="nominalbatcap">Nominal Battery Capacity (amp hours)</label>
+                        <input id="nominalbatcap" name="nominalbatcap" value="" type="number" min="1" max="9999"
+                            step="1">
+                    </div>
+                    <div>
+                        <label for="chargevolt">Battery charge voltage</label>
+                        <input id="chargevolt" name="chargevolt" value="" type="number" min="1" max="999.9" step="0.1">
+                    </div>
+                    <div>
+                        <label for="chargecurrent">Charge current limit (amps)</label>
+                        <input id="chargecurrent" name="chargecurrent" value="" type="number" min="1" max="999.9"
+                            step="0.1">
+                    </div>
+                    <div>
+                        <label for="dischargevolt">Battery discharge voltage (min)</label>
+                        <input id="dischargevolt" name="dischargevolt" value="" type="number" min="1" max="999.9"
+                            step="0.1">
+                    </div>
+                    <div>
+                        <label for="dischargecurrent">Discharge current limit (amps)</label>
+                        <input id="dischargecurrent" name="dischargecurrent" value="" type="number" min="1" max="999.9"
+                            step="0.1">
+                    </div>
+                    <div>
+                        <label for="chargetemplow">Charge working temperature (low) &deg;C</label>
+                        <input id="chargetemplow" name="chargetemplow" value="" type="number" min="-40" max="19"
+                            step="1" />
+                    </div>
+                    <div>
+                        <label for="chargetemphigh">Charge working temperature (high) &deg;C</label>
+                        <input id="chargetemphigh" name="chargetemphigh" value="" type="number" min="20" max="99"
+                            step="1" />
+                    </div>
+                    <div>
+                        <label for="dischargetemplow">Discharge working temperature (low) &deg;C</label>
+                        <input id="dischargetemplow" name="dischargetemplow" value="" type="number" min="-40" max="19"
+                            step="1" />
+                    </div>
+                    <div>
+                        <label for="dischargetemphigh">Discharge working temperature (high) &deg;C</label>
+                        <input id="dischargetemphigh" name="dischargetemphigh" value="" type="number" min="20" max="99"
+                            step="1" />
+                    </div>
+                 
+                    <div>
+                        <label for="stopchargebalance">Stop charging when cell balancing active</label>
+                        <input type="checkbox" name="stopchargebalance" id="stopchargebalance">
+                    </div>
+
+                    <button type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="region">
             <div>
                 <p id="v5">
                     <img src="warning.png" width="48" height="41" alt="Warning" />Incorrect use of these
                     settings could destroy your battery and cause harm!
                 </p>
-                <p id="v5">
-                    <img src="warning.png" width="48" height="41" alt="Warning" />Victron integration is currently at an
-                    EXPERIMENTAL stage, please report issues
+                <p id="v6">
+                    <img src="warning.png" width="48" height="41" alt="Warning" />CANBUS BMS integration is currently at an
+                    EXPERIMENTAL stage, please report issues.
                 </p>
+                <p id="v4">Remember to install terminator resistors at both ends of CAN connection. On the controller,
+                    jumper JP1 can be soldered closed for this purpose.</p>
+
             </div>
         </div>
-
-        <div class="region">
-
-            <div>
-
-                <form id="victronForm1" method="POST" action="/post/savevictron" autocomplete="off">
-                    <div class="settings">
-
-                        <div>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>When?</th>
-                                        <th>Charge voltage limit (CVL)</th>
-                                        <th>Charge current limit (CCL)</th>
-                                        <th>Discharge current limit (DCL)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Default</td>
-                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
-                                                name="cvl0" id="cvl0" value="0" required=""></td>
-                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
-                                                name="ccl0" id="ccl0" value="0" required=""></td>
-                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
-                                                name="dcl0" id="dcl0" value="0" required=""></td>
-                                    </tr>
-
-                                    <tr>
-                                        <td>Balancing</td>
-                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
-                                                name="cvl1" id="cvl1" value="0" required=""></td>
-                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
-                                                name="ccl1" id="ccl1" value="0" required=""></td>
-                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
-                                                name="dcl1" id="dcl1" value="0" required=""></td>
-                                    </tr>
-
-                                    <tr>
-                                        <td>Error</td>
-                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
-                                                name="cvl2" id="cvl2" value="0" required=""></td>
-                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
-                                                name="ccl2" id="ccl2" value="0" required=""></td>
-                                        <td><input type="number" inputmode="numeric" min="0" max="999.99" step="0.01"
-                                                name="dcl2" id="dcl2" value="0" required=""></td>
-                                    </tr>
-
-                                </tbody>
-                            </table>
-                        </div>
-
-
-                        <div>
-                            <label for="VictronEnabled">Enable CANBUS BMS communication to Victron devices</label>
-                            <input type="checkbox" name="VictronEnabled" id="VictronEnabled">
-                        </div>
-
-                        <button type="submit">Save Victron settings</button>
-                    </div>
-                </form>
-            </div>
-
-        </div>
-
     </div>
 
-    <div class="page" id="canbusPage">
-        <h1 id="v0">CANBUS integration</h1>
-
-        <div class="region">
-            <p id="v1">This feature allows diyBMS to provide battery and BMS data to CANBUS devices using various 3rd
-                party protocols.</p>
-            <p id="v2">Remember to install terminator resistors on the CAN L/H connections. On the controller, jumper
-                JP1 can be soldered closed for this purpose.</p>
-                <p id="v2">Victron CANBUS settings can be found on the Victron BMS page.</p>
-            </div>
-
-        <div class="region">
-            <form id="canbusForm1" method="POST" action="/post/savecanbus" autocomplete="off">
-                <div class="settings">
-                    <div>
-                        <label for="PylonEmulation">Enable PylonTech battery/BMS emulation</label>
-                        <input type="checkbox" name="PylonEmulation" id="PylonEmulation">
-                    </div>
-
-                    <button type="submit">Save CANBUS settings</button>
-                </div>
-            </form>
-
-        </div>
-
-    </div>
 
 
     <div class="page" id="diybmsCurrentMonitorPage">

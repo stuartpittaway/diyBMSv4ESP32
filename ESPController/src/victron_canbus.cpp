@@ -13,7 +13,7 @@ The code supports the VICTRON CAN BUS BMS style messages.
 */
 
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms-victron";
+static constexpr const char *const TAG = "diybms-victron";
 
 #include "victron_canbus.h"
 
@@ -161,7 +161,7 @@ void victron_message_351()
     // DCL
     int16_t maxdischargecurrent;
     // Not currently used by Victron
-    // uint16_t dischargevoltage;
+    uint16_t dischargevoltage;
   };
 
   data351 data;
@@ -170,26 +170,45 @@ void victron_message_351()
   {
     ESP_LOGW(TAG, "active_errors=%u", number_of_active_errors);
     // Error condition
-    data.chargevoltagelimit = mysettings.cvl[VictronDVCC::ControllerError];
-    data.maxchargecurrent = mysettings.ccl[VictronDVCC::ControllerError];
-    data.maxdischargecurrent = mysettings.dcl[VictronDVCC::ControllerError];
-    // data.dischargevoltage = 0;
+    data.chargevoltagelimit = 0;
+    data.maxchargecurrent = 0;
+    data.maxdischargecurrent = 0;
   }
-  else if (rules.numberOfBalancingModules > 0)
+  else if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
   {
     // Balancing
-    data.chargevoltagelimit = mysettings.cvl[VictronDVCC::Balance];
-    data.maxchargecurrent = mysettings.ccl[VictronDVCC::Balance];
-    data.maxdischargecurrent = mysettings.dcl[VictronDVCC::Balance];
-    // data.dischargevoltage = 0;
+    data.chargevoltagelimit = 0;
+    data.maxchargecurrent = 0;
+    // Allow discharge
+    data.maxdischargecurrent =  mysettings.dischargecurrent;
   }
   else
   {
     // Default - normal behaviour
-    data.chargevoltagelimit = mysettings.cvl[VictronDVCC::Default];
-    data.maxchargecurrent = mysettings.ccl[VictronDVCC::Default];
-    data.maxdischargecurrent = mysettings.dcl[VictronDVCC::Default];
-    // data.dischargevoltage = 0;
+    data.chargevoltagelimit =  mysettings.chargevolt;
+    data.maxchargecurrent =  mysettings.chargecurrent;
+    data.maxdischargecurrent =  mysettings.dischargecurrent;
+  }
+
+  data.dischargevoltage =  mysettings.dischargevolt;
+
+  // Check battery temperature against charge/discharge parameters
+  if (_controller_state == ControllerState::Running && rules.moduleHasExternalTempSensor)
+  {
+    if (rules.lowestExternalTemp<mysettings.dischargetemplow | rules.highestExternalTemp> mysettings.dischargetemphigh)
+    {
+      // Stop discharge - temperature out of range
+      data.maxdischargecurrent = 0;
+      ESP_LOGW(TAG, "Stop discharge - temperature out of range");
+    }
+
+    if (rules.lowestExternalTemp<mysettings.chargetemplow | rules.highestExternalTemp> mysettings.chargetemphigh)
+    {
+      // Stop charge - temperature out of range
+      data.chargevoltagelimit = 0;
+      data.maxchargecurrent = 0;
+      ESP_LOGW(TAG, "Stop charge - temperature out of range");
+    }
   }
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));

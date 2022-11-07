@@ -92,6 +92,13 @@ enum RelayType : uint8_t
   RELAY_PULSE = 0x01
 };
 
+enum CanBusProtocolEmulation : uint8_t
+{
+  CANBUS_DISABLED = 0x00,
+  CANBUS_VICTRON = 0x01,
+  CANBUS_PYLONTECH = 0x02
+};
+
 enum CurrentMonitorDevice : uint8_t
 {
   DIYBMS_CURRENT_MON = 0x00,
@@ -152,13 +159,24 @@ struct diybms_eeprom_settings
 
   char language[2 + 1];
 
-  uint16_t cvl[3];
-  int16_t ccl[3];
-  int16_t dcl[3];
+//  uint16_t cvl[3];
+//  int16_t ccl[3];
+//  int16_t dcl[3];
+//  bool VictronEnabled;
+//  bool PylonEmulation;
 
-  bool VictronEnabled;
+  CanBusProtocolEmulation canbusprotocol;
+  uint16_t nominalbatcap;
+  uint16_t chargevolt;
+  uint16_t chargecurrent;
+  uint16_t dischargecurrent;
+  uint16_t dischargevolt;
+  int8_t chargetemplow;
+  int8_t chargetemphigh;
+  int8_t dischargetemplow;
+  int8_t dischargetemphigh;
+  bool stopchargebalance;
 
-  bool PylonEmulation;
 
   // NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;

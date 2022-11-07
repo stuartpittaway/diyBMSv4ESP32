@@ -265,10 +265,6 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
 
         root["language"] = mysettings.language;
 
-        root["PylonEmulation"] = mysettings.PylonEmulation;
-
-        root["VictronEnabled"] = mysettings.VictronEnabled;
-
         JsonObject mqtt = root.createNestedObject("mqtt");
         mqtt["enabled"] = mysettings.mqtt_enabled;
         mqtt["uri"] = mysettings.mqtt_uri;
@@ -323,24 +319,19 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
             }
         } // end for
 
-        JsonObject victron = root.createNestedObject("victron");
-        JsonArray cvl = victron.createNestedArray("cvl");
-        JsonArray ccl = victron.createNestedArray("ccl");
-        JsonArray dcl = victron.createNestedArray("dcl");
-        for (uint8_t i = 0; i < 3; i++)
-        {
-            cvl.add(mysettings.cvl[i]);
-            ccl.add(mysettings.ccl[i]);
-            dcl.add(mysettings.dcl[i]);
-        }
+        root["canbusprotocol"] = (uint8_t)mysettings.canbusprotocol;
+        root["nominalbatcap"] = mysettings.nominalbatcap;
 
-        /*
-    struct diybms_eeprom_settings
-    {
-      //Use a bit pattern to indicate the relay states
-      RelayState rulerelaystate[RELAY_RULES][RELAY_TOTAL];
-    };
-    */
+        root["chargevolt"] = mysettings.chargevolt;
+        root["chargecurrent"] = mysettings.chargecurrent;
+        root["dischargecurrent"] = mysettings.dischargecurrent;
+        root["dischargevolt"] = mysettings.dischargevolt;
+
+        root["chargetemplow"] = mysettings.chargetemplow;
+        root["chargetemphigh"] = mysettings.chargetemphigh;
+        root["dischargetemplow"] = mysettings.dischargetemplow;
+        root["dischargetemphigh"] = mysettings.dischargetemphigh;
+        root["stopchargebalance"] = mysettings.stopchargebalance;
 
         // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
 
@@ -597,23 +588,60 @@ esp_err_t post_savers485settings_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendSuccess(req);
 }
 
-esp_err_t post_savecanbus_json_handler(httpd_req_t *req, bool urlEncoded)
+esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    mysettings.PylonEmulation = false;
-    if (GetKeyValue(httpbuf, "PylonEmulation", &mysettings.PylonEmulation, urlEncoded))
-    {        
+    uint8_t temp;
+    if (GetKeyValue(httpbuf, "canbusprotocol", &temp, urlEncoded))
+    {
+        mysettings.canbusprotocol = (CanBusProtocolEmulation)temp;
+    }
+    else
+    {
+        //Field not found/invalid, so disable
+        mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
     }
 
-    if (mysettings.PylonEmulation==true && mysettings.VictronEnabled==true) {
-        //Switch off Victron if Pylon is enabled
-        mysettings.VictronEnabled=false;
+    if (GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded))
+    {
+    }
+    float temp_float;
+    if (GetKeyValue(httpbuf, "chargevolt", &temp_float, urlEncoded))
+    {
+        mysettings.chargevolt=10*temp_float;
+    }
+    if (GetKeyValue(httpbuf, "chargecurrent", &temp_float, urlEncoded))
+    {
+        mysettings.chargecurrent=10*temp_float;
+    }
+    if (GetKeyValue(httpbuf, "dischargecurrent", &temp_float, urlEncoded))
+    {
+        mysettings.dischargecurrent=10*temp_float;
+    }
+    if (GetKeyValue(httpbuf, "dischargevolt", &temp_float, urlEncoded))
+    {
+        mysettings.dischargevolt=10*temp_float;
+    }
+    if (GetKeyValue(httpbuf, "stopchargebalance", &mysettings.stopchargebalance, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "chargetemplow", &mysettings.chargetemplow, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "chargetemphigh", &mysettings.chargetemphigh, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "dischargetemplow", &mysettings.dischargetemplow, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "dischargetemphigh", &mysettings.dischargetemphigh, urlEncoded))
+    {
     }
 
     saveConfiguration();
 
     return SendSuccess(req);
 }
-
+/*
 esp_err_t post_savevictron_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     // uint32_t tempVariable;
@@ -660,7 +688,7 @@ esp_err_t post_savevictron_json_handler(httpd_req_t *req, bool urlEncoded)
 
     return SendSuccess(req);
 }
-
+*/
 esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     currentmonitoring_struct newvalues;
@@ -1089,8 +1117,20 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 
                 strncpy(myset.language, root["language"].as<String>().c_str(), sizeof(myset.language));
 
-                myset.VictronEnabled = root["VictronEnabled"];
-                mysettings.PylonEmulation = root["PylonEmulation"];
+                // myset.VictronEnabled = root["VictronEnabled"];
+                // mysettings.PylonEmulation = root["PylonEmulation"];
+
+                mysettings.canbusprotocol = root["canbusprotocol"];
+                mysettings.nominalbatcap = root["nominalbatcap"];
+                mysettings.chargevolt = root["chargevolt"];
+                mysettings.chargecurrent = root["chargecurrent"];
+                mysettings.dischargecurrent = root["dischargecurrent"];
+                mysettings.dischargevolt = root["dischargevolt"];
+                mysettings.chargetemplow = root["chargetemplow"];
+                mysettings.chargetemphigh = root["chargetemphigh"];
+                mysettings.dischargetemplow = root["dischargetemplow"];
+                mysettings.dischargetemphigh = root["dischargetemphigh"];
+                mysettings.stopchargebalance = root["stopchargebalance"];
 
                 JsonObject mqtt = root["mqtt"];
                 if (!mqtt.isNull())
@@ -1190,6 +1230,7 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                 }
 
                 // Victron
+                /*
                 JsonObject victron = root["victron"];
                 if (!victron.isNull())
                 {
@@ -1236,6 +1277,7 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                         }
                     }
                 }
+                */
 
                 // Copy the new settings over top of old
                 memcpy(&mysettings, &myset, sizeof(mysettings));
@@ -1287,7 +1329,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "restartcontroller", "saverules", "savedisplaysetting", "savestorage",
         "resetcounters", "sdmount", "sdunmount", "enableavrprog",
         "disableavrprog", "avrprog", "savers485settings", "savecurrentmon",
-        "savecmbasic", "savecmadvanced", "savecmrelay", "savevictron", "restoreconfig", "savecanbus"};
+        "savecmbasic", "savecmadvanced", "savecmrelay", "restoreconfig", "savechargeconfig"};
 
     esp_err_t (*func_ptr[])(httpd_req_t * req, bool urlEncoded) = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
@@ -1298,7 +1340,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_sdmount_json_handler, post_sdunmount_json_handler, post_enableavrprog_json_handler,
         post_disableavrprog_json_handler, post_avrprog_json_handler, post_savers485settings_json_handler,
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
-        post_savecmrelay_json_handler, post_savevictron_json_handler, post_restoreconfig_json_handler, post_savecanbus_json_handler};
+        post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler};
 
     // Sanity check arrays are the same size
     ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);
