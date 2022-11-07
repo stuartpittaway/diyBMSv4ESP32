@@ -976,6 +976,12 @@ $(function () {
     $("#avrprogconfirm").hide();
     $(".stat").hide();
 
+    if (Graph3DAvailable == true) {
+        //Re-show this as pagecode would have hidden it
+        $("#graphOptions").show();
+    }
+
+
     $("#more").on("click"
         , function (e) {
             e.preventDefault();
@@ -1011,8 +1017,6 @@ $(function () {
         $("#range" + n).hide();
     }
 
-
-
     $("#graph1").show();
     $("#graph2").hide();
     $("#graphOptions a").click(function (event) {
@@ -1026,8 +1030,6 @@ $(function () {
         }
         $(window).trigger('resize');
     });
-
-
 
     $('#CalculateCalibration').click(function () {
         var currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
@@ -1085,8 +1087,6 @@ $(function () {
             );
         return true;
     });
-
-
 
     $("#settings").click(function () {
         $(".header-right a").removeClass("active");

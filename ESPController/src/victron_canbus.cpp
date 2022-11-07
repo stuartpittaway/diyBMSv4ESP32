@@ -46,14 +46,7 @@ void victron_message_35f()
   // Need to swap bytes for this to make sense.
   data.Firmwareversion = ((uint16_t)COMPILE_WEEK_NUMBER_BYTE << 8) | COMPILE_YEAR_BYTE;
 
-  if (mysettings.currentMonitoringEnabled && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
-  {
-    data.OnlinecapacityinAh = currentMonitor.modbus.batterycapacityamphour;
-  }
-  else
-  {
-    data.OnlinecapacityinAh = 0;
-  }
+  data.OnlinecapacityinAh = mysettings.nominalbatcap;
 
   send_canbus_message(0x35f, (uint8_t *)&data, sizeof(data35f));
 }
@@ -176,21 +169,20 @@ void victron_message_351()
   }
   else if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
   {
-    // Balancing
+    // Balancing, stop charge, allow discharge
     data.chargevoltagelimit = 0;
     data.maxchargecurrent = 0;
-    // Allow discharge
-    data.maxdischargecurrent =  mysettings.dischargecurrent;
+    data.maxdischargecurrent = mysettings.dischargecurrent;
   }
   else
   {
     // Default - normal behaviour
-    data.chargevoltagelimit =  mysettings.chargevolt;
-    data.maxchargecurrent =  mysettings.chargecurrent;
-    data.maxdischargecurrent =  mysettings.dischargecurrent;
+    data.chargevoltagelimit = mysettings.chargevolt;
+    data.maxchargecurrent = mysettings.chargecurrent;
+    data.maxdischargecurrent = mysettings.dischargecurrent;
   }
 
-  data.dischargevoltage =  mysettings.dischargevolt;
+  data.dischargevoltage = mysettings.dischargevolt;
 
   // Check battery temperature against charge/discharge parameters
   if (_controller_state == ControllerState::Running && rules.moduleHasExternalTempSensor)

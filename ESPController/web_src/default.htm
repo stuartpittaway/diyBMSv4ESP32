@@ -600,7 +600,7 @@
                 party protocols.</p>
             <p id="v2">These settings require an external inverter/charger to be able to integrate using CANBUS to
                 control charge/discharge parameters.</p>
-            <p id="v3">Temperature control utilises the external temperature sensors on the diyBMS modules.</p>
+            <p id="v3">Temperature control utilises the external temperature sensors on the diyBMS modules.  This is very useful for LIFEPO4 cells which cannot be charged when below 0&deg;C.</p>
             <p id="v7">Current shunt/monitor is required for reliable integration with external inverter/chargers.</p>
 
             <form id="chargingForm" method="POST" action="/post/savechargeconfig" autocomplete="off">
@@ -1328,13 +1328,12 @@
 
                         //Get GL library from CDN to avoid having it on ESP32 (save flash space)
                         //if it fails to load (no internet) disable the 3d view
-                        $.cachedScript(
-                            "https://cdnjs.cloudflare.com/ajax/libs/echarts-gl/2.0.4/echarts-gl.min.js"
-                        ).done(function (script, textStatus) {
+                        $.cachedScript("https://cdnjs.cloudflare.com/ajax/libs/echarts-gl/2.0.8/echarts-gl.min.js")
+                        .done(function (script, textStatus) {
                             //Script loaded
                             Graph3DAvailable = true;
                             $("#graphOptions").show();
-
+                            console.log("3d charts available")
                         }).fail(function (jqxhr, settings, exception) {
                             console.log("3d charts not available")
                             Graph3DAvailable = false;
@@ -1361,6 +1360,7 @@
                 $("#jslibrary").show();
             });
 
+            /*
             var socketUrl = 'ws://' + window.location.host + ':' + window.location.port + '/ws';
             try {
                 ws = new WebSocket(socketUrl);
@@ -1373,6 +1373,7 @@
                     'Failed to connect to debug websocket, not an issue unless debug redirection is enabled.'
                 );
             }
+            */
         });
     </script>
 </body>

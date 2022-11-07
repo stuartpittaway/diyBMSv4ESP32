@@ -177,9 +177,9 @@ void pylon_message_359()
 
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
-    // Pylon can have multiple battery each 74Ah capacity, so emulate this based on total Ah capacity
+    // Pylon can have multiple battery each of 74Ah capacity, so emulate this based on total Ah capacity
     // this drives the inverter to assume certain charge/discharge parameters based on number of battery packs installed
-    data.byte4 = min((uint8_t)1, (uint8_t)round(currentMonitor.modbus.batterycapacityamphour / 74.0));
+    data.byte4 = min((uint8_t)1, (uint8_t)round(mysettings.nominalbatcap / 74.0));
   }
   else
   {
