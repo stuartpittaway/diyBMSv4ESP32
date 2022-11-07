@@ -3,7 +3,15 @@
 
 #include <Arduino.h>
 
+#if (!defined(DIYBMSMODULEVERSION))
+#error You need to specify the DIYBMSMODULEVERSION define
+#endif
+
+
+//Include both of these, they have #define checks to work out what to do
+#include "diybms_tinyAVR2.h"
 #include "diybms_attiny841.h"
+
 #include "Steinhart.h"
 #include "defines.h"
 #include "settings.h"

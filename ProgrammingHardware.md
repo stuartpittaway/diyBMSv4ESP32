@@ -70,17 +70,9 @@ to switch back to normal boot mode.
 
 ## Connecting To WiFi
 
-diyBMS presents two different methods to configure a WiFi connection to your local router/internet.
+diyBMS presents a serial console to configure a WiFi connection to your local router/internet.
 
-### Method 1 - WiFi Access Point
-1. Once the white LED light is lit, using a phone/tablet/computer, scan the local WiFi for a new access point named "DIY_BMS_CONTROLLER" and connect to it
-1. If using an Android mobile phone, you may want to temporarly switch off "mobile data" as this can sometimes cause problems
-1. Using Google Chrome or similar browser, navigate to http://192.168.4.1
-1. Using the page which appears, enter the WiFi details for your local network and save them
-1. After the settings are saved, the ESP32 reboots and the LED should change to GREEN and flash on and off occasionally
-1. Back on your computer/tablet/phone, connect back to your normal WiFi connection/local network and using Chrome browser or similar, navigate to the IP address of the ESP device.  You may have to check on your Internet router, what IP address has been assigned to the device by DHCP.
-
-### Method 2 - Terminal/Serial Port - using USB cable
+### Terminal/Serial Port - using USB cable
 1. Download a terminal emulator like Putty or similar, which can be used to communicate over serial ports.  The Arduino IDE can also be used, in Serial Monitor mode.
 1. Make a note of the serial port used whilst programming the device (COM4 in the example above)
 1. Open the terminal emulator (Putty for example) and type in the name of the serial port COM4, and the settings baud rate=115200, 8 data bits, No parity, 1 Stop bit
@@ -150,7 +142,7 @@ Note when the BMS asks for the wifi details, you have 30 seconds to enter them b
 
 ## Programming the modules
 
-The ESP32 controller supports programming the cell monitoring modules directly, you no longer need to use a computer or USBASP style cable/adapter.
+The ESP32 controller supports programming the cell monitoring modules directly (only those supporting AVRISP 6 pin header). You no longer need to use a computer or USBASP style cable/adapter.
 
 
 # License
