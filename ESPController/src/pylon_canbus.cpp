@@ -208,6 +208,25 @@ void pylon_message_35c()
   data.byte0 = B11000000;
   data.byte1 = 0;
 
+  //TODO: SET THE BYTES TO ALLOW CHARGE OR NOT
+  //Check battery temperature against charge/discharge parameters
+  if (_controller_state == ControllerState::Running && rules.moduleHasExternalTempSensor)
+  {
+    if (rules.lowestExternalTemp< mysettings.dischargetemplow | rules.highestExternalTemp>mysettings.dischargetemphigh) {
+      //Stop discharge - temperature out of range
+      //bit 6
+      data.byte0=data.byte0 & B10111111;
+      ESP_LOGW(TAG, "Stop discharge - temperature out of range");
+    }
+
+    if (rules.lowestExternalTemp< mysettings.chargetemplow | rules.highestExternalTemp>mysettings.chargetemphigh) {
+      //Stop charge - temperature out of range
+      //bit 7
+      data.byte0=data.byte0 & B01111111;
+      ESP_LOGW(TAG, "Stop charge - temperature out of range");
+    }
+  }
+
   send_canbus_message(0x35c, (uint8_t *)&data, sizeof(data35c));
 }
 
