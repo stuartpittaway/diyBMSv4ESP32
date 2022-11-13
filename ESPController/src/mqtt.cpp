@@ -173,8 +173,11 @@ void BankLevelInformation(Rules *rules)
         ESP_LOGI(TAG, "Bank(%d) status payload", bank);
         std::string bank_status;
         bank_status.reserve(128);
-        bank_status.append("{\"voltage\":").append(float_to_string(rules->packvoltage[bank] / 1000.0f)).append("}");
-
+        bank_status.append("{\"voltage\":")
+        .append(float_to_string(rules->packvoltage[bank] / 1000.0f))
+        .append(",\"range\":")
+        .append(std::to_string(rules->VoltageRangeInBank(bank)))
+        .append("}");
         std::string topic = mysettings.mqtt_topic;
         topic.append("/bank/").append(std::to_string(bank));
         publish_message(topic, bank_status);
