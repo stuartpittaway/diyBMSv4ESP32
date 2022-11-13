@@ -1496,6 +1496,7 @@ $(function () {
                 $("#dischargetemplow").val(data.chargeconfig.dischargetemplow);
                 $("#dischargetemphigh").val(data.chargeconfig.dischargetemphigh);
                 $("#stopchargebalance").prop("checked", data.chargeconfig.stopchargebalance);
+                $("#socoverride").prop("checked", data.chargeconfig.socoverride);
 
             }).fail(function () {
                 $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });

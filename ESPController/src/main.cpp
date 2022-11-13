@@ -2696,6 +2696,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
   _myset->dischargetemplow=-30;
   _myset->dischargetemphigh=55;
   _myset->stopchargebalance=true;
+  _myset->socoverride=false;
 
   _myset->loggingEnabled = false;
   _myset->loggingFrequencySeconds = 15;

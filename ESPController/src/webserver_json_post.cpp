@@ -332,6 +332,7 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
         root["dischargetemplow"] = mysettings.dischargetemplow;
         root["dischargetemphigh"] = mysettings.dischargetemphigh;
         root["stopchargebalance"] = mysettings.stopchargebalance;
+        root["socoverride"] = mysettings.socoverride;       
 
         // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
 
@@ -600,7 +601,6 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         //Field not found/invalid, so disable
         mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
     }
-
     if (GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded))
     {
     }
@@ -622,6 +622,9 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         mysettings.dischargevolt=10*temp_float;
     }
     if (GetKeyValue(httpbuf, "stopchargebalance", &mysettings.stopchargebalance, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "socoverride", &mysettings.socoverride, urlEncoded))
     {
     }
     if (GetKeyValue(httpbuf, "chargetemplow", &mysettings.chargetemplow, urlEncoded))
@@ -1131,6 +1134,7 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                 mysettings.dischargetemplow = root["dischargetemplow"];
                 mysettings.dischargetemphigh = root["dischargetemphigh"];
                 mysettings.stopchargebalance = root["stopchargebalance"];
+                mysettings.socoverride = root["socoverride"];               
 
                 JsonObject mqtt = root["mqtt"];
                 if (!mqtt.isNull())

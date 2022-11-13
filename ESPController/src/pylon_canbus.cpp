@@ -69,32 +69,34 @@ void pylon_message_351()
     data.battery_charge_voltage = 0;
     data.battery_charge_current_limit = 0;
     // Allow battery to discharge (but no charge)
-    data.battery_discharge_current_limit =  mysettings.dischargecurrent;
+    data.battery_discharge_current_limit = mysettings.dischargecurrent;
   }
   else
   {
     // Default - normal behaviour
     data.battery_charge_voltage = mysettings.chargevolt;
     data.battery_charge_current_limit = mysettings.chargecurrent;
-    data.battery_discharge_current_limit =  mysettings.dischargecurrent;
+    data.battery_discharge_current_limit = mysettings.dischargecurrent;
   }
 
   data.battery_discharge_voltage = mysettings.dischargevolt;
 
-  //Check battery temperature against charge/discharge parameters
+  // Check battery temperature against charge/discharge parameters
   if (_controller_state == ControllerState::Running && rules.moduleHasExternalTempSensor)
   {
-    if (rules.lowestExternalTemp< mysettings.dischargetemplow | rules.highestExternalTemp>mysettings.dischargetemphigh) {
-      //Stop discharge - temperature out of range
-      data.battery_discharge_current_limit=0;
+    if (rules.lowestExternalTemp<mysettings.dischargetemplow | rules.highestExternalTemp> mysettings.dischargetemphigh)
+    {
+      // Stop discharge - temperature out of range
+      data.battery_discharge_current_limit = 0;
 
       ESP_LOGW(TAG, "Stop discharge - temperature out of range");
     }
 
-    if (rules.lowestExternalTemp< mysettings.chargetemplow | rules.highestExternalTemp>mysettings.chargetemphigh) {
-      //Stop charge - temperature out of range
-      data.battery_charge_voltage=0;
-      data.battery_charge_current_limit=0;
+    if (rules.lowestExternalTemp<mysettings.chargetemplow | rules.highestExternalTemp> mysettings.chargetemphigh)
+    {
+      // Stop charge - temperature out of range
+      data.battery_charge_voltage = 0;
+      data.battery_charge_current_limit = 0;
 
       ESP_LOGW(TAG, "Stop charge - temperature out of range");
     }
@@ -116,8 +118,15 @@ void pylon_message_355()
     data355 data;
     // 0 SOC value un16 1 %
     data.stateofchargevalue = currentMonitor.stateofcharge;
-    // Fake SOC based on cell voltage
-    // data.stateofchargevalue = min((uint16_t)100,(uint16_t)(100/(3.5 - 3.0)*(((rules.highestPackVoltage/10)/mysettings.totalNumberOfSeriesModules)-3.0)));
+
+    if (mysettings.socoverride)
+    {
+      // Force SOC of 85% to the inverter, to force it to continue charging the battery
+      // this is helpful when first commissioning as most inverters stop charging at 100% SOC
+      // even though the battery may not be full.
+      data.stateofchargevalue = 85;
+    }
+
     //  2 SOH value un16 1 %
     data.stateofhealthvalue = 100;
     send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
@@ -208,23 +217,31 @@ void pylon_message_35c()
   data.byte0 = B11000000;
   data.byte1 = 0;
 
-  //TODO: SET THE BYTES TO ALLOW CHARGE OR NOT
-  //Check battery temperature against charge/discharge parameters
+  // TODO: SET THE BYTES TO ALLOW CHARGE OR NOT
+  // Check battery temperature against charge/discharge parameters
   if (_controller_state == ControllerState::Running && rules.moduleHasExternalTempSensor)
   {
-    if (rules.lowestExternalTemp< mysettings.dischargetemplow | rules.highestExternalTemp>mysettings.dischargetemphigh) {
-      //Stop discharge - temperature out of range
-      //bit 6
-      data.byte0=data.byte0 & B10111111;
+    if (rules.lowestExternalTemp<mysettings.dischargetemplow | rules.highestExternalTemp> mysettings.dischargetemphigh)
+    {
+      // Stop discharge - temperature out of range
+      // bit 6
+      data.byte0 = data.byte0 & B10111111;
       ESP_LOGW(TAG, "Stop discharge - temperature out of range");
     }
 
-    if (rules.lowestExternalTemp< mysettings.chargetemplow | rules.highestExternalTemp>mysettings.chargetemphigh) {
-      //Stop charge - temperature out of range
-      //bit 7
-      data.byte0=data.byte0 & B01111111;
+    if (rules.lowestExternalTemp<mysettings.chargetemplow | rules.highestExternalTemp> mysettings.chargetemphigh)
+    {
+      // Stop charge - temperature out of range
+      // bit 7
+      data.byte0 = data.byte0 & B01111111;
       ESP_LOGW(TAG, "Stop charge - temperature out of range");
     }
+  }
+
+  if (_controller_state != ControllerState::Running)
+  {
+    // Don't allow discharge or charge until BMS is running/ready
+    data.byte0 = 0;
   }
 
   send_canbus_message(0x35c, (uint8_t *)&data, sizeof(data35c));

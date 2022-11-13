@@ -176,6 +176,7 @@ struct diybms_eeprom_settings
   int8_t dischargetemplow;
   int8_t dischargetemphigh;
   bool stopchargebalance;
+  bool socoverride;
 
 
   // NOTE this array is subject to buffer overflow vulnerabilities!
