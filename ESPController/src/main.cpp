@@ -3227,9 +3227,18 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   hal.ConfigureCAN();
 
   if (!LittleFS.begin(false))
-  {
-    ESP_LOGE(TAG, "LittleFS mount failed, did you upload file system image?");
-    hal.Halt(RGBLED::White);
+  {          
+    // try to mount existing LittleFS
+    ESP_LOGE(TAG, "LittleFS Mount failed");
+    ESP_LOGE(TAG, "No LittleFS found; formatting");
+    // if it fails, try to reformat
+    if (!LittleFS.begin(true)) {
+      ESP_LOGE(TAG, "LittleFS Mount failed");
+      ESP_LOGE(TAG, "Formatting impossible");
+      hal.Halt(RGBLED::White);
+    } else {
+      ESP_LOGE(TAG, "Formatting LittleFS sucessful");
+    }
   }
 
   ESP_LOGI(TAG, "LittleFS mounted, total=%u, used=%u", LittleFS.totalBytes(), LittleFS.usedBytes());
