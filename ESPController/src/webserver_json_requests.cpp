@@ -558,8 +558,11 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   settings["chargetemphigh"] = mysettings.chargetemphigh;
   settings["dischargetemplow"] = mysettings.dischargetemplow;
   settings["dischargetemphigh"] = mysettings.dischargetemphigh;
+
   settings["stopchargebalance"] = mysettings.stopchargebalance;
   settings["socoverride"] = mysettings.socoverride;
+  settings["preventdischarge"] = mysettings.preventdischarge;
+  settings["preventcharging"] = mysettings.preventcharging;  
 
   /*settings["enabled"] = mysettings.VictronEnabled;
   JsonArray cvl = settings.createNestedArray("cvl");

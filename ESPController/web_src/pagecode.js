@@ -1498,6 +1498,9 @@ $(function () {
                 $("#stopchargebalance").prop("checked", data.chargeconfig.stopchargebalance);
                 $("#socoverride").prop("checked", data.chargeconfig.socoverride);
 
+                $("#preventcharging").prop("checked", data.chargeconfig.preventcharging);
+                $("#preventdischarge").prop("checked", data.chargeconfig.preventdischarge);
+
             }).fail(function () {
                 $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
             }

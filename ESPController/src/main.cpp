@@ -2687,16 +2687,18 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
   _myset->canbusprotocol=CanBusProtocolEmulation::CANBUS_DISABLED;
   _myset->nominalbatcap=280;
-  _myset->chargevolt=568; //Scale 0.1
+  _myset->chargevolt=560; //Scale 0.1
   _myset->chargecurrent=100; //Scale 0.1
   _myset->dischargecurrent=100; //Scale 0.1
-  _myset->dischargevolt=480; //Scale 0.1
+  _myset->dischargevolt=496; //Scale 0.1
   _myset->chargetemplow=0;
   _myset->chargetemphigh=50;
   _myset->dischargetemplow=-30;
   _myset->dischargetemphigh=55;
   _myset->stopchargebalance=true;
   _myset->socoverride=false;
+  _myset->preventcharging=false;
+  _myset->preventdischarge=false;
 
   _myset->loggingEnabled = false;
   _myset->loggingFrequencySeconds = 15;

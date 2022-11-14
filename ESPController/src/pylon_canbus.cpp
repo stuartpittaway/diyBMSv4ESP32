@@ -15,34 +15,90 @@ static constexpr const char *const TAG = "diybms-pylon";
 
 #include "pylon_canbus.h"
 
-// 0x351 – 14 02 74 0E 74 0E CC 01 – Battery voltage + current limits
-// 0x351 - 0x44 0x02 0x64 0x00 0x9C 0xFF 0x3F 0x02
-//  0x0214 = 53.2V
-//  0x0e74 = B111001110100 = 3700
-//  0x0e74 = B111001110100 = 3700
-//  0x01CC = 46.0V
-void pylon_message_351()
+bool IsChargeAllowed()
 {
-  uint8_t number_of_active_errors = 0;
+  if (_controller_state != ControllerState::Running)
+    return false;
 
-  if (_controller_state == ControllerState::Running)
+  if (mysettings.preventcharging == true)
+    return false;
+
+  if (rules.moduleHasExternalTempSensor == false)
+    return false;
+
+  if (rules.lowestExternalTemp<mysettings.chargetemplow | rules.highestExternalTemp> mysettings.chargetemphigh)
   {
-    number_of_active_errors += (rules.rule_outcome[Rule::BankOverVoltage] ? 1 : 0);
-    // Battery high voltage alarm
-    number_of_active_errors += (rules.rule_outcome[Rule::BankUnderVoltage] ? 1 : 0);
-    // Battery high temperature alarm
-    if (rules.moduleHasExternalTempSensor)
-    {
-      // Battery high temperature alarm
-      number_of_active_errors += (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? 1 : 0);
-
-      // Battery low temperature alarm
-      number_of_active_errors += (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? 1 : 0);
-    }
+    // Stop charge - temperature out of range
+    // ESP_LOGW(TAG, "Stop charge - temperature out of range");
+    return false;
   }
 
-  number_of_active_errors += ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? 1 : 0);
+  if (rules.highestPackVoltage > mysettings.chargevolt)
+    return false;
 
+  // Any errors, stop charge
+  if (rules.numberOfActiveErrors > 0)
+    return false;
+
+  // Battery high voltage alarm
+  if (rules.rule_outcome[Rule::BankOverVoltage])
+    return false;
+  // Low voltage alarm
+  if (rules.rule_outcome[Rule::BankUnderVoltage])
+    return false;
+  // Battery high temperature alarm
+  if (rules.rule_outcome[Rule::ModuleOverTemperatureExternal])
+    return false;
+  // Battery low temperature alarm
+  if (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal])
+    return false;
+
+  return true;
+}
+bool IsDischargeAllowed()
+{
+  if (_controller_state != ControllerState::Running)
+    return false;
+
+  if (mysettings.preventdischarge == true)
+    return false;
+
+  if (rules.moduleHasExternalTempSensor == false)
+    return false;
+
+  // Check battery temperature against charge/discharge parameters
+  if (rules.lowestExternalTemp<mysettings.dischargetemplow | rules.highestExternalTemp> mysettings.dischargetemphigh)
+  {
+    // ESP_LOGW(TAG, "Stop discharge - temperature out of range");
+    return false;
+  }
+
+  if (rules.lowestPackVoltage < mysettings.dischargevolt)
+    return false;
+
+  // Any errors, stop discharge
+  if (rules.numberOfActiveErrors > 0)
+    return false;
+
+  // Battery high voltage alarm
+  if (rules.rule_outcome[Rule::BankOverVoltage])
+    return false;
+  // Low voltage alarm
+  if (rules.rule_outcome[Rule::BankUnderVoltage])
+    return false;
+  // Battery high temperature alarm
+  if (rules.rule_outcome[Rule::ModuleOverTemperatureExternal])
+    return false;
+  // Battery low temperature alarm
+  if (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal])
+    return false;
+
+  return true;
+}
+
+// 0x351 – Battery voltage + current limits
+void pylon_message_351()
+{
   struct data351
   {
     uint16_t battery_charge_voltage;
@@ -55,51 +111,31 @@ void pylon_message_351()
 
   data351 data;
 
-  if ((_controller_state != ControllerState::Running) || (number_of_active_errors > 0))
-  {
-    // ESP_LOGW(TAG, "active_errors=%u", number_of_active_errors);
-    //  Error condition
-    data.battery_charge_voltage = 0;
-    data.battery_charge_current_limit = 0;
-    data.battery_discharge_current_limit = 0;
-  }
-  else if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
-  {
-    // Balancing
-    data.battery_charge_voltage = 0;
-    data.battery_charge_current_limit = 0;
-    // Allow battery to discharge (but no charge)
-    data.battery_discharge_current_limit = mysettings.dischargecurrent;
-  }
-  else
-  {
-    // Default - normal behaviour
-    data.battery_charge_voltage = mysettings.chargevolt;
-    data.battery_charge_current_limit = mysettings.chargecurrent;
-    data.battery_discharge_current_limit = mysettings.dischargecurrent;
-  }
-
+  //  Defaults (do nothing)
+  data.battery_charge_voltage = 0;
+  data.battery_charge_current_limit = 0;
+  data.battery_discharge_current_limit = 0;
   data.battery_discharge_voltage = mysettings.dischargevolt;
 
-  // Check battery temperature against charge/discharge parameters
-  if (_controller_state == ControllerState::Running && rules.moduleHasExternalTempSensor)
+  if (IsChargeAllowed())
   {
-    if (rules.lowestExternalTemp<mysettings.dischargetemplow | rules.highestExternalTemp> mysettings.dischargetemphigh)
+    if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
     {
-      // Stop discharge - temperature out of range
-      data.battery_discharge_current_limit = 0;
-
-      ESP_LOGW(TAG, "Stop discharge - temperature out of range");
-    }
-
-    if (rules.lowestExternalTemp<mysettings.chargetemplow | rules.highestExternalTemp> mysettings.chargetemphigh)
-    {
-      // Stop charge - temperature out of range
+      // Balancing is active, so stop charging
       data.battery_charge_voltage = 0;
       data.battery_charge_current_limit = 0;
-
-      ESP_LOGW(TAG, "Stop charge - temperature out of range");
     }
+    else
+    {
+      // Default - normal behaviour
+      data.battery_charge_voltage = mysettings.chargevolt;
+      data.battery_charge_current_limit = mysettings.chargecurrent;
+    }
+  }
+
+  if (IsDischargeAllowed())
+  {
+    data.battery_discharge_current_limit = mysettings.dischargecurrent;
   }
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
@@ -107,13 +143,16 @@ void pylon_message_351()
 // 0x355 – 1A 00 64 00 – State of Health (SOH) / State of Charge (SOC)
 void pylon_message_355()
 {
+  if (_controller_state != ControllerState::Running)
+    return;
+
   struct data355
   {
     uint16_t stateofchargevalue;
     uint16_t stateofhealthvalue;
   };
 
-  if (_controller_state == ControllerState::Running && mysettings.currentMonitoringEnabled && currentMonitor.validReadings && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
   {
     data355 data;
     // 0 SOC value un16 1 %
@@ -123,16 +162,18 @@ void pylon_message_355()
     {
       // Force SOC of 85% to the inverter, to force it to continue charging the battery
       // this is helpful when first commissioning as most inverters stop charging at 100% SOC
-      // even though the battery may not be full.
+      // even though the battery may not be full, and the DIYBMS current monitor has not learnt capacity
+      // yet.
       data.stateofchargevalue = 85;
     }
 
     //  2 SOH value un16 1 %
     data.stateofhealthvalue = 100;
 
-  //Limit to 100% maximum
-    if (data.stateofchargevalue>100) {
-      data.stateofchargevalue=100;
+    // Limit to 100% maximum
+    if (data.stateofchargevalue > 100)
+    {
+      data.stateofchargevalue = 100;
     }
 
     send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
@@ -144,13 +185,19 @@ void pylon_message_359()
 {
   struct data359
   {
+    // Protection - Table 1
     uint8_t byte0;
+    // Protection - Table 2
     uint8_t byte1;
+    // Warnings - Table
     uint8_t byte2;
+    // Warnings - Table 4
     uint8_t byte3;
+    // Quantity of packs in parall
     uint8_t byte4;
     uint8_t byte5;
     uint8_t byte6;
+    // Online address of packs in parallel - Table 5
     uint8_t byte7;
   };
 
@@ -158,19 +205,12 @@ void pylon_message_359()
 
   memset(&data, 0, sizeof(data359));
 
-  // Byte0 = Protection 1
-  // Byte1 = Protection 2
-  // Byte2 = Warning 1
-  // Byte3 = Warning 2
-  // Byte4 = Quantity of packs in parallel
-  // Byte5 = unused
-  // Byte6 = unused
-  // Byte7 = Address of packs in parallel
-
   if (_controller_state == ControllerState::Running)
   {
+    // bit 0 = unused
     //(bit 1) Battery high voltage alarm
     data.byte0 |= ((rules.rule_outcome[Rule::BankOverVoltage] | rules.rule_outcome[Rule::CurrentMonitorOverVoltage]) ? B00000010 : 0);
+
     //(bit 2) Battery low voltage alarm
     data.byte0 |= ((rules.rule_outcome[Rule::BankUnderVoltage] | rules.rule_outcome[Rule::CurrentMonitorUnderVoltage]) ? B00000100 : 0);
 
@@ -179,14 +219,44 @@ void pylon_message_359()
     {
       data.byte0 |= (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? B00001000 : 0);
     }
-
     // (bit 4) Battery low temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
       data.byte0 |= (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? B00010000 : 0);
     }
+    // bit 5 = unused
+    // bit 6 = unused
+    // bit 7 = Discharge over current
+
+    // Byte2, Warnings - Table 3
+    data.byte2 = 0;
+
+    // WARNING:Battery high voltage
+    if (rules.highestPackVoltage > mysettings.chargevolt)
+    {
+      data.byte2 |= B00000010;
+    }
+
+    // WARNING:Battery low voltage
+    if (rules.lowestPackVoltage < mysettings.dischargevolt)
+    {
+      data.byte2 |= B00000100;
+    }
+
+    // WARNING: Battery high temperature
+    if (rules.moduleHasExternalTempSensor && rules.highestExternalTemp > mysettings.chargetemphigh)
+    {
+      data.byte2 |= B00001000;
+    }
+
+    // WARNING: Battery low temperature
+    if (rules.moduleHasExternalTempSensor && rules.lowestExternalTemp < mysettings.chargetemplow)
+    {
+      data.byte2 |= B00010000;
+    }
   }
 
+  // byte3,table4, Bit 3 = Internal communication failure
   data.byte3 |= ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? B00001000 : 0);
   data.byte3 |= ((_controller_state != ControllerState::Running) ? B00001000 : 0);
 
@@ -194,6 +264,7 @@ void pylon_message_359()
   {
     // Pylon can have multiple battery each of 74Ah capacity, so emulate this based on total Ah capacity
     // this drives the inverter to assume certain charge/discharge parameters based on number of battery packs installed
+    // Set inverter to use "Pylontech US3000C 3.5kWh" in its settings (these are 74Ah each)
     data.byte4 = min((uint8_t)1, (uint8_t)round(mysettings.nominalbatcap / 74.0));
   }
   else
@@ -214,43 +285,28 @@ void pylon_message_35c()
   struct data35c
   {
     uint8_t byte0;
-    uint8_t byte1;
+    //uint8_t byte1;
   };
 
   data35c data;
 
-  // Charge enable/Discharge enable
+  //bit 0/1/2/3 unused
+  //bit 4 Force charge 2
+  //bit 5 Force charge 1
+  //bit 6 Discharge enable
+  //bit 7 Charge enable
   data.byte0 = 0;
-  //Force charge 1/Force charge 2
-  data.byte1 = 0;
+  //data.byte1 = 0;
 
-  if (_controller_state == ControllerState::Running)
+  if (IsChargeAllowed())
   {
-    // Only permit discharge or charge when BMS is running
-    data.byte0 = B11000000;
+    data.byte0 = data.byte0 | B10000000;
   }
 
-  // TODO: SET THE BYTES TO ALLOW CHARGE OR NOT
-  // Check battery temperature against charge/discharge parameters
-  if (_controller_state == ControllerState::Running && rules.moduleHasExternalTempSensor)
+  if (IsDischargeAllowed())
   {
-    if (rules.lowestExternalTemp<mysettings.dischargetemplow | rules.highestExternalTemp> mysettings.dischargetemphigh)
-    {
-      // Stop discharge - temperature out of range
-      // bit 6
-      data.byte0 = data.byte0 & B10111111;
-      ESP_LOGW(TAG, "Stop discharge - temperature out of range");
-    }
-
-    if (rules.lowestExternalTemp<mysettings.chargetemplow | rules.highestExternalTemp> mysettings.chargetemphigh)
-    {
-      // Stop charge - temperature out of range
-      // bit 7
-      data.byte0 = data.byte0 & B01111111;
-      ESP_LOGW(TAG, "Stop charge - temperature out of range");
-    }
+    data.byte0 = data.byte0 | B01000000;
   }
-
 
   send_canbus_message(0x35c, (uint8_t *)&data, sizeof(data35c));
 }
@@ -279,18 +335,13 @@ void pylon_message_356()
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
     data.voltage = currentMonitor.modbus.voltage * 100.0;
+    data.current = currentMonitor.modbus.current * 10;
   }
   else
   {
     // Use highest pack voltage calculated by controller and modules
     data.voltage = rules.highestPackVoltage / 10;
-  }
-
-  data.current = 0;
-  // If current shunt is installed, use it
-  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
-  {
-    data.current = currentMonitor.modbus.current * 10;
+    data.current = 0;
   }
 
   // Temperature 0.1 C using external temperature sensor

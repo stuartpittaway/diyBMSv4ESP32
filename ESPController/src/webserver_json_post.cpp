@@ -332,7 +332,9 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
         root["dischargetemplow"] = mysettings.dischargetemplow;
         root["dischargetemphigh"] = mysettings.dischargetemphigh;
         root["stopchargebalance"] = mysettings.stopchargebalance;
-        root["socoverride"] = mysettings.socoverride;       
+        root["socoverride"] = mysettings.socoverride;
+        root["preventdischarge"] = mysettings.preventdischarge;
+        root["preventcharging"] = mysettings.preventcharging;
 
         // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
 
@@ -598,7 +600,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
     else
     {
-        //Field not found/invalid, so disable
+        // Field not found/invalid, so disable
         mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
     }
     if (GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded))
@@ -607,26 +609,34 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     float temp_float;
     if (GetKeyValue(httpbuf, "chargevolt", &temp_float, urlEncoded))
     {
-        mysettings.chargevolt=10*temp_float;
+        mysettings.chargevolt = 10 * temp_float;
     }
     if (GetKeyValue(httpbuf, "chargecurrent", &temp_float, urlEncoded))
     {
-        mysettings.chargecurrent=10*temp_float;
+        mysettings.chargecurrent = 10 * temp_float;
     }
     if (GetKeyValue(httpbuf, "dischargecurrent", &temp_float, urlEncoded))
     {
-        mysettings.dischargecurrent=10*temp_float;
+        mysettings.dischargecurrent = 10 * temp_float;
     }
     if (GetKeyValue(httpbuf, "dischargevolt", &temp_float, urlEncoded))
     {
-        mysettings.dischargevolt=10*temp_float;
+        mysettings.dischargevolt = 10 * temp_float;
     }
-    mysettings.stopchargebalance=false;
+    mysettings.stopchargebalance = false;
     if (GetKeyValue(httpbuf, "stopchargebalance", &mysettings.stopchargebalance, urlEncoded))
     {
     }
-    mysettings.socoverride=false;
+    mysettings.socoverride = false;
     if (GetKeyValue(httpbuf, "socoverride", &mysettings.socoverride, urlEncoded))
+    {
+    }
+    mysettings.preventcharging = false;
+    if (GetKeyValue(httpbuf, "preventcharging", &mysettings.preventcharging, urlEncoded))
+    {
+    }
+    mysettings.preventdischarge = false;
+    if (GetKeyValue(httpbuf, "preventdischarge", &mysettings.preventdischarge, urlEncoded))
     {
     }
     if (GetKeyValue(httpbuf, "chargetemplow", &mysettings.chargetemplow, urlEncoded))
@@ -1136,7 +1146,7 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                 mysettings.dischargetemplow = root["dischargetemplow"];
                 mysettings.dischargetemphigh = root["dischargetemphigh"];
                 mysettings.stopchargebalance = root["stopchargebalance"];
-                mysettings.socoverride = root["socoverride"];               
+                mysettings.socoverride = root["socoverride"];
 
                 JsonObject mqtt = root["mqtt"];
                 if (!mqtt.isNull())
