@@ -129,6 +129,12 @@ void pylon_message_355()
 
     //  2 SOH value un16 1 %
     data.stateofhealthvalue = 100;
+
+  //Limit to 100% maximum
+    if (data.stateofchargevalue>100) {
+      data.stateofchargevalue=100;
+    }
+
     send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
   }
 }
@@ -214,8 +220,15 @@ void pylon_message_35c()
   data35c data;
 
   // Charge enable/Discharge enable
-  data.byte0 = B11000000;
+  data.byte0 = 0;
+  //Force charge 1/Force charge 2
   data.byte1 = 0;
+
+  if (_controller_state == ControllerState::Running)
+  {
+    // Only permit discharge or charge when BMS is running
+    data.byte0 = B11000000;
+  }
 
   // TODO: SET THE BYTES TO ALLOW CHARGE OR NOT
   // Check battery temperature against charge/discharge parameters
@@ -238,11 +251,6 @@ void pylon_message_35c()
     }
   }
 
-  if (_controller_state != ControllerState::Running)
-  {
-    // Don't allow discharge or charge until BMS is running/ready
-    data.byte0 = 0;
-  }
 
   send_canbus_message(0x35c, (uint8_t *)&data, sizeof(data35c));
 }
