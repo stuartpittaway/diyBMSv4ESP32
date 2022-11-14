@@ -621,9 +621,11 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     {
         mysettings.dischargevolt=10*temp_float;
     }
+    mysettings.stopchargebalance=false;
     if (GetKeyValue(httpbuf, "stopchargebalance", &mysettings.stopchargebalance, urlEncoded))
     {
     }
+    mysettings.socoverride=false;
     if (GetKeyValue(httpbuf, "socoverride", &mysettings.socoverride, urlEncoded))
     {
     }
