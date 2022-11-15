@@ -2601,8 +2601,8 @@ void rs485_tx(void *param)
 
   for (;;)
   {
-    // Delay 5 seconds
-    vTaskDelay(pdMS_TO_TICKS(5000));
+    // Delay 4 seconds between requests
+    vTaskDelay(pdMS_TO_TICKS(4000));
 
     if (mysettings.currentMonitoringEnabled == true)
     {
