@@ -50,7 +50,7 @@ function upload_file() {
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
     xhr.upload.addEventListener("progress", function (event) {
         if (event.lengthComputable) {
-            $("#progress").style.width = (event.loaded / event.total) * 100 + "%";
+            document.getElementById("progress").style.width = (event.loaded / event.total) * 100 + "%";
         }
     });
     xhr.onreadystatechange = function () {
