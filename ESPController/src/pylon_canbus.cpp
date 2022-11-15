@@ -33,7 +33,8 @@ bool IsChargeAllowed()
     return false;
   }
 
-  if (rules.highestPackVoltage > mysettings.chargevolt)
+  //chargevolt = 560
+  if ((rules.highestPackVoltage/100) > mysettings.chargevolt)
     return false;
 
   // Any errors, stop charge
@@ -73,7 +74,7 @@ bool IsDischargeAllowed()
     return false;
   }
 
-  if (rules.lowestPackVoltage < mysettings.dischargevolt)
+  if ((rules.lowestPackVoltage/100) < mysettings.dischargevolt)
     return false;
 
   // Any errors, stop discharge
@@ -232,13 +233,14 @@ void pylon_message_359()
     data.byte2 = 0;
 
     // WARNING:Battery high voltage
-    if (rules.highestPackVoltage > mysettings.chargevolt)
+    if (rules.highestPackVoltage/100 > mysettings.chargevolt)
     {
       data.byte2 |= B00000010;
     }
 
     // WARNING:Battery low voltage
-    if (rules.lowestPackVoltage < mysettings.dischargevolt)
+    // dischargevolt=490, lowestPackVoltage=48992 (scale down 100)
+    if (rules.lowestPackVoltage/100 < mysettings.dischargevolt)
     {
       data.byte2 |= B00000100;
     }
