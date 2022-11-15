@@ -346,6 +346,8 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
     goto return_failure;
   }
 
+  suspendTasksDuringFirmwareUpdate();
+
   while (remaining > 0)
   {
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -378,12 +380,11 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
       (esp_ota_set_boot_partition(update_partition) == ESP_OK))
   {
     ESP_LOGI(TAG, "OTA Success?! - Rebooting");
-    fflush(stdout);
 
     httpd_resp_set_status(req, HTTPD_200);
     httpd_resp_send(req, NULL, 0);
 
-    vTaskDelay(2000 / portTICK_RATE_MS);
+    vTaskDelay(1000 / portTICK_RATE_MS);
     esp_restart();
 
     return ESP_OK;
@@ -398,10 +399,11 @@ return_failure:
     esp_ota_abort(update_handle);
   }
 
+  resumeTasksAfterFirmwareUpdateFailure();
+
   httpd_resp_set_status(req, HTTPD_500); // Assume failure
   httpd_resp_send(req, NULL, 0);
   return ESP_FAIL;
-
 }
 
 /* URI handler structure for GET /uri */

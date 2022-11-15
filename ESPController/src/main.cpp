@@ -31,13 +31,11 @@ static constexpr const char *const TAG = "diybms";
 #include "esp_flash_partitions.h"
 #include "esp_partition.h"
 
-
 #include <Arduino.h>
 
-
-//#define PACKET_LOGGING_RECEIVE
-//#define PACKET_LOGGING_SEND
-//#define RULES_LOGGING
+// #define PACKET_LOGGING_RECEIVE
+// #define PACKET_LOGGING_SEND
+// #define RULES_LOGGING
 
 #include "FS.h"
 #include "LittleFS.h"
@@ -122,7 +120,6 @@ currentmonitoring_struct currentMonitor;
 TimerHandle_t led_off_timer;
 TimerHandle_t pulse_relay_off_timer;
 
-TaskHandle_t ota_task_handle = NULL;
 TaskHandle_t i2c_task_handle = NULL;
 TaskHandle_t sdcardlog_task_handle = NULL;
 TaskHandle_t sdcardlog_outputs_task_handle = NULL;
@@ -1134,9 +1131,9 @@ void transmit_task(void *param)
         myPacketSerial.sendBuffer((byte *)&transmitBuffer);
 
         // Output the packet we just transmitted to debug console
-        //#if defined(PACKET_LOGGING_SEND)
+        // #if defined(PACKET_LOGGING_SEND)
         //      dumpPacketToDebug('S', &transmitBuffer);
-        //#endif
+        // #endif
       }
 
       // Delay based on comms speed, ensure the first module has time to process and clear the request
@@ -1497,8 +1494,8 @@ void enqueue_task(void *param)
 /* The event group allows multiple bits for each event, but we only care about two events:
  * - we are connected to the AP with an IP
  * - we failed to connect after the maximum amount of retries */
-//#define WIFI_CONNECTED_BIT BIT0
-//#define WIFI_FAIL_BIT BIT1
+// #define WIFI_CONNECTED_BIT BIT0
+// #define WIFI_FAIL_BIT BIT1
 static int s_retry_num = 0;
 
 void formatCurrentDateTime(char *buf, size_t buf_size)
@@ -2238,18 +2235,18 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 
   memcpy(&message.data, buffer, length);
 
-  esp_err_t result=twai_transmit(&message, pdMS_TO_TICKS(250));
+  esp_err_t result = twai_transmit(&message, pdMS_TO_TICKS(250));
 
   // Queue message for transmission
   if (result != ESP_OK)
   {
-    ESP_LOGE(TAG, "Fail to queue CANBUS message (0x%x)",result);
+    ESP_LOGE(TAG, "Fail to queue CANBUS message (0x%x)", result);
     canbus_messages_failed_sent++;
   }
   else
   {
     ESP_LOGD(TAG, "Sent CAN message 0x%x", identifier);
-    //ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
+    // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
     canbus_messages_sent++;
   }
 }
@@ -2261,7 +2258,7 @@ void canbus_tx(void *param)
     // Delay 1 second
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    if (mysettings.canbusprotocol==CanBusProtocolEmulation::CANBUS_PYLONTECH)
+    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH)
     {
       // Pylon Tech Battery Emulation
       // https://github.com/PaulSturbo/DIY-BMS-CAN/blob/main/SEPLOS%20BMS%20CAN%20Protocoll%20V1.0.pdf
@@ -2301,7 +2298,7 @@ void canbus_tx(void *param)
       // vTaskDelay(pdMS_TO_TICKS(100));
     }
 
-    if (mysettings.canbusprotocol==CanBusProtocolEmulation::CANBUS_VICTRON)
+    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
     {
       // minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
 
@@ -2340,7 +2337,7 @@ void canbus_rx(void *param)
   for (;;)
   {
 
-    if (mysettings.canbusprotocol!=CanBusProtocolEmulation::CANBUS_DISABLED)
+    if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
     {
 
       // Wait for message to be received
@@ -2695,20 +2692,20 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
   //_myset->cvl[VictronDVCC::ControllerError] = 0 * 10;
   //_myset->dcl[VictronDVCC::ControllerError] = 0 * 10;
 
-  _myset->canbusprotocol=CanBusProtocolEmulation::CANBUS_DISABLED;
-  _myset->nominalbatcap=280;
-  _myset->chargevolt=560; //Scale 0.1
-  _myset->chargecurrent=100; //Scale 0.1
-  _myset->dischargecurrent=100; //Scale 0.1
-  _myset->dischargevolt=496; //Scale 0.1
-  _myset->chargetemplow=0;
-  _myset->chargetemphigh=50;
-  _myset->dischargetemplow=-30;
-  _myset->dischargetemphigh=55;
-  _myset->stopchargebalance=true;
-  _myset->socoverride=false;
-  _myset->preventcharging=false;
-  _myset->preventdischarge=false;
+  _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+  _myset->nominalbatcap = 280;
+  _myset->chargevolt = 560;       // Scale 0.1
+  _myset->chargecurrent = 100;    // Scale 0.1
+  _myset->dischargecurrent = 100; // Scale 0.1
+  _myset->dischargevolt = 496;    // Scale 0.1
+  _myset->chargetemplow = 0;
+  _myset->chargetemphigh = 50;
+  _myset->dischargetemplow = -30;
+  _myset->dischargetemphigh = 55;
+  _myset->stopchargebalance = true;
+  _myset->socoverride = false;
+  _myset->preventcharging = false;
+  _myset->preventdischarge = false;
 
   _myset->loggingEnabled = false;
   _myset->loggingFrequencySeconds = 15;
@@ -3270,13 +3267,13 @@ void consoleConfigurationCheck()
   fputs("\n\nNo key press detected\n", stdout);
 }
 
-
-//-----------------------------------------------------------------------------
-static void ota_task(void *Param)
+// Mark running firmware as ok/valid.
+// Believe this is also duplicated into ArduinoESP32 library/runtime
+void confirmFirmwareIsValid()
 {
   const esp_partition_t *running = esp_ota_get_running_partition();
   esp_ota_img_states_t ota_state;
-  if ( esp_ota_get_state_partition(running, &ota_state) == ESP_OK )
+  if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK)
   {
     if (ota_state == ESP_OTA_IMG_PENDING_VERIFY)
     {
@@ -3286,15 +3283,30 @@ static void ota_task(void *Param)
       // If needed: esp_ota_mark_app_invalid_rollback_and_reboot();
     }
   }
-  
-  const uint32_t task_delay_ms = 10;
-  while(1)
-  {
-    vTaskDelay( task_delay_ms / portTICK_RATE_MS);
-  }
 }
 
-
+void resumeTasksAfterFirmwareUpdateFailure()
+{
+  vTaskResume(updatetftdisplay_task_handle);
+  vTaskResume(avrprog_task_handle);
+  vTaskResume(sdcardlog_task_handle);
+  vTaskResume(sdcardlog_outputs_task_handle);
+  vTaskResume(rs485_tx_task_handle);
+  vTaskResume(service_rs485_transmit_q_task_handle);
+  vTaskResume(canbus_tx_task_handle);
+  vTaskResume(transmit_task_handle);
+}
+void suspendTasksDuringFirmwareUpdate()
+{
+  vTaskSuspend(updatetftdisplay_task_handle);
+  vTaskSuspend(avrprog_task_handle);
+  vTaskSuspend(sdcardlog_task_handle);
+  vTaskSuspend(sdcardlog_outputs_task_handle);
+  vTaskSuspend(rs485_tx_task_handle);
+  vTaskSuspend(service_rs485_transmit_q_task_handle);
+  vTaskSuspend(canbus_tx_task_handle);
+  vTaskSuspend(transmit_task_handle);
+}
 
 void setup()
 {
@@ -3321,13 +3333,13 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
            GIT_VERSION, COMPILE_DATE_TIME,
            chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
-
-
   // ESP_ERROR_CHECK_WITHOUT_ABORT(esp_bt_controller_disable());
   BuildHostname();
   hal.ConfigurePins();
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
   hal.ConfigureVSPI();
+
+  confirmFirmwareIsValid();
 
   _avrsettings.inProgress = false;
   _avrsettings.programmingModeEnabled = false;
@@ -3433,7 +3445,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   xTaskCreate(transmit_task, "Tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 2000, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2000, nullptr, 1, &lazy_task_handle);
-  xTaskCreate(ota_task, "ota_task", 8192, NULL, 5, &ota_task_handle);
 
   // Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)

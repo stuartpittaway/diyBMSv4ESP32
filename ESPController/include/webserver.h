@@ -46,7 +46,7 @@ extern TaskHandle_t avrprog_task_handle;
 extern avrprogramsettings _avrsettings;
 extern RelayState previousRelayState[RELAY_TOTAL];
 extern currentmonitoring_struct currentMonitor;
-
-
+extern void suspendTasksDuringFirmwareUpdate();
+extern void resumeTasksAfterFirmwareUpdateFailure();
 
 #endif

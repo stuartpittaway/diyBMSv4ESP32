@@ -181,6 +181,8 @@
         </div>
         <div class="region">
             <h2 id="ap12">Controller Firmware Upgrade</h2>
+            <p>Use this feature to upload a new firmware to a running controller. Recommend saving configuration before updating.  Controller will reboot after update.</p>
+            <p>Note: Do not attempt this when the battery is charging/discharging.  The BMS will not operate whilst update is running, external interfaces like RS485 and CAN will be disabled during update.</p>
             <p>
                 <button id="uploadfw" type="button">Upload new firmware</button>
                 <input type="file" id="file_sel" style="display:none;" />
@@ -1340,10 +1342,7 @@
 
         $(document).ready(function () {
             var lang = $("html").attr("lang");
-
             $("#Language").val(lang);
-
-
 
             //Load dependant scripts - one at a time so we don't task ESP32
             $.cachedScript("lang_" + lang + ".js").done(function (script, textStatus) {
