@@ -323,13 +323,16 @@ function queryBMS() {
 
         // Need one color for each pack, could make it colourful I suppose :-)
         const colours = [
-            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
-            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
-            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
-            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
+            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
+            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
+            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
+            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
         ]
 
         const red = '#B44247'
+
+        const highestCell = '#780044'
+        const lowestCell = '#137C00'
 
         var markLineData = [];
 
@@ -344,13 +347,39 @@ function queryBMS() {
         }
 
         if (jsondata.voltages) {
+            //Clone array of voltages
+            tempArray = [];
+            for (i = 0; i < jsondata.voltages.length; i++) {
+                tempArray[i] = jsondata.voltages[i];
+            }
+           
+            //Split voltages into banks
+            sorted_voltages=[];
+            for (i = 0; i < jsondata.banks; i++) {
+                unsorted=tempArray.splice(0,jsondata.seriesmodules);
+                sorted_voltages.push(unsorted.sort());
+            }            
+
             for (let i = 0; i < jsondata.voltages.length; i++) {
                 labels.push(bankNumber + "/" + i);
 
                 // Make different banks different colours (stripes)
                 var stdcolor = colours[bankNumber];
+
+                var color=stdcolor;
+
+                //Highlight lowest cell voltage in this bank
+                if (jsondata.voltages[i]===sorted_voltages[bankNumber][0]) {
+                    color=lowestCell;
+                }
+                //Highlight highest cell voltage in this bank
+                if (jsondata.voltages[i]===sorted_voltages[bankNumber][jsondata.seriesmodules-1]) {
+                    color=highestCell;
+                }
                 // Red
-                var color = jsondata.bypass[i] == 1 ? red : stdcolor;
+                if (jsondata.bypass[i] === 1) {
+                    color = red;
+                }
 
                 var v = (parseFloat(jsondata.voltages[i]) / 1000.0);
                 voltages.push({ value: v, itemStyle: { color: color } });
