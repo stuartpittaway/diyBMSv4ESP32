@@ -1147,6 +1147,8 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                 mysettings.dischargetemphigh = root["dischargetemphigh"];
                 mysettings.stopchargebalance = root["stopchargebalance"];
                 mysettings.socoverride = root["socoverride"];
+                mysettings.preventdischarge = root["preventdischarge"];
+                mysettings.preventcharging = root["preventcharging"];
 
                 JsonObject mqtt = root["mqtt"];
                 if (!mqtt.isNull())
