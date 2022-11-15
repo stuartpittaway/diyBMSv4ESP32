@@ -1,11 +1,11 @@
 
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms-web";
+static constexpr const char *const TAG = "diybms-web";
 
-//Enable USE_WEBSOCKET_DEBUG_LOG to redirect console/debug serial port output
-//to a websocket stream, viewable in the browser DEBUG window/console.
-//Experimental feature
-//#define USE_WEBSOCKET_DEBUG_LOG
+// Enable USE_WEBSOCKET_DEBUG_LOG to redirect console/debug serial port output
+// to a websocket stream, viewable in the browser DEBUG window/console.
+// Experimental feature
+// #define USE_WEBSOCKET_DEBUG_LOG
 
 #include "webserver.h"
 #include "webserver_helper_funcs.h"
@@ -14,6 +14,7 @@ static constexpr const char * const TAG = "diybms-web";
 
 #include <esp_log.h>
 #include <stdarg.h>
+#include "esp_ota_ops.h"
 
 httpd_handle_t _myserver;
 
@@ -196,10 +197,10 @@ esp_err_t static_content_handler(httpd_req_t *req)
 
   enum enum_mimetype : uint8_t
   {
-    text_css ,
-    application_javascript ,
-    image_x_icon ,
-    image_png 
+    text_css,
+    application_javascript,
+    image_x_icon,
+    image_png
   };
 
   typedef struct
@@ -231,7 +232,7 @@ esp_err_t static_content_handler(httpd_req_t *req)
 
   const char *uri_array[] = {
       "/style.css", "/pagecode.js", "/jquery.js", "/notify.min.js", "/echarts.min.js",
-      "/lang_fr.js","/lang_ru.js", "/lang_hr.js", "/lang_nl.js", "/lang_pt.js", "/lang_de.js", "/lang_es.js", "/lang_en.js",
+      "/lang_fr.js", "/lang_ru.js", "/lang_hr.js", "/lang_nl.js", "/lang_pt.js", "/lang_de.js", "/lang_es.js", "/lang_en.js",
       "/favicon.ico", "/logo.png", "/wait.png", "/patron.png", "/warning.png"};
 
   WEBKIT_RESPONSE_ARGS arguments[] = {
@@ -296,7 +297,6 @@ esp_err_t static_content_handler(httpd_req_t *req)
   return httpd_resp_send_404(req);
 }
 
-
 /* Our URI handler function to be called during GET /uri request */
 esp_err_t get_root_handler(httpd_req_t *req)
 {
@@ -317,6 +317,93 @@ static esp_err_t ws_handler(httpd_req_t *req)
 static const httpd_uri_t uri_ws_get = {.uri = "/ws", .method = HTTP_GET, .handler = ws_handler, .user_ctx = NULL, .is_websocket = true};
 #endif
 
+//-----------------------------------------------------------------------------
+static esp_err_t ota_post_handler(httpd_req_t *req)
+{
+  char buf[256];
+  httpd_resp_set_status(req, HTTPD_500); // Assume failure
+
+  int ret, remaining = req->content_len;
+  ESP_LOGI(TAG, "Receiving");
+
+  esp_ota_handle_t update_handle = 0;
+  const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  esp_err_t err = ESP_OK;
+
+  if (update_partition == NULL)
+  {
+    ESP_LOGE(TAG, "Failed, no partition");
+    goto return_failure;
+  }
+
+  ESP_LOGI(TAG, "Writing partition: type %d, subtype %d, offset 0x%08x", update_partition->type, update_partition->subtype, update_partition->address);
+  ESP_LOGI(TAG, "Running partition: type %d, subtype %d, offset 0x%08x\n", running->type, running->subtype, running->address);
+  err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
+  if (err != ESP_OK)
+  {
+    ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
+    goto return_failure;
+  }
+
+  while (remaining > 0)
+  {
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+    // Read the data for the request
+    if ((ret = httpd_req_recv(req, buf, MIN(remaining, sizeof(buf)))) <= 0)
+    {
+      if (ret == HTTPD_SOCK_ERR_TIMEOUT)
+      {
+        // Retry receiving if timeout occurred
+        continue;
+      }
+
+      goto return_failure;
+    }
+
+    size_t bytes_read = ret;
+
+    remaining -= bytes_read;
+    err = esp_ota_write(update_handle, buf, bytes_read);
+    if (err != ESP_OK)
+    {
+      goto return_failure;
+    }
+  }
+
+  ESP_LOGI(TAG, "Receiving done");
+
+  // End response
+  if ((esp_ota_end(update_handle) == ESP_OK) &&
+      (esp_ota_set_boot_partition(update_partition) == ESP_OK))
+  {
+    ESP_LOGI(TAG, "OTA Success?! - Rebooting");
+    fflush(stdout);
+
+    httpd_resp_set_status(req, HTTPD_200);
+    httpd_resp_send(req, NULL, 0);
+
+    vTaskDelay(2000 / portTICK_RATE_MS);
+    esp_restart();
+
+    return ESP_OK;
+  }
+
+  ESP_LOGE(TAG, "OTA End failed-%s", esp_err_to_name(err));
+
+return_failure:
+
+  if (update_handle)
+  {
+    esp_ota_abort(update_handle);
+  }
+
+  httpd_resp_set_status(req, HTTPD_500); // Assume failure
+  httpd_resp_send(req, NULL, 0);
+  return ESP_FAIL;
+
+}
+
 /* URI handler structure for GET /uri */
 static const httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_defaulthtm_get = {.uri = "/default.htm", .method = HTTP_GET, .handler = default_htm_handler, .user_ctx = NULL};
@@ -324,6 +411,8 @@ static const httpd_uri_t uri_api_get = {.uri = "/api/*", .method = HTTP_GET, .ha
 static const httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler = content_handler_downloadfile, .user_ctx = NULL};
 static const httpd_uri_t uri_save_data_post = {.uri = "/post/*", .method = HTTP_POST, .handler = save_data_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = NULL};
+
+static const httpd_uri_t uri_ota_post = {.uri = "/ota", .method = HTTP_POST, .handler = ota_post_handler, .user_ctx = NULL};
 
 void clearModuleValues(uint8_t module)
 {
@@ -339,13 +428,13 @@ void clearModuleValues(uint8_t module)
 }
 
 #ifdef USE_WEBSOCKET_DEBUG_LOG
-extern "C" int log_output_redirector(const char * format, va_list args)
+extern "C" int log_output_redirector(const char *format, va_list args)
 {
   size_t fd_count = CONFIG_LWIP_MAX_LISTENING_TCP;
   int client_fds[CONFIG_LWIP_MAX_LISTENING_TCP] = {0};
   httpd_ws_frame_t ws_pkt = {};
   char log_buffer[64];
-  char * temp = &log_buffer[0];
+  char *temp = &log_buffer[0];
   va_list copy;
 
   va_copy(copy, args);
@@ -367,8 +456,8 @@ extern "C" int log_output_redirector(const char * format, va_list args)
     format_len = vsnprintf(temp, format_len + 1, format, args);
   }
   va_end(args);
-  //Don't use printf - uses lots of stack space and causes task stack crash/growth.
-  //printf(temp);
+  // Don't use printf - uses lots of stack space and causes task stack crash/growth.
+  // printf(temp);
   fputs(temp, stdout);
   ws_pkt.len = format_len;
   ws_pkt.type = HTTPD_WS_TYPE_TEXT;
@@ -376,7 +465,7 @@ extern "C" int log_output_redirector(const char * format, va_list args)
 
   // blast the message out to any connected websocket clients
   httpd_get_client_list(_myserver, &fd_count, client_fds);
-  for (int idx = 0; idx < fd_count ; idx++)
+  for (int idx = 0; idx < fd_count; idx++)
   {
     if (httpd_ws_get_fd_info(_myserver, client_fds[idx]) == HTTPD_WS_CLIENT_WEBSOCKET)
     {
@@ -391,14 +480,13 @@ extern "C" int log_output_redirector(const char * format, va_list args)
 }
 #endif
 
-
 /* Function for starting the webserver */
 httpd_handle_t start_webserver(void)
 {
   /* Generate default configuration */
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-  config.max_uri_handlers = 8;
+  config.max_uri_handlers = 9;
   config.max_open_sockets = 5;
   config.max_resp_headers = 16;
   config.stack_size = 5000;
@@ -420,6 +508,9 @@ httpd_handle_t start_webserver(void)
 
     // Post services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_save_data_post));
+
+    // OTA services
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_ota_post));
 
 #ifdef USE_WEBSOCKET_DEBUG_LOG
     // Websocket

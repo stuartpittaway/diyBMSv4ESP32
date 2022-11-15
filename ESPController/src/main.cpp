@@ -24,7 +24,17 @@
 static constexpr const char *const TAG = "diybms";
 
 #include "esp_log.h"
+
+#include "nvs_flash.h"
+#include "esp_netif.h"
+#include "esp_eth.h"
+#include "esp_ota_ops.h"
+#include "esp_flash_partitions.h"
+#include "esp_partition.h"
+
+
 #include <Arduino.h>
+
 
 //#define PACKET_LOGGING_RECEIVE
 //#define PACKET_LOGGING_SEND
@@ -113,6 +123,7 @@ currentmonitoring_struct currentMonitor;
 TimerHandle_t led_off_timer;
 TimerHandle_t pulse_relay_off_timer;
 
+TaskHandle_t ota_task_handle = NULL;
 TaskHandle_t i2c_task_handle = NULL;
 TaskHandle_t sdcardlog_task_handle = NULL;
 TaskHandle_t sdcardlog_outputs_task_handle = NULL;
@@ -3238,7 +3249,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-webfuncs", .level = ESP_LOG_INFO},
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
-        {.tag = "diybms-web", .level = ESP_LOG_INFO},
+        {.tag = "diybms-web", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO}};
 
 void consoleConfigurationCheck()
@@ -3259,6 +3270,31 @@ void consoleConfigurationCheck()
   }
   fputs("\n\nNo key press detected\n", stdout);
 }
+
+
+//-----------------------------------------------------------------------------
+static void ota_task(void *Param)
+{
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  esp_ota_img_states_t ota_state;
+  if ( esp_ota_get_state_partition(running, &ota_state) == ESP_OK )
+  {
+    if (ota_state == ESP_OTA_IMG_PENDING_VERIFY)
+    {
+      // Validate image some how, then call:
+      esp_ota_mark_app_valid_cancel_rollback();
+      // If needed: esp_ota_mark_app_invalid_rollback_and_reboot();
+    }
+  }
+  
+  const uint32_t task_delay_ms = 10;
+  while(1)
+  {
+    vTaskDelay( task_delay_ms / portTICK_RATE_MS);
+  }
+}
+
+
 
 void setup()
 {
@@ -3284,6 +3320,18 @@ CONTROLLER - ver:%s compiled %s
 ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
            GIT_VERSION, COMPILE_DATE_TIME,
            chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
+
+
+  // Initialize NVS.
+  esp_err_t error = nvs_flash_init();
+  if ( ( error == ESP_ERR_NVS_NO_FREE_PAGES ) || ( error == ESP_ERR_NVS_NEW_VERSION_FOUND ) )
+  {
+    ESP_LOGW(TAG, "nvs_flash_erase");
+    // Don't bother checking return codes, it's not like we can do anything about failures here anyways
+    nvs_flash_erase();
+    nvs_flash_init();
+  }
+
 
   // ESP_ERROR_CHECK_WITHOUT_ABORT(esp_bt_controller_disable());
   BuildHostname();
@@ -3395,6 +3443,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   xTaskCreate(transmit_task, "Tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 2000, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2000, nullptr, 1, &lazy_task_handle);
+  xTaskCreate(ota_task, "ota_task", 8192, NULL, 5, &ota_task_handle);
 
   // Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)

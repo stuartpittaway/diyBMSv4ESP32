@@ -179,6 +179,14 @@
             <p id="fheap">Free heap:<span id="FreeHeap"></span></p>
             <p id="heapz">Heap size:<span id="HeapSize"></span></p>
         </div>
+        <div class="region">
+            <h2 id="ap12">Controller Firmware Upgrade</h2>
+            <p>
+                <button id="uploadfw" type="button">Upload new firmware</button>
+                <input type="file" id="file_sel" style="display:none;" />
+                <div class="progress"><div class="progress__bar" id="progress"></div></div><div class="status" id="status_div"></div>              
+            </p>
+        </div>
     </div>
     <div class="page" id="modulesPage">
         <h1>Modules</h1>
@@ -1334,6 +1342,7 @@
             var lang = $("html").attr("lang");
 
             $("#Language").val(lang);
+
 
 
             //Load dependant scripts - one at a time so we don't task ESP32

@@ -37,6 +37,7 @@ void setNoStoreCacheControl(httpd_req_t *req);
 
 esp_err_t SendSuccess(httpd_req_t *req);
 esp_err_t SendFailure(httpd_req_t *req);
+static esp_err_t ota_post_handler(httpd_req_t *req);
 
 
 extern diybms_eeprom_settings mysettings;

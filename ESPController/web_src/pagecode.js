@@ -41,6 +41,34 @@ const INTERNALERRORCODE =
 Object.freeze(INTERNALERRORCODE);
 
 
+function upload_file() {
+    $("#progress").show();
+    $("#status_div").text("Upload in progress");
+    let data = document.getElementById("file_sel").files[0];
+    xhr = new XMLHttpRequest();
+    xhr.open("POST", "/ota", true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.upload.addEventListener("progress", function (event) {
+        if (event.lengthComputable) {
+            $("#progress").style.width = (event.loaded / event.total) * 100 + "%";
+        }
+    });
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            var status = xhr.status;
+            if (status >= 200 && status < 400) {
+                $("#status_div").text("Upload accepted. BMS will reboot.");
+            } else {
+                $("#status_div").text("Upload rejected!");
+            }
+            $("#progress").hide();
+        }
+    };
+    xhr.send(data);
+    return false;
+}
+
+
 function switchPage(newPage) {
     $(".page").hide();
     $(newPage).show();
@@ -352,13 +380,13 @@ function queryBMS() {
             for (i = 0; i < jsondata.voltages.length; i++) {
                 tempArray[i] = jsondata.voltages[i];
             }
-           
+
             //Split voltages into banks
-            sorted_voltages=[];
+            sorted_voltages = [];
             for (i = 0; i < jsondata.banks; i++) {
-                unsorted=tempArray.splice(0,jsondata.seriesmodules);
+                unsorted = tempArray.splice(0, jsondata.seriesmodules);
                 sorted_voltages.push(unsorted.sort());
-            }            
+            }
 
             for (let i = 0; i < jsondata.voltages.length; i++) {
                 labels.push(bankNumber + "/" + i);
@@ -366,15 +394,15 @@ function queryBMS() {
                 // Make different banks different colours (stripes)
                 var stdcolor = colours[bankNumber];
 
-                var color=stdcolor;
+                var color = stdcolor;
 
                 //Highlight lowest cell voltage in this bank
-                if (jsondata.voltages[i]===sorted_voltages[bankNumber][0]) {
-                    color=lowestCell;
+                if (jsondata.voltages[i] === sorted_voltages[bankNumber][0]) {
+                    color = lowestCell;
                 }
                 //Highlight highest cell voltage in this bank
-                if (jsondata.voltages[i]===sorted_voltages[bankNumber][jsondata.seriesmodules-1]) {
-                    color=highestCell;
+                if (jsondata.voltages[i] === sorted_voltages[bankNumber][jsondata.seriesmodules - 1]) {
+                    color = highestCell;
                 }
                 // Red
                 if (jsondata.bypass[i] === 1) {
@@ -1515,10 +1543,10 @@ $(function () {
                 $("#canbusprotocol").val(data.chargeconfig.canbusprotocol);
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
 
-                $("#chargevolt").val((data.chargeconfig.chargevolt/10.0).toFixed(1));
-                $("#chargecurrent").val((data.chargeconfig.chargecurrent/10.0).toFixed(1));
-                $("#dischargecurrent").val((data.chargeconfig.dischargecurrent/10.0).toFixed(1));
-                $("#dischargevolt").val((data.chargeconfig.dischargevolt/10.0).toFixed(1));
+                $("#chargevolt").val((data.chargeconfig.chargevolt / 10.0).toFixed(1));
+                $("#chargecurrent").val((data.chargeconfig.chargecurrent / 10.0).toFixed(1));
+                $("#dischargecurrent").val((data.chargeconfig.dischargecurrent / 10.0).toFixed(1));
+                $("#dischargevolt").val((data.chargeconfig.dischargevolt / 10.0).toFixed(1));
 
                 $("#chargetemplow").val(data.chargeconfig.chargetemplow);
                 $("#chargetemphigh").val(data.chargeconfig.chargetemphigh);
@@ -1736,6 +1764,10 @@ $(function () {
     }).mouseleave(function () {
         $(this).removeClass("hover");
     });
+
+    $("#file_sel").change(function () { upload_file(); });
+    $("#uploadfw").click(function () { $("#file_sel").click(); });
+    $("#progress").hide();
 
     $("#homePage").show();
 

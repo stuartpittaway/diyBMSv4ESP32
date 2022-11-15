@@ -192,3 +192,6 @@ form input:read-only {
   display: none;
 }
 
+.progress {margin: 15px auto;max-width:500px;height:30px;}
+.progress .progress__bar { height: 100%; width: 1%; border-radius: 15px; background: repeating-linear-gradient(135deg,#336ffc,#036ffc 15px,#1163cf 15px,#1163cf 30px); }
+.status {font-weight: bold; font-size: 30px;};
