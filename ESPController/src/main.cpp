@@ -3269,7 +3269,7 @@ void consoleConfigurationCheck()
 
 // Mark running firmware as ok/valid.
 // Believe this is also duplicated into ArduinoESP32 library/runtime
-void confirmFirmwareIsValid()
+extern "C" void confirmFirmwareIsValid()
 {
   const esp_partition_t *running = esp_ota_get_running_partition();
   esp_ota_img_states_t ota_state;
