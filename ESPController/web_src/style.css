@@ -1,6 +1,11 @@
 @viewport {  width: device-width ;  zoom: 1.0 ;}
-*{box-sizing:border-box}
+*{box-sizing:border-box;}
+body, html {
+  height: 100%;
+}
 body{margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12pt;}
+body{background-color: #000000;color:#e8e8e8;}
+body{background-image:linear-gradient(to bottom, #212121, #272727, #2e2e2e, #343434, #3b3b3b, #393939, #363636, #343434, #282828, #1d1d1d, #121212, #000000);}
 h2 {margin:0;}
 p {margin-block-start: 1em; margin-block-end:0;}
 .header{overflow:hidden;padding:20px 10px}
@@ -79,10 +84,10 @@ body{background-color: white;}
 /* Dark colours
 #525252, #414141, #313131, #ca3e47
 */
-body{background-color: #313131;color:#e8e8e8;}
+
 a {color:#e8e8e8;font-weight:bold;}
 a:visited {color:#e8e8e8;font-weight:bold;}
-.header{background-color:#414141}
+.header{background-color:transparent;}
 .error {color:#414141;background-color:#ca3e47;}
 
 
@@ -94,18 +99,11 @@ a:visited {color:#e8e8e8;font-weight:bold;}
 .header a:hover{background-color:#c1bdbd;color:#414141}
 .header a.active{background-color:#525252;color:#c1bdbd}
 
-
-
-
 .ct-series-a .ct-bar {stroke:#525252;}
-
 .triggered {background-color:rgb(68, 145, 59);}
 .disablerule {text-decoration: line-through; background-color: #525252;}
 .page .region {background-color:#525252;}
-
-
 .page .region.wide {width:98%;}
-
 .hidden {visibility: hidden;}
 .rule input { width:100px; }
 th {font-family:Arial,Helvetica,sans-serif;text-align:center;font-size:14px;}
