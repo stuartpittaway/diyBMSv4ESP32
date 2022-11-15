@@ -25,7 +25,6 @@ static constexpr const char *const TAG = "diybms";
 
 #include "esp_log.h"
 
-#include "nvs_flash.h"
 #include "esp_netif.h"
 #include "esp_eth.h"
 #include "esp_ota_ops.h"
@@ -3282,6 +3281,7 @@ static void ota_task(void *Param)
     if (ota_state == ESP_OTA_IMG_PENDING_VERIFY)
     {
       // Validate image some how, then call:
+      ESP_LOGI(TAG, "esp_ota_mark_app_valid_cancel_rollback");
       esp_ota_mark_app_valid_cancel_rollback();
       // If needed: esp_ota_mark_app_invalid_rollback_and_reboot();
     }
@@ -3321,16 +3321,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
            GIT_VERSION, COMPILE_DATE_TIME,
            chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
-
-  // Initialize NVS.
-  esp_err_t error = nvs_flash_init();
-  if ( ( error == ESP_ERR_NVS_NO_FREE_PAGES ) || ( error == ESP_ERR_NVS_NEW_VERSION_FOUND ) )
-  {
-    ESP_LOGW(TAG, "nvs_flash_erase");
-    // Don't bother checking return codes, it's not like we can do anything about failures here anyways
-    nvs_flash_erase();
-    nvs_flash_init();
-  }
 
 
   // ESP_ERROR_CHECK_WITHOUT_ABORT(esp_bt_controller_disable());
