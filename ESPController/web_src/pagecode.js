@@ -359,8 +359,8 @@ function queryBMS() {
 
         const red = '#B44247'
 
-        const highestCell = '#780044'
-        const lowestCell = '#137C00'
+        const highestCell = '#ba337c'
+        const lowestCell = '#ead655'
 
         var markLineData = [];
 
