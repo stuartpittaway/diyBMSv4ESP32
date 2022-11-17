@@ -1,5 +1,5 @@
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms-webfuncs";
+static constexpr const char *const TAG = "diybms-webfuncs";
 
 #include "webserver_helper_funcs.h"
 
@@ -299,11 +299,16 @@ bool validateXSS(httpd_req_t *req)
         }
 
         // Cookie found and returned correctly (not truncated etc)
-        ESP_LOGW(TAG, "Incorrect cookie received %s", requestcookie);
+        ESP_LOGW(TAG, "Incorrect cookie rec %s", requestcookie);
+
+        httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 1");
+        return false;
     }
 
+    ESP_LOGE(TAG, "httpd_req_get_cookie_val (%s)", esp_err_to_name(result));
+
     // Fail - wrong cookie or not supplied etc.
-    httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie");
+    httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 2");
     return false;
 }
 
@@ -341,7 +346,6 @@ bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer, bool urlencod
         char param[2 * sizeof(CookieValue)];
         if (httpd_query_key_value(postbuffer, "xss", param, sizeof(param)) == ESP_OK)
         {
-
             if (urlencoded)
             {
                 // Decode the incoming char array
@@ -360,13 +364,20 @@ bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer, bool urlencod
 
             // Cookie found and returned correctly (not truncated etc)
             ESP_LOGW(TAG, "Incorrect POST cookie %s", param);
+
+            // Failed POST XSS check
+            httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 3");
+            return false;
         }
         else
         {
             ESP_LOGW(TAG, "xss query key returned not OK");
+            // Failed POST XSS check
+            httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 4");
+            return false;
         }
         // Failed POST XSS check
-        httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie");
+        httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 5");
         return false;
     }
 
