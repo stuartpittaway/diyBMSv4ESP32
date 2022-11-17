@@ -1265,6 +1265,20 @@ void ProcessRules()
       minutesSinceMidnight(),
       &currentMonitor);
 
+  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
+  {
+    if (!rules.IsChargeAllowed(&mysettings))
+    {
+      // Charge prevented
+      rules.SetWarning(InternalWarningCode::ChargePrevented);
+    }
+    if (!rules.IsDischargeAllowed(&mysettings))
+    {
+      // Discharge prevented
+      rules.SetWarning(InternalWarningCode::DischargePrevented);
+    }
+  }
+
   if (_controller_state == ControllerState::Stabilizing)
   {
     // Check for zero volt modules - not a problem whilst we are in stabilizing start up mode
@@ -2702,6 +2716,9 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
   _myset->chargetemphigh = 50;
   _myset->dischargetemplow = -30;
   _myset->dischargetemphigh = 55;
+  // Just outside the ranges of 56.0V and 49.6V
+  _myset->cellminmv = 3050;
+  _myset->cellmaxmv = 3550;
   _myset->stopchargebalance = true;
   _myset->socoverride = false;
   _myset->preventcharging = false;

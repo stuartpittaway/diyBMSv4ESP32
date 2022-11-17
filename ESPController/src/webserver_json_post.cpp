@@ -335,6 +335,8 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
         root["socoverride"] = mysettings.socoverride;
         root["preventdischarge"] = mysettings.preventdischarge;
         root["preventcharging"] = mysettings.preventcharging;
+        root["cellminmv"] = mysettings.cellminmv;
+        root["cellmaxmv"] = mysettings.cellmaxmv;
 
         // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
 
@@ -606,6 +608,13 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     if (GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded))
     {
     }
+    if (GetKeyValue(httpbuf, "cellminmv", &mysettings.cellminmv, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded))
+    {
+    }
+
     float temp_float;
     if (GetKeyValue(httpbuf, "chargevolt", &temp_float, urlEncoded))
     {
@@ -1149,6 +1158,8 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                 mysettings.socoverride = root["socoverride"];
                 mysettings.preventdischarge = root["preventdischarge"];
                 mysettings.preventcharging = root["preventcharging"];
+                mysettings.cellminmv = root["cellminmv"];
+                mysettings.cellmaxmv = root["cellmaxmv"];
 
                 JsonObject mqtt = root["mqtt"];
                 if (!mqtt.isNull())

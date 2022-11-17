@@ -318,13 +318,22 @@ static const httpd_uri_t uri_ws_get = {.uri = "/ws", .method = HTTP_GET, .handle
 #endif
 
 //-----------------------------------------------------------------------------
+// Over the air firmware upgrade - note this is not securely implemented
+// anyone on the local LAN can send new ESP32 firmware to the controller
+//
 static esp_err_t ota_post_handler(httpd_req_t *req)
 {
-  char buf[256];
+  if (!validateXSS(req))
+  {
+    // validateXSS has already sent httpd_resp_send_err...
+    return false;
+  }
+
+  char buf[512];
   httpd_resp_set_status(req, HTTPD_500); // Assume failure
 
   int ret, remaining = req->content_len;
-  ESP_LOGI(TAG, "Receiving");
+  ESP_LOGI(TAG, "OTA Receiving");
 
   esp_ota_handle_t update_handle = 0;
   const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
@@ -333,12 +342,12 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
 
   if (update_partition == NULL)
   {
-    ESP_LOGE(TAG, "Failed, no partition");
+    ESP_LOGE(TAG, "OTA Failed, no partition");
     goto return_failure;
   }
 
-  ESP_LOGI(TAG, "Writing partition: type %d, subtype %d, offset 0x%08x", update_partition->type, update_partition->subtype, update_partition->address);
-  ESP_LOGI(TAG, "Running partition: type %d, subtype %d, offset 0x%08x\n", running->type, running->subtype, running->address);
+  ESP_LOGI(TAG, "OTA Writing: type %d, subtype %d, offset 0x%08x", update_partition->type, update_partition->subtype, update_partition->address);
+  ESP_LOGI(TAG, "OTA Running: type %d, subtype %d, offset 0x%08x", running->type, running->subtype, running->address);
   err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
   if (err != ESP_OK)
   {
@@ -371,9 +380,10 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
     {
       goto return_failure;
     }
+    ESP_LOGD(TAG, "OTA Write: remaining %d", remaining);
   }
 
-  ESP_LOGI(TAG, "Receiving done");
+  ESP_LOGI(TAG, "OTA Receiving complete");
 
   // End response
   if ((esp_ota_end(update_handle) == ESP_OK) &&

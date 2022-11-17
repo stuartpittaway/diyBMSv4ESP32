@@ -15,88 +15,6 @@ static constexpr const char *const TAG = "diybms-pylon";
 
 #include "pylon_canbus.h"
 
-bool IsChargeAllowed()
-{
-  if (_controller_state != ControllerState::Running)
-    return false;
-
-  if (mysettings.preventcharging == true)
-    return false;
-
-  if (rules.moduleHasExternalTempSensor == false)
-    return false;
-
-  if (rules.lowestExternalTemp<mysettings.chargetemplow | rules.highestExternalTemp> mysettings.chargetemphigh)
-  {
-    // Stop charge - temperature out of range
-    // ESP_LOGW(TAG, "Stop charge - temperature out of range");
-    return false;
-  }
-
-  //chargevolt = 560
-  if ((rules.highestPackVoltage/100) > mysettings.chargevolt)
-    return false;
-
-  // Any errors, stop charge
-  if (rules.numberOfActiveErrors > 0)
-    return false;
-
-  // Battery high voltage alarm
-  if (rules.rule_outcome[Rule::BankOverVoltage])
-    return false;
-  // Low voltage alarm
-  if (rules.rule_outcome[Rule::BankUnderVoltage])
-    return false;
-  // Battery high temperature alarm
-  if (rules.rule_outcome[Rule::ModuleOverTemperatureExternal])
-    return false;
-  // Battery low temperature alarm
-  if (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal])
-    return false;
-
-  return true;
-}
-bool IsDischargeAllowed()
-{
-  if (_controller_state != ControllerState::Running)
-    return false;
-
-  if (mysettings.preventdischarge == true)
-    return false;
-
-  if (rules.moduleHasExternalTempSensor == false)
-    return false;
-
-  // Check battery temperature against charge/discharge parameters
-  if (rules.lowestExternalTemp<mysettings.dischargetemplow | rules.highestExternalTemp> mysettings.dischargetemphigh)
-  {
-    // ESP_LOGW(TAG, "Stop discharge - temperature out of range");
-    return false;
-  }
-
-  if ((rules.lowestPackVoltage/100) < mysettings.dischargevolt)
-    return false;
-
-  // Any errors, stop discharge
-  if (rules.numberOfActiveErrors > 0)
-    return false;
-
-  // Battery high voltage alarm
-  if (rules.rule_outcome[Rule::BankOverVoltage])
-    return false;
-  // Low voltage alarm
-  if (rules.rule_outcome[Rule::BankUnderVoltage])
-    return false;
-  // Battery high temperature alarm
-  if (rules.rule_outcome[Rule::ModuleOverTemperatureExternal])
-    return false;
-  // Battery low temperature alarm
-  if (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal])
-    return false;
-
-  return true;
-}
-
 // 0x351 – Battery voltage + current limits
 void pylon_message_351()
 {
@@ -118,7 +36,7 @@ void pylon_message_351()
   data.battery_discharge_current_limit = 0;
   data.battery_discharge_voltage = mysettings.dischargevolt;
 
-  if (IsChargeAllowed())
+  if (rules.IsChargeAllowed(&mysettings))
   {
     if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
     {
@@ -134,7 +52,7 @@ void pylon_message_351()
     }
   }
 
-  if (IsDischargeAllowed())
+  if (rules.IsDischargeAllowed(&mysettings))
   {
     data.battery_discharge_current_limit = mysettings.dischargecurrent;
   }
@@ -157,14 +75,14 @@ void pylon_message_355()
   {
     data355 data;
     // 0 SOC value un16 1 %
-    data.stateofchargevalue = currentMonitor.stateofcharge;
+    data.stateofchargevalue = round(currentMonitor.stateofcharge);
 
     if (mysettings.socoverride && data.stateofchargevalue > 99)
     {
-      // Force SOC of 99% to the inverter, to force it to continue charging the battery
+      // Force inverter SoC reading to 99%, this should force it to continue charging the battery
       // this is helpful when first commissioning as most inverters stop charging at 100% SOC
-      // even though the battery may not be full, and the DIYBMS current monitor has not learnt capacity
-      // yet.
+      // even though the battery may not be full, and the DIYBMS current monitor has not learnt capacity yet.
+      // This function should not be left permanently switched on - you could damage the battery.
       data.stateofchargevalue = 99;
     }
 
@@ -234,14 +152,14 @@ void pylon_message_359()
     data.byte2 = 0;
 
     // WARNING:Battery high voltage
-    if (rules.highestPackVoltage/100 > mysettings.chargevolt)
+    if (rules.highestPackVoltage / 100 > mysettings.chargevolt)
     {
       data.byte2 |= B00000010;
     }
 
     // WARNING:Battery low voltage
     // dischargevolt=490, lowestPackVoltage=48992 (scale down 100)
-    if (rules.lowestPackVoltage/100 < mysettings.dischargevolt)
+    if (rules.lowestPackVoltage / 100 < mysettings.dischargevolt)
     {
       data.byte2 |= B00000100;
     }
@@ -288,25 +206,25 @@ void pylon_message_35c()
   struct data35c
   {
     uint8_t byte0;
-    //uint8_t byte1;
+    // uint8_t byte1;
   };
 
   data35c data;
 
-  //bit 0/1/2/3 unused
-  //bit 4 Force charge 2
-  //bit 5 Force charge 1
-  //bit 6 Discharge enable
-  //bit 7 Charge enable
+  // bit 0/1/2/3 unused
+  // bit 4 Force charge 2
+  // bit 5 Force charge 1
+  // bit 6 Discharge enable
+  // bit 7 Charge enable
   data.byte0 = 0;
-  //data.byte1 = 0;
+  // data.byte1 = 0;
 
-  if (IsChargeAllowed())
+  if (rules.IsChargeAllowed(&mysettings))
   {
     data.byte0 = data.byte0 | B10000000;
   }
 
-  if (IsDischargeAllowed())
+  if (rules.IsDischargeAllowed(&mysettings))
   {
     data.byte0 = data.byte0 | B01000000;
   }

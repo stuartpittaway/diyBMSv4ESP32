@@ -494,9 +494,9 @@ function queryBMS() {
 
         if (jsondata.sec) {
             if (!XSS_KEY.endsWith(jsondata.sec)) {
-                if ($("#warning7").data("notify") == undefined) {
-                    $("#warning7").data("notify", 1);
-                    $.notify($("#warning7").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
+                if ($("#warningXSS").data("notify") == undefined) {
+                    $("#warningXSS").data("notify", 1);
+                    $.notify($("#warningXSS").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
                 }
             }
         }
@@ -544,12 +544,9 @@ function queryBMS() {
             }
         }
 
-
-
-
-        //Needs increasing when more warnings are added
+        //Loop size needs increasing when more warnings are added
         if (jsondata.warnings) {
-            for (let warning = 1; warning <= 6; warning++) {
+            for (let warning = 1; warning <= 8; warning++) {
                 if (jsondata.warnings.includes(warning)) {
                     //Once a warning has triggered, hide it from showing in the future
                     if ($("#warning" + warning).data("notify") == undefined) {
@@ -557,9 +554,6 @@ function queryBMS() {
                         $.notify($("#warning" + warning).text(), { autoHideDelay: 15000, globalPosition: 'top left', className: 'warn' });
                     }
                 }
-                //else {
-                //$("#warning" + warning).hide();
-                //}
             }
         }
 
@@ -1407,7 +1401,7 @@ $(function () {
                     $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
                     $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
                     //Allow warning to trigger again
-                    $("#warning7").removeData("notify");
+                    $("#warningXSS").removeData("notify");
                 })
             .fail(function (data) {
                 $("#avrinfo").html("Failed");
@@ -1481,6 +1475,12 @@ $(function () {
         return true;
     });
 
+    $("#utility").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        switchPage("#utilityPage");
+
+    });
 
     $("#avrprogrammer").click(function () {
         $(".header-right a").removeClass("active");
@@ -1552,9 +1552,12 @@ $(function () {
                 $("#chargetemphigh").val(data.chargeconfig.chargetemphigh);
                 $("#dischargetemplow").val(data.chargeconfig.dischargetemplow);
                 $("#dischargetemphigh").val(data.chargeconfig.dischargetemphigh);
+
+                $("#cellminmv").val(data.chargeconfig.cellminmv);
+                $("#cellmaxmv").val(data.chargeconfig.cellmaxmv);
+
                 $("#stopchargebalance").prop("checked", data.chargeconfig.stopchargebalance);
                 $("#socoverride").prop("checked", data.chargeconfig.socoverride);
-
                 $("#preventcharging").prop("checked", data.chargeconfig.preventcharging);
                 $("#preventdischarge").prop("checked", data.chargeconfig.preventdischarge);
 

@@ -179,7 +179,8 @@ struct diybms_eeprom_settings
   bool socoverride;
   bool preventcharging;
   bool preventdischarge;
-
+  uint16_t cellminmv;
+  uint16_t cellmaxmv;
 
   // NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;

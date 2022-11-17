@@ -29,7 +29,7 @@ enum Rule : uint8_t
 };
 
 // Define a max constant for the highest value (change if you add more warnings)
-#define MAXIMUM_InternalWarningCode 6
+#define MAXIMUM_InternalWarningCode 8
 enum InternalWarningCode : uint8_t
 {
     NoWarning = 0,
@@ -38,7 +38,9 @@ enum InternalWarningCode : uint8_t
     ModuleInconsistantCodeVersion = 3,
     ModuleInconsistantBoardRevision = 4,
     LoggingEnabledNoSDCard = 5,
-    AVRProgrammingMode = 6
+    AVRProgrammingMode = 6,
+    ChargePrevented = 7,
+    DischargePrevented = 8
 };
 
 // Define a max constant for the highest value (change if you add more errors)
@@ -123,6 +125,10 @@ public:
         uint32_t *hysteresisvalue,
         bool emergencyStop,
         uint16_t mins, currentmonitoring_struct *currentMonitor);
+
+    bool IsChargeAllowed(diybms_eeprom_settings *mysettings);
+    bool IsDischargeAllowed(diybms_eeprom_settings *mysettings);
+    bool SharedChargingDischargingRules(diybms_eeprom_settings *mysettings);
 };
 
 #endif
