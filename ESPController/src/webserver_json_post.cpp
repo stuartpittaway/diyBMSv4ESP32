@@ -1029,7 +1029,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
             mysettings.rulevalue[rule] = tempuint32;
         }
 
-        snprintf(keyBuffer, sizeof(keyBuffer), "rule%ihysteresis", rule);
+        snprintf(keyBuffer, sizeof(keyBuffer), "rule%ihyst", rule);
         if (GetKeyValue(httpbuf, keyBuffer, &tempuint32, urlEncoded))
         {
             ESP_LOGD(TAG, "%s=%u", keyBuffer, tempuint32);

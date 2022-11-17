@@ -359,8 +359,8 @@ function queryBMS() {
 
         const red = '#B44247'
 
-        const highestCell = '#ba337c'
-        const lowestCell = '#ead655'
+        const highestCell = '#8c265d'
+        const lowestCell = '#b6a016'
 
         var markLineData = [];
 
@@ -1228,7 +1228,7 @@ $(function () {
                 var allrules = $(".settings table tbody tr td label");
                 $.each(data.rules, function (index, value) {
                     $("#rule" + (index) + "value").val(value.value);
-                    $("#rule" + (index) + "hysteresis").val(value.hysteresis);
+                    $("#rule" + (index) + "hyst").val(value.hysteresis);
 
                     //Highlight rules which are active
                     if (value.triggered) {
