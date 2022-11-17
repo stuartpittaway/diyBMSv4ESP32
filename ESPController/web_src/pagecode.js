@@ -546,7 +546,7 @@ function queryBMS() {
 
         //Loop size needs increasing when more warnings are added
         if (jsondata.warnings) {
-            for (let warning = 1; warning <= 8; warning++) {
+            for (let warning = 1; warning <= 9; warning++) {
                 if (jsondata.warnings.includes(warning)) {
                     //Once a warning has triggered, hide it from showing in the future
                     if ($("#warning" + warning).data("notify") == undefined) {
@@ -554,6 +554,14 @@ function queryBMS() {
                         $.notify($("#warning" + warning).text(), { autoHideDelay: 15000, globalPosition: 'top left', className: 'warn' });
                     }
                 }
+            }
+
+            //Allow charge/discharge warnings to reappear
+            if (jsondata.warnings.includes(7) == false) {
+                $("#warning7").removeData("notify");
+            }
+            if (jsondata.warnings.includes(8) == false) {
+                $("#warning8").removeData("notify");
             }
         }
 

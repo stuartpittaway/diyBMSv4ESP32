@@ -1265,6 +1265,11 @@ void ProcessRules()
       minutesSinceMidnight(),
       &currentMonitor);
 
+  if (rules.moduleHasExternalTempSensor==false) {
+      // NoExternalTempSensor
+      rules.SetWarning(InternalWarningCode::NoExternalTempSensor);
+  }
+
   if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
   {
     if (!rules.IsChargeAllowed(&mysettings))

@@ -405,13 +405,13 @@ bool Rules::SharedChargingDischargingRules(diybms_eeprom_settings *mysettings)
 }
 bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
 {
-    if (!SharedChargingDischargingRules(mysettings))
+    if (SharedChargingDischargingRules(mysettings)==false)
         return false;
 
     if (mysettings->preventcharging == true)
         return false;
 
-    if (lowestExternalTemp<mysettings->chargetemplow | highestExternalTemp> mysettings->chargetemphigh)
+    if (lowestExternalTemp < mysettings->chargetemplow | highestExternalTemp > mysettings->chargetemphigh)
     {
         // Stop charge - temperature out of range
         // ESP_LOGW(TAG, "Stop charge - temperature out of range");
@@ -430,7 +430,7 @@ bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
 }
 bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
 {
-    if (!SharedChargingDischargingRules(mysettings))
+    if (SharedChargingDischargingRules(mysettings)==false)
         return false;
 
     if (mysettings->preventdischarge == true)
