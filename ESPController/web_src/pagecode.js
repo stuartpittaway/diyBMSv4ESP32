@@ -1261,7 +1261,7 @@ $(function () {
                 }
 
                 $("#rulesForm").show();
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { $.notify("Read request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
         return true;

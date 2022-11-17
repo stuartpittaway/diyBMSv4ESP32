@@ -1144,7 +1144,7 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                 // myset.VictronEnabled = root["VictronEnabled"];
                 // mysettings.PylonEmulation = root["PylonEmulation"];
 
-                mysettings.canbusprotocol = root["canbusprotocol"];
+                mysettings.canbusprotocol = (CanBusProtocolEmulation)root["canbusprotocol"];
                 mysettings.nominalbatcap = root["nominalbatcap"];
                 mysettings.chargevolt = root["chargevolt"];
                 mysettings.chargecurrent = root["chargecurrent"];
