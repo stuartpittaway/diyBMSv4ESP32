@@ -48,6 +48,7 @@ void Rules::ClearValues()
     address_lowestExternalTemp = maximum_controller_cell_modules + 1;
     address_highestExternalTemp = maximum_controller_cell_modules + 1;
     address_HighestCellVoltage = maximum_controller_cell_modules + 1;
+    index_bank_HighestCellVoltage = 0;
 }
 
 // Looking at individual voltages and temperatures and sum up pack voltages.
@@ -82,6 +83,7 @@ void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uin
     {
         highestCellVoltage = c->voltagemV;
         address_HighestCellVoltage = cellNumber;
+        index_bank_HighestCellVoltage = bank;
     }
 
     if (c->voltagemV < lowestCellVoltage)
@@ -457,14 +459,18 @@ bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
 // This will always return a charge voltage - its the calling functions responsibility
 // to check "IsChargeAllowed" function and take necessary action.
 // Thanks to Matthias U (Smurfix) for the ideas and pseudo code https://community.openenergymonitor.org/u/smurfix/
-uint16_t Rules::ChargeVoltage(diybms_eeprom_settings *mysettings)
+uint16_t Rules::ChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray)
 {
-
-    return mysettings->chargevolt;
+    if (!mysettings->dynamiccharge)
+    {
+        // Its switched off, use default voltage
+        return mysettings->chargevolt;
+    }
 
     // M = uint16_t targetCellVoltage=mysettings->cellmaxmv
     if (highestCellVoltage >= mysettings->cellmaxmv)
     {
+        ESP_LOGW(TAG, "Cell V>Max");
         // *** Stop charging, we are at or above maximum ***
 
         // Find the lowest "limited" pack voltage
@@ -480,7 +486,42 @@ uint16_t Rules::ChargeVoltage(diybms_eeprom_settings *mysettings)
         // Return MIN of either the "lowest pack voltage" or the "user specified value"
         return min(lowest, (uint32_t)mysettings->chargevolt);
     }
+
+    // At this point all cell voltages are UNDER the target cellmaxmv
+
+    // This is unlikely to work if the value is changed from 1 (an integer)
+    const uint16_t UniformDerating = 1;
+    // Calculate voltage range
+    uint32_t R = min((mysettings->cellmaxmv - highestCellVoltage) * UniformDerating, (mysettings->cellmaxmv - mysettings->kneemv) / 3);
+
+    ESP_LOGD(TAG, "R=%u", R);
+
+    // We use the pack with the highest cell voltage for these calculations - although hopefully all packs are very similar :-)
+    uint32_t S = packvoltage[index_bank_HighestCellVoltage];
+    ESP_LOGD(TAG, "S=%u", S);
+
+    uint32_t HminusR = (uint32_t)highestCellVoltage - R;
+    ESP_LOGD(TAG, "HminusR=%u", HminusR);
+
+    uint32_t MminusH = mysettings->cellmaxmv - highestCellVoltage;
+    ESP_LOGD(TAG, "MminusH=%u", MminusH);
+
+    // Jump to start of cells in the correct bank.
+    uint8_t cellid = index_bank_HighestCellVoltage * mysettings->totalNumberOfSeriesModules;
+    for (uint8_t i = 0; i < mysettings->totalNumberOfSeriesModules; i++)
+    {
+        if (cellarray[i].voltagemV >= HminusR)
+        {
+            S += ((MminusH) * (cellarray[i].voltagemV - (HminusR)) / R);
+        }
+
+        ESP_LOGD(TAG, "id=%u, V=%u, S=%u", cellid, cellarray[i].voltagemV, S);
+    }
+
+    // Return MIN of either the above calculation or the "user specified value"
+    return min(S, (uint32_t)mysettings->chargevolt);
 }
+
 int16_t Rules::ChargeCurrent(diybms_eeprom_settings *mysettings)
 {
     return mysettings->chargecurrent;

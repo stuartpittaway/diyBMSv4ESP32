@@ -83,6 +83,8 @@ public:
 
     // Identify address (id) of which module reports the highest/lowest values
     uint8_t address_HighestCellVoltage;
+    // Bank with the highest cell voltage in it
+    uint8_t index_bank_HighestCellVoltage;
     uint8_t address_LowestCellVoltage;
     uint8_t address_highestExternalTemp;
     uint8_t address_lowestExternalTemp;
@@ -133,7 +135,7 @@ public:
     bool IsChargeAllowed(diybms_eeprom_settings *mysettings);
     bool IsDischargeAllowed(diybms_eeprom_settings *mysettings);
     bool SharedChargingDischargingRules(diybms_eeprom_settings *mysettings);
-    uint16_t ChargeVoltage(diybms_eeprom_settings *mysettings);
+    uint16_t ChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *c);
     int16_t ChargeCurrent(diybms_eeprom_settings *mysettings);
 };
 

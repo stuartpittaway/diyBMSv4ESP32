@@ -177,7 +177,7 @@ void victron_message_351()
   else
   {
     // Default - normal behaviour
-    data.chargevoltagelimit = rules.ChargeVoltage(&mysettings);
+    data.chargevoltagelimit = rules.ChargeVoltage(&mysettings,cmi);
     data.maxchargecurrent = rules.ChargeCurrent(&mysettings);
     data.maxdischargecurrent = mysettings.dischargecurrent;
   }
