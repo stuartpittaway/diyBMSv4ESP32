@@ -467,7 +467,14 @@ uint16_t Rules::ChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo
         return mysettings->chargevolt;
     }
 
-    // M = uint16_t targetCellVoltage=mysettings->cellmaxmv
+    // If the cells are all below the knee voltage, just carry on as normal
+    if (highestCellVoltage <= mysettings->kneemv)
+    {
+        return mysettings->chargevolt;
+    }
+
+    // Some cells are above the knee voltage....
+
     if (highestCellVoltage >= mysettings->cellmaxmv)
     {
         ESP_LOGW(TAG, "Cell V>Max");
@@ -491,9 +498,9 @@ uint16_t Rules::ChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo
 
     // This is unlikely to work if the value is changed from 1 (an integer)
     const uint16_t UniformDerating = 1;
+
     // Calculate voltage range
     uint32_t R = min((mysettings->cellmaxmv - highestCellVoltage) * UniformDerating, (mysettings->cellmaxmv - mysettings->kneemv) / 3);
-
     ESP_LOGD(TAG, "R=%u", R);
 
     // We use the pack with the highest cell voltage for these calculations - although hopefully all packs are very similar :-)
