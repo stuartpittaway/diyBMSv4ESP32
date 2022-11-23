@@ -44,7 +44,7 @@ button:focus {border-color: white;}
 .success {padding:10px;display:none; width:100%;}
 .warning {padding:10px;display:none; width:100%;}
 .page {clear:both; width:100%; display:none;margin-top:5px;}
-.page .region {float:left;padding:8px;margin-right:8px;width:45%;margin-bottom:8px;min-height:220px;}
+.page .region {float:left;padding:8px;margin-right:8px;width:45%;margin-bottom:8px;min-height:240px;}
 #modulesTable { width:100%; border-collapse: collapse; }
 #modulesTable tbody tr td {font-family: 'Fira Code', monospace;text-align:right;}
 #modulesTable thead tr th {text-align:right;}
@@ -66,6 +66,8 @@ button:focus {border-color: white;}
 
   .logo{width:75px;height:20px;}
   .logocontainer {width:80px;height:28px;}
+
+  .settings label {min-width: auto !important;}
 }
 
 /* Blue style */
