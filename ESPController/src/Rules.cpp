@@ -26,6 +26,7 @@ void Rules::ClearValues()
     // Array to hold the total voltage of each bank/pack (in millivolts)
     for (uint8_t r = 0; r < maximum_number_of_banks; r++)
     {
+        limitedpackvoltage[r] = 0;
         packvoltage[r] = 0;
         lowestvoltageinpack[r] = 0xFFFF;
         highestvoltageinpack[r] = 0;
@@ -50,7 +51,7 @@ void Rules::ClearValues()
 }
 
 // Looking at individual voltages and temperatures and sum up pack voltages.
-void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c)
+void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uint16_t cellmaxmv)
 {
     if (c->valid == false)
     {
@@ -59,6 +60,7 @@ void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c)
     }
 
     packvoltage[bank] += c->voltagemV;
+    limitedpackvoltage[bank] += min(c->voltagemV, cellmaxmv);
 
     // If the voltage of the module is zero, we probably haven't requested it yet (which happens during power up)
     // so keep count so we don't accidentally trigger rules.
@@ -298,7 +300,6 @@ void Rules::RunRules(
             // Rule Individual cell over temperature (external probe) - HYSTERESIS RESET
             rule_outcome[Rule::ModuleOverTemperatureExternal] = false;
         }
-
         // Doesn't cater for negative temperatures on rule (int8 vs uint32)
         if (((uint8_t)lowestExternalTemp < value[Rule::ModuleUnderTemperatureExternal]) && rule_outcome[Rule::ModuleUnderTemperatureExternal] == false)
         {
@@ -405,13 +406,13 @@ bool Rules::SharedChargingDischargingRules(diybms_eeprom_settings *mysettings)
 }
 bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
 {
-    if (SharedChargingDischargingRules(mysettings)==false)
+    if (SharedChargingDischargingRules(mysettings) == false)
         return false;
 
     if (mysettings->preventcharging == true)
         return false;
 
-    if (lowestExternalTemp < mysettings->chargetemplow | highestExternalTemp > mysettings->chargetemphigh)
+    if (lowestExternalTemp<mysettings->chargetemplow | highestExternalTemp> mysettings->chargetemphigh)
     {
         // Stop charge - temperature out of range
         // ESP_LOGW(TAG, "Stop charge - temperature out of range");
@@ -430,7 +431,7 @@ bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
 }
 bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
 {
-    if (SharedChargingDischargingRules(mysettings)==false)
+    if (SharedChargingDischargingRules(mysettings) == false)
         return false;
 
     if (mysettings->preventdischarge == true)
@@ -451,4 +452,36 @@ bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
         return false;
 
     return true;
+}
+// Apply "dynamic" charge voltage rules
+// This will always return a charge voltage - its the calling functions responsibility
+// to check "IsChargeAllowed" function and take necessary action.
+// Thanks to Matthias U (Smurfix) for the ideas and pseudo code https://community.openenergymonitor.org/u/smurfix/
+uint16_t Rules::ChargeVoltage(diybms_eeprom_settings *mysettings)
+{
+
+    return mysettings->chargevolt;
+
+    // M = uint16_t targetCellVoltage=mysettings->cellmaxmv
+    if (highestCellVoltage >= mysettings->cellmaxmv)
+    {
+        // *** Stop charging, we are at or above maximum ***
+
+        // Find the lowest "limited" pack voltage
+        uint32_t lowest = 0xFFFFFFFF;
+        for (uint8_t r = 0; r < mysettings->totalNumberOfBanks; r++)
+        {
+            if (limitedpackvoltage[r] < lowest)
+            {
+                lowest = limitedpackvoltage[r];
+            }
+        }
+
+        // Return MIN of either the "lowest pack voltage" or the "user specified value"
+        return min(lowest, (uint32_t)mysettings->chargevolt);
+    }
+}
+int16_t Rules::ChargeCurrent(diybms_eeprom_settings *mysettings)
+{
+    return mysettings->chargecurrent;
 }

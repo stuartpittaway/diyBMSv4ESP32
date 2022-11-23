@@ -66,7 +66,10 @@ public:
     // Number of TRUE values in array rule_outcome
     uint8_t active_rule_count;
 
+    //Actual pack voltage reported by the modules
     uint32_t packvoltage[maximum_number_of_banks];
+    //As above, but each voltage reading limited to "cellmaxmv" setting (used for charge voltage calc)
+    uint32_t limitedpackvoltage[maximum_number_of_banks];
 
     uint16_t lowestvoltageinpack[maximum_number_of_banks];
     uint16_t highestvoltageinpack[maximum_number_of_banks];
@@ -103,7 +106,7 @@ public:
     int8_t numberOfBalancingModules;
 
     void ClearValues();
-    void ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c);
+    void ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uint16_t cellmaxmv);
     void ProcessBank(uint8_t bank);
     void SetWarning(InternalWarningCode warncode);
 
@@ -130,6 +133,8 @@ public:
     bool IsChargeAllowed(diybms_eeprom_settings *mysettings);
     bool IsDischargeAllowed(diybms_eeprom_settings *mysettings);
     bool SharedChargingDischargingRules(diybms_eeprom_settings *mysettings);
+    uint16_t ChargeVoltage(diybms_eeprom_settings *mysettings);
+    int16_t ChargeCurrent(diybms_eeprom_settings *mysettings);
 };
 
 #endif

@@ -1198,7 +1198,7 @@ void ProcessRules()
   {
     for (int8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
     {
-      rules.ProcessCell(bank, cellid, &cmi[cellid]);
+      rules.ProcessCell(bank, cellid, &cmi[cellid], mysettings.cellmaxmv);
 
       if (cmi[cellid].valid && cmi[cellid].settingsCached)
       {
@@ -1265,9 +1265,10 @@ void ProcessRules()
       minutesSinceMidnight(),
       &currentMonitor);
 
-  if (rules.moduleHasExternalTempSensor==false) {
-      // NoExternalTempSensor
-      rules.SetWarning(InternalWarningCode::NoExternalTempSensor);
+  if (rules.moduleHasExternalTempSensor == false)
+  {
+    // NoExternalTempSensor
+    rules.SetWarning(InternalWarningCode::NoExternalTempSensor);
   }
 
   if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
@@ -2724,8 +2725,10 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
   // Just outside the ranges of 56.0V and 49.6V
   _myset->cellminmv = 3050;
   _myset->cellmaxmv = 3550;
+  _myset->kneemv = 3400;
   _myset->stopchargebalance = true;
   _myset->socoverride = false;
+  _myset->dynamiccharge = true;
   _myset->preventcharging = false;
   _myset->preventdischarge = false;
 

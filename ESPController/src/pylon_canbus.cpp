@@ -47,8 +47,8 @@ void pylon_message_351()
     else
     {
       // Default - normal behaviour
-      data.battery_charge_voltage = mysettings.chargevolt;
-      data.battery_charge_current_limit = mysettings.chargecurrent;
+      data.battery_charge_voltage = rules.ChargeVoltage(&mysettings);
+      data.battery_charge_current_limit = rules.ChargeCurrent(&mysettings);
     }
   }
 

@@ -560,10 +560,12 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   settings["dischargetemphigh"] = mysettings.dischargetemphigh;
   settings["stopchargebalance"] = mysettings.stopchargebalance;
   settings["socoverride"] = mysettings.socoverride;
+  settings["dynamiccharge"]=mysettings.dynamiccharge;
   settings["preventdischarge"] = mysettings.preventdischarge;
   settings["preventcharging"] = mysettings.preventcharging;
   settings["cellminmv"] = mysettings.cellminmv;
   settings["cellmaxmv"] = mysettings.cellmaxmv;
+  settings["kneemv"]=mysettings.kneemv;
 
   /*settings["enabled"] = mysettings.VictronEnabled;
   JsonArray cvl = settings.createNestedArray("cvl");

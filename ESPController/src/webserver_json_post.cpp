@@ -333,10 +333,12 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
         root["dischargetemphigh"] = mysettings.dischargetemphigh;
         root["stopchargebalance"] = mysettings.stopchargebalance;
         root["socoverride"] = mysettings.socoverride;
+        root["dynamiccharge"] = mysettings.dynamiccharge;
         root["preventdischarge"] = mysettings.preventdischarge;
         root["preventcharging"] = mysettings.preventcharging;
         root["cellminmv"] = mysettings.cellminmv;
         root["cellmaxmv"] = mysettings.cellmaxmv;
+        root["kneemv"]=mysettings.kneemv;
 
         // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
 
@@ -614,6 +616,9 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     if (GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded))
     {
     }
+    if (GetKeyValue(httpbuf, "kneemv", &mysettings.kneemv, urlEncoded))
+    {
+    }
 
     float temp_float;
     if (GetKeyValue(httpbuf, "chargevolt", &temp_float, urlEncoded))
@@ -638,6 +643,10 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
     mysettings.socoverride = false;
     if (GetKeyValue(httpbuf, "socoverride", &mysettings.socoverride, urlEncoded))
+    {
+    }
+    mysettings.dynamiccharge = false;
+    if (GetKeyValue(httpbuf, "dynamiccharge", &mysettings.dynamiccharge, urlEncoded))
     {
     }
     mysettings.preventcharging = false;
@@ -1156,10 +1165,12 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                 mysettings.dischargetemphigh = root["dischargetemphigh"];
                 mysettings.stopchargebalance = root["stopchargebalance"];
                 mysettings.socoverride = root["socoverride"];
+                mysettings.dynamiccharge= root["dynamiccharge"];
                 mysettings.preventdischarge = root["preventdischarge"];
                 mysettings.preventcharging = root["preventcharging"];
                 mysettings.cellminmv = root["cellminmv"];
                 mysettings.cellmaxmv = root["cellmaxmv"];
+                mysettings.kneemv=root["kneemv"];
 
                 JsonObject mqtt = root["mqtt"];
                 if (!mqtt.isNull())

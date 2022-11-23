@@ -171,16 +171,18 @@ struct diybms_eeprom_settings
   uint16_t chargecurrent;
   uint16_t dischargecurrent;
   uint16_t dischargevolt;
+  uint16_t cellminmv;
+  uint16_t cellmaxmv;
+  uint16_t kneemv;
   int8_t chargetemplow;
   int8_t chargetemphigh;
   int8_t dischargetemplow;
   int8_t dischargetemphigh;
   bool stopchargebalance;
   bool socoverride;
+  bool dynamiccharge;
   bool preventcharging;
   bool preventdischarge;
-  uint16_t cellminmv;
-  uint16_t cellmaxmv;
 
   // NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;

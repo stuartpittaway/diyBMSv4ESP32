@@ -1556,16 +1556,19 @@ $(function () {
                 $("#dischargecurrent").val((data.chargeconfig.dischargecurrent / 10.0).toFixed(1));
                 $("#dischargevolt").val((data.chargeconfig.dischargevolt / 10.0).toFixed(1));
 
+                $("#cellminmv").val(data.chargeconfig.cellminmv);
+                $("#cellmaxmv").val(data.chargeconfig.cellmaxmv);
+                $("#kneemv").val(data.chargeconfig.kneemv);
+
                 $("#chargetemplow").val(data.chargeconfig.chargetemplow);
                 $("#chargetemphigh").val(data.chargeconfig.chargetemphigh);
                 $("#dischargetemplow").val(data.chargeconfig.dischargetemplow);
                 $("#dischargetemphigh").val(data.chargeconfig.dischargetemphigh);
-
-                $("#cellminmv").val(data.chargeconfig.cellminmv);
-                $("#cellmaxmv").val(data.chargeconfig.cellmaxmv);
+               
 
                 $("#stopchargebalance").prop("checked", data.chargeconfig.stopchargebalance);
                 $("#socoverride").prop("checked", data.chargeconfig.socoverride);
+                $("#dynamiccharge").prop("checked", data.chargeconfig.dynamiccharge);                
                 $("#preventcharging").prop("checked", data.chargeconfig.preventcharging);
                 $("#preventdischarge").prop("checked", data.chargeconfig.preventdischarge);
 
