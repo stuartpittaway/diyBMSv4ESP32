@@ -77,13 +77,22 @@ void pylon_message_355()
     // 0 SOC value un16 1 %
     data.stateofchargevalue = round(currentMonitor.stateofcharge);
 
-    if (mysettings.socoverride && data.stateofchargevalue > 99)
+    if (mysettings.socoverride)
     {
-      // Force inverter SoC reading to 99%, this should force it to continue charging the battery
-      // this is helpful when first commissioning as most inverters stop charging at 100% SOC
-      // even though the battery may not be full, and the DIYBMS current monitor has not learnt capacity yet.
-      // This function should not be left permanently switched on - you could damage the battery.
-      data.stateofchargevalue = 99;
+      if (data.stateofchargevalue > 99)
+      {
+        // Force inverter SoC reading to 99%, this should force it to continue charging the battery
+        // this is helpful when first commissioning as most inverters stop charging at 100% SOC
+        // even though the battery may not be full, and the DIYBMS current monitor has not learnt capacity yet.
+        // This function should not be left permanently switched on - you could damage the battery.
+        data.stateofchargevalue = 99;
+      }
+      if (data.stateofchargevalue < 21)
+      {
+        // Force minimum of 21% - some inverters will force charge a battery lower than 
+        // this level limiting the charge current to 500W
+        data.stateofchargevalue = 21;
+      }
     }
 
     //  2 SOH value un16 1 %
