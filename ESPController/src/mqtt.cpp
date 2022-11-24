@@ -159,8 +159,8 @@ void GeneralStatusPayload(PacketRequestGenerator *prg, PacketReceiveProcessor *r
     status.append(",\"roundtrip\":").append(std::to_string(receiveProc->packetTimerMillisecond));
     if (mysettings.dynamiccharge)
     {
-        status.append(",\"dynchargev\":").append(float_to_string(((float)rules->DynamicChargeVoltage()) * 10.0));
-        status.append(",\"dynchargec\":").append(float_to_string(((float)rules->DynamicChargeCurrent()) * 10.0));
+        status.append(",\"dynchargev\":").append(float_to_string(((float)rules->DynamicChargeVoltage()) / 10.0));
+        status.append(",\"dynchargec\":").append(float_to_string(((float)rules->DynamicChargeCurrent()) / 10.0));
     }
     status.append("}");
 
