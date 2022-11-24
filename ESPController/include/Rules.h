@@ -60,15 +60,18 @@ enum InternalErrorCode : uint8_t
 
 class Rules
 {
+private:
+    uint16_t dynamicChargeVoltage;
+    uint16_t dynamicChargeCurrent;
 
 public:
     bool rule_outcome[RELAY_RULES];
     // Number of TRUE values in array rule_outcome
     uint8_t active_rule_count;
 
-    //Actual pack voltage reported by the modules
+    // Actual pack voltage reported by the modules
     uint32_t packvoltage[maximum_number_of_banks];
-    //As above, but each voltage reading limited to "cellmaxmv" setting (used for charge voltage calc)
+    // As above, but each voltage reading limited to "cellmaxmv" setting (used for charge voltage calc)
     uint32_t limitedpackvoltage[maximum_number_of_banks];
 
     uint16_t lowestvoltageinpack[maximum_number_of_banks];
@@ -135,8 +138,10 @@ public:
     bool IsChargeAllowed(diybms_eeprom_settings *mysettings);
     bool IsDischargeAllowed(diybms_eeprom_settings *mysettings);
     bool SharedChargingDischargingRules(diybms_eeprom_settings *mysettings);
-    uint16_t ChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *c);
-    int16_t ChargeCurrent(diybms_eeprom_settings *mysettings);
+    void CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
+    void CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
+    uint16_t DynamicChargeVoltage();
+    int16_t DynamicChargeCurrent();
 };
 
 #endif

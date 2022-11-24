@@ -1236,6 +1236,10 @@ void ProcessRules()
     rules.ProcessBank(bank);
   }
 
+  //Need to call these even if Dynamic is switch off, as it seeds the internal variables with the correct values
+  rules.CalculateDynamicChargeVoltage(&mysettings, cmi);
+  rules.CalculateDynamicChargeCurrent(&mysettings, cmi);
+
   if (mysettings.loggingEnabled && !_sd_card_installed && !_avrsettings.programmingModeEnabled)
   {
     rules.SetWarning(InternalWarningCode::LoggingEnabledNoSDCard);

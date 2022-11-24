@@ -49,6 +49,8 @@ void Rules::ClearValues()
     address_highestExternalTemp = maximum_controller_cell_modules + 1;
     address_HighestCellVoltage = maximum_controller_cell_modules + 1;
     index_bank_HighestCellVoltage = 0;
+
+    dynamicChargeVoltage = 0;
 }
 
 // Looking at individual voltages and temperatures and sum up pack voltages.
@@ -455,26 +457,47 @@ bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
 
     return true;
 }
+
+// Charge voltage calculated by CalculateDynamicChargeVoltage
+uint16_t Rules::DynamicChargeVoltage()
+{
+    return dynamicChargeVoltage;
+}
+// Charge current calculated by CalculateDynamicChargeCurrent
+int16_t Rules::DynamicChargeCurrent()
+{
+    return dynamicChargeCurrent;
+}
+
+// Apply "dynamic" charge current rules
+// **TODO** At present, this is a fixed value based on user
+void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray)
+{
+    dynamicChargeCurrent=mysettings->chargecurrent;
+}
+
 // Apply "dynamic" charge voltage rules
 // This will always return a charge voltage - its the calling functions responsibility
 // to check "IsChargeAllowed" function and take necessary action.
 // Thanks to Matthias U (Smurfix) for the ideas and pseudo code https://community.openenergymonitor.org/u/smurfix/
-uint16_t Rules::ChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray)
+// Output is cached in variable dynamicChargeVoltage as its used in multiple places
+void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray)
 {
     if (!mysettings->dynamiccharge)
     {
         // Its switched off, use default voltage
-        return mysettings->chargevolt;
+        dynamicChargeVoltage = mysettings->chargevolt;
+        return;
     }
 
     // If the cells are all below the knee voltage, just carry on as normal
     if (highestCellVoltage <= mysettings->kneemv)
     {
-        return mysettings->chargevolt;
+        dynamicChargeVoltage = mysettings->chargevolt;
+        return;
     }
 
     // Some cells are above the knee voltage....
-
     if (highestCellVoltage >= mysettings->cellmaxmv)
     {
         ESP_LOGW(TAG, "Cell V>Max");
@@ -491,7 +514,8 @@ uint16_t Rules::ChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo
         }
 
         // Return MIN of either the "lowest pack voltage" or the "user specified value"
-        return min(lowest, (uint32_t)mysettings->chargevolt);
+        dynamicChargeVoltage = min(lowest, (uint32_t)mysettings->chargevolt);
+        return;
     }
 
     // At this point all cell voltages are UNDER the target cellmaxmv
@@ -526,10 +550,6 @@ uint16_t Rules::ChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo
     }
 
     // Return MIN of either the above calculation or the "user specified value"
-    return min(S, (uint32_t)mysettings->chargevolt);
+    dynamicChargeVoltage = min(S, (uint32_t)mysettings->chargevolt);
 }
 
-int16_t Rules::ChargeCurrent(diybms_eeprom_settings *mysettings)
-{
-    return mysettings->chargecurrent;
-}
