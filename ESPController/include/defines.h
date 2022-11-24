@@ -336,7 +336,7 @@ struct currentmonitor_raw_modbus
   int16_t temperature;
   uint16_t flags;
   float power;
-  float shuntmV;
+  int32_t shuntmV;
   float currentlsb;
   float shuntresistance;
   uint16_t shuntmaxcurrent;
