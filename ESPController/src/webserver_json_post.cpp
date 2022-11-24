@@ -333,6 +333,7 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
         root["dischargetemphigh"] = mysettings.dischargetemphigh;
         root["stopchargebalance"] = mysettings.stopchargebalance;
         root["socoverride"] = mysettings.socoverride;
+        root["socforcelow"]=mysettings.socforcelow;
         root["dynamiccharge"] = mysettings.dynamiccharge;
         root["preventdischarge"] = mysettings.preventdischarge;
         root["preventcharging"] = mysettings.preventcharging;
@@ -643,6 +644,10 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
     mysettings.socoverride = false;
     if (GetKeyValue(httpbuf, "socoverride", &mysettings.socoverride, urlEncoded))
+    {
+    }
+    mysettings.socforcelow=false;
+    if (GetKeyValue(httpbuf, "socforcelow", &mysettings.socforcelow, urlEncoded))
     {
     }
     mysettings.dynamiccharge = false;
@@ -1165,6 +1170,7 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                 mysettings.dischargetemphigh = root["dischargetemphigh"];
                 mysettings.stopchargebalance = root["stopchargebalance"];
                 mysettings.socoverride = root["socoverride"];
+                mysettings.socforcelow=root["socforcelow"];
                 mysettings.dynamiccharge= root["dynamiccharge"];
                 mysettings.preventdischarge = root["preventdischarge"];
                 mysettings.preventcharging = root["preventcharging"];

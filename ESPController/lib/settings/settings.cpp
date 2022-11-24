@@ -26,12 +26,10 @@ bool Settings::ReadConfig(const char *tag, char *settings, int size)
 
   prefs.begin(tag);
 
-
   size_t schLen = prefs.getBytesLength("bytes");
 
   if (schLen == size)
   {
-
     prefs.getBytes("bytes", settings, schLen);
 
     // Calculate the checksum

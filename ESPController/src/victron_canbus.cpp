@@ -123,27 +123,7 @@ That strategy does not work with a Victron system.
 */
 void victron_message_351()
 {
-
   uint8_t number_of_active_errors = 0;
-
-  if (_controller_state == ControllerState::Running)
-  {
-    number_of_active_errors += (rules.rule_outcome[Rule::BankOverVoltage] ? 1 : 0);
-    //(bit 4+5) Battery high voltage alarm
-    number_of_active_errors += (rules.rule_outcome[Rule::BankUnderVoltage] ? 1 : 0);
-    //(bit 6+7) Battery high temperature alarm
-    if (rules.moduleHasExternalTempSensor)
-    {
-      number_of_active_errors += (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? 1 : 0);
-    }
-
-    if (rules.moduleHasExternalTempSensor)
-    {
-      number_of_active_errors += (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? 1 : 0);
-    }
-
-    number_of_active_errors += ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? 1 : 0);
-  }
 
   struct data351
   {
@@ -159,48 +139,32 @@ void victron_message_351()
 
   data351 data;
 
-  if ((_controller_state != ControllerState::Running) || (number_of_active_errors > 0))
-  {
-    ESP_LOGW(TAG, "active_errors=%u", number_of_active_errors);
-    // Error condition
-    data.chargevoltagelimit = 0;
-    data.maxchargecurrent = 0;
-    data.maxdischargecurrent = 0;
-  }
-  else if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
-  {
-    // Balancing, stop charge, allow discharge
-    data.chargevoltagelimit = 0;
-    data.maxchargecurrent = 0;
-    data.maxdischargecurrent = mysettings.dischargecurrent;
-  }
-  else
-  {
-    // Default - normal behaviour
-    data.chargevoltagelimit = rules.DynamicChargeVoltage();
-    data.maxchargecurrent = rules.DynamicChargeCurrent();
-    data.maxdischargecurrent = mysettings.dischargecurrent;
-  }
-
+  //  Defaults (do nothing)
+  data.chargevoltagelimit = 0;
+  data.maxchargecurrent = 0;
+  data.maxdischargecurrent = 0;
   data.dischargevoltage = mysettings.dischargevolt;
 
-  // Check battery temperature against charge/discharge parameters
-  if (_controller_state == ControllerState::Running && rules.moduleHasExternalTempSensor)
+  if (rules.IsChargeAllowed(&mysettings) == false)
   {
-    if (rules.lowestExternalTemp<mysettings.dischargetemplow | rules.highestExternalTemp> mysettings.dischargetemphigh)
+    if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
     {
-      // Stop discharge - temperature out of range
-      data.maxdischargecurrent = 0;
-      ESP_LOGW(TAG, "Stop discharge - temperature out of range");
-    }
-
-    if (rules.lowestExternalTemp<mysettings.chargetemplow | rules.highestExternalTemp> mysettings.chargetemphigh)
-    {
-      // Stop charge - temperature out of range
+      // Balancing, stop charge, allow discharge
       data.chargevoltagelimit = 0;
       data.maxchargecurrent = 0;
-      ESP_LOGW(TAG, "Stop charge - temperature out of range");
     }
+    else
+    {
+      // Default - normal behaviour
+      data.chargevoltagelimit = rules.DynamicChargeVoltage();
+      data.maxchargecurrent = rules.DynamicChargeCurrent();
+    }
+  }
+  data.dischargevoltage = mysettings.dischargevolt;
+
+  if (rules.IsDischargeAllowed(&mysettings))
+  {
+    data.maxdischargecurrent = mysettings.dischargecurrent;
   }
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
@@ -220,7 +184,7 @@ void victron_message_355()
   {
     data355 data;
     // 0 SOC value un16 1 %
-    data.stateofchargevalue = currentMonitor.stateofcharge;
+    data.stateofchargevalue = rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
     // 2 SOH value un16 1 %
     // data.stateofhealthvalue = 100;
 

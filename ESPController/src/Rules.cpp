@@ -51,6 +51,7 @@ void Rules::ClearValues()
     index_bank_HighestCellVoltage = 0;
 
     dynamicChargeVoltage = 0;
+    dynamicChargeCurrent = 0;
 }
 
 // Looking at individual voltages and temperatures and sum up pack voltages.
@@ -459,11 +460,13 @@ bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
 }
 
 // Charge voltage calculated by CalculateDynamicChargeVoltage
+// Scale 0.1 = 567 = 56.7V
 uint16_t Rules::DynamicChargeVoltage()
 {
     return dynamicChargeVoltage;
 }
 // Charge current calculated by CalculateDynamicChargeCurrent
+// Scale 0.1 = 123 = 12.3Amps
 int16_t Rules::DynamicChargeCurrent()
 {
     return dynamicChargeCurrent;
@@ -473,7 +476,8 @@ int16_t Rules::DynamicChargeCurrent()
 // **TODO** At present, this is a fixed value based on user
 void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray)
 {
-    dynamicChargeCurrent=mysettings->chargecurrent;
+    // Remember dynamicChargeCurrent scale is 0.1
+    dynamicChargeCurrent = mysettings->chargecurrent;
 }
 
 // Apply "dynamic" charge voltage rules
@@ -513,6 +517,9 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
             }
         }
 
+        lowest = lowest / 100;
+        ESP_LOGD(TAG, "lowest=%u", lowest);
+
         // Return MIN of either the "lowest pack voltage" or the "user specified value"
         dynamicChargeVoltage = min(lowest, (uint32_t)mysettings->chargevolt);
         return;
@@ -549,7 +556,48 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
         ESP_LOGD(TAG, "id=%u, V=%u, S=%u", cellid, cellarray[i].voltagemV, S);
     }
 
+    // Scale down to 0.1V
+    S = S / 100;
+    ESP_LOGD(TAG, "S=%u", S);
+
     // Return MIN of either the above calculation or the "user specified value"
     dynamicChargeVoltage = min(S, (uint32_t)mysettings->chargevolt);
 }
 
+// Return SoC value after applying SOCFORCELOW and SOCOVERRIDE settings
+// also limits output range between 0 and 100
+uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC)
+{
+    uint16_t value = round(realSOC);
+
+    // Deliberately force SoC to be reported as 2%, to trick external CANBUS devices into trickle charging
+    if (mysettings->socforcelow)
+    {
+        value = 2;
+    }
+
+    if (mysettings->socoverride)
+    {
+        if (value > 99)
+        {
+            // Force inverter SoC reading to 99%, this should force it to continue charging the battery
+            // this is helpful when first commissioning as most inverters stop charging at 100% SOC
+            // even though the battery may not be full, and the DIYBMS current monitor has not learnt capacity yet.
+            // This function should not be left permanently switched on - you could damage the battery.
+            value = 99;
+        }
+        if (value < 21)
+        {
+            // Force minimum of 21% - some inverters will force charge a battery lower than
+            // this level limiting the charge current to 500W
+            value = 21;
+        }
+        // Limit to 100% maximum, DIYBMS current monitor can go above 100%, so don't confuse inverter/chargers
+        if (value > 100)
+        {
+            value = 100;
+        }
+    }
+
+    return value;
+}

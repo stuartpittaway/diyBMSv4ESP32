@@ -64,6 +64,8 @@ private:
     uint16_t dynamicChargeVoltage;
     uint16_t dynamicChargeCurrent;
 
+    bool SharedChargingDischargingRules(diybms_eeprom_settings *mysettings);
+
 public:
     bool rule_outcome[RELAY_RULES];
     // Number of TRUE values in array rule_outcome
@@ -137,11 +139,11 @@ public:
 
     bool IsChargeAllowed(diybms_eeprom_settings *mysettings);
     bool IsDischargeAllowed(diybms_eeprom_settings *mysettings);
-    bool SharedChargingDischargingRules(diybms_eeprom_settings *mysettings);
     void CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
     void CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
     uint16_t DynamicChargeVoltage();
     int16_t DynamicChargeCurrent();
+    uint16_t StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings,float realSOC);
 };
 
 #endif

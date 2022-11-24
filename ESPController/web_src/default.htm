@@ -146,7 +146,6 @@
         <span class="x t" title="Ignored request errors">Ignored requests:</span>
         <span class="x v"></span>
       </div>
-
       <div id="canfail" class="stat">
         <span class="x t" title="CAN send failure">CAN send error:</span>
         <span class="x v"></span>
@@ -189,7 +188,14 @@
           <span class="x t">CAN received:</span>
           <span class="x v"></span>
         </div>
-
+        <div id="dyncvolt" class="stat">
+          <span class="x t">Dyn. Chg. V:</span>
+          <span class="x v"></span>
+        </div>
+        <div id="dynccurr" class="stat">
+          <span class="x t">Dyn. Chg. Cur:</span>
+          <span class="x v"></span>
+        </div>
         <div id="graphOptions" class="stat">
           <span class="x t">Graph:</span>
           <span class="x v">
@@ -1158,8 +1164,12 @@
               <input type="checkbox" name="stopchargebalance" id="stopchargebalance" />
             </div>
             <div>
-              <label for="socoverride">Override State of Charge (force charging)</label>
+              <label for="socoverride">Override State of Charge (default off)</label>
               <input type="checkbox" name="socoverride" id="socoverride" />
+            </div>
+            <div>
+              <label for="socforcelow">Force low S.o.C (default off)</label>
+              <input type="checkbox" name="socforcelow" id="socforcelow" />
             </div>
 
             <div>

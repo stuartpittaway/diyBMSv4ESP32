@@ -474,6 +474,15 @@ function queryBMS() {
                 $("#activerules").html(jsondata.activerules);
                 $("#activerules").show(400);
             }
+
+            if (jsondata.dyncv) {
+                $("#dyncvolt .v").html(parseFloat(jsondata.dyncv/10).toFixed(2) + "V");
+                $("#dyncvolt").show();
+            } else {$("#dyncvolt").hide();}
+            if (jsondata.dyncc) {
+                $("#dynccurr .v").html(parseFloat(jsondata.dyncc/10).toFixed(2) + "A");
+                $("#dynccurr").show();
+            } else { $("#dynccurr").hide();}
         }
 
         if (jsondata.bankv) {
@@ -1564,11 +1573,12 @@ $(function () {
                 $("#chargetemphigh").val(data.chargeconfig.chargetemphigh);
                 $("#dischargetemplow").val(data.chargeconfig.dischargetemplow);
                 $("#dischargetemphigh").val(data.chargeconfig.dischargetemphigh);
-               
+
 
                 $("#stopchargebalance").prop("checked", data.chargeconfig.stopchargebalance);
                 $("#socoverride").prop("checked", data.chargeconfig.socoverride);
-                $("#dynamiccharge").prop("checked", data.chargeconfig.dynamiccharge);                
+                $("#socforcelow").prop("checked", data.chargeconfig.socforcelow);                
+                $("#dynamiccharge").prop("checked", data.chargeconfig.dynamiccharge);
                 $("#preventcharging").prop("checked", data.chargeconfig.preventcharging);
                 $("#preventdischarge").prop("checked", data.chargeconfig.preventdischarge);
 

@@ -560,12 +560,13 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   settings["dischargetemphigh"] = mysettings.dischargetemphigh;
   settings["stopchargebalance"] = mysettings.stopchargebalance;
   settings["socoverride"] = mysettings.socoverride;
-  settings["dynamiccharge"]=mysettings.dynamiccharge;
+  settings["socforcelow"]=mysettings.socforcelow;
+  settings["dynamiccharge"] = mysettings.dynamiccharge;
   settings["preventdischarge"] = mysettings.preventdischarge;
   settings["preventcharging"] = mysettings.preventcharging;
   settings["cellminmv"] = mysettings.cellminmv;
   settings["cellmaxmv"] = mysettings.cellmaxmv;
-  settings["kneemv"]=mysettings.kneemv;
+  settings["kneemv"] = mysettings.kneemv;
 
   /*settings["enabled"] = mysettings.VictronEnabled;
   JsonArray cvl = settings.createNestedArray("cvl");
@@ -851,6 +852,14 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          canbus_messages_failed_sent, canbus_messages_sent,
                          canbus_messages_received, &CookieValue[sizeof(CookieValue) - 3],
                          prg.queueLength());
+
+  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
+  {
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
+                           "\"dyncv\":%u,\"dyncc\":%u,",
+                           rules.DynamicChargeVoltage(),
+                           rules.DynamicChargeCurrent());
+  }
 
   // current
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"current\":[");

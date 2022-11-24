@@ -2732,6 +2732,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
   _myset->kneemv = 3400;
   _myset->stopchargebalance = true;
   _myset->socoverride = false;
+  _myset->socforcelow=false;
   _myset->dynamiccharge = true;
   _myset->preventcharging = false;
   _myset->preventdischarge = false;

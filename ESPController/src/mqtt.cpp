@@ -141,7 +141,7 @@ void connectToMqtt()
     }
 }
 
-void GeneralStatusPayload(PacketRequestGenerator *prg, PacketReceiveProcessor *receiveProc, uint16_t requestq_count)
+void GeneralStatusPayload(PacketRequestGenerator *prg, PacketReceiveProcessor *receiveProc, uint16_t requestq_count, Rules *rules)
 {
     ESP_LOGI(TAG, "General status payload");
     std::string status;
@@ -157,6 +157,11 @@ void GeneralStatusPayload(PacketRequestGenerator *prg, PacketReceiveProcessor *r
     status.append(",\"oos\":").append(std::to_string(receiveProc->totalOutofSequenceErrors));
     status.append(",\"sendqlvl\":").append(std::to_string(requestq_count));
     status.append(",\"roundtrip\":").append(std::to_string(receiveProc->packetTimerMillisecond));
+    if (mysettings.dynamiccharge)
+    {
+        status.append(",\"dynchargev\":").append(float_to_string(((float)rules->DynamicChargeVoltage()) * 10.0));
+        status.append(",\"dynchargec\":").append(float_to_string(((float)rules->DynamicChargeCurrent()) * 10.0));
+    }
     status.append("}");
 
     std::string topic = mysettings.mqtt_topic;
@@ -174,10 +179,10 @@ void BankLevelInformation(Rules *rules)
         std::string bank_status;
         bank_status.reserve(128);
         bank_status.append("{\"voltage\":")
-        .append(float_to_string(rules->packvoltage[bank] / 1000.0f))
-        .append(",\"range\":")
-        .append(std::to_string(rules->VoltageRangeInBank(bank)))
-        .append("}");
+            .append(float_to_string(rules->packvoltage[bank] / 1000.0f))
+            .append(",\"range\":")
+            .append(std::to_string(rules->VoltageRangeInBank(bank)))
+            .append("}");
         std::string topic = mysettings.mqtt_topic;
         topic.append("/bank/").append(std::to_string(bank));
         publish_message(topic, bank_status);
@@ -368,7 +373,7 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
         return;
     }
 
-    GeneralStatusPayload(prg, receiveProc, requestq_count);
+    GeneralStatusPayload(prg, receiveProc, requestq_count, rules);
     BankLevelInformation(rules);
     RuleStatus(rules);
     OutputStatus(previousRelayState);

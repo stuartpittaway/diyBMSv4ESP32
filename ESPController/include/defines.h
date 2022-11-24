@@ -178,8 +178,13 @@ struct diybms_eeprom_settings
   int8_t chargetemphigh;
   int8_t dischargetemplow;
   int8_t dischargetemphigh;
+  //Stop charging is a module is balancing
   bool stopchargebalance;
+  //Override SoC values reported over CANBUS - limited between 20% and 99%
   bool socoverride;
+  //Force a 2% SoC over CANBUS to trick charger/inverter into trickle charging
+  bool socforcelow;
+  //Dynamic charge control - voltage & current
   bool dynamiccharge;
   bool preventcharging;
   bool preventdischarge;
