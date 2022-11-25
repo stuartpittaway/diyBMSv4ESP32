@@ -495,13 +495,17 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
     }
 
     // If the cells are all below the knee voltage, just carry on as normal
+    /*
     if (highestCellVoltage <= mysettings->kneemv)
     {
         dynamicChargeVoltage = mysettings->chargevolt;
         return;
     }
-
     // Some cells are above the knee voltage....
+    */
+
+
+    // Are any cells at or over the maximum allowed? (panic!)
     if (highestCellVoltage >= mysettings->cellmaxmv)
     {
         ESP_LOGW(TAG, "Cell V>Max");
