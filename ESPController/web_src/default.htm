@@ -58,12 +58,10 @@
         <div class="notify-container">
           <a id="modules" href="#modules">Modules</a>
         </div>
-
         <div class="notify-container">
           <span class="notify-bubble" id="activerules"></span>
           <a id="rules" href="#rules">Rules</a>
         </div>
-
         <div class="notify-container"><a id="more" href="#">More</a></div>
       </div>
     </div>
@@ -376,9 +374,9 @@
               </div>
               <div>
                 <label for="Calib">Calibration multiplier</label>
-                <input id="Calib" name="Calib" type="number" min="1" max="5" step="0.0001" value="2.100" required="" />
+                <input id="Calib" name="Calib" type="number" min="0.5" max="5" step="0.0001" value="1" required="" />
                 <label for="ActualVoltage">Calculator - Actual measured voltage</label>
-                <input id="ActualVoltage" name="ActualVoltage" type="number" min="0" max="5" step="0.001" value="4.2" />
+                <input id="ActualVoltage" name="ActualVoltage" type="number" min="1" max="5" step="0.001" value="4.2" />
                 <button type="button" id="CalculateCalibration">Calculate</button>
               </div>
               <div>
