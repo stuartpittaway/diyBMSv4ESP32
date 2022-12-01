@@ -250,8 +250,9 @@ void MQTTCurrentMonitoring(currentmonitoring_struct *currentMonitor)
         {
             status.append(",\"mAhIn\":").append(std::to_string(currentMonitor->modbus.milliamphour_in));
             status.append(",\"mAhOut\":").append(std::to_string(currentMonitor->modbus.milliamphour_out));
+            status.append(",\"DailymAhIn\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_in));
+            status.append(",\"DailymAhOut\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_out));
             status.append(",\"temperature\":").append(std::to_string(currentMonitor->modbus.temperature));
-            status.append(",\"shuntmV\":").append(std::to_string(currentMonitor->modbus.shuntmV));
             status.append(",\"relayState\":").append(std::to_string(currentMonitor->RelayState ? 1 : 0));
             status.append(",\"soc\":").append(float_to_string(currentMonitor->stateofcharge));
         }

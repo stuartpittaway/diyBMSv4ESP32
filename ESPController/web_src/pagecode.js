@@ -74,6 +74,7 @@ function switchPage(newPage) {
     $(newPage).show();
     $("#myNav").height("0%");
 }
+
 function identifyModule(button, cellid) {
     $.getJSON("/api/identifyModule", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
@@ -120,8 +121,6 @@ function refreshCurrentMonitorValues() {
 
                 $("#cmtemperature").val(data.temperature);
                 $("#cmwatchdog").val(data.watchdog);
-                $("#cmactualshuntmv").val(data.actualshuntmv);
-                $("#cmcurrentlsb").val(data.currentlsb);
                 $("#cmresistance").val(data.resistance);
                 $("#cmcalibration").val(data.calibration);
 
@@ -364,7 +363,7 @@ function queryBMS() {
 
         var markLineData = [];
 
-        //markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+        markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
         //markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
         //markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
 
@@ -444,6 +443,7 @@ function queryBMS() {
         if (minVoltage < 2.5) { minVoltage = 0; }
 
         if (jsondata) {
+            /*
             if (jsondata.badcrc != 0) { $("#badcrc").show(); }
             if (jsondata.ignored != 0) { $("#ignored").show(); }
             if (jsondata.sent != 0) { $("#sent").show(); }
@@ -454,6 +454,7 @@ function queryBMS() {
             if (jsondata.can_sent != 0) { $("#cansent").show(); }
             if (jsondata.can_rec != 0) { $("#canrecd").show(); }
             if (jsondata.qlen != 0) { $("#qlen").show(); }
+            */
 
             $("#badcrc .v").html(jsondata.badcrc);
             $("#ignored .v").html(jsondata.ignored);
@@ -466,7 +467,8 @@ function queryBMS() {
             $("#canrecd .v").html(jsondata.can_rec);
             $("#qlen .v").html(jsondata.qlen);
 
-            $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
+            $("#uptime .v").html(secondsToHms(jsondata.uptime));
+            //$("#uptime").show();
 
             if (jsondata.activerules == 0) {
                 $("#activerules").hide();
@@ -477,27 +479,25 @@ function queryBMS() {
 
             if (jsondata.dyncv) {
                 $("#dyncvolt .v").html(parseFloat(jsondata.dyncv / 10).toFixed(2) + "V");
-                $("#dyncvolt").show();
-            } else { $("#dyncvolt").hide(); }
+                //$("#dyncvolt").show();
+            } //else { $("#dyncvolt").hide(); }
             if (jsondata.dyncc) {
                 $("#dynccurr .v").html(parseFloat(jsondata.dyncc / 10).toFixed(2) + "A");
-                $("#dynccurr").show();
-            } else { $("#dynccurr").hide(); }
+                //$("#dynccurr").show();
+            } //else { $("#dynccurr").hide(); }
         }
 
         if (jsondata.bankv) {
             for (var bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
                 $("#voltage" + bankNumber + " .v").html((parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2) + "V");
                 $("#range" + bankNumber + " .v").html(jsondata.voltrange[bankNumber] + "mV");
-                $("#voltage" + bankNumber).show();
-                $("#range" + bankNumber).show();
-                //$("#bank" + (bankNumber )).show();
+                $("#voltage" + bankNumber).show().removeClass("hide");
+                $("#range" + bankNumber).show().removeClass("hide");
             }
 
             for (var bankNumber = jsondata.bankv.length; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
-                //$("#bank" + (bankNumber )).hide();
-                $("#voltage" + bankNumber).hide();
-                $("#range" + bankNumber).hide();
+                $("#voltage" + bankNumber).hide().addClass("hide");
+                $("#range" + bankNumber).hide().addClass("hide");
             }
         }
 
@@ -512,44 +512,44 @@ function queryBMS() {
 
         if (jsondata.current) {
             if (jsondata.current[0] == null) {
-                $("#current").hide();
+                /*$("#current").hide();
                 $("#shuntv").hide();
                 $("#soc").hide();
                 $("#amphout").hide();
                 $("#amphin").hide();
-                $("#power").hide();
+                $("#power").hide();*/
             } else {
                 var data = jsondata.current[0];
 
                 $("#current .v").html(parseFloat(data.c).toFixed(2) + "A");
-                $("#current").show();
+                //$("#current").show();
 
                 $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
-                $("#shuntv").show();
+                //$("#shuntv").show();
 
                 if (data.soc != 0) {
                     $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
-                    $("#soc").show();
-                } else {
-                    $("#soc").hide();
-                }
+                    //$("#soc").show();
+                } //else {
+                //$("#soc").hide();
+                //}
 
                 $("#power .v").html(parseFloat(data.p) + "W");
-                $("#power").show();
+                //$("#power").show();
 
                 if (data.mahout != 0) {
                     $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
-                    $("#amphout").show();
-                } else {
-                    $("#amphout").hide();
-                }
+                    //$("#amphout").show();
+                } //else {
+                //$("#amphout").hide();
+                //}
 
                 if (data.mahin != 0) {
                     $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
-                    $("#amphin").show();
-                } else {
-                    $("#amphin").hide();
-                }
+                    //$("#amphin").show();
+                } //else {
+                //                    $("#amphin").hide();
+                //}
             }
         }
 
@@ -1036,9 +1036,6 @@ $(window).on('resize', function () {
     if (g2 != null && g2 != undefined && $('#homePage').is(':visible')) { g2.resize(); }
 });
 
-
-
-
 $(function () {
     $("#loading").show();
     $("#avrprogconfirm").hide();
@@ -1071,8 +1068,6 @@ $(function () {
     );
 
     $("#labelMaxModules").text(MAXIMUM_NUMBER_OF_SERIES_MODULES);
-
-
     for (var n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }
@@ -1111,7 +1106,24 @@ $(function () {
     $("#home").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
+        $(".graphs").show();
+        $("#graph1").show();
+        $("#graph2").hide();
         switchPage("#homePage");
+        return true;
+    });
+
+    $("#grid").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        //Use the home page for the grid, but hide graphs
+        switchPage("#homePage");
+        $(".graphs").hide();
+        $("#graph1").hide();
+        $("#graph2").hide();
+        //Show all statistic panels (which are not forced hidden)
+        $("#info .stat").not(".hide").show();
+        $("#info .infogroup").addClass("box");
         return true;
     });
 

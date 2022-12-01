@@ -593,7 +593,7 @@ void sdcardlog_task(void *param)
                 if (file)
                 {
                   ESP_LOGI(TAG, "Create log %s", cmon_filename.c_str());
-                  file.println("DateTime,valid,voltage,current,mAhIn,mAhOut,power,temperature,shuntmV,relayState");
+                  file.println("DateTime,valid,voltage,current,mAhIn,mAhOut,DailymAhIn,DailymAhOut,power,temperature,relayState");
                 }
               }
               else
@@ -633,11 +633,13 @@ void sdcardlog_task(void *param)
                   .append(",")
                   .append(std::to_string(currentMonitor.modbus.milliamphour_out))
                   .append(",")
+                  .append(std::to_string(currentMonitor.modbus.daily_milliamphour_in))
+                  .append(",")
+                  .append(std::to_string(currentMonitor.modbus.daily_milliamphour_out))
+                  .append(",")
                   .append(float_to_string(currentMonitor.modbus.power))
                   .append(",")
                   .append(std::to_string(currentMonitor.modbus.temperature))
-                  .append(",")
-                  .append(float_to_string(currentMonitor.modbus.shuntmV))
                   .append(",")
                   .append(currentMonitor.RelayState ? "1" : "0")
                   .append("\r\n");

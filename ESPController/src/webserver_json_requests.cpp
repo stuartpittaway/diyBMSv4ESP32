@@ -69,10 +69,10 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
                          currentMonitor.modbus.fullychargedvoltage, currentMonitor.chargeefficiency);
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         "\"voltage\":%.4f,\"current\":%.4f,\"mahout\":%u,\"mahin\":%u,\"temperature\":%i,\"watchdog\":%u,\"power\":%.4f,\"actualshuntmv\":%i,\"currentlsb\":%.4f,\"resistance\":%.4f,\"calibration\":%u,\"templimit\":%i,\"undervlimit\":%.4f,\"overvlimit\":%.4f,\"overclimit\":%.4f,\"underclimit\":%.4f,\"overplimit\":%.4f,\"tempcoeff\":%u,\"model\":%u,\"firmwarev\":%u,\"firmwaredate\":%u,",
+                         "\"voltage\":%.4f,\"current\":%.4f,\"mahout\":%u,\"mahin\":%u,\"temperature\":%i,\"watchdog\":%u,\"power\":%.4f,\"resistance\":%.4f,\"calibration\":%u,\"templimit\":%i,\"undervlimit\":%.4f,\"overvlimit\":%.4f,\"overclimit\":%.4f,\"underclimit\":%.4f,\"overplimit\":%.4f,\"tempcoeff\":%u,\"model\":%u,\"firmwarev\":%u,\"firmwaredate\":%u,",
                          currentMonitor.modbus.voltage, currentMonitor.modbus.current, currentMonitor.modbus.milliamphour_out, currentMonitor.modbus.milliamphour_in,
                          currentMonitor.modbus.temperature, currentMonitor.modbus.watchdogcounter, currentMonitor.modbus.power,
-                         currentMonitor.modbus.shuntmV, currentMonitor.modbus.currentlsb, currentMonitor.modbus.shuntresistance,
+                         currentMonitor.modbus.shuntresistance,
                          currentMonitor.modbus.shuntcal, currentMonitor.modbus.temperaturelimit,
                          currentMonitor.modbus.undervoltagelimit, currentMonitor.modbus.overvoltagelimit,
                          currentMonitor.modbus.overcurrentlimit, currentMonitor.modbus.undercurrentlimit,
@@ -560,7 +560,7 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   settings["dischargetemphigh"] = mysettings.dischargetemphigh;
   settings["stopchargebalance"] = mysettings.stopchargebalance;
   settings["socoverride"] = mysettings.socoverride;
-  settings["socforcelow"]=mysettings.socforcelow;
+  settings["socforcelow"] = mysettings.socforcelow;
   settings["dynamiccharge"] = mysettings.dynamiccharge;
   settings["preventdischarge"] = mysettings.preventdischarge;
   settings["preventcharging"] = mysettings.preventcharging;
@@ -869,9 +869,10 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
     // Output current monitor values, this is inside an array, so could be more than 1
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
-                           "{\"c\":%.4f,\"v\":%.4f,\"mahout\":%u,\"mahin\":%u,\"p\":%.2f,\"soc\":%.2f}",
+                           "{\"c\":%.4f,\"v\":%.4f,\"mahout\":%u,\"mahin\":%u,\"p\":%.2f,\"soc\":%.2f,\"dmahout\":%u,\"dmahin\":%u}",
                            currentMonitor.modbus.current, currentMonitor.modbus.voltage, currentMonitor.modbus.milliamphour_out,
-                           currentMonitor.modbus.milliamphour_in, currentMonitor.modbus.power, currentMonitor.stateofcharge);
+                           currentMonitor.modbus.milliamphour_in, currentMonitor.modbus.power, currentMonitor.stateofcharge,
+                           currentMonitor.modbus.daily_milliamphour_out, currentMonitor.modbus.daily_milliamphour_in);
   }
   else
   {

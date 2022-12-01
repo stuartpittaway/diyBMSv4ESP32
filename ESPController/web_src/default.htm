@@ -33,9 +33,10 @@
 
       <!-- Overlay content -->
       <div class="overlay-content">
+        <a id="settings" href="#settings">Settings</a>
+        <a id="charging" href="#charging">Charge/Discharge Settings</a>
         <a id="integration" href="#integration">Integration</a>
         <a id="currentmonitor" href="#currentmonitor">Current Monitor</a>
-        <a id="charging" href="#charging">Charge/Discharge Settings</a>
         <a id="storage" href="#storage">Storage &amp; Logging</a>
         <a id="avrprogrammer" href="#avrprogrammer">AVR Programmer</a>
         <a id="utility" href="#utility">Utilitites</a>
@@ -52,10 +53,10 @@
           <a id="home" class="active" href="#home">Home</a>
         </div>
         <div class="notify-container">
-          <a id="modules" href="#modules">Modules</a>
+          <a id="grid" href="#grid">Grid</a>
         </div>
         <div class="notify-container">
-          <a id="settings" href="#settings">Settings</a>
+          <a id="modules" href="#modules">Modules</a>
         </div>
 
         <div class="notify-container">
@@ -196,7 +197,7 @@
           <span class="x t">Dyn. Chg. Cur:</span>
           <span class="x v"></span>
         </div>
-        <div id="graphOptions" class="stat">
+        <div id="graphOptions" class="stat .hide">
           <span class="x t">Graph:</span>
           <span class="x v">
             <a id="view2d" href="">2D</a>
@@ -1389,14 +1390,6 @@
             <div>
               <label for="cmtemperature">Die temperature &deg;C</label>
               <input id="cmtemperature" name="cmtemperature" value="" readonly="" />
-            </div>
-            <div>
-              <label for="cmactualshuntmv">Actual shunt mV reading</label>
-              <input id="cmactualshuntmv" name="cmactualshuntmv" value="" readonly="" />
-            </div>
-            <div>
-              <label for="cmcurrentlsb">Current LSB size</label>
-              <input id="cmcurrentlsb" name="cmcurrentlsb" value="" readonly="" />
             </div>
             <div>
               <label for="cmresistance">Shunt resistance</label>
