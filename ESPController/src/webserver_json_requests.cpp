@@ -866,7 +866,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
-
     // Output current monitor values, this is inside an array, so could be more than 1
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
                            "{\"c\":%.4f,\"v\":%.4f,\"mahout\":%u,\"mahin\":%u,\"p\":%.2f,\"soc\":%.2f,\"dmahout\":%u,\"dmahin\":%u}",
