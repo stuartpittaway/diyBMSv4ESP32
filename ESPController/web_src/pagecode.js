@@ -268,7 +268,7 @@ function postTileVisibiltity() {
             type: 'POST',
             url: '/post/visibletiles',
             //This is crappy, but ESP isn't great at handling POST array values
-            data: $.param({ v1: tileconfig[0],v2: tileconfig[1],v3: tileconfig[3],v4: tileconfig[4],v5: tileconfig[5] }),
+            data: $.param({ v0: tileconfig[0], v1: tileconfig[1], v2: tileconfig[2], v3: tileconfig[3], v4: tileconfig[4] }),
             success: function (data) {
                 //Silent ok
             },

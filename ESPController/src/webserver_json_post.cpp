@@ -333,13 +333,19 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
         root["dischargetemphigh"] = mysettings.dischargetemphigh;
         root["stopchargebalance"] = mysettings.stopchargebalance;
         root["socoverride"] = mysettings.socoverride;
-        root["socforcelow"]=mysettings.socforcelow;
+        root["socforcelow"] = mysettings.socforcelow;
         root["dynamiccharge"] = mysettings.dynamiccharge;
         root["preventdischarge"] = mysettings.preventdischarge;
         root["preventcharging"] = mysettings.preventcharging;
         root["cellminmv"] = mysettings.cellminmv;
         root["cellmaxmv"] = mysettings.cellmaxmv;
-        root["kneemv"]=mysettings.kneemv;
+        root["kneemv"] = mysettings.kneemv;
+
+        JsonArray tv = root.createNestedArray("tilevisibility");
+        for (uint8_t i = 0; i < sizeof(mysettings.tileconfig) / sizeof(uint16_t); i++)
+        {
+            tv.add(mysettings.tileconfig[i]);
+        }
 
         // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
 
@@ -470,14 +476,13 @@ esp_err_t post_savestorage_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendSuccess(req);
 }
 
-
 esp_err_t post_visibletiles_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     char keyBuffer[16];
 
-    for (int i = 0; i < sizeof(mysettings.tileconfig)/sizeof(uint16_t); i++)
+    for (int i = 0; i < sizeof(mysettings.tileconfig) / sizeof(uint16_t); i++)
     {
-        mysettings.tileconfig[i]=0;
+        mysettings.tileconfig[i] = 0;
         snprintf(keyBuffer, sizeof(keyBuffer), "v%i", i);
         uint16_t temp;
         if (GetKeyValue(httpbuf, keyBuffer, &temp, urlEncoded))
@@ -668,7 +673,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     if (GetKeyValue(httpbuf, "socoverride", &mysettings.socoverride, urlEncoded))
     {
     }
-    mysettings.socforcelow=false;
+    mysettings.socforcelow = false;
     if (GetKeyValue(httpbuf, "socforcelow", &mysettings.socforcelow, urlEncoded))
     {
     }
@@ -1142,13 +1147,13 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                 mysettings.dischargetemphigh = root["dischargetemphigh"];
                 mysettings.stopchargebalance = root["stopchargebalance"];
                 mysettings.socoverride = root["socoverride"];
-                mysettings.socforcelow=root["socforcelow"];
-                mysettings.dynamiccharge= root["dynamiccharge"];
+                mysettings.socforcelow = root["socforcelow"];
+                mysettings.dynamiccharge = root["dynamiccharge"];
                 mysettings.preventdischarge = root["preventdischarge"];
                 mysettings.preventcharging = root["preventcharging"];
                 mysettings.cellminmv = root["cellminmv"];
                 mysettings.cellmaxmv = root["cellmaxmv"];
-                mysettings.kneemv=root["kneemv"];
+                mysettings.kneemv = root["kneemv"];
 
                 JsonObject mqtt = root["mqtt"];
                 if (!mqtt.isNull())
@@ -1245,6 +1250,13 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                             }
                         }
                     }
+                }
+
+                uint8_t i = 0;
+                for (JsonVariant v : root["tilevisibility"].as<JsonArray>())
+                {
+                    //Need to check for over flow of tileconfig array
+                    myset.tileconfig[i] = v.as<uint16_t>();                
                 }
 
                 // Victron
@@ -1347,7 +1359,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "restartcontroller", "saverules", "savedisplaysetting", "savestorage",
         "resetcounters", "sdmount", "sdunmount", "enableavrprog",
         "disableavrprog", "avrprog", "savers485settings", "savecurrentmon",
-        "savecmbasic", "savecmadvanced", "savecmrelay", "restoreconfig", "savechargeconfig","visibletiles"};
+        "savecmbasic", "savecmadvanced", "savecmrelay", "restoreconfig", "savechargeconfig", "visibletiles"};
 
     esp_err_t (*func_ptr[])(httpd_req_t * req, bool urlEncoded) = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
@@ -1358,8 +1370,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_sdmount_json_handler, post_sdunmount_json_handler, post_enableavrprog_json_handler,
         post_disableavrprog_json_handler, post_avrprog_json_handler, post_savers485settings_json_handler,
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
-        post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler
-        ,post_visibletiles_json_handler};
+        post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler, post_visibletiles_json_handler};
 
     // Sanity check arrays are the same size
     ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);
