@@ -470,6 +470,28 @@ esp_err_t post_savestorage_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendSuccess(req);
 }
 
+
+esp_err_t post_visibletiles_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    char keyBuffer[16];
+
+    for (int i = 0; i < sizeof(mysettings.tileconfig)/sizeof(uint16_t); i++)
+    {
+        mysettings.tileconfig[i]=0;
+        snprintf(keyBuffer, sizeof(keyBuffer), "v%i", i);
+        uint16_t temp;
+        if (GetKeyValue(httpbuf, keyBuffer, &temp, urlEncoded))
+        {
+            ESP_LOGD(TAG, "%s=%u", keyBuffer, temp);
+            mysettings.tileconfig[i] = temp;
+        }
+    }
+
+    saveConfiguration();
+
+    return SendSuccess(req);
+}
+
 esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     if (GetKeyValue(httpbuf, "VoltageHigh", &mysettings.graph_voltagehigh, urlEncoded))
@@ -679,54 +701,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 
     return SendSuccess(req);
 }
-/*
-esp_err_t post_savevictron_json_handler(httpd_req_t *req, bool urlEncoded)
-{
-    // uint32_t tempVariable;
 
-    mysettings.VictronEnabled = false;
-    if (GetKeyValue(httpbuf, "VictronEnabled", &mysettings.VictronEnabled, urlEncoded))
-    {
-    }
-
-    for (int i = 0; i < 3; i++)
-    {
-        // TODO: Check return values are correct here... floats vs ints?
-        String name = "cvl";
-        name = name + i;
-
-        float tempFloat;
-
-        if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
-        {
-            mysettings.cvl[i] = tempFloat * 10;
-        }
-
-        name = "ccl";
-        name = name + i;
-        if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
-        {
-            mysettings.ccl[i] = tempFloat * 10;
-        }
-
-        name = "dcl";
-        name = name + i;
-        if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
-        {
-            mysettings.dcl[i] = tempFloat * 10;
-        }
-    }
-
-    if (mysettings.PylonEmulation==true && mysettings.VictronEnabled==true) {
-        //Switch off Pylon, if Victron is enabled
-        mysettings.PylonEmulation=false;
-    }
-
-    saveConfiguration();
-
-    return SendSuccess(req);
-}
-*/
 esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     currentmonitoring_struct newvalues;
@@ -1155,9 +1130,6 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 
                 strncpy(myset.language, root["language"].as<String>().c_str(), sizeof(myset.language));
 
-                // myset.VictronEnabled = root["VictronEnabled"];
-                // mysettings.PylonEmulation = root["PylonEmulation"];
-
                 mysettings.canbusprotocol = (CanBusProtocolEmulation)root["canbusprotocol"];
                 mysettings.nominalbatcap = root["nominalbatcap"];
                 mysettings.chargevolt = root["chargevolt"];
@@ -1375,7 +1347,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "restartcontroller", "saverules", "savedisplaysetting", "savestorage",
         "resetcounters", "sdmount", "sdunmount", "enableavrprog",
         "disableavrprog", "avrprog", "savers485settings", "savecurrentmon",
-        "savecmbasic", "savecmadvanced", "savecmrelay", "restoreconfig", "savechargeconfig"};
+        "savecmbasic", "savecmadvanced", "savecmrelay", "restoreconfig", "savechargeconfig","visibletiles"};
 
     esp_err_t (*func_ptr[])(httpd_req_t * req, bool urlEncoded) = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
@@ -1386,7 +1358,8 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_sdmount_json_handler, post_sdunmount_json_handler, post_enableavrprog_json_handler,
         post_disableavrprog_json_handler, post_avrprog_json_handler, post_savers485settings_json_handler,
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
-        post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler};
+        post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler
+        ,post_visibletiles_json_handler};
 
     // Sanity check arrays are the same size
     ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);

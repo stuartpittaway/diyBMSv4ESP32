@@ -346,8 +346,8 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
     goto return_failure;
   }
 
-  ESP_LOGI(TAG, "OTA Writing: type %d, subtype %d, offset 0x%08x", update_partition->type, update_partition->subtype, update_partition->address);
-  ESP_LOGI(TAG, "OTA Running: type %d, subtype %d, offset 0x%08x", running->type, running->subtype, running->address);
+  ESP_LOGD(TAG, "OTA Writing: type %d, subtype %d, offset 0x%08x", update_partition->type, update_partition->subtype, update_partition->address);
+  ESP_LOGD(TAG, "OTA Running: type %d, subtype %d, offset 0x%08x", running->type, running->subtype, running->address);
   err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
   if (err != ESP_OK)
   {

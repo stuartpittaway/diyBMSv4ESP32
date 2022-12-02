@@ -1238,7 +1238,7 @@ void ProcessRules()
     rules.ProcessBank(bank);
   }
 
-  //Need to call these even if Dynamic is switch off, as it seeds the internal variables with the correct values
+  // Need to call these even if Dynamic is switch off, as it seeds the internal variables with the correct values
   rules.CalculateDynamicChargeVoltage(&mysettings, cmi);
   rules.CalculateDynamicChargeCurrent(&mysettings, cmi);
 
@@ -2699,25 +2699,6 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
   // EEPROM settings are invalid so default configuration
   _myset->mqtt_enabled = false;
 
-  //_myset->VictronEnabled = false;
-  //_myset->PylonEmulation = false;
-
-  // Charge current limit (CCL)
-  //_myset->ccl[VictronDVCC::Default] = 10 * 10;
-  // Charge voltage limit (CVL)
-  //_myset->cvl[VictronDVCC::Default] = 12 * 10;
-  // Discharge current limit (DCL)
-  //_myset->dcl[VictronDVCC::Default] = 10 * 10;
-
-  // Balance
-  //_myset->ccl[VictronDVCC::Balance] = 10 * 10;
-  //_myset->cvl[VictronDVCC::Balance] = 10 * 10;
-  //_myset->dcl[VictronDVCC::Balance] = 10 * 10;
-  // Error
-  //_myset->ccl[VictronDVCC::ControllerError] = 0 * 10;
-  //_myset->cvl[VictronDVCC::ControllerError] = 0 * 10;
-  //_myset->dcl[VictronDVCC::ControllerError] = 0 * 10;
-
   _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
   _myset->nominalbatcap = 280;
   _myset->chargevolt = 560;       // Scale 0.1
@@ -2734,7 +2715,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
   _myset->kneemv = 3400;
   _myset->stopchargebalance = true;
   _myset->socoverride = false;
-  _myset->socforcelow=false;
+  _myset->socforcelow = false;
   _myset->dynamiccharge = true;
   _myset->preventcharging = false;
   _myset->preventdischarge = false;
@@ -2819,6 +2800,14 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
   {
     _myset->relaytype[x] = RELAY_STANDARD;
   }
+
+  // Default which "tiles" are visible on the web gui
+  // For the meaning, look at array "TILE_IDS" in pagecode.js 
+  _myset->tileconfig[0] = 0;
+  _myset->tileconfig[1] = 0;
+  _myset->tileconfig[2] = 0;
+  _myset->tileconfig[3] = 0;
+  _myset->tileconfig[4] = 0;
 }
 
 void LoadConfiguration()

@@ -41,6 +41,24 @@ const INTERNALERRORCODE =
 Object.freeze(INTERNALERRORCODE);
 
 
+// TILE_IDS holds an array of the statistic panels on the page
+// this array drives the ability to toggle visibility
+// DO NOT MODIFY THE ORDER/SEQUENCE - ADD NEW ITEMS AT THE END/USE EMPTY STRINGS
+// IF YOU NEED TO DELETE - REPLACE VALUE WITH null
+// THEY ARE ARRANGED IN SUB-ARRAY OF 16 ITEMS - CORRESPONDING TO A 16 BIT UNSIGNED VALUE
+// PAD ARRAYS TO 16 ITEMS
+const TILE_IDS = [
+    ["voltage0", "range0", "voltage1", "range1", "voltage2", "range2", "voltage3", "range3", "voltage4", "range4", "voltage5", "range5", "voltage6", "range6", "voltage7", "range7"],
+    ["voltage8", "range8", "voltage9", "range9", "voltage10", "range10", "voltage11", "range11", "voltage12", "range12", "voltage13", "range13", "voltage14", "range14", "voltage15", "range15"],
+    ["soc", "current", "shuntv", "power", "amphout", "amphin", "damphout", "damphin", "oos", "badcrc", "ignored", "canfail", "sent", "received", "roundtrip", "uptime"],
+    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", "graphOptions", null, null, null, null, null, null, null, null, null, null]
+];
+Object.freeze(TILE_IDS);
+
+var tileconfig = [];
+
+var timer_postTileVisibiltity = null;
+
 function upload_file() {
     $("#progress").show();
     $("#status_div").text("Upload in progress");
@@ -186,6 +204,100 @@ function refreshCurrentMonitorValues() {
 
 }
 
+// Show and hide tiles based on bit pattern in tileconfig array
+function refreshVisibleTiles() {
+    for (i = 0; i < TILE_IDS.length; i++) {
+        var tc = TILE_IDS[i];
+
+        var value = tileconfig[i];
+
+        for (a = tc.length - 1; a >= 0; a--) {
+            var visible = (value & 1) ? true : false;
+            value = value >>> 1;
+            if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
+                var obj = $("#" + tc[a]);
+                if (visible) {
+                    //Only show if we have not force hidden it
+                    if (obj.hasClass(".hide") == false) {
+                        obj.addClass("vistile").show();
+                    }
+                } else {
+                    obj.hide();
+                }
+            }
+        }
+    }
+}
+
+
+//Determine which tiles are visible and store config on controller
+function postTileVisibiltity() {
+    var newconfig = [];
+    for (let index = 0; index < tileconfig.length; index++) {
+        newconfig.push(0);
+    }
+
+    for (let i = 0; i < TILE_IDS.length; i++) {
+        var tc = TILE_IDS[i];
+        var value = 0;
+
+        for (a = tc.length - 1; a >= 0; a--) {
+            if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
+                if ($("#" + tc[a]).hasClass("vistile")) {
+                    value = value | 1;
+                }
+            }
+            //Left shift onto next item
+            if (a > 0) {
+                value = value << 1;
+            }
+        }
+        newconfig[i] = value;
+    }
+
+    let diff = false;
+    for (let index = 0; index < tileconfig.length; index++) {
+        if (tileconfig[index] != newconfig[index]) {
+            tileconfig[index] = newconfig[index];
+            diff = true;
+        }
+    }
+
+    if (diff) {
+        $.ajax({
+            type: 'POST',
+            url: '/post/visibletiles',
+            //This is crappy, but ESP isn't great at handling POST array values
+            data: $.param({ v1: tileconfig[0],v2: tileconfig[1],v3: tileconfig[3],v4: tileconfig[4],v5: tileconfig[5] }),
+            success: function (data) {
+                //Silent ok
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+    }
+
+}
+
+
+function loadVisibleTileData() {
+    //Only refresh if array is empty
+    if (tileconfig.length == 0) {
+
+        $.getJSON("/api/tileconfig",
+            function (data) {
+                for (i = 0; i < data.tileconfig.values.length; i++) {
+                    tileconfig[i] = data.tileconfig.values[i];
+                }
+                refreshVisibleTiles();
+            }).fail(
+                function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            );
+    }
+}
+
+
 function showFailure() {
     $.notify($("#saveerror").text(), { className: 'error', autoHideDelay: 15000 });
 }
@@ -216,6 +328,7 @@ function currentmonitorSubmitForm(form) {
         },
     });
 }
+
 
 function avrProgrammingStatsUpdate(attempts) {
     $.getJSON("/api/avrstatus",
@@ -466,9 +579,7 @@ function queryBMS() {
             $("#cansent .v").html(jsondata.can_sent);
             $("#canrecd .v").html(jsondata.can_rec);
             $("#qlen .v").html(jsondata.qlen);
-
             $("#uptime .v").html(secondsToHms(jsondata.uptime));
-            //$("#uptime").show();
 
             if (jsondata.activerules == 0) {
                 $("#activerules").hide();
@@ -479,20 +590,18 @@ function queryBMS() {
 
             if (jsondata.dyncv) {
                 $("#dyncvolt .v").html(parseFloat(jsondata.dyncv / 10).toFixed(2) + "V");
-                //$("#dyncvolt").show();
-            } //else { $("#dyncvolt").hide(); }
+            } else { $("#dyncvolt .v").html(""); }
             if (jsondata.dyncc) {
                 $("#dynccurr .v").html(parseFloat(jsondata.dyncc / 10).toFixed(2) + "A");
-                //$("#dynccurr").show();
-            } //else { $("#dynccurr").hide(); }
+            } else { $("#dynccurr .v").html(""); }
         }
 
         if (jsondata.bankv) {
             for (var bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
                 $("#voltage" + bankNumber + " .v").html((parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2) + "V");
                 $("#range" + bankNumber + " .v").html(jsondata.voltrange[bankNumber] + "mV");
-                $("#voltage" + bankNumber).show().removeClass("hide");
-                $("#range" + bankNumber).show().removeClass("hide");
+                $("#voltage" + bankNumber).removeClass("hide");
+                $("#range" + bankNumber).removeClass("hide");
             }
 
             for (var bankNumber = jsondata.bankv.length; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
@@ -512,44 +621,22 @@ function queryBMS() {
 
         if (jsondata.current) {
             if (jsondata.current[0] == null) {
-                /*$("#current").hide();
-                $("#shuntv").hide();
-                $("#soc").hide();
-                $("#amphout").hide();
-                $("#amphin").hide();
-                $("#power").hide();*/
+                $("#current .v").html("");
+                $("#shuntv .v").html("");
+                $("#soc .v").html("");
+                $("#power .v").html("");
+                $("#amphout .v").html("");
+                $("#amphin .v").html("");
             } else {
                 var data = jsondata.current[0];
-
                 $("#current .v").html(parseFloat(data.c).toFixed(2) + "A");
-                //$("#current").show();
-
                 $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
-                //$("#shuntv").show();
-
-                if (data.soc != 0) {
-                    $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
-                    //$("#soc").show();
-                } //else {
-                //$("#soc").hide();
-                //}
-
+                $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
                 $("#power .v").html(parseFloat(data.p) + "W");
-                //$("#power").show();
-
-                if (data.mahout != 0) {
-                    $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
-                    //$("#amphout").show();
-                } //else {
-                //$("#amphout").hide();
-                //}
-
-                if (data.mahin != 0) {
-                    $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
-                    //$("#amphin").show();
-                } //else {
-                //                    $("#amphin").hide();
-                //}
+                $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
+                $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
+                $("#damphout .v").html((parseFloat(data.dmahout) / 1000).toFixed(3));
+                $("#damphin .v").html((parseFloat(data.dmahin) / 1000).toFixed(3));
             }
         }
 
@@ -657,10 +744,8 @@ function queryBMS() {
                 // specify chart configuration item and data
                 var option = {
                     tooltip: {
-                        show: true,
-                        axisPointer: {
-                            type: 'cross',
-                            label: {
+                        show: true, axisPointer: {
+                            type: 'cross', label: {
                                 backgroundColor: '#6a7985'
                             }
                         }
@@ -669,31 +754,18 @@ function queryBMS() {
                         show: false
                     },
                     xAxis: [{
-                        gridIndex: 0,
-                        type: 'category',
-                        axisLine: {
+                        gridIndex: 0, type: 'category', axisLine: {
                             lineStyle: {
                                 color: '#c1bdbd'
                             }
                         }
                     }, {
-                        gridIndex: 1,
-                        type: 'category',
-                        axisLine: {
-                            lineStyle: {
-                                color: '#c1bdbd'
-                            }
+                        gridIndex: 1, type: 'category', axisLine: {
+                            lineStyle: { color: '#c1bdbd' }
                         }
                     }],
                     yAxis: [{
-                        id: 0,
-                        gridIndex: 0,
-                        name: 'Volts',
-                        type: 'value',
-                        min: 2.5,
-                        max: 4.5,
-                        interval: 0.25,
-                        position: 'left',
+                        id: 0, gridIndex: 0, name: 'Volts', type: 'value', min: 2.5, max: 4.5, interval: 0.25, position: 'left',
                         axisLine: {
                             lineStyle: {
                                 color: '#c1bdbd'
@@ -707,13 +779,8 @@ function queryBMS() {
                     },
                     {
                         id: 1,
-                        gridIndex: 0,
-                        name: 'Bypass',
-                        type: 'value',
-                        min: 0,
-                        max: 100,
-                        interval: 10,
-                        position: 'right',
+                        gridIndex: 0, name: 'Bypass', type: 'value', min: 0,
+                        max: 100, interval: 10, position: 'right',
                         axisLabel: { formatter: '{value}%' },
                         splitLine: { show: false },
                         axisLine: { lineStyle: { type: 'dotted', color: '#c1bdbd' } },
@@ -727,13 +794,9 @@ function queryBMS() {
                         interval: 10,
                         position: 'left',
                         axisLine: {
-                            lineStyle: {
-                                color: '#c1bdbd'
-                            }
+                            lineStyle: { color: '#c1bdbd' }
                         },
-                        axisLabel: {
-                            formatter: '{value}°C'
-                        }
+                        axisLabel: { formatter: '{value}°C' }
                     }],
                     series: [
                         {
@@ -742,26 +805,13 @@ function queryBMS() {
                             yAxisIndex: 0,
                             type: 'bar',
                             data: [],
-
                             markLine: {
-                                silent: true,
-                                symbol: 'none',
-
-                                data: markLineData
+                                silent: true, symbol: 'none', data: markLineData
                             },
                             itemStyle: { color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'insideBottom',
-                                    distance: 10,
-                                    align: 'left',
-                                    verticalAlign: 'middle',
-                                    rotate: 90,
-                                    formatter: '{c}V',
-                                    fontSize: 24,
-                                    color: '#eeeeee',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'insideBottom', distance: 10, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                                 }
                             }
                         }, {
@@ -772,23 +822,14 @@ function queryBMS() {
                             data: [],
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'bottom',
-                                    distance: 5,
-                                    formatter: '{c}V',
-                                    fontSize: 14,
-                                    color: '#eeeeee',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                                 }
                             },
                             symbolSize: 16,
                             symbol: ['circle'],
                             itemStyle: {
                                 normal: {
-                                    color: "#c1bdbd",
-                                    lineStyle: {
-                                        color: 'transparent'
-                                    }
+                                    color: "#c1bdbd", lineStyle: { color: 'transparent' }
                                 }
                             }
                         }
@@ -800,23 +841,14 @@ function queryBMS() {
                             data: [],
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'top',
-                                    distance: 5,
-                                    formatter: '{c}V',
-                                    fontSize: 14,
-                                    color: '#c1bdbd',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Share Tech Mono'
                                 }
                             },
                             symbolSize: 16,
                             symbol: ['arrow'],
                             itemStyle: {
                                 normal: {
-                                    color: "#c1bdbd",
-                                    lineStyle: {
-                                        color: 'transparent'
-                                    }
+                                    color: "#c1bdbd", lineStyle: { color: 'transparent' }
                                 }
                             }
                         }
@@ -829,13 +861,7 @@ function queryBMS() {
                             data: [],
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'right',
-                                    distance: 5,
-                                    formatter: '{c}%',
-                                    fontSize: 14,
-                                    color: '#f0e400',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'right', distance: 5, formatter: '{c}%', fontSize: 14, color: '#f0e400', fontFamily: 'Share Tech Mono'
                                 }
                             },
                             symbolSize: 16,
@@ -850,21 +876,13 @@ function queryBMS() {
                             type: 'bar',
                             data: [],
                             itemStyle: {
-                                color: '#55a1ea',
-                                barBorderRadius: [8, 8, 0, 0]
+                                color: '#55a1ea', barBorderRadius: [8, 8, 0, 0]
                             },
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'insideBottom',
-                                    distance: 8,
-                                    align: 'left',
-                                    verticalAlign: 'middle',
-                                    rotate: 90,
-                                    formatter: '{c}°C',
-                                    fontSize: 20,
-                                    color: '#eeeeee',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'insideBottom', distance: 8,
+                                    align: 'left', verticalAlign: 'middle',
+                                    rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                                 }
                             }
                         }
@@ -876,21 +894,13 @@ function queryBMS() {
                             type: 'bar',
                             data: [],
                             itemStyle: {
-                                color: '#55a1ea',
-                                barBorderRadius: [8, 8, 0, 0]
+                                color: '#55a1ea', barBorderRadius: [8, 8, 0, 0]
                             },
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'insideBottom',
-                                    distance: 8,
-                                    align: 'left',
-                                    verticalAlign: 'middle',
-                                    rotate: 90,
-                                    formatter: '{c}°C',
-                                    fontSize: 20,
-                                    color: '#eeeeee',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'insideBottom', distance: 8,
+                                    align: 'left', verticalAlign: 'middle', rotate: 90,
+                                    formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                                 }
                             }
 
@@ -898,16 +908,10 @@ function queryBMS() {
                     ],
                     grid: [
                         {
-                            containLabel: false,
-                            left: '4%',
-                            right: '4%',
-                            bottom: '30%'
+                            containLabel: false, left: '4%', right: '4%', bottom: '30%'
 
                         }, {
-                            containLabel: false,
-                            left: '4%',
-                            right: '4%',
-                            top: '76%'
+                            containLabel: false, left: '4%', right: '4%', top: '76%'
                         }]
                 };
 
@@ -1019,7 +1023,9 @@ function queryBMS() {
         $("#homePage").css({ opacity: 1.0 });
         $("#loading").hide();
         //Call again in a few seconds
-        setTimeout(queryBMS, 4000);
+        setTimeout(queryBMS, 3500);
+
+        loadVisibleTileData();
 
     }).fail(function () {
         $("#iperror").show();
@@ -1045,7 +1051,6 @@ $(function () {
         //Re-show this as pagecode would have hidden it
         $("#graphOptions").show();
     }
-
 
     $("#more").on("click"
         , function (e) {
@@ -1109,7 +1114,10 @@ $(function () {
         $(".graphs").show();
         $("#graph1").show();
         $("#graph2").hide();
+        $("#info .stat").not(".vistile").hide();
+        $("#info .vistile").not(".hide").show();
         switchPage("#homePage");
+        g1.resize();
         return true;
     });
 
@@ -1123,7 +1131,6 @@ $(function () {
         $("#graph2").hide();
         //Show all statistic panels (which are not forced hidden)
         $("#info .stat").not(".hide").show();
-        $("#info .infogroup").addClass("box");
         return true;
     });
 
@@ -1799,6 +1806,17 @@ $(function () {
         $(this).addClass("hover");
     }).mouseleave(function () {
         $(this).removeClass("hover");
+    });
+
+    $(".stat").click(function () {
+        if ($(this).hasClass("vistile") == false && $(this).hasClass(".hide") == false) {
+            $(this).addClass("vistile");
+        } else {
+            $(this).removeClass("vistile");
+        }
+
+        clearTimeout(timer_postTileVisibiltity);
+        timer_postTileVisibiltity = setTimeout(postTileVisibiltity, 5000);
     });
 
     $("#file_sel").change(function () { upload_file(); });

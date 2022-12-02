@@ -540,6 +540,20 @@ esp_err_t content_handler_victron(httpd_req_t *req)
 }
 */
 
+esp_err_t content_handler_tileconfig(httpd_req_t *req)
+{
+  StaticJsonDocument<200> doc;
+  JsonObject root = doc.to<JsonObject>();
+  JsonObject settings = root.createNestedObject("tileconfig");
+  JsonArray v = settings.createNestedArray("values");
+  for (uint8_t i = 0; i < 5; i++)
+  {
+    v.add(mysettings.tileconfig[i]);
+  }
+  int bufferused = serializeJson(doc, httpbuf, BUFSIZE);
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
 esp_err_t content_handler_chargeconfig(httpd_req_t *req)
 {
   int bufferused = 0;
@@ -1180,7 +1194,7 @@ esp_err_t api_handler(httpd_req_t *req)
       "monitor2", "monitor3", "integration", "settings", "rules",
       "rs485settings", "currentmonitor",
       "avrstatus", "modules", "identifyModule", "storage",
-      "avrstorage", "chargeconfig"};
+      "avrstorage", "chargeconfig", "tileconfig"};
 
   esp_err_t (*func_ptr[])(httpd_req_t * req) = {
       content_handler_monitor2,
@@ -1195,7 +1209,8 @@ esp_err_t api_handler(httpd_req_t *req)
       content_handler_identifymodule,
       content_handler_storage,
       content_handler_avrstorage,
-      content_handler_chargeconfig};
+      content_handler_chargeconfig,
+      content_handler_tileconfig};
 
   // Sanity check arrays are the same size
   ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);

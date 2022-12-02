@@ -159,12 +159,6 @@ struct diybms_eeprom_settings
 
   char language[2 + 1];
 
-//  uint16_t cvl[3];
-//  int16_t ccl[3];
-//  int16_t dcl[3];
-//  bool VictronEnabled;
-//  bool PylonEmulation;
-
   CanBusProtocolEmulation canbusprotocol;
   uint16_t nominalbatcap;
   uint16_t chargevolt;
@@ -203,6 +197,9 @@ struct diybms_eeprom_settings
   char influxdb_apitoken[128 + 1];
   char influxdb_orgid[128 + 1];
   uint8_t influxdb_loggingFreqSeconds;
+
+  // Holds a bit pattern indicating which "tiles" are visible on the web gui
+  uint16_t tileconfig[5];
 };
 
 typedef union

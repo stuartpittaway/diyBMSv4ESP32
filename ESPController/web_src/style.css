@@ -25,8 +25,8 @@ p {margin-block-start: 1em; margin-block-end:0;}
 .info .stat .x {display:block;width:100%;text-align:right;}
 .info .stat .t {font-size:10pt;color:#c1bdbd;}
 .info .stat .v {font-size:22pt;font-family: 'Share Tech Mono', monospace;font-weight:bold;color: #55a1ea;}
-.stat.hover {border:solid 2px #55a1ea; }
-.info .vistile {border:dotted 2px #808080 !important;}
+.stat.hover {border:solid 2px #55a1ea !important;}
+.info .vistile {border:dotted 2px #848484;}
 
 .graphs {height:670px;width:99%;}
 .ct-series-a .ct-bar {stroke-width:25px;}
@@ -195,6 +195,7 @@ form input:read-only {
   border-radius: 50%;
   box-shadow: 2px 2px 2px gray;
   display: none;
+  font-family:'Share Tech Mono', monospace;
 }
 
 .progress {margin: 15px auto;max-width:500px;height:30px;}
