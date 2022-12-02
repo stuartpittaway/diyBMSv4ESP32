@@ -2803,9 +2803,9 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
   // Default which "tiles" are visible on the web gui
   // For the meaning, look at array "TILE_IDS" in pagecode.js 
-  _myset->tileconfig[0] = 0;
+  _myset->tileconfig[0] = 49152;
   _myset->tileconfig[1] = 0;
-  _myset->tileconfig[2] = 0;
+  _myset->tileconfig[2] = 62209;
   _myset->tileconfig[3] = 0;
   _myset->tileconfig[4] = 0;
 }
