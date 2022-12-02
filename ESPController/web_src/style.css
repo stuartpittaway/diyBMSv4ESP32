@@ -21,7 +21,7 @@ p {margin-block-start: 1em; margin-block-end:0;}
 .info {width:100%;padding:4px;display:flex;flex-wrap:wrap;justify-content:center;}
 .info > div {flex:1;}
 
-.info .stat {border:solid 2px #404040;padding:2px;margin:2px;max-width:175px;min-width:95px;}
+.info .stat {border:solid 2px #404040;padding:2px;margin:2px;max-width:175px;}
 .info .stat .x {display:block;width:100%;text-align:right;}
 .info .stat .t {font-size:10pt;color:#c1bdbd;}
 .info .stat .v {font-size:22pt;font-family: 'Share Tech Mono', monospace;font-weight:bold;color: #55a1ea;}
