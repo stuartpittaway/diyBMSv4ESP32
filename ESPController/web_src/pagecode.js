@@ -269,7 +269,10 @@ function postTileVisibiltity() {
             //This is crappy, but ESP isn't great at handling POST array values
             data: $.param({ v0: tileconfig[0], v1: tileconfig[1], v2: tileconfig[2], v3: tileconfig[3], v4: tileconfig[4] }),
             success: function (data) {
-                //Silent ok
+                //refresh if needed
+                if ($('#home').hasClass('active')) {
+                    refreshVisibleTiles();
+                }
             },
             error: function (data) {
                 showFailure();
@@ -1816,7 +1819,7 @@ $(function () {
         }
 
         clearTimeout(timer_postTileVisibiltity);
-        timer_postTileVisibiltity = setTimeout(postTileVisibiltity, 5000);
+        timer_postTileVisibiltity = setTimeout(postTileVisibiltity, 3500);
     });
 
     $("#file_sel").change(function () { upload_file(); });
