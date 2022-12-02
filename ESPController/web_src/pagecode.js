@@ -243,7 +243,7 @@ function postTileVisibiltity() {
 
         for (a = tc.length - 1; a >= 0; a--) {
             if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
-                if ($("#" + tc[a]).hasClass("vistile")) {
+                if ($("#" + tc[a]).not("hide").hasClass("vistile")) {
                     value = value | 1;
                 }
             }
@@ -271,6 +271,7 @@ function postTileVisibiltity() {
             data: $.param({ v0: tileconfig[0], v1: tileconfig[1], v2: tileconfig[2], v3: tileconfig[3], v4: tileconfig[4] }),
             success: function (data) {
                 //Silent ok
+                refreshVisibleTiles();
             },
             error: function (data) {
                 showFailure();
