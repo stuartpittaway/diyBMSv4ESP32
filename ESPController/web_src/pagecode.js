@@ -208,11 +208,9 @@ function refreshCurrentMonitorValues() {
 function refreshVisibleTiles() {
     for (i = 0; i < TILE_IDS.length; i++) {
         var tc = TILE_IDS[i];
-
         var value = tileconfig[i];
-
-        for (a = tc.length - 1; a >= 0; a--) {
-            var visible = (value & 1) ? true : false;
+        for (var a = tc.length - 1; a >= 0; a--) {
+            var visible = (value & 1) == 1 ? true : false;
             value = value >>> 1;
             if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
                 var obj = $("#" + tc[a]);
@@ -231,32 +229,33 @@ function refreshVisibleTiles() {
 
 
 //Determine which tiles are visible and store config on controller
+//as bitmap pattern
 function postTileVisibiltity() {
+    $(".stat.vistile.hide").removeClass("vistile");
+
     var newconfig = [];
-    for (let index = 0; index < tileconfig.length; index++) {
+    for (var index = 0; index < tileconfig.length; index++) {
         newconfig.push(0);
     }
 
-    for (let i = 0; i < TILE_IDS.length; i++) {
+    for (var i = 0; i < TILE_IDS.length; i++) {
         var tc = TILE_IDS[i];
         var value = 0;
-
-        for (a = tc.length - 1; a >= 0; a--) {
+        var v = 0x8000;
+        for (var a = 0; a < tc.length; a++) {
             if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
-                if ($("#" + tc[a]).not("hide").hasClass("vistile")) {
-                    value = value | 1;
+                if ($("#" + tc[a]).hasClass("vistile")) {
+                    value = value | v;
                 }
             }
-            //Left shift onto next item
-            if (a > 0) {
-                value = value << 1;
-            }
+            //Right shift onto next item
+            v = v >>> 1;
         }
         newconfig[i] = value;
     }
 
-    let diff = false;
-    for (let index = 0; index < tileconfig.length; index++) {
+    var diff = false;
+    for (var index = 0; index < tileconfig.length; index++) {
         if (tileconfig[index] != newconfig[index]) {
             tileconfig[index] = newconfig[index];
             diff = true;
@@ -271,7 +270,6 @@ function postTileVisibiltity() {
             data: $.param({ v0: tileconfig[0], v1: tileconfig[1], v2: tileconfig[2], v3: tileconfig[3], v4: tileconfig[4] }),
             success: function (data) {
                 //Silent ok
-                refreshVisibleTiles();
             },
             error: function (data) {
                 showFailure();
@@ -1119,6 +1117,7 @@ $(function () {
         $("#info .vistile").not(".hide").show();
         switchPage("#homePage");
         g1.resize();
+        refreshVisibleTiles();
         return true;
     });
 
