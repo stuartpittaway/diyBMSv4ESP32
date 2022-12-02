@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
 @viewport {  width: device-width ;  zoom: 1.0 ;}
 *{box-sizing:border-box;}
 body, html {
@@ -19,11 +21,12 @@ p {margin-block-start: 1em; margin-block-end:0;}
 .info {width:100%;padding:4px;display:flex;flex-wrap:wrap;justify-content:center;}
 .info > div {flex:1;}
 
-.info .stat {border:dotted 2px #808080;padding:2px;margin:2px;max-width:175px;min-width:95px;}
+.info .stat {border:solid 2px #404040;padding:2px;margin:2px;max-width:175px;min-width:95px;}
 .info .stat .x {display:block;width:100%;text-align:right;}
 .info .stat .t {font-size:10pt;color:#c1bdbd;}
-.info .stat .v {font-size:22pt;font-family: 'Fira Code', monospace;font-weight:bold;color: #55a1ea;}
+.info .stat .v {font-size:22pt;font-family: 'Share Tech Mono', monospace;font-weight:bold;color: #55a1ea;}
 .stat.hover {border:solid 2px #55a1ea; }
+.info .vistile {border:dotted 2px #808080 !important;}
 
 .graphs {height:670px;width:99%;}
 .ct-series-a .ct-bar {stroke-width:25px;}
@@ -31,7 +34,7 @@ button {border-radius:6px;color:white;background-color:#1e90ff;font-family:Arial
 button.small { font-size:65%pt;padding:1px;border-radius: 4px;}
 form > div > div {padding-bottom:4px;padding-top:4px;}
 form label {width:220px;display:inline-block;text-align:right;font-size:smaller;}
-form input {width:100px;display:inline-block;padding-left:5px;padding-right:5px;margin-left:5px;font-family: 'Fira Code', monospace;}
+form input {width:100px;display:inline-block;padding-left:5px;padding-right:5px;margin-left:5px;font-family: 'Share Tech Mono', monospace;}
 form input[type='input'] {width:225px;}
 
 input[type='close'] {width:150pt;padding:10px;}
@@ -46,7 +49,7 @@ button:focus {border-color: white;}
 .page {clear:both; width:100%; display:none;margin-top:5px;}
 .page .region {float:left;padding:8px;margin-right:8px;width:45%;margin-bottom:8px;min-height:240px;}
 #modulesTable { width:100%; border-collapse: collapse; }
-#modulesTable tbody tr td {font-family: 'Fira Code', monospace;text-align:right;}
+#modulesTable tbody tr td {font-family: 'Share Tech Mono', monospace;text-align:right;}
 #modulesTable thead tr th {text-align:right;}
 #loading {width:64px;position:absolute;height:64px;margin-left: auto;margin-right: auto;padding: 0;top:50%;left:50%;}
 
