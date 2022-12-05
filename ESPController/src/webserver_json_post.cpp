@@ -1093,7 +1093,8 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         {
             ESP_LOGI(TAG, "Restore configuration from %s", filename);
 
-            DynamicJsonDocument doc(4096);
+            // Needs to be large enough to de-serialize the JSON file
+            DynamicJsonDocument doc(5000);
 
             File file = SD.open(filename, "r");
 
