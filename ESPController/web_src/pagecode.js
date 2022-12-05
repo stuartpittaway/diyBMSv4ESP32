@@ -1124,7 +1124,7 @@ $(function () {
         return true;
     });
 
-    $("#grid").click(function () {
+    $("#tiles").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
         //Use the home page for the grid, but hide graphs

@@ -1514,14 +1514,6 @@ void enqueue_task(void *param)
   }
 }
 
-/* FreeRTOS event group to signal when we are connected*/
-// static EventGroupHandle_t s_wifi_event_group;
-
-/* The event group allows multiple bits for each event, but we only care about two events:
- * - we are connected to the AP with an IP
- * - we failed to connect after the maximum amount of retries */
-// #define WIFI_CONNECTED_BIT BIT0
-// #define WIFI_FAIL_BIT BIT1
 static int s_retry_num = 0;
 
 void formatCurrentDateTime(char *buf, size_t buf_size)
@@ -1684,10 +1676,6 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     snprintf(ip_string, sizeof(ip_string), IPSTR, IP2STR(&event->ip_info.ip));
 
     ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, ip_string);
-
-    // Wake up the screen, this will show the IP address etc.
-    // Don't enable this, causes a cascade effect/race condition
-    // wake_up_tft(true);
   }
 }
 
@@ -1976,6 +1964,45 @@ void currentMon_ConfigureBasic(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t 
   currentMonitor.validReadings = false;
 }
 
+void currentMon_ResetDailyAmpHourCounters()
+{
+  //	Write Multiple Holding Registers
+  uint8_t cmd2[] = {
+      // The Slave Address
+      mysettings.currentMonitoringModBusAddress,
+      // The Function Code 16
+      16,
+      // Data Address of the first register (zero based so 11 = register 40012)
+      0,
+      11,
+      // number of registers to write
+      0,
+      4,
+      // number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
+      8,
+      // value to write to register 40012/13 |40012| daily milliamphour_out (uint32_t)
+      0,
+      0,
+      0,
+      0,
+      // value to write to register 40014/15 |40014| daily milliamphour_in (uint32_t)
+      0,
+      0,
+      0,
+      0};
+
+  xQueueSend(rs485_transmit_q_handle, &cmd2, portMAX_DELAY);
+}
+
+void CurrentMonitorResetDailyAmpHourCounters()
+{
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+  {
+    ESP_LOGI(TAG,"Reset daily Ah counter");
+    currentMon_ResetDailyAmpHourCounters();
+  }
+}
+
 void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
 {
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
@@ -2121,17 +2148,6 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   ptr = SetMobusRegistersFromFloat(cmd2, ptr, newvalues.modbus.undercurrentlimit);
   ptr = SetMobusRegistersFromFloat(cmd2, ptr, newvalues.modbus.overpowerlimit);
 
-  /*
-    newvalues.shuntcal = p1->value().toInt();
-    newvalues.temperaturelimit = p1->value().toInt();
-    newvalues.overvoltagelimit = p1->value().toFloat();
-    newvalues.undervoltagelimit = p1->value().toFloat();
-    newvalues.overcurrentlimit = p1->value().toFloat();
-    newvalues.undercurrentlimit = p1->value().toFloat();
-    newvalues.overpowerlimit = p1->value().toFloat();
-    newvalues.shunttempcoefficient = p1->value().toInt();
-*/
-
   uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
   memset(&cmd, 0, sizeof(cmd));
   memcpy(&cmd, &cmd2, sizeof(cmd2));
@@ -2177,6 +2193,8 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
   // Finally, we have to fix the 32 bit fields
   currentMonitor.modbus.milliamphour_out = word16swap32(currentMonitor.modbus.milliamphour_out);
   currentMonitor.modbus.milliamphour_in = word16swap32(currentMonitor.modbus.milliamphour_in);
+  currentMonitor.modbus.daily_milliamphour_out = word16swap32(currentMonitor.modbus.daily_milliamphour_out);
+  currentMonitor.modbus.daily_milliamphour_in = word16swap32(currentMonitor.modbus.daily_milliamphour_in);
   currentMonitor.modbus.firmwareversion = word16swap32(currentMonitor.modbus.firmwareversion);
   currentMonitor.modbus.firmwaredatetime = word16swap32(currentMonitor.modbus.firmwaredatetime);
 
@@ -2802,7 +2820,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
   }
 
   // Default which "tiles" are visible on the web gui
-  // For the meaning, look at array "TILE_IDS" in pagecode.js 
+  // For the meaning, look at array "TILE_IDS" in pagecode.js
   _myset->tileconfig[0] = 49152;
   _myset->tileconfig[1] = 0;
   _myset->tileconfig[2] = 62209;
@@ -2883,13 +2901,14 @@ void periodic_task(void *param)
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 void lazy_tasks(void *param)
 {
+  int year_day=0;
   for (;;)
   {
     // TODO: Perhaps this should be based on some improved logic - based on number of modules in system?
-    //  Delay 6.5 seconds
+    //  Delay 5.5 seconds
 
     // ESP_LOGI(TAG, "Sleep");
-    TickType_t delay_ticks = pdMS_TO_TICKS(6500);
+    TickType_t delay_ticks = pdMS_TO_TICKS(5500);
     vTaskDelay(delay_ticks);
 
     // Task 1
@@ -2897,19 +2916,35 @@ void lazy_tasks(void *param)
     //  Send a "ping" message through the cells to get a round trip time
     prg.sendTimingRequest();
 
+    // Check if clock has rolled over to next day, this won't fire exactly on midnight
+    // but should be within 0-20 seconds of it.
+    if (sntp_enabled())
+    {
+      time_t now;
+      time(&now);
+      struct tm timeinfo;
+      localtime_r(&now, &timeinfo);
+
+      if (year_day>0 && year_day!=timeinfo.tm_yday) {
+        //Reset the current monitor at midnight (ish)
+        CurrentMonitorResetDailyAmpHourCounters();
+      }
+      year_day=timeinfo.tm_yday;
+    }
+
     // Sleep between sections to give the ESP a chance to do other stuff
     vTaskDelay(delay_ticks);
 
     // Task 2
     ESP_LOGI(TAG, "Task 2");
-    uint8_t counter = 0;
-    // Find modules that don't have settings cached and request them
+    // uint8_t counter = 0;
+    //  Find modules that don't have settings cached and request them
     for (uint8_t module = 0; module < TotalNumberOfCells(); module++)
     {
       if (cmi[module].valid && !cmi[module].settingsCached)
       {
         prg.sendGetSettingsRequest(module);
-        counter++;
+        // counter++;
       }
     }
 
@@ -2933,7 +2968,7 @@ void lazy_tasks(void *param)
         endmodule = max - 1;
       }
 
-      ESP_LOGI(TAG, "Task 3, s=%i e=%i", startmodule, endmodule);
+      ESP_LOGD(TAG, "Task 3, s=%i e=%i", startmodule, endmodule);
       prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule);
       prg.sendReadPacketsReceivedRequest(startmodule, endmodule);
       prg.sendReadBadPacketCounter(startmodule, endmodule);

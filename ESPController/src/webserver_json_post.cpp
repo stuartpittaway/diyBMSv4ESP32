@@ -756,6 +756,12 @@ esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendSuccess(req);
 }
 
+esp_err_t post_resetdailyahcount_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    CurrentMonitorResetDailyAmpHourCounters();
+    return SendSuccess(req);
+}
+
 esp_err_t post_savecmbasic_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     int shuntmaxcur = 0;
@@ -1255,8 +1261,8 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
                 uint8_t i = 0;
                 for (JsonVariant v : root["tilevisibility"].as<JsonArray>())
                 {
-                    //Need to check for over flow of tileconfig array
-                    myset.tileconfig[i] = v.as<uint16_t>();                
+                    // Need to check for over flow of tileconfig array
+                    myset.tileconfig[i] = v.as<uint16_t>();
                 }
 
                 // Victron
@@ -1359,7 +1365,8 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "restartcontroller", "saverules", "savedisplaysetting", "savestorage",
         "resetcounters", "sdmount", "sdunmount", "enableavrprog",
         "disableavrprog", "avrprog", "savers485settings", "savecurrentmon",
-        "savecmbasic", "savecmadvanced", "savecmrelay", "restoreconfig", "savechargeconfig", "visibletiles"};
+        "savecmbasic", "savecmadvanced", "savecmrelay", "restoreconfig", "savechargeconfig",
+        "visibletiles", "dailyahreset"};
 
     esp_err_t (*func_ptr[])(httpd_req_t * req, bool urlEncoded) = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
@@ -1370,7 +1377,8 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_sdmount_json_handler, post_sdunmount_json_handler, post_enableavrprog_json_handler,
         post_disableavrprog_json_handler, post_avrprog_json_handler, post_savers485settings_json_handler,
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
-        post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler, post_visibletiles_json_handler};
+        post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler,
+        post_visibletiles_json_handler, post_resetdailyahcount_json_handler};
 
     // Sanity check arrays are the same size
     ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);

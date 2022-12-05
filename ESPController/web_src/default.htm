@@ -55,7 +55,7 @@
           <a id="home" class="active" href="#home">Home</a>
         </div>
         <div class="notify-container">
-          <a id="grid" href="#grid">Grid</a>
+          <a id="tiles" href="#tiles">Tiles</a>
         </div>
         <div class="notify-container">
           <a id="modules" href="#modules">Modules</a>
@@ -1563,9 +1563,15 @@
             <button type="submit">Reset counters</button>
           </div>
         </form>
-      </div>
 
-      <div class="region">
+        <h2>Reset Daily Amp Hour Count</h2>
+        <form id="resetDailyAHCounterForm" method="POST" action="/post/dailyahreset" autocomplete="off">
+          <div class="settings">
+            <input name="dailyahreset" id="dailyahreset" type="hidden" value="0" />
+            <button type="submit">Reset daily Ah count</button>
+          </div>
+        </form>
+
         <h2>Restart Controller</h2>
         <form id="restartControllerForm" method="POST" action="/post/restartcontroller" autocomplete="off">
           <div class="settings">
