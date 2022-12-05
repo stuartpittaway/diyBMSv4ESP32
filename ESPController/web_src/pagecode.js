@@ -51,7 +51,7 @@ const TILE_IDS = [
     ["voltage0", "range0", "voltage1", "range1", "voltage2", "range2", "voltage3", "range3", "voltage4", "range4", "voltage5", "range5", "voltage6", "range6", "voltage7", "range7"],
     ["voltage8", "range8", "voltage9", "range9", "voltage10", "range10", "voltage11", "range11", "voltage12", "range12", "voltage13", "range13", "voltage14", "range14", "voltage15", "range15"],
     ["soc", "current", "shuntv", "power", "amphout", "amphin", "damphout", "damphin", "oos", "badcrc", "ignored", "canfail", "sent", "received", "roundtrip", "uptime"],
-    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", "graphOptions", null, null, null, null, null, null, null, null, null, null]
+    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", "graphOptions", "time100", "time20", "time10", null, null, null, null, null, null, null]
 ];
 Object.freeze(TILE_IDS);
 
@@ -597,6 +597,7 @@ function queryBMS() {
             if (jsondata.dyncc) {
                 $("#dynccurr .v").html(parseFloat(jsondata.dyncc / 10).toFixed(2) + "A");
             } else { $("#dynccurr .v").html(""); }
+
         }
 
         if (jsondata.bankv) {
@@ -630,6 +631,11 @@ function queryBMS() {
                 $("#power .v").html("");
                 $("#amphout .v").html("");
                 $("#amphin .v").html("");
+                $("#damphout .v").html("");
+                $("#damphin .v").html("");
+                $("#time100 .v").html("");
+                $("#time10 .v").html("");
+                $("#time20 .v").html("");
             } else {
                 var data = jsondata.current[0];
                 $("#current .v").html(parseFloat(data.c).toFixed(2) + "A");
@@ -640,6 +646,18 @@ function queryBMS() {
                 $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
                 $("#damphout .v").html((parseFloat(data.dmahout) / 1000).toFixed(3));
                 $("#damphin .v").html((parseFloat(data.dmahin) / 1000).toFixed(3));
+
+                if (data.time100) {
+                    $("#time100 .v").html(data.time100);
+                } else { $("#time100 .v").html("&infin;"); }
+                if (data.time20) {
+                    $("#time20 .v").html(data.time20);
+                } else { $("#time20 .v").html("&infin;"); }
+                if (data.time10) {
+                    $("#time10 .v").html(data.time10);
+                } else { $("#time10 .v").html("&infin;"); }
+
+                
             }
         }
 
