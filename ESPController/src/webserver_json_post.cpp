@@ -1088,7 +1088,6 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 
     if (hal.GetVSPIMutex())
     {
-
         if (SD.exists(filename))
         {
             ESP_LOGI(TAG, "Restore configuration from %s", filename);
