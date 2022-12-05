@@ -109,7 +109,8 @@ function restoreconfig(filename) {
             url: '/post/restoreconfig',
             data: $.param({ filename: filename }),
             success: function (data) {
-                location.reload();
+                showSuccess();
+                alert("Restore complete, you should now reboot the controller.");
             },
             error: function (data) {
                 showFailure();
