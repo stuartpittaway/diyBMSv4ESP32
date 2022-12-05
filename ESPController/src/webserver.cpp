@@ -175,7 +175,10 @@ esp_err_t default_htm_handler(httpd_req_t *req)
   }
 
   // Indicate last chunk (zero byte length)
-  return httpd_resp_send_chunk(req, p, 0);
+  esp_err_t e = httpd_resp_send_chunk(req, p, 0);
+
+  ESP_LOGI(TAG, "default.htm complete");
+  return e;
 }
 
 void SetCacheAndETag(httpd_req_t *req, const char *ETag)
@@ -497,10 +500,11 @@ httpd_handle_t start_webserver(void)
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
   config.max_uri_handlers = 9;
-  config.max_open_sockets = 5;
+  config.max_open_sockets = 7;
   config.max_resp_headers = 16;
   config.stack_size = 5000;
   config.uri_match_fn = httpd_uri_match_wildcard;
+  config.lru_purge_enable = true;
 
   /* Empty handle to esp_http_server */
   httpd_handle_t server = NULL;
