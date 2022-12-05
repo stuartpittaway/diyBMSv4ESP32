@@ -10,7 +10,7 @@ PCB WITH RS485/CANBUS/TFT DISPLAY
 #include "esp32-hal-i2c.h"
 #include <SPI.h>
 
-//#define GREEN_LED 2
+// #define GREEN_LED 2
 
 #define PFC_INTERRUPT_PIN 33
 
@@ -299,7 +299,7 @@ public:
             // X also needs to be greater than zero
             reply.touched = reply.pressure > 135 && reply.X > 0;
 
-            //ESP_LOGI(TAG, "Touch = touch=%i pressure=%u x=%u y=%u", reply.touched, reply.pressure, reply.X, reply.Y);
+            // ESP_LOGI(TAG, "Touch = touch=%i pressure=%u x=%u y=%u", reply.touched, reply.pressure, reply.X, reply.Y);
         }
 
         return reply;
@@ -308,19 +308,19 @@ public:
     bool IsScreenAttached()
     {
         TouchScreenValues v = TouchScreenUpdate();
-        //ESP_LOGD(TAG,"Touch pressure=%u, X=%u, Y=%u",v.pressure, v.X, v.Y);
+        // ESP_LOGD(TAG,"Touch pressure=%u, X=%u, Y=%u",v.pressure, v.X, v.Y);
         return !(v.pressure == 0 && v.X == 0 && v.Y == 0);
     }
 
     void ConfigureVSPI()
     {
-        ESP_LOGD(TAG,"Configure VSPI");
+        ESP_LOGD(TAG, "Configure VSPI");
         vspi.endTransaction();
         vspi.end();
         // VSPI
         // GPIO23 (MOSI), GPIO19(MISO), GPIO18(CLK) and GPIO5 (CS)
         vspi.begin(GPIO_NUM_18, GPIO_NUM_19, GPIO_NUM_23, -1);
-                
+
         // Don't use hardware chip selects on VSPI
         vspi.setHwCs(false);
         vspi.setBitOrder(MSBFIRST);
