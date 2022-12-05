@@ -3294,7 +3294,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-influxdb", .level = ESP_LOG_INFO},
         {.tag = "diybms-rx", .level = ESP_LOG_INFO},
         {.tag = "diybms-tx", .level = ESP_LOG_INFO},
-        {.tag = "diybms-rules", .level = ESP_LOG_DEBUG},
+        {.tag = "diybms-rules", .level = ESP_LOG_INFO},
         {.tag = "diybms-softap", .level = ESP_LOG_INFO},
         {.tag = "diybms-tft", .level = ESP_LOG_INFO},
         {.tag = "diybms-victron", .level = ESP_LOG_INFO},
@@ -3500,7 +3500,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
   xTaskCreate(transmit_task, "Tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 2000, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
-  xTaskCreate(lazy_tasks, "lazyt", 2000, nullptr, 1, &lazy_task_handle);
+  xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 1, &lazy_task_handle);
 
   // Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
