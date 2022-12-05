@@ -79,18 +79,16 @@ int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean 
 
 esp_err_t SendFailure(httpd_req_t *req)
 {
+  ESP_LOGD(TAG, "Failure");
   return httpd_resp_send_500(req);
 }
 
 esp_err_t SendSuccess(httpd_req_t *req)
 {
+  ESP_LOGD(TAG, "Success");
   httpd_resp_set_type(req, "application/json");
   setNoStoreCacheControl(req);
-
-  StaticJsonDocument<100> doc;
-  doc["success"] = true;
-  int bufferused = 0;
-  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+  int bufferused = snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{\"success\":true}");
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
