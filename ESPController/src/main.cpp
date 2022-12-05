@@ -18,13 +18,10 @@
 #error ESP8266 is not supported by this code
 #endif
 
-#undef CONFIG_DISABLE_HAL_LOCKS
-
 #define USE_ESP_IDF_LOG 1
 static constexpr const char *const TAG = "diybms";
 
 #include "esp_log.h"
-
 #include "esp_netif.h"
 #include "esp_eth.h"
 #include "esp_ota_ops.h"
@@ -170,6 +167,10 @@ SerialEncoder myPacketSerial;
 uint16_t sequence = 0;
 
 ControllerState _controller_state = ControllerState::Unknown;
+
+uint32_t time100 = 0;
+uint32_t time20 = 0;
+uint32_t time10 = 0;
 
 void LED(uint8_t bits)
 {
@@ -1998,7 +1999,7 @@ void CurrentMonitorResetDailyAmpHourCounters()
 {
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
   {
-    ESP_LOGI(TAG,"Reset daily Ah counter");
+    ESP_LOGI(TAG, "Reset daily Ah counter");
     currentMon_ResetDailyAmpHourCounters();
   }
 }
@@ -2898,10 +2899,60 @@ void periodic_task(void *param)
   }
 }
 
+// Calculate estimated time to various % SoC
+void TimeToSoCCalculation()
+{
+  ESP_LOGD(TAG, "SoC time estimation");
+
+  //Avoid divide by zero errors
+  if (currentMonitor.modbus.current==0) return;
+
+  // Calculate how "full" the battery is based on SoC %
+  float now_capacity_ah = currentMonitor.modbus.batterycapacityamphour / 100.0 * currentMonitor.stateofcharge;
+
+  // Target 100% - only if we are charging
+  if (currentMonitor.stateofcharge < 100.0 && currentMonitor.modbus.current > 0)
+  {
+    // Gap between now and 100%
+    float empty_ah = currentMonitor.modbus.batterycapacityamphour - now_capacity_ah;
+    // Use instantaneous current value to predict amp-hour (in number of seconds)
+    time100 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+  }
+  else
+  {
+    time100 = 0;
+  }
+
+  // Target 20% - only if we are discharging
+  if (currentMonitor.stateofcharge > 20.0 && currentMonitor.modbus.current < 0)
+  {
+    // Gap between now and 20%
+    float empty_ah = now_capacity_ah-(currentMonitor.modbus.batterycapacityamphour * 0.20);
+    time20 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+  }
+  else
+  {
+    time20 = 0;
+  }
+
+  // Target 10% - only if we are discharging
+  if (currentMonitor.stateofcharge > 10.0 && currentMonitor.modbus.current < 0)
+  {
+    // Gap between now and 10%
+    float empty_ah = now_capacity_ah-(currentMonitor.modbus.batterycapacityamphour * 0.10);
+    time10 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+  }
+  else
+  {
+    time10 = 0;
+  }
+
+}
+
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 void lazy_tasks(void *param)
 {
-  int year_day=0;
+  int year_day = 0;
   for (;;)
   {
     // TODO: Perhaps this should be based on some improved logic - based on number of modules in system?
@@ -2925,11 +2976,20 @@ void lazy_tasks(void *param)
       struct tm timeinfo;
       localtime_r(&now, &timeinfo);
 
-      if (year_day>0 && year_day!=timeinfo.tm_yday) {
-        //Reset the current monitor at midnight (ish)
+      if (year_day > 0 && year_day != timeinfo.tm_yday)
+      {
+        // Reset the current monitor at midnight (ish)
         CurrentMonitorResetDailyAmpHourCounters();
       }
-      year_day=timeinfo.tm_yday;
+      year_day = timeinfo.tm_yday;
+    }
+
+    // Calculate "time to..." based on SoC value
+    if (mysettings.currentMonitoringEnabled && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON
+        //&& currentMonitor.validReadings
+    )
+    {
+      TimeToSoCCalculation();
     }
 
     // Sleep between sections to give the ESP a chance to do other stuff
@@ -3405,7 +3465,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   // Touch is on VSPI bus
   _tft_screen_available = hal.IsScreenAttached();
   SetControllerState(ControllerState::PowerUp);
-  // hal.ConfigureVSPI();
   init_tft_display();
   hal.Led(0);
 

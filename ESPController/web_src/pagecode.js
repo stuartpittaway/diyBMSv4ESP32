@@ -647,17 +647,15 @@ function queryBMS() {
                 $("#damphout .v").html((parseFloat(data.dmahout) / 1000).toFixed(3));
                 $("#damphin .v").html((parseFloat(data.dmahin) / 1000).toFixed(3));
 
-                if (data.time100) {
-                    $("#time100 .v").html(data.time100);
+                if (data.time100 > 0) {
+                    $("#time100 .v").html(secondsToHms(data.time100));
                 } else { $("#time100 .v").html("&infin;"); }
-                if (data.time20) {
-                    $("#time20 .v").html(data.time20);
+                if (data.time20 > 0) {
+                    $("#time20 .v").html(secondsToHms(data.time20));
                 } else { $("#time20 .v").html("&infin;"); }
-                if (data.time10) {
-                    $("#time10 .v").html(data.time10);
+                if (data.time10 > 0) {
+                    $("#time10 .v").html(secondsToHms(data.time10));
                 } else { $("#time10 .v").html("&infin;"); }
-
-                
             }
         }
 

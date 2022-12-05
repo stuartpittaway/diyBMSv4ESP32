@@ -851,7 +851,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   const char *nullstring = "null";
 
   // Output the first batch of settings/parameters/values
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE- bufferused,
                          "{\"banks\":%u,\"seriesmodules\":%u,\"sent\":%u,\"received\":%u,\"modulesfnd\":%u,\"badcrc\":%u,\"ignored\":%u,\"roundtrip\":%u,\"oos\":%u,\"activerules\":%u,\"uptime\":%u,\"can_fail\":%u,\"can_sent\":%u,\"can_rec\":%u,\"sec\":\"%s\",\"qlen\":%u,",
                          mysettings.totalNumberOfBanks,
                          mysettings.totalNumberOfSeriesModules,
@@ -869,7 +869,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
   {
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE- bufferused,
                            "\"dyncv\":%u,\"dyncc\":%u,",
                            rules.DynamicChargeVoltage(),
                            rules.DynamicChargeCurrent());
@@ -881,11 +881,15 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
     // Output current monitor values, this is inside an array, so could be more than 1
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
-                           "{\"c\":%.4f,\"v\":%.4f,\"mahout\":%u,\"mahin\":%u,\"p\":%.2f,\"soc\":%.2f,\"dmahout\":%u,\"dmahin\":%u}",
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE- bufferused,
+                           "{\"c\":%.4f,\"v\":%.4f,\"mahout\":%u,\"mahin\":%u,\"p\":%.2f,\"soc\":%.2f,\"dmahout\":%u,\"dmahin\":%u",
                            currentMonitor.modbus.current, currentMonitor.modbus.voltage, currentMonitor.modbus.milliamphour_out,
                            currentMonitor.modbus.milliamphour_in, currentMonitor.modbus.power, currentMonitor.stateofcharge,
                            currentMonitor.modbus.daily_milliamphour_out, currentMonitor.modbus.daily_milliamphour_in);
+
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE- bufferused, ",\"time100\":%u,\"time20\":%u,\"time10\":%u", time100, time20, time10);
+
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "}");
   }
   else
   {

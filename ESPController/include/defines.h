@@ -326,7 +326,7 @@ struct currentmonitor_raw_modbus
 
   // Voltage
   float voltage;
-  // Current in AMPS
+  // Current in AMPS.  Negative value is DISCHARGING
   float current;
   uint32_t milliamphour_out;
   uint32_t milliamphour_in;

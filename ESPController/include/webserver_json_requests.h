@@ -43,4 +43,8 @@ extern void formatCurrentDateTime(char* buf, size_t buf_size);
 extern void setNoStoreCacheControl(httpd_req_t *req);
 extern char CookieValue[20 + 1];
 extern char hostname[16];
+
+extern uint32_t time100;
+extern uint32_t time20;
+extern uint32_t time10;
 #endif
