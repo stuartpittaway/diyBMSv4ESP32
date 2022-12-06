@@ -2083,6 +2083,57 @@ Flag 2
   currentMonitor.validReadings = false;
 }
 
+// Calculate estimated time to various % SoC
+void TimeToSoCCalculation()
+{
+  // ESP_LOGD(TAG, "SoC time estimation");
+
+  // Avoid divide by zero errors
+  if (currentMonitor.modbus.current == 0)
+    return;
+
+  // Calculate how "full" the battery is based on SoC %
+  float now_capacity_ah = currentMonitor.modbus.batterycapacityamphour / 100.0 * currentMonitor.stateofcharge;
+
+  // Target 100% - only if we are charging
+  if (currentMonitor.stateofcharge < 100.0 && currentMonitor.modbus.current > 0)
+  {
+    // Gap between now and 100%
+    float empty_ah = currentMonitor.modbus.batterycapacityamphour - now_capacity_ah;
+    // Use instantaneous current value to predict amp-hour (in number of seconds)
+    time100 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+  }
+  else
+  {
+    time100 = 0;
+  }
+
+  // Target 20% - only if we are discharging
+  if (currentMonitor.stateofcharge > 20.0 && currentMonitor.modbus.current < 0)
+  {
+    // Gap between now and 20%
+    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.20);
+    time20 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+  }
+  else
+  {
+    time20 = 0;
+  }
+
+  // Target 10% - only if we are discharging
+  if (currentMonitor.stateofcharge > 10.0 && currentMonitor.modbus.current < 0)
+  {
+    // Gap between now and 10%
+    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.10);
+    time10 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+  }
+  else
+  {
+    time10 = 0;
+  }
+}
+
+
 // Save the current monitor advanced settings back to the device over MODBUS/RS485
 void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
 {
@@ -2903,55 +2954,6 @@ void periodic_task(void *param)
   }
 }
 
-// Calculate estimated time to various % SoC
-void TimeToSoCCalculation()
-{
-  // ESP_LOGD(TAG, "SoC time estimation");
-
-  // Avoid divide by zero errors
-  if (currentMonitor.modbus.current == 0)
-    return;
-
-  // Calculate how "full" the battery is based on SoC %
-  float now_capacity_ah = currentMonitor.modbus.batterycapacityamphour / 100.0 * currentMonitor.stateofcharge;
-
-  // Target 100% - only if we are charging
-  if (currentMonitor.stateofcharge < 100.0 && currentMonitor.modbus.current > 0)
-  {
-    // Gap between now and 100%
-    float empty_ah = currentMonitor.modbus.batterycapacityamphour - now_capacity_ah;
-    // Use instantaneous current value to predict amp-hour (in number of seconds)
-    time100 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
-  }
-  else
-  {
-    time100 = 0;
-  }
-
-  // Target 20% - only if we are discharging
-  if (currentMonitor.stateofcharge > 20.0 && currentMonitor.modbus.current < 0)
-  {
-    // Gap between now and 20%
-    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.20);
-    time20 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
-  }
-  else
-  {
-    time20 = 0;
-  }
-
-  // Target 10% - only if we are discharging
-  if (currentMonitor.stateofcharge > 10.0 && currentMonitor.modbus.current < 0)
-  {
-    // Gap between now and 10%
-    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.10);
-    time10 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
-  }
-  else
-  {
-    time10 = 0;
-  }
-}
 
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 void lazy_tasks(void *param)
