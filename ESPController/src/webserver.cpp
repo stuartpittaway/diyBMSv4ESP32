@@ -427,17 +427,22 @@ static const httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GE
 
 static const httpd_uri_t uri_ota_post = {.uri = "/ota", .method = HTTP_POST, .handler = ota_post_handler, .user_ctx = NULL};
 
+void resetModuleMinMaxVoltage(uint8_t module)
+{
+  cmi[module].voltagemVMin = 6000;
+  cmi[module].voltagemVMax = 0;
+}
+
 void clearModuleValues(uint8_t module)
 {
   cmi[module].valid = false;
   cmi[module].voltagemV = 0;
-  cmi[module].voltagemVMin = 6000;
-  cmi[module].voltagemVMax = 0;
   cmi[module].badPacketCount = 0;
   cmi[module].inBypass = false;
   cmi[module].bypassOverTemp = false;
   cmi[module].internalTemp = -40;
   cmi[module].externalTemp = -40;
+  resetModuleMinMaxVoltage(module);
 }
 
 #ifdef USE_WEBSOCKET_DEBUG_LOG

@@ -2906,7 +2906,7 @@ void periodic_task(void *param)
 // Calculate estimated time to various % SoC
 void TimeToSoCCalculation()
 {
-  //ESP_LOGD(TAG, "SoC time estimation");
+  // ESP_LOGD(TAG, "SoC time estimation");
 
   // Avoid divide by zero errors
   if (currentMonitor.modbus.current == 0)
@@ -2984,6 +2984,11 @@ void lazy_tasks(void *param)
       {
         // Reset the current monitor at midnight (ish)
         CurrentMonitorResetDailyAmpHourCounters();
+
+        for (size_t i = 0; i < maximum_controller_cell_modules; i++)
+        {
+          resetModuleMinMaxVoltage(i);
+        }
       }
       year_day = timeinfo.tm_yday;
     }
