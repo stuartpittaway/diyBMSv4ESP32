@@ -25,6 +25,8 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #define USE_ESP_IDF_LOG 1
 static constexpr const char *const TAG = "diybms-tft";
 
+#define CONFIG_DISABLE_HAL_LOCKS 1
+
 #include "defines.h"
 #include "HAL_ESP32.h"
 #include <esp_wifi.h>

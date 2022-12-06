@@ -21,6 +21,8 @@
 #define USE_ESP_IDF_LOG 1
 static constexpr const char *const TAG = "diybms";
 
+#define CONFIG_DISABLE_HAL_LOCKS 1
+
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_eth.h"
@@ -37,7 +39,7 @@ static constexpr const char *const TAG = "diybms";
 #include "FS.h"
 #include "LittleFS.h"
 #include <ESPmDNS.h>
-#include <SPI.h>
+
 #include "time.h"
 #include <esp_ipc.h>
 #include <esp_wifi.h>
@@ -2255,6 +2257,8 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 
   currentMonitor.validReadings = true;
 
+  TimeToSoCCalculation();
+
   /*
   ESP_LOGD(TAG, "WDog = %u", currentMonitor.modbus.watchdogcounter);
   ESP_LOGD(TAG, "SOC = %i", currentMonitor.stateofcharge);
@@ -2902,10 +2906,11 @@ void periodic_task(void *param)
 // Calculate estimated time to various % SoC
 void TimeToSoCCalculation()
 {
-  ESP_LOGD(TAG, "SoC time estimation");
+  //ESP_LOGD(TAG, "SoC time estimation");
 
-  //Avoid divide by zero errors
-  if (currentMonitor.modbus.current==0) return;
+  // Avoid divide by zero errors
+  if (currentMonitor.modbus.current == 0)
+    return;
 
   // Calculate how "full" the battery is based on SoC %
   float now_capacity_ah = currentMonitor.modbus.batterycapacityamphour / 100.0 * currentMonitor.stateofcharge;
@@ -2927,7 +2932,7 @@ void TimeToSoCCalculation()
   if (currentMonitor.stateofcharge > 20.0 && currentMonitor.modbus.current < 0)
   {
     // Gap between now and 20%
-    float empty_ah = now_capacity_ah-(currentMonitor.modbus.batterycapacityamphour * 0.20);
+    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.20);
     time20 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
   }
   else
@@ -2939,14 +2944,13 @@ void TimeToSoCCalculation()
   if (currentMonitor.stateofcharge > 10.0 && currentMonitor.modbus.current < 0)
   {
     // Gap between now and 10%
-    float empty_ah = now_capacity_ah-(currentMonitor.modbus.batterycapacityamphour * 0.10);
+    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.10);
     time10 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
   }
   else
   {
     time10 = 0;
   }
-
 }
 
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
@@ -2982,14 +2986,6 @@ void lazy_tasks(void *param)
         CurrentMonitorResetDailyAmpHourCounters();
       }
       year_day = timeinfo.tm_yday;
-    }
-
-    // Calculate "time to..." based on SoC value
-    if (mysettings.currentMonitoringEnabled && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON
-        //&& currentMonitor.validReadings
-    )
-    {
-      TimeToSoCCalculation();
     }
 
     // Sleep between sections to give the ESP a chance to do other stuff
@@ -3350,7 +3346,7 @@ log_level_t log_levels[] =
         {.tag = "dhcpc", .level = ESP_LOG_WARN},
         {.tag = "diybms", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-avrisp", .level = ESP_LOG_INFO},
-        {.tag = "diybms-hal", .level = ESP_LOG_INFO},
+        {.tag = "diybms-hal", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-influxdb", .level = ESP_LOG_INFO},
         {.tag = "diybms-rx", .level = ESP_LOG_INFO},
         {.tag = "diybms-tx", .level = ESP_LOG_INFO},

@@ -4,10 +4,13 @@ FOR DIYBMS ESP32 CONTROLLER PCB - THIS IS THE LARGER
 PCB WITH RS485/CANBUS/TFT DISPLAY
 */
 
+#define CONFIG_DISABLE_HAL_LOCKS 1
+
 #include <Arduino.h>
 #include "driver/i2c.h"
 #include <driver/twai.h>
 #include "esp32-hal-i2c.h"
+
 #include <SPI.h>
 
 // #define GREEN_LED 2
@@ -318,8 +321,6 @@ public:
         vspi.endTransaction();
         vspi.end();
         // VSPI
-        // GPIO23 (MOSI), GPIO19(MISO), GPIO18(CLK) and GPIO5 (CS)
-        vspi.begin(GPIO_NUM_18, GPIO_NUM_19, GPIO_NUM_23, -1);
 
         // Don't use hardware chip selects on VSPI
         vspi.setHwCs(false);
@@ -327,6 +328,9 @@ public:
         vspi.setDataMode(SPI_MODE0);
         // 10mhz
         vspi.setFrequency(10000000);
+
+        // GPIO23 (MOSI), GPIO19(MISO), GPIO18(CLK) and GPIO5 (CS)
+        vspi.begin(GPIO_NUM_18, GPIO_NUM_19, GPIO_NUM_23, -1);
     }
 
     uint8_t LastTCA6408Value()
