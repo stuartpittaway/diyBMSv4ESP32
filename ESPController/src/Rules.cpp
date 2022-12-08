@@ -569,10 +569,11 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
 }
 
 // Return SoC value after applying SOCFORCELOW and SOCOVERRIDE settings
-// also limits output range between 0 and 100
+// also limits output range between 0 and 100.
+// SoC is rounded down to nearest integer
 uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC)
 {
-    uint16_t value = round(realSOC);
+    uint16_t value = floor(realSOC);
 
     // Deliberately force SoC to be reported as 2%, to trick external CANBUS devices into trickle charging
     if (mysettings->socforcelow)
