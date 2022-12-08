@@ -69,6 +69,10 @@ static constexpr const char *const TAG = "diybms";
 #include "pylon_canbus.h"
 #include "string_utils.h"
 
+#include <SPI.h>
+// Move outside class so Arduino Framework 2.0.4+ work as expected
+SPIClass vspi(VSPI);
+
 const uart_port_t rs485_uart_num = UART_NUM_1;
 
 HAL_ESP32 hal;
@@ -265,28 +269,9 @@ void mountSDCard()
   }
 
   ESP_LOGI(TAG, "Mounting SD card");
-  if (hal.GetVSPIMutex())
-  {
-    // Initialize SD card
-    if (SD.begin(SDCARD_CHIPSELECT, hal.vspi))
-    {
-      uint8_t cardType = SD.cardType();
-      if (cardType == CARD_NONE)
-      {
-        ESP_LOGW(TAG, "No SD card attached");
-      }
-      else
-      {
-        ESP_LOGI(TAG, "SD card available");
-        _sd_card_installed = true;
-      }
-    }
-    else
-    {
-      ESP_LOGE(TAG, "Card mount failed");
-    }
-    hal.ReleaseVSPIMutex();
-  }
+
+  _sd_card_installed = hal.MountSDCard();
+ 
 }
 
 void unmountSDCard()
@@ -303,12 +288,9 @@ void unmountSDCard()
   }
 
   ESP_LOGI(TAG, "Unmounting SD card");
-  if (hal.GetVSPIMutex())
-  {
-    SD.end();
-    hal.ReleaseVSPIMutex();
-    _sd_card_installed = false;
-  }
+  hal.UnmountSDCard();
+  _sd_card_installed = false;
+  
 }
 
 void wake_up_tft(bool force)
@@ -354,7 +336,7 @@ void avrprog_task(void *param)
         // although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
 
         uint32_t starttime = millis();
-        AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&(hal.vspi), GPIO_NUM_0, false, VSPI_SCK);
+        AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&(vspi), GPIO_NUM_0, false, VSPI_SCK);
 
         ESP_LOGI(TAG, "Programming AVR");
 
