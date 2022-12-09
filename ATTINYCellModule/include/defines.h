@@ -17,12 +17,11 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #ifndef DIYBMS_DEFINES_H // include guard
 #define DIYBMS_DEFINES_H
 
-
-#if (!defined(DIYBMSMODULEVERSION))
+#if !defined(DIYBMSMODULEVERSION)
 #error You need to specify the DIYBMSMODULEVERSION define
 #endif
 
-#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION > 440
+#if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION > 450
 #error Incorrect value for DIYBMSMODULEVERSION
 #endif
 
@@ -30,7 +29,6 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 //This is where the data begins in EEPROM
 #define EEPROM_CONFIG_ADDRESS 0
 
-#define nop  __asm__("nop\n\t");
 
 
 // Only the lowest 4 bits can be used!
