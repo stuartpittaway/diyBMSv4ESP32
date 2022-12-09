@@ -142,7 +142,15 @@ Note when the BMS asks for the wifi details, you have 30 seconds to enter them b
 
 ## Programming the modules
 
+### Modules up to v4.40
 The ESP32 controller supports programming the cell monitoring modules directly (only those supporting AVRISP 6 pin header). You no longer need to use a computer or USBASP style cable/adapter.
+
+### Module v4.50 and newer
+Modules after v4.50 require the use of an UPDI programming adapter.  Take a look at this website for help. https://teddywarner.org/Projects/SerialUPDI/#serial-programming
+
+Download the pre-compiled files (inside the ZIP file) for programming from the releases section on GITHUB https://github.com/stuartpittaway/diyBMSv4ESP32/releases/
+
+Look in the "Modules" folder of the release ZIP, for a file with a name similar to "module_fw_V450_10K_ATtiny1624_450_e0_h0_l0.hex"
 
 
 # License
