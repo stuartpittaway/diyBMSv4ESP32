@@ -583,20 +583,21 @@ uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings
 
     if (mysettings->socoverride)
     {
-        if (value > 99)
+        if (value > 90)
         {
-            // Force inverter SoC reading to 99%, this should force it to continue charging the battery
+            // Force inverter SoC reading to 90%, this should force it to continue charging the battery
             // this is helpful when first commissioning as most inverters stop charging at 100% SOC
             // even though the battery may not be full, and the DIYBMS current monitor has not learnt capacity yet.
             // This function should not be left permanently switched on - you could damage the battery.
-            value = 99;
+            value = 90;
         }
         if (value < 21)
         {
-            // Force minimum of 21% - some inverters will force charge a battery lower than
+            // Force minimum of 21% - some inverters (SoFAR) will force charge a battery lower than
             // this level limiting the charge current to 500W
             value = 21;
         }
+        
         // Limit to 100% maximum, DIYBMS current monitor can go above 100%, so don't confuse inverter/chargers
         if (value > 100)
         {
