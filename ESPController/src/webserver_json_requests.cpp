@@ -497,49 +497,6 @@ esp_err_t content_handler_avrstatus(httpd_req_t *req)
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
-/*
-esp_err_t content_handler_canbus(httpd_req_t *req)
-{
-    int bufferused = 0;
-
-  DynamicJsonDocument doc(2048);
-  JsonObject root = doc.to<JsonObject>();
-
-  root["pylonemulation"] = mysettings.PylonEmulation;
-
-  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
-
-  return httpd_resp_send(req, httpbuf, bufferused);
-}
-*/
-/*
-esp_err_t content_handler_victron(httpd_req_t *req)
-{
-  int bufferused = 0;
-
-  DynamicJsonDocument doc(2048);
-  JsonObject root = doc.to<JsonObject>();
-
-  JsonObject settings = root.createNestedObject("victron");
-
-  settings["enabled"] = mysettings.VictronEnabled;
-
-  JsonArray cvl = settings.createNestedArray("cvl");
-  JsonArray ccl = settings.createNestedArray("ccl");
-  JsonArray dcl = settings.createNestedArray("dcl");
-  for (uint8_t i = 0; i < 3; i++)
-  {
-    cvl.add(mysettings.cvl[i]);
-    ccl.add(mysettings.ccl[i]);
-    dcl.add(mysettings.dcl[i]);
-  }
-
-  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
-
-  return httpd_resp_send(req, httpbuf, bufferused);
-}
-*/
-
 esp_err_t content_handler_tileconfig(httpd_req_t *req)
 {
   StaticJsonDocument<200> doc;

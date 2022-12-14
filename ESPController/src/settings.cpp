@@ -495,3 +495,333 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
         settings->baudRate = defaults.baudRate;
     }
 }
+
+// Builds up a JSON document which mirrors the parameters inside "diybms_eeprom_settings"
+void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settings *settings)
+{
+    JsonObject root = doc->createNestedObject("diybms_settings");
+
+    root["totalNumberOfBanks"] = settings->totalNumberOfBanks;
+    root["totalNumberOfSeriesModules"] = settings->totalNumberOfSeriesModules;
+    root["baudRate"] = settings->baudRate;
+    root["interpacketgap"] = settings->interpacketgap;
+
+    root["graph_voltagehigh"] = settings->graph_voltagehigh;
+    root["graph_voltagelow"] = settings->graph_voltagelow;
+
+    root["BypassOverTempShutdown"] = settings->BypassOverTempShutdown;
+    root["BypassThresholdmV"] = settings->BypassThresholdmV;
+
+    root["timeZone"] = settings->timeZone;
+    root["minutesTimeZone"] = settings->minutesTimeZone;
+    root["daylight"] = settings->daylight;
+    root["ntpServer"] = settings->ntpServer;
+
+    root["loggingEnabled"] = settings->loggingEnabled;
+    root["loggingFrequencySeconds"] = settings->loggingFrequencySeconds;
+
+    root["currentMonitoringEnabled"] = settings->currentMonitoringEnabled;
+    root["currentMonitoringModBusAddress"] = settings->currentMonitoringModBusAddress;
+
+    root["rs485baudrate"] = settings->rs485baudrate;
+    root["rs485databits"] = settings->rs485databits;
+    root["rs485parity"] = settings->rs485parity;
+    root["rs485stopbits"] = settings->rs485stopbits;
+
+    root["language"] = settings->language;
+
+    JsonObject mqtt = root.createNestedObject("mqtt");
+    mqtt["enabled"] = settings->mqtt_enabled;
+    mqtt["uri"] = settings->mqtt_uri;
+    mqtt["topic"] = settings->mqtt_topic;
+    mqtt["username"] = settings->mqtt_username;
+    mqtt["password"] = settings->mqtt_password;
+
+    JsonObject influxdb = root.createNestedObject("influxdb");
+    influxdb["enabled"] = settings->influxdb_enabled;
+    influxdb["apitoken"] = settings->influxdb_apitoken;
+    influxdb["bucket"] = settings->influxdb_databasebucket;
+    influxdb["org"] = settings->influxdb_orgid;
+    influxdb["url"] = settings->influxdb_serverurl;
+    influxdb["logfreq"] = settings->influxdb_loggingFreqSeconds;
+
+    JsonObject outputs = root.createNestedObject("outputs");
+
+    JsonArray d = outputs.createNestedArray("default");
+    JsonArray t = outputs.createNestedArray("type");
+    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+    {
+        d.add(settings->rulerelaydefault[i]);
+        t.add(settings->relaytype[i]);
+    }
+
+    JsonObject rules = root.createNestedObject("rules");
+    for (uint8_t rr = 0; rr < RELAY_RULES; rr++)
+    {
+        // This is a default "catch all"
+        String elementName = String("rule") + String(rr);
+
+        if (rr >= 0 && rr <= MAXIMUM_RuleNumber)
+        {
+            // Map enum to string so when this file is re-imported we are not locked to specific index offsets
+            // which may no longer map to the correct rule
+            elementName = String(RuleTextDescription[rr]);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Loop outside bounds of MAXIMUM_RuleNumber");
+        }
+
+        JsonObject state = rules.createNestedObject(elementName);
+
+        state["value"] = settings->rulevalue[rr];
+        state["hysteresis"] = settings->rulehysteresis[rr];
+
+        JsonArray relaystate = state.createNestedArray("state");
+        for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
+        {
+            relaystate.add(settings->rulerelaystate[rr][rt]);
+        }
+    } // end for
+
+    root["canbusprotocol"] = (uint8_t)settings->canbusprotocol;
+    root["nominalbatcap"] = settings->nominalbatcap;
+
+    root["chargevolt"] = settings->chargevolt;
+    root["chargecurrent"] = settings->chargecurrent;
+    root["dischargecurrent"] = settings->dischargecurrent;
+    root["dischargevolt"] = settings->dischargevolt;
+
+    root["chargetemplow"] = settings->chargetemplow;
+    root["chargetemphigh"] = settings->chargetemphigh;
+    root["dischargetemplow"] = settings->dischargetemplow;
+    root["dischargetemphigh"] = settings->dischargetemphigh;
+    root["stopchargebalance"] = settings->stopchargebalance;
+    root["socoverride"] = settings->socoverride;
+    root["socforcelow"] = settings->socforcelow;
+    root["dynamiccharge"] = settings->dynamiccharge;
+    root["preventdischarge"] = settings->preventdischarge;
+    root["preventcharging"] = settings->preventcharging;
+    root["cellminmv"] = settings->cellminmv;
+    root["cellmaxmv"] = settings->cellmaxmv;
+    root["kneemv"] = settings->kneemv;
+
+    JsonArray tv = root.createNestedArray("tilevisibility");
+    for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
+    {
+        tv.add(settings->tileconfig[i]);
+    }
+
+    // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
+}
+
+void JSONToSettings(DynamicJsonDocument& doc, diybms_eeprom_settings *settings)
+{
+    //Use defaults to populate the settings, just in case we are missing values from the JSON
+    DefaultConfiguration(settings);
+    
+    if (!doc.containsKey("diybms_settings")) {
+        //Wrong document type - quit...
+        return;
+    }
+
+    JsonObject root = doc["diybms_settings"];
+
+    settings->totalNumberOfBanks = root["totalNumberOfBanks"];
+    settings->totalNumberOfSeriesModules = root["totalNumberOfSeriesModules"];
+    settings->baudRate = root["baudRate"];
+    settings->interpacketgap = root["interpacketgap"];
+
+    settings->graph_voltagehigh = root["graph_voltagehigh"];
+    settings->graph_voltagelow = root["graph_voltagelow"];
+
+    settings->BypassOverTempShutdown = root["BypassOverTempShutdown"];
+    settings->BypassThresholdmV = root["BypassThresholdmV"];
+
+    settings->timeZone = root["timeZone"];
+    settings->minutesTimeZone = root["minutesTimeZone"];
+    settings->daylight = root["daylight"];
+    strncpy(settings->ntpServer, root["ntpServer"].as<String>().c_str(), sizeof(settings->ntpServer));
+
+    settings->loggingEnabled = root["loggingEnabled"];
+    settings->loggingFrequencySeconds = root["loggingFrequencySeconds"];
+
+    settings->currentMonitoringEnabled = root["currentMonitoringEnabled"];
+    settings->currentMonitoringModBusAddress = root["currentMonitoringModBusAddress"];
+
+    settings->rs485baudrate = root["rs485baudrate"];
+    settings->rs485databits = root["rs485databits"];
+    settings->rs485parity = root["rs485parity"];
+    settings->rs485stopbits = root["rs485stopbits"];
+
+    strncpy(settings->language, root["language"].as<String>().c_str(), sizeof(settings->language));
+
+    settings->canbusprotocol = (CanBusProtocolEmulation)root["canbusprotocol"];
+    settings->nominalbatcap = root["nominalbatcap"];
+    settings->chargevolt = root["chargevolt"];
+    settings->chargecurrent = root["chargecurrent"];
+    settings->dischargecurrent = root["dischargecurrent"];
+    settings->dischargevolt = root["dischargevolt"];
+    settings->chargetemplow = root["chargetemplow"];
+    settings->chargetemphigh = root["chargetemphigh"];
+    settings->dischargetemplow = root["dischargetemplow"];
+    settings->dischargetemphigh = root["dischargetemphigh"];
+    settings->stopchargebalance = root["stopchargebalance"];
+    settings->socoverride = root["socoverride"];
+    settings->socforcelow = root["socforcelow"];
+    settings->dynamiccharge = root["dynamiccharge"];
+    settings->preventdischarge = root["preventdischarge"];
+    settings->preventcharging = root["preventcharging"];
+    settings->cellminmv = root["cellminmv"];
+    settings->cellmaxmv = root["cellmaxmv"];
+    settings->kneemv = root["kneemv"];
+
+    JsonObject mqtt = root["mqtt"];
+    if (!mqtt.isNull())
+    {
+        settings->mqtt_enabled = mqtt["enabled"];
+        strncpy(settings->mqtt_uri, mqtt["uri"].as<String>().c_str(), sizeof(settings->mqtt_uri));
+        strncpy(settings->mqtt_topic, mqtt["topic"].as<String>().c_str(), sizeof(settings->mqtt_topic));
+        strncpy(settings->mqtt_username, mqtt["username"].as<String>().c_str(), sizeof(settings->mqtt_username));
+        strncpy(settings->mqtt_password, mqtt["password"].as<String>().c_str(), sizeof(settings->mqtt_password));
+    }
+
+    JsonObject influxdb = root["influxdb"];
+    if (!influxdb.isNull())
+    {
+        settings->influxdb_enabled = influxdb["enabled"];
+        strncpy(settings->influxdb_apitoken, influxdb["apitoken"].as<String>().c_str(), sizeof(settings->influxdb_apitoken));
+        strncpy(settings->influxdb_databasebucket, influxdb["bucket"].as<String>().c_str(), sizeof(settings->influxdb_databasebucket));
+        strncpy(settings->influxdb_orgid, influxdb["org"].as<String>().c_str(), sizeof(settings->influxdb_orgid));
+        strncpy(settings->influxdb_serverurl, influxdb["url"].as<String>().c_str(), sizeof(settings->influxdb_serverurl));
+        settings->influxdb_loggingFreqSeconds = influxdb["logfreq"];
+    }
+
+    JsonObject outputs = root["outputs"];
+    if (!outputs.isNull())
+    {
+        JsonArray d = outputs["default"].as<JsonArray>();
+
+        uint8_t i = 0;
+        for (JsonVariant v : d)
+        {
+            settings->rulerelaydefault[i] = (RelayState)v.as<uint8_t>();
+            // ESP_LOGI(TAG, "relay default %u=%u", i, myset.rulerelaydefault[i]);
+            i++;
+
+            if (i > RELAY_TOTAL)
+            {
+                break;
+            }
+        }
+
+        JsonArray t = outputs["type"].as<JsonArray>();
+        i = 0;
+        for (JsonVariant v : t)
+        {
+            settings->relaytype[i] = (RelayType)v.as<uint8_t>();
+            // ESP_LOGI(TAG, "relay type %u=%u", i, myset.relaytype[i]);
+            i++;
+            if (i > RELAY_TOTAL)
+            {
+                break;
+            }
+        }
+    }
+
+    JsonObject rules = root["rules"];
+    if (!rules.isNull())
+    {
+        for (JsonPair kv : rules)
+        {
+            char key[64];
+            strncpy(key, kv.key().c_str(), sizeof(key));
+            ESP_LOGI(TAG, "rule %s", key);
+
+            for (size_t rulenumber = 0; rulenumber <= MAXIMUM_RuleNumber; rulenumber++)
+            {
+                if (strcmp(RuleTextDescription[rulenumber], key) == 0)
+                {
+                    ESP_LOGI(TAG, "Matched to rule %u", rulenumber);
+                    JsonVariant v = kv.value();
+                    settings->rulevalue[rulenumber] = v["value"].as<uint32_t>();
+                    // ESP_LOGI(TAG, "value=%u", myset.rulevalue[rulenumber]);
+                    settings->rulehysteresis[rulenumber] = v["hysteresis"].as<uint32_t>();
+                    // ESP_LOGI(TAG, "hysteresis=%u", myset.rulehysteresis[rulenumber]);
+                    JsonArray states = v["state"].as<JsonArray>();
+
+                    uint8_t i = 0;
+                    for (JsonVariant v : states)
+                    {
+                        settings->rulerelaystate[rulenumber][i] = (RelayState)v.as<uint8_t>();
+                        // ESP_LOGI(TAG, "rulerelaystate %u", myset.rulerelaystate[rulenumber][i]);
+                        i++;
+                        if (i > RELAY_TOTAL)
+                        {
+                            break;
+                        }
+                    }
+
+                    break;
+                }
+            }
+        }
+    }
+
+    uint8_t i = 0;
+    for (JsonVariant v : root["tilevisibility"].as<JsonArray>())
+    {
+        // Need to check for over flow of tileconfig array
+        settings->tileconfig[i] = v.as<uint16_t>();
+    }
+
+    // Victron
+    /*
+    JsonObject victron = root["victron"];
+    if (!victron.isNull())
+    {
+
+        JsonArray cvl = victron["cvl"].as<JsonArray>();
+
+        uint8_t i = 0;
+        for (JsonVariant v : cvl)
+        {
+            myset.cvl[i] = v.as<uint16_t>();
+            ESP_LOGI(TAG, "cvl %u %u", i, myset.cvl[i]);
+            i++;
+            if (i > 3)
+            {
+                break;
+            }
+        }
+
+        JsonArray ccl = victron["ccl"].as<JsonArray>();
+
+        i = 0;
+        for (JsonVariant v : ccl)
+        {
+            myset.ccl[i] = v.as<uint16_t>();
+            ESP_LOGI(TAG, "ccl %u %u", i, myset.ccl[i]);
+            i++;
+            if (i > 3)
+            {
+                break;
+            }
+        }
+
+        JsonArray dcl = victron["dcl"].as<JsonArray>();
+
+        i = 0;
+        for (JsonVariant v : dcl)
+        {
+            myset.dcl[i] = v.as<uint16_t>();
+            ESP_LOGI(TAG, "dcl %u %u", i, myset.dcl[i]);
+            i++;
+            if (i > 3)
+            {
+                break;
+            }
+        }
+    }
+    */
+}

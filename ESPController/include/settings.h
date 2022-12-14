@@ -6,7 +6,7 @@
 #include "nvs.h"
 #include "Rules.h"
 
-
+#include "ArduinoJson.h"
 bool ValidateGetSetting(esp_err_t err, const char *key);
 
 bool getString(nvs_handle_t handle, const char *key, char *out_value, size_t size);
@@ -30,4 +30,8 @@ void DefaultConfiguration(diybms_eeprom_settings *settings);
 void SaveWIFI(wifi_eeprom_settings* wifi);
 bool LoadWIFI(wifi_eeprom_settings* wifi);
 
+void GenerateSettingsJSONDocument(DynamicJsonDocument *doc,diybms_eeprom_settings *settings);
+void JSONToSettings( DynamicJsonDocument& doc, diybms_eeprom_settings *settings);
+
+extern const char *RuleTextDescription[];
 #endif
