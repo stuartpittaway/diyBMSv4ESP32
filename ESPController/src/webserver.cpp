@@ -94,7 +94,7 @@ esp_err_t SendSuccess(httpd_req_t *req)
 
 void saveConfiguration()
 {
-  Settings::WriteConfig("diybms", (char *)(&mysettings), sizeof(diybms_eeprom_settings));
+  SaveConfiguration(&mysettings);
 }
 
 // The main home page

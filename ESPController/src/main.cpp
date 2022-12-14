@@ -29,6 +29,8 @@ static constexpr const char *const TAG = "diybms";
 #include "esp_ota_ops.h"
 #include "esp_flash_partitions.h"
 #include "esp_partition.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 
 #include <Arduino.h>
 
@@ -44,7 +46,7 @@ static constexpr const char *const TAG = "diybms";
 #include <esp_ipc.h>
 #include <esp_wifi.h>
 #include <esp_bt.h>
-#include <Preferences.h>
+
 #include <esp_event.h>
 
 // Libraries for SD card
@@ -61,6 +63,7 @@ static constexpr const char *const TAG = "diybms";
 #include "defines.h"
 #include "HAL_ESP32.h"
 #include "Rules.h"
+#include "settings.h"
 #include "avrisp_programmer.h"
 #include "tft.h"
 #include "influxdb.h"
@@ -271,7 +274,6 @@ void mountSDCard()
   ESP_LOGI(TAG, "Mounting SD card");
 
   _sd_card_installed = hal.MountSDCard();
- 
 }
 
 void unmountSDCard()
@@ -290,7 +292,6 @@ void unmountSDCard()
   ESP_LOGI(TAG, "Unmounting SD card");
   hal.UnmountSDCard();
   _sd_card_installed = false;
-  
 }
 
 void wake_up_tft(bool force)
@@ -1666,7 +1667,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
 bool LoadWiFiConfig()
 {
-  return (Settings::ReadConfig("diybmswifi", (char *)&_wificonfig, sizeof(_wificonfig)));
+  return LoadWIFI(&_wificonfig);
 }
 
 void BuildHostname()
@@ -2114,7 +2115,6 @@ void TimeToSoCCalculation()
     time10 = 0;
   }
 }
-
 
 // Save the current monitor advanced settings back to the device over MODBUS/RS485
 void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
@@ -2733,148 +2733,6 @@ void rs485_tx(void *param)
   }
 }
 
-void DefaultConfiguration(diybms_eeprom_settings *_myset)
-{
-  ESP_LOGI(TAG, "Apply default config");
-
-  // Zero all the bytes
-  memset(_myset, 0, sizeof(diybms_eeprom_settings));
-
-  // Default to a single module
-  _myset->totalNumberOfBanks = 1;
-  _myset->totalNumberOfSeriesModules = 1;
-  // Default serial port speed
-  _myset->baudRate = COMMS_BAUD_RATE;
-  _myset->BypassOverTempShutdown = 65;
-  _myset->interpacketgap = 6000;
-  // 4.10V bypass
-  _myset->BypassThresholdmV = 4100;
-  _myset->graph_voltagehigh = 4.5;
-  _myset->graph_voltagelow = 2.75;
-
-  // EEPROM settings are invalid so default configuration
-  _myset->mqtt_enabled = false;
-
-  _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
-  _myset->nominalbatcap = 280;
-  _myset->chargevolt = 565;       // Scale 0.1
-  _myset->chargecurrent = 650;    // Scale 0.1
-  _myset->dischargecurrent = 650; // Scale 0.1
-  _myset->dischargevolt = 488;    // Scale 0.1
-  _myset->chargetemplow = 0;
-  _myset->chargetemphigh = 50;
-  _myset->dischargetemplow = -30;
-  _myset->dischargetemphigh = 55;
-  // Just outside the ranges of 56.0V and 49.6V
-  _myset->cellminmv = 3050;
-  _myset->cellmaxmv = 3450;
-  _myset->kneemv = 3320;
-  _myset->stopchargebalance = true;
-  _myset->socoverride = false;
-  _myset->socforcelow = false;
-  _myset->dynamiccharge = true;
-  _myset->preventcharging = false;
-  _myset->preventdischarge = false;
-
-  _myset->loggingEnabled = false;
-  _myset->loggingFrequencySeconds = 15;
-
-  _myset->currentMonitoringEnabled = false;
-  _myset->currentMonitoringModBusAddress = 90;
-  _myset->currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
-
-  _myset->rs485baudrate = 19200;
-  _myset->rs485databits = uart_word_length_t::UART_DATA_8_BITS;
-  _myset->rs485parity = uart_parity_t::UART_PARITY_DISABLE;
-  _myset->rs485stopbits = uart_stop_bits_t::UART_STOP_BITS_1;
-
-  _myset->currentMonitoringEnabled = false;
-
-  strcpy(_myset->language, "en");
-
-  // Default to EMONPI default MQTT settings
-  strcpy(_myset->mqtt_topic, "emon/diybms");
-  strcpy(_myset->mqtt_uri, "mqtt://192.168.0.26:1883");
-  strcpy(_myset->mqtt_username, "emonpi");
-  strcpy(_myset->mqtt_password, "emonpimqtt2016");
-
-  _myset->influxdb_enabled = false;
-  strcpy(_myset->influxdb_serverurl, "http://192.168.0.49:8086/api/v2/write");
-  strcpy(_myset->influxdb_databasebucket, "bucketname");
-  strcpy(_myset->influxdb_orgid, "organisation");
-  _myset->influxdb_loggingFreqSeconds = 15;
-
-  _myset->timeZone = 0;
-  _myset->minutesTimeZone = 0;
-  _myset->daylight = false;
-  strcpy(_myset->ntpServer, "time.google.com");
-
-  for (size_t x = 0; x < RELAY_TOTAL; x++)
-  {
-    _myset->rulerelaydefault[x] = RELAY_OFF;
-  }
-
-  // Emergency stop
-  _myset->rulevalue[Rule::EmergencyStop] = 0;
-  // Internal BMS error (communication issues, fault readings from modules etc)
-  _myset->rulevalue[Rule::BMSError] = 0;
-  // Current monitoring maximum AMPS
-  _myset->rulevalue[Rule::CurrentMonitorOverCurrentAmps] = 100;
-  // Individual cell over voltage
-  _myset->rulevalue[Rule::ModuleOverVoltage] = 4150;
-  // Individual cell under voltage
-  _myset->rulevalue[Rule::ModuleUnderVoltage] = 3000;
-  // Individual cell over temperature (external probe)
-  _myset->rulevalue[Rule::ModuleOverTemperatureExternal] = 55;
-  // Pack over voltage (mV)
-  _myset->rulevalue[Rule::ModuleUnderTemperatureExternal] = 5;
-  // Pack under voltage (mV)
-  _myset->rulevalue[Rule::BankOverVoltage] = 4200 * 8;
-  // RULE_PackUnderVoltage
-  _myset->rulevalue[Rule::BankUnderVoltage] = 3000 * 8;
-  _myset->rulevalue[Rule::Timer1] = 60 * 8;  // 8am
-  _myset->rulevalue[Rule::Timer2] = 60 * 17; // 5pm
-
-  _myset->rulevalue[Rule::ModuleOverTemperatureInternal] = 60;
-  _myset->rulevalue[Rule::ModuleUnderTemperatureInternal] = 5;
-
-  _myset->rulevalue[Rule::CurrentMonitorOverVoltage] = 4200 * 8;
-  _myset->rulevalue[Rule::CurrentMonitorUnderVoltage] = 3000 * 8;
-
-  for (size_t i = 0; i < RELAY_RULES; i++)
-  {
-    _myset->rulehysteresis[i] = _myset->rulevalue[i];
-
-    // Set all relays to don't care
-    for (size_t x = 0; x < RELAY_TOTAL; x++)
-    {
-      _myset->rulerelaystate[i][x] = RELAY_X;
-    }
-  }
-
-  for (size_t x = 0; x < RELAY_TOTAL; x++)
-  {
-    _myset->relaytype[x] = RELAY_STANDARD;
-  }
-
-  // Default which "tiles" are visible on the web gui
-  // For the meaning, look at array "TILE_IDS" in pagecode.js
-  _myset->tileconfig[0] = 49152;
-  _myset->tileconfig[1] = 0;
-  _myset->tileconfig[2] = 62209;
-  _myset->tileconfig[3] = 0;
-  _myset->tileconfig[4] = 0;
-}
-
-void LoadConfiguration()
-{
-  ESP_LOGI(TAG, "Fetch config");
-
-  if (Settings::ReadConfig("diybms", (char *)&mysettings, sizeof(mysettings)))
-    return;
-
-  DefaultConfiguration(&mysettings);
-}
 
 void periodic_task(void *param)
 {
@@ -2935,7 +2793,6 @@ void periodic_task(void *param)
     }
   }
 }
-
 
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 void lazy_tasks(void *param)
@@ -3230,8 +3087,7 @@ void TerminalBasedWifiSetup()
       memset(&config, 0, sizeof(config));
       strncpy(config.wifi_ssid, (char *)ap_info[index].ssid, sizeof(config.wifi_ssid));
       strncpy(config.wifi_passphrase, buffer, sizeof(config.wifi_passphrase));
-      Settings::WriteConfig("diybmswifi", (char *)&config, sizeof(config));
-
+      SaveWIFI(&config);
       // Now delete the WIFICONFIG backup from the SDCard to prevent boot loops/resetting defaults
       DeleteWiFiConfigFromSDCard();
     }
@@ -3239,7 +3095,7 @@ void TerminalBasedWifiSetup()
 
   fputc('\n', stdout);
   fputc('\n', stdout);
-  for (size_t i = 10; i > 0; i--)
+  for (size_t i = 5; i > 0; i--)
   {
     char number[5];
     itoa(i, number, 10);
@@ -3298,9 +3154,7 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
           {
             memcpy(&_wificonfig, &_new_config, sizeof(_new_config));
             ESP_LOGI(TAG, "Wifi config is different, saving");
-
-            Settings::WriteConfig("diybmswifi", (char *)&_new_config, sizeof(_new_config));
-
+            SaveWIFI(&_new_config);
             ret = true;
           }
           else
@@ -3347,6 +3201,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
+        {.tag = "diybms-set", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO}};
 
 void consoleConfigurationCheck()
@@ -3453,6 +3308,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   init_tft_display();
   hal.Led(0);
 
+  InitializeNVS();
+
   // Switch CAN chip TJA1051T/3 ON
   hal.CANBUSEnable(true);
   hal.ConfigureCAN();
@@ -3488,13 +3345,10 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   resetAllRules();
 
-  LoadConfiguration();
+  LoadConfiguration(&mysettings);
+  ValidateConfiguration(&mysettings);
 
-  // Check its not zero
-  if (mysettings.influxdb_loggingFreqSeconds < 5)
-  {
-    mysettings.influxdb_loggingFreqSeconds = 15;
-  }
+
 
   if (!EepromConfigValid)
   {

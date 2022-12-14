@@ -152,7 +152,7 @@ struct diybms_eeprom_settings
   uint8_t currentMonitoringModBusAddress;
   CurrentMonitorDevice currentMonitoringDevice;
 
-  int rs485baudrate;
+  int32_t rs485baudrate;
   uart_word_length_t rs485databits;
   uart_parity_t rs485parity;
   uart_stop_bits_t rs485stopbits;

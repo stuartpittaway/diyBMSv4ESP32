@@ -48,5 +48,6 @@ extern RelayState previousRelayState[RELAY_TOTAL];
 extern currentmonitoring_struct currentMonitor;
 extern void suspendTasksDuringFirmwareUpdate();
 extern void resumeTasksAfterFirmwareUpdateFailure();
+extern void SaveConfiguration(diybms_eeprom_settings *settings);
 
 #endif
