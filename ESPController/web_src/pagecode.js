@@ -458,8 +458,8 @@ function queryBMS() {
         var tempext = [];
         var pwm = [];
 
-        var minVoltage = DEFAULT_GRAPH_MIN_VOLTAGE;
-        var maxVoltage = DEFAULT_GRAPH_MAX_VOLTAGE;
+        var minVoltage = DEFAULT_GRAPH_MIN_VOLTAGE / 1000.0;
+        var maxVoltage = DEFAULT_GRAPH_MAX_VOLTAGE / 1000.0;
 
         var bankNumber = 0;
         var cellsInBank = 0;
@@ -1202,8 +1202,8 @@ $(function () {
         $("#banksForm").hide();
         $("#settingsPage").show();
 
-        $("#VoltageHigh").val(DEFAULT_GRAPH_MAX_VOLTAGE.toFixed(2));
-        $("#VoltageLow").val(DEFAULT_GRAPH_MIN_VOLTAGE.toFixed(2));
+        $("#VoltageHigh").val(DEFAULT_GRAPH_MAX_VOLTAGE);
+        $("#VoltageLow").val(DEFAULT_GRAPH_MIN_VOLTAGE);
 
         switchPage("#settingsPage");
 

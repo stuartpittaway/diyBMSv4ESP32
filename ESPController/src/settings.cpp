@@ -30,7 +30,6 @@ bool getSetting(nvs_handle_t handle, const char *key, float *out_value)
     size_t required_size = sizeof(float);
     return ValidateGetSetting(nvs_get_blob(handle, key, (void *)out_value, &required_size), key);
 }
-
 bool getSetting(nvs_handle_t handle, const char *key, uint8_t *out_value)
 {
     return ValidateGetSetting(nvs_get_u8(handle, key, out_value), key);
@@ -39,10 +38,12 @@ bool getSetting(nvs_handle_t handle, const char *key, int32_t *out_value)
 {
     return ValidateGetSetting(nvs_get_i32(handle, key, out_value), key);
 }
+/*
 bool getSetting(nvs_handle_t handle, const char *key, uint32_t *out_value)
 {
     return ValidateGetSetting(nvs_get_u32(handle, key, out_value), key);
 }
+*/
 bool getSetting(nvs_handle_t handle, const char *key, int8_t *out_value)
 {
     return ValidateGetSetting(nvs_get_i8(handle, key, out_value), key);
@@ -76,7 +77,6 @@ bool getSetting(nvs_handle_t handle, const char *key, uint16_t *out_value)
 {
     return ValidateGetSetting(nvs_get_u16(handle, key, out_value), key);
 }
-
 bool getSetting(nvs_handle_t handle, const char *key, bool *out_value)
 {
     return ValidateGetSetting(nvs_get_u8(handle, key, (uint8_t *)out_value), key);
@@ -97,6 +97,37 @@ void InitializeNVS()
     ESP_ERROR_CHECK(err);
 }
 
+void writeSetting(nvs_handle_t handle, const char *key, int8_t value)
+{
+    ESP_LOGD(TAG, "Writing (%s)=%i", key, value);
+    ESP_ERROR_CHECK(nvs_set_i8(handle, key, value));
+}
+void writeSetting(nvs_handle_t handle, const char *key, uint8_t value)
+{
+    ESP_LOGD(TAG, "Writing (%s)=%u", key, value);
+    ESP_ERROR_CHECK(nvs_set_u8(handle, key, value));
+}
+void writeSetting(nvs_handle_t handle, const char *key, int32_t value)
+{
+    ESP_LOGD(TAG, "Writing (%s)=%i", key, value);
+    ESP_ERROR_CHECK(nvs_set_i32(handle, key, value));
+}
+void writeSetting(nvs_handle_t handle, const char *key, uint16_t value)
+{
+    ESP_LOGD(TAG, "Writing (%s)=%u", key, value);
+    ESP_ERROR_CHECK(nvs_set_u16(handle, key, value));
+}
+void writeSetting(nvs_handle_t handle, const char *key, const char *value)
+{
+    ESP_LOGD(TAG, "Writing (%s)=%s", key, value);
+    ESP_ERROR_CHECK(nvs_set_str(handle, key, value));
+}
+void writeSettingBlob(nvs_handle_t handle, const char *key, const void *value, size_t length)
+{
+    ESP_LOGD(TAG, "Writing (%s), length=%u", key, length);
+    ESP_ERROR_CHECK(nvs_set_blob(handle, key, value, length));
+}
+
 void SaveConfiguration(diybms_eeprom_settings *settings)
 {
     const char *partname = "diybms-ctrl";
@@ -106,80 +137,82 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
     esp_err_t err = nvs_open(partname, NVS_READWRITE, &nvs_handle);
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "Error (%s) opening NVS handle!", esp_err_to_name(err));
+        ESP_LOGE(TAG, "Error %s opening NVS handle!", esp_err_to_name(err));
     }
     else
     {
         // Save settings
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "totalBanks", settings->totalNumberOfBanks));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "totalSeriesMod", settings->totalNumberOfSeriesModules));
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "baudRate", settings->baudRate));
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "interpacketgap", settings->interpacketgap));
-        ESP_ERROR_CHECK(nvs_set_blob(nvs_handle, "rulevalue", settings->rulevalue, sizeof(settings->rulevalue)));
-        ESP_ERROR_CHECK(nvs_set_blob(nvs_handle, "rulehysteresis", settings->rulehysteresis, sizeof(settings->rulehysteresis)));
-        ESP_ERROR_CHECK(nvs_set_blob(nvs_handle, "rulerelaystate", settings->rulerelaystate, sizeof(settings->rulerelaystate)));
-        ESP_ERROR_CHECK(nvs_set_blob(nvs_handle, "rulerelaydef", settings->rulerelaydefault, sizeof(settings->rulerelaydefault)));
-        ESP_ERROR_CHECK(nvs_set_blob(nvs_handle, "relaytype", settings->relaytype, sizeof(settings->relaytype)));
-        ESP_ERROR_CHECK(nvs_set_blob(nvs_handle, "g_voltagehigh", (void *)(&settings->graph_voltagehigh), sizeof(settings->graph_voltagehigh)));
-        ESP_ERROR_CHECK(nvs_set_blob(nvs_handle, "g_voltagelow", (void *)(&settings->graph_voltagelow), sizeof(settings->graph_voltagelow)));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "BypassOverTemp", settings->BypassOverTempShutdown));
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "BypassThresmV", settings->BypassThresholdmV));
-        ESP_ERROR_CHECK(nvs_set_i8(nvs_handle, "TZ", settings->timeZone));
-        ESP_ERROR_CHECK(nvs_set_i8(nvs_handle, "minutesTZ", settings->minutesTimeZone));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "daylight", settings->daylight));
+        writeSetting(nvs_handle, "totalBanks", settings->totalNumberOfBanks);
+        writeSetting(nvs_handle, "totalSeriesMod", settings->totalNumberOfSeriesModules);
+        writeSetting(nvs_handle, "baudRate", settings->baudRate);
+        writeSetting(nvs_handle, "interpacketgap", settings->interpacketgap);
+        writeSettingBlob(nvs_handle, "rulevalue", settings->rulevalue, sizeof(settings->rulevalue));
+        writeSettingBlob(nvs_handle, "rulehysteresis", settings->rulehysteresis, sizeof(settings->rulehysteresis));
+        writeSettingBlob(nvs_handle, "rulerelaystate", settings->rulerelaystate, sizeof(settings->rulerelaystate));
+        writeSettingBlob(nvs_handle, "rulerelaydef", settings->rulerelaydefault, sizeof(settings->rulerelaydefault));
+        writeSettingBlob(nvs_handle, "relaytype", settings->relaytype, sizeof(settings->relaytype));
+      
+        writeSetting(nvs_handle, "g_voltagehigh", settings->graph_voltagehigh);
+        writeSetting(nvs_handle, "g_voltagelow", settings->graph_voltagelow);
 
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "logEnabled", (uint8_t)settings->loggingEnabled));
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "logFreqSec", settings->loggingFrequencySeconds));
+        writeSetting(nvs_handle, "BypassOverTemp", settings->BypassOverTempShutdown);
+        writeSetting(nvs_handle, "BypassThresmV", settings->BypassThresholdmV);
+        writeSetting(nvs_handle, "TZ", settings->timeZone);
+        writeSetting(nvs_handle, "minutesTZ", settings->minutesTimeZone);
+        writeSetting(nvs_handle, "daylight", settings->daylight);
 
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "curMonEnabled", (uint8_t)settings->currentMonitoringEnabled));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "curMonMBAddress", (uint8_t)settings->currentMonitoringModBusAddress));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "curMonDevice", (uint8_t)settings->currentMonitoringDevice));
+        writeSetting(nvs_handle, "logEnabled", (uint8_t)settings->loggingEnabled);
+        writeSetting(nvs_handle, "logFreqSec", settings->loggingFrequencySeconds);
 
-        ESP_ERROR_CHECK(nvs_set_i32(nvs_handle, "485baudrate", settings->rs485baudrate));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "485databits", (uint8_t)settings->rs485databits));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "485parity", (uint8_t)settings->rs485parity));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "485stopbits", (uint8_t)settings->rs485stopbits));
+        writeSetting(nvs_handle, "curMonEnabled", (uint8_t)settings->currentMonitoringEnabled);
+        writeSetting(nvs_handle, "curMonMBAddress", (uint8_t)settings->currentMonitoringModBusAddress);
+        writeSetting(nvs_handle, "curMonDevice", (uint8_t)settings->currentMonitoringDevice);
 
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "canbusprotocol", (uint8_t)settings->canbusprotocol));
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "nominalbatcap", settings->nominalbatcap));
+        writeSetting(nvs_handle, "485baudrate", settings->rs485baudrate);
+        writeSetting(nvs_handle, "485databits", (uint8_t)settings->rs485databits);
+        writeSetting(nvs_handle, "485parity", (uint8_t)settings->rs485parity);
+        writeSetting(nvs_handle, "485stopbits", (uint8_t)settings->rs485stopbits);
 
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "cha_volt", settings->chargevolt));
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "cha_current", settings->chargecurrent));
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "dis_current", settings->dischargecurrent));
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "dis_volt", settings->dischargevolt));
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "cellminmv", settings->cellminmv));
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "cellmaxmv", settings->cellmaxmv));
-        ESP_ERROR_CHECK(nvs_set_u16(nvs_handle, "kneemv", settings->kneemv));
-        ESP_ERROR_CHECK(nvs_set_i8(nvs_handle, "cha_templow", settings->chargetemplow));
-        ESP_ERROR_CHECK(nvs_set_i8(nvs_handle, "cha_temphigh", settings->chargetemphigh));
-        ESP_ERROR_CHECK(nvs_set_i8(nvs_handle, "dis_templow", settings->dischargetemplow));
-        ESP_ERROR_CHECK(nvs_set_i8(nvs_handle, "dis_temphigh", settings->dischargetemphigh));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "stopchargebal", (uint8_t)settings->stopchargebalance));
+        writeSetting(nvs_handle, "canbusprotocol", (uint8_t)settings->canbusprotocol);
+        writeSetting(nvs_handle, "nominalbatcap", settings->nominalbatcap);
 
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "socoverride", (uint8_t)settings->socoverride));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "socforcelow", (uint8_t)settings->socforcelow));
+        writeSetting(nvs_handle, "cha_volt", settings->chargevolt);
+        writeSetting(nvs_handle, "cha_current", settings->chargecurrent);
+        writeSetting(nvs_handle, "dis_current", settings->dischargecurrent);
+        writeSetting(nvs_handle, "dis_volt", settings->dischargevolt);
+        writeSetting(nvs_handle, "cellminmv", settings->cellminmv);
+        writeSetting(nvs_handle, "cellmaxmv", settings->cellmaxmv);
+        writeSetting(nvs_handle, "kneemv", settings->kneemv);
+        writeSetting(nvs_handle, "cha_templow", settings->chargetemplow);
+        writeSetting(nvs_handle, "cha_temphigh", settings->chargetemphigh);
+        writeSetting(nvs_handle, "dis_templow", settings->dischargetemplow);
+        writeSetting(nvs_handle, "dis_temphigh", settings->dischargetemphigh);
+        writeSetting(nvs_handle, "stopchargebal", (uint8_t)settings->stopchargebalance);
 
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "dynamiccharge", (uint8_t)settings->dynamiccharge));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "preventchar", (uint8_t)settings->preventcharging));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "preventdis", (uint8_t)settings->preventdischarge));
+        writeSetting(nvs_handle, "socoverride", (uint8_t)settings->socoverride);
+        writeSetting(nvs_handle, "socforcelow", (uint8_t)settings->socforcelow);
 
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "mqttenable", (uint8_t)settings->mqtt_enabled));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "infenabled", (uint8_t)settings->influxdb_enabled));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "inflogFreq", settings->influxdb_loggingFreqSeconds));
+        writeSetting(nvs_handle, "dynamiccharge", (uint8_t)settings->dynamiccharge);
+        writeSetting(nvs_handle, "preventchar", (uint8_t)settings->preventcharging);
+        writeSetting(nvs_handle, "preventdis", (uint8_t)settings->preventdischarge);
 
-        ESP_ERROR_CHECK(nvs_set_blob(nvs_handle, "tileconfig", settings->tileconfig, sizeof(settings->tileconfig)));
+        writeSetting(nvs_handle, "mqttenable", (uint8_t)settings->mqtt_enabled);
+        writeSetting(nvs_handle, "infenabled", (uint8_t)settings->influxdb_enabled);
+        writeSetting(nvs_handle, "inflogFreq", settings->influxdb_loggingFreqSeconds);
 
-        ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "ntpServer", &settings->ntpServer[0]));
-        ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "language", &settings->language[0]));
-        ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "mqtt_uri", &settings->mqtt_uri[0]));
-        ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "mqtt_topic", &settings->mqtt_topic[0]));
-        ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "mqtt_usern", &settings->mqtt_username[0]));
-        ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "mqtt_pword", &settings->mqtt_password[0]));
+        writeSettingBlob(nvs_handle, "tileconfig", settings->tileconfig, sizeof(settings->tileconfig));
 
-        ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "inf_serverurl", &settings->influxdb_serverurl[0]));
-        ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "inf_bucket", &settings->influxdb_databasebucket[0]));
-        ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "inf_apitoken", &settings->influxdb_apitoken[0]));
-        ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "inf_orgid", &settings->influxdb_orgid[0]));
+        writeSetting(nvs_handle, "ntpServer", &settings->ntpServer[0]);
+        writeSetting(nvs_handle, "language", &settings->language[0]);
+        writeSetting(nvs_handle, "mqtt_uri", &settings->mqtt_uri[0]);
+        writeSetting(nvs_handle, "mqtt_topic", &settings->mqtt_topic[0]);
+        writeSetting(nvs_handle, "mqtt_usern", &settings->mqtt_username[0]);
+        writeSetting(nvs_handle, "mqtt_pword", &settings->mqtt_password[0]);
+
+        writeSetting(nvs_handle, "inf_serverurl", &settings->influxdb_serverurl[0]);
+        writeSetting(nvs_handle, "inf_bucket", &settings->influxdb_databasebucket[0]);
+        writeSetting(nvs_handle, "inf_apitoken", &settings->influxdb_apitoken[0]);
+        writeSetting(nvs_handle, "inf_orgid", &settings->influxdb_orgid[0]);
 
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
@@ -304,8 +337,8 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->interpacketgap = 6000;
     // 4.10V bypass
     _myset->BypassThresholdmV = 4100;
-    _myset->graph_voltagehigh = 4.5;
-    _myset->graph_voltagelow = 2.75;
+    _myset->graph_voltagehigh = 4500;
+    _myset->graph_voltagelow = 2750;
 
     // EEPROM settings are invalid so default configuration
     _myset->mqtt_enabled = false;
@@ -494,6 +527,16 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
     {
         settings->baudRate = defaults.baudRate;
     }
+
+    if (settings->graph_voltagehigh > 5000 || settings->graph_voltagehigh <2000 || settings->graph_voltagehigh<0)
+    {
+        settings->graph_voltagehigh = defaults.graph_voltagehigh;
+    }
+
+    if (settings->graph_voltagelow > settings->graph_voltagehigh || settings->graph_voltagelow<0)
+    {
+        settings->graph_voltagelow = 0;
+    }
 }
 
 // Builds up a JSON document which mirrors the parameters inside "diybms_eeprom_settings"
@@ -615,13 +658,14 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
 }
 
-void JSONToSettings(DynamicJsonDocument& doc, diybms_eeprom_settings *settings)
+void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
 {
-    //Use defaults to populate the settings, just in case we are missing values from the JSON
+    // Use defaults to populate the settings, just in case we are missing values from the JSON
     DefaultConfiguration(settings);
-    
-    if (!doc.containsKey("diybms_settings")) {
-        //Wrong document type - quit...
+
+    if (!doc.containsKey("diybms_settings"))
+    {
+        // Wrong document type - quit...
         return;
     }
 

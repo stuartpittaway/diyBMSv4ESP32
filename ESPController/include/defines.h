@@ -134,8 +134,8 @@ struct diybms_eeprom_settings
   // Default starting state for relay types
   RelayType relaytype[RELAY_TOTAL];
 
-  float graph_voltagehigh;
-  float graph_voltagelow;
+  uint16_t graph_voltagehigh;
+  uint16_t graph_voltagelow;
 
   uint8_t BypassOverTempShutdown;
   uint16_t BypassThresholdmV;
