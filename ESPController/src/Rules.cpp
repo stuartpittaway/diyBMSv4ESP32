@@ -478,6 +478,72 @@ void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, Ce
 {
     // Remember dynamicChargeCurrent scale is 0.1
     dynamicChargeCurrent = mysettings->chargecurrent;
+
+    if (highestCellVoltage < mysettings->kneemv)
+    {
+        // Voltage of cell is below the knee voltage, so use full current
+        return;
+    }
+
+    const double value1 = 15;
+    const double value2 = 1.35;
+
+    //=value1^((knee_voltage^value2)*knee_voltage)
+    double knee_voltage = 0 / 100.0F;
+    double at_knee = pow(value1, knee_voltage * pow(knee_voltage, value2));
+    ESP_LOGD(TAG, "at_knee=%f", at_knee);
+
+    double target_cell_voltage = (mysettings->cellmaxmv - mysettings->kneemv) / 100.0F;
+    double at_target_cell_voltage = pow(value1, target_cell_voltage * pow(target_cell_voltage, value2));
+    ESP_LOGD(TAG, "at_target_cell_voltage=%f", at_target_cell_voltage);
+
+    double actual_cell_voltage = (highestCellVoltage - mysettings->kneemv) / 100.0F;
+    double at_actual_cell_voltage = pow(value1, actual_cell_voltage * pow(actual_cell_voltage, value2));
+    ESP_LOGD(TAG, "at_actual_cell_voltage=%f", at_actual_cell_voltage);
+
+    double percent = 1 - (at_actual_cell_voltage / at_knee) / at_target_cell_voltage;
+    ESP_LOGD(TAG, "percent=%f", percent);
+
+    if (percent<1.0) {
+        //Catch small values and also negatives, 1% is the lowest we go...
+        percent=1.0;
+    }
+
+    // Use lowest of chargecurrent or calculation, just in case some math has gone wrong!
+    dynamicChargeCurrent = min(mysettings->chargecurrent, (uint16_t)round(mysettings->chargecurrent * percent));
+
+    /*
+        // Once a cell has gone past the "knee" voltage
+        // Linear scale down the charge current until we reach the target voltage (cellmaxmv)
+        // Remember lowestAmps scale is 0.1
+        // Apply percentage scale down to the charge current to get our lowest target current (when cell is at cellmaxmv)
+        uint16_t lowestAmps = (mysettings->chargecurrent / 100) * mysettings->chgscale;
+        ESP_LOGD(TAG, "lowestAmps=%u", lowestAmps);
+
+        if (highestCellVoltage > mysettings->cellmaxmv)
+        {
+            // Voltage of cell is ABOVE the max target, return lowest amp calculation
+            // By this point the dynamic charging VOLTAGE should have also fallen, so the charge current
+            // will also be automatically dropping (ohms law)
+            dynamicChargeCurrent = lowestAmps;
+            return;
+        }
+
+        int16_t maxtargetminusknee = mysettings->cellmaxmv - mysettings->kneemv;
+        ESP_LOGD(TAG, "maxtargetminusknee=%i", maxtargetminusknee);
+
+        float step = -((mysettings->chargecurrent - lowestAmps) / (float)maxtargetminusknee);
+
+        int16_t aaa = maxtargetminusknee - (mysettings->cellmaxmv - highestCellVoltage);
+
+        ESP_LOGD(TAG, "aaa=%i", aaa);
+
+        // Use lowest of chargecurrent or calculation, just in case some math has gone wrong!
+        dynamicChargeCurrent = min(mysettings->chargecurrent, (uint16_t)round(mysettings->chargecurrent + (aaa * step)));
+
+        */
+
+    ESP_LOGD(TAG, "dynamicChargeCurrent=%u", dynamicChargeCurrent);
 }
 
 // Apply "dynamic" charge voltage rules
@@ -503,7 +569,6 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
     }
     // Some cells are above the knee voltage....
     */
-
 
     // Are any cells at or over the maximum allowed? (panic!)
     if (highestCellVoltage >= mysettings->cellmaxmv)
@@ -532,10 +597,12 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
     // At this point all cell voltages are UNDER the target cellmaxmv
 
     // This is unlikely to work if the value is changed from 1 (an integer)
-    const uint16_t UniformDerating = 1;
+    const int16_t UniformDerating = 1;
 
     // Calculate voltage range
-    uint32_t R = min((mysettings->cellmaxmv - highestCellVoltage) * UniformDerating, (mysettings->cellmaxmv - mysettings->kneemv) / 3);
+    uint32_t R = min(
+        (int16_t)((mysettings->cellmaxmv - highestCellVoltage) * UniformDerating),
+        (int16_t)((mysettings->cellmaxspikemv - mysettings->kneemv) / ((float)mysettings->sensitivity / 10.0F)));
     ESP_LOGD(TAG, "R=%u", R);
 
     // We use the pack with the highest cell voltage for these calculations - although hopefully all packs are very similar :-)
@@ -597,7 +664,7 @@ uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings
             // this level limiting the charge current to 500W
             value = 21;
         }
-        
+
         // Limit to 100% maximum, DIYBMS current monitor can go above 100%, so don't confuse inverter/chargers
         if (value > 100)
         {

@@ -14,8 +14,9 @@ bool getSetting(nvs_handle_t handle, const char *key, float *out_value);
 bool getSetting(nvs_handle_t handle, const char *key, uint8_t *out_value);
 bool getSetting(nvs_handle_t handle, const char *key, int8_t *out_value);
 bool getSetting(nvs_handle_t handle, const char *key, uint16_t *out_value);
-//bool getSetting(nvs_handle_t handle, const char *key, uint32_t *out_value);
+// bool getSetting(nvs_handle_t handle, const char *key, uint32_t *out_value);
 bool getSetting(nvs_handle_t handle, const char *key, int32_t *out_value);
+bool getSetting(nvs_handle_t handle, const char *key, int16_t *out_value);
 bool getSetting(nvs_handle_t handle, const char *key, bool *out_value);
 
 bool getSettingBlob(nvs_handle_t handle, const char *key, void *out_value, size_t size);
@@ -26,16 +27,17 @@ void LoadConfiguration(diybms_eeprom_settings *settings);
 void ValidateConfiguration(diybms_eeprom_settings *settings);
 void DefaultConfiguration(diybms_eeprom_settings *settings);
 
-void SaveWIFI(wifi_eeprom_settings* wifi);
-bool LoadWIFI(wifi_eeprom_settings* wifi);
+void SaveWIFI(wifi_eeprom_settings *wifi);
+bool LoadWIFI(wifi_eeprom_settings *wifi);
 
-void GenerateSettingsJSONDocument(DynamicJsonDocument *doc,diybms_eeprom_settings *settings);
-void JSONToSettings( DynamicJsonDocument& doc, diybms_eeprom_settings *settings);
+void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settings *settings);
+void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings);
 
 void writeSetting(nvs_handle_t handle, const char *key, uint8_t value);
 void writeSetting(nvs_handle_t handle, const char *key, uint16_t value);
+void writeSetting(nvs_handle_t handle, const char *key, int16_t value);
 void writeSetting(nvs_handle_t handle, const char *key, int8_t value);
-void writeSetting(nvs_handle_t handle, const char *key, const char * value);
+void writeSetting(nvs_handle_t handle, const char *key, const char *value);
 void writeSettingBlob(nvs_handle_t handle, const char *key, const void *value, size_t length);
 
 extern const char *RuleTextDescription[];

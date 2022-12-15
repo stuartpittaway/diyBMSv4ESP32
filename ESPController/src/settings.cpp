@@ -81,6 +81,10 @@ bool getSetting(nvs_handle_t handle, const char *key, bool *out_value)
 {
     return ValidateGetSetting(nvs_get_u8(handle, key, (uint8_t *)out_value), key);
 }
+bool getSetting(nvs_handle_t handle, const char *key, int16_t *out_value)
+{
+    return ValidateGetSetting(nvs_get_i16(handle, key, out_value), key);
+}
 
 void InitializeNVS()
 {
@@ -106,6 +110,11 @@ void writeSetting(nvs_handle_t handle, const char *key, uint8_t value)
 {
     ESP_LOGD(TAG, "Writing (%s)=%u", key, value);
     ESP_ERROR_CHECK(nvs_set_u8(handle, key, value));
+}
+void writeSetting(nvs_handle_t handle, const char *key, int16_t value)
+{
+    ESP_LOGD(TAG, "Writing (%s)=%i", key, value);
+    ESP_ERROR_CHECK(nvs_set_i16(handle, key, value));
 }
 void writeSetting(nvs_handle_t handle, const char *key, int32_t value)
 {
@@ -326,7 +335,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         nvs_close(nvs_handle);
     }
 
-    //Ensure values make sense
+    // Ensure values make sense
     ValidateConfiguration(settings);
 }
 
@@ -371,7 +380,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->chgscale = 50;
     // Allow this "safe" cell voltage to allow a bit of wiggle room/spike control
     _myset->cellmaxspikemv = 3550;
-    _myset->stopchargebalance = true;
+    _myset->stopchargebalance = false;
     _myset->socoverride = false;
     _myset->socforcelow = false;
     _myset->dynamiccharge = true;
@@ -561,9 +570,9 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
         settings->chgscale = 1;
     }
 
-    if (settings->cellmaxspikemv > settings->cellmaxmv)
+    if (settings->cellmaxmv > settings->cellmaxspikemv)
     {
-        settings->cellmaxspikemv = settings->cellmaxmv;
+        settings->cellmaxmv = defaults.cellmaxmv;
     }
     if (settings->cellmaxmv < settings->cellminmv)
     {
@@ -573,6 +582,11 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
     {
         settings->cellminmv = settings->cellmaxmv;
     }
+    if (settings->kneemv > settings->cellmaxmv || settings->kneemv > settings->cellmaxspikemv)
+    {
+        settings->kneemv = defaults.kneemv;
+    }
+
     // Limit to 1
     if (settings->sensitivity < 1 * 10)
     {

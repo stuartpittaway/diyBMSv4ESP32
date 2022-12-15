@@ -3193,7 +3193,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-influxdb", .level = ESP_LOG_INFO},
         {.tag = "diybms-rx", .level = ESP_LOG_INFO},
         {.tag = "diybms-tx", .level = ESP_LOG_INFO},
-        {.tag = "diybms-rules", .level = ESP_LOG_INFO},
+        {.tag = "diybms-rules", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-softap", .level = ESP_LOG_INFO},
         {.tag = "diybms-tft", .level = ESP_LOG_INFO},
         {.tag = "diybms-victron", .level = ESP_LOG_INFO},

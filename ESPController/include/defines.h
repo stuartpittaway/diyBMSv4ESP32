@@ -161,18 +161,20 @@ struct diybms_eeprom_settings
 
   CanBusProtocolEmulation canbusprotocol;
   uint16_t nominalbatcap;
+  // Maximum charge voltage - scale 0.1
   uint16_t chargevolt;
+  // Maximum charge current - scale 0.1
   uint16_t chargecurrent;
   uint16_t dischargecurrent;
   uint16_t dischargevolt;
-  uint16_t cellminmv;
-  uint16_t cellmaxmv;
-  uint16_t kneemv;
+  int16_t cellminmv;
+  int16_t cellmaxmv;
+  int16_t kneemv;
   // Part of the dynamic charge calculation scale 0.1
-  uint16_t sensitivity;
+  int16_t sensitivity;
 
-  uint16_t cellmaxspikemv;
-  uint8_t chgscale;
+  int16_t cellmaxspikemv;
+  int8_t chgscale;
 
   int8_t chargetemplow;
   int8_t chargetemphigh;

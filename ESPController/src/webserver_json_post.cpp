@@ -532,8 +532,18 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     if (GetKeyValue(httpbuf, "kneemv", &mysettings.kneemv, urlEncoded))
     {
     }
+    if (GetKeyValue(httpbuf, "cellmaxspikemv", &mysettings.cellmaxspikemv, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "chgscale", &mysettings.chgscale, urlEncoded))
+    {
+    }
 
     float temp_float;
+    if (GetKeyValue(httpbuf, "sensitivity", &temp_float, urlEncoded))
+    {
+        mysettings.sensitivity = 10 * temp_float;
+    }
     if (GetKeyValue(httpbuf, "chargevolt", &temp_float, urlEncoded))
     {
         mysettings.chargevolt = 10 * temp_float;
@@ -992,11 +1002,10 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
             {
                 // Restore the config...
                 diybms_eeprom_settings myset;
-                
-                JSONToSettings(doc,&myset);
-                //Repair any bad values
-                ValidateConfiguration(&myset);
 
+                JSONToSettings(doc, &myset);
+                // Repair any bad values
+                ValidateConfiguration(&myset);
 
                 // Copy the new settings over top of old
                 memcpy(&mysettings, &myset, sizeof(mysettings));
