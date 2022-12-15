@@ -151,7 +151,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         writeSettingBlob(nvs_handle, "rulerelaystate", settings->rulerelaystate, sizeof(settings->rulerelaystate));
         writeSettingBlob(nvs_handle, "rulerelaydef", settings->rulerelaydefault, sizeof(settings->rulerelaydefault));
         writeSettingBlob(nvs_handle, "relaytype", settings->relaytype, sizeof(settings->relaytype));
-      
+
         writeSetting(nvs_handle, "g_voltagehigh", settings->graph_voltagehigh);
         writeSetting(nvs_handle, "g_voltagelow", settings->graph_voltagelow);
 
@@ -183,6 +183,9 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         writeSetting(nvs_handle, "cellminmv", settings->cellminmv);
         writeSetting(nvs_handle, "cellmaxmv", settings->cellmaxmv);
         writeSetting(nvs_handle, "kneemv", settings->kneemv);
+        writeSetting(nvs_handle, "sensitivity", settings->sensitivity);
+        writeSetting(nvs_handle, "cellmaxspikemv", settings->cellmaxspikemv);
+        writeSetting(nvs_handle, "chgscale", settings->chgscale);
         writeSetting(nvs_handle, "cha_templow", settings->chargetemplow);
         writeSetting(nvs_handle, "cha_temphigh", settings->chargetemphigh);
         writeSetting(nvs_handle, "dis_templow", settings->dischargetemplow);
@@ -286,6 +289,9 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         getSetting(nvs_handle, "cellminmv", &settings->cellminmv);
         getSetting(nvs_handle, "cellmaxmv", &settings->cellmaxmv);
         getSetting(nvs_handle, "kneemv", &settings->kneemv);
+        getSetting(nvs_handle, "sensitivity", &settings->sensitivity);
+        getSetting(nvs_handle, "cellmaxspikemv", &settings->cellmaxspikemv);
+        getSetting(nvs_handle, "chgscale", &settings->chgscale);
         getSetting(nvs_handle, "cha_templow", &settings->chargetemplow);
         getSetting(nvs_handle, "cha_temphigh", &settings->chargetemphigh);
         getSetting(nvs_handle, "dis_templow", &settings->dischargetemplow);
@@ -319,6 +325,9 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
 
         nvs_close(nvs_handle);
     }
+
+    //Ensure values make sense
+    ValidateConfiguration(settings);
 }
 
 void DefaultConfiguration(diybms_eeprom_settings *_myset)
@@ -344,7 +353,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->mqtt_enabled = false;
 
     _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
-    _myset->nominalbatcap = 280;
+    _myset->nominalbatcap = 280;    // Scale 1
     _myset->chargevolt = 565;       // Scale 0.1
     _myset->chargecurrent = 650;    // Scale 0.1
     _myset->dischargecurrent = 650; // Scale 0.1
@@ -357,6 +366,11 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->cellminmv = 3050;
     _myset->cellmaxmv = 3450;
     _myset->kneemv = 3320;
+    _myset->sensitivity = 30; // Scale 0.1
+    // Scale down the current by this % at target cell voltage (cellmaxmv)
+    _myset->chgscale = 50;
+    // Allow this "safe" cell voltage to allow a bit of wiggle room/spike control
+    _myset->cellmaxspikemv = 3550;
     _myset->stopchargebalance = true;
     _myset->socoverride = false;
     _myset->socforcelow = false;
@@ -528,14 +542,46 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
         settings->baudRate = defaults.baudRate;
     }
 
-    if (settings->graph_voltagehigh > 5000 || settings->graph_voltagehigh <2000 || settings->graph_voltagehigh<0)
+    if (settings->graph_voltagehigh > 5000 || settings->graph_voltagehigh < 2000 || settings->graph_voltagehigh < 0)
     {
         settings->graph_voltagehigh = defaults.graph_voltagehigh;
     }
 
-    if (settings->graph_voltagelow > settings->graph_voltagehigh || settings->graph_voltagelow<0)
+    if (settings->graph_voltagelow > settings->graph_voltagehigh || settings->graph_voltagelow < 0)
     {
         settings->graph_voltagelow = 0;
+    }
+
+    if (settings->chgscale > 100)
+    {
+        settings->chgscale = 100;
+    }
+    if (settings->chgscale < 1)
+    {
+        settings->chgscale = 1;
+    }
+
+    if (settings->cellmaxspikemv > settings->cellmaxmv)
+    {
+        settings->cellmaxspikemv = settings->cellmaxmv;
+    }
+    if (settings->cellmaxmv < settings->cellminmv)
+    {
+        settings->cellmaxmv = settings->cellminmv;
+    }
+    if (settings->cellminmv > settings->cellmaxmv)
+    {
+        settings->cellminmv = settings->cellmaxmv;
+    }
+    // Limit to 1
+    if (settings->sensitivity < 1 * 10)
+    {
+        settings->sensitivity = 1 * 10;
+    }
+    // Limit to 100
+    if (settings->sensitivity > 100 * 10)
+    {
+        settings->sensitivity = 100 * 10;
     }
 }
 
@@ -648,6 +694,9 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root["cellminmv"] = settings->cellminmv;
     root["cellmaxmv"] = settings->cellmaxmv;
     root["kneemv"] = settings->kneemv;
+    root["chgscale"] = settings->chgscale;
+    root["cellmaxspikemv"] = settings->cellmaxspikemv;
+    root["sensitivity"] = settings->sensitivity;
 
     JsonArray tv = root.createNestedArray("tilevisibility");
     for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
@@ -719,6 +768,9 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->cellminmv = root["cellminmv"];
     settings->cellmaxmv = root["cellmaxmv"];
     settings->kneemv = root["kneemv"];
+    settings->chgscale = root["chgscale"];
+    settings->cellmaxspikemv = root["cellmaxspikemv"];
+    settings->sensitivity = root["sensitivity"];
 
     JsonObject mqtt = root["mqtt"];
     if (!mqtt.isNull())

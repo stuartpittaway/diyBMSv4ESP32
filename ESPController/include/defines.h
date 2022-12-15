@@ -168,6 +168,12 @@ struct diybms_eeprom_settings
   uint16_t cellminmv;
   uint16_t cellmaxmv;
   uint16_t kneemv;
+  // Part of the dynamic charge calculation scale 0.1
+  uint16_t sensitivity;
+
+  uint16_t cellmaxspikemv;
+  uint8_t chgscale;
+
   int8_t chargetemplow;
   int8_t chargetemphigh;
   int8_t dischargetemplow;

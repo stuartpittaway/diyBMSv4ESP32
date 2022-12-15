@@ -509,7 +509,7 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
     if (highestCellVoltage >= mysettings->cellmaxmv)
     {
         ESP_LOGW(TAG, "Cell V>Max");
-        // *** Stop charging, we are at or above maximum ***
+        // *** Stop charging, we are at or above maximum cell voltage ***
 
         // Find the lowest "limited" pack voltage
         uint32_t lowest = 0xFFFFFFFF;

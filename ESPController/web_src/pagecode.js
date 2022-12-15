@@ -1603,10 +1603,14 @@ $(function () {
                 $("#chargecurrent").val((data.chargeconfig.chargecurrent / 10.0).toFixed(1));
                 $("#dischargecurrent").val((data.chargeconfig.dischargecurrent / 10.0).toFixed(1));
                 $("#dischargevolt").val((data.chargeconfig.dischargevolt / 10.0).toFixed(1));
-
+                
                 $("#cellminmv").val(data.chargeconfig.cellminmv);
                 $("#cellmaxmv").val(data.chargeconfig.cellmaxmv);
                 $("#kneemv").val(data.chargeconfig.kneemv);
+                $("#sensitivity").val((data.chargeconfig.sensitivity / 10.0).toFixed(1));
+
+                $("#chgscale").val(data.chargeconfig.chgscale);
+                $("#cellmaxspikemv").val(data.chargeconfig.cellmaxspikemv);
 
                 $("#chargetemplow").val(data.chargeconfig.chargetemplow);
                 $("#chargetemphigh").val(data.chargeconfig.chargetemphigh);
