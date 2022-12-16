@@ -87,6 +87,124 @@ function upload_file() {
 }
 
 
+function CalculateChargeCurrent(value1, value2, highestCellVoltage, maximumchargecurrent, kneemv, cellmaxmv) {
+    if (highestCellVoltage < kneemv) {
+        // Voltage is below the knee voltage, so use full current
+        return maximumchargecurrent;
+    }
+
+    var knee_voltage = 0 / 100.0;
+    var at_knee = Math.pow(value1, knee_voltage * Math.pow(knee_voltage, value2));
+
+    var target_cell_voltage = (cellmaxmv - kneemv) / 100.0;
+    var at_target_cell_voltage = Math.pow(value1, target_cell_voltage * Math.pow(target_cell_voltage, value2));
+
+    var actual_cell_voltage = (highestCellVoltage - kneemv) / 100.0;
+    var at_actual_cell_voltage = Math.pow(value1, actual_cell_voltage * Math.pow(actual_cell_voltage, value2));
+
+    var percent = 1 - (at_actual_cell_voltage / at_knee) / at_target_cell_voltage;
+
+    if (percent < 0.01) {
+        percent = 0.01;
+    }
+
+    return Math.min(maximumchargecurrent, (maximumchargecurrent * percent));
+}
+
+function DrawChargingGraph() {
+
+
+    var xaxisvalues = [];
+    var yaxisvalues = [];
+
+    const chargecurrent = parseFloat($("#chargecurrent").val());
+    const cellminmv = parseInt($("#cellminmv").val());
+    const cellmaxmv = parseInt($("#cellmaxmv").val());
+    const kneemv = parseInt($("#kneemv").val());
+    const cellmaxspikemv = parseInt($("#cellmaxspikemv").val());
+
+    const value1 = parseFloat($("#cur_val1").val());
+    const value2 = parseFloat($("#cur_val2").val());
+
+    for (let voltage = cellminmv; voltage <= cellmaxspikemv; voltage += 5) {
+        xaxisvalues.push(voltage);
+        yaxisvalues.push(CalculateChargeCurrent(value1, value2, voltage, chargecurrent, kneemv, cellmaxmv));
+    }
+
+    /*
+        if (window.g3 != null) {
+            window.g3.dispose();
+            window.g3 = null;
+        }
+    */
+    if (window.g3 == null) {
+        window.g3 = echarts.init(document.getElementById('graph3'))
+
+        var option;
+
+        option = {
+
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'cross',
+                    label: {
+                        backgroundColor: '#6a7985'
+                    }
+                }
+            },
+            grid: {
+                left: '2%',
+                right: '2%',
+                bottom: '2%',
+                containLabel: true
+            },
+            xAxis: [
+                {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: xaxisvalues,
+                    axisLabel: {
+                        fontSize: '12',
+                        fontFamily: 'monospace',
+                        formatter: '{value}mV',
+                        color: '#ffffff'
+                    }
+                }
+            ],
+            yAxis: [
+                {
+                    type: 'value',
+                    axisLabel: {
+                        fontSize: '12',
+                        fontFamily: 'monospace',
+                        formatter: '{value}A',
+                        color: '#ffffff'
+                    },
+                    splitNumber: 10
+                }
+            ],
+            series: [
+                {
+                    name: 'Current',
+                    type: 'line',
+                    areaStyle: {},
+                    data: yaxisvalues
+                }
+            ]
+        };
+
+        option && window.g3.setOption(option);
+    } else {
+        //Update the values
+        window.g3.setOption({
+            xAxis: { data: xaxisvalues },
+            series: { data: yaxisvalues }
+        });
+
+    }
+}
+
 function switchPage(newPage) {
     $(".page").hide();
     $(newPage).show();
@@ -1603,13 +1721,15 @@ $(function () {
                 $("#chargecurrent").val((data.chargeconfig.chargecurrent / 10.0).toFixed(1));
                 $("#dischargecurrent").val((data.chargeconfig.dischargecurrent / 10.0).toFixed(1));
                 $("#dischargevolt").val((data.chargeconfig.dischargevolt / 10.0).toFixed(1));
-                
+
                 $("#cellminmv").val(data.chargeconfig.cellminmv);
                 $("#cellmaxmv").val(data.chargeconfig.cellmaxmv);
                 $("#kneemv").val(data.chargeconfig.kneemv);
                 $("#sensitivity").val((data.chargeconfig.sensitivity / 10.0).toFixed(1));
 
-                $("#chgscale").val(data.chargeconfig.chgscale);
+                $("#cur_val1").val((data.chargeconfig.cur_val1 / 10.0).toFixed(1));
+                $("#cur_val2").val((data.chargeconfig.cur_val2 / 10.0).toFixed(1));
+
                 $("#cellmaxspikemv").val(data.chargeconfig.cellmaxspikemv);
 
                 $("#chargetemplow").val(data.chargeconfig.chargetemplow);
@@ -1624,6 +1744,8 @@ $(function () {
                 $("#dynamiccharge").prop("checked", data.chargeconfig.dynamiccharge);
                 $("#preventcharging").prop("checked", data.chargeconfig.preventcharging);
                 $("#preventdischarge").prop("checked", data.chargeconfig.preventdischarge);
+
+                DrawChargingGraph();
 
             }).fail(function () {
                 $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
@@ -1848,6 +1970,29 @@ $(function () {
     $("#progress").hide();
 
     $("#homePage").show();
+
+
+    //Redraw graph if one of the values changes (and focus lost)
+    $("#chargecurrent")
+        .add("#cellminmv")
+        .add("#cellmaxmv")
+        .add("#kneemv")
+        .add("#cellmaxspikemv")
+        .add("#cur_val1")
+        .add("#cur_val2").focusout(function () {
+            DrawChargingGraph();
+        });
+
+        $("#chargecurrent")
+        .add("#cellminmv")
+        .add("#cellmaxmv")
+        .add("#kneemv")
+        .add("#cellmaxspikemv")
+        .add("#cur_val1")
+        .add("#cur_val2").change(function () {
+            DrawChargingGraph();
+        });
+
 
     //On page ready
     queryBMS();

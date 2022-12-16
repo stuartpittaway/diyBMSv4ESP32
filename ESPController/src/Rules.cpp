@@ -485,8 +485,10 @@ void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, Ce
         return;
     }
 
-    const double value1 = 15;
-    const double value2 = 1.35;
+    double value1 = mysettings->current_value1/10.0F;
+    double value2 = mysettings->current_value2/10.0F;
+    ESP_LOGD(TAG, "value1=%f", value1);
+    ESP_LOGD(TAG, "value2=%f", value2);
 
     //=value1^((knee_voltage^value2)*knee_voltage)
     double knee_voltage = 0 / 100.0F;
@@ -504,44 +506,15 @@ void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, Ce
     double percent = 1 - (at_actual_cell_voltage / at_knee) / at_target_cell_voltage;
     ESP_LOGD(TAG, "percent=%f", percent);
 
-    if (percent<1.0) {
+    if (percent<0.01) {
         //Catch small values and also negatives, 1% is the lowest we go...
-        percent=1.0;
+        percent=0.01;
     }
 
     // Use lowest of chargecurrent or calculation, just in case some math has gone wrong!
+    ESP_LOGD(TAG, "percent=%f", percent);
     dynamicChargeCurrent = min(mysettings->chargecurrent, (uint16_t)round(mysettings->chargecurrent * percent));
 
-    /*
-        // Once a cell has gone past the "knee" voltage
-        // Linear scale down the charge current until we reach the target voltage (cellmaxmv)
-        // Remember lowestAmps scale is 0.1
-        // Apply percentage scale down to the charge current to get our lowest target current (when cell is at cellmaxmv)
-        uint16_t lowestAmps = (mysettings->chargecurrent / 100) * mysettings->chgscale;
-        ESP_LOGD(TAG, "lowestAmps=%u", lowestAmps);
-
-        if (highestCellVoltage > mysettings->cellmaxmv)
-        {
-            // Voltage of cell is ABOVE the max target, return lowest amp calculation
-            // By this point the dynamic charging VOLTAGE should have also fallen, so the charge current
-            // will also be automatically dropping (ohms law)
-            dynamicChargeCurrent = lowestAmps;
-            return;
-        }
-
-        int16_t maxtargetminusknee = mysettings->cellmaxmv - mysettings->kneemv;
-        ESP_LOGD(TAG, "maxtargetminusknee=%i", maxtargetminusknee);
-
-        float step = -((mysettings->chargecurrent - lowestAmps) / (float)maxtargetminusknee);
-
-        int16_t aaa = maxtargetminusknee - (mysettings->cellmaxmv - highestCellVoltage);
-
-        ESP_LOGD(TAG, "aaa=%i", aaa);
-
-        // Use lowest of chargecurrent or calculation, just in case some math has gone wrong!
-        dynamicChargeCurrent = min(mysettings->chargecurrent, (uint16_t)round(mysettings->chargecurrent + (aaa * step)));
-
-        */
 
     ESP_LOGD(TAG, "dynamicChargeCurrent=%u", dynamicChargeCurrent);
 }

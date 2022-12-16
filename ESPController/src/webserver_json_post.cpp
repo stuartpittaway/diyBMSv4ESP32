@@ -535,11 +535,18 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     if (GetKeyValue(httpbuf, "cellmaxspikemv", &mysettings.cellmaxspikemv, urlEncoded))
     {
     }
-    if (GetKeyValue(httpbuf, "chgscale", &mysettings.chgscale, urlEncoded))
-    {
-    }
 
     float temp_float;
+
+    if (GetKeyValue(httpbuf, "cur_val1", &temp_float, urlEncoded))
+    {
+        mysettings.current_value1 = 10 * temp_float;
+    }
+    if (GetKeyValue(httpbuf, "cur_val2", &temp_float, urlEncoded))
+    {
+        mysettings.current_value2 = 10 * temp_float;
+    }
+
     if (GetKeyValue(httpbuf, "sensitivity", &temp_float, urlEncoded))
     {
         mysettings.sensitivity = 10 * temp_float;

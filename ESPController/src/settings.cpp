@@ -193,8 +193,10 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         writeSetting(nvs_handle, "cellmaxmv", settings->cellmaxmv);
         writeSetting(nvs_handle, "kneemv", settings->kneemv);
         writeSetting(nvs_handle, "sensitivity", settings->sensitivity);
+        writeSetting(nvs_handle, "cur_val1", settings->current_value1);
+        writeSetting(nvs_handle, "cur_val2", settings->current_value2);
         writeSetting(nvs_handle, "cellmaxspikemv", settings->cellmaxspikemv);
-        writeSetting(nvs_handle, "chgscale", settings->chgscale);
+
         writeSetting(nvs_handle, "cha_templow", settings->chargetemplow);
         writeSetting(nvs_handle, "cha_temphigh", settings->chargetemphigh);
         writeSetting(nvs_handle, "dis_templow", settings->dischargetemplow);
@@ -299,8 +301,9 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         getSetting(nvs_handle, "cellmaxmv", &settings->cellmaxmv);
         getSetting(nvs_handle, "kneemv", &settings->kneemv);
         getSetting(nvs_handle, "sensitivity", &settings->sensitivity);
+        getSetting(nvs_handle, "cur_val1", &settings->current_value1);
+        getSetting(nvs_handle, "cur_val2", &settings->current_value2);
         getSetting(nvs_handle, "cellmaxspikemv", &settings->cellmaxspikemv);
-        getSetting(nvs_handle, "chgscale", &settings->chgscale);
         getSetting(nvs_handle, "cha_templow", &settings->chargetemplow);
         getSetting(nvs_handle, "cha_temphigh", &settings->chargetemphigh);
         getSetting(nvs_handle, "dis_templow", &settings->dischargetemplow);
@@ -376,8 +379,10 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->cellmaxmv = 3450;
     _myset->kneemv = 3320;
     _myset->sensitivity = 30; // Scale 0.1
-    // Scale down the current by this % at target cell voltage (cellmaxmv)
-    _myset->chgscale = 50;
+
+    _myset->current_value1 = 50; // 5.0
+    _myset->current_value2 = 03; // 0.3
+
     // Allow this "safe" cell voltage to allow a bit of wiggle room/spike control
     _myset->cellmaxspikemv = 3550;
     _myset->stopchargebalance = false;
@@ -561,15 +566,6 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
         settings->graph_voltagelow = 0;
     }
 
-    if (settings->chgscale > 100)
-    {
-        settings->chgscale = 100;
-    }
-    if (settings->chgscale < 1)
-    {
-        settings->chgscale = 1;
-    }
-
     if (settings->cellmaxmv > settings->cellmaxspikemv)
     {
         settings->cellmaxmv = defaults.cellmaxmv;
@@ -597,6 +593,16 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
     {
         settings->sensitivity = 100 * 10;
     }
+
+    // Limit to 100
+    if (settings->current_value1 > 100 * 10)
+    {
+        settings->current_value1 = 100 * 10;
+    }
+    if (settings->current_value2 > 100 * 10)
+    {
+        settings->current_value2 = 100 * 10;
+    }    
 }
 
 // Builds up a JSON document which mirrors the parameters inside "diybms_eeprom_settings"
@@ -708,9 +714,11 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root["cellminmv"] = settings->cellminmv;
     root["cellmaxmv"] = settings->cellmaxmv;
     root["kneemv"] = settings->kneemv;
-    root["chgscale"] = settings->chgscale;
+
     root["cellmaxspikemv"] = settings->cellmaxspikemv;
     root["sensitivity"] = settings->sensitivity;
+    root["cur_val1"]= settings->current_value1;
+    root["cur_val2"]= settings->current_value2;
 
     JsonArray tv = root.createNestedArray("tilevisibility");
     for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
@@ -782,9 +790,12 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->cellminmv = root["cellminmv"];
     settings->cellmaxmv = root["cellmaxmv"];
     settings->kneemv = root["kneemv"];
-    settings->chgscale = root["chgscale"];
+
     settings->cellmaxspikemv = root["cellmaxspikemv"];
     settings->sensitivity = root["sensitivity"];
+
+    settings->current_value1=root["cur_val1"];
+    settings->current_value2=root["cur_val2"];
 
     JsonObject mqtt = root["mqtt"];
     if (!mqtt.isNull())

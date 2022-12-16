@@ -1151,11 +1151,18 @@
             <div>
               <label for="sensitivity">Voltage sensitivity</label>
               <input id="sensitivity" name="sensitivity" value="" type="number" min="1.0" max="99.9" step="0.1" />
-            </div>            
-            <div>
-              <label for="chgscale">Charging current linear ramp down (%%)</label>
-              <input id="chgscale" name="chgscale" value="" type="number" min="1" max="100" step="1" />
             </div>
+    
+            <div>
+              <label for="cur_val1">Charging current value 1</label>
+              <input id="cur_val1" name="cur_val1" value="" type="number" min="0.1" max="99.9" step="0.1" />
+            </div>
+            <div>
+              <label for="cur_val2">Charging current value 2</label>
+              <input id="cur_val2" name="cur_val2" value="" type="number" min="0.1" max="99.9" step="0.1" />
+            </div>
+            
+
             <p>Discharging</p>
             <div>
               <label for="dischargevolt">Battery discharge voltage minimum (V)</label>
@@ -1221,19 +1228,25 @@
       </div>
 
       <div class="region">
+        <p id="v5">
+          <img src="warning.png" width="48" height="41" alt="Warning" />
+          Incorrect use of these settings could destroy your battery and cause harm!
+        </p>
+        <p id="v6">
+          <img src="warning.png" width="48" height="41" alt="Warning" />
+          CANBUS BMS integration is currently at an EXPERIMENTAL stage, please report issues.
+        </p>
+        <p id="v4">
+          Remember to install terminator resistors at both ends of CAN connection. On the controller, jumper JP1 can be
+          soldered closed for this purpose.
+        </p>
+      </div>
+
+      <div class="region">
+        <h1 id="v8">Maximum Charge Current</h1>
         <div>
-          <p id="v5">
-            <img src="warning.png" width="48" height="41" alt="Warning" />
-            Incorrect use of these settings could destroy your battery and cause harm!
-          </p>
-          <p id="v6">
-            <img src="warning.png" width="48" height="41" alt="Warning" />
-            CANBUS BMS integration is currently at an EXPERIMENTAL stage, please report issues.
-          </p>
-          <p id="v4">
-            Remember to install terminator resistors at both ends of CAN connection. On the controller, jumper JP1 can
-            be soldered closed for this purpose.
-          </p>
+          <!-- Charge current graph -->
+          <div id="graph3" style="width: auto; height: 500px"></div>
         </div>
       </div>
     </div>

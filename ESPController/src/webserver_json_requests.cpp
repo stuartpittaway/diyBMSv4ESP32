@@ -539,8 +539,10 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   settings["cellmaxmv"] = mysettings.cellmaxmv;
   settings["kneemv"] = mysettings.kneemv;
   settings["sensitivity"] = mysettings.sensitivity;
-  settings["chgscale"] = mysettings.chgscale;
   settings["cellmaxspikemv"] = mysettings.cellmaxspikemv;
+
+  settings["cur_val1"] = mysettings.current_value1;
+  settings["cur_val2"] = mysettings.current_value2;
 
   /*settings["enabled"] = mysettings.VictronEnabled;
   JsonArray cvl = settings.createNestedArray("cvl");

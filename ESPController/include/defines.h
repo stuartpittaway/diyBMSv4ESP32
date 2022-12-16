@@ -174,7 +174,10 @@ struct diybms_eeprom_settings
   int16_t sensitivity;
 
   int16_t cellmaxspikemv;
-  int8_t chgscale;
+
+  // charge current formula values - scale 0.1
+  uint16_t current_value1;
+  uint16_t current_value2;
 
   int8_t chargetemplow;
   int8_t chargetemphigh;
