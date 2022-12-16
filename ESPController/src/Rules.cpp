@@ -490,7 +490,7 @@ void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, Ce
     ESP_LOGD(TAG, "value1=%f", value1);
     ESP_LOGD(TAG, "value2=%f", value2);
 
-    //=value1^((knee_voltage^value2)*knee_voltage)
+    // This is always 1 :-)
     double knee_voltage = 0 / 100.0F;
     double at_knee = pow(value1, knee_voltage * pow(knee_voltage, value2));
     ESP_LOGD(TAG, "at_knee=%f", at_knee);
