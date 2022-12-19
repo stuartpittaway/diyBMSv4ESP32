@@ -101,6 +101,11 @@ void InitializeNVS()
     ESP_ERROR_CHECK(err);
 }
 
+void writeSetting(nvs_handle_t handle, const char *key, bool value)
+{
+    writeSetting(handle,key,(uint8_t)value);
+}
+
 void writeSetting(nvs_handle_t handle, const char *key, int8_t value)
 {
     ESP_LOGD(TAG, "Writing (%s)=%i", key, value);
@@ -170,19 +175,19 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         writeSetting(nvs_handle, "minutesTZ", settings->minutesTimeZone);
         writeSetting(nvs_handle, "daylight", settings->daylight);
 
-        writeSetting(nvs_handle, "logEnabled", (uint8_t)settings->loggingEnabled);
+        writeSetting(nvs_handle, "logEnabled", settings->loggingEnabled);
         writeSetting(nvs_handle, "logFreqSec", settings->loggingFrequencySeconds);
 
-        writeSetting(nvs_handle, "curMonEnabled", (uint8_t)settings->currentMonitoringEnabled);
-        writeSetting(nvs_handle, "curMonMBAddress", (uint8_t)settings->currentMonitoringModBusAddress);
-        writeSetting(nvs_handle, "curMonDevice", (uint8_t)settings->currentMonitoringDevice);
+        writeSetting(nvs_handle, "curMonEnabled", settings->currentMonitoringEnabled);
+        writeSetting(nvs_handle, "curMonMBAddress", settings->currentMonitoringModBusAddress);
+        writeSetting(nvs_handle, "curMonDevice", settings->currentMonitoringDevice);
 
         writeSetting(nvs_handle, "485baudrate", settings->rs485baudrate);
-        writeSetting(nvs_handle, "485databits", (uint8_t)settings->rs485databits);
-        writeSetting(nvs_handle, "485parity", (uint8_t)settings->rs485parity);
-        writeSetting(nvs_handle, "485stopbits", (uint8_t)settings->rs485stopbits);
+        writeSetting(nvs_handle, "485databits", settings->rs485databits);
+        writeSetting(nvs_handle, "485parity", settings->rs485parity);
+        writeSetting(nvs_handle, "485stopbits", settings->rs485stopbits);
 
-        writeSetting(nvs_handle, "canbusprotocol", (uint8_t)settings->canbusprotocol);
+        writeSetting(nvs_handle, "canbusprotocol", settings->canbusprotocol);
         writeSetting(nvs_handle, "nominalbatcap", settings->nominalbatcap);
 
         writeSetting(nvs_handle, "cha_volt", settings->chargevolt);
@@ -201,17 +206,17 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         writeSetting(nvs_handle, "cha_temphigh", settings->chargetemphigh);
         writeSetting(nvs_handle, "dis_templow", settings->dischargetemplow);
         writeSetting(nvs_handle, "dis_temphigh", settings->dischargetemphigh);
-        writeSetting(nvs_handle, "stopchargebal", (uint8_t)settings->stopchargebalance);
+        writeSetting(nvs_handle, "stopchargebal", settings->stopchargebalance);
 
-        writeSetting(nvs_handle, "socoverride", (uint8_t)settings->socoverride);
-        writeSetting(nvs_handle, "socforcelow", (uint8_t)settings->socforcelow);
+        writeSetting(nvs_handle, "socoverride", settings->socoverride);
+        writeSetting(nvs_handle, "socforcelow", settings->socforcelow);
 
-        writeSetting(nvs_handle, "dynamiccharge", (uint8_t)settings->dynamiccharge);
-        writeSetting(nvs_handle, "preventchar", (uint8_t)settings->preventcharging);
-        writeSetting(nvs_handle, "preventdis", (uint8_t)settings->preventdischarge);
+        writeSetting(nvs_handle, "dynamiccharge", settings->dynamiccharge);
+        writeSetting(nvs_handle, "preventchar", settings->preventcharging);
+        writeSetting(nvs_handle, "preventdis", settings->preventdischarge);
 
-        writeSetting(nvs_handle, "mqttenable", (uint8_t)settings->mqtt_enabled);
-        writeSetting(nvs_handle, "infenabled", (uint8_t)settings->influxdb_enabled);
+        writeSetting(nvs_handle, "mqttenable", settings->mqtt_enabled);
+        writeSetting(nvs_handle, "infenabled", settings->influxdb_enabled);
         writeSetting(nvs_handle, "inflogFreq", settings->influxdb_loggingFreqSeconds);
 
         writeSettingBlob(nvs_handle, "tileconfig", settings->tileconfig, sizeof(settings->tileconfig));
@@ -441,9 +446,9 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     // Individual cell under voltage
     _myset->rulevalue[Rule::ModuleUnderVoltage] = 3000;
     // Individual cell over temperature (external probe)
-    _myset->rulevalue[Rule::ModuleOverTemperatureExternal] = 55;
+    _myset->rulevalue[Rule::ModuleOverTemperatureExternal] = 50;
     // Pack over voltage (mV)
-    _myset->rulevalue[Rule::ModuleUnderTemperatureExternal] = 5;
+    _myset->rulevalue[Rule::ModuleUnderTemperatureExternal] = 2;
     // Pack under voltage (mV)
     _myset->rulevalue[Rule::BankOverVoltage] = 4200 * 8;
     // RULE_PackUnderVoltage
@@ -451,7 +456,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->rulevalue[Rule::Timer1] = 60 * 8;  // 8am
     _myset->rulevalue[Rule::Timer2] = 60 * 17; // 5pm
 
-    _myset->rulevalue[Rule::ModuleOverTemperatureInternal] = 60;
+    _myset->rulevalue[Rule::ModuleOverTemperatureInternal] = 75;
     _myset->rulevalue[Rule::ModuleUnderTemperatureInternal] = 5;
 
     _myset->rulevalue[Rule::CurrentMonitorOverVoltage] = 4200 * 8;
@@ -866,9 +871,9 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
                     ESP_LOGI(TAG, "Matched to rule %u", rulenumber);
                     JsonVariant v = kv.value();
                     settings->rulevalue[rulenumber] = v["value"].as<uint32_t>();
-                    // ESP_LOGI(TAG, "value=%u", myset.rulevalue[rulenumber]);
+                    // ESP_LOGI(TAG, "value=%i", myset.rulevalue[rulenumber]);
                     settings->rulehysteresis[rulenumber] = v["hysteresis"].as<uint32_t>();
-                    // ESP_LOGI(TAG, "hysteresis=%u", myset.rulehysteresis[rulenumber]);
+                    // ESP_LOGI(TAG, "hysteresis=%i", myset.rulehysteresis[rulenumber]);
                     JsonArray states = v["state"].as<JsonArray>();
 
                     uint8_t i = 0;

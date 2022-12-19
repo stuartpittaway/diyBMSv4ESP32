@@ -124,8 +124,8 @@ struct diybms_eeprom_settings
   uint16_t baudRate;
   uint16_t interpacketgap;
 
-  uint32_t rulevalue[RELAY_RULES];
-  uint32_t rulehysteresis[RELAY_RULES];
+  int32_t rulevalue[RELAY_RULES];
+  int32_t rulehysteresis[RELAY_RULES];
 
   // Use a bit pattern to indicate the relay states
   RelayState rulerelaystate[RELAY_RULES][RELAY_TOTAL];

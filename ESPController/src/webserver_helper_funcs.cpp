@@ -114,7 +114,7 @@ bool GetKeyValue(const char *buffer, const char *key, uint8_t *value, bool urlEn
     bool reply = GetKeyValue(buffer, key, &uint32Variable, urlEncoded);
     if (reply)
     {
-        // Truncate down to uint16
+        // Truncate down to uint8
         if (uint32Variable > 0xFF)
         {
             ESP_LOGW(TAG, "Overflow %i", uint32Variable);
@@ -148,7 +148,7 @@ bool GetKeyValue(const char *buffer, const char *key, int8_t *value, bool urlEnc
     {
         // Truncate down to int8
         // Check for overflow?
-        if (int32Variable > 255)
+        if (int32Variable > 0xFF)
         {
             ESP_LOGW(TAG, "Overflow %i", int32Variable);
         }

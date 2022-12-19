@@ -923,20 +923,20 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
     {
         snprintf(keyBuffer, sizeof(keyBuffer), "rule%ivalue", rule);
 
-        uint32_t tempuint32;
-        if (GetKeyValue(httpbuf, keyBuffer, &tempuint32, urlEncoded))
+        int32_t tempint32;
+        if (GetKeyValue(httpbuf, keyBuffer, &tempint32, urlEncoded))
         {
-            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempuint32);
+            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempint32);
 
-            mysettings.rulevalue[rule] = tempuint32;
+            mysettings.rulevalue[rule] = tempint32;
         }
 
         snprintf(keyBuffer, sizeof(keyBuffer), "rule%ihyst", rule);
-        if (GetKeyValue(httpbuf, keyBuffer, &tempuint32, urlEncoded))
+        if (GetKeyValue(httpbuf, keyBuffer, &tempint32, urlEncoded))
         {
-            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempuint32);
+            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempint32);
 
-            mysettings.rulehysteresis[rule] = tempuint32;
+            mysettings.rulehysteresis[rule] = tempint32;
         }
 
         // Rule/relay processing

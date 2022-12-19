@@ -132,8 +132,8 @@ public:
     void SetError(InternalErrorCode err);
     uint16_t VoltageRangeInBank(uint8_t bank);
     void RunRules(
-        uint32_t *value,
-        uint32_t *hysteresisvalue,
+        int32_t *value,
+        int32_t *hysteresisvalue,
         bool emergencyStop,
         uint16_t mins, currentmonitoring_struct *currentMonitor);
 
@@ -143,7 +143,7 @@ public:
     void CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
     uint16_t DynamicChargeVoltage();
     int16_t DynamicChargeCurrent();
-    uint16_t StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings,float realSOC);
+    uint16_t StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC);
 };
 
 #endif

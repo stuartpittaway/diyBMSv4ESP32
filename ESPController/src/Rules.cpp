@@ -174,8 +174,8 @@ void Rules::SetError(InternalErrorCode err)
 }
 
 void Rules::RunRules(
-    uint32_t *value,
-    uint32_t *hysteresisvalue,
+    int32_t *value,
+    int32_t *hysteresisvalue,
     bool emergencyStop,
     uint16_t mins,
     currentmonitoring_struct *currentMonitor)
@@ -295,23 +295,23 @@ void Rules::RunRules(
     if (moduleHasExternalTempSensor)
     {
         // Doesn't cater for negative temperatures on rule (int8 vs uint32)
-        if (((uint8_t)highestExternalTemp > value[Rule::ModuleOverTemperatureExternal]) && rule_outcome[Rule::ModuleOverTemperatureExternal] == false)
+        if ((highestExternalTemp > value[Rule::ModuleOverTemperatureExternal]) && rule_outcome[Rule::ModuleOverTemperatureExternal] == false)
         {
             // Rule Individual cell over temperature (external probe)
             rule_outcome[Rule::ModuleOverTemperatureExternal] = true;
         }
-        else if (((uint8_t)highestExternalTemp < hysteresisvalue[Rule::ModuleOverTemperatureExternal]) && rule_outcome[Rule::ModuleOverTemperatureExternal] == true)
+        else if ((highestExternalTemp < hysteresisvalue[Rule::ModuleOverTemperatureExternal]) && rule_outcome[Rule::ModuleOverTemperatureExternal] == true)
         {
             // Rule Individual cell over temperature (external probe) - HYSTERESIS RESET
             rule_outcome[Rule::ModuleOverTemperatureExternal] = false;
         }
         // Doesn't cater for negative temperatures on rule (int8 vs uint32)
-        if (((uint8_t)lowestExternalTemp < value[Rule::ModuleUnderTemperatureExternal]) && rule_outcome[Rule::ModuleUnderTemperatureExternal] == false)
+        if ((lowestExternalTemp < value[Rule::ModuleUnderTemperatureExternal]) && rule_outcome[Rule::ModuleUnderTemperatureExternal] == false)
         {
             // Rule Individual cell UNDER temperature (external probe)
             rule_outcome[Rule::ModuleUnderTemperatureExternal] = true;
         }
-        else if (((uint8_t)lowestExternalTemp > hysteresisvalue[Rule::ModuleUnderTemperatureExternal]) && rule_outcome[Rule::ModuleUnderTemperatureExternal] == true)
+        else if ((lowestExternalTemp > hysteresisvalue[Rule::ModuleUnderTemperatureExternal]) && rule_outcome[Rule::ModuleUnderTemperatureExternal] == true)
         {
             // Rule Individual cell UNDER temperature (external probe) - HYSTERESIS RESET
             rule_outcome[Rule::ModuleUnderTemperatureExternal] = false;
@@ -325,24 +325,24 @@ void Rules::RunRules(
 
     // Internal temperature monitoring and rules
     // Does not cope with negative temperatures on rule (int8 vs uint32)
-    if (((uint8_t)highestInternalTemp > value[Rule::ModuleOverTemperatureInternal]) && rule_outcome[Rule::ModuleOverTemperatureInternal] == false)
+    if ((highestInternalTemp > value[Rule::ModuleOverTemperatureInternal]) && rule_outcome[Rule::ModuleOverTemperatureInternal] == false)
     {
         // Rule Individual cell over temperature (Internal probe)
         rule_outcome[Rule::ModuleOverTemperatureInternal] = true;
     }
-    else if (((uint8_t)highestInternalTemp < hysteresisvalue[Rule::ModuleOverTemperatureInternal]) && rule_outcome[Rule::ModuleOverTemperatureInternal] == true)
+    else if ((highestInternalTemp < hysteresisvalue[Rule::ModuleOverTemperatureInternal]) && rule_outcome[Rule::ModuleOverTemperatureInternal] == true)
     {
         // Rule Individual cell over temperature (Internal probe) - HYSTERESIS RESET
         rule_outcome[Rule::ModuleOverTemperatureInternal] = false;
     }
 
     // Doesn't cater for negative temperatures on rule (int8 vs uint32)
-    if (((uint8_t)lowestInternalTemp < value[Rule::ModuleUnderTemperatureInternal]) && rule_outcome[Rule::ModuleUnderTemperatureInternal] == false)
+    if ((lowestInternalTemp < value[Rule::ModuleUnderTemperatureInternal]) && rule_outcome[Rule::ModuleUnderTemperatureInternal] == false)
     {
         // Rule Individual cell UNDER temperature (Internal probe)
         rule_outcome[Rule::ModuleUnderTemperatureInternal] = true;
     }
-    else if (((uint8_t)lowestInternalTemp > hysteresisvalue[Rule::ModuleUnderTemperatureInternal]) && rule_outcome[Rule::ModuleUnderTemperatureInternal] == true)
+    else if ((lowestInternalTemp > hysteresisvalue[Rule::ModuleUnderTemperatureInternal]) && rule_outcome[Rule::ModuleUnderTemperatureInternal] == true)
     {
         // Rule Individual cell UNDER temperature (Internal probe) - HYSTERESIS RESET
         rule_outcome[Rule::ModuleUnderTemperatureInternal] = false;
