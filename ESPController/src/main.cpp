@@ -234,9 +234,6 @@ void SetupRS485()
   // Zero all data to start with
   memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
 
-  // if (mysettings.currentMonitoringEnabled) {
-  // }
-
   uart_config_t uart_config = {
       .baud_rate = mysettings.rs485baudrate,
       .data_bits = mysettings.rs485databits,
@@ -1180,6 +1177,17 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::ErrorEmergencyStop);
   }
 
+  //Raise error is the current shunt stops responding for over 45 seconds
+  if (mysettings.currentMonitoringEnabled)
+  {
+    int64_t secondsSinceLastMessage = (esp_timer_get_time() - currentMonitor.timestamp) / 1E6;
+    if (secondsSinceLastMessage > 45)
+    {
+      rules.SetError(InternalErrorCode::CommunicationsError);
+      rules.rule_outcome[Rule::BMSError] = true;
+    }
+  }
+
   rules.numberOfBalancingModules = 0;
   uint8_t cellid = 0;
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
@@ -1982,7 +1990,7 @@ void currentMon_ResetDailyAmpHourCounters()
 
 void CurrentMonitorResetDailyAmpHourCounters()
 {
-  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON && mysettings.currentMonitoringEnabled == true)
   {
     ESP_LOGI(TAG, "Reset daily Ah counter");
     currentMon_ResetDailyAmpHourCounters();
@@ -2733,7 +2741,6 @@ void rs485_tx(void *param)
   }
 }
 
-
 void periodic_task(void *param)
 {
   uint8_t countdown_influx = mysettings.influxdb_loggingFreqSeconds;
@@ -3347,8 +3354,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   LoadConfiguration(&mysettings);
   ValidateConfiguration(&mysettings);
-
-
 
   if (!EepromConfigValid)
   {

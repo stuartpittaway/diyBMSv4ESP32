@@ -992,7 +992,7 @@ void DrawTFT_Error()
             {
             case InternalErrorCode::CommunicationsError:
             {
-                tft.drawCentreString("Module", x, y, 4);
+                tft.drawCentreString("Module or RS485", x, y, 4);
                 y += fontHeight_4;
                 tft.drawCentreString("communications", x, y, 4);
                 y += fontHeight_4;

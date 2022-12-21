@@ -30,10 +30,13 @@ void pylon_message_351()
 
   data351 data;
 
+  //If we pass ZERO's to SOFAR inverter it appears to ignore them
+  //so send 0.1V and 0.1Amps instead to indicate "stop"
+
   //  Defaults (do nothing)
-  data.battery_charge_voltage = 0;
-  data.battery_charge_current_limit = 0;
-  data.battery_discharge_current_limit = 0;
+  data.battery_charge_voltage = 1;
+  data.battery_charge_current_limit = 1;
+  data.battery_discharge_current_limit = 1;
   data.battery_discharge_voltage = mysettings.dischargevolt;
 
   if (rules.IsChargeAllowed(&mysettings))
@@ -41,8 +44,8 @@ void pylon_message_351()
     if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
     {
       // Balancing is active, so stop charging
-      data.battery_charge_voltage = 0;
-      data.battery_charge_current_limit = 0;
+      data.battery_charge_voltage = 1;
+      data.battery_charge_current_limit = 1;
     }
     else
     {
