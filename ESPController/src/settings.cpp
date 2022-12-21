@@ -180,14 +180,14 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
 
         writeSetting(nvs_handle, "curMonEnabled", settings->currentMonitoringEnabled);
         writeSetting(nvs_handle, "curMonMBAddress", settings->currentMonitoringModBusAddress);
-        writeSetting(nvs_handle, "curMonDevice", settings->currentMonitoringDevice);
+        writeSetting(nvs_handle, "curMonDevice", (uint8_t)settings->currentMonitoringDevice);
 
         writeSetting(nvs_handle, "485baudrate", settings->rs485baudrate);
-        writeSetting(nvs_handle, "485databits", settings->rs485databits);
-        writeSetting(nvs_handle, "485parity", settings->rs485parity);
-        writeSetting(nvs_handle, "485stopbits", settings->rs485stopbits);
+        writeSetting(nvs_handle, "485databits", (uint8_t)settings->rs485databits);
+        writeSetting(nvs_handle, "485parity", (uint8_t)settings->rs485parity);
+        writeSetting(nvs_handle, "485stopbits", (uint8_t)settings->rs485stopbits);
 
-        writeSetting(nvs_handle, "canbusprotocol", settings->canbusprotocol);
+        writeSetting(nvs_handle, "canbusprotocol", (uint8_t)settings->canbusprotocol);
         writeSetting(nvs_handle, "nominalbatcap", settings->nominalbatcap);
 
         writeSetting(nvs_handle, "cha_volt", settings->chargevolt);
