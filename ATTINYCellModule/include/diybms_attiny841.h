@@ -119,12 +119,15 @@ public:
       PORTA &= (~_BV(PORTA7));
    }
 
+   //On boards earlier than v4.5, temperature and reference are connected to the same pin (PA7)
    inline static void TemperatureVoltageOn() __attribute__((always_inline))
    {
+      ReferenceVoltageOn();
    }
 
    inline static void TemperatureVoltageOff() __attribute__((always_inline))
    {
+      ReferenceVoltageOff();
    }
 
    static void FlashNotificationLed(size_t times, uint32_t milliseconds);
