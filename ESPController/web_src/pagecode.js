@@ -51,7 +51,7 @@ const TILE_IDS = [
     ["voltage0", "range0", "voltage1", "range1", "voltage2", "range2", "voltage3", "range3", "voltage4", "range4", "voltage5", "range5", "voltage6", "range6", "voltage7", "range7"],
     ["voltage8", "range8", "voltage9", "range9", "voltage10", "range10", "voltage11", "range11", "voltage12", "range12", "voltage13", "range13", "voltage14", "range14", "voltage15", "range15"],
     ["soc", "current", "shuntv", "power", "amphout", "amphin", "damphout", "damphin", "oos", "badcrc", "ignored", "canfail", "sent", "received", "roundtrip", "uptime"],
-    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", "graphOptions", "time100", "time20", "time10", null, null, null, null, null, null, null]
+    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", "graphOptions", "time100", "time20", "time10", "celltemp", null, null, null, null, null, null]
 ];
 Object.freeze(TILE_IDS);
 
@@ -579,6 +579,9 @@ function queryBMS() {
         var minVoltage = DEFAULT_GRAPH_MIN_VOLTAGE / 1000.0;
         var maxVoltage = DEFAULT_GRAPH_MAX_VOLTAGE / 1000.0;
 
+        var minExtTemp = 999;
+        var maxExtTemp = -999;
+
         var bankNumber = 0;
         var cellsInBank = 0;
 
@@ -668,7 +671,19 @@ function queryBMS() {
 
                 color = jsondata.bypasshot[i] == 1 ? red : stdcolor;
                 tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
-                tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]), itemStyle: { color: stdcolor } });
+                var exttemp = (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]);
+                tempext.push({ value: exttemp, itemStyle: { color: stdcolor } });
+
+                if (jsondata.exttemp[i] != null) {
+                    if (exttemp > maxExtTemp) {
+                        maxExtTemp = exttemp;
+                    }
+                    if (exttemp < minExtTemp) {
+                        minExtTemp = exttemp;
+                    }
+                }
+
+
                 pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : Math.trunc(jsondata.bypasspwm[i] / 255 * 100) });
             }
         }
@@ -701,6 +716,11 @@ function queryBMS() {
             $("#canrecd .v").html(jsondata.can_rec);
             $("#qlen .v").html(jsondata.qlen);
             $("#uptime .v").html(secondsToHms(jsondata.uptime));
+            if (minExtTemp == 999 || maxExtTemp == -999) {
+                $("#celltemp .v").html("");
+            } else {
+                $("#celltemp .v").html(minExtTemp + "/" + maxExtTemp + "&deg;C");
+            }
 
             if (jsondata.activerules == 0) {
                 $("#activerules").hide();
@@ -1983,7 +2003,7 @@ $(function () {
             DrawChargingGraph();
         });
 
-        $("#chargecurrent")
+    $("#chargecurrent")
         .add("#cellminmv")
         .add("#cellmaxmv")
         .add("#kneemv")
