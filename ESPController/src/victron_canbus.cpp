@@ -139,19 +139,20 @@ void victron_message_351()
 
   data351 data;
 
+  //If we pass ZERO's to SOFAR inverter it appears to ignore them
+  //so send 0.1V and 0.1Amps instead to indicate "stop"
+
   //  Defaults (do nothing)
-  data.chargevoltagelimit = 0;
-  data.maxchargecurrent = 0;
-  data.maxdischargecurrent = 0;
-  data.dischargevoltage = mysettings.dischargevolt;
+  data.chargevoltagelimit = 1;
+  data.maxchargecurrent = 1;
 
   if (rules.IsChargeAllowed(&mysettings) == false)
   {
     if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
     {
       // Balancing, stop charge, allow discharge
-      data.chargevoltagelimit = 0;
-      data.maxchargecurrent = 0;
+      data.chargevoltagelimit = 1;
+      data.maxchargecurrent = 1;
     }
     else
     {
@@ -160,6 +161,8 @@ void victron_message_351()
       data.maxchargecurrent = rules.DynamicChargeCurrent();
     }
   }
+
+  data.maxdischargecurrent = 1;
   data.dischargevoltage = mysettings.dischargevolt;
 
   if (rules.IsDischargeAllowed(&mysettings))
