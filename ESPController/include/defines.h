@@ -372,7 +372,6 @@ struct currentmonitoring_struct
 {
   currentmonitor_raw_modbus modbus;
 
-  // Uses float as these are 4 bytes on ESP32
   int64_t timestamp;
   bool validReadings;
 
