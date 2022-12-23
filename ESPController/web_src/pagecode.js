@@ -215,7 +215,7 @@ function identifyModule(button, cellid) {
     $.getJSON("/api/identifyModule", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
 
-function restoreconfig(filename) {
+function restoreconfig(location,filename) {
     let isConfirmed = confirm("Are you sure you wish to restore '" + filename + "' configuration file?");
 
     if (isConfirmed) {
@@ -225,7 +225,7 @@ function restoreconfig(filename) {
         $.ajax({
             type: 'POST',
             url: '/post/restoreconfig',
-            data: $.param({ filename: filename }),
+            data: $.param({ flashram: location, filename: filename }),
             success: function (data) {
                 showSuccess();
                 alert("Restore complete, you should now reboot the controller.");
@@ -1806,7 +1806,7 @@ $(function () {
                         if (value != null) {
                             link = "<a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a>";
                             if (value.startsWith("backup_config_")) {
-                                link += "<button class='small' onclick='restoreconfig(\"" + encodeURI(value) + "\")'>Restore</button>";
+                                link += "<button class='small' onclick='restoreconfig(0,\"" + encodeURI(value) + "\")'>Restore</button>";
                             }
                             $("#sdcardfiles").append("<li>" + link + "</li>");
                         }
@@ -1824,9 +1824,17 @@ $(function () {
                 $("#flashfiles").empty();
                 if (data.storage.flash.files) {
                     $.each(data.storage.flash.files, function (index, value) {
+                     
+
                         if (value != null) {
-                            $("#flashfiles").append("<li><a href='download?type=flash&file=" + encodeURI(value) + "'>" + value + "</a></li>");
+                            link = "<a href='download?type=flash&file=" + encodeURI(value) + "'>" + value + "</a>";
+                            if (value.startsWith("cfg_")) {
+                                link += "<button class='small' onclick='restoreconfig(1,\"" + encodeURI(value) + "\")'>Restore</button>";
+                            }
+                            $("#flashfiles").append("<li>" + link + "</li>");
                         }
+
+
                     });
                 }
 

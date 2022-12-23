@@ -187,58 +187,68 @@ esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req, bool urlEncode
     return SendSuccess(req);
 }
 
+// Saves all the BMS controller settings to a JSON file
 esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    if (!_sd_card_installed)
-    {
-        return SendFailure(req);
-    }
-
     if (_avrsettings.programmingModeEnabled)
     {
         return SendFailure(req);
     }
 
-    if (hal.GetVSPIMutex())
+    DynamicJsonDocument doc(5000);
+    GenerateSettingsJSONDocument(&doc, &mysettings);
+
+    struct tm timeinfo;
+
+    // getLocalTime has delay() functions in it :-(
+    if (getLocalTime(&timeinfo, 1))
     {
+        timeinfo.tm_year += 1900;
+        // Month is 0 to 11 based!
+        timeinfo.tm_mon++;
+    }
+    else
+    {
+        memset(&timeinfo, 0, sizeof(tm));
+    }
 
-        struct tm timeinfo;
-
-        // getLocalTime has delay() functions in it :-(
-        if (getLocalTime(&timeinfo, 1))
-        {
-            timeinfo.tm_year += 1900;
-            // Month is 0 to 11 based!
-            timeinfo.tm_mon++;
-        }
-        else
-        {
-            memset(&timeinfo, 0, sizeof(tm));
-        }
-
-        char filename[128];
-        snprintf(filename, sizeof(filename), "/backup_config_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-
-        // ESP_LOGI(TAG, "Creating folder");
-        //_sdcard->mkdir("/diybms");
+    if (!_sd_card_installed)
+    {
+        // LittleFS only supports short filenames
+        char filename[32];
+        snprintf(filename, sizeof(filename), "/cfg_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
         // Get the file
-        ESP_LOGI(TAG, "Generating SD file %s", filename);
+        ESP_LOGI(TAG, "Generating LittleFS file %s", filename);
 
-        if (SD.exists(filename))
-        {
-            ESP_LOGI(TAG, "Delete existing file %s", filename);
-            SD.remove(filename);
-        }
-
-        DynamicJsonDocument doc(5000);
-        GenerateSettingsJSONDocument(&doc, &mysettings);
-
-        File file = SD.open(filename, "w");
+        // SD card not installed, so write to LITTLEFS instead (internal flash)
+        File file = LittleFS.open(filename, "w");
         serializeJson(doc, file);
         file.close();
+    }
+    else
+    {
+        if (hal.GetVSPIMutex())
+        {
 
-        hal.ReleaseVSPIMutex();
+            char filename[128];
+            snprintf(filename, sizeof(filename), "/backup_config_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+            // Get the file
+            ESP_LOGI(TAG, "Generating SD file %s", filename);
+
+            if (SD.exists(filename))
+            {
+                ESP_LOGI(TAG, "Delete existing file %s", filename);
+                SD.remove(filename);
+            }
+
+            File file = SD.open(filename, "w");
+            serializeJson(doc, file);
+            file.close();
+
+            hal.ReleaseVSPIMutex();
+        }
     }
 
     return SendSuccess(req);
@@ -968,11 +978,6 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     bool success = false;
 
-    if (!_sd_card_installed)
-    {
-        return SendFailure(req);
-    }
-
     if (_avrsettings.programmingModeEnabled)
     {
         return SendFailure(req);
@@ -988,16 +993,73 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         return SendFailure(req);
     }
 
-    if (hal.GetVSPIMutex())
+    uint16_t flashram = 0;
+    if (GetKeyValue(httpbuf, "flashram", &flashram, urlEncoded))
     {
-        if (SD.exists(filename))
+    }
+
+    if (flashram == 0)
+    {
+        if (!_sd_card_installed)
         {
-            ESP_LOGI(TAG, "Restore configuration from %s", filename);
+            return SendFailure(req);
+        }
+
+        if (hal.GetVSPIMutex())
+        {
+            if (SD.exists(filename))
+            {
+                ESP_LOGI(TAG, "Restore SD config from %s", filename);
+
+                // Needs to be large enough to de-serialize the JSON file
+                DynamicJsonDocument doc(5000);
+
+                File file = SD.open(filename, "r");
+
+                // Deserialize the JSON document
+                DeserializationError error = deserializeJson(doc, file);
+                if (error)
+                {
+                    ESP_LOGE(TAG, "Deserialization Error");
+                }
+                else
+                {
+                    // Restore the config...
+                    diybms_eeprom_settings myset;
+
+                    JSONToSettings(doc, &myset);
+                    // Repair any bad values
+                    ValidateConfiguration(&myset);
+
+                    // Copy the new settings over top of old
+                    memcpy(&mysettings, &myset, sizeof(mysettings));
+
+                    saveConfiguration();
+
+                    success = true;
+                }
+
+                file.close();
+            }
+            else
+            {
+                ESP_LOGE(TAG, "File does not exist %s", filename);
+            }
+
+            hal.ReleaseVSPIMutex();
+        }
+    }
+
+    if (flashram == 1)
+    {
+        if (LittleFS.exists(filename))
+        {
+            ESP_LOGI(TAG, "Restore LittleFS config from %s", filename);
 
             // Needs to be large enough to de-serialize the JSON file
             DynamicJsonDocument doc(5000);
 
-            File file = SD.open(filename, "r");
+            File file = LittleFS.open(filename, "r");
 
             // Deserialize the JSON document
             DeserializationError error = deserializeJson(doc, file);
@@ -1028,8 +1090,6 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         {
             ESP_LOGE(TAG, "File does not exist %s", filename);
         }
-
-        hal.ReleaseVSPIMutex();
     }
 
     if (success)
