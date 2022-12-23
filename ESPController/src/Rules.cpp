@@ -485,8 +485,8 @@ void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, Ce
         return;
     }
 
-    double value1 = mysettings->current_value1/10.0F;
-    double value2 = mysettings->current_value2/10.0F;
+    double value1 = mysettings->current_value1 / 10.0F;
+    double value2 = mysettings->current_value2 / 10.0F;
     ESP_LOGD(TAG, "value1=%f", value1);
     ESP_LOGD(TAG, "value2=%f", value2);
 
@@ -506,15 +506,15 @@ void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, Ce
     double percent = 1 - (at_actual_cell_voltage / at_knee) / at_target_cell_voltage;
     ESP_LOGD(TAG, "percent=%f", percent);
 
-    if (percent<0.01) {
-        //Catch small values and also negatives, 1% is the lowest we go...
-        percent=0.01;
+    if (percent < 0.01)
+    {
+        // Catch small values and also negatives, 1% is the lowest we go...
+        percent = 0.01;
     }
 
     // Use lowest of chargecurrent or calculation, just in case some math has gone wrong!
     ESP_LOGD(TAG, "percent=%f", percent);
     dynamicChargeCurrent = min(mysettings->chargecurrent, (uint16_t)round(mysettings->chargecurrent * percent));
-
 
     ESP_LOGD(TAG, "dynamicChargeCurrent=%u", dynamicChargeCurrent);
 }
@@ -615,7 +615,7 @@ uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings
 {
     uint16_t value = floor(realSOC);
 
-    // Deliberately force SoC to be reported as 2%, to trick external CANBUS devices into trickle charging
+    // Deliberately force SoC to be reported as 2%, to trick external CANBUS devices into trickle charging (if they support it)
     if (mysettings->socforcelow)
     {
         value = 2;
@@ -631,19 +631,18 @@ uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings
             // This function should not be left permanently switched on - you could damage the battery.
             value = 90;
         }
-        if (value < 21)
+        if (value < 25)
         {
-            // Force minimum of 21% - some inverters (SoFAR) will force charge a battery lower than
+            // Force minimum of 25% - some inverters (SoFAR) will force charge a battery lower than
             // this level limiting the charge current to 500W
-            value = 21;
-        }
-
-        // Limit to 100% maximum, DIYBMS current monitor can go above 100%, so don't confuse inverter/chargers
-        if (value > 100)
-        {
-            value = 100;
+            value = 25;
         }
     }
 
+    // Limit to 100% maximum, DIYBMS current monitor can go above 100%, so don't confuse inverter/chargers
+    if (value > 100)
+    {
+        value = 100;
+    }
     return value;
 }
