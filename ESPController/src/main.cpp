@@ -1954,7 +1954,7 @@ void currentMon_ConfigureBasic(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t 
   xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
 
   // Zero all data
-  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  //memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
   currentMonitor.validReadings = false;
 }
 
@@ -2070,11 +2070,12 @@ Flag 2
   ESP_LOGD(TAG, "Write register 10 = %u %u", flag1, flag2);
 
   // Zero all data
-  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  //memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
   currentMonitor.validReadings = false;
 }
 
 // Calculate estimated time to various % SoC
+// This would be better to use an averaged current over a 3 or 5 minute period to avoid jumps in the readings
 void TimeToSoCCalculation()
 {
   // ESP_LOGD(TAG, "SoC time estimation");
