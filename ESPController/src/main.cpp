@@ -1177,7 +1177,7 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::ErrorEmergencyStop);
   }
 
-  //Raise error is the current shunt stops responding for over 45 seconds
+  // Raise error is the current shunt stops responding for over 45 seconds
   if (mysettings.currentMonitoringEnabled)
   {
     int64_t secondsSinceLastMessage = (esp_timer_get_time() - currentMonitor.timestamp) / 1E6;
@@ -1954,7 +1954,7 @@ void currentMon_ConfigureBasic(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t 
   xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
 
   // Zero all data
-  //memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  // memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
   currentMonitor.validReadings = false;
 }
 
@@ -2070,7 +2070,7 @@ Flag 2
   ESP_LOGD(TAG, "Write register 10 = %u %u", flag1, flag2);
 
   // Zero all data
-  //memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  // memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
   currentMonitor.validReadings = false;
 }
 
@@ -3210,7 +3210,8 @@ log_level_t log_levels[] =
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
         {.tag = "diybms-set", .level = ESP_LOG_INFO},
-        {.tag = "diybms-mqtt", .level = ESP_LOG_INFO}};
+        {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
+        {.tag = "diybms-pylon", .level = ESP_LOG_INFO}};
 
 void consoleConfigurationCheck()
 {
@@ -3259,6 +3260,8 @@ void resumeTasksAfterFirmwareUpdateFailure()
   vTaskResume(service_rs485_transmit_q_task_handle);
   vTaskResume(canbus_tx_task_handle);
   vTaskResume(transmit_task_handle);
+  vTaskResume(lazy_task_handle);
+  vTaskResume(canbus_rx_task_handle);
 }
 void suspendTasksDuringFirmwareUpdate()
 {
@@ -3270,6 +3273,8 @@ void suspendTasksDuringFirmwareUpdate()
   vTaskSuspend(service_rs485_transmit_q_task_handle);
   vTaskSuspend(canbus_tx_task_handle);
   vTaskSuspend(transmit_task_handle);
+  vTaskSuspend(lazy_task_handle);
+  vTaskSuspend(canbus_rx_task_handle);
 }
 
 void setup()
@@ -3395,8 +3400,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   // High priority task
   xTaskCreate(interrupt_task, "int", 2000, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
-  xTaskCreate(sdcardlog_task, "sdlog", 3000, nullptr, 1, &sdcardlog_task_handle);
-  xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 1, &sdcardlog_outputs_task_handle);
+  xTaskCreate(sdcardlog_task, "sdlog", 3000, nullptr, 0, &sdcardlog_task_handle);
+  xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 0, &sdcardlog_outputs_task_handle);
   xTaskCreate(rs485_tx, "485_TX", 2950, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2950, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
@@ -3404,7 +3409,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
   xTaskCreate(transmit_task, "Tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 2000, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
-  xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 1, &lazy_task_handle);
+  xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 0, &lazy_task_handle);
 
   // Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
@@ -3422,7 +3427,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   // Only run these after we have wifi...
   xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
   xTaskCreate(rules_task, "rules", 3500, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-  xTaskCreate(periodic_task, "period", 3500, nullptr, 1, &periodic_task_handle);
+  xTaskCreate(periodic_task, "period", 3500, nullptr, 0, &periodic_task_handle);
 
   // Start the wifi and connect to access point
   wifi_init_sta();
