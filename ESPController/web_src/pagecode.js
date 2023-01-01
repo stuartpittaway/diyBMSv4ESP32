@@ -453,9 +453,7 @@ function currentmonitorSubmitForm(form) {
 
 function avrProgrammingStatsUpdate(attempts) {
     $.getJSON("/api/avrstatus",
-        function (data) {
-            console.log(data);
-
+        function (data) {            
             if (data.inprogress == 0) {
                 //Finished or aborted with error, update display
                 $("#avrinfo").empty();
@@ -1232,7 +1230,6 @@ $(function () {
     $(".rule").on("change", function () {
         var origv = $(this).attr("data-origv")
         if (origv !== this.value) {
-            console.log(this.value);
             $(this).addClass("modified");
         } else {
             $(this).removeClass("modified");
