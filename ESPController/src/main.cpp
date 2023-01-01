@@ -73,8 +73,6 @@ static constexpr const char *const TAG = "diybms";
 #include "string_utils.h"
 
 #include <SPI.h>
-// Move outside class so Arduino Framework 2.0.4+ work as expected
-SPIClass vspi(VSPI);
 
 const uart_port_t rs485_uart_num = UART_NUM_1;
 
@@ -334,7 +332,8 @@ void avrprog_task(void *param)
         // although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
 
         uint32_t starttime = millis();
-        AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&(vspi), GPIO_NUM_0, false, VSPI_SCK);
+        
+        AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(hal.VSPI_Ptr(), GPIO_NUM_0, false, VSPI_SCK);
 
         ESP_LOGI(TAG, "Programming AVR");
 
@@ -3395,7 +3394,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   assert(tftwake_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
-  xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 1, &updatetftdisplay_task_handle);
+  xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 0, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 3, &avrprog_task_handle);
 
   // High priority task

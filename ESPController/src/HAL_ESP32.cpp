@@ -7,6 +7,11 @@ static constexpr const char *const TAG = "diybms-hal";
 #include "defines.h"
 #include "HAL_ESP32.h"
 
+// Move outside class so Arduino Framework 2.0.4+ work as expected
+SPIClass vspi(VSPI);
+
+SPIClass *HAL_ESP32::VSPI_Ptr() { return &vspi; }
+
 bool HAL_ESP32::MountSDCard()
 {
     bool result = false;

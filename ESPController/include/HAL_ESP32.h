@@ -71,7 +71,9 @@ struct TouchScreenValues
     uint16_t Y;
 };
 
-extern SPIClass vspi;
+//extern SPIClass vspi;
+
+
 
 // Derived classes
 class HAL_ESP32
@@ -95,7 +97,7 @@ public:
     uint16_t ReadTCA6416InputRegisters();
 
     // Returns pointer to VSPI object class
-    // SPIClass *VSPI_Ptr() { return &vspi; }
+    SPIClass *VSPI_Ptr();
 
     void Led(uint8_t bits);
     void ConfigurePins();
@@ -151,7 +153,12 @@ public:
         if (xVSPIMutex == NULL)
             return false;
 
-        return (xSemaphoreGive(xVSPIMutex) == pdTRUE);
+        bool reply = (xSemaphoreGive(xVSPIMutex) == pdTRUE);
+        if (!reply)
+        {
+            ESP_LOGE(TAG, "Unable to release VSPI mutex");
+        }
+        return reply;
     }
 
     bool Geti2cMutex()
@@ -172,7 +179,12 @@ public:
         if (xi2cMutex == NULL)
             return false;
 
-        return (xSemaphoreGive(xi2cMutex) == pdTRUE);
+        bool reply = (xSemaphoreGive(xi2cMutex) == pdTRUE);
+        if (!reply)
+        {
+            ESP_LOGE(TAG, "Unable to release I2C mutex");
+        }
+        return reply;
     }
 
     bool GetRS485Mutex()
