@@ -163,7 +163,6 @@
         <span class="x t">Cell temps:</span>
         <span class="x v"></span>
       </div>
-
     </div>
 
     <div class="page" id="homePage">
@@ -651,20 +650,20 @@
                 <tr>
                   <td><label for="rule0value">Emergency stop</label></td>
                   <td>
-                    <input type="hidden" name="rule0value" id="rule0value" value="0" />
+                    <input type="hidden" name="rule0value" id="rule0value" value="0" class="rule" />
                   </td>
                   <td>
-                    <input type="hidden" name="rule0hyst" id="rule0hyst" value="0" />
+                    <input type="hidden" name="rule0hyst" id="rule0hyst" value="0" class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
                 <tr>
                   <td><label for="rule1value">Internal BMS error</label></td>
                   <td>
-                    <input type="hidden" name="rule1value" id="rule1value" value="0" />
+                    <input type="hidden" name="rule1value" id="rule1value" value="0" class="rule" />
                   </td>
                   <td>
-                    <input type="hidden" name="rule1hyst" id="rule1hyst" value="0" />
+                    <input type="hidden" name="rule1hyst" id="rule1hyst" value="0" class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -681,8 +680,8 @@
                       step="1"
                       name="rule2value"
                       id="rule2value"
-                      value="100"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
@@ -692,8 +691,8 @@
                       step="1"
                       name="rule2hyst"
                       id="rule2hyst"
-                      value="95"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -710,8 +709,8 @@
                       step="5"
                       name="rule3value"
                       id="rule3value"
-                      value="4100"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
@@ -721,8 +720,8 @@
                       step="5"
                       name="rule3hyst"
                       id="rule3hyst"
-                      value="4100"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -738,8 +737,8 @@
                       step="5"
                       name="rule4value"
                       id="rule4value"
-                      value="3000"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
@@ -749,8 +748,8 @@
                       step="5"
                       name="rule4hyst"
                       id="rule4hyst"
-                      value="3000"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -766,8 +765,8 @@
                       step="1"
                       name="rule5value"
                       id="rule5value"
-                      value="60"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
@@ -777,8 +776,8 @@
                       step="1"
                       name="rule5hyst"
                       id="rule5hyst"
-                      value="55"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -794,8 +793,8 @@
                       step="1"
                       name="rule6value"
                       id="rule6value"
-                      value="5"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
@@ -805,8 +804,8 @@
                       step="1"
                       name="rule6hyst"
                       id="rule6hyst"
-                      value="6"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -822,8 +821,8 @@
                       step="1"
                       name="rule7value"
                       id="rule7value"
-                      value="45"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
@@ -833,8 +832,8 @@
                       step="1"
                       name="rule7hyst"
                       id="rule7hyst"
-                      value="45"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -850,8 +849,8 @@
                       step="1"
                       name="rule8value"
                       id="rule8value"
-                      value="5"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
@@ -861,8 +860,8 @@
                       step="1"
                       name="rule8hyst"
                       id="rule8hyst"
-                      value="6"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -874,23 +873,23 @@
                     <input
                       type="number"
                       min="1000"
-                      max="99999999"
+                      max="999999"
                       step="10"
                       name="rule9value"
                       id="rule9value"
-                      value="16000"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
                       type="number"
                       min="1000"
-                      max="99999999"
+                      max="999999"
                       step="10"
                       name="rule9hyst"
                       id="rule9hyst"
-                      value="16000"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -902,23 +901,23 @@
                     <input
                       type="number"
                       min="1000"
-                      max="99999999"
+                      max="999999"
                       step="10"
                       name="rule10value"
                       id="rule10value"
-                      value="12000"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
                       type="number"
                       min="1000"
-                      max="99999999"
+                      max="999999"
                       step="10"
                       name="rule10hyst"
                       id="rule10hyst"
-                      value="12000"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -931,23 +930,23 @@
                     <input
                       type="number"
                       min="1000"
-                      max="99999999"
+                      max="999999"
                       step="10"
                       name="rule11value"
                       id="rule11value"
-                      value="16000"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
                       type="number"
                       min="1000"
-                      max="99999999"
+                      max="999999"
                       step="10"
                       name="rule11hyst"
                       id="rule11hyst"
-                      value="16000"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -959,23 +958,23 @@
                     <input
                       type="number"
                       min="1000"
-                      max="99999999"
+                      max="999999"
                       step="10"
                       name="rule12value"
                       id="rule12value"
-                      value="12000"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
                       type="number"
                       min="1000"
-                      max="99999999"
+                      max="999999"
                       step="10"
                       name="rule12hyst"
                       id="rule12hyst"
-                      value="12000"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -989,8 +988,8 @@
                       step="1"
                       name="rule13value"
                       id="rule13value"
-                      value="0"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
@@ -1000,8 +999,8 @@
                       step="1"
                       name="rule13hyst"
                       id="rule13hyst"
-                      value="0"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -1015,8 +1014,8 @@
                       step="1"
                       name="rule14value"
                       id="rule14value"
-                      value="0"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td>
                     <input
@@ -1026,8 +1025,8 @@
                       step="1"
                       name="rule14hyst"
                       id="rule14hyst"
-                      value="0"
-                      required="" />
+                      required=""
+                      class="rule" />
                   </td>
                   <td class="relayset"></td>
                 </tr>
@@ -1036,19 +1035,19 @@
                   <td>&nbsp;</td>
                   <td>&nbsp;</td>
                   <td class="relayset">
-                    <select id="defaultrelay1" name="defaultrelay1">
+                    <select id="defaultrelay1" name="defaultrelay1" class="rule">
                       <option>On</option>
                       <option>Off</option>
                     </select>
-                    <select id="defaultrelay2" name="defaultrelay2">
+                    <select id="defaultrelay2" name="defaultrelay2" class="rule">
                       <option>On</option>
                       <option>Off</option>
                     </select>
-                    <select id="defaultrelay3" name="defaultrelay3">
+                    <select id="defaultrelay3" name="defaultrelay3" class="rule">
                       <option>On</option>
                       <option>Off</option>
                     </select>
-                    <select id="defaultrelay4" name="defaultrelay4">
+                    <select id="defaultrelay4" name="defaultrelay4" class="rule">
                       <option>On</option>
                       <option>Off</option>
                     </select>
@@ -1059,19 +1058,19 @@
                   <td>&nbsp;</td>
                   <td>&nbsp;</td>
                   <td class="relayset">
-                    <select id="relaytype1" name="relaytype1">
+                    <select id="relaytype1" name="relaytype1" class="rule">
                       <option>Std</option>
                       <option>Pulse</option>
                     </select>
-                    <select id="relaytype2" name="relaytype2">
+                    <select id="relaytype2" name="relaytype2" class="rule">
                       <option>Std</option>
                       <option>Pulse</option>
                     </select>
-                    <select id="relaytype3" name="relaytype3">
+                    <select id="relaytype3" name="relaytype3" class="rule">
                       <option>Std</option>
                       <option>Pulse</option>
                     </select>
-                    <select id="relaytype4" name="relaytype4">
+                    <select id="relaytype4" name="relaytype4" class="rule">
                       <option>Std</option>
                       <option>Pulse</option>
                     </select>
@@ -1157,7 +1156,7 @@
               <label for="sensitivity">Voltage sensitivity</label>
               <input id="sensitivity" name="sensitivity" value="" type="number" min="1.0" max="99.9" step="0.1" />
             </div>
-    
+
             <div>
               <label for="cur_val1">Charging current value 1</label>
               <input id="cur_val1" name="cur_val1" value="" type="number" min="0.1" max="99.9" step="0.1" />

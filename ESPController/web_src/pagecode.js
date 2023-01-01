@@ -215,7 +215,7 @@ function identifyModule(button, cellid) {
     $.getJSON("/api/identifyModule", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
 
-function restoreconfig(location,filename) {
+function restoreconfig(location, filename) {
     let isConfirmed = confirm("Are you sure you wish to restore '" + filename + "' configuration file?");
 
     if (isConfirmed) {
@@ -1224,10 +1224,20 @@ $(function () {
     //Populate all the setting rules with relay select lists
     $.each($(".settings table tbody tr td:empty"), function (index, value) {
         $.each([1, 2, 3, 4], function (index1, relay) {
-            $(value).append('<select id="rule' + (index) + 'relay' + relay + '" name="rule' + (index) + 'relay' + relay + '"><option>On</option><option>Off</option><option>X</option></select>');
+            $(value).append('<select id="rule' + (index) + 'relay' + relay + '" class="rule" name="rule' + (index) + 'relay' + relay + '"><option>On</option><option>Off</option><option>X</option></select>');
         });
     }
     );
+
+    $(".rule").on("change", function () {
+        var origv = $(this).attr("data-origv")
+        if (origv !== this.value) {
+            console.log(this.value);
+            $(this).addClass("modified");
+        } else {
+            $(this).removeClass("modified");
+        }
+    });
 
     $("#labelMaxModules").text(MAXIMUM_NUMBER_OF_SERIES_MODULES);
     for (var n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
@@ -1380,41 +1390,32 @@ $(function () {
         return true;
     });
 
-
-    $("#rules").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
-
-        $("#rulesForm").hide();
-
-        switchPage("#rulesPage");
-
+    function loadRelayRules() {
         $.getJSON("/api/rules",
             function (data) {
                 //Rules have loaded
+                $("#minutesnow").html(data.timenow);
 
                 //Default relay settings
                 $.each(data.relaydefault, function (index2, value2) {
                     var relay_value = "X";
                     if (value2 === true) { relay_value = "On"; }
                     if (value2 === false) { relay_value = "Off"; }
-                    $("#defaultrelay" + (index2 + 1)).val(relay_value);
+                    $("#defaultrelay" + (index2 + 1)).val(relay_value).attr("data-origv", relay_value).removeClass("modified");
                 });
 
                 //Default relay settings
                 $.each(data.relaytype, function (index2, value2) {
-                    $("#relaytype" + (index2 + 1)).val(value2);
+                    $("#relaytype" + (index2 + 1)).val(value2).attr("data-origv", value2).removeClass("modified");
                 });
-
-                $("#minutesnow").html(data.timenow);
-
 
                 //Loop through each rule updating the page
                 var i = 1;
                 var allrules = $(".settings table tbody tr td label");
                 $.each(data.rules, function (index, value) {
-                    $("#rule" + (index) + "value").val(value.value);
-                    $("#rule" + (index) + "hyst").val(value.hysteresis);
+                    $("#rule" + (index) + "value").val(value.value).attr("data-origv", value.value).removeClass("modified");
+
+                    $("#rule" + (index) + "hyst").val(value.hysteresis).attr("data-origv", value.hysteresis).removeClass("modified");
 
                     //Highlight rules which are active
                     if (value.triggered) {
@@ -1430,7 +1431,7 @@ $(function () {
                         if (value2 === true) { relay_value = "On"; }
                         if (value2 === false) { relay_value = "Off"; }
 
-                        $("#rule" + (index) + "relay" + (index2 + 1)).val(relay_value);
+                        $("#rule" + (index) + "relay" + (index2 + 1)).val(relay_value).attr("data-origv", relay_value).removeClass("modified");
                     });
                 });
 
@@ -1449,7 +1450,17 @@ $(function () {
                 $("#rulesForm").show();
             }).fail(function () { $.notify("Read request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
+    }
 
+    $("#rules").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+
+        $("#rulesForm").hide();
+
+        switchPage("#rulesPage");
+
+        loadRelayRules();
         return true;
     });
 
@@ -1824,7 +1835,7 @@ $(function () {
                 $("#flashfiles").empty();
                 if (data.storage.flash.files) {
                     $.each(data.storage.flash.files, function (index, value) {
-                     
+
 
                         if (value != null) {
                             link = "<a href='download?type=flash&file=" + encodeURI(value) + "'>" + value + "</a>";
@@ -1863,6 +1874,23 @@ $(function () {
         });
     });
 
+    $("#rulesForm").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        $.ajax({
+            type: $(this).attr('method'),
+            url: $(this).attr('action'),
+            // Filter to only elements which have changed
+            data: $("#rulesForm input.rule.modified, #rulesForm select.rule.modified").serialize(),
+            success: function (data) {
+                showSuccess();
+                //Force reload of values to refresh the input boxes/attributes
+                loadRelayRules();
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+    });
 
     $("#diybmsCurrentMonitorForm2").unbind('submit').submit(function (e) {
         e.preventDefault();
