@@ -60,6 +60,30 @@ var tileconfig = [];
 var timer_postTileVisibiltity = null;
 
 function upload_file() {
+
+    let data = document.getElementById("uploadfile_sel").files[0];
+    xhr = new XMLHttpRequest();
+    xhr.open("POST", "/uploadfile", true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            var status = xhr.status;
+            if (status >= 200 && status < 400) {
+                //Refresh the storage page
+                $("#storage").trigger("click");
+                $.notify("File upload success", { autoHide: true, globalPosition: 'top right', className: 'success' });
+            } else {
+                $.notify("File upload failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
+            }
+            $("#progress").hide();
+        }
+    };
+    xhr.send(data);
+    return false;
+
+}
+
+function upload_firmware() {
     $("#progress").show();
     $("#status_div").text("Upload in progress");
     let data = document.getElementById("file_sel").files[0];
@@ -453,7 +477,7 @@ function currentmonitorSubmitForm(form) {
 
 function avrProgrammingStatsUpdate(attempts) {
     $.getJSON("/api/avrstatus",
-        function (data) {            
+        function (data) {
             if (data.inprogress == 0) {
                 //Finished or aborted with error, update display
                 $("#avrinfo").empty();
@@ -1814,7 +1838,7 @@ $(function () {
                     $.each(data.storage.sdcard.files, function (index, value) {
                         if (value != null) {
                             link = "<a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a>";
-                            if (value.startsWith("backup_config_")) {
+                            if (value.endsWith(".json") && value.startsWith("backup_config_")) {
                                 link += "<button class='small' onclick='restoreconfig(0,\"" + encodeURI(value) + "\")'>Restore</button>";
                             }
                             $("#sdcardfiles").append("<li>" + link + "</li>");
@@ -1833,17 +1857,13 @@ $(function () {
                 $("#flashfiles").empty();
                 if (data.storage.flash.files) {
                     $.each(data.storage.flash.files, function (index, value) {
-
-
                         if (value != null) {
                             link = "<a href='download?type=flash&file=" + encodeURI(value) + "'>" + value + "</a>";
-                            if (value.startsWith("cfg_")) {
+                            if (value.endsWith(".json") && (value.startsWith("cfg_") || value.startsWith("upld_"))) {
                                 link += "<button class='small' onclick='restoreconfig(1,\"" + encodeURI(value) + "\")'>Restore</button>";
                             }
                             $("#flashfiles").append("<li>" + link + "</li>");
                         }
-
-
                     });
                 }
 
@@ -2019,8 +2039,12 @@ $(function () {
         timer_postTileVisibiltity = setTimeout(postTileVisibiltity, 3500);
     });
 
-    $("#file_sel").change(function () { upload_file(); });
+    $("#file_sel").change(function () { upload_firmware(); });
     $("#uploadfw").click(function () { $("#file_sel").click(); });
+
+    $("#uploadfile").click(function () { $("#uploadfile_sel").click(); });
+    $("#uploadfile_sel").change(function () { upload_file(); });
+
     $("#progress").hide();
 
     $("#homePage").show();

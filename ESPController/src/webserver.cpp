@@ -318,6 +318,109 @@ static esp_err_t ws_handler(httpd_req_t *req)
 static const httpd_uri_t uri_ws_get = {.uri = "/ws", .method = HTTP_GET, .handler = ws_handler, .user_ctx = NULL, .is_websocket = true};
 #endif
 
+static esp_err_t uploadfile_post_handler(httpd_req_t *req)
+{
+  if (!validateXSS(req))
+  {
+    // validateXSS has already sent httpd_resp_send_err...
+    return false;
+  }
+
+  ESP_LOGI(TAG, "Upload file");
+
+  httpd_resp_set_status(req, HTTPD_500); // Assume failure
+
+  int ret, remaining = req->content_len;
+
+  if (req->content_len > (10 * 1024))
+  {
+    ESP_LOGE("UPLOAD", "File too large : %d bytes", req->content_len);
+    /* Respond with 400 Bad Request */
+    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "File too large");
+    /* Return failure to close underlying connection else the
+     * incoming file content will keep the socket busy */
+    return ESP_FAIL;
+  }
+
+  struct tm timeinfo;
+
+  // getLocalTime has delay() functions in it :-(
+  if (getLocalTime(&timeinfo, 1))
+  {
+    timeinfo.tm_year += 1900;
+    // Month is 0 to 11 based!
+    timeinfo.tm_mon++;
+  }
+  else
+  {
+    memset(&timeinfo, 0, sizeof(tm));
+  }
+
+  // LittleFS only supports short filenames
+  char filename[32];
+  snprintf(filename, sizeof(filename), "/upld_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+  // Get the file
+  ESP_LOGI(TAG, "Generating LittleFS file %s", filename);
+
+  // SD card not installed, so write to LITTLEFS instead (internal flash)
+  File file = LittleFS.open(filename, "w");
+
+  int received;
+  while (remaining > 0)
+  {
+    ESP_LOGI(TAG, "Remaining size : %d", remaining);
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+    /* Receive the file part by part into a buffer */
+    if ((received = httpd_req_recv(req, httpbuf, MIN(remaining, BUFSIZE))) <= 0)
+    {
+      if (received == HTTPD_SOCK_ERR_TIMEOUT)
+      {
+        /* Retry if timeout occurred */
+        continue;
+      }
+
+      /* In case of unrecoverable error,
+       * close and delete the unfinished file*/
+      file.close();
+      LittleFS.remove(filename);
+
+      ESP_LOGE(TAG, "File reception failed!");
+      /* Respond with 500 Internal Server Error */
+      httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive file");
+      return ESP_FAIL;
+    }
+
+    /* Write buffer content to file on storage */
+    if (received && (received != file.write((uint8_t *)httpbuf, received)))
+    {
+      /* Couldn't write everything to file! Storage may be full? */
+      file.close();
+      LittleFS.remove(filename);
+
+      ESP_LOGE(TAG, "File write failed!");
+      /* Respond with 500 Internal Server Error */
+      httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to write file to storage");
+      return ESP_FAIL;
+    }
+
+    /* Keep track of remaining size of
+     * the file left to be uploaded */
+    remaining -= received;
+
+    // Allow other tasks to do stuff (avoid watchdog timeouts)
+    vTaskDelay(10);
+  }
+
+  file.close();
+  ESP_LOGI(TAG, "File upload complete");
+
+  httpd_resp_set_status(req, HTTPD_200);
+  httpd_resp_send(req, NULL, 0);
+  return ESP_OK;
+}
 //-----------------------------------------------------------------------------
 // Over the air firmware upgrade - note this is not securely implemented
 // anyone on the local LAN can send new ESP32 firmware to the controller
@@ -330,7 +433,6 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
     return false;
   }
 
-  char buf[512];
   httpd_resp_set_status(req, HTTPD_500); // Assume failure
 
   int ret, remaining = req->content_len;
@@ -362,7 +464,7 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
   {
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
     // Read the data for the request
-    if ((ret = httpd_req_recv(req, buf, MIN(remaining, sizeof(buf)))) <= 0)
+    if ((ret = httpd_req_recv(req, httpbuf, MIN(remaining, BUFSIZE))) <= 0)
     {
       if (ret == HTTPD_SOCK_ERR_TIMEOUT)
       {
@@ -376,12 +478,15 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
     size_t bytes_read = ret;
 
     remaining -= bytes_read;
-    err = esp_ota_write(update_handle, buf, bytes_read);
+    err = esp_ota_write(update_handle, httpbuf, bytes_read);
     if (err != ESP_OK)
     {
       goto return_failure;
     }
     ESP_LOGD(TAG, "OTA Write: remaining %d", remaining);
+
+    // Allow other tasks to do stuff (avoid watchdog timeouts)
+    vTaskDelay(10);
   }
 
   ESP_LOGI(TAG, "OTA Receiving complete");
@@ -395,7 +500,7 @@ static esp_err_t ota_post_handler(httpd_req_t *req)
     httpd_resp_set_status(req, HTTPD_200);
     httpd_resp_send(req, NULL, 0);
 
-    vTaskDelay(1000 / portTICK_RATE_MS);
+    vTaskDelay(2000 / portTICK_RATE_MS);
     esp_restart();
 
     return ESP_OK;
@@ -426,6 +531,7 @@ static const httpd_uri_t uri_save_data_post = {.uri = "/post/*", .method = HTTP_
 static const httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = NULL};
 
 static const httpd_uri_t uri_ota_post = {.uri = "/ota", .method = HTTP_POST, .handler = ota_post_handler, .user_ctx = NULL};
+static const httpd_uri_t uri_uploadfile_post = {.uri = "/uploadfile", .method = HTTP_POST, .handler = uploadfile_post_handler, .user_ctx = NULL};
 
 void resetModuleMinMaxVoltage(uint8_t module)
 {
@@ -504,7 +610,7 @@ httpd_handle_t start_webserver(void)
   /* Generate default configuration */
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-  config.max_uri_handlers = 9;
+  config.max_uri_handlers = 10;
   config.max_open_sockets = 7;
   config.max_resp_headers = 16;
   config.stack_size = 5000;
@@ -530,6 +636,7 @@ httpd_handle_t start_webserver(void)
 
     // OTA services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_ota_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_uploadfile_post));
 
 #ifdef USE_WEBSOCKET_DEBUG_LOG
     // Websocket

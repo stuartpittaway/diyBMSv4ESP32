@@ -187,14 +187,9 @@ esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req, bool urlEncode
     return SendSuccess(req);
 }
 
-// Saves all the BMS controller settings to a JSON file
-esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool urlEncoded)
+// Saves all the BMS controller settings to a JSON file in FLASH
+esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    if (_avrsettings.programmingModeEnabled)
-    {
-        return SendFailure(req);
-    }
-
     DynamicJsonDocument doc(5000);
     GenerateSettingsJSONDocument(&doc, &mysettings);
 
@@ -212,45 +207,48 @@ esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool url
         memset(&timeinfo, 0, sizeof(tm));
     }
 
-    if (!_sd_card_installed)
-    {
-        // LittleFS only supports short filenames
-        char filename[32];
-        snprintf(filename, sizeof(filename), "/cfg_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-
-        // Get the file
-        ESP_LOGI(TAG, "Generating LittleFS file %s", filename);
-
-        // SD card not installed, so write to LITTLEFS instead (internal flash)
-        File file = LittleFS.open(filename, "w");
-        serializeJson(doc, file);
-        file.close();
-    }
-    else
-    {
-        if (hal.GetVSPIMutex())
+    /*
+        if (!_sd_card_installed)
         {
+    */
+    // LittleFS only supports short filenames
+    char filename[32];
+    snprintf(filename, sizeof(filename), "/cfg_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
 
-            char filename[128];
-            snprintf(filename, sizeof(filename), "/backup_config_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+    // Get the file
+    ESP_LOGI(TAG, "Generating LittleFS file %s", filename);
 
-            // Get the file
-            ESP_LOGI(TAG, "Generating SD file %s", filename);
-
-            if (SD.exists(filename))
-            {
-                ESP_LOGI(TAG, "Delete existing file %s", filename);
-                SD.remove(filename);
-            }
-
-            File file = SD.open(filename, "w");
-            serializeJson(doc, file);
-            file.close();
-
-            hal.ReleaseVSPIMutex();
+    // SD card not installed, so write to LITTLEFS instead (internal flash)
+    File file = LittleFS.open(filename, "w");
+    serializeJson(doc, file);
+    file.close();
+    /*
         }
-    }
+        else
+        {
+            if (hal.GetVSPIMutex())
+            {
 
+                char filename[128];
+                snprintf(filename, sizeof(filename), "/backup_config_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+                // Get the file
+                ESP_LOGI(TAG, "Generating SD file %s", filename);
+
+                if (SD.exists(filename))
+                {
+                    ESP_LOGI(TAG, "Delete existing file %s", filename);
+                    SD.remove(filename);
+                }
+
+                File file = SD.open(filename, "w");
+                serializeJson(doc, file);
+                file.close();
+
+                hal.ReleaseVSPIMutex();
+            }
+        }
+    */
     return SendSuccess(req);
 }
 
@@ -683,7 +681,8 @@ esp_err_t post_setsoc_json_handler(httpd_req_t *req, bool urlEncoded)
 
 esp_err_t post_resetdailyahcount_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    if (CurrentMonitorResetDailyAmpHourCounters()) {
+    if (CurrentMonitorResetDailyAmpHourCounters())
+    {
         return SendSuccess(req);
     }
     return SendFailure(req);
@@ -1145,7 +1144,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
     esp_err_t (*func_ptr[])(httpd_req_t * req, bool urlEncoded) = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
         post_savemqtt_json_handler, post_saveinfluxdbsetting_json_handler,
-        post_saveconfigurationtosdcard_json_handler, post_savewificonfigtosdcard_json_handler,
+        post_saveconfigurationtoflash_json_handler, post_savewificonfigtosdcard_json_handler,
         post_savesetting_json_handler, post_restartcontroller_json_handler, post_saverules_json_handler,
         post_savedisplaysetting_json_handler, post_savestorage_json_handler, post_resetcounters_json_handler,
         post_sdmount_json_handler, post_sdunmount_json_handler, post_enableavrprog_json_handler,
