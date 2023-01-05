@@ -924,7 +924,7 @@
 
                 <tr>
                   <td>
-                    <label for="rule11value">Pack over voltage (mV)</label>
+                    <label for="rule11value">Bank over voltage (mV)</label>
                   </td>
                   <td>
                     <input
@@ -952,7 +952,7 @@
                 </tr>
                 <tr>
                   <td>
-                    <label for="rule12value">Pack under voltage (mV)</label>
+                    <label for="rule12value">Bank under voltage (mV)</label>
                   </td>
                   <td>
                     <input
@@ -978,13 +978,14 @@
                   </td>
                   <td class="relayset"></td>
                 </tr>
+
                 <tr>
-                  <td><label for="rule13value">Timer 2</label></td>
+                  <td><label for="rule13value">Bank range</label></td>
                   <td>
                     <input
                       type="number"
-                      min="0"
-                      max="1440"
+                      min="1"
+                      max="5000"
                       step="1"
                       name="rule13value"
                       id="rule13value"
@@ -994,8 +995,8 @@
                   <td>
                     <input
                       type="number"
-                      min="0"
-                      max="1440"
+                      min="1"
+                      max="5000"
                       step="1"
                       name="rule13hyst"
                       id="rule13hyst"
@@ -1004,8 +1005,9 @@
                   </td>
                   <td class="relayset"></td>
                 </tr>
+
                 <tr>
-                  <td><label for="rule14value">Timer 1</label></td>
+                  <td><label for="rule14value">Timer 2</label></td>
                   <td>
                     <input
                       type="number"
@@ -1025,6 +1027,32 @@
                       step="1"
                       name="rule14hyst"
                       id="rule14hyst"
+                      required=""
+                      class="rule" />
+                  </td>
+                  <td class="relayset"></td>
+                </tr>
+                <tr>
+                  <td><label for="rule15value">Timer 1</label></td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0"
+                      max="1440"
+                      step="1"
+                      name="rule15value"
+                      id="rule15value"
+                      required=""
+                      class="rule" />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0"
+                      max="1440"
+                      step="1"
+                      name="rule15hyst"
+                      id="rule15hyst"
                       required=""
                       class="rule" />
                   </td>

@@ -1117,7 +1117,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
     if (i)
       bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.packvoltage[i]);
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.bankvoltage[i]);
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 

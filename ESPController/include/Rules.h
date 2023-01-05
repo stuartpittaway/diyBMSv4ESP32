@@ -6,9 +6,9 @@
 #include "defines.h"
 
 // Needs to match the ordering on the HTML screen
-// You also need to update "RuleTextDescription"
+// You also need to update "RuleTextDescription" (Rules.cpp)
 // Define a max constant for the highest value (change if you add more rules)
-#define MAXIMUM_RuleNumber 14
+#define MAXIMUM_RuleNumber 15
 enum Rule : uint8_t
 {
     EmergencyStop = 0,
@@ -24,8 +24,9 @@ enum Rule : uint8_t
     CurrentMonitorUnderVoltage = 10,
     BankOverVoltage = 11,
     BankUnderVoltage = 12,
-    Timer2 = 13,
-    Timer1 = 14
+    BankRange=13,
+    Timer2 = 14,
+    Timer1 = 15
 };
 
 // Define a max constant for the highest value (change if you add more warnings)
@@ -71,18 +72,19 @@ public:
     // Number of TRUE values in array rule_outcome
     uint8_t active_rule_count;
 
-    // Actual pack voltage reported by the modules
-    uint32_t packvoltage[maximum_number_of_banks];
+    // Actual bank voltage reported by the modules (sum of voltage reported by modules)
+    uint32_t bankvoltage[maximum_number_of_banks];
     // As above, but each voltage reading limited to "cellmaxmv" setting (used for charge voltage calc)
-    uint32_t limitedpackvoltage[maximum_number_of_banks];
+    uint32_t limitedbankvoltage[maximum_number_of_banks];
 
-    uint16_t lowestvoltageinpack[maximum_number_of_banks];
-    uint16_t highestvoltageinpack[maximum_number_of_banks];
+    uint16_t lowestvoltageinbank[maximum_number_of_banks];
+    uint16_t highestvoltageinbank[maximum_number_of_banks];
 
     uint8_t zeroVoltageModuleCount;
 
-    uint32_t highestPackVoltage;
-    uint32_t lowestPackVoltage;
+    uint32_t highestBankVoltage;
+    uint32_t lowestBankVoltage;
+
     uint16_t highestCellVoltage;
     uint16_t lowestCellVoltage;
 

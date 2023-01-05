@@ -100,9 +100,9 @@ $("label[for='rule6value']").text("PCB Soustemperature °C");
 $("label[for='rule7value']").text("Cellule Surtemperature (Ext) °C");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Cellule Soustemperature (Ext) °C");
-//Pack over voltage (mV)
+//Bank over voltage (mV)
 $("label[for='rule9value']").text("Surtention chaîne (mV)");
-//Pack under voltage (mV)
+//Bank under voltage (mV)
 $("label[for='rule10value']").text("Soustention chaîne (mV)");
 //Timer 2
 $("label[for='rule11value']").text("Tempo 2");

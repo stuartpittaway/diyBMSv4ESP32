@@ -18,22 +18,23 @@ const char *RuleTextDescription[] = {
     "CurrentMonitorUnderVoltage",
     "BankOverVoltage",
     "BankUnderVoltage",
+    "BankRange",
     "Timer2",
     "Timer1"};
 
 void Rules::ClearValues()
 {
-    // Array to hold the total voltage of each bank/pack (in millivolts)
+    // Array to hold the total voltage of each bank (in millivolts)
     for (uint8_t r = 0; r < maximum_number_of_banks; r++)
     {
-        limitedpackvoltage[r] = 0;
-        packvoltage[r] = 0;
-        lowestvoltageinpack[r] = 0xFFFF;
-        highestvoltageinpack[r] = 0;
+        limitedbankvoltage[r] = 0;
+        bankvoltage[r] = 0;
+        lowestvoltageinbank[r] = 0xFFFF;
+        highestvoltageinbank[r] = 0;
     }
 
-    highestPackVoltage = 0;
-    lowestPackVoltage = 0xFFFFFFFF;
+    highestBankVoltage = 0;
+    lowestBankVoltage = 0xFFFFFFFF;
     highestCellVoltage = 0;
     lowestCellVoltage = 0xFFFF;
     highestExternalTemp = -127;
@@ -54,7 +55,7 @@ void Rules::ClearValues()
     dynamicChargeCurrent = 0;
 }
 
-// Looking at individual voltages and temperatures and sum up pack voltages.
+// Looking at individual voltages and temperatures and sum up Bank voltages.
 void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uint16_t cellmaxmv)
 {
     if (c->valid == false)
@@ -63,8 +64,8 @@ void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uin
         return;
     }
 
-    packvoltage[bank] += c->voltagemV;
-    limitedpackvoltage[bank] += min(c->voltagemV, cellmaxmv);
+    bankvoltage[bank] += c->voltagemV;
+    limitedbankvoltage[bank] += min(c->voltagemV, cellmaxmv);
 
     // If the voltage of the module is zero, we probably haven't requested it yet (which happens during power up)
     // so keep count so we don't accidentally trigger rules.
@@ -73,13 +74,13 @@ void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uin
         zeroVoltageModuleCount++;
     }
 
-    if (c->voltagemV > highestvoltageinpack[bank])
+    if (c->voltagemV > highestvoltageinbank[bank])
     {
-        highestvoltageinpack[bank] = c->voltagemV;
+        highestvoltageinbank[bank] = c->voltagemV;
     }
-    if (c->voltagemV < lowestvoltageinpack[bank])
+    if (c->voltagemV < lowestvoltageinbank[bank])
     {
-        lowestvoltageinpack[bank] = c->voltagemV;
+        lowestvoltageinbank[bank] = c->voltagemV;
     }
 
     if (c->voltagemV > highestCellVoltage)
@@ -129,19 +130,19 @@ uint16_t Rules::VoltageRangeInBank(uint8_t bank)
     if (invalidModuleCount > 0)
         return 0;
 
-    return highestvoltageinpack[bank] - lowestvoltageinpack[bank];
+    return highestvoltageinbank[bank] - lowestvoltageinbank[bank];
 }
 
 void Rules::ProcessBank(uint8_t bank)
 {
-    // Combine the voltages - work out the highest and lowest pack voltages
-    if (packvoltage[bank] > highestPackVoltage)
+    // Combine the voltages - work out the highest and lowest Bank voltages
+    if (bankvoltage[bank] > highestBankVoltage)
     {
-        highestPackVoltage = packvoltage[bank];
+        highestBankVoltage = bankvoltage[bank];
     }
-    if (packvoltage[bank] < lowestPackVoltage)
+    if (bankvoltage[bank] < lowestBankVoltage)
     {
-        lowestPackVoltage = packvoltage[bank];
+        lowestBankVoltage = bankvoltage[bank];
     }
 }
 
@@ -207,23 +208,23 @@ void Rules::RunRules(
 
         if (integervoltagemV > value[Rule::CurrentMonitorOverVoltage] && rule_outcome[Rule::CurrentMonitorOverVoltage] == false)
         {
-            // Rule - CURRENT MONITOR Pack over voltage (mV)
+            // Rule - CURRENT MONITOR Bank over voltage (mV)
             rule_outcome[Rule::CurrentMonitorOverVoltage] = true;
         }
         else if (integervoltagemV < hysteresisvalue[Rule::CurrentMonitorOverVoltage] && rule_outcome[Rule::CurrentMonitorOverVoltage] == true)
         {
-            // Rule - CURRENT MONITOR Pack over voltage (mV) - HYSTERESIS RESET
+            // Rule - CURRENT MONITOR Bank over voltage (mV) - HYSTERESIS RESET
             rule_outcome[Rule::CurrentMonitorOverVoltage] = false;
         }
 
         if (integervoltagemV < value[Rule::CurrentMonitorUnderVoltage] && rule_outcome[Rule::CurrentMonitorUnderVoltage] == false)
         {
-            // Rule - CURRENT MONITOR Pack under voltage (mV)
+            // Rule - CURRENT MONITOR Bank under voltage (mV)
             rule_outcome[Rule::CurrentMonitorUnderVoltage] = true;
         }
         else if (integervoltagemV > hysteresisvalue[Rule::CurrentMonitorUnderVoltage] && rule_outcome[Rule::CurrentMonitorUnderVoltage] == true)
         {
-            // Rule - CURRENT MONITOR Pack under voltage (mV) - HYSTERESIS RESET
+            // Rule - CURRENT MONITOR Bank under voltage (mV) - HYSTERESIS RESET
             rule_outcome[Rule::CurrentMonitorUnderVoltage] = false;
         }
     }
@@ -253,9 +254,9 @@ void Rules::RunRules(
 
     /*
   SERIAL_DEBUG.print("Rule Values: lowP=");
-  SERIAL_DEBUG.print(lowestPackVoltage);
+  SERIAL_DEBUG.print(lowestbankvoltage);
   SERIAL_DEBUG.print(" highP=");
-  SERIAL_DEBUG.print(highestPackVoltage);
+  SERIAL_DEBUG.print(highestBankVoltage);
 
   SERIAL_DEBUG.print(" / lowC=");
   SERIAL_DEBUG.print(lowestCellVoltage);
@@ -348,26 +349,25 @@ void Rules::RunRules(
         rule_outcome[Rule::ModuleUnderTemperatureInternal] = false;
     }
 
-    // While Pack voltages
-    if (highestPackVoltage > value[Rule::BankOverVoltage] && rule_outcome[Rule::BankOverVoltage] == false)
+    // While Bank voltages
+    if (highestBankVoltage > value[Rule::BankOverVoltage] && rule_outcome[Rule::BankOverVoltage] == false)
     {
-        // Rule - Pack over voltage (mV)
+        // Rule - Bank over voltage (mV)
         rule_outcome[Rule::BankOverVoltage] = true;
     }
-    else if (highestPackVoltage < hysteresisvalue[Rule::BankOverVoltage] && rule_outcome[Rule::BankOverVoltage] == true)
+    else if (highestBankVoltage < hysteresisvalue[Rule::BankOverVoltage] && rule_outcome[Rule::BankOverVoltage] == true)
     {
-        // Rule - Pack over voltage (mV) - HYSTERESIS RESET
+        // Rule - Bank over voltage (mV) - HYSTERESIS RESET
         rule_outcome[Rule::BankOverVoltage] = false;
     }
-
-    if (lowestPackVoltage < value[Rule::BankUnderVoltage] && rule_outcome[Rule::BankUnderVoltage] == false)
+    if (lowestBankVoltage < value[Rule::BankUnderVoltage] && rule_outcome[Rule::BankUnderVoltage] == false)
     {
-        // Rule - Pack under voltage (mV)
+        // Rule - Bank under voltage (mV)
         rule_outcome[Rule::BankUnderVoltage] = true;
     }
-    else if (lowestPackVoltage > hysteresisvalue[Rule::BankUnderVoltage] && rule_outcome[Rule::BankUnderVoltage] == true)
+    else if (lowestBankVoltage > hysteresisvalue[Rule::BankUnderVoltage] && rule_outcome[Rule::BankUnderVoltage] == true)
     {
-        // Rule - Pack under voltage (mV) - HYSTERESIS RESET
+        // Rule - Bank under voltage (mV) - HYSTERESIS RESET
         rule_outcome[Rule::BankUnderVoltage] = false;
     }
 
@@ -425,7 +425,7 @@ bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
     }
 
     // chargevolt = 560
-    if ((highestPackVoltage / 100) > mysettings->chargevolt)
+    if ((highestBankVoltage / 100) > mysettings->chargevolt)
         return false;
 
     // Individual cell over voltage
@@ -449,7 +449,7 @@ bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
         return false;
     }
 
-    if ((lowestPackVoltage / 100) < mysettings->dischargevolt)
+    if ((lowestBankVoltage / 100) < mysettings->dischargevolt)
         return false;
 
     // Individual cell under voltage
@@ -549,20 +549,20 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
         ESP_LOGW(TAG, "Cell V>Max");
         // *** Stop charging, we are at or above maximum cell voltage ***
 
-        // Find the lowest "limited" pack voltage
+        // Find the lowest "limited" Bank voltage
         uint32_t lowest = 0xFFFFFFFF;
         for (uint8_t r = 0; r < mysettings->totalNumberOfBanks; r++)
         {
-            if (limitedpackvoltage[r] < lowest)
+            if (limitedbankvoltage[r] < lowest)
             {
-                lowest = limitedpackvoltage[r];
+                lowest = limitedbankvoltage[r];
             }
         }
 
         lowest = lowest / 100;
         ESP_LOGD(TAG, "lowest=%u", lowest);
 
-        // Return MIN of either the "lowest pack voltage" or the "user specified value"
+        // Return MIN of either the "lowest Bank voltage" or the "user specified value"
         dynamicChargeVoltage = min(lowest, (uint32_t)mysettings->chargevolt);
         return;
     }
@@ -578,8 +578,8 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
         (int16_t)((mysettings->cellmaxspikemv - mysettings->kneemv) / ((float)mysettings->sensitivity / 10.0F)));
     ESP_LOGD(TAG, "R=%u", R);
 
-    // We use the pack with the highest cell voltage for these calculations - although hopefully all packs are very similar :-)
-    uint32_t S = packvoltage[index_bank_HighestCellVoltage];
+    // We use the Bank with the highest cell voltage for these calculations - although hopefully all banks are very similar :-)
+    uint32_t S = bankvoltage[index_bank_HighestCellVoltage];
     ESP_LOGD(TAG, "S=%u", S);
 
     uint32_t HminusR = (uint32_t)highestCellVoltage - R;

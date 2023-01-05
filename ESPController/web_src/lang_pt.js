@@ -90,9 +90,9 @@ $("label[for='rule6value']").text("Módulo abaixo da temperatura (interna) °C")
 $("label[for='rule7value']").text("Célula acima da temperatura (externa) °C");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Célula abaixo da temperatura (externa) °C");
-//Pack over voltage (mV)
+//Bank over voltage (mV)
 $("label[for='rule9value']").text("Sobretensão do conjunto (mV)");
-//Pack under voltage (mV)
+//Bank under voltage (mV)
 $("label[for='rule10value']").text("Subtensão do conjunto (mV)");
 //Timer 2
 $("label[for='rule11value']").text("Temporizador 2");

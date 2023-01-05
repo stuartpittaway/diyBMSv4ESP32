@@ -179,7 +179,7 @@ void BankLevelInformation(Rules *rules)
         std::string bank_status;
         bank_status.reserve(128);
         bank_status.append("{\"voltage\":")
-            .append(float_to_string(rules->packvoltage[bank] / 1000.0f))
+            .append(float_to_string(rules->bankvoltage[bank] / 1000.0f))
             .append(",\"range\":")
             .append(std::to_string(rules->VoltageRangeInBank(bank)))
             .append("}");

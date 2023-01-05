@@ -842,7 +842,7 @@ void DrawTFT_VoltageFourBank()
 
         tft.setTextColor(TFT_GREEN, TFT_BLACK);
         tft.setTextFont(7);
-        float value = rules.packvoltage[i] / 1000.0;
+        float value = rules.bankvoltage[i] / 1000.0;
         x += tft.drawFloat(value, 2, x, y);
 
         // Clear right hand side of display
@@ -902,7 +902,7 @@ void DrawTFT_VoltageOneBank()
     const int16_t xoffset = 32;
     int16_t y = fontHeight_2;
     int16_t x = tft.width() / 2;
-    float value = rules.packvoltage[0] / 1000.0;
+    float value = rules.bankvoltage[0] / 1000.0;
     x += tft.drawFloat(value, 2, x, y);
     // Clear right hand side of display
     tft.fillRect(x, y, tft.width() - x, tft.fontHeight(), TFT_BLACK);

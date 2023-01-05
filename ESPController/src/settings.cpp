@@ -447,21 +447,26 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->rulevalue[Rule::ModuleUnderVoltage] = 3000;
     // Individual cell over temperature (external probe)
     _myset->rulevalue[Rule::ModuleOverTemperatureExternal] = 50;
-    // Pack over voltage (mV)
+    // Individual cell under temperature (external probe)
     _myset->rulevalue[Rule::ModuleUnderTemperatureExternal] = 2;
-    // Pack under voltage (mV)
+    // Bank Over voltage (mV)
     _myset->rulevalue[Rule::BankOverVoltage] = 4200 * 8;
-    // RULE_PackUnderVoltage
+    // RULE_BankUnderVoltage
     _myset->rulevalue[Rule::BankUnderVoltage] = 3000 * 8;
+    // Bank range
+    _myset->rulevalue[Rule::BankRange] = 50;
+
     _myset->rulevalue[Rule::Timer1] = 60 * 8;  // 8am
     _myset->rulevalue[Rule::Timer2] = 60 * 17; // 5pm
 
+    // Temperature of the actual module/PCB attached to a cell (internal temperature)
     _myset->rulevalue[Rule::ModuleOverTemperatureInternal] = 75;
     _myset->rulevalue[Rule::ModuleUnderTemperatureInternal] = 5;
 
     _myset->rulevalue[Rule::CurrentMonitorOverVoltage] = 4200 * 8;
     _myset->rulevalue[Rule::CurrentMonitorUnderVoltage] = 3000 * 8;
 
+    //Set rulehysteresis to match the rulevalue as the default
     for (size_t i = 0; i < RELAY_RULES; i++)
     {
         _myset->rulehysteresis[i] = _myset->rulevalue[i];
@@ -485,6 +490,9 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->tileconfig[2] = 62209;
     _myset->tileconfig[3] = 0;
     _myset->tileconfig[4] = 0;
+
+    //Override hysteresis values if needed
+    _myset->rulehysteresis[Rule::BankRange] = 20;
 }
 
 void SaveWIFI(wifi_eeprom_settings *wifi)

@@ -93,9 +93,9 @@ $("label[for='rule6value']").text("Minimale moduletemperatuur (intern)");
 $("label[for='rule7value']").text("Maximale celtemperatuur (extern)");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Minimale celtemperatuur (extern)");
-//Pack over voltage (mV)
+//Bank over voltage (mV)
 $("label[for='rule9value']").text("Maximale batterijspanning (mV)");
-//Pack under voltage (mV)
+//Bank under voltage (mV)
 $("label[for='rule10value']").text("Minimale batterijspanning (mV)");
 //Timer 2
 $("label[for='rule11value']").text("Timer 2");

@@ -205,8 +205,8 @@ void victron_message_356()
 
   data356 data;
 
-  // Use highest pack voltage calculated by controller and modules
-  data.voltage = rules.highestPackVoltage / 10;
+  // Use highest bank voltage calculated by controller and modules
+  data.voltage = rules.highestBankVoltage / 10;
 
   // If current shunt is installed, use the voltage from that as it should be more accurate
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
@@ -279,9 +279,9 @@ void victron_message_35a()
   if (_controller_state == ControllerState::Running)
   {
     /*
-    ESP_LOGI(TAG, "Rule PackOverVoltage=%u, PackUnderVoltage=%u, OverTemp=%u, UnderTemp=%u",
-             rules.rule_outcome[Rule::PackOverVoltage],
-             rules.rule_outcome[Rule::PackUnderVoltage],
+    ESP_LOGI(TAG, "Rule BankOverVoltage=%u, BankUnderVoltage=%u, OverTemp=%u, UnderTemp=%u",
+             rules.rule_outcome[Rule::BankOverVoltage],
+             rules.rule_outcome[Rule::BankUnderVoltage],
              rules.rule_outcome[Rule::IndividualcellovertemperatureExternal],
              rules.rule_outcome[Rule::IndividualcellundertemperatureExternal]);
   */

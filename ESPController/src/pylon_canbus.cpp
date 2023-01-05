@@ -102,11 +102,11 @@ void pylon_message_359()
     uint8_t byte2;
     // Warnings - Table 4
     uint8_t byte3;
-    // Quantity of packs in parall
+    // Quantity of banks in parallel
     uint8_t byte4;
     uint8_t byte5;
     uint8_t byte6;
-    // Online address of packs in parallel - Table 5
+    // Online address of banks in parallel - Table 5
     uint8_t byte7;
   };
 
@@ -141,14 +141,14 @@ void pylon_message_359()
     data.byte2 = 0;
 
     // WARNING:Battery high voltage
-    if (rules.highestPackVoltage / 100 > mysettings.chargevolt)
+    if (rules.highestBankVoltage / 100 > mysettings.chargevolt)
     {
       data.byte2 |= B00000010;
     }
 
     // WARNING:Battery low voltage
-    // dischargevolt=490, lowestPackVoltage=48992 (scale down 100)
-    if (rules.lowestPackVoltage / 100 < mysettings.dischargevolt)
+    // dischargevolt=490, lowestbankvoltage=48992 (scale down 100)
+    if (rules.lowestBankVoltage / 100 < mysettings.dischargevolt)
     {
       data.byte2 |= B00000100;
     }
@@ -173,7 +173,7 @@ void pylon_message_359()
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
     // Pylon can have multiple battery each of 74Ah capacity, so emulate this based on total Ah capacity
-    // this drives the inverter to assume certain charge/discharge parameters based on number of battery packs installed
+    // this drives the inverter to assume certain charge/discharge parameters based on number of battery banks installed
     // Set inverter to use "Pylontech US3000C 3.5kWh" in its settings (these are 74Ah each)
     data.byte4 = min((uint8_t)1, (uint8_t)round(mysettings.nominalbatcap / 74.0));
   }
@@ -249,8 +249,8 @@ void pylon_message_356()
   }
   else
   {
-    // Use highest pack voltage calculated by controller and modules
-    data.voltage = rules.highestPackVoltage / 10;
+    // Use highest bank voltage calculated by controller and modules
+    data.voltage = rules.highestBankVoltage / 10;
     data.current = 0;
   }
 

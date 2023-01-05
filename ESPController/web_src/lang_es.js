@@ -90,9 +90,9 @@ $("label[for='rule6value']").text("Modulo por debajo de temperatua (interna) °C
 $("label[for='rule7value']").text("Celda por encima de temperatua (externa) °C");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Celda por debajo de temperatua (externa) °C");
-//Pack over voltage (mV)
+//Bank over voltage (mV)
 $("label[for='rule9value']").text("Paquete por encima de voltaje (mV)");
-//Pack under voltage (mV)
+//Bank under voltage (mV)
 $("label[for='rule10value']").text("Paquete por debajo de voltaje (mV)");
 //Timer 2
 $("label[for='rule11value']").text("Temporizador 2");

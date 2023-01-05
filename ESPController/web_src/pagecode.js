@@ -8,8 +8,8 @@ const INTERNALRULENUMBER = {
     ModuleUnderTemperatureInternal: 6,
     IndividualcellovertemperatureExternal: 7,
     IndividualcellundertemperatureExternal: 8,
-    PackOverVoltage: 9,
-    PackUnderVoltage: 10,
+    BankOverVoltage: 9,
+    BankUnderVoltage: 10,
     Timer2: 11,
     Timer1: 12
 }
@@ -607,7 +607,7 @@ function queryBMS() {
         var bankNumber = 0;
         var cellsInBank = 0;
 
-        // Need one color for each pack, could make it colourful I suppose :-)
+        // Need one color for each bank, could make it colourful I suppose :-)
         const colours = [
             '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
             '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',

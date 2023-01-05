@@ -94,9 +94,9 @@ $("label[for='rule6value']").text("Modul Untertemperatur (intern)");
 $("label[for='rule7value']").text("Zellen Übertemperatur (extern)");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Zellen Untertemperatur (extern)");
-//Pack over voltage (mV)
+//Bank over voltage (mV)
 $("label[for='rule9value']").text("Paket Überspannung (mV)");
-//Pack under voltage (mV)
+//Bank under voltage (mV)
 $("label[for='rule10value']").text("Paket Unterspannung (mV)");
 //Timer 2
 $("label[for='rule11value']").text("Timer 2");

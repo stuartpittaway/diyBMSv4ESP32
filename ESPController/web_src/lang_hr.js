@@ -94,9 +94,9 @@ $("label[for='rule6value']").text("Podtemperatura modula (unutarnji)");
 $("label[for='rule7value']").text("Prekomjerna temperatura čelije (vanjski)");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Podtemperatura čelije (vanjski)");
-//Pack over voltage (mV)
+//Bank over voltage (mV)
 $("label[for='rule9value']").text("Prenapon bloka (mV)");
-//Pack under voltage (mV)
+//Bank under voltage (mV)
 $("label[for='rule10value']").text("Podnapon bloka (mV)");
 //Timer 2
 $("label[for='rule11value']").text("Vremenski brojač 2");
