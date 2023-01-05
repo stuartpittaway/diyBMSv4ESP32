@@ -103,7 +103,7 @@ void InitializeNVS()
 
 void writeSetting(nvs_handle_t handle, const char *key, bool value)
 {
-    writeSetting(handle,key,(uint8_t)value);
+    writeSetting(handle, key, (uint8_t)value);
 }
 
 void writeSetting(nvs_handle_t handle, const char *key, int8_t value)
@@ -607,7 +607,16 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
     if (settings->current_value2 > 100 * 10)
     {
         settings->current_value2 = 100 * 10;
-    }    
+    }
+
+    // Ensure that all PULSE relays default to OFF (pulse will only pulse on/off not off/on)
+    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+    {
+        if (settings->relaytype[i] == RelayType::RELAY_PULSE)
+        {
+            settings->rulerelaydefault[i] = RelayState::RELAY_OFF;
+        }
+    }
 }
 
 // Builds up a JSON document which mirrors the parameters inside "diybms_eeprom_settings"
@@ -722,8 +731,8 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
 
     root["cellmaxspikemv"] = settings->cellmaxspikemv;
     root["sensitivity"] = settings->sensitivity;
-    root["cur_val1"]= settings->current_value1;
-    root["cur_val2"]= settings->current_value2;
+    root["cur_val1"] = settings->current_value1;
+    root["cur_val2"] = settings->current_value2;
 
     JsonArray tv = root.createNestedArray("tilevisibility");
     for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
@@ -799,8 +808,8 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->cellmaxspikemv = root["cellmaxspikemv"];
     settings->sensitivity = root["sensitivity"];
 
-    settings->current_value1=root["cur_val1"];
-    settings->current_value2=root["cur_val2"];
+    settings->current_value1 = root["cur_val1"];
+    settings->current_value2 = root["cur_val2"];
 
     JsonObject mqtt = root["mqtt"];
     if (!mqtt.isNull())
