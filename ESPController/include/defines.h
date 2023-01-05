@@ -11,10 +11,10 @@
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
-// Needs to be at least 1550 bytes...
+// Needs to be at least 1800 bytes...
 #define BUFSIZE 1800
 
-// Data uses Rx2/TX2 and debug logs go to serial0 - USB
+// Data uses RX2/TX2 and debug logs go to serial0 - USB
 #define SERIAL_DATA Serial2
 #define SERIAL_DEBUG Serial
 #define SERIAL_RS485 Serial1
@@ -63,9 +63,6 @@ enum VictronDVCC : uint8_t
 // This also needs changing in default.htm (MAXIMUM_NUMBER_OF_BANKS)
 #define maximum_number_of_banks 16
 
-// Version 4.XX of DIYBMS modules operate at 5000 baud (since 26 Jan 2021)
-//#define COMMS_BAUD_RATE 5000
-
 enum enumInputState : uint8_t
 {
   INPUT_HIGH = 0xFF,
@@ -106,7 +103,8 @@ enum CurrentMonitorDevice : uint8_t
 };
 
 // Number of rules as defined in Rules.h (enum Rule)
-#define RELAY_RULES 15
+// This value is 1 + MAXIMUM_RuleNumber
+#define RELAY_RULES 16
 
 // Number of relays on board (4)
 #define RELAY_TOTAL 4

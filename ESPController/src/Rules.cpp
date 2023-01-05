@@ -29,8 +29,8 @@ void Rules::ClearValues()
     {
         limitedbankvoltage[r] = 0;
         bankvoltage[r] = 0;
-        lowestvoltageinbank[r] = 0xFFFF;
-        highestvoltageinbank[r] = 0;
+        LowestCellVoltageInBank[r] = 0xFFFF;
+        HighestCellVoltageInBank[r] = 0;
     }
 
     highestBankVoltage = 0;
@@ -74,13 +74,13 @@ void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uin
         zeroVoltageModuleCount++;
     }
 
-    if (c->voltagemV > highestvoltageinbank[bank])
+    if (c->voltagemV > HighestCellVoltageInBank[bank])
     {
-        highestvoltageinbank[bank] = c->voltagemV;
+        HighestCellVoltageInBank[bank] = c->voltagemV;
     }
-    if (c->voltagemV < lowestvoltageinbank[bank])
+    if (c->voltagemV < LowestCellVoltageInBank[bank])
     {
-        lowestvoltageinbank[bank] = c->voltagemV;
+        LowestCellVoltageInBank[bank] = c->voltagemV;
     }
 
     if (c->voltagemV > highestCellVoltage)
@@ -130,7 +130,7 @@ uint16_t Rules::VoltageRangeInBank(uint8_t bank)
     if (invalidModuleCount > 0)
         return 0;
 
-    return highestvoltageinbank[bank] - lowestvoltageinbank[bank];
+    return HighestCellVoltageInBank[bank] - LowestCellVoltageInBank[bank];
 }
 
 void Rules::ProcessBank(uint8_t bank)
@@ -143,6 +143,11 @@ void Rules::ProcessBank(uint8_t bank)
     if (bankvoltage[bank] < lowestBankVoltage)
     {
         lowestBankVoltage = bankvoltage[bank];
+    }
+
+    if (VoltageRangeInBank(bank) > highestBankRange)
+    {
+        highestBankRange = VoltageRangeInBank(bank);
     }
 }
 
@@ -360,6 +365,7 @@ void Rules::RunRules(
         // Rule - Bank over voltage (mV) - HYSTERESIS RESET
         rule_outcome[Rule::BankOverVoltage] = false;
     }
+
     if (lowestBankVoltage < value[Rule::BankUnderVoltage] && rule_outcome[Rule::BankUnderVoltage] == false)
     {
         // Rule - Bank under voltage (mV)
@@ -370,6 +376,20 @@ void Rules::RunRules(
         // Rule - Bank under voltage (mV) - HYSTERESIS RESET
         rule_outcome[Rule::BankUnderVoltage] = false;
     }
+
+    // While Bank voltages
+    if (highestBankRange > value[Rule::BankRange] && rule_outcome[Rule::BankRange] == false)
+    {
+        // Rule - Bank Range
+        rule_outcome[Rule::BankRange] = true;
+    }
+    else if (highestBankRange < hysteresisvalue[Rule::BankRange] && rule_outcome[Rule::BankRange] == true)
+    {
+        // Rule - Bank Range - HYSTERESIS RESET
+        rule_outcome[Rule::BankRange] = false;
+    }
+
+
 
     // Total up the active rules
     active_rule_count = 0;

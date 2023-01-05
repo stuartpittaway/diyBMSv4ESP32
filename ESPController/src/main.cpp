@@ -1187,6 +1187,7 @@ void ProcessRules()
     }
   }
 
+  rules.highestBankRange = 0;
   rules.numberOfBalancingModules = 0;
   uint8_t cellid = 0;
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
@@ -1978,8 +1979,7 @@ void currentMon_SetSOC(float newSOC)
       // value to write to register |40027|State of charge % (unsigned int16)
       // (scale x100 eg. 10000 = 100.00%, 8012 = 80.12%, 100 = 1.00%)
       (uint8_t)(value >> 8),
-      (uint8_t)(value & 0xFF)
-  };
+      (uint8_t)(value & 0xFF)};
 
   xQueueSend(rs485_transmit_q_handle, &cmd2, portMAX_DELAY);
 }

@@ -77,16 +77,24 @@ public:
     // As above, but each voltage reading limited to "cellmaxmv" setting (used for charge voltage calc)
     uint32_t limitedbankvoltage[maximum_number_of_banks];
 
-    uint16_t lowestvoltageinbank[maximum_number_of_banks];
-    uint16_t highestvoltageinbank[maximum_number_of_banks];
+    uint16_t LowestCellVoltageInBank[maximum_number_of_banks];
+    uint16_t HighestCellVoltageInBank[maximum_number_of_banks];
 
+    //Number of modules who have reported zero volts (bad!)
     uint8_t zeroVoltageModuleCount;
 
+    //Highest pack voltage
     uint32_t highestBankVoltage;
+    //Lowest pack voltage
     uint32_t lowestBankVoltage;
 
+    //Highest cell voltage in the whole system
     uint16_t highestCellVoltage;
+    //Lowest cell voltage in the whole system
     uint16_t lowestCellVoltage;
+
+    //Highest cell voltage range (mV) across all banks
+    uint16_t highestBankRange;
 
     // Identify address (id) of which module reports the highest/lowest values
     uint8_t address_HighestCellVoltage;

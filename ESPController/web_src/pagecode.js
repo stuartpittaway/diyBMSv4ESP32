@@ -8,10 +8,13 @@ const INTERNALRULENUMBER = {
     ModuleUnderTemperatureInternal: 6,
     IndividualcellovertemperatureExternal: 7,
     IndividualcellundertemperatureExternal: 8,
-    BankOverVoltage: 9,
-    BankUnderVoltage: 10,
-    Timer2: 11,
-    Timer1: 12
+    CurrentMonitorOverVoltage: 9,
+    CurrentMonitorUnderVoltage: 10,
+    BankOverVoltage: 11,
+    BankUnderVoltage: 12,
+    BankRange: 13,
+    Timer2: 14,
+    Timer1: 15
 }
 Object.freeze(INTERNALRULENUMBER);
 
