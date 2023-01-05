@@ -389,8 +389,6 @@ void Rules::RunRules(
         rule_outcome[Rule::BankRange] = false;
     }
 
-
-
     // Total up the active rules
     active_rule_count = 0;
 

@@ -24,7 +24,7 @@ enum Rule : uint8_t
     CurrentMonitorUnderVoltage = 10,
     BankOverVoltage = 11,
     BankUnderVoltage = 12,
-    BankRange=13,
+    BankRange = 13,
     Timer2 = 14,
     Timer1 = 15
 };
@@ -80,20 +80,20 @@ public:
     uint16_t LowestCellVoltageInBank[maximum_number_of_banks];
     uint16_t HighestCellVoltageInBank[maximum_number_of_banks];
 
-    //Number of modules who have reported zero volts (bad!)
+    // Number of modules who have reported zero volts (bad!)
     uint8_t zeroVoltageModuleCount;
 
-    //Highest pack voltage
+    // Highest pack voltage
     uint32_t highestBankVoltage;
-    //Lowest pack voltage
+    // Lowest pack voltage
     uint32_t lowestBankVoltage;
 
-    //Highest cell voltage in the whole system
+    // Highest cell voltage in the whole system
     uint16_t highestCellVoltage;
-    //Lowest cell voltage in the whole system
+    // Lowest cell voltage in the whole system
     uint16_t lowestCellVoltage;
 
-    //Highest cell voltage range (mV) across all banks
+    // Highest cell voltage range (mV) across all banks
     uint16_t highestBankRange;
 
     // Identify address (id) of which module reports the highest/lowest values

@@ -454,7 +454,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     // RULE_BankUnderVoltage
     _myset->rulevalue[Rule::BankUnderVoltage] = 3000 * 8;
     // Bank range
-    _myset->rulevalue[Rule::BankRange] = 50;
+    _myset->rulevalue[Rule::BankRange] = 30;
 
     _myset->rulevalue[Rule::Timer1] = 60 * 8;  // 8am
     _myset->rulevalue[Rule::Timer2] = 60 * 17; // 5pm
@@ -492,7 +492,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->tileconfig[4] = 0;
 
     //Override hysteresis values if needed
-    _myset->rulehysteresis[Rule::BankRange] = 20;
+    _myset->rulehysteresis[Rule::BankRange] = 15;
 }
 
 void SaveWIFI(wifi_eeprom_settings *wifi)
