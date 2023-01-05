@@ -1682,6 +1682,7 @@ $(function () {
         $(this).addClass("active");
         switchPage("#utilityPage");
 
+        $("#setsoc").val(75.5);
     });
 
     $("#avrprogrammer").click(function () {

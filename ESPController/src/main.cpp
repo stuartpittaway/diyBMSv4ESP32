@@ -332,7 +332,7 @@ void avrprog_task(void *param)
         // although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
 
         uint32_t starttime = millis();
-        
+
         AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(hal.VSPI_Ptr(), GPIO_NUM_0, false, VSPI_SCK);
 
         ESP_LOGI(TAG, "Programming AVR");
@@ -1957,6 +1957,33 @@ void currentMon_ConfigureBasic(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t 
   currentMonitor.validReadings = false;
 }
 
+void currentMon_SetSOC(float newSOC)
+{
+  uint16_t value = newSOC * 100;
+
+  //	Write Multiple Holding Registers
+  uint8_t cmd2[] = {
+      // The Slave Address
+      mysettings.currentMonitoringModBusAddress,
+      // The Function Code 16
+      16,
+      // Data Address of the first register (zero based so 26 = register 40027)
+      0,
+      26,
+      // number of registers to write (1)
+      0,
+      1,
+      // number of data bytes to follow (1 register x 2 bytes each = 2 bytes)
+      2,
+      // value to write to register |40027|State of charge % (unsigned int16)
+      // (scale x100 eg. 10000 = 100.00%, 8012 = 80.12%, 100 = 1.00%)
+      (uint8_t)(value >> 8),
+      (uint8_t)(value & 0xFF)
+  };
+
+  xQueueSend(rs485_transmit_q_handle, &cmd2, portMAX_DELAY);
+}
+
 void currentMon_ResetDailyAmpHourCounters()
 {
   //	Write Multiple Holding Registers
@@ -1987,13 +2014,28 @@ void currentMon_ResetDailyAmpHourCounters()
   xQueueSend(rs485_transmit_q_handle, &cmd2, portMAX_DELAY);
 }
 
-void CurrentMonitorResetDailyAmpHourCounters()
+bool CurrentMonitorSetSOC(float newSOC)
+{
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON && mysettings.currentMonitoringEnabled == true)
+  {
+    ESP_LOGI(TAG, "Set SOC");
+    currentMon_SetSOC(newSOC);
+    return true;
+  }
+
+  return false;
+}
+
+bool CurrentMonitorResetDailyAmpHourCounters()
 {
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON && mysettings.currentMonitoringEnabled == true)
   {
     ESP_LOGI(TAG, "Reset daily Ah counter");
     currentMon_ResetDailyAmpHourCounters();
+    return true;
   }
+
+  return false;
 }
 
 void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
