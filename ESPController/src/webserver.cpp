@@ -94,6 +94,7 @@ esp_err_t SendSuccess(httpd_req_t *req)
 
 void saveConfiguration()
 {
+  ValidateConfiguration(&mysettings);
   SaveConfiguration(&mysettings);
 }
 
