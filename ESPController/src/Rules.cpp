@@ -491,11 +491,16 @@ int16_t Rules::DynamicChargeCurrent()
 }
 
 // Apply "dynamic" charge current rules
-// **TODO** At present, this is a fixed value based on user
 void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray)
 {
     // Remember dynamicChargeCurrent scale is 0.1
     dynamicChargeCurrent = mysettings->chargecurrent;
+
+    if (!mysettings->dynamiccharge || mysettings->canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
+    {
+        // Its switched off, use default
+        return;
+    }
 
     if (highestCellVoltage < mysettings->kneemv)
     {
@@ -544,22 +549,14 @@ void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, Ce
 // Output is cached in variable dynamicChargeVoltage as its used in multiple places
 void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray)
 {
-    if (!mysettings->dynamiccharge)
+    if (!mysettings->dynamiccharge || mysettings->canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
     {
         // Its switched off, use default voltage
         dynamicChargeVoltage = mysettings->chargevolt;
         return;
     }
 
-    // If the cells are all below the knee voltage, just carry on as normal
-    /*
-    if (highestCellVoltage <= mysettings->kneemv)
-    {
-        dynamicChargeVoltage = mysettings->chargevolt;
-        return;
-    }
     // Some cells are above the knee voltage....
-    */
 
     // Are any cells at or over the maximum allowed? (panic!)
     if (highestCellVoltage >= mysettings->cellmaxmv)
@@ -578,7 +575,7 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
         }
 
         lowest = lowest / 100;
-        ESP_LOGD(TAG, "lowest=%u", lowest);
+        // ESP_LOGD(TAG, "lowest=%u", lowest);
 
         // Return MIN of either the "lowest Bank voltage" or the "user specified value"
         dynamicChargeVoltage = min(lowest, (uint32_t)mysettings->chargevolt);
