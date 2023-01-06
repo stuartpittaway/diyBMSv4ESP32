@@ -245,6 +245,8 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
 
     // Set all settings in the STRUCT to be the defaults
     DefaultConfiguration(settings);
+    // Apply validation rules, just to ensure the defaults make sense
+    ValidateConfiguration(settings);
 
     nvs_stats_t nvs_stats;
     esp_err_t err = nvs_get_stats(NULL, &nvs_stats);
@@ -466,7 +468,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->rulevalue[Rule::CurrentMonitorOverVoltage] = 4200 * 8;
     _myset->rulevalue[Rule::CurrentMonitorUnderVoltage] = 3000 * 8;
 
-    //Set rulehysteresis to match the rulevalue as the default
+    // Set rulehysteresis to match the rulevalue as the default
     for (size_t i = 0; i < RELAY_RULES; i++)
     {
         _myset->rulehysteresis[i] = _myset->rulevalue[i];
@@ -491,8 +493,9 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->tileconfig[3] = 0;
     _myset->tileconfig[4] = 0;
 
-    //Override hysteresis values if needed
+    // Override hysteresis values if needed
     _myset->rulehysteresis[Rule::BankRange] = 15;
+
 }
 
 void SaveWIFI(wifi_eeprom_settings *wifi)
@@ -623,6 +626,49 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
         if (settings->relaytype[i] == RelayType::RELAY_PULSE)
         {
             settings->rulerelaydefault[i] = RelayState::RELAY_OFF;
+        }
+    }
+   
+    // Ensure trigger and reset (rulevalue and rulehysteresis) values make sense and
+    // the rulehysteresis value is either greater or lower than rulevalue as required.
+
+    // These rules expect the hysteresis (reset) value to be LOWER than the trigger value
+    const Rule hysteresis_lower[] = {Rule::CurrentMonitorOverCurrentAmps,
+                                     Rule::ModuleOverVoltage,
+                                     Rule::ModuleOverTemperatureInternal,
+                                     Rule::ModuleOverTemperatureExternal,
+                                     Rule::CurrentMonitorOverVoltage,
+                                     Rule::BankOverVoltage,
+                                     Rule::BankRange};
+
+    for (size_t i = 0; i < sizeof(hysteresis_lower); i++)
+    {
+        Rule index = hysteresis_lower[i];
+
+        if (settings->rulehysteresis[index] > settings->rulevalue[index])
+        {
+            ESP_LOGI(TAG, "Fixed LOWER hysteresis %u from %i to %i", (uint8_t)index, settings->rulehysteresis[index], settings->rulevalue[index]);
+            settings->rulehysteresis[index] = settings->rulevalue[index];
+        }
+    }
+
+    // These rules expect the hysteresis (reset) value to be GREATER than the trigger value
+    const Rule hysteresis_greater[] = {Rule::ModuleUnderVoltage,
+                                       Rule::ModuleUnderTemperatureInternal,
+                                       Rule::ModuleUnderTemperatureExternal,
+                                       Rule::CurrentMonitorUnderVoltage,
+                                       Rule::BankUnderVoltage,
+                                       Rule::Timer2,
+                                       Rule::Timer1};
+
+    for (size_t i = 0; i < sizeof(hysteresis_greater); i++)
+    {
+        Rule index = hysteresis_greater[i];
+
+        if (settings->rulehysteresis[index] < settings->rulevalue[index])
+        {
+            ESP_LOGI(TAG, "Fixed GREATER hysteresis %u from %i to %i", (uint8_t)index, settings->rulehysteresis[index], settings->rulevalue[index]);
+            settings->rulehysteresis[index] = settings->rulevalue[index];
         }
     }
 }
