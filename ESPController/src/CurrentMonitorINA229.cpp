@@ -273,15 +273,13 @@ void CurrentMonitorINA229::TakeReadings()
 
     // Bus Overvoltage (overvoltage protection).
     // Unsigned representation, positive value only. Conversion factor: 3.125 mV/LSB.
-    // BusOverVolt.dblvalue = ((double)(uint16_t)i2c_readword(INA_REGISTER::BOVL)) * 0.003125F;
-    // BusUnderVolt.dblvalue = (double)i2c_readword(INA_REGISTER::BUVL) * 0.003125F;
-    // ShuntOverCurrentLimit.dblvalue = ((double)value / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
-    // ShuntUnderCurrentLimit.dblvalue = ((double)value / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
+    BusOverVolt = ((double)registers.R_BOVL) * 0.003125F;
+    BusUnderVolt = ((double)registers.R_BUVL) * 0.003125F;
+    ShuntOverCurrentLimit = ((double)registers.R_SOVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
+    ShuntUnderCurrentLimit = ((double)registers.R_SUVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
     // Shunt Over POWER LIMIT
-    // PowerLimit.dblvalue = (uint16_t)i2c_readword(INA_REGISTER::PWR_LIMIT);
-    // PowerLimit.dblvalue = PowerLimit.dblvalue * 256 * 3.2 * registers.CURRENT_LSB;
-    // Shunt Temperature Coefficient
-    //(uint16_t)i2c_readword(INA_REGISTER::SHUNT_TEMPCO);
+    PowerLimit = (double)registers.R_PWR_LIMIT * 256 * 3.2 * registers.CURRENT_LSB;
+    ShuntTemperatureCoefficient = registers.R_SHUNT_TEMPCO;
 
     CalculateAmpHourCounts();
 }
