@@ -73,6 +73,9 @@ static constexpr const char *const TAG = "diybms";
 #include "string_utils.h"
 
 #include <SPI.h>
+#include "CurrentMonitorINA229.h"
+
+CurrentMonitorINA229 currentmon_internal = CurrentMonitorINA229();
 
 const uart_port_t rs485_uart_num = UART_NUM_1;
 
@@ -2040,9 +2043,16 @@ bool CurrentMonitorResetDailyAmpHourCounters()
 
 void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
 {
+  mysettings.currentMonitoring_shuntmv = shuntmv;
+  mysettings.currentMonitoring_shuntmaxcur = shuntmaxcur;
+  mysettings.currentMonitoring_batterycapacity = batterycapacity;
+  mysettings.currentMonitoring_fullchargevolt = (uint16_t)(100 * fullchargevolt);
+  mysettings.currentMonitoring_tailcurrent = (uint16_t)(100 * tailcurrent);
+  mysettings.currentMonitoring_chargeefficiency = (uint16_t)(100 * chargeefficiency);
+
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
   {
-    currentMon_ConfigureBasic(shuntmv, shuntmaxcur, batterycapacity, fullchargevolt, tailcurrent, chargeefficiency);
+    currentMon_ConfigureBasic(mysettings.currentMonitoring_shuntmv, mysettings.currentMonitoring_shuntmaxcur, mysettings.currentMonitoring_batterycapacity, mysettings.currentMonitoring_fullchargevolt, mysettings.currentMonitoring_tailcurrent, mysettings.currentMonitoring_chargeefficiency);
   }
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
@@ -2050,6 +2060,9 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
     PZEM017_SetDeviceAddress(mysettings.currentMonitoringModBusAddress);
     PZEM017_SetShuntType(mysettings.currentMonitoringModBusAddress, shuntmaxcur);
   }
+
+  ValidateConfiguration(&mysettings);
+  SaveConfiguration(&mysettings);
 }
 
 // Save the current monitor advanced settings back to the device over MODBUS/RS485
@@ -3252,7 +3265,10 @@ log_level_t log_levels[] =
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
         {.tag = "diybms-set", .level = ESP_LOG_INFO},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
-        {.tag = "diybms-pylon", .level = ESP_LOG_INFO}};
+        {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
+        {.tag = "curmon", .level = ESP_LOG_DEBUG}
+
+};
 
 void consoleConfigurationCheck()
 {
@@ -3367,6 +3383,25 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   // Switch CAN chip TJA1051T/3 ON
   hal.CANBUSEnable(true);
   hal.ConfigureCAN();
+
+  if (hal.GetVSPIMutex())
+  {
+    if (currentmon_internal.Initialise(hal.VSPI_Ptr(), INA229_CHIPSELECT))
+    {
+      ESP_LOGI(TAG, "Onboard/internal current monitoring chip available");
+
+      currentmon_internal.Configure(
+          mysettings.currentMonitoring_shuntmv,
+          mysettings.currentMonitoring_shuntmaxcur,
+          mysettings.currentMonitoring_batterycapacity,
+          mysettings.currentMonitoring_fullchargevolt,
+          mysettings.currentMonitoring_tailcurrent,
+          mysettings.currentMonitoring_chargeefficiency);
+
+      currentmon_internal.GuessSOC();
+    }
+    hal.ReleaseVSPIMutex();
+  }
 
   if (!LittleFS.begin(false))
   {

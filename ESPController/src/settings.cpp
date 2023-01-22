@@ -182,6 +182,13 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         writeSetting(nvs_handle, "curMonMBAddress", settings->currentMonitoringModBusAddress);
         writeSetting(nvs_handle, "curMonDevice", (uint8_t)settings->currentMonitoringDevice);
 
+        writeSetting(nvs_handle, "curMonshuntmv", settings->currentMonitoring_shuntmv);
+        writeSetting(nvs_handle, "curMonshuntmaxcur", settings->currentMonitoring_shuntmaxcur);
+        writeSetting(nvs_handle, "curMonbatterycap", settings->currentMonitoring_batterycapacity);
+        writeSetting(nvs_handle, "curMonfullchargeV", settings->currentMonitoring_fullchargevolt);
+        writeSetting(nvs_handle, "curMontailcurrent", settings->currentMonitoring_tailcurrent);
+        writeSetting(nvs_handle, "curMonchargeeff", settings->currentMonitoring_chargeefficiency);
+
         writeSetting(nvs_handle, "485baudrate", settings->rs485baudrate);
         writeSetting(nvs_handle, "485databits", (uint8_t)settings->rs485databits);
         writeSetting(nvs_handle, "485parity", (uint8_t)settings->rs485parity);
@@ -292,6 +299,13 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         getSetting(nvs_handle, "curMonEnabled", &settings->currentMonitoringEnabled);
         getSetting(nvs_handle, "curMonMBAddress", &settings->currentMonitoringModBusAddress);
         getSetting(nvs_handle, "curMonDevice", (uint8_t *)&settings->currentMonitoringDevice);
+
+        getSetting(nvs_handle, "curMonshuntmv", &settings->currentMonitoring_shuntmv);
+        getSetting(nvs_handle, "curMonshuntmaxcur", &settings->currentMonitoring_shuntmaxcur);
+        getSetting(nvs_handle, "curMonbatterycap", &settings->currentMonitoring_batterycapacity);
+        getSetting(nvs_handle, "curMonfullchargeV", &settings->currentMonitoring_fullchargevolt);
+        getSetting(nvs_handle, "curMontailcurrent", &settings->currentMonitoring_tailcurrent);
+        getSetting(nvs_handle, "curMonchargeeff", &settings->currentMonitoring_chargeefficiency);
 
         getSetting(nvs_handle, "485baudrate", &settings->rs485baudrate);
         getSetting(nvs_handle, "485databits", (uint8_t *)&settings->rs485databits);
@@ -406,12 +420,17 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->currentMonitoringModBusAddress = 90;
     _myset->currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
 
+    _myset->currentMonitoring_shuntmv = 50;
+    _myset->currentMonitoring_shuntmaxcur = 150;
+    _myset->currentMonitoring_batterycapacity = 280;
+    _myset->currentMonitoring_fullchargevolt = 5600;   // 56.00V
+    _myset->currentMonitoring_tailcurrent = 1400;      // 14.00A
+    _myset->currentMonitoring_chargeefficiency = 9990; // 99.90%
+
     _myset->rs485baudrate = 19200;
     _myset->rs485databits = uart_word_length_t::UART_DATA_8_BITS;
     _myset->rs485parity = uart_parity_t::UART_PARITY_DISABLE;
     _myset->rs485stopbits = uart_stop_bits_t::UART_STOP_BITS_1;
-
-    _myset->currentMonitoringEnabled = false;
 
     strncpy(_myset->language, "en", sizeof(_myset->language));
 
@@ -495,7 +514,6 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
     // Override hysteresis values if needed
     _myset->rulehysteresis[Rule::BankRange] = 15;
-
 }
 
 void SaveWIFI(wifi_eeprom_settings *wifi)
@@ -628,7 +646,7 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
             settings->rulerelaydefault[i] = RelayState::RELAY_OFF;
         }
     }
-   
+
     // Ensure trigger and reset (rulevalue and rulehysteresis) values make sense and
     // the rulehysteresis value is either greater or lower than rulevalue as required.
 
@@ -699,6 +717,13 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
 
     root["currentMonitoringEnabled"] = settings->currentMonitoringEnabled;
     root["currentMonitoringModBusAddress"] = settings->currentMonitoringModBusAddress;
+    root["currentMonitoringDevice"] = (uint8_t)settings->currentMonitoringDevice;
+    root["currentMonitoringShuntmv"] = settings->currentMonitoring_shuntmv;
+    root["currentMonitoringShuntMaxCur"] = settings->currentMonitoring_shuntmaxcur;
+    root["currentMonitoringBatteryCap"] = settings->currentMonitoring_batterycapacity;
+    root["currentMonitoringFullChargeVolt"] = settings->currentMonitoring_fullchargevolt;
+    root["currentMonitoringTailCurrent"] = settings->currentMonitoring_tailcurrent;
+    root["currentMonitoringChargeEfficiency"] = settings->currentMonitoring_chargeefficiency;
 
     root["rs485baudrate"] = settings->rs485baudrate;
     root["rs485databits"] = settings->rs485databits;
@@ -831,6 +856,14 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
 
     settings->currentMonitoringEnabled = root["currentMonitoringEnabled"];
     settings->currentMonitoringModBusAddress = root["currentMonitoringModBusAddress"];
+
+    settings->currentMonitoringDevice = (CurrentMonitorDevice)(uint8_t)root["currentMonitoringDevice"];
+    settings->currentMonitoring_shuntmv = root["currentMonitoringShuntmv"];
+    settings->currentMonitoring_shuntmaxcur = root["currentMonitoringShuntMaxCur"];
+    settings->currentMonitoring_batterycapacity = root["currentMonitoringBatteryCap"];
+    settings->currentMonitoring_fullchargevolt = root["currentMonitoringFullChargeVolt"];
+    settings->currentMonitoring_tailcurrent = root["currentMonitoringTailCurrent"];
+    settings->currentMonitoring_chargeefficiency = root["currentMonitoringChargeEfficiency"];
 
     settings->rs485baudrate = root["rs485baudrate"];
     settings->rs485databits = root["rs485databits"];
