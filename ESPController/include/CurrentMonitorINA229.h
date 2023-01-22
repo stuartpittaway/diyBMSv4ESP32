@@ -212,11 +212,32 @@ public:
                    uint16_t batterycapacity,
                    uint16_t fullchargevolt,
                    uint16_t tailcurrent,
-                   uint16_t chargeefficiency);
+                   uint16_t chargeefficiency,
+                   uint16_t shuntcal,
+                   int16_t temperaturelimit,
+                   int16_t overvoltagelimit,
+                   int16_t undervoltagelimit,
+                   int32_t overcurrentlimit,
+                   int32_t undercurrentlimit,
+                   uint32_t overpowerlimit,
+                   uint16_t shunttempcoefficient);
 
     void GuessSOC();
+    void TakeReadings();
+
+    uint16_t SOC = 0;
+    double voltage = 0;
+    double current = 0;
 
 private:
+    const double full_scale_adc = 40.96;
+    // const double CoulombsToAmpHours = 1.0 / 3600.0;
+    const double CoulombsToMilliAmpHours = 1.0 / 3.6;
+
+    uint8_t max_soc_reset_counter = 0;
+    uint8_t soc_reset_counter = 0;
+    int32_t last_charge_coulombs = 0;
+
     // Pointer to SPI object class  NOTE: MUTEX OVER SPI PORT MUST BE HANDLED EXTERNALLY TO THIS CLASS
     SPIClass *SPI_Ptr;
     // True is chip is installed
@@ -250,12 +271,68 @@ private:
     void SetINA229Registers();
     double BusVoltage();
     double Energy();
+    double ShuntVoltage();
+
     int32_t ChargeInCoulombsAsInt();
 
+    int32_t readInt20(INA_REGISTER r);
     uint32_t readUInt24(INA_REGISTER r);
     uint32_t spi_readUint24(INA_REGISTER r);
     uint64_t spi_readUint40(INA_REGISTER r);
     int64_t spi_readInt40(INA_REGISTER r);
-    
+
+    // Calculated power output.  Output value in watts. Unsigned representation. Positive value.
+    double Power()
+    {
+        // POWER Power [W] = 3.2 x CURRENT_LSB x POWER
+        return (double)spi_readUint24(INA_REGISTER::POWER) * (double)3.2 * registers.CURRENT_LSB;
+    }
+
+    // The INA228 device has an internal temperature sensor which can measure die temperature from –40 °C to +125°C.
+    double DieTemperature()
+    {
+        // The accuracy of the temperature sensor is ±2 °C across the operational temperature range. The temperature
+        // value is stored inside the DIETEMP register
+        // Internal die temperature measurement.
+        // Case unsigned to int16 to cope with negative temperatures
+        // Two's complement value. Conversion factor: 7.8125 m°C/LSB
+        double dietemp = (int16_t)read16bits(INA_REGISTER::DIETEMP);
+        return dietemp * (double)0.0078125;
+    }
+
+    double TemperatureLimit()
+    {
+        // Case unsigned to int16 to cope with negative temperatures
+        double temp = (int16_t)read16bits(INA_REGISTER::TEMP_LIMIT);
+        return temp * (double)0.0078125;
+    }
+
+    // Calculated current output in Amperes.
+    // In the way this circuit is designed, NEGATIVE current indicates DISCHARGE of the battery
+    // POSITIVE current indicates CHARGE of the battery
+    double Current()
+    {
+        // Current. Two's complement value.
+        return -(registers.CURRENT_LSB * (double)readInt20(INA_REGISTER::CURRENT));
+    }
+
+    void ResetChargeEnergyRegisters()
+    {
+        // BIT 14
+        // RSTACC
+        // Resets the contents of accumulation registers ENERGY and CHARGE to 0
+        // 0h = Normal Operation
+        // 1h = Clears registers to default values for ENERGY and CHARGE registers
+        write16bits(INA_REGISTER::CONFIG, registers.R_CONFIG | (uint16_t)_BV(14));
+    }
+
+    void SetINA228ConfigurationRegisters()
+    {
+        write16bits(INA_REGISTER::CONFIG, registers.R_CONFIG);
+        write16bits(INA_REGISTER::ADC_CONFIG, registers.R_ADC_CONFIG);
+    }
+
+    void CalculateAmpHourCounts();
+    uint16_t CalculateSOC();
 };
 #endif

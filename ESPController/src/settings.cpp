@@ -188,6 +188,14 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         writeSetting(nvs_handle, "curMonfullchargeV", settings->currentMonitoring_fullchargevolt);
         writeSetting(nvs_handle, "curMontailcurrent", settings->currentMonitoring_tailcurrent);
         writeSetting(nvs_handle, "curMonchargeeff", settings->currentMonitoring_chargeefficiency);
+        writeSetting(nvs_handle, "curMonshuntcal", settings->currentMonitoring_shuntcal);
+        writeSetting(nvs_handle, "curMontemplimit", settings->currentMonitoring_temperaturelimit);
+        writeSetting(nvs_handle, "curMonovervolt", settings->currentMonitoring_overvoltagelimit);
+        writeSetting(nvs_handle, "curMonundervolt", settings->currentMonitoring_undervoltagelimit);
+        writeSetting(nvs_handle, "curMonovercur", settings->currentMonitoring_overcurrentlimit);
+        writeSetting(nvs_handle, "curMonundercur", settings->currentMonitoring_undercurrentlimit);
+        writeSetting(nvs_handle, "curMonoverpower", settings->currentMonitoring_overpowerlimit);
+        writeSetting(nvs_handle, "curMontempcoef", settings->currentMonitoring_shunttempcoefficient);
 
         writeSetting(nvs_handle, "485baudrate", settings->rs485baudrate);
         writeSetting(nvs_handle, "485databits", (uint8_t)settings->rs485databits);
@@ -306,6 +314,15 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         getSetting(nvs_handle, "curMonfullchargeV", &settings->currentMonitoring_fullchargevolt);
         getSetting(nvs_handle, "curMontailcurrent", &settings->currentMonitoring_tailcurrent);
         getSetting(nvs_handle, "curMonchargeeff", &settings->currentMonitoring_chargeefficiency);
+
+        getSetting(nvs_handle, "curMonshuntcal", &settings->currentMonitoring_shuntcal);
+        getSetting(nvs_handle, "curMontemplimit", &settings->currentMonitoring_temperaturelimit);
+        getSetting(nvs_handle, "curMonovervolt", &settings->currentMonitoring_overvoltagelimit);
+        getSetting(nvs_handle, "curMonundervolt", &settings->currentMonitoring_undervoltagelimit);
+        getSetting(nvs_handle, "curMonovercur", &settings->currentMonitoring_overcurrentlimit);
+        getSetting(nvs_handle, "curMonundercur", &settings->currentMonitoring_undercurrentlimit);
+        getSetting(nvs_handle, "curMonoverpower", &settings->currentMonitoring_overpowerlimit);
+        getSetting(nvs_handle, "curMontempcoef", &settings->currentMonitoring_shunttempcoefficient);
 
         getSetting(nvs_handle, "485baudrate", &settings->rs485baudrate);
         getSetting(nvs_handle, "485databits", (uint8_t *)&settings->rs485databits);
@@ -426,6 +443,14 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->currentMonitoring_fullchargevolt = 5600;   // 56.00V
     _myset->currentMonitoring_tailcurrent = 1400;      // 14.00A
     _myset->currentMonitoring_chargeefficiency = 9990; // 99.90%
+    _myset->currentMonitoring_shuntcal = 0;
+    _myset->currentMonitoring_temperaturelimit=80;
+    _myset->currentMonitoring_overvoltagelimit = 5840;
+    _myset->currentMonitoring_undervoltagelimit = 0;
+    _myset->currentMonitoring_overcurrentlimit = 15000;
+    _myset->currentMonitoring_undercurrentlimit = -15000;
+    _myset->currentMonitoring_overpowerlimit = 5000;
+    _myset->currentMonitoring_shunttempcoefficient = 15;
 
     _myset->rs485baudrate = 19200;
     _myset->rs485databits = uart_word_length_t::UART_DATA_8_BITS;
@@ -725,6 +750,15 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root["currentMonitoringTailCurrent"] = settings->currentMonitoring_tailcurrent;
     root["currentMonitoringChargeEfficiency"] = settings->currentMonitoring_chargeefficiency;
 
+    root["currentMonitoringShuntCal"] = settings->currentMonitoring_shuntcal;
+    root["currentMonitoringTempLimit"] = settings->currentMonitoring_temperaturelimit;
+    root["currentMonitoringOverVLimit"] = settings->currentMonitoring_overvoltagelimit;
+    root["currentMonitoringUnderVLimit"] = settings->currentMonitoring_undervoltagelimit;
+    root["currentMonitoringOverCurrent"] = settings->currentMonitoring_overcurrentlimit;
+    root["currentMonitoringUnderCurrent"] = settings->currentMonitoring_undercurrentlimit;
+    root["currentMonitoringOverPower"] = settings->currentMonitoring_overpowerlimit;
+    root["currentMonitoringShuntTempCoeff"] = settings->currentMonitoring_shunttempcoefficient;
+
     root["rs485baudrate"] = settings->rs485baudrate;
     root["rs485databits"] = settings->rs485databits;
     root["rs485parity"] = settings->rs485parity;
@@ -864,6 +898,23 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->currentMonitoring_fullchargevolt = root["currentMonitoringFullChargeVolt"];
     settings->currentMonitoring_tailcurrent = root["currentMonitoringTailCurrent"];
     settings->currentMonitoring_chargeefficiency = root["currentMonitoringChargeEfficiency"];
+    settings->currentMonitoring_shuntcal = root["currentMonitoringShuntCal"];
+    settings->currentMonitoring_temperaturelimit = root["currentMonitoringTempLimit"];
+    settings->currentMonitoring_overvoltagelimit = root["currentMonitoringOverVLimit"];
+    settings->currentMonitoring_undervoltagelimit = root["currentMonitoringUnderVLimit"];
+    settings->currentMonitoring_overcurrentlimit = root["currentMonitoringOverCurrent"];
+    settings->currentMonitoring_undercurrentlimit = root["currentMonitoringUnderCurrent"];
+    settings->currentMonitoring_overpowerlimit = root["currentMonitoringOverPower"];
+    settings->currentMonitoring_shunttempcoefficient = root["currentMonitoringShuntTempCoeff"];
+
+    uint16_t currentMonitoring_shuntcal;
+    int16_t currentMonitoring_temperaturelimit;
+    int16_t currentMonitoring_overvoltagelimit;
+    int16_t currentMonitoring_undervoltagelimit;
+    int16_t currentMonitoring_overcurrentlimit;
+    int16_t currentMonitoring_undercurrentlimit;
+    uint16_t currentMonitoring_overpowerlimit;
+    uint16_t currentMonitoring_shunttempcoefficient;
 
     settings->rs485baudrate = root["rs485baudrate"];
     settings->rs485databits = root["rs485databits"];

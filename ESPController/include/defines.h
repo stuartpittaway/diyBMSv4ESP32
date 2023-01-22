@@ -156,6 +156,14 @@ struct diybms_eeprom_settings
   uint16_t currentMonitoring_fullchargevolt;
   uint16_t currentMonitoring_tailcurrent;
   uint16_t currentMonitoring_chargeefficiency;
+  uint16_t currentMonitoring_shuntcal;
+  int16_t currentMonitoring_temperaturelimit;
+  int16_t currentMonitoring_overvoltagelimit;
+  int16_t currentMonitoring_undervoltagelimit;
+  int32_t currentMonitoring_overcurrentlimit;
+  int32_t currentMonitoring_undercurrentlimit;
+  int32_t currentMonitoring_overpowerlimit;
+  uint16_t currentMonitoring_shunttempcoefficient;
 
   int32_t rs485baudrate;
   uart_word_length_t rs485databits;

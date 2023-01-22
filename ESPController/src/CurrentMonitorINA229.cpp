@@ -221,6 +221,182 @@ double CurrentMonitorINA229::BusVoltage()
     return (double)busVoltage_mV / (double)1000.0;
 }
 
+// Read a 20 bit (3 byte) TWOS COMPLIMENT integer
+int32_t CurrentMonitorINA229::readInt20(INA_REGISTER r)
+{
+    uint32_t value = spi_readUint24(r);
+
+    // The number is two's complement, check for negative
+    if (value & 0x800000)
+    {
+        // first 12 bits are set to 1, indicating negative number
+        value = (value >> 4) | 0xFFF00000;
+    }
+    else
+    {
+        value = value >> 4;
+    } // if-then negative
+
+    return (int32_t)value;
+}
+
+// Shunt voltage in MILLIVOLTS mV
+double CurrentMonitorINA229::ShuntVoltage()
+{
+    // 78.125 nV/LSB when ADCRANGE = 1
+    // Differential voltage measured across the shunt output. Two's complement value.
+    return (double)((uint64_t)readInt20(INA_REGISTER::VSHUNT) * 78125) / 1000000000.0;
+}
+
+void CurrentMonitorINA229::TakeReadings()
+{
+    voltage = BusVoltage();
+    current = Current();
+    // milliamphour_out=((milliamphour_out - milliamphour_out_offset);
+    // milliamphour_in=(milliamphour_in - milliamphour_in_offset)
+    // temperature=(int16_t)DieTemperature()
+    // flags=bitFlags()
+    // Power();
+    // daily_milliamphour_out
+    // daily_milliamphour_in
+    // Ohms to milliohm
+    // shunt_resistance = 1000 * registers.RSHUNT;
+    // shunt_max_current
+    // shunt_millivolt
+    // batterycapacity_amphour
+    // fully_charged_voltage
+    // tail_current_amps
+    // charge_efficiency_factor
+    SOC = CalculateSOC();
+    // SHUNT_CAL register
+    // TemperatureLimit();
+
+    // Bus Overvoltage (overvoltage protection).
+    // Unsigned representation, positive value only. Conversion factor: 3.125 mV/LSB.
+    // BusOverVolt.dblvalue = ((double)(uint16_t)i2c_readword(INA_REGISTER::BOVL)) * 0.003125F;
+    // BusUnderVolt.dblvalue = (double)i2c_readword(INA_REGISTER::BUVL) * 0.003125F;
+    // ShuntOverCurrentLimit.dblvalue = ((double)value / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
+    // ShuntUnderCurrentLimit.dblvalue = ((double)value / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
+    // Shunt Over POWER LIMIT
+    // PowerLimit.dblvalue = (uint16_t)i2c_readword(INA_REGISTER::PWR_LIMIT);
+    // PowerLimit.dblvalue = PowerLimit.dblvalue * 256 * 3.2 * registers.CURRENT_LSB;
+    // Shunt Temperature Coefficient
+    //(uint16_t)i2c_readword(INA_REGISTER::SHUNT_TEMPCO);
+
+    CalculateAmpHourCounts();
+}
+
+uint16_t CurrentMonitorINA229::CalculateSOC()
+{
+    double milliamphour_in_scaled = ((double)milliamphour_in / 100.0) * registers.charge_efficiency_factor;
+    double milliamphour_batterycapacity = 1000.0 * (uint32_t)registers.batterycapacity_amphour;
+    double difference = milliamphour_in_scaled - milliamphour_out;
+
+    double answer = 100 * (difference / milliamphour_batterycapacity);
+    if (answer < 0)
+    {
+        // We have taken more out of the battery than put in, so must be zero SoC (or more likely out of calibration)
+        return 0;
+    }
+
+    // Store result as fixed point decimal
+    uint16_t SOC = 100 * answer;
+
+    // Add a hard upper limit 999.99%
+    if (SOC > 99999)
+    {
+        SOC = 99999;
+    }
+
+    return SOC;
+}
+
+void CurrentMonitorINA229::CalculateAmpHourCounts()
+{
+    // We amp-hour count using units of 18 coulombs = 5mAh, to avoid rounding issues
+
+    // If we don't have a voltage reading, ignore the coulombs - also means
+    // Ah counting won't work without voltage reading on the INA228 chip
+    if (voltage > 0)
+    {
+        int32_t charge_coulombs = ChargeInCoulombsAsInt();
+        int32_t difference = charge_coulombs - last_charge_coulombs;
+
+        // Have we used up more than 5mAh of energy?
+        // if not, ignore for now and await next cycle
+        if (abs(difference) >= 18)
+        {
+            if (difference > 0)
+            {
+                // Amp hour out
+                // Integer divide (18 coulombs)
+                int32_t integer_divide = (difference / 18);
+                // Subtract remainder
+                last_charge_coulombs = charge_coulombs - (difference - (integer_divide * 18));
+                // Chunks of 5mAh
+                uint32_t a = integer_divide * 5;
+                milliamphour_out += a;
+                milliamphour_out_lifetime += a;
+                daily_milliamphour_out += a;
+            }
+            else
+            {
+                // Make it positive, for counting amp hour in
+                difference = abs(difference);
+                int32_t integer_divide = (difference / 18);
+                // Add on remainder
+                last_charge_coulombs = charge_coulombs + (difference - (integer_divide * 18));
+                // chunks of 5mAh
+                uint32_t a = integer_divide * 5;
+                milliamphour_in += a;
+                milliamphour_in_lifetime += a;
+                daily_milliamphour_in += a;
+            }
+        }
+    }
+
+    // Periodically we need to reset the energy register to prevent it overflowing
+    // if we do this too frequently we get incorrect readings over the long term
+    // 360000 = 100Amp Hour
+    if (abs(last_charge_coulombs) > (int32_t)360000)
+    {
+        ResetChargeEnergyRegisters();
+        last_charge_coulombs = 0;
+    }
+
+    // TODO: We need to remove this and replace with ESP32 timestamping
+    const uint16_t loop_delay_ms = 2000;
+
+    // Now to test if we need to reset SOC to 100% ?
+    // Check if voltage is over the fully_charged_voltage and current UNDER tail_current_amps
+    if (voltage > registers.fully_charged_voltage && current > 0 && current < registers.tail_current_amps)
+    {
+        // Battery has reached fully charged so wait for time counter
+        soc_reset_counter++;
+
+        // Test if counter has reached 3 minutes, indicating fully charge battery
+        if (soc_reset_counter >= ((3 * 60) / (loop_delay_ms / 1000)))
+        {
+            // Now we reset the SOC, by clearing the registers, at this point SOC returns to 100%
+
+            // This does have an annoying "feature" of clearing down todays Ah counts :-(
+            // TODO: FIX THIS - probably need a set of shadow variables to hold the internal SOC and AH counts
+            //                  but then when/how do we reset the Ah counts?
+
+            max_soc_reset_counter = soc_reset_counter;
+            ResetChargeEnergyRegisters();
+            last_charge_coulombs = 0;
+            soc_reset_counter = 0;
+            SetSOC(10000);
+        }
+    }
+    else
+    {
+        // Voltage or current is out side of monitoring limits, so reset timer count
+        soc_reset_counter = 0;
+    }
+}
+
 // Guess the SoC % based on battery voltage - not accurate, just a guess!
 void CurrentMonitorINA229::GuessSOC()
 {
@@ -273,7 +449,15 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
                                      uint16_t batterycapacity,
                                      uint16_t fullchargevolt,
                                      uint16_t tailcurrent,
-                                     uint16_t chargeefficiency)
+                                     uint16_t chargeefficiency,
+                                     uint16_t shuntcal,
+                                     int16_t temperaturelimit,
+                                     int16_t overvoltagelimit,
+                                     int16_t undervoltagelimit,
+                                     int32_t overcurrentlimit,
+                                     int32_t undercurrentlimit,
+                                     uint32_t overpowerlimit,
+                                     uint16_t shunttempcoefficient)
 {
 
     registers.shunt_millivolt = shuntmv;
@@ -285,21 +469,31 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
 
     CalculateLSB();
 
+    if (shuntcal != 0 && registers.R_SHUNT_CAL != shuntcal)
+    {
+        ESP_LOGI(TAG, "Override SHUNT_CAL from %u to %u", registers.R_SHUNT_CAL, shuntcal);
+        // Are we trying to override the default SHUNT_CAL value?
+        registers.R_SHUNT_CAL = shuntcal;
+    }
+
     // This is not enabled by default
     // The 16 bit register provides a resolution of 1ppm/°C/LSB
-    registers.R_SHUNT_TEMPCO = 15;
+    // Shunt Temperature Coefficient
+    registers.R_SHUNT_TEMPCO = shunttempcoefficient;
 
-    // Use the defaults from the INA228 chip as a starting point
-    registers.R_SOVL = 0x7FFF;
-    registers.R_SUVL = 0x8000;
-    // 85volt max
-    registers.R_BOVL = 0x6A40; // i2c_readword(INA_REGISTER::BOVL);
-    registers.R_BUVL = 0;
-    registers.R_TEMP_LIMIT = 0x2800; // 80 degrees C
+    // Shunt Over Limit (current limit)
+    registers.R_SOVL = ((overcurrentlimit / 100) * 1000 / 1.25) * full_scale_adc / registers.shunt_max_current;
+    // Shunt UNDER Limit (under current limit)
+    registers.R_SUVL = ((undercurrentlimit / 100) * 1000 / 1.25) * full_scale_adc / registers.shunt_max_current;
+    // Bus Overvoltage (overvoltage protection).
+    registers.R_BOVL = (overvoltagelimit / 100) / 0.003125F;
+    // Bus under voltage protection
+    registers.R_BUVL = (undervoltagelimit / 100) / 0.003125F;
+    // temperature limit
+    registers.R_TEMP_LIMIT = (int16_t)temperaturelimit / (double)0.0078125;
 
     // Default Power limit = 5kW
-    registers.R_PWR_LIMIT = (uint16_t)((5000.0 / registers.CURRENT_LSB / 3.2) / 256.0); // 5kW
-
+    registers.R_PWR_LIMIT = (uint16_t)(overpowerlimit / 256.0 / 3.2 / registers.CURRENT_LSB);
 
     // Configure other registers
     write16bits(INA_REGISTER::CONFIG, registers.R_CONFIG);

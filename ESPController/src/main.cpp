@@ -3396,9 +3396,19 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
           mysettings.currentMonitoring_batterycapacity,
           mysettings.currentMonitoring_fullchargevolt,
           mysettings.currentMonitoring_tailcurrent,
-          mysettings.currentMonitoring_chargeefficiency);
+          mysettings.currentMonitoring_chargeefficiency,
+          mysettings.currentMonitoring_shuntcal,
+          mysettings.currentMonitoring_temperaturelimit,
+          mysettings.currentMonitoring_overvoltagelimit,
+          mysettings.currentMonitoring_undervoltagelimit,
+          mysettings.currentMonitoring_overcurrentlimit,
+          mysettings.currentMonitoring_undercurrentlimit,
+          mysettings.currentMonitoring_overpowerlimit,
+          mysettings.currentMonitoring_shunttempcoefficient);
 
       currentmon_internal.GuessSOC();
+
+      currentmon_internal.TakeReadings();
     }
     hal.ReleaseVSPIMutex();
   }
