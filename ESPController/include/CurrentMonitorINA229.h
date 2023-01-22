@@ -229,6 +229,14 @@ public:
     double voltage = 0;
     double current = 0;
 
+    double BusOverVolt;
+    double BusUnderVolt;
+    double ShuntOverCurrentLimit;
+    double ShuntUnderCurrentLimit;
+    double PowerLimit;
+    uint16_t ShuntTemperatureCoefficient;
+
+
 private:
     const double full_scale_adc = 40.96;
     // const double CoulombsToAmpHours = 1.0 / 3600.0;
