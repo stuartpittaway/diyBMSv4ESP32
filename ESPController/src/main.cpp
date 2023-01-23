@@ -2068,8 +2068,25 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
   SaveConfiguration(&mysettings);
 }
 
+// Save the current monitor advanced settings back to the internal device
+void CurrentMonitorSetRelaySettingsInternal(currentmonitoring_struct newvalues)
+{
+  currentmon_internal.SetAlarmTriggers(newvalues.TempCompEnabled,
+                                       newvalues.RelayTriggerTemperatureOverLimit,
+                                       newvalues.RelayTriggerCurrentOverLimit,
+                                       newvalues.RelayTriggerCurrentUnderLimit,
+                                       newvalues.RelayTriggerVoltageOverlimit,
+                                       newvalues.RelayTriggerVoltageUnderlimit,
+                                       newvalues.RelayTriggerPowerOverLimit);
+
+  mysettings.currentMonitoring_alarmtriggerbitmap = currentmon_internal.calc_alarmtriggerbitmap();
+  mysettings.currentMonitoring_tempcompenabled = currentmon_internal.calc_tempcompenabled();
+  ValidateConfiguration(&mysettings);
+  SaveConfiguration(&mysettings);
+}
+
 // Save the current monitor advanced settings back to the device over MODBUS/RS485
-void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues)
+void CurrentMonitorSetRelaySettingsExternal(currentmonitoring_struct newvalues)
 {
   uint8_t flag1 = 0;
   uint8_t flag2 = 0;
@@ -2414,30 +2431,20 @@ void ProcessDIYBMSCurrentMonitorInternal()
     currentMonitor.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
     currentMonitor.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
 
-    currentMonitor.TempCompEnabled = flag1 & B00000010;
-    currentMonitor.ADCRange4096mV = flag1 & B00000001;
   */
-  /*
-8|Relay Trigger on TMPOL|Read write
-7|Relay Trigger on SHNTOL|Read write
-6|Relay Trigger on SHNTUL|Read write
-5|Relay Trigger on BUSOL|Read write
-4|Relay Trigger on BUSUL|Read write
-3|Relay Trigger on POL|Read write
-2|Existing Relay state (0=off)|Read write
-1|Factory reset bit (always 0 when read)|Read write
-*/
 
-  /*
-    currentMonitor.RelayTriggerTemperatureOverLimit = flag2 & bit(DIAG_ALRT_FIELD::TMPOL);
-    currentMonitor.RelayTriggerCurrentOverLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTOL);
-    currentMonitor.RelayTriggerCurrentUnderLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTUL);
-    currentMonitor.RelayTriggerVoltageOverlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSOL);
-    currentMonitor.RelayTriggerVoltageUnderlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSUL);
-    currentMonitor.RelayTriggerPowerOverLimit = flag2 & bit(DIAG_ALRT_FIELD::POL);
-    currentMonitor.RelayState = flag2 & B00000010;
-    // Last bit is for factory reset (always zero)
-  */
+  currentMonitor.TempCompEnabled = currentmon_internal.calc_tempcompenabled();
+  currentMonitor.ADCRange4096mV = true;
+  // mysettings.currentMonitoring_tempcompenabled = currentmon_internal.calc_tempcompenabled();
+
+  uint16_t flag2 = currentmon_internal.calc_alarmtriggerbitmap();
+  currentMonitor.RelayTriggerTemperatureOverLimit = flag2 & bit(DIAG_ALRT_FIELD::TMPOL);
+  currentMonitor.RelayTriggerCurrentOverLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTOL);
+  currentMonitor.RelayTriggerCurrentUnderLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTUL);
+  currentMonitor.RelayTriggerVoltageOverlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSOL);
+  currentMonitor.RelayTriggerVoltageUnderlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSUL);
+  currentMonitor.RelayTriggerPowerOverLimit = flag2 & bit(DIAG_ALRT_FIELD::POL);
+  currentMonitor.RelayState = false;
 
   /*
     uint16_t flags;
@@ -2461,10 +2468,10 @@ void ProcessDIYBMSCurrentMonitorInternal()
   currentMonitor.stateofcharge = currentmon_internal.state_of_charge();
   currentMonitor.modbus.fullychargedvoltage = currentmon_internal.calc_fullychargedvoltage();
 
-    currentMonitor.modbus.overvoltagelimit = currentmon_internal.calc_overvoltagelimit();
-    currentMonitor.modbus.undervoltagelimit = currentmon_internal.calc_undervoltagelimit();
-    currentMonitor.modbus.overcurrentlimit = currentmon_internal.calc_overcurrentlimit();
-    currentMonitor.modbus.undercurrentlimit = currentmon_internal.calc_undercurrentlimit();
+  currentMonitor.modbus.overvoltagelimit = currentmon_internal.calc_overvoltagelimit();
+  currentMonitor.modbus.undervoltagelimit = currentmon_internal.calc_undervoltagelimit();
+  currentMonitor.modbus.overcurrentlimit = currentmon_internal.calc_overcurrentlimit();
+  currentMonitor.modbus.undercurrentlimit = currentmon_internal.calc_undercurrentlimit();
 
   currentMonitor.validReadings = true;
   TimeToSoCCalculation();
@@ -2874,9 +2881,16 @@ void rs485_tx(void *param)
 
       if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
       {
-        // Take readings from internal INA229 chip (on controller board)
-        currentmon_internal.TakeReadings();
-        ProcessDIYBMSCurrentMonitorInternal();
+        if (currentmon_internal.Available())
+        {
+          // Take readings from internal INA229 chip (on controller board)
+          currentmon_internal.TakeReadings();
+          ProcessDIYBMSCurrentMonitorInternal();
+        }
+        else
+        {
+          currentMonitor.validReadings = false;
+        }
       }
 
       if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
@@ -3567,6 +3581,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
           mysettings.currentMonitoring_undercurrentlimit,
           mysettings.currentMonitoring_overpowerlimit,
           mysettings.currentMonitoring_shunttempcoefficient);
+
+      currentmon_internal.SetAlarmTriggers(mysettings.currentMonitoring_tempcompenabled, mysettings.currentMonitoring_alarmtriggerbitmap);
 
       currentmon_internal.GuessSOC();
 

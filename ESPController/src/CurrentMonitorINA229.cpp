@@ -254,34 +254,8 @@ void CurrentMonitorINA229::TakeReadings()
     current = Current();
     power = Power();
     temperature = DieTemperature();
-    // milliamphour_out=((milliamphour_out - milliamphour_out_offset);
-    // milliamphour_in=(milliamphour_in - milliamphour_in_offset)
-    // temperature=(int16_t)DieTemperature()
     // flags=bitFlags()
-    // Power();
-    // daily_milliamphour_out
-    // daily_milliamphour_in
-    // Ohms to milliohm
-    // shunt_resistance = 1000 * registers.RSHUNT;
-    // shunt_max_current
-    // shunt_millivolt
-    // batterycapacity_amphour
-    // fully_charged_voltage
-    // tail_current_amps
-    // charge_efficiency_factor
     SOC = CalculateSOC();
-    // SHUNT_CAL register
-    // TemperatureLimit();
-
-    // Bus Overvoltage (overvoltage protection).
-    // Unsigned representation, positive value only. Conversion factor: 3.125 mV/LSB.
-    BusOverVolt = ((float)registers.R_BOVL) * 0.003125F;
-    BusUnderVolt = ((float)registers.R_BUVL) * 0.003125F;
-    ShuntOverCurrentLimit = ((float)registers.R_SOVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
-    ShuntUnderCurrentLimit = ((float)registers.R_SUVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
-    // Shunt Over POWER LIMIT
-    PowerLimit = (float)registers.R_PWR_LIMIT * 256 * 3.2 * registers.CURRENT_LSB;
-    ShuntTemperatureCoefficient = registers.R_SHUNT_TEMPCO;
 
     CalculateAmpHourCounts();
 }
@@ -459,7 +433,6 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
                                      uint32_t overpowerlimit,
                                      uint16_t shunttempcoefficient)
 {
-
     registers.shunt_millivolt = shuntmv;
     registers.shunt_max_current = shuntmaxcur;
     registers.fully_charged_voltage = fullchargevolt / 100.0;
@@ -475,33 +448,25 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
         // Are we trying to override the default SHUNT_CAL value?
         registers.R_SHUNT_CAL = shuntcal;
     }
-/*
-    ESP_LOGI(TAG, "shunt_millivolt %u", registers.shunt_millivolt);
-    ESP_LOGI(TAG, "shunt_max_current %u", registers.shunt_max_current);
-    ESP_LOGI(TAG, "fully_charged_voltage %f", registers.fully_charged_voltage);
-    ESP_LOGI(TAG, "batterycapacity_amphour %u", registers.batterycapacity_amphour);
-    ESP_LOGI(TAG, "tail_current_amps %f", registers.tail_current_amps);
-    ESP_LOGI(TAG, "charge_efficiency_factor %f", registers.charge_efficiency_factor);
-    ESP_LOGI(TAG, "SHUNT_CAL %u", registers.R_SHUNT_CAL);
-*/
+
     // This is not enabled by default
     // The 16 bit register provides a resolution of 1ppm/°C/LSB
     // Shunt Temperature Coefficient
     registers.R_SHUNT_TEMPCO = shunttempcoefficient;
 
     // Shunt Over Limit (current limit)
-    registers.R_SOVL = ((overcurrentlimit / 100) * 1000 / 1.25) * full_scale_adc / registers.shunt_max_current;
+    registers.R_SOVL = (((float)overcurrentlimit / 100.0F) * 1000 / 1.25) * full_scale_adc / registers.shunt_max_current;
     // Shunt UNDER Limit (under current limit)
-    registers.R_SUVL = ((undercurrentlimit / 100) * 1000 / 1.25) * full_scale_adc / registers.shunt_max_current;
+    registers.R_SUVL = (((float)undercurrentlimit / 100.0F) * 1000 / 1.25) * full_scale_adc / registers.shunt_max_current;
     // Bus Overvoltage (overvoltage protection).
-    registers.R_BOVL = (overvoltagelimit / 100) / 0.003125F;
+    registers.R_BOVL = ((float)overvoltagelimit / 100.0F) / 0.003125F;
     // Bus under voltage protection
-    registers.R_BUVL = (undervoltagelimit / 100) / 0.003125F;
+    registers.R_BUVL = ((float)undervoltagelimit / 100.0F) / 0.003125F;
     // temperature limit
     registers.R_TEMP_LIMIT = (int16_t)temperaturelimit / (float)0.0078125;
 
     // Default Power limit = 5kW
-    registers.R_PWR_LIMIT = (uint16_t)(overpowerlimit / 256.0 / 3.2 / registers.CURRENT_LSB);
+    registers.R_PWR_LIMIT = (uint16_t)(overpowerlimit / 256.0F / 3.2F / registers.CURRENT_LSB);
 
     // Configure other registers
     write16bits(INA_REGISTER::CONFIG, registers.R_CONFIG);
@@ -564,4 +529,58 @@ void CurrentMonitorINA229::SetINA229Registers()
     write16bits(INA_REGISTER::BUVL, registers.R_BUVL);
     write16bits(INA_REGISTER::TEMP_LIMIT, registers.R_TEMP_LIMIT);
     write16bits(INA_REGISTER::PWR_LIMIT, registers.R_PWR_LIMIT);
+}
+
+void CurrentMonitorINA229::SetAlarmTriggers(bool TempCompEnabled, uint16_t bitmap)
+{
+    if (TempCompEnabled)
+    {
+        // Set bit
+        registers.R_CONFIG |= bit(5);
+    }
+    else
+    {
+        // Clear bit
+        registers.R_CONFIG &= ~bit(5);
+    }
+
+    registers.relay_trigger_bitmap = bitmap & ALL_ALERT_BITS;
+
+    // Set CONFIG and ADC_CONFIG
+    SetINA229ConfigurationRegisters();
+}
+
+void CurrentMonitorINA229::SetAlarmTriggers(bool TempCompEnabled,
+                                            bool RelayTriggerTemperatureOverLimit,
+                                            bool RelayTriggerCurrentOverLimit,
+                                            bool RelayTriggerCurrentUnderLimit,
+                                            bool RelayTriggerVoltageOverlimit,
+                                            bool RelayTriggerVoltageUnderlimit,
+                                            bool RelayTriggerPowerOverLimit)
+{
+
+    if (TempCompEnabled)
+    {
+        // Set bit
+        registers.R_CONFIG |= bit(5);
+    }
+    else
+    {
+        // Clear bit
+        registers.R_CONFIG &= ~bit(5);
+    }
+
+    // Apply new settings
+    uint8_t flag2 = 0;
+    flag2 += RelayTriggerTemperatureOverLimit ? bit(DIAG_ALRT_FIELD::TMPOL) : 0;
+    flag2 += RelayTriggerCurrentOverLimit ? bit(DIAG_ALRT_FIELD::SHNTOL) : 0;
+    flag2 += RelayTriggerCurrentUnderLimit ? bit(DIAG_ALRT_FIELD::SHNTUL) : 0;
+    flag2 += RelayTriggerVoltageOverlimit ? bit(DIAG_ALRT_FIELD::BUSOL) : 0;
+    flag2 += RelayTriggerVoltageUnderlimit ? bit(DIAG_ALRT_FIELD::BUSUL) : 0;
+    flag2 += RelayTriggerPowerOverLimit ? bit(DIAG_ALRT_FIELD::POL) : 0;
+
+    registers.relay_trigger_bitmap = flag2 & ALL_ALERT_BITS;
+
+    // Set CONFIG and ADC_CONFIG
+    SetINA229ConfigurationRegisters();
 }

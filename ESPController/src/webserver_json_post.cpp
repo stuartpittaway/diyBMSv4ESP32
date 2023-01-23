@@ -661,7 +661,18 @@ esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
         newvalues.RelayTriggerPowerOverLimit = tempBool;
     }
 
-    CurrentMonitorSetRelaySettings(newvalues);
+    if (mysettings.currentMonitoringEnabled)
+    {
+
+        if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
+        {
+            CurrentMonitorSetRelaySettingsExternal(newvalues);
+        }
+        if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+        {
+            CurrentMonitorSetRelaySettingsInternal(newvalues);
+        }
+    }
 
     return SendSuccess(req);
 }

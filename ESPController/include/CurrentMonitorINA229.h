@@ -66,6 +66,10 @@ class CurrentMonitorINA229
         // Resistance of SHUNT in OHMS
         float RSHUNT;
 
+        // Holds what alert events trigger the relay to turn on/high
+        // uses the same values/mapping as enum DIAG_ALRT_FIELD
+        uint16_t relay_trigger_bitmap;
+
         uint16_t shunt_max_current;
         uint16_t shunt_millivolt;
         uint16_t batterycapacity_amphour;
@@ -95,6 +99,7 @@ class CurrentMonitorINA229
         ENERGY = 9,
         // Charge Result 40bit
         CHARGE = 0x0A,
+        // Alert triggers
         DIAG_ALRT = 0x0b,
         // Shunt Overvoltage Threshold
         SOVL = 0x0c,
@@ -134,6 +139,13 @@ class CurrentMonitorINA229
         CNVRF = 1,
         MEMSTAT = 0
     };
+
+    const uint16_t ALL_ALERT_BITS = (bit(DIAG_ALRT_FIELD::TMPOL) |
+                                     bit(DIAG_ALRT_FIELD::SHNTOL) |
+                                     bit(DIAG_ALRT_FIELD::SHNTUL) |
+                                     bit(DIAG_ALRT_FIELD::BUSOL) |
+                                     bit(DIAG_ALRT_FIELD::BUSUL) |
+                                     bit(DIAG_ALRT_FIELD::POL));
 
 public:
     CurrentMonitorINA229()
@@ -204,6 +216,13 @@ public:
     {
         return INA229Installed;
     }
+    void SetAlarmTriggers(bool TempCompEnabled,
+                          bool RelayTriggerTemperatureOverLimit,
+                          bool RelayTriggerCurrentOverLimit,
+                          bool RelayTriggerCurrentUnderLimit,
+                          bool RelayTriggerVoltageOverlimit,
+                          bool RelayTriggerVoltageUnderlimit,
+                          bool RelayTriggerPowerOverLimit);
 
     bool Initialise(SPIClass *SPI, uint8_t cs_pin);
 
@@ -224,20 +243,16 @@ public:
 
     void GuessSOC();
     void TakeReadings();
-
-    float BusOverVolt;
-    float BusUnderVolt;
-    float ShuntOverCurrentLimit;
-    float ShuntUnderCurrentLimit;
-    float PowerLimit;
-    uint16_t ShuntTemperatureCoefficient;
+    void SetAlarmTriggers(bool TempCompEnabled, uint16_t bitmap);
 
     uint32_t calc_milliamphour_out() { return milliamphour_out - milliamphour_out_offset; }
     uint32_t calc_milliamphour_in() { return milliamphour_in - milliamphour_in_offset; }
     uint32_t calc_daily_milliamphour_out() { return daily_milliamphour_out; }
     uint32_t calc_daily_milliamphour_in() { return daily_milliamphour_in; }
+
     float charge_efficiency_factor() { return registers.charge_efficiency_factor; }
     float state_of_charge() { return SOC / 100.0; }
+
     float calc_voltage() { return voltage; }
     float calc_current() { return current; }
     float calc_power() { return power; }
@@ -263,8 +278,10 @@ public:
     }
     float calc_overvoltagelimit() { return (float)registers.R_BOVL * 0.003125F; }
     float calc_undervoltagelimit() { return (float)registers.R_BUVL * 0.003125F; }
-    float calc_overcurrentlimit() { return ((float)registers.R_SOVL / 1000 * 1.25) / (full_scale_adc * registers.shunt_max_current); }
-    float calc_undercurrentlimit() { return ((float)registers.R_SUVL / 1000 * 1.25) / (full_scale_adc * registers.shunt_max_current); }
+    float calc_overcurrentlimit() { return ((float)registers.R_SOVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current; }
+    float calc_undercurrentlimit() { return ((float)registers.R_SUVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current; }
+    uint16_t calc_alarmtriggerbitmap() { return registers.relay_trigger_bitmap; }
+    bool calc_tempcompenabled() { return (registers.R_CONFIG & bit(5)) != 0; }
 
 private:
     uint16_t SOC = 0;

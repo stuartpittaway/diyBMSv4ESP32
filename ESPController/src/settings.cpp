@@ -197,6 +197,9 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         writeSetting(nvs_handle, "curMonundercur", settings->currentMonitoring_undercurrentlimit);
         writeSetting(nvs_handle, "curMonoverpower", settings->currentMonitoring_overpowerlimit);
         writeSetting(nvs_handle, "curMontempcoef", settings->currentMonitoring_shunttempcoefficient);
+        writeSetting(nvs_handle, "curMonAlarmTrig", settings->currentMonitoring_alarmtriggerbitmap);
+        writeSetting(nvs_handle, "curMonTempCompE", settings->currentMonitoring_tempcompenabled);
+        
 
         writeSetting(nvs_handle, "485baudrate", settings->rs485baudrate);
         writeSetting(nvs_handle, "485databits", (uint8_t)settings->rs485databits);
@@ -324,6 +327,8 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         getSetting(nvs_handle, "curMonundercur", &settings->currentMonitoring_undercurrentlimit);
         getSetting(nvs_handle, "curMonoverpower", &settings->currentMonitoring_overpowerlimit);
         getSetting(nvs_handle, "curMontempcoef", &settings->currentMonitoring_shunttempcoefficient);
+        getSetting(nvs_handle, "curMonAlarmTrig", &settings->currentMonitoring_alarmtriggerbitmap);
+        getSetting(nvs_handle, "curMonTempCompE", &settings->currentMonitoring_tempcompenabled);
 
         getSetting(nvs_handle, "485baudrate", &settings->rs485baudrate);
         getSetting(nvs_handle, "485databits", (uint8_t *)&settings->rs485databits);
@@ -443,15 +448,16 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->currentMonitoring_batterycapacity = 280;
     _myset->currentMonitoring_fullchargevolt = 5600;   // 56.00V
     _myset->currentMonitoring_tailcurrent = 1400;      // 14.00A
-    _myset->currentMonitoring_chargeefficiency = 9990; // 99.90%
+    _myset->currentMonitoring_chargeefficiency = 9950; // 99.50%
     _myset->currentMonitoring_shuntcal = 0;
     _myset->currentMonitoring_temperaturelimit = 80;
-    _myset->currentMonitoring_overvoltagelimit = 5840;
-    _myset->currentMonitoring_undervoltagelimit = 0;
-    _myset->currentMonitoring_overcurrentlimit = 15000; //150.00A
-    _myset->currentMonitoring_undercurrentlimit = -15000;//-150.00A
-    _myset->currentMonitoring_overpowerlimit = 5000;    //5000W
+    _myset->currentMonitoring_overvoltagelimit = 5840;    // 58.4V
+    _myset->currentMonitoring_undervoltagelimit = 4000;   // 40V
+    _myset->currentMonitoring_overcurrentlimit = 15000;   // 150.00A
+    _myset->currentMonitoring_undercurrentlimit = -15000; //-150.00A
+    _myset->currentMonitoring_overpowerlimit = 5000;      // 5000W
     _myset->currentMonitoring_shunttempcoefficient = 15;
+    _myset->currentMonitoring_alarmtriggerbitmap = 0;
 
     _myset->rs485baudrate = 19200;
     _myset->rs485databits = uart_word_length_t::UART_DATA_8_BITS;
@@ -759,6 +765,8 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root["currentMonitoringUnderCurrent"] = settings->currentMonitoring_undercurrentlimit;
     root["currentMonitoringOverPower"] = settings->currentMonitoring_overpowerlimit;
     root["currentMonitoringShuntTempCoeff"] = settings->currentMonitoring_shunttempcoefficient;
+    root["currentMonitoringAlarmTriggerBitmap"] = settings->currentMonitoring_alarmtriggerbitmap;
+    root["currentMonitoringTempCompEnable"]=settings->currentMonitoring_tempcompenabled;
 
     root["rs485baudrate"] = settings->rs485baudrate;
     root["rs485databits"] = settings->rs485databits;
@@ -907,6 +915,8 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->currentMonitoring_undercurrentlimit = root["currentMonitoringUnderCurrent"];
     settings->currentMonitoring_overpowerlimit = root["currentMonitoringOverPower"];
     settings->currentMonitoring_shunttempcoefficient = root["currentMonitoringShuntTempCoeff"];
+    settings->currentMonitoring_alarmtriggerbitmap = root["currentMonitoringAlarmTriggerBitmap"];
+    settings->currentMonitoring_tempcompenabled = root["currentMonitoringTempCompEnable"];
 
     settings->rs485baudrate = root["rs485baudrate"];
     settings->rs485databits = root["rs485databits"];
