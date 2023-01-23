@@ -317,7 +317,11 @@ function refreshCurrentMonitorValues() {
                 $("#cmVoltageUnderLimit").val(data.VOLTUL);
                 $("#cmPowerOverLimit").val(data.POL);
 
-                $("#cmRelayState").val(data.RelayState ? "CLOSED" : "OPEN");
+                if (data.RelayState == null) {
+                    $("#cmRelayState").val("N/A");
+                } else {
+                    $("#cmRelayState").val(data.RelayState ? "CLOSED" : "OPEN");
+                }
 
                 $("#cmTMPOL").prop("checked", data.T_TMPOL);
                 $("#cmCURROL").prop("checked", data.T_CURROL);

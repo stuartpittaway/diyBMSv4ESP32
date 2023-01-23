@@ -457,7 +457,8 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->currentMonitoring_undercurrentlimit = -15000; //-150.00A
     _myset->currentMonitoring_overpowerlimit = 5000;      // 5000W
     _myset->currentMonitoring_shunttempcoefficient = 15;
-    _myset->currentMonitoring_alarmtriggerbitmap = 0;
+    _myset->currentMonitoring_tempcompenabled=false;    //Disabled
+    _myset->currentMonitoring_alarmtriggerbitmap = bit(6) |bit(5) |bit(4) |bit(3);
 
     _myset->rs485baudrate = 19200;
     _myset->rs485databits = uart_word_length_t::UART_DATA_8_BITS;

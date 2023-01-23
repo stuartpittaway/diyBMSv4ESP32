@@ -102,9 +102,9 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
   {
     bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "RelayState", currentMonitor.RelayState);
   }
-  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+  else
   {
-    //Relay doesn't exist on internal current monitor
+    // Relay doesn't exist
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"RelayState\":null,");
   }
 
