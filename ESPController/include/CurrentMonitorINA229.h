@@ -246,11 +246,25 @@ public:
     uint16_t calc_shunttempcoefficient() { return registers.R_SHUNT_TEMPCO; }
     float calc_tailcurrentamps() { return registers.tail_current_amps; }
     float calc_fullychargedvoltage() { return registers.fully_charged_voltage; }
-    float calc_shuntresistance() { return 1000 *registers.RSHUNT; }
+    float calc_shuntresistance() { return 1000 * registers.RSHUNT; }
 
     uint16_t calc_shuntmillivolt() { return registers.shunt_millivolt; }
     uint16_t calc_shuntmaxcurrent() { return registers.shunt_max_current; }
     uint16_t calc_batterycapacityAh() { return registers.batterycapacity_amphour; }
+
+    int16_t calc_temperaturelimit()
+    {
+        // Case unsigned to int16 to cope with negative temperatures
+        return (int16_t)registers.R_TEMP_LIMIT * (float)0.0078125;
+    }
+    float calc_overpowerlimit()
+    {
+        return registers.R_PWR_LIMIT * 256 * 3.2F * registers.CURRENT_LSB;
+    }
+    float calc_overvoltagelimit() { return (float)registers.R_BOVL * 0.003125F; }
+    float calc_undervoltagelimit() { return (float)registers.R_BUVL * 0.003125F; }
+    float calc_overcurrentlimit() { return ((float)registers.R_SOVL / 1000 * 1.25) / (full_scale_adc * registers.shunt_max_current); }
+    float calc_undercurrentlimit() { return ((float)registers.R_SUVL / 1000 * 1.25) / (full_scale_adc * registers.shunt_max_current); }
 
 private:
     uint16_t SOC = 0;

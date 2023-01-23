@@ -475,7 +475,7 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
         // Are we trying to override the default SHUNT_CAL value?
         registers.R_SHUNT_CAL = shuntcal;
     }
-
+/*
     ESP_LOGI(TAG, "shunt_millivolt %u", registers.shunt_millivolt);
     ESP_LOGI(TAG, "shunt_max_current %u", registers.shunt_max_current);
     ESP_LOGI(TAG, "fully_charged_voltage %f", registers.fully_charged_voltage);
@@ -483,7 +483,7 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
     ESP_LOGI(TAG, "tail_current_amps %f", registers.tail_current_amps);
     ESP_LOGI(TAG, "charge_efficiency_factor %f", registers.charge_efficiency_factor);
     ESP_LOGI(TAG, "SHUNT_CAL %u", registers.R_SHUNT_CAL);
-
+*/
     // This is not enabled by default
     // The 16 bit register provides a resolution of 1ppm/°C/LSB
     // Shunt Temperature Coefficient

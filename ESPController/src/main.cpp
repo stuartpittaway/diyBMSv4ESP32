@@ -2049,6 +2049,9 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
   mysettings.currentMonitoring_fullchargevolt = (uint16_t)(100.0 * fullchargevolt);
   mysettings.currentMonitoring_tailcurrent = (uint16_t)(100.0 * tailcurrent);
   mysettings.currentMonitoring_chargeefficiency = (uint16_t)(100.0 * chargeefficiency);
+  // Reset stored shuntcal to zero to allow automatic calibration
+  // this is updated by the CurrentMonitorSetAdvancedSettings call
+  mysettings.currentMonitoring_shuntcal = 0;
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
   {
@@ -2377,14 +2380,13 @@ void ProcessDIYBMSCurrentMonitorInternal()
   memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
   currentMonitor.validReadings = false;
 
+  currentMonitor.timestamp = esp_timer_get_time();
   currentMonitor.modbus.milliamphour_out = currentmon_internal.calc_milliamphour_out();
   currentMonitor.modbus.milliamphour_in = currentmon_internal.calc_milliamphour_in();
   currentMonitor.modbus.daily_milliamphour_out = currentmon_internal.calc_daily_milliamphour_out();
   currentMonitor.modbus.daily_milliamphour_in = currentmon_internal.calc_daily_milliamphour_in();
-  currentMonitor.modbus.firmwareversion = GIT_VERSION_B1<<16 + GIT_VERSION_B2;
+  currentMonitor.modbus.firmwareversion = (((uint32_t)GIT_VERSION_B1) << 16) + (uint32_t)GIT_VERSION_B2;
   currentMonitor.modbus.firmwaredatetime = COMPILE_DATE_TIME_UTC_EPOCH;
-
-  currentMonitor.timestamp = esp_timer_get_time();
 
   /*
 
@@ -2438,28 +2440,18 @@ void ProcessDIYBMSCurrentMonitorInternal()
   */
 
   /*
-    int16_t temperature;
     uint16_t flags;
-    float power;
-    float shuntresistance;
-    uint16_t shuntcal;
-    int16_t temperaturelimit;
-    float overvoltagelimit;
-    float undervoltagelimit;
-    float overcurrentlimit;
-    float undercurrentlimit;
-    float overpowerlimit;
-    uint16_t shunttempcoefficient;
   */
   currentMonitor.modbus.temperature = currentmon_internal.calc_temperature();
+  currentMonitor.modbus.temperaturelimit = currentmon_internal.calc_temperaturelimit();
   currentMonitor.modbus.shunttempcoefficient = currentmon_internal.calc_shunttempcoefficient();
   currentMonitor.modbus.batterycapacityamphour = currentmon_internal.calc_batterycapacityAh();
   currentMonitor.modbus.shuntmaxcurrent = currentmon_internal.calc_shuntmaxcurrent();
-  ;
   currentMonitor.modbus.shuntmillivolt = currentmon_internal.calc_shuntmillivolt();
   currentMonitor.modbus.shuntcal = currentmon_internal.calc_shuntcalibration();
   currentMonitor.modbus.modelnumber = 0x229;
   currentMonitor.modbus.power = currentmon_internal.calc_power();
+  currentMonitor.modbus.overpowerlimit = currentmon_internal.calc_overpowerlimit();
   currentMonitor.modbus.voltage = currentmon_internal.calc_voltage();
   currentMonitor.modbus.current = currentmon_internal.calc_current();
   currentMonitor.modbus.shuntresistance = currentmon_internal.calc_shuntresistance();
@@ -2468,6 +2460,11 @@ void ProcessDIYBMSCurrentMonitorInternal()
   currentMonitor.chargeefficiency = currentmon_internal.charge_efficiency_factor();
   currentMonitor.stateofcharge = currentmon_internal.state_of_charge();
   currentMonitor.modbus.fullychargedvoltage = currentmon_internal.calc_fullychargedvoltage();
+
+    currentMonitor.modbus.overvoltagelimit = currentmon_internal.calc_overvoltagelimit();
+    currentMonitor.modbus.undervoltagelimit = currentmon_internal.calc_undervoltagelimit();
+    currentMonitor.modbus.overcurrentlimit = currentmon_internal.calc_overcurrentlimit();
+    currentMonitor.modbus.undercurrentlimit = currentmon_internal.calc_undercurrentlimit();
 
   currentMonitor.validReadings = true;
   TimeToSoCCalculation();
