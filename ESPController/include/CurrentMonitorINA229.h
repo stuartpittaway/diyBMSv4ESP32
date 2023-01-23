@@ -62,16 +62,16 @@ class CurrentMonitorINA229
         uint16_t R_PWR_LIMIT;
 
         // LSB step size for the CURRENT register where the current in Amperes is stored
-        double CURRENT_LSB;
+        float CURRENT_LSB;
         // Resistance of SHUNT in OHMS
-        double RSHUNT;
+        float RSHUNT;
 
         uint16_t shunt_max_current;
         uint16_t shunt_millivolt;
         uint16_t batterycapacity_amphour;
-        double fully_charged_voltage;
-        double tail_current_amps;
-        double charge_efficiency_factor;
+        float fully_charged_voltage;
+        float tail_current_amps;
+        float charge_efficiency_factor;
     };
 
     enum INA_REGISTER : uint8_t
@@ -225,22 +225,43 @@ public:
     void GuessSOC();
     void TakeReadings();
 
-    uint16_t SOC = 0;
-    double voltage = 0;
-    double current = 0;
-
-    double BusOverVolt;
-    double BusUnderVolt;
-    double ShuntOverCurrentLimit;
-    double ShuntUnderCurrentLimit;
-    double PowerLimit;
+    float BusOverVolt;
+    float BusUnderVolt;
+    float ShuntOverCurrentLimit;
+    float ShuntUnderCurrentLimit;
+    float PowerLimit;
     uint16_t ShuntTemperatureCoefficient;
 
+    uint32_t calc_milliamphour_out() { return milliamphour_out - milliamphour_out_offset; }
+    uint32_t calc_milliamphour_in() { return milliamphour_in - milliamphour_in_offset; }
+    uint32_t calc_daily_milliamphour_out() { return daily_milliamphour_out; }
+    uint32_t calc_daily_milliamphour_in() { return daily_milliamphour_in; }
+    float charge_efficiency_factor() { return registers.charge_efficiency_factor; }
+    float state_of_charge() { return SOC / 100.0; }
+    float calc_voltage() { return voltage; }
+    float calc_current() { return current; }
+    float calc_power() { return power; }
+    uint16_t calc_shuntcalibration() { return registers.R_SHUNT_CAL; }
+    int16_t calc_temperature() { return (int16_t)temperature; }
+    uint16_t calc_shunttempcoefficient() { return registers.R_SHUNT_TEMPCO; }
+    float calc_tailcurrentamps() { return registers.tail_current_amps; }
+    float calc_fullychargedvoltage() { return registers.fully_charged_voltage; }
+    float calc_shuntresistance() { return registers.RSHUNT; }
+
+    uint16_t calc_shuntmillivolt() { return registers.shunt_millivolt; }
+    uint16_t calc_shuntmaxcurrent() { return registers.shunt_max_current; }
+    uint16_t calc_batterycapacityAh() { return registers.batterycapacity_amphour; }
 
 private:
-    const double full_scale_adc = 40.96;
-    // const double CoulombsToAmpHours = 1.0 / 3600.0;
-    const double CoulombsToMilliAmpHours = 1.0 / 3.6;
+    uint16_t SOC = 0;
+    float voltage = 0;
+    float current = 0;
+    float power = 0;
+    float temperature = 0;
+
+    const float full_scale_adc = 40.96;
+    // const float CoulombsToAmpHours = 1.0 / 3600.0;
+    const float CoulombsToMilliAmpHours = 1.0 / 3.6;
 
     uint8_t max_soc_reset_counter = 0;
     uint8_t soc_reset_counter = 0;
@@ -268,6 +289,7 @@ private:
 
     uint32_t milliamphour_out_offset;
     uint32_t milliamphour_in_offset;
+
     volatile uint16_t diag_alrt_value = 0;
 
     uint8_t readRegisterValue(INA_REGISTER r);
@@ -277,9 +299,9 @@ private:
     uint16_t read16bits(INA_REGISTER r);
     uint16_t write16bits(INA_REGISTER r, uint16_t value);
     void SetINA229Registers();
-    double BusVoltage();
-    double Energy();
-    double ShuntVoltage();
+    float BusVoltage();
+    float Energy();
+    float ShuntVoltage();
 
     int32_t ChargeInCoulombsAsInt();
 
@@ -289,39 +311,42 @@ private:
     uint64_t spi_readUint40(INA_REGISTER r);
     int64_t spi_readInt40(INA_REGISTER r);
 
+    void CalculateAmpHourCounts();
+    uint16_t CalculateSOC();
+
     // Calculated power output.  Output value in watts. Unsigned representation. Positive value.
-    double Power()
+    float Power()
     {
         // POWER Power [W] = 3.2 x CURRENT_LSB x POWER
-        return (double)spi_readUint24(INA_REGISTER::POWER) * (double)3.2 * registers.CURRENT_LSB;
+        return (float)spi_readUint24(INA_REGISTER::POWER) * (float)3.2 * registers.CURRENT_LSB;
     }
 
     // The INA228 device has an internal temperature sensor which can measure die temperature from –40 °C to +125°C.
-    double DieTemperature()
+    float DieTemperature()
     {
         // The accuracy of the temperature sensor is ±2 °C across the operational temperature range. The temperature
         // value is stored inside the DIETEMP register
         // Internal die temperature measurement.
         // Case unsigned to int16 to cope with negative temperatures
         // Two's complement value. Conversion factor: 7.8125 m°C/LSB
-        double dietemp = (int16_t)read16bits(INA_REGISTER::DIETEMP);
-        return dietemp * (double)0.0078125;
+        float dietemp = (int16_t)read16bits(INA_REGISTER::DIETEMP);
+        return dietemp * (float)0.0078125;
     }
 
-    double TemperatureLimit()
+    float TemperatureLimit()
     {
         // Case unsigned to int16 to cope with negative temperatures
-        double temp = (int16_t)read16bits(INA_REGISTER::TEMP_LIMIT);
-        return temp * (double)0.0078125;
+        float temp = (int16_t)read16bits(INA_REGISTER::TEMP_LIMIT);
+        return temp * (float)0.0078125;
     }
 
     // Calculated current output in Amperes.
     // In the way this circuit is designed, NEGATIVE current indicates DISCHARGE of the battery
     // POSITIVE current indicates CHARGE of the battery
-    double Current()
+    float Current()
     {
         // Current. Two's complement value.
-        return -(registers.CURRENT_LSB * (double)readInt20(INA_REGISTER::CURRENT));
+        return -(registers.CURRENT_LSB * (float)readInt20(INA_REGISTER::CURRENT));
     }
 
     void ResetChargeEnergyRegisters()
@@ -334,13 +359,10 @@ private:
         write16bits(INA_REGISTER::CONFIG, registers.R_CONFIG | (uint16_t)_BV(14));
     }
 
-    void SetINA228ConfigurationRegisters()
+    void SetINA229ConfigurationRegisters()
     {
         write16bits(INA_REGISTER::CONFIG, registers.R_CONFIG);
         write16bits(INA_REGISTER::ADC_CONFIG, registers.R_ADC_CONFIG);
     }
-
-    void CalculateAmpHourCounts();
-    uint16_t CalculateSOC();
 };
 #endif

@@ -2046,9 +2046,9 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
   mysettings.currentMonitoring_shuntmv = shuntmv;
   mysettings.currentMonitoring_shuntmaxcur = shuntmaxcur;
   mysettings.currentMonitoring_batterycapacity = batterycapacity;
-  mysettings.currentMonitoring_fullchargevolt = (uint16_t)(100 * fullchargevolt);
-  mysettings.currentMonitoring_tailcurrent = (uint16_t)(100 * tailcurrent);
-  mysettings.currentMonitoring_chargeefficiency = (uint16_t)(100 * chargeefficiency);
+  mysettings.currentMonitoring_fullchargevolt = (uint16_t)(100.0 * fullchargevolt);
+  mysettings.currentMonitoring_tailcurrent = (uint16_t)(100.0 * tailcurrent);
+  mysettings.currentMonitoring_chargeefficiency = (uint16_t)(100.0 * chargeefficiency);
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
   {
@@ -2371,6 +2371,121 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 */
 }
 
+// Extract onboard/internal current monitor values into our internal STRUCTURE variables
+void ProcessDIYBMSCurrentMonitorInternal()
+{
+  memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
+  currentMonitor.validReadings = false;
+
+  currentMonitor.modbus.milliamphour_out = currentmon_internal.calc_milliamphour_out();
+  currentMonitor.modbus.milliamphour_in = currentmon_internal.calc_milliamphour_in();
+  currentMonitor.modbus.daily_milliamphour_out = currentmon_internal.calc_daily_milliamphour_out();
+  currentMonitor.modbus.daily_milliamphour_in = currentmon_internal.calc_daily_milliamphour_in();
+  currentMonitor.modbus.firmwareversion = 0;
+  currentMonitor.modbus.firmwaredatetime = 0;
+
+  currentMonitor.timestamp = esp_timer_get_time();
+
+  /*
+
+    // High byte
+    uint8_t flag1 = currentMonitor.modbus.flags >> 8;
+    // Low byte
+    uint8_t flag2 = currentMonitor.modbus.flags;
+
+    /*
+  16|TMPOL|Read only
+  15|SHNTOL|Read only
+  14|SHNTUL|Read only
+  13|BUSOL|Read only
+  12|BUSUL|Read only
+  11|POL|Read only
+  10|Temperature compensation enabled|Read write
+  9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
+  */
+
+  /*
+    currentMonitor.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
+    currentMonitor.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
+    currentMonitor.CurrentUnderLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTUL);
+    currentMonitor.VoltageOverlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSOL);
+    currentMonitor.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
+    currentMonitor.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
+
+    currentMonitor.TempCompEnabled = flag1 & B00000010;
+    currentMonitor.ADCRange4096mV = flag1 & B00000001;
+  */
+  /*
+8|Relay Trigger on TMPOL|Read write
+7|Relay Trigger on SHNTOL|Read write
+6|Relay Trigger on SHNTUL|Read write
+5|Relay Trigger on BUSOL|Read write
+4|Relay Trigger on BUSUL|Read write
+3|Relay Trigger on POL|Read write
+2|Existing Relay state (0=off)|Read write
+1|Factory reset bit (always 0 when read)|Read write
+*/
+
+  /*
+    currentMonitor.RelayTriggerTemperatureOverLimit = flag2 & bit(DIAG_ALRT_FIELD::TMPOL);
+    currentMonitor.RelayTriggerCurrentOverLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTOL);
+    currentMonitor.RelayTriggerCurrentUnderLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTUL);
+    currentMonitor.RelayTriggerVoltageOverlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSOL);
+    currentMonitor.RelayTriggerVoltageUnderlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSUL);
+    currentMonitor.RelayTriggerPowerOverLimit = flag2 & bit(DIAG_ALRT_FIELD::POL);
+    currentMonitor.RelayState = flag2 & B00000010;
+    // Last bit is for factory reset (always zero)
+  */
+
+  /*
+    int16_t temperature;
+    uint16_t flags;
+    float power;
+    float shuntresistance;
+    uint16_t shuntcal;
+    int16_t temperaturelimit;
+    float overvoltagelimit;
+    float undervoltagelimit;
+    float overcurrentlimit;
+    float undercurrentlimit;
+    float overpowerlimit;
+    uint16_t shunttempcoefficient;
+  */
+  currentMonitor.modbus.temperature = currentmon_internal.calc_temperature();
+  currentMonitor.modbus.shunttempcoefficient = currentmon_internal.calc_shunttempcoefficient();
+  currentMonitor.modbus.batterycapacityamphour = currentmon_internal.calc_batterycapacityAh();
+  currentMonitor.modbus.shuntmaxcurrent = currentmon_internal.calc_shuntmaxcurrent();;
+  currentMonitor.modbus.shuntmillivolt = currentmon_internal.calc_shuntmillivolt();
+  currentMonitor.modbus.shuntcal = currentmon_internal.calc_shuntcalibration();
+  currentMonitor.modbus.modelnumber = 0x229;
+  currentMonitor.modbus.power = currentmon_internal.calc_power();
+  currentMonitor.modbus.voltage = currentmon_internal.calc_voltage();
+  currentMonitor.modbus.current = currentmon_internal.calc_current();
+  currentMonitor.modbus.shuntresistance = currentmon_internal.calc_shuntresistance();
+
+  currentMonitor.modbus.tailcurrentamps = currentmon_internal.calc_tailcurrentamps();
+  currentMonitor.chargeefficiency = currentmon_internal.charge_efficiency_factor();
+  currentMonitor.stateofcharge = currentmon_internal.state_of_charge();
+  currentMonitor.modbus.fullychargedvoltage = currentmon_internal.calc_fullychargedvoltage();
+
+  currentMonitor.validReadings = true;
+  TimeToSoCCalculation();
+
+  /*
+  ESP_LOGD(TAG, "WDog = %u", currentMonitor.modbus.watchdogcounter);
+  ESP_LOGD(TAG, "SOC = %i", currentMonitor.stateofcharge);
+
+  ESP_LOGD(TAG, "Volt = %f", currentMonitor.modbus.voltage);
+  ESP_LOGD(TAG, "Curr = %f", currentMonitor.modbus.current);
+  ESP_LOGD(TAG, "Temp = %i", currentMonitor.modbus.temperature);
+
+  ESP_LOGD(TAG, "Out = %f", currentMonitor.modbus.milliamphour_in);
+  ESP_LOGD(TAG, "In = %f", currentMonitor.modbus.milliamphour_out);
+
+  ESP_LOGD(TAG, "Ver = %x", currentMonitor.modbus.firmwareversion);
+  ESP_LOGD(TAG, "Date = %u", currentMonitor.modbus.firmwaredatetime);
+*/
+}
 void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 {
   twai_message_t message;
@@ -2758,6 +2873,14 @@ void rs485_tx(void *param)
 
     if (mysettings.currentMonitoringEnabled == true)
     {
+
+      if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+      {
+        // Take readings from internal INA229 chip (on controller board)
+        currentmon_internal.TakeReadings();
+        ProcessDIYBMSCurrentMonitorInternal();
+      }
+
       if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
       {
         // This is the request we send to diyBMS current monitor, it pulls back 38 registers

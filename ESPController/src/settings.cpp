@@ -445,12 +445,12 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->currentMonitoring_tailcurrent = 1400;      // 14.00A
     _myset->currentMonitoring_chargeefficiency = 9990; // 99.90%
     _myset->currentMonitoring_shuntcal = 0;
-    _myset->currentMonitoring_temperaturelimit=80;
+    _myset->currentMonitoring_temperaturelimit = 80;
     _myset->currentMonitoring_overvoltagelimit = 5840;
     _myset->currentMonitoring_undervoltagelimit = 0;
-    _myset->currentMonitoring_overcurrentlimit = 15000;
-    _myset->currentMonitoring_undercurrentlimit = -15000;
-    _myset->currentMonitoring_overpowerlimit = 5000;
+    _myset->currentMonitoring_overcurrentlimit = 15000; //150.00A
+    _myset->currentMonitoring_undercurrentlimit = -15000;//-150.00A
+    _myset->currentMonitoring_overpowerlimit = 5000;    //5000W
     _myset->currentMonitoring_shunttempcoefficient = 15;
 
     _myset->rs485baudrate = 19200;

@@ -42,9 +42,9 @@ void CurrentMonitorINA229::CalculateLSB()
     //                     R_SHUNT_CAL = 52428800000*0.000286102294921875*0.00033333333 = 4999.999 = 5000
 
     // Calculate CURRENT_LSB and R_SHUNT_CAL values
-    // registers.full_scale_current = ((double)registers.shunt_max_current / (double)registers.shunt_millivolt) * full_scale_adc;
-    registers.RSHUNT = ((double)registers.shunt_millivolt / 1000.0) / (double)registers.shunt_max_current;
-    registers.CURRENT_LSB = registers.shunt_max_current / (double)0x80000;
+    // registers.full_scale_current = ((float)registers.shunt_max_current / (float)registers.shunt_millivolt) * full_scale_adc;
+    registers.RSHUNT = ((float)registers.shunt_millivolt / 1000.0) / (float)registers.shunt_max_current;
+    registers.CURRENT_LSB = registers.shunt_max_current / (float)0x80000;
     registers.R_SHUNT_CAL = 4L * (13107200000L * registers.CURRENT_LSB * registers.RSHUNT);
 
     // Deliberately reduce calibration by 2.5%, which appears to be the loses seen in the current monitor circuit design
@@ -189,7 +189,7 @@ uint32_t CurrentMonitorINA229::readUInt24(INA_REGISTER r)
 }
 
 // Energy in JOULES
-double CurrentMonitorINA229::Energy()
+float CurrentMonitorINA229::Energy()
 {
     uint64_t energy = spi_readUint40(INA_REGISTER::ENERGY);
     return 16.0 * 3.2 * registers.CURRENT_LSB * energy;
@@ -203,11 +203,11 @@ int32_t CurrentMonitorINA229::ChargeInCoulombsAsInt()
 {
     // Calculated charge output. Output value is in Coulombs.Two's complement value.  40bit number
     // int64 on an 8 bit micro!
-    return registers.CURRENT_LSB * (double)spi_readInt40(INA_REGISTER::CHARGE);
+    return registers.CURRENT_LSB * (float)spi_readInt40(INA_REGISTER::CHARGE);
 }
 
 // Bus voltage output. Two's complement value, however always positive.  Value in bits 23 to 4
-double CurrentMonitorINA229::BusVoltage()
+float CurrentMonitorINA229::BusVoltage()
 {
     uint32_t busVoltage = readUInt24(INA_REGISTER::VBUS) & 0x000FFFFF;
     // The accuracy is 20bits and 195.3125uV is the LSB
@@ -218,7 +218,7 @@ double CurrentMonitorINA229::BusVoltage()
     ESP_LOGD(TAG, "busVoltage mV=%u", busVoltage_mV);
 
     //  Return VOLTS
-    return (double)busVoltage_mV / (double)1000.0;
+    return (float)busVoltage_mV / (float)1000.0;
 }
 
 // Read a 20 bit (3 byte) TWOS COMPLIMENT integer
@@ -241,17 +241,19 @@ int32_t CurrentMonitorINA229::readInt20(INA_REGISTER r)
 }
 
 // Shunt voltage in MILLIVOLTS mV
-double CurrentMonitorINA229::ShuntVoltage()
+float CurrentMonitorINA229::ShuntVoltage()
 {
     // 78.125 nV/LSB when ADCRANGE = 1
     // Differential voltage measured across the shunt output. Two's complement value.
-    return (double)((uint64_t)readInt20(INA_REGISTER::VSHUNT) * 78125) / 1000000000.0;
+    return (float)((uint64_t)readInt20(INA_REGISTER::VSHUNT) * 78125) / 1000000000.0;
 }
 
 void CurrentMonitorINA229::TakeReadings()
 {
     voltage = BusVoltage();
     current = Current();
+    power = Power();
+    temperature = DieTemperature();
     // milliamphour_out=((milliamphour_out - milliamphour_out_offset);
     // milliamphour_in=(milliamphour_in - milliamphour_in_offset)
     // temperature=(int16_t)DieTemperature()
@@ -273,12 +275,12 @@ void CurrentMonitorINA229::TakeReadings()
 
     // Bus Overvoltage (overvoltage protection).
     // Unsigned representation, positive value only. Conversion factor: 3.125 mV/LSB.
-    BusOverVolt = ((double)registers.R_BOVL) * 0.003125F;
-    BusUnderVolt = ((double)registers.R_BUVL) * 0.003125F;
-    ShuntOverCurrentLimit = ((double)registers.R_SOVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
-    ShuntUnderCurrentLimit = ((double)registers.R_SUVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
+    BusOverVolt = ((float)registers.R_BOVL) * 0.003125F;
+    BusUnderVolt = ((float)registers.R_BUVL) * 0.003125F;
+    ShuntOverCurrentLimit = ((float)registers.R_SOVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
+    ShuntUnderCurrentLimit = ((float)registers.R_SUVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current;
     // Shunt Over POWER LIMIT
-    PowerLimit = (double)registers.R_PWR_LIMIT * 256 * 3.2 * registers.CURRENT_LSB;
+    PowerLimit = (float)registers.R_PWR_LIMIT * 256 * 3.2 * registers.CURRENT_LSB;
     ShuntTemperatureCoefficient = registers.R_SHUNT_TEMPCO;
 
     CalculateAmpHourCounts();
@@ -286,11 +288,11 @@ void CurrentMonitorINA229::TakeReadings()
 
 uint16_t CurrentMonitorINA229::CalculateSOC()
 {
-    double milliamphour_in_scaled = ((double)milliamphour_in / 100.0) * registers.charge_efficiency_factor;
-    double milliamphour_batterycapacity = 1000.0 * (uint32_t)registers.batterycapacity_amphour;
-    double difference = milliamphour_in_scaled - milliamphour_out;
+    float milliamphour_in_scaled = ((float)milliamphour_in / 100.0) * registers.charge_efficiency_factor;
+    float milliamphour_batterycapacity = 1000.0 * (uint32_t)registers.batterycapacity_amphour;
+    float difference = milliamphour_in_scaled - milliamphour_out;
 
-    double answer = 100 * (difference / milliamphour_batterycapacity);
+    float answer = 100 * (difference / milliamphour_batterycapacity);
     if (answer < 0)
     {
         // We have taken more out of the battery than put in, so must be zero SoC (or more likely out of calibration)
@@ -303,7 +305,7 @@ uint16_t CurrentMonitorINA229::CalculateSOC()
     // Add a hard upper limit 999.99%
     if (SOC > 99999)
     {
-        SOC = 99999;
+        SOC = (uint16_t)99999;
     }
 
     return SOC;
@@ -404,7 +406,7 @@ void CurrentMonitorINA229::GuessSOC()
     // We apply a "guestimate" to SoC based on voltage - not really accurate, but somewhere to start
     // only applicable to 24V/48V (16S) LIFEPO4 setups. These voltages should be the unloaded (no current flowing) voltage.
     // Assumption that its LIFEPO4 cells we are using...
-    double v = BusVoltage();
+    float v = BusVoltage();
 
     if (v > 20 && v < 30)
     {
@@ -474,6 +476,14 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
         registers.R_SHUNT_CAL = shuntcal;
     }
 
+    ESP_LOGI(TAG, "shunt_millivolt %u", registers.shunt_millivolt);
+    ESP_LOGI(TAG, "shunt_max_current %u", registers.shunt_max_current);
+    ESP_LOGI(TAG, "fully_charged_voltage %f", registers.fully_charged_voltage);
+    ESP_LOGI(TAG, "batterycapacity_amphour %u", registers.batterycapacity_amphour);
+    ESP_LOGI(TAG, "tail_current_amps %f", registers.tail_current_amps);
+    ESP_LOGI(TAG, "charge_efficiency_factor %f", registers.charge_efficiency_factor);
+    ESP_LOGI(TAG, "SHUNT_CAL %u", registers.R_SHUNT_CAL);
+
     // This is not enabled by default
     // The 16 bit register provides a resolution of 1ppm/°C/LSB
     // Shunt Temperature Coefficient
@@ -488,7 +498,7 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
     // Bus under voltage protection
     registers.R_BUVL = (undervoltagelimit / 100) / 0.003125F;
     // temperature limit
-    registers.R_TEMP_LIMIT = (int16_t)temperaturelimit / (double)0.0078125;
+    registers.R_TEMP_LIMIT = (int16_t)temperaturelimit / (float)0.0078125;
 
     // Default Power limit = 5kW
     registers.R_PWR_LIMIT = (uint16_t)(overpowerlimit / 256.0 / 3.2 / registers.CURRENT_LSB);
