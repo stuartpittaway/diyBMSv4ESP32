@@ -182,13 +182,14 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         writeSetting(nvs_handle, "curMonMBAddress", settings->currentMonitoringModBusAddress);
         writeSetting(nvs_handle, "curMonDevice", (uint8_t)settings->currentMonitoringDevice);
 
+        //                        0123456789012345
         writeSetting(nvs_handle, "curMonshuntmv", settings->currentMonitoring_shuntmv);
-        writeSetting(nvs_handle, "curMonshuntmaxcur", settings->currentMonitoring_shuntmaxcur);
-        writeSetting(nvs_handle, "curMonbatterycap", settings->currentMonitoring_batterycapacity);
-        writeSetting(nvs_handle, "curMonfullchargeV", settings->currentMonitoring_fullchargevolt);
-        writeSetting(nvs_handle, "curMontailcurrent", settings->currentMonitoring_tailcurrent);
-        writeSetting(nvs_handle, "curMonchargeeff", settings->currentMonitoring_chargeefficiency);
-        writeSetting(nvs_handle, "curMonshuntcal", settings->currentMonitoring_shuntcal);
+        writeSetting(nvs_handle, "curMonShtMaxCur", settings->currentMonitoring_shuntmaxcur);
+        writeSetting(nvs_handle, "curMonBatCap", settings->currentMonitoring_batterycapacity);
+        writeSetting(nvs_handle, "curMonFullChgV", settings->currentMonitoring_fullchargevolt);
+        writeSetting(nvs_handle, "curMonTailCur", settings->currentMonitoring_tailcurrent);
+        writeSetting(nvs_handle, "curMonChargeEff", settings->currentMonitoring_chargeefficiency);
+        writeSetting(nvs_handle, "curMonShuntCal", settings->currentMonitoring_shuntcal);
         writeSetting(nvs_handle, "curMontemplimit", settings->currentMonitoring_temperaturelimit);
         writeSetting(nvs_handle, "curMonovervolt", settings->currentMonitoring_overvoltagelimit);
         writeSetting(nvs_handle, "curMonundervolt", settings->currentMonitoring_undervoltagelimit);
@@ -309,13 +310,13 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         getSetting(nvs_handle, "curMonDevice", (uint8_t *)&settings->currentMonitoringDevice);
 
         getSetting(nvs_handle, "curMonshuntmv", &settings->currentMonitoring_shuntmv);
-        getSetting(nvs_handle, "curMonshuntmaxcur", &settings->currentMonitoring_shuntmaxcur);
-        getSetting(nvs_handle, "curMonbatterycap", &settings->currentMonitoring_batterycapacity);
-        getSetting(nvs_handle, "curMonfullchargeV", &settings->currentMonitoring_fullchargevolt);
-        getSetting(nvs_handle, "curMontailcurrent", &settings->currentMonitoring_tailcurrent);
-        getSetting(nvs_handle, "curMonchargeeff", &settings->currentMonitoring_chargeefficiency);
+        getSetting(nvs_handle, "curMonShtMaxCur", &settings->currentMonitoring_shuntmaxcur);
+        getSetting(nvs_handle, "curMonBatCap", &settings->currentMonitoring_batterycapacity);
+        getSetting(nvs_handle, "curMonFullChgV", &settings->currentMonitoring_fullchargevolt);
+        getSetting(nvs_handle, "curMonTailCur", &settings->currentMonitoring_tailcurrent);
+        getSetting(nvs_handle, "curMonChargeEff", &settings->currentMonitoring_chargeefficiency);
 
-        getSetting(nvs_handle, "curMonshuntcal", &settings->currentMonitoring_shuntcal);
+        getSetting(nvs_handle, "curMonShuntCal", &settings->currentMonitoring_shuntcal);
         getSetting(nvs_handle, "curMontemplimit", &settings->currentMonitoring_temperaturelimit);
         getSetting(nvs_handle, "curMonovervolt", &settings->currentMonitoring_overvoltagelimit);
         getSetting(nvs_handle, "curMonundervolt", &settings->currentMonitoring_undervoltagelimit);
