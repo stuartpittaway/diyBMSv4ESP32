@@ -882,7 +882,7 @@ esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req, bool urlEncoded)
         // Switch off current monitor, clear out the values
         memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
         currentMonitor.validReadings = false;
-        mysettings.currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
+        mysettings.currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS;
         mysettings.currentMonitoringModBusAddress = 90;
     }
 

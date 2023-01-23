@@ -98,8 +98,9 @@ enum CanBusProtocolEmulation : uint8_t
 
 enum CurrentMonitorDevice : uint8_t
 {
-  DIYBMS_CURRENT_MON = 0x00,
-  PZEM_017 = 0x01
+  DIYBMS_CURRENT_MON_MODBUS = 0x00,
+  PZEM_017 = 0x01,
+  DIYBMS_CURRENT_MON_INTERNAL = 0x02
 };
 
 // Number of rules as defined in Rules.h (enum Rule)

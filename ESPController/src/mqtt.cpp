@@ -246,7 +246,7 @@ void MQTTCurrentMonitoring(currentmonitoring_struct *currentMonitor)
         status.append(",\"current\":").append(float_to_string(currentMonitor->modbus.current));
         status.append(",\"power\":").append(float_to_string(currentMonitor->modbus.power));
 
-        if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+        if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
         {
             status.append(",\"mAhIn\":").append(std::to_string(currentMonitor->modbus.milliamphour_in));
             status.append(",\"mAhOut\":").append(std::to_string(currentMonitor->modbus.milliamphour_out));

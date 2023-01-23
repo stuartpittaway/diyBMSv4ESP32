@@ -2019,7 +2019,7 @@ void currentMon_ResetDailyAmpHourCounters()
 
 bool CurrentMonitorSetSOC(float newSOC)
 {
-  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON && mysettings.currentMonitoringEnabled == true)
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS && mysettings.currentMonitoringEnabled == true)
   {
     ESP_LOGI(TAG, "Set SOC");
     currentMon_SetSOC(newSOC);
@@ -2031,7 +2031,7 @@ bool CurrentMonitorSetSOC(float newSOC)
 
 bool CurrentMonitorResetDailyAmpHourCounters()
 {
-  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON && mysettings.currentMonitoringEnabled == true)
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS && mysettings.currentMonitoringEnabled == true)
   {
     ESP_LOGI(TAG, "Reset daily Ah counter");
     currentMon_ResetDailyAmpHourCounters();
@@ -2050,7 +2050,7 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
   mysettings.currentMonitoring_tailcurrent = (uint16_t)(100 * tailcurrent);
   mysettings.currentMonitoring_chargeefficiency = (uint16_t)(100 * chargeefficiency);
 
-  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
   {
     currentMon_ConfigureBasic(mysettings.currentMonitoring_shuntmv, mysettings.currentMonitoring_shuntmaxcur, mysettings.currentMonitoring_batterycapacity, mysettings.currentMonitoring_fullchargevolt, mysettings.currentMonitoring_tailcurrent, mysettings.currentMonitoring_chargeefficiency);
   }
@@ -2696,7 +2696,7 @@ void rs485_rx(void *param)
             }
           }
           // ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
-          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
           {
             if (id == mysettings.currentMonitoringModBusAddress && cmd == 3)
             {
@@ -2758,7 +2758,7 @@ void rs485_tx(void *param)
 
     if (mysettings.currentMonitoringEnabled == true)
     {
-      if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+      if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
       {
         // This is the request we send to diyBMS current monitor, it pulls back 38 registers
         // this is all the registers diyBMS current monitor has

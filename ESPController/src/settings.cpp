@@ -435,7 +435,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
     _myset->currentMonitoringEnabled = false;
     _myset->currentMonitoringModBusAddress = 90;
-    _myset->currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
+    _myset->currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS;
 
     _myset->currentMonitoring_shuntmv = 50;
     _myset->currentMonitoring_shuntmaxcur = 150;
@@ -906,15 +906,6 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->currentMonitoring_undercurrentlimit = root["currentMonitoringUnderCurrent"];
     settings->currentMonitoring_overpowerlimit = root["currentMonitoringOverPower"];
     settings->currentMonitoring_shunttempcoefficient = root["currentMonitoringShuntTempCoeff"];
-
-    uint16_t currentMonitoring_shuntcal;
-    int16_t currentMonitoring_temperaturelimit;
-    int16_t currentMonitoring_overvoltagelimit;
-    int16_t currentMonitoring_undervoltagelimit;
-    int16_t currentMonitoring_overcurrentlimit;
-    int16_t currentMonitoring_undercurrentlimit;
-    uint16_t currentMonitoring_overpowerlimit;
-    uint16_t currentMonitoring_shunttempcoefficient;
 
     settings->rs485baudrate = root["rs485baudrate"];
     settings->rs485databits = root["rs485databits"];
