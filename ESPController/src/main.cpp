@@ -2381,8 +2381,8 @@ void ProcessDIYBMSCurrentMonitorInternal()
   currentMonitor.modbus.milliamphour_in = currentmon_internal.calc_milliamphour_in();
   currentMonitor.modbus.daily_milliamphour_out = currentmon_internal.calc_daily_milliamphour_out();
   currentMonitor.modbus.daily_milliamphour_in = currentmon_internal.calc_daily_milliamphour_in();
-  currentMonitor.modbus.firmwareversion = 0;
-  currentMonitor.modbus.firmwaredatetime = 0;
+  currentMonitor.modbus.firmwareversion = GIT_VERSION_B1<<16 + GIT_VERSION_B2;
+  currentMonitor.modbus.firmwaredatetime = COMPILE_DATE_TIME_UTC_EPOCH;
 
   currentMonitor.timestamp = esp_timer_get_time();
 
@@ -2454,7 +2454,8 @@ void ProcessDIYBMSCurrentMonitorInternal()
   currentMonitor.modbus.temperature = currentmon_internal.calc_temperature();
   currentMonitor.modbus.shunttempcoefficient = currentmon_internal.calc_shunttempcoefficient();
   currentMonitor.modbus.batterycapacityamphour = currentmon_internal.calc_batterycapacityAh();
-  currentMonitor.modbus.shuntmaxcurrent = currentmon_internal.calc_shuntmaxcurrent();;
+  currentMonitor.modbus.shuntmaxcurrent = currentmon_internal.calc_shuntmaxcurrent();
+  ;
   currentMonitor.modbus.shuntmillivolt = currentmon_internal.calc_shuntmillivolt();
   currentMonitor.modbus.shuntcal = currentmon_internal.calc_shuntcalibration();
   currentMonitor.modbus.modelnumber = 0x229;
@@ -3507,35 +3508,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   hal.CANBUSEnable(true);
   hal.ConfigureCAN();
 
-  if (hal.GetVSPIMutex())
-  {
-    if (currentmon_internal.Initialise(hal.VSPI_Ptr(), INA229_CHIPSELECT))
-    {
-      ESP_LOGI(TAG, "Onboard/internal current monitoring chip available");
-
-      currentmon_internal.Configure(
-          mysettings.currentMonitoring_shuntmv,
-          mysettings.currentMonitoring_shuntmaxcur,
-          mysettings.currentMonitoring_batterycapacity,
-          mysettings.currentMonitoring_fullchargevolt,
-          mysettings.currentMonitoring_tailcurrent,
-          mysettings.currentMonitoring_chargeefficiency,
-          mysettings.currentMonitoring_shuntcal,
-          mysettings.currentMonitoring_temperaturelimit,
-          mysettings.currentMonitoring_overvoltagelimit,
-          mysettings.currentMonitoring_undervoltagelimit,
-          mysettings.currentMonitoring_overcurrentlimit,
-          mysettings.currentMonitoring_undercurrentlimit,
-          mysettings.currentMonitoring_overpowerlimit,
-          mysettings.currentMonitoring_shunttempcoefficient);
-
-      currentmon_internal.GuessSOC();
-
-      currentmon_internal.TakeReadings();
-    }
-    hal.ReleaseVSPIMutex();
-  }
-
   if (!LittleFS.begin(false))
   {
     ESP_LOGE(TAG, "LittleFS mount failed, did you upload file system image?");
@@ -3574,6 +3546,40 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   {
     // We don't have a valid WIFI configuration, so force terminal based setup
     TerminalBasedWifiSetup();
+  }
+
+  // Check and configure internal current monitor (if it exists)
+  if (hal.GetVSPIMutex())
+  {
+    if (currentmon_internal.Initialise(hal.VSPI_Ptr(), INA229_CHIPSELECT))
+    {
+      ESP_LOGI(TAG, "Onboard/internal current monitoring chip available");
+
+      currentmon_internal.Configure(
+          mysettings.currentMonitoring_shuntmv,
+          mysettings.currentMonitoring_shuntmaxcur,
+          mysettings.currentMonitoring_batterycapacity,
+          mysettings.currentMonitoring_fullchargevolt,
+          mysettings.currentMonitoring_tailcurrent,
+          mysettings.currentMonitoring_chargeefficiency,
+          mysettings.currentMonitoring_shuntcal,
+          mysettings.currentMonitoring_temperaturelimit,
+          mysettings.currentMonitoring_overvoltagelimit,
+          mysettings.currentMonitoring_undervoltagelimit,
+          mysettings.currentMonitoring_overcurrentlimit,
+          mysettings.currentMonitoring_undercurrentlimit,
+          mysettings.currentMonitoring_overpowerlimit,
+          mysettings.currentMonitoring_shunttempcoefficient);
+
+      currentmon_internal.GuessSOC();
+
+      currentmon_internal.TakeReadings();
+    }
+    else
+    {
+      ESP_LOGI(TAG, "Onboard/internal current monitoring chip not installed");
+    }
+    hal.ReleaseVSPIMutex();
   }
 
   // Serial pins IO2/IO32
