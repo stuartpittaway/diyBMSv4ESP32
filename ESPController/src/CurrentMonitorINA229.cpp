@@ -51,6 +51,8 @@ void CurrentMonitorINA229::CalculateLSB()
     // (or shunt resistance tolerance)
     // You can always configure this value through the web gui - "Calibration" value.
     registers.R_SHUNT_CAL = ((uint32_t)registers.R_SHUNT_CAL * 985) / 1000;
+
+    ESP_LOGD(TAG, "RSHUNT=%f, CURRENT_LSB=%f, R_SHUNT_CAL=%u", registers.RSHUNT, registers.CURRENT_LSB, registers.R_SHUNT_CAL);
 }
 
 // Sets SOC by setting "fake" in/out amphour counts
@@ -430,7 +432,7 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
                                      int16_t undervoltagelimit,
                                      int32_t overcurrentlimit,
                                      int32_t undercurrentlimit,
-                                     uint32_t overpowerlimit,
+                                     int32_t overpowerlimit,
                                      uint16_t shunttempcoefficient)
 {
     registers.shunt_millivolt = shuntmv;
@@ -467,6 +469,8 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
 
     // Default Power limit = 5kW
     registers.R_PWR_LIMIT = (uint16_t)(overpowerlimit / 256.0F / 3.2F / registers.CURRENT_LSB);
+    ESP_LOGD(TAG, "overpowerlimit=%i",overpowerlimit);
+    ESP_LOGD(TAG, "R_PWR_LIMIT=%u",registers.R_PWR_LIMIT);
 
     // Configure other registers
     write16bits(INA_REGISTER::CONFIG, registers.R_CONFIG);

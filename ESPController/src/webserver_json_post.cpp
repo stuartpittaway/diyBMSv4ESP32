@@ -663,7 +663,6 @@ esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
 
     if (mysettings.currentMonitoringEnabled)
     {
-
         if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
         {
             CurrentMonitorSetRelaySettingsExternal(newvalues);

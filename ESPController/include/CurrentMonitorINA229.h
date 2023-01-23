@@ -238,7 +238,7 @@ public:
                    int16_t undervoltagelimit,
                    int32_t overcurrentlimit,
                    int32_t undercurrentlimit,
-                   uint32_t overpowerlimit,
+                   int32_t overpowerlimit,
                    uint16_t shunttempcoefficient);
 
     void GuessSOC();
@@ -250,8 +250,8 @@ public:
     uint32_t calc_daily_milliamphour_out() { return daily_milliamphour_out; }
     uint32_t calc_daily_milliamphour_in() { return daily_milliamphour_in; }
 
-    float charge_efficiency_factor() { return registers.charge_efficiency_factor; }
-    float state_of_charge() { return SOC / 100.0; }
+    float calc_charge_efficiency_factor() { return registers.charge_efficiency_factor; }
+    float calc_state_of_charge() { return SOC / 100.0; }
 
     float calc_voltage() { return voltage; }
     float calc_current() { return current; }
@@ -274,7 +274,7 @@ public:
     }
     float calc_overpowerlimit()
     {
-        return registers.R_PWR_LIMIT * 256 * 3.2F * registers.CURRENT_LSB;
+        return registers.R_PWR_LIMIT * 256.0F * 3.2F * registers.CURRENT_LSB;
     }
     float calc_overvoltagelimit() { return (float)registers.R_BOVL * 0.003125F; }
     float calc_undervoltagelimit() { return (float)registers.R_BUVL * 0.003125F; }
@@ -282,6 +282,12 @@ public:
     float calc_undercurrentlimit() { return ((float)registers.R_SUVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current; }
     uint16_t calc_alarmtriggerbitmap() { return registers.relay_trigger_bitmap; }
     bool calc_tempcompenabled() { return (registers.R_CONFIG & bit(5)) != 0; }
+
+    uint16_t calc_alerts()
+    {
+        registers.R_DIAG_ALRT = read16bits(INA_REGISTER::DIAG_ALRT);
+        return registers.R_DIAG_ALRT & ALL_ALERT_BITS;
+    }
 
 private:
     uint16_t SOC = 0;
