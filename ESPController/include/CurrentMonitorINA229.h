@@ -246,7 +246,7 @@ public:
     uint16_t calc_shunttempcoefficient() { return registers.R_SHUNT_TEMPCO; }
     float calc_tailcurrentamps() { return registers.tail_current_amps; }
     float calc_fullychargedvoltage() { return registers.fully_charged_voltage; }
-    float calc_shuntresistance() { return registers.RSHUNT; }
+    float calc_shuntresistance() { return 1000 *registers.RSHUNT; }
 
     uint16_t calc_shuntmillivolt() { return registers.shunt_millivolt; }
     uint16_t calc_shuntmaxcurrent() { return registers.shunt_max_current; }
