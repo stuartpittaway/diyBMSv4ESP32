@@ -2060,21 +2060,27 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
   {
-    currentmon_internal.Configure(
-        mysettings.currentMonitoring_shuntmv,
-        mysettings.currentMonitoring_shuntmaxcur,
-        mysettings.currentMonitoring_batterycapacity,
-        mysettings.currentMonitoring_fullchargevolt,
-        mysettings.currentMonitoring_tailcurrent,
-        mysettings.currentMonitoring_chargeefficiency,
-        mysettings.currentMonitoring_shuntcal,
-        mysettings.currentMonitoring_temperaturelimit,
-        mysettings.currentMonitoring_overvoltagelimit,
-        mysettings.currentMonitoring_undervoltagelimit,
-        mysettings.currentMonitoring_overcurrentlimit,
-        mysettings.currentMonitoring_undercurrentlimit,
-        mysettings.currentMonitoring_overpowerlimit,
-        mysettings.currentMonitoring_shunttempcoefficient);
+    if (hal.GetVSPIMutex())
+    {
+      currentmon_internal.Configure(
+          mysettings.currentMonitoring_shuntmv,
+          mysettings.currentMonitoring_shuntmaxcur,
+          mysettings.currentMonitoring_batterycapacity,
+          mysettings.currentMonitoring_fullchargevolt,
+          mysettings.currentMonitoring_tailcurrent,
+          mysettings.currentMonitoring_chargeefficiency,
+          mysettings.currentMonitoring_shuntcal,
+          mysettings.currentMonitoring_temperaturelimit,
+          mysettings.currentMonitoring_overvoltagelimit,
+          mysettings.currentMonitoring_undervoltagelimit,
+          mysettings.currentMonitoring_overcurrentlimit,
+          mysettings.currentMonitoring_undercurrentlimit,
+          mysettings.currentMonitoring_overpowerlimit,
+          mysettings.currentMonitoring_shunttempcoefficient,
+          mysettings.currentMonitoring_tempcompenabled);
+
+      hal.ReleaseVSPIMutex();
+    }
   }
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
@@ -2090,16 +2096,34 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
 // Save the current monitor advanced settings back to the internal device
 void CurrentMonitorSetRelaySettingsInternal(currentmonitoring_struct newvalues)
 {
-  currentmon_internal.SetAlarmTriggers(newvalues.TempCompEnabled,
-                                       newvalues.RelayTriggerTemperatureOverLimit,
-                                       newvalues.RelayTriggerCurrentOverLimit,
-                                       newvalues.RelayTriggerCurrentUnderLimit,
-                                       newvalues.RelayTriggerVoltageOverlimit,
-                                       newvalues.RelayTriggerVoltageUnderlimit,
-                                       newvalues.RelayTriggerPowerOverLimit);
+  // Internal current shunt doesn't support any of the relay trigger values
+  // so only TempCompEnabled is stored
+  if (hal.GetVSPIMutex())
+  {
+    mysettings.currentMonitoring_tempcompenabled = newvalues.TempCompEnabled;
 
-  mysettings.currentMonitoring_alarmtriggerbitmap = currentmon_internal.calc_alarmtriggerbitmap();
-  mysettings.currentMonitoring_tempcompenabled = currentmon_internal.calc_tempcompenabled();
+    currentmon_internal.Configure(
+        mysettings.currentMonitoring_shuntmv,
+        mysettings.currentMonitoring_shuntmaxcur,
+        mysettings.currentMonitoring_batterycapacity,
+        mysettings.currentMonitoring_fullchargevolt,
+        mysettings.currentMonitoring_tailcurrent,
+        mysettings.currentMonitoring_chargeefficiency,
+        mysettings.currentMonitoring_shuntcal,
+        mysettings.currentMonitoring_temperaturelimit,
+        mysettings.currentMonitoring_overvoltagelimit,
+        mysettings.currentMonitoring_undervoltagelimit,
+        mysettings.currentMonitoring_overcurrentlimit,
+        mysettings.currentMonitoring_undercurrentlimit,
+        mysettings.currentMonitoring_overpowerlimit,
+        mysettings.currentMonitoring_shunttempcoefficient,
+        mysettings.currentMonitoring_tempcompenabled);
+
+    mysettings.currentMonitoring_tempcompenabled = currentmon_internal.calc_tempcompenabled();
+
+    hal.ReleaseVSPIMutex();
+  }
+
   ValidateConfiguration(&mysettings);
   SaveConfiguration(&mysettings);
 }
@@ -2309,21 +2333,26 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
   {
-    currentmon_internal.Configure(
-        mysettings.currentMonitoring_shuntmv,
-        mysettings.currentMonitoring_shuntmaxcur,
-        mysettings.currentMonitoring_batterycapacity,
-        mysettings.currentMonitoring_fullchargevolt,
-        mysettings.currentMonitoring_tailcurrent,
-        mysettings.currentMonitoring_chargeefficiency,
-        mysettings.currentMonitoring_shuntcal,
-        mysettings.currentMonitoring_temperaturelimit,
-        mysettings.currentMonitoring_overvoltagelimit,
-        mysettings.currentMonitoring_undervoltagelimit,
-        mysettings.currentMonitoring_overcurrentlimit,
-        mysettings.currentMonitoring_undercurrentlimit,
-        mysettings.currentMonitoring_overpowerlimit,
-        mysettings.currentMonitoring_shunttempcoefficient);
+    if (hal.GetVSPIMutex())
+    {
+      currentmon_internal.Configure(
+          mysettings.currentMonitoring_shuntmv,
+          mysettings.currentMonitoring_shuntmaxcur,
+          mysettings.currentMonitoring_batterycapacity,
+          mysettings.currentMonitoring_fullchargevolt,
+          mysettings.currentMonitoring_tailcurrent,
+          mysettings.currentMonitoring_chargeefficiency,
+          mysettings.currentMonitoring_shuntcal,
+          mysettings.currentMonitoring_temperaturelimit,
+          mysettings.currentMonitoring_overvoltagelimit,
+          mysettings.currentMonitoring_undervoltagelimit,
+          mysettings.currentMonitoring_overcurrentlimit,
+          mysettings.currentMonitoring_undercurrentlimit,
+          mysettings.currentMonitoring_overpowerlimit,
+          mysettings.currentMonitoring_shunttempcoefficient,
+          mysettings.currentMonitoring_tempcompenabled);
+      hal.ReleaseVSPIMutex();
+    }
   }
 
   ESP_LOGD(TAG, "Advanced save settings");
@@ -2491,13 +2520,12 @@ void ProcessDIYBMSCurrentMonitorInternal()
   currentMonitor.ADCRange4096mV = true;
   // mysettings.currentMonitoring_tempcompenabled = currentmon_internal.calc_tempcompenabled();
 
-  uint16_t flag2 = currentmon_internal.calc_alarmtriggerbitmap();
-  currentMonitor.RelayTriggerTemperatureOverLimit = flag2 & bit(DIAG_ALRT_FIELD::TMPOL);
-  currentMonitor.RelayTriggerCurrentOverLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTOL);
-  currentMonitor.RelayTriggerCurrentUnderLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTUL);
-  currentMonitor.RelayTriggerVoltageOverlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSOL);
-  currentMonitor.RelayTriggerVoltageUnderlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSUL);
-  currentMonitor.RelayTriggerPowerOverLimit = flag2 & bit(DIAG_ALRT_FIELD::POL);
+  currentMonitor.RelayTriggerTemperatureOverLimit = false;
+  currentMonitor.RelayTriggerCurrentOverLimit = false;
+  currentMonitor.RelayTriggerCurrentUnderLimit = false;
+  currentMonitor.RelayTriggerVoltageOverlimit = false;
+  currentMonitor.RelayTriggerVoltageUnderlimit = false;
+  currentMonitor.RelayTriggerPowerOverLimit = false;
   currentMonitor.RelayState = false;
 
   currentMonitor.modbus.temperature = currentmon_internal.calc_temperature();
@@ -2522,7 +2550,7 @@ void ProcessDIYBMSCurrentMonitorInternal()
   currentMonitor.modbus.overcurrentlimit = currentmon_internal.calc_overcurrentlimit();
   currentMonitor.modbus.undercurrentlimit = currentmon_internal.calc_undercurrentlimit();
 
-//uint16_t flags;
+  // uint16_t flags;
 
   currentMonitor.validReadings = true;
   TimeToSoCCalculation();
@@ -2935,8 +2963,12 @@ void rs485_tx(void *param)
         if (currentmon_internal.Available())
         {
           // Take readings from internal INA229 chip (on controller board)
-          currentmon_internal.TakeReadings();
-          ProcessDIYBMSCurrentMonitorInternal();
+          if (hal.GetVSPIMutex())
+          {
+            currentmon_internal.TakeReadings();
+            ProcessDIYBMSCurrentMonitorInternal();
+            hal.ReleaseVSPIMutex();
+          }
         }
         else
         {
@@ -3631,10 +3663,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
           mysettings.currentMonitoring_overcurrentlimit,
           mysettings.currentMonitoring_undercurrentlimit,
           mysettings.currentMonitoring_overpowerlimit,
-          mysettings.currentMonitoring_shunttempcoefficient);
-
-      currentmon_internal.SetAlarmTriggers(mysettings.currentMonitoring_tempcompenabled,
-                                           mysettings.currentMonitoring_alarmtriggerbitmap);
+          mysettings.currentMonitoring_shunttempcoefficient,
+          mysettings.currentMonitoring_tempcompenabled);
 
       currentmon_internal.GuessSOC();
 

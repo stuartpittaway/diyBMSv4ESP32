@@ -66,10 +66,6 @@ class CurrentMonitorINA229
         // Resistance of SHUNT in OHMS
         float RSHUNT;
 
-        // Holds what alert events trigger the relay to turn on/high
-        // uses the same values/mapping as enum DIAG_ALRT_FIELD
-        uint16_t relay_trigger_bitmap;
-
         uint16_t shunt_max_current;
         uint16_t shunt_millivolt;
         uint16_t batterycapacity_amphour;
@@ -102,8 +98,10 @@ class CurrentMonitorINA229
         // Alert triggers
         DIAG_ALRT = 0x0b,
         // Shunt Overvoltage Threshold
+        // overcurrent protection
         SOVL = 0x0c,
         // Shunt Undervoltage Threshold
+        // undercurrent protection
         SUVL = 0x0d,
         // Bus Overvoltage Threshold
         BOVL = 0x0e,
@@ -216,13 +214,6 @@ public:
     {
         return INA229Installed;
     }
-    void SetAlarmTriggers(bool TempCompEnabled,
-                          bool RelayTriggerTemperatureOverLimit,
-                          bool RelayTriggerCurrentOverLimit,
-                          bool RelayTriggerCurrentUnderLimit,
-                          bool RelayTriggerVoltageOverlimit,
-                          bool RelayTriggerVoltageUnderlimit,
-                          bool RelayTriggerPowerOverLimit);
 
     bool Initialise(SPIClass *SPI, uint8_t cs_pin);
 
@@ -239,11 +230,11 @@ public:
                    int32_t overcurrentlimit,
                    int32_t undercurrentlimit,
                    int32_t overpowerlimit,
-                   uint16_t shunttempcoefficient);
+                   uint16_t shunttempcoefficient,
+                   bool TemperatureCompEnabled);
 
     void GuessSOC();
     void TakeReadings();
-    void SetAlarmTriggers(bool TempCompEnabled, uint16_t bitmap);
 
     uint32_t calc_milliamphour_out() { return milliamphour_out - milliamphour_out_offset; }
     uint32_t calc_milliamphour_in() { return milliamphour_in - milliamphour_in_offset; }
@@ -270,17 +261,17 @@ public:
     int16_t calc_temperaturelimit()
     {
         // Case unsigned to int16 to cope with negative temperatures
-        return (int16_t)registers.R_TEMP_LIMIT * (float)0.0078125;
+        return ConvertFrom2sComp(registers.R_TEMP_LIMIT) * (float)0.0078125;
     }
     float calc_overpowerlimit()
     {
-        return registers.R_PWR_LIMIT * 256.0F * 3.2F * registers.CURRENT_LSB;
+        return ConvertFrom2sComp(registers.R_PWR_LIMIT) * 256.0F * 3.2F * registers.CURRENT_LSB;
     }
-    float calc_overvoltagelimit() { return (float)registers.R_BOVL * 0.003125F; }
-    float calc_undervoltagelimit() { return (float)registers.R_BUVL * 0.003125F; }
-    float calc_overcurrentlimit() { return ((float)registers.R_SOVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current; }
-    float calc_undercurrentlimit() { return ((float)registers.R_SUVL / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current; }
-    uint16_t calc_alarmtriggerbitmap() { return registers.relay_trigger_bitmap; }
+    float calc_overvoltagelimit() { return (float)ConvertFrom2sComp(registers.R_BOVL) * 0.003125F; }
+    float calc_undervoltagelimit() { return (float)ConvertFrom2sComp(registers.R_BUVL) * 0.003125F; }
+    float calc_overcurrentlimit() { return ((float)ConvertFrom2sComp(registers.R_SOVL) / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current; }
+    float calc_undercurrentlimit() { return ((float)ConvertFrom2sComp(registers.R_SUVL) / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current; }
+
     bool calc_tempcompenabled() { return (registers.R_CONFIG & bit(5)) != 0; }
 
     uint16_t calc_alerts()
@@ -351,6 +342,43 @@ private:
     void CalculateAmpHourCounts();
     uint16_t CalculateSOC();
 
+    // Convert an int16 to a uint16 2 compliment value
+    uint16_t ConvertTo2sComp(int16_t value)
+    {
+        if (value >= 0)
+        {
+            return (uint16_t)value;
+        }
+
+        uint16_t v = -value;
+        ESP_LOGI(TAG, "uint16 v=%u", v);
+
+        v = v - 1;
+        v = ~v;
+        v = v | 0x8000U;
+        return v;
+    }
+
+    // Convert a 2 compliemnt uint16 to a signed int16 value
+    int16_t ConvertFrom2sComp(uint16_t value)
+    {
+        int16_t v = (int16_t)value;
+
+        if (value & 0x8000U == 0)
+        {
+            // Positive number, just return it
+            return v;
+        }
+
+        // Invert
+        value = ~value;
+        // Add 1
+        value = value + 1;
+        // Return NEGATIVE of the value
+        v = -value;
+        return v;
+    }
+
     // Calculated power output.  Output value in watts. Unsigned representation. Positive value.
     float Power()
     {
@@ -366,14 +394,14 @@ private:
         // Internal die temperature measurement.
         // Case unsigned to int16 to cope with negative temperatures
         // Two's complement value. Conversion factor: 7.8125 m°C/LSB
-        float dietemp = (int16_t)read16bits(INA_REGISTER::DIETEMP);
+        float dietemp = ConvertFrom2sComp(read16bits(INA_REGISTER::DIETEMP));
         return dietemp * (float)0.0078125;
     }
 
     float TemperatureLimit()
     {
         // Case unsigned to int16 to cope with negative temperatures
-        float temp = (int16_t)read16bits(INA_REGISTER::TEMP_LIMIT);
+        float temp = ConvertFrom2sComp(read16bits(INA_REGISTER::TEMP_LIMIT));
         return temp * (float)0.0078125;
     }
 

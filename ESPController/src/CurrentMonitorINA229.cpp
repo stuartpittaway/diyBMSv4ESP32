@@ -94,7 +94,7 @@ uint16_t CurrentMonitorINA229::read16bits(INA_REGISTER r)
     digitalWrite(chipselectpin, HIGH);
     SPI_Ptr->endTransaction();
 
-    ESP_LOGD(TAG, "Read register 0x%02x = 0x%04x", r, value);
+    //ESP_LOGD(TAG, "Read register 0x%02x = 0x%04x", r, value);
     return value;
 }
 
@@ -111,13 +111,14 @@ uint16_t CurrentMonitorINA229::write16bits(INA_REGISTER r, uint16_t value)
     digitalWrite(chipselectpin, HIGH);
     SPI_Ptr->endTransaction();
 
-    ESP_LOGD(TAG, "Write register 0x%02x = 0x%04x (old value=0x%04x)", r, value, retvalue);
+    //ESP_LOGD(TAG, "Write register 0x%02x = 0x%04x (old value=0x%04x)", r, value, retvalue);
     // retvalue is the PREVIOUS value stored in the register
     return retvalue;
 }
 
+// Reads 3 bytes from SPI bus, and returns them in a uint32 (lower 24 bits)
 uint32_t CurrentMonitorINA229::spi_readUint24(INA_REGISTER r)
-{
+{    
     SPI_Ptr->beginTransaction(_spisettings);
     digitalWrite(chipselectpin, LOW);
     SPI_Ptr->write(readRegisterValue(r));
@@ -129,7 +130,7 @@ uint32_t CurrentMonitorINA229::spi_readUint24(INA_REGISTER r)
 
     uint32_t value = ((uint32_t)a << 16) | ((uint32_t)b << 8) | ((uint32_t)c);
 
-    ESP_LOGD(TAG, "Read register 0x%02x = 0x%08x", r, value);
+    //ESP_LOGD(TAG, "Read register 0x%02x = 0x%08x", r, value);
     return value;
 }
 
@@ -155,7 +156,7 @@ int64_t CurrentMonitorINA229::spi_readInt40(INA_REGISTER r)
     reply += (uint64_t)d << 8;
     reply += (uint64_t)e;
 
-    ESP_LOGD(TAG, "Read register 0x%02x");
+    //ESP_LOGD(TAG, "Read register 0x%02x");
 
     // Cast to signed integer (which also sorts out the negative sign if applicable)
     return (int64_t)reply;
@@ -180,11 +181,11 @@ uint64_t CurrentMonitorINA229::spi_readUint40(INA_REGISTER r)
     value += (uint64_t)d << 8;
     value += (uint64_t)e;
 
-    ESP_LOGD(TAG, "Read register 0x%02x", r);
+    //ESP_LOGD(TAG, "Read register 0x%02x", r);
     return value;
 }
 
-// Read a 24 bit (3 byte) unsigned integer into a uint32
+// Read a 24 bit (3 byte) unsigned integer into a uint32 (including right shift 4 bits)
 uint32_t CurrentMonitorINA229::readUInt24(INA_REGISTER r)
 {
     return spi_readUint24(r) >> 4;
@@ -203,8 +204,7 @@ float CurrentMonitorINA229::Energy()
 // NEGATIVE value means battery is being charged
 int32_t CurrentMonitorINA229::ChargeInCoulombsAsInt()
 {
-    // Calculated charge output. Output value is in Coulombs.Two's complement value.  40bit number
-    // int64 on an 8 bit micro!
+    // Calculated charge output. Output value is in Coulombs.Two's complement value.  40bit number stored in int64 
     return registers.CURRENT_LSB * (float)spi_readInt40(INA_REGISTER::CHARGE);
 }
 
@@ -247,7 +247,8 @@ float CurrentMonitorINA229::ShuntVoltage()
 {
     // 78.125 nV/LSB when ADCRANGE = 1
     // Differential voltage measured across the shunt output. Two's complement value.
-    return (float)((uint64_t)readInt20(INA_REGISTER::VSHUNT) * 78125) / 1000000000.0;
+    // 20 bit value max = 1048575
+    return (float)((uint64_t)readInt20(INA_REGISTER::VSHUNT) * 78125UL) / 1000000000.0;
 }
 
 void CurrentMonitorINA229::TakeReadings()
@@ -433,7 +434,8 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
                                      int32_t overcurrentlimit,
                                      int32_t undercurrentlimit,
                                      int32_t overpowerlimit,
-                                     uint16_t shunttempcoefficient)
+                                     uint16_t shunttempcoefficient,
+                                     bool TemperatureCompEnabled)
 {
     registers.shunt_millivolt = shuntmv;
     registers.shunt_max_current = shuntmaxcur;
@@ -453,24 +455,35 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
 
     // This is not enabled by default
     // The 16 bit register provides a resolution of 1ppm/°C/LSB
-    // Shunt Temperature Coefficient
-    registers.R_SHUNT_TEMPCO = shunttempcoefficient;
+    // Shunt Temperature Coefficient - 3FFF is maximum
+    registers.R_SHUNT_TEMPCO = shunttempcoefficient & 0x3FFF;
 
-    // Shunt Over Limit (current limit)
-    registers.R_SOVL = (((float)overcurrentlimit / 100.0F) * 1000 / 1.25) * full_scale_adc / registers.shunt_max_current;
-    // Shunt UNDER Limit (under current limit)
-    registers.R_SUVL = (((float)undercurrentlimit / 100.0F) * 1000 / 1.25) * full_scale_adc / registers.shunt_max_current;
+    // Shunt Over Limit (current limit) = overcurrent protection
+    registers.R_SOVL = ConvertTo2sComp((((float)overcurrentlimit / 100.0F) * 1000.0F / 1.25F) * full_scale_adc / registers.shunt_max_current);
+    // Shunt UNDER Limit (under current limit) = undercurrent protection
+    registers.R_SUVL = ConvertTo2sComp((((float)undercurrentlimit / 100.0F) * 1000.0F / 1.25F) * full_scale_adc / registers.shunt_max_current);
     // Bus Overvoltage (overvoltage protection).
-    registers.R_BOVL = ((float)overvoltagelimit / 100.0F) / 0.003125F;
+    registers.R_BOVL = ConvertTo2sComp(((float)overvoltagelimit / 100.0F) / 0.003125F);
     // Bus under voltage protection
-    registers.R_BUVL = ((float)undervoltagelimit / 100.0F) / 0.003125F;
+    registers.R_BUVL = ConvertTo2sComp(((float)undervoltagelimit / 100.0F) / 0.003125F);
     // temperature limit
     registers.R_TEMP_LIMIT = (int16_t)temperaturelimit / (float)0.0078125;
 
     // Default Power limit = 5kW
     registers.R_PWR_LIMIT = (uint16_t)(overpowerlimit / 256.0F / 3.2F / registers.CURRENT_LSB);
-    ESP_LOGD(TAG, "overpowerlimit=%i",overpowerlimit);
-    ESP_LOGD(TAG, "R_PWR_LIMIT=%u",registers.R_PWR_LIMIT);
+
+    ESP_LOGI(TAG, "undercurrentlimit=%f, R_SUVL=%u", ((float)undercurrentlimit / 100.0F), registers.R_SUVL);
+
+    if (TemperatureCompEnabled)
+    {
+        // Set bit
+        registers.R_CONFIG |= bit(5);
+    }
+    else
+    {
+        // Clear bit
+        registers.R_CONFIG &= ~bit(5);
+    }
 
     // Configure other registers
     write16bits(INA_REGISTER::CONFIG, registers.R_CONFIG);
@@ -533,58 +546,4 @@ void CurrentMonitorINA229::SetINA229Registers()
     write16bits(INA_REGISTER::BUVL, registers.R_BUVL);
     write16bits(INA_REGISTER::TEMP_LIMIT, registers.R_TEMP_LIMIT);
     write16bits(INA_REGISTER::PWR_LIMIT, registers.R_PWR_LIMIT);
-}
-
-void CurrentMonitorINA229::SetAlarmTriggers(bool TempCompEnabled, uint16_t bitmap)
-{
-    if (TempCompEnabled)
-    {
-        // Set bit
-        registers.R_CONFIG |= bit(5);
-    }
-    else
-    {
-        // Clear bit
-        registers.R_CONFIG &= ~bit(5);
-    }
-
-    registers.relay_trigger_bitmap = bitmap & ALL_ALERT_BITS;
-
-    // Set CONFIG and ADC_CONFIG
-    SetINA229ConfigurationRegisters();
-}
-
-void CurrentMonitorINA229::SetAlarmTriggers(bool TempCompEnabled,
-                                            bool RelayTriggerTemperatureOverLimit,
-                                            bool RelayTriggerCurrentOverLimit,
-                                            bool RelayTriggerCurrentUnderLimit,
-                                            bool RelayTriggerVoltageOverlimit,
-                                            bool RelayTriggerVoltageUnderlimit,
-                                            bool RelayTriggerPowerOverLimit)
-{
-
-    if (TempCompEnabled)
-    {
-        // Set bit
-        registers.R_CONFIG |= bit(5);
-    }
-    else
-    {
-        // Clear bit
-        registers.R_CONFIG &= ~bit(5);
-    }
-
-    // Apply new settings
-    uint8_t flag2 = 0;
-    flag2 += RelayTriggerTemperatureOverLimit ? bit(DIAG_ALRT_FIELD::TMPOL) : 0;
-    flag2 += RelayTriggerCurrentOverLimit ? bit(DIAG_ALRT_FIELD::SHNTOL) : 0;
-    flag2 += RelayTriggerCurrentUnderLimit ? bit(DIAG_ALRT_FIELD::SHNTUL) : 0;
-    flag2 += RelayTriggerVoltageOverlimit ? bit(DIAG_ALRT_FIELD::BUSOL) : 0;
-    flag2 += RelayTriggerVoltageUnderlimit ? bit(DIAG_ALRT_FIELD::BUSUL) : 0;
-    flag2 += RelayTriggerPowerOverLimit ? bit(DIAG_ALRT_FIELD::POL) : 0;
-
-    registers.relay_trigger_bitmap = flag2 & ALL_ALERT_BITS;
-
-    // Set CONFIG and ADC_CONFIG
-    SetINA229ConfigurationRegisters();
 }

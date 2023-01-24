@@ -197,7 +197,6 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         writeSetting(nvs_handle, "curMonundercur", settings->currentMonitoring_undercurrentlimit);
         writeSetting(nvs_handle, "curMonoverpower", settings->currentMonitoring_overpowerlimit);
         writeSetting(nvs_handle, "curMontempcoef", settings->currentMonitoring_shunttempcoefficient);
-        writeSetting(nvs_handle, "curMonAlarmTrig", settings->currentMonitoring_alarmtriggerbitmap);
         writeSetting(nvs_handle, "curMonTempCompE", settings->currentMonitoring_tempcompenabled);
 
         writeSetting(nvs_handle, "485baudrate", settings->rs485baudrate);
@@ -326,7 +325,6 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         getSetting(nvs_handle, "curMonundercur", &settings->currentMonitoring_undercurrentlimit);
         getSetting(nvs_handle, "curMonoverpower", &settings->currentMonitoring_overpowerlimit);
         getSetting(nvs_handle, "curMontempcoef", &settings->currentMonitoring_shunttempcoefficient);
-        getSetting(nvs_handle, "curMonAlarmTrig", &settings->currentMonitoring_alarmtriggerbitmap);
         getSetting(nvs_handle, "curMonTempCompE", &settings->currentMonitoring_tempcompenabled);
 
         getSetting(nvs_handle, "485baudrate", &settings->rs485baudrate);
@@ -457,7 +455,6 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->currentMonitoring_overpowerlimit = 5000;      // 5000W
     _myset->currentMonitoring_shunttempcoefficient = 15;
     _myset->currentMonitoring_tempcompenabled = false; // Disabled
-    _myset->currentMonitoring_alarmtriggerbitmap = bit(6) | bit(5) | bit(4) | bit(3);
 
     _myset->rs485baudrate = 19200;
     _myset->rs485databits = uart_word_length_t::UART_DATA_8_BITS;
@@ -765,7 +762,6 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root["currentMonitoringUnderCurrent"] = settings->currentMonitoring_undercurrentlimit;
     root["currentMonitoringOverPower"] = settings->currentMonitoring_overpowerlimit;
     root["currentMonitoringShuntTempCoeff"] = settings->currentMonitoring_shunttempcoefficient;
-    root["currentMonitoringAlarmTriggerBitmap"] = settings->currentMonitoring_alarmtriggerbitmap;
     root["currentMonitoringTempCompEnable"] = settings->currentMonitoring_tempcompenabled;
 
     root["rs485baudrate"] = settings->rs485baudrate;
@@ -915,7 +911,6 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->currentMonitoring_undercurrentlimit = root["currentMonitoringUnderCurrent"];
     settings->currentMonitoring_overpowerlimit = root["currentMonitoringOverPower"];
     settings->currentMonitoring_shunttempcoefficient = root["currentMonitoringShuntTempCoeff"];
-    settings->currentMonitoring_alarmtriggerbitmap = root["currentMonitoringAlarmTriggerBitmap"];
     settings->currentMonitoring_tempcompenabled = root["currentMonitoringTempCompEnable"];
 
     settings->rs485baudrate = root["rs485baudrate"];
