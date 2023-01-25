@@ -2209,25 +2209,29 @@ Flag 2
 }
 
 // Calculate estimated time to various % SoC
-// This would be better to use an averaged current over a 3 or 5 minute period to avoid jumps in the readings
 void TimeToSoCCalculation()
 {
-  // ESP_LOGD(TAG, "SoC time estimation");
+  // Ideally this current value would be averaged over the past few minutes
+  float current = currentMonitor.modbus.current;
+
+  time20 = 0;
+  time10 = 0;
+  time100 = 0;
 
   // Avoid divide by zero errors
-  if (currentMonitor.modbus.current == 0)
+  if (current == 0)
     return;
 
   // Calculate how "full" the battery is based on SoC %
   float now_capacity_ah = currentMonitor.modbus.batterycapacityamphour / 100.0 * currentMonitor.stateofcharge;
 
   // Target 100% - only if we are charging
-  if (currentMonitor.stateofcharge < 100.0 && currentMonitor.modbus.current > 0)
+  if (currentMonitor.stateofcharge < 100.0 && current > 0)
   {
     // Gap between now and 100%
     float empty_ah = currentMonitor.modbus.batterycapacityamphour - now_capacity_ah;
     // Use instantaneous current value to predict amp-hour (in number of seconds)
-    time100 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+    time100 = (empty_ah / abs(current)) * 60 * 60;
   }
   else
   {
@@ -2235,11 +2239,11 @@ void TimeToSoCCalculation()
   }
 
   // Target 20% - only if we are discharging
-  if (currentMonitor.stateofcharge > 20.0 && currentMonitor.modbus.current < 0)
+  if (currentMonitor.stateofcharge > 20.0 && current < 0)
   {
     // Gap between now and 20%
     float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.20);
-    time20 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+    time20 = (empty_ah / abs(current)) * 60 * 60;
   }
   else
   {
@@ -2247,13 +2251,29 @@ void TimeToSoCCalculation()
   }
 
   // Target 10% - only if we are discharging
-  if (currentMonitor.stateofcharge > 10.0 && currentMonitor.modbus.current < 0)
+  if (currentMonitor.stateofcharge > 10.0 && current < 0)
   {
     // Gap between now and 10%
     float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.10);
-    time10 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+    time10 = (empty_ah / abs(current)) * 60 * 60;
   }
   else
+  {
+    time10 = 0;
+  }
+
+  // Sensible maximums to avoid silly timespans - limit anything over 10 days remaining...
+  const uint32_t limit = 10 * 86400U;
+
+  if (time100 > limit)
+  {
+    time100 = 0;
+  }
+  if (time20 > limit)
+  {
+    time20 = 0;
+  }
+  if (time10 > limit)
   {
     time10 = 0;
   }
@@ -2477,21 +2497,6 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
   currentMonitor.validReadings = true;
 
   TimeToSoCCalculation();
-
-  /*
-  ESP_LOGD(TAG, "WDog = %u", currentMonitor.modbus.watchdogcounter);
-  ESP_LOGD(TAG, "SOC = %i", currentMonitor.stateofcharge);
-
-  ESP_LOGD(TAG, "Volt = %f", currentMonitor.modbus.voltage);
-  ESP_LOGD(TAG, "Curr = %f", currentMonitor.modbus.current);
-  ESP_LOGD(TAG, "Temp = %i", currentMonitor.modbus.temperature);
-
-  ESP_LOGD(TAG, "Out = %f", currentMonitor.modbus.milliamphour_in);
-  ESP_LOGD(TAG, "In = %f", currentMonitor.modbus.milliamphour_out);
-
-  ESP_LOGD(TAG, "Ver = %x", currentMonitor.modbus.firmwareversion);
-  ESP_LOGD(TAG, "Date = %u", currentMonitor.modbus.firmwaredatetime);
-*/
 }
 
 // Extract onboard/internal current monitor values into our internal STRUCTURE variables
