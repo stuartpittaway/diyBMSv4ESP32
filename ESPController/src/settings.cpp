@@ -3,6 +3,86 @@ static constexpr const char *const TAG = "diybms-set";
 
 #include "settings.h"
 
+static const char totalNumberOfBanks_JSONKEY[] = "totalNumberOfBanks";
+static const char totalNumberOfSeriesModules_JSONKEY[] = "totalNumberOfSeriesModules";
+
+/* NVS KEYS
+THESE STRINGS ARE USED TO HOLD THE PARAMETER IN NVS FLASH, MAXIMUM LENGTH OF 16 CHARACTERS
+*/
+static const char totalNumberOfBanks_NVSKEY[] = "totalBanks";
+static const char totalNumberOfSeriesModules_NVSKEY[] = "totalSeriesMod";
+static const char baudRate_NVSKEY[] = "baudRate";
+static const char interpacketgap_NVSKEY[] = "interpacketgap";
+static const char rulevalue_NVSKEY[] = "rulevalue";
+static const char rulehysteresis_NVSKEY[] = "rulehysteresis";
+static const char rulerelaystate_NVSKEY[] = "rulerelaystate";
+static const char rulerelaydefault_NVSKEY[] = "rulerelaydef";
+static const char relaytype_NVSKEY[] = "relaytype";
+static const char graph_voltagehigh_NVSKEY[] = "g_voltagehigh";
+static const char graph_voltagelow_NVSKEY[] = "g_voltagelow";
+static const char BypassOverTempShutdown_NVSKEY[] = "BypassOverTemp";
+static const char BypassThresholdmV_NVSKEY[] = "BypassThresmV";
+static const char timeZone_NVSKEY[] = "TZ";
+static const char minutesTimeZone_NVSKEY[] = "minutesTZ";
+static const char daylight_NVSKEY[] = "daylight";
+static const char loggingEnabled_NVSKEY[] = "logEnabled";
+static const char loggingFrequencySeconds_NVSKEY[] = "logFreqSec";
+static const char currentMonitoringEnabled_NVSKEY[] = "curMonEnabled";
+static const char currentMonitoringModBusAddress_NVSKEY[] = "curMonMBAddress";
+static const char currentMonitoringDevice_NVSKEY[] = "curMonDevice";
+static const char rs485baudrate_NVSKEY[] = "485baudrate";
+static const char rs485databits_NVSKEY[] = "485databits";
+static const char rs485parity_NVSKEY[] = "485parity";
+static const char rs485stopbits_NVSKEY[] = "485stopbits";
+static const char canbusprotocol_NVSKEY[] = "canbusprotocol";
+static const char nominalbatcap_NVSKEY[] = "nominalbatcap";
+static const char chargevolt_NVSKEY[] = "cha_volt";
+static const char chargecurrent_NVSKEY[] = "cha_current";
+static const char dischargecurrent_NVSKEY[] = "dis_current";
+static const char dischargevolt_NVSKEY[] = "dis_volt";
+static const char cellminmv_NVSKEY[] = "cellminmv";
+static const char cellmaxmv_NVSKEY[] = "cellmaxmv";
+static const char kneemv_NVSKEY[] = "kneemv";
+static const char sensitivity_NVSKEY[] = "sensitivity";
+static const char current_value1_NVSKEY[] = "cur_val1";
+static const char current_value2_NVSKEY[] = "cur_val2";
+static const char cellmaxspikemv_NVSKEY[] = "cellmaxspikemv";
+static const char chargetemplow_NVSKEY[] = "cha_templow";
+static const char chargetemphigh_NVSKEY[] = "cha_temphigh";
+static const char dischargetemplow_NVSKEY[] = "dis_templow";
+static const char dischargetemphigh_NVSKEY[] = "dis_temphigh";
+static const char stopchargebalance_NVSKEY[] = "stopchargebal";
+static const char socoverride_NVSKEY[] = "socoverride";
+static const char socforcelow_NVSKEY[] = "socforcelow";
+static const char dynamiccharge_NVSKEY[] = "dynamiccharge";
+static const char preventcharging_NVSKEY[] = "preventchar";
+static const char preventdischarge_NVSKEY[] = "preventdis";
+static const char mqtt_enabled_NVSKEY[] = "mqttenable";
+static const char influxdb_enabled_NVSKEY[] = "infenabled";
+static const char influxdb_loggingFreqSeconds_NVSKEY[] = "inflogFreq";
+static const char tileconfig_NVSKEY[] = "tileconfig";
+static const char ntpServer_NVSKEY[] = "ntpServer";
+static const char language_NVSKEY[] = "language";
+static const char mqtt_uri_NVSKEY[] = "mqtt_uri";
+static const char mqtt_topic_NVSKEY[] = "mqtt_topic";
+static const char mqtt_username_NVSKEY[] = "mqtt_usern";
+static const char mqtt_password_NVSKEY[] = "mqtt_pword";
+static const char influxdb_serverurl_NVSKEY[] = "inf_serverurl";
+static const char influxdb_databasebucket_NVSKEY[] = "inf_bucket";
+static const char influxdb_apitoken_NVSKEY[] = "inf_apitoken";
+static const char influxdb_orgid_NVSKEY[] = "inf_orgid";
+
+#define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
+#define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
+#define MACRO_NVSWRITESTRING(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, &settings->VARNAME[0]);
+#define MACRO_NVSWRITEBLOB(VARNAME) writeSettingBlob(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME, sizeof(settings->VARNAME));
+
+// Macros to read NVS keys into variables
+#define MACRO_NVSREAD(VARNAME) getSetting(nvs_handle, VARNAME##_NVSKEY, &settings->VARNAME);
+#define MACRO_NVSREAD_UINT8(VARNAME) getSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t *)&settings->VARNAME);
+#define MACRO_NVSREADSTRING(VARNAME) getString(nvs_handle, VARNAME##_NVSKEY, &settings->VARNAME[0], sizeof(settings->VARNAME));
+#define MACRO_NVSREADBLOB(VARNAME) getSettingBlob(nvs_handle, VARNAME##_NVSKEY, &settings->VARNAME, sizeof(settings->VARNAME));
+
 bool ValidateGetSetting(esp_err_t err, const char *key)
 {
     switch (err)
@@ -155,83 +235,78 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
     }
     else
     {
+
         // Save settings
-        writeSetting(nvs_handle, "totalBanks", settings->totalNumberOfBanks);
-        writeSetting(nvs_handle, "totalSeriesMod", settings->totalNumberOfSeriesModules);
-        writeSetting(nvs_handle, "baudRate", settings->baudRate);
-        writeSetting(nvs_handle, "interpacketgap", settings->interpacketgap);
-        writeSettingBlob(nvs_handle, "rulevalue", settings->rulevalue, sizeof(settings->rulevalue));
-        writeSettingBlob(nvs_handle, "rulehysteresis", settings->rulehysteresis, sizeof(settings->rulehysteresis));
-        writeSettingBlob(nvs_handle, "rulerelaystate", settings->rulerelaystate, sizeof(settings->rulerelaystate));
-        writeSettingBlob(nvs_handle, "rulerelaydef", settings->rulerelaydefault, sizeof(settings->rulerelaydefault));
-        writeSettingBlob(nvs_handle, "relaytype", settings->relaytype, sizeof(settings->relaytype));
+        MACRO_NVSWRITE(totalNumberOfBanks)
+        MACRO_NVSWRITE(totalNumberOfSeriesModules)
+        MACRO_NVSWRITE(baudRate)
+        MACRO_NVSWRITE(interpacketgap)
 
-        writeSetting(nvs_handle, "g_voltagehigh", settings->graph_voltagehigh);
-        writeSetting(nvs_handle, "g_voltagelow", settings->graph_voltagelow);
+        MACRO_NVSWRITEBLOB(rulevalue);
+        MACRO_NVSWRITEBLOB(rulehysteresis);
+        MACRO_NVSWRITEBLOB(rulerelaystate);
+        MACRO_NVSWRITEBLOB(rulerelaydefault);
+        MACRO_NVSWRITEBLOB(relaytype);
 
-        writeSetting(nvs_handle, "BypassOverTemp", settings->BypassOverTempShutdown);
-        writeSetting(nvs_handle, "BypassThresmV", settings->BypassThresholdmV);
-        writeSetting(nvs_handle, "TZ", settings->timeZone);
-        writeSetting(nvs_handle, "minutesTZ", settings->minutesTimeZone);
-        writeSetting(nvs_handle, "daylight", settings->daylight);
+        MACRO_NVSWRITE(graph_voltagehigh)
+        MACRO_NVSWRITE(graph_voltagelow)
+        MACRO_NVSWRITE(BypassOverTempShutdown)
+        MACRO_NVSWRITE(BypassThresholdmV)
+        MACRO_NVSWRITE(timeZone)
+        MACRO_NVSWRITE(minutesTimeZone)
+        MACRO_NVSWRITE(daylight)
+        MACRO_NVSWRITE(loggingEnabled)
+        MACRO_NVSWRITE(loggingFrequencySeconds)
 
-        writeSetting(nvs_handle, "logEnabled", settings->loggingEnabled);
-        writeSetting(nvs_handle, "logFreqSec", settings->loggingFrequencySeconds);
+        MACRO_NVSWRITE(currentMonitoringEnabled)
+        MACRO_NVSWRITE(currentMonitoringModBusAddress)
+        MACRO_NVSWRITE_UINT8(currentMonitoringDevice);
+        MACRO_NVSWRITE(rs485baudrate)
+        MACRO_NVSWRITE_UINT8(rs485databits);
+        MACRO_NVSWRITE_UINT8(rs485parity);
+        MACRO_NVSWRITE_UINT8(rs485stopbits);
+        MACRO_NVSWRITE_UINT8(canbusprotocol);
 
-        writeSetting(nvs_handle, "curMonEnabled", settings->currentMonitoringEnabled);
-        writeSetting(nvs_handle, "curMonMBAddress", settings->currentMonitoringModBusAddress);
-        writeSetting(nvs_handle, "curMonDevice", (uint8_t)settings->currentMonitoringDevice);
+        MACRO_NVSWRITE(nominalbatcap)
 
-        writeSetting(nvs_handle, "485baudrate", settings->rs485baudrate);
-        writeSetting(nvs_handle, "485databits", (uint8_t)settings->rs485databits);
-        writeSetting(nvs_handle, "485parity", (uint8_t)settings->rs485parity);
-        writeSetting(nvs_handle, "485stopbits", (uint8_t)settings->rs485stopbits);
+        MACRO_NVSWRITE(chargevolt)
+        MACRO_NVSWRITE(chargecurrent)
+        MACRO_NVSWRITE(dischargecurrent)
+        MACRO_NVSWRITE(dischargevolt)
+        MACRO_NVSWRITE(cellminmv)
+        MACRO_NVSWRITE(cellmaxmv)
+        MACRO_NVSWRITE(kneemv)
+        MACRO_NVSWRITE(sensitivity);
+        MACRO_NVSWRITE(current_value1);
+        MACRO_NVSWRITE(current_value2);
+        MACRO_NVSWRITE(cellmaxspikemv);
+        MACRO_NVSWRITE(chargetemplow);
+        MACRO_NVSWRITE(chargetemphigh);
+        MACRO_NVSWRITE(dischargetemplow);
+        MACRO_NVSWRITE(dischargetemphigh);
+        MACRO_NVSWRITE(stopchargebalance);
+        MACRO_NVSWRITE(socoverride);
+        MACRO_NVSWRITE(socforcelow);
 
-        writeSetting(nvs_handle, "canbusprotocol", (uint8_t)settings->canbusprotocol);
-        writeSetting(nvs_handle, "nominalbatcap", settings->nominalbatcap);
+        MACRO_NVSWRITE(dynamiccharge);
+        MACRO_NVSWRITE(preventcharging);
+        MACRO_NVSWRITE(preventdischarge);
+        MACRO_NVSWRITE(mqtt_enabled);
+        MACRO_NVSWRITE(influxdb_enabled);
+        MACRO_NVSWRITE(influxdb_loggingFreqSeconds);
 
-        writeSetting(nvs_handle, "cha_volt", settings->chargevolt);
-        writeSetting(nvs_handle, "cha_current", settings->chargecurrent);
-        writeSetting(nvs_handle, "dis_current", settings->dischargecurrent);
-        writeSetting(nvs_handle, "dis_volt", settings->dischargevolt);
-        writeSetting(nvs_handle, "cellminmv", settings->cellminmv);
-        writeSetting(nvs_handle, "cellmaxmv", settings->cellmaxmv);
-        writeSetting(nvs_handle, "kneemv", settings->kneemv);
-        writeSetting(nvs_handle, "sensitivity", settings->sensitivity);
-        writeSetting(nvs_handle, "cur_val1", settings->current_value1);
-        writeSetting(nvs_handle, "cur_val2", settings->current_value2);
-        writeSetting(nvs_handle, "cellmaxspikemv", settings->cellmaxspikemv);
+        MACRO_NVSWRITEBLOB(tileconfig);
 
-        writeSetting(nvs_handle, "cha_templow", settings->chargetemplow);
-        writeSetting(nvs_handle, "cha_temphigh", settings->chargetemphigh);
-        writeSetting(nvs_handle, "dis_templow", settings->dischargetemplow);
-        writeSetting(nvs_handle, "dis_temphigh", settings->dischargetemphigh);
-        writeSetting(nvs_handle, "stopchargebal", settings->stopchargebalance);
-
-        writeSetting(nvs_handle, "socoverride", settings->socoverride);
-        writeSetting(nvs_handle, "socforcelow", settings->socforcelow);
-
-        writeSetting(nvs_handle, "dynamiccharge", settings->dynamiccharge);
-        writeSetting(nvs_handle, "preventchar", settings->preventcharging);
-        writeSetting(nvs_handle, "preventdis", settings->preventdischarge);
-
-        writeSetting(nvs_handle, "mqttenable", settings->mqtt_enabled);
-        writeSetting(nvs_handle, "infenabled", settings->influxdb_enabled);
-        writeSetting(nvs_handle, "inflogFreq", settings->influxdb_loggingFreqSeconds);
-
-        writeSettingBlob(nvs_handle, "tileconfig", settings->tileconfig, sizeof(settings->tileconfig));
-
-        writeSetting(nvs_handle, "ntpServer", &settings->ntpServer[0]);
-        writeSetting(nvs_handle, "language", &settings->language[0]);
-        writeSetting(nvs_handle, "mqtt_uri", &settings->mqtt_uri[0]);
-        writeSetting(nvs_handle, "mqtt_topic", &settings->mqtt_topic[0]);
-        writeSetting(nvs_handle, "mqtt_usern", &settings->mqtt_username[0]);
-        writeSetting(nvs_handle, "mqtt_pword", &settings->mqtt_password[0]);
-
-        writeSetting(nvs_handle, "inf_serverurl", &settings->influxdb_serverurl[0]);
-        writeSetting(nvs_handle, "inf_bucket", &settings->influxdb_databasebucket[0]);
-        writeSetting(nvs_handle, "inf_apitoken", &settings->influxdb_apitoken[0]);
-        writeSetting(nvs_handle, "inf_orgid", &settings->influxdb_orgid[0]);
+        MACRO_NVSWRITESTRING(ntpServer);
+        MACRO_NVSWRITESTRING(language);
+        MACRO_NVSWRITESTRING(mqtt_uri);
+        MACRO_NVSWRITESTRING(mqtt_topic);
+        MACRO_NVSWRITESTRING(mqtt_username);
+        MACRO_NVSWRITESTRING(mqtt_password);
+        MACRO_NVSWRITESTRING(influxdb_serverurl);
+        MACRO_NVSWRITESTRING(influxdb_databasebucket);
+        MACRO_NVSWRITESTRING(influxdb_apitoken);
+        MACRO_NVSWRITESTRING(influxdb_orgid);
 
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
@@ -264,83 +339,73 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
     else
     {
         // Open
-        getSetting(nvs_handle, "totalBanks", &settings->totalNumberOfBanks);
-        getSetting(nvs_handle, "totalSeriesMod", &settings->totalNumberOfSeriesModules);
-        getSetting(nvs_handle, "baudRate", &settings->baudRate);
-        getSetting(nvs_handle, "interpacketgap", &settings->interpacketgap);
+        MACRO_NVSREAD(totalNumberOfBanks);
+        MACRO_NVSREAD(totalNumberOfSeriesModules);
+        MACRO_NVSREAD(baudRate);
+        MACRO_NVSREAD(interpacketgap);
 
-        getSettingBlob(nvs_handle, "rulevalue", &settings->rulevalue, sizeof(settings->rulevalue));
-        getSettingBlob(nvs_handle, "rulehysteresis", &settings->rulehysteresis, sizeof(settings->rulehysteresis));
+        MACRO_NVSREADBLOB(rulevalue);
+        MACRO_NVSREADBLOB(rulehysteresis);
+        MACRO_NVSREADBLOB(rulerelaystate);
+        MACRO_NVSREADBLOB(rulerelaydefault);
+        MACRO_NVSREADBLOB(relaytype);
 
-        getSettingBlob(nvs_handle, "rulerelaystate", &settings->rulerelaystate, sizeof(settings->rulerelaystate));
-        getSettingBlob(nvs_handle, "rulerelaydef", &settings->rulerelaydefault, sizeof(settings->rulerelaydefault));
-        getSettingBlob(nvs_handle, "relaytype", &settings->relaytype, sizeof(settings->relaytype));
+        MACRO_NVSREAD(graph_voltagehigh);
+        MACRO_NVSREAD(graph_voltagelow);
+        MACRO_NVSREAD(BypassOverTempShutdown);
+        MACRO_NVSREAD(BypassThresholdmV);
+        MACRO_NVSREAD(minutesTimeZone);
+        MACRO_NVSREAD(daylight);
+        MACRO_NVSREAD(loggingEnabled);
+        MACRO_NVSREAD(loggingFrequencySeconds);
+        MACRO_NVSREAD(currentMonitoringEnabled);
+        MACRO_NVSREAD(currentMonitoringModBusAddress);
+        MACRO_NVSREAD_UINT8(currentMonitoringModBusAddress);
+        MACRO_NVSREAD(rs485baudrate);
+        MACRO_NVSREAD_UINT8(rs485databits);
+        MACRO_NVSREAD_UINT8(rs485parity);
+        MACRO_NVSREAD_UINT8(rs485stopbits);
+        MACRO_NVSREAD_UINT8(canbusprotocol);
+        MACRO_NVSREAD(nominalbatcap);
+        MACRO_NVSREAD(chargevolt);
+        MACRO_NVSREAD(chargecurrent);
+        MACRO_NVSREAD(dischargecurrent);
+        MACRO_NVSREAD(dischargevolt);
+        MACRO_NVSREAD(cellminmv);
+        MACRO_NVSREAD(cellmaxmv);
+        MACRO_NVSREAD(kneemv);
+        MACRO_NVSREAD(sensitivity);
+        MACRO_NVSREAD(current_value1);
+        MACRO_NVSREAD(current_value2);
+        MACRO_NVSREAD(cellmaxspikemv);
+        MACRO_NVSREAD(chargetemplow);
+        MACRO_NVSREAD(chargetemphigh);
+        MACRO_NVSREAD(dischargetemplow);
+        MACRO_NVSREAD(dischargetemphigh);
+        MACRO_NVSREAD(stopchargebalance);
+        MACRO_NVSREAD(socoverride);
+        MACRO_NVSREAD(socforcelow);
 
-        getSetting(nvs_handle, "g_voltagehigh", &settings->graph_voltagehigh);
-        getSetting(nvs_handle, "g_voltagelow", &settings->graph_voltagelow);
+        MACRO_NVSREAD(dynamiccharge);
+        MACRO_NVSREAD(preventcharging);
+        MACRO_NVSREAD(preventdischarge);
 
-        getSetting(nvs_handle, "BypassOverTemp", &settings->BypassOverTempShutdown);
-        getSetting(nvs_handle, "BypassThresmV", &settings->BypassThresholdmV);
+        MACRO_NVSREAD(mqtt_enabled);
+        MACRO_NVSREAD(influxdb_enabled);
+        MACRO_NVSREAD(influxdb_loggingFreqSeconds);
 
-        getSetting(nvs_handle, "TZ", &settings->timeZone);
-        getSetting(nvs_handle, "minutesTZ", &settings->minutesTimeZone);
-        getSetting(nvs_handle, "daylight", &settings->daylight);
+        MACRO_NVSREADBLOB(tileconfig);
 
-        getSetting(nvs_handle, "logEnabled", &settings->loggingEnabled);
-        getSetting(nvs_handle, "logFreqSec", &settings->loggingFrequencySeconds);
-
-        getSetting(nvs_handle, "curMonEnabled", &settings->currentMonitoringEnabled);
-        getSetting(nvs_handle, "curMonMBAddress", &settings->currentMonitoringModBusAddress);
-        getSetting(nvs_handle, "curMonDevice", (uint8_t *)&settings->currentMonitoringDevice);
-
-        getSetting(nvs_handle, "485baudrate", &settings->rs485baudrate);
-        getSetting(nvs_handle, "485databits", (uint8_t *)&settings->rs485databits);
-        getSetting(nvs_handle, "485parity", (uint8_t *)&settings->rs485parity);
-        getSetting(nvs_handle, "485stopbits", (uint8_t *)&settings->rs485stopbits);
-
-        getSetting(nvs_handle, "canbusprotocol", (uint8_t *)&settings->canbusprotocol);
-        getSetting(nvs_handle, "nominalbatcap", &settings->nominalbatcap);
-        getSetting(nvs_handle, "cha_volt", &settings->chargevolt);
-        getSetting(nvs_handle, "cha_current", &settings->chargecurrent);
-        getSetting(nvs_handle, "dis_current", &settings->dischargecurrent);
-        getSetting(nvs_handle, "dis_volt", &settings->dischargevolt);
-        getSetting(nvs_handle, "cellminmv", &settings->cellminmv);
-        getSetting(nvs_handle, "cellmaxmv", &settings->cellmaxmv);
-        getSetting(nvs_handle, "kneemv", &settings->kneemv);
-        getSetting(nvs_handle, "sensitivity", &settings->sensitivity);
-        getSetting(nvs_handle, "cur_val1", &settings->current_value1);
-        getSetting(nvs_handle, "cur_val2", &settings->current_value2);
-        getSetting(nvs_handle, "cellmaxspikemv", &settings->cellmaxspikemv);
-        getSetting(nvs_handle, "cha_templow", &settings->chargetemplow);
-        getSetting(nvs_handle, "cha_temphigh", &settings->chargetemphigh);
-        getSetting(nvs_handle, "dis_templow", &settings->dischargetemplow);
-        getSetting(nvs_handle, "dis_temphigh", &settings->dischargetemphigh);
-        getSetting(nvs_handle, "stopchargebal", &settings->stopchargebalance);
-
-        getSetting(nvs_handle, "socoverride", &settings->socoverride);
-        getSetting(nvs_handle, "socforcelow", &settings->socforcelow);
-
-        getSetting(nvs_handle, "dynamiccharge", &settings->dynamiccharge);
-        getSetting(nvs_handle, "preventchar", &settings->preventcharging);
-        getSetting(nvs_handle, "preventdis", &settings->preventdischarge);
-
-        getSetting(nvs_handle, "mqttenable", &settings->mqtt_enabled);
-        getSetting(nvs_handle, "infenabled", &settings->influxdb_enabled);
-        getSetting(nvs_handle, "inflogFreq", &settings->influxdb_loggingFreqSeconds);
-
-        getSettingBlob(nvs_handle, "tileconfig", &settings->tileconfig, sizeof(settings->tileconfig));
-
-        getString(nvs_handle, "ntpServer", &settings->ntpServer[0], sizeof(settings->ntpServer));
-        getString(nvs_handle, "language", &settings->language[0], sizeof(settings->language));
-        getString(nvs_handle, "mqtt_uri", &settings->mqtt_uri[0], sizeof(settings->mqtt_uri));
-        getString(nvs_handle, "mqtt_topic", &settings->mqtt_topic[0], sizeof(settings->mqtt_topic));
-        getString(nvs_handle, "mqtt_usern", &settings->mqtt_username[0], sizeof(settings->mqtt_username));
-        getString(nvs_handle, "mqtt_pword", &settings->mqtt_password[0], sizeof(settings->mqtt_password));
-
-        getString(nvs_handle, "inf_serverurl", &settings->influxdb_serverurl[0], sizeof(settings->influxdb_serverurl));
-        getString(nvs_handle, "inf_bucket", &settings->influxdb_databasebucket[0], sizeof(settings->influxdb_databasebucket));
-        getString(nvs_handle, "inf_apitoken", &settings->influxdb_apitoken[0], sizeof(settings->influxdb_apitoken));
-        getString(nvs_handle, "inf_orgid", &settings->influxdb_orgid[0], sizeof(settings->influxdb_orgid));
+        MACRO_NVSREADSTRING(ntpServer);
+        MACRO_NVSREADSTRING(language);
+        MACRO_NVSREADSTRING(mqtt_uri);
+        MACRO_NVSREADSTRING(mqtt_topic);
+        MACRO_NVSREADSTRING(mqtt_username);
+        MACRO_NVSREADSTRING(mqtt_password);
+        MACRO_NVSREADSTRING(influxdb_serverurl);
+        MACRO_NVSREADSTRING(influxdb_databasebucket);
+        MACRO_NVSREADSTRING(influxdb_apitoken);
+        MACRO_NVSREADSTRING(influxdb_orgid);
 
         nvs_close(nvs_handle);
     }
@@ -495,7 +560,6 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
     // Override hysteresis values if needed
     _myset->rulehysteresis[Rule::BankRange] = 15;
-
 }
 
 void SaveWIFI(wifi_eeprom_settings *wifi)
@@ -628,7 +692,7 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
             settings->rulerelaydefault[i] = RelayState::RELAY_OFF;
         }
     }
-   
+
     // Ensure trigger and reset (rulevalue and rulehysteresis) values make sense and
     // the rulehysteresis value is either greater or lower than rulevalue as required.
 
@@ -678,8 +742,8 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
 {
     JsonObject root = doc->createNestedObject("diybms_settings");
 
-    root["totalNumberOfBanks"] = settings->totalNumberOfBanks;
-    root["totalNumberOfSeriesModules"] = settings->totalNumberOfSeriesModules;
+    root[totalNumberOfBanks_JSONKEY] = settings->totalNumberOfBanks;
+    root[totalNumberOfSeriesModules_JSONKEY] = settings->totalNumberOfSeriesModules;
     root["baudRate"] = settings->baudRate;
     root["interpacketgap"] = settings->interpacketgap;
 
@@ -810,8 +874,8 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
 
     JsonObject root = doc["diybms_settings"];
 
-    settings->totalNumberOfBanks = root["totalNumberOfBanks"];
-    settings->totalNumberOfSeriesModules = root["totalNumberOfSeriesModules"];
+    settings->totalNumberOfBanks = root[totalNumberOfBanks_JSONKEY];
+    settings->totalNumberOfSeriesModules = root[totalNumberOfSeriesModules_JSONKEY];
     settings->baudRate = root["baudRate"];
     settings->interpacketgap = root["interpacketgap"];
 
