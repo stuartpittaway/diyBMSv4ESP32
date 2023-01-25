@@ -231,7 +231,7 @@ float CurrentMonitorINA229::BusVoltage()
     // The accuracy is 20bits and 195.3125uV is the LSB
     uint32_t busVoltage_mV = (uint64_t)busVoltage * (uint64_t)0x1DCD65 / (uint64_t)0x989680; // conversion to get mV
 
-    //ESP_LOGD(TAG, "busVoltage mV=%u", busVoltage_mV);
+    // ESP_LOGD(TAG, "busVoltage mV=%u", busVoltage_mV);
 
     //  Return VOLTS
     return (float)busVoltage_mV / (float)1000.0;
@@ -249,7 +249,7 @@ int32_t CurrentMonitorINA229::readInt20(INA_REGISTER r)
     {
         // Invert
         value = ~value;
-        //Trim to 20 bits
+        // Trim to 20 bits
         value = value & 0x000FFFFFU;
         // Add 1
         value = value + 1;
@@ -276,15 +276,11 @@ void CurrentMonitorINA229::TakeReadings()
     current = Current();
     power = Power();
     temperature = DieTemperature();
-    // flags=bitFlags()
     SOC = CalculateSOC();
 
     CalculateAmpHourCounts();
 
-    ESP_LOGI(TAG, "Current %.6f", current);
-
-    float sv = ShuntVoltage();
-    ESP_LOGI(TAG, "Shunt Voltage %.6fmV", sv);
+    ESP_LOGD(TAG, "V=%.4f, I=%.4f, P=%.2f", voltage, current, power);
 }
 
 uint16_t CurrentMonitorINA229::CalculateSOC()
@@ -365,36 +361,28 @@ void CurrentMonitorINA229::CalculateAmpHourCounts()
         last_charge_coulombs = 0;
     }
 
-    // TODO: We need to remove this and replace with ESP32 timestamping
-    const uint16_t loop_delay_ms = 2000;
-
     // Now to test if we need to reset SOC to 100% ?
     // Check if voltage is over the fully_charged_voltage and current UNDER tail_current_amps
-    if (voltage > registers.fully_charged_voltage && current > 0 && current < registers.tail_current_amps)
+    if (voltage >= registers.fully_charged_voltage && current > 0 && current < registers.tail_current_amps)
     {
-        // Battery has reached fully charged so wait for time counter
-        soc_reset_counter++;
+        // Battery has reached fully charged so wait for time counter to elapse
+        ESP_LOGI(TAG,"Battery has reached charging tail period");
 
-        // Test if counter has reached 3 minutes, indicating fully charge battery
-        if (soc_reset_counter >= ((3 * 60) / (loop_delay_ms / 1000)))
+        if (esp_timer_get_time() > soc_reset_time)
         {
             // Now we reset the SOC, by clearing the registers, at this point SOC returns to 100%
-
-            // This does have an annoying "feature" of clearing down todays Ah counts :-(
+            // This does have an annoying "feature" of clearing down Ah counts :-(
             // TODO: FIX THIS - probably need a set of shadow variables to hold the internal SOC and AH counts
             //                  but then when/how do we reset the Ah counts?
-
-            max_soc_reset_counter = soc_reset_counter;
             ResetChargeEnergyRegisters();
             last_charge_coulombs = 0;
-            soc_reset_counter = 0;
             SetSOC(10000);
         }
     }
     else
     {
-        // Voltage or current is out side of monitoring limits, so reset timer count
-        soc_reset_counter = 0;
+        // Voltage or current is out side of monitoring limits, so set timer to now + 3 minutes
+        int64_t soc_reset_time = esp_timer_get_time() + (3 * 60000000L);
     }
 }
 

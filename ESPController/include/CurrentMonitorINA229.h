@@ -292,7 +292,7 @@ private:
     const float CoulombsToMilliAmpHours = 1.0 / 3.6;
 
     uint8_t max_soc_reset_counter = 0;
-    uint8_t soc_reset_counter = 0;
+    int64_t soc_reset_time;
     int32_t last_charge_coulombs = 0;
 
     // Pointer to SPI object class  NOTE: MUTEX OVER SPI PORT MUST BE HANDLED EXTERNALLY TO THIS CLASS
