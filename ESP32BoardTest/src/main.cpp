@@ -32,14 +32,12 @@ static constexpr const char *const TAG = "diybms";
 
 #include "FS.h"
 #include "SD.h"
-//#include <LITTLEFS.h>
 #include <WiFi.h>
 #include <SPI.h>
 #include "driver/gpio.h"
 #include "driver/twai.h"
 #include "driver/adc.h"
 #include <driver/uart.h>
-//#include <XPT2046_Touchscreen.h>
 #include "TFT_eSPI.h"
 #include "driver/i2c.h"
 #include "esp32-hal-i2c.h"
@@ -89,7 +87,6 @@ static constexpr const char *const TAG = "diybms";
 #define RS485_TX GPIO_NUM_22
 #define RS485_ENABLE GPIO_NUM_25
 
-
 enum RGBLED : uint8_t
 {
     OFF = 0,
@@ -111,14 +108,13 @@ void Led(uint8_t bits);
 uint8_t readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg);
 uint16_t read16bitWord(i2c_port_t i2c_num, uint8_t dev, uint8_t reg);
 
-SPIClass vspi;
+SPIClass vspi(VSPI);
 // Copy of pin state for TCA9534
 uint8_t TCA9534APWR_Value;
 // Copy of pin state for TCA6408
 uint8_t TCA6408_Value;
 
 TFT_eSPI tft = TFT_eSPI();
-
 
 uint8_t readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
 {
@@ -301,7 +297,7 @@ void WriteTCA6416OutputState()
     // Emulate the 9534 + 6408 and set the state on the 16 bit output
     TCA6416_Output_Pins = ((uint16_t)TCA9534APWR_Output_Pins << 8) | TCA6408_Output_Pins;
 
-    //ESP_LOGD(TAG, "TCA6416_Output_Pins=%x", TCA6416_Output_Pins);
+    // ESP_LOGD(TAG, "TCA6416_Output_Pins=%x", TCA6416_Output_Pins);
 
     ESP_ERROR_CHECK_WITHOUT_ABORT(write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT, TCA6416_Output_Pins));
 
@@ -595,17 +591,17 @@ SD CARD TEST
 }
 void testSerial()
 {
-    ESP_LOGI(TAG, "Test serial TX1/RX1");
-    for (size_t i = 0; i < 5; i++)
+    // Clear send and reply buffers
+    SERIAL_DATA.flush();
+    while (SERIAL_DATA.available())
     {
-        delay(100);
-        // Clear send and reply buffers
-        SERIAL_DATA.flush();
-        while (SERIAL_DATA.available())
-        {
-            SERIAL_DATA.read();
-        }
+        SERIAL_DATA.read();
+    }
+    delay(10);
 
+    ESP_LOGI(TAG, "Test serial TX1/RX1");
+    for (size_t i = 0; i < 50; i++)
+    {
         SERIAL_DATA.println("test!");
 
         Led(RGBLED::Blue);
@@ -632,8 +628,6 @@ void setup()
 
     SERIAL_DEBUG.begin(115200, SERIAL_8N1);
     SERIAL_DEBUG.setDebugOutput(true);
-
-    vspi = SPIClass(VSPI);
 
     ConfigurePins();
     ConfigureI2C();
@@ -672,7 +666,7 @@ void setup()
 
     */
 
-    //RGB led test
+    // RGB led test
     ESP_LOGD(TAG, "RED");
     Led(RGBLED::Red);
     delay(1000);
@@ -684,13 +678,11 @@ void setup()
     delay(1000);
     Led(RGBLED::OFF);
 
-
     // Test SERIAL
     SERIAL_DATA.begin(2400, SERIAL_8N1, 2, 32); // Serial for comms to modules
     testSerial();
 
     init_tft_display();
-
 }
 
 void SetOutputState(uint8_t outputId, bool state)
@@ -827,22 +819,23 @@ void loop()
         state = !state;
     }
 
-    if (TCA6416_Fitted) {
+    if (TCA6416_Fitted)
+    {
         ReadTCA6416InputRegisters();
-    } else {
+    }
+    else
+    {
         ReadTCA6408InputRegisters();
         ReadTCA9534InputRegisters();
     }
 
-  
-    //Hex dump the input status
+    // Hex dump the input status
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
     tft.setCursor(0, 150, 4);
     tft.print("INPUTS= ");
-    tft.print(TCA6408_Input,16);
+    tft.print(TCA6408_Input, 16);
     tft.print(" / ");
-    tft.print(TCA9534APWR_Input,16);
-
+    tft.print(TCA9534APWR_Input, 16);
 
     TouchScreenValues touchscreen = TouchScreenUpdate();
 
