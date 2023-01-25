@@ -242,7 +242,7 @@ void Rules::RunRules(
     }
 
     // At least 1 module is zero volt - not a problem whilst we are in stabilizing start up mode
-    if (zeroVoltageModuleCount > 0)
+    if (zeroVoltageModuleCount > 0 || invalidModuleCount > 0)
     {
         rule_outcome[Rule::ModuleOverVoltage] = false;
         rule_outcome[Rule::ModuleUnderVoltage] = false;
@@ -354,7 +354,7 @@ void Rules::RunRules(
         rule_outcome[Rule::ModuleUnderTemperatureInternal] = false;
     }
 
-    // While Bank voltages
+    // Whole Bank voltages
     if (highestBankVoltage > value[Rule::BankOverVoltage] && rule_outcome[Rule::BankOverVoltage] == false)
     {
         // Rule - Bank over voltage (mV)
