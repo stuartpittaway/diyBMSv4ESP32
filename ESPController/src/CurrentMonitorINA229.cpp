@@ -41,18 +41,34 @@ void CurrentMonitorINA229::CalculateLSB()
     //                     CURRENT_LSB = 150/ 524288 = 0.000286102294921875
     //                     R_SHUNT_CAL = 52428800000*0.000286102294921875*0.00033333333 = 4999.999 = 5000
 
+    // 300A/75mV shunt =   full_scale_current= 300.00A / 75.00 * 40.96 = 163.84 AMPS
+    //                     RSHUNT = (75 / 1000) / 163.84 = 0.000457763671875
+    //                     CURRENT_LSB = 163.84/ 524288 = 2.648162841796875e-4
+    //                     R_SHUNT_CAL = 52428800000*0.00057220458984375*0.00025 = 7499.9922688 = 7500
+
     // Calculate CURRENT_LSB and R_SHUNT_CAL values
     // registers.full_scale_current = ((float)registers.shunt_max_current / (float)registers.shunt_millivolt) * full_scale_adc;
     registers.RSHUNT = ((float)registers.shunt_millivolt / 1000.0) / (float)registers.shunt_max_current;
     registers.CURRENT_LSB = registers.shunt_max_current / (float)0x80000;
     registers.R_SHUNT_CAL = 4L * (13107200000L * registers.CURRENT_LSB * registers.RSHUNT);
 
+    ESP_LOGI(TAG, "RSHUNT=%.8f, CURRENT_LSB=%.8f, R_SHUNT_CAL=%u", registers.RSHUNT, registers.CURRENT_LSB, registers.R_SHUNT_CAL);
+
+    // Will the full scale current be over the 40.96mV range the ADC can handle?
+    if (((float)registers.shunt_max_current * registers.RSHUNT * 1000.0) > full_scale_adc)
+    {
+        float true_max_current = ((float)registers.shunt_max_current / (float)registers.shunt_millivolt) * full_scale_adc;
+        ESP_LOGW(TAG, "WARNING: True Max Current Measurable %.2f Amps", true_max_current);
+
+        registers.CURRENT_LSB = true_max_current / (float)0x80000;
+        registers.R_SHUNT_CAL = 4L * (13107200000L * registers.CURRENT_LSB * registers.RSHUNT);
+        ESP_LOGI(TAG, "RECALC: RSHUNT=%.8f, CURRENT_LSB=%.8f, R_SHUNT_CAL=%u", registers.RSHUNT, registers.CURRENT_LSB, registers.R_SHUNT_CAL);
+    }
+
     // Deliberately reduce calibration by 2.5%, which appears to be the loses seen in the current monitor circuit design
     // (or shunt resistance tolerance)
     // You can always configure this value through the web gui - "Calibration" value.
-    registers.R_SHUNT_CAL = ((uint32_t)registers.R_SHUNT_CAL * 985) / 1000;
-
-    ESP_LOGD(TAG, "RSHUNT=%f, CURRENT_LSB=%f, R_SHUNT_CAL=%u", registers.RSHUNT, registers.CURRENT_LSB, registers.R_SHUNT_CAL);
+    // registers.R_SHUNT_CAL = ((uint32_t)registers.R_SHUNT_CAL * 985) / 1000;
 }
 
 // Sets SOC by setting "fake" in/out amphour counts
@@ -94,7 +110,7 @@ uint16_t CurrentMonitorINA229::read16bits(INA_REGISTER r)
     digitalWrite(chipselectpin, HIGH);
     SPI_Ptr->endTransaction();
 
-    //ESP_LOGD(TAG, "Read register 0x%02x = 0x%04x", r, value);
+    // ESP_LOGD(TAG, "Read register 0x%02x = 0x%04x", r, value);
     return value;
 }
 
@@ -111,14 +127,14 @@ uint16_t CurrentMonitorINA229::write16bits(INA_REGISTER r, uint16_t value)
     digitalWrite(chipselectpin, HIGH);
     SPI_Ptr->endTransaction();
 
-    //ESP_LOGD(TAG, "Write register 0x%02x = 0x%04x (old value=0x%04x)", r, value, retvalue);
-    // retvalue is the PREVIOUS value stored in the register
+    // ESP_LOGD(TAG, "Write register 0x%02x = 0x%04x (old value=0x%04x)", r, value, retvalue);
+    //  retvalue is the PREVIOUS value stored in the register
     return retvalue;
 }
 
 // Reads 3 bytes from SPI bus, and returns them in a uint32 (lower 24 bits)
 uint32_t CurrentMonitorINA229::spi_readUint24(INA_REGISTER r)
-{    
+{
     SPI_Ptr->beginTransaction(_spisettings);
     digitalWrite(chipselectpin, LOW);
     SPI_Ptr->write(readRegisterValue(r));
@@ -130,7 +146,7 @@ uint32_t CurrentMonitorINA229::spi_readUint24(INA_REGISTER r)
 
     uint32_t value = ((uint32_t)a << 16) | ((uint32_t)b << 8) | ((uint32_t)c);
 
-    //ESP_LOGD(TAG, "Read register 0x%02x = 0x%08x", r, value);
+    // ESP_LOGD(TAG, "Read register 0x%02x = 0x%08x", r, value);
     return value;
 }
 
@@ -156,7 +172,7 @@ int64_t CurrentMonitorINA229::spi_readInt40(INA_REGISTER r)
     reply += (uint64_t)d << 8;
     reply += (uint64_t)e;
 
-    //ESP_LOGD(TAG, "Read register 0x%02x");
+    // ESP_LOGD(TAG, "Read register 0x%02x");
 
     // Cast to signed integer (which also sorts out the negative sign if applicable)
     return (int64_t)reply;
@@ -181,7 +197,7 @@ uint64_t CurrentMonitorINA229::spi_readUint40(INA_REGISTER r)
     value += (uint64_t)d << 8;
     value += (uint64_t)e;
 
-    //ESP_LOGD(TAG, "Read register 0x%02x", r);
+    // ESP_LOGD(TAG, "Read register 0x%02x", r);
     return value;
 }
 
@@ -204,7 +220,7 @@ float CurrentMonitorINA229::Energy()
 // NEGATIVE value means battery is being charged
 int32_t CurrentMonitorINA229::ChargeInCoulombsAsInt()
 {
-    // Calculated charge output. Output value is in Coulombs.Two's complement value.  40bit number stored in int64 
+    // Calculated charge output. Output value is in Coulombs.Two's complement value.  40bit number stored in int64
     return registers.CURRENT_LSB * (float)spi_readInt40(INA_REGISTER::CHARGE);
 }
 
@@ -213,31 +229,33 @@ float CurrentMonitorINA229::BusVoltage()
 {
     uint32_t busVoltage = readUInt24(INA_REGISTER::VBUS) & 0x000FFFFF;
     // The accuracy is 20bits and 195.3125uV is the LSB
-    // Use integer math where possible
     uint32_t busVoltage_mV = (uint64_t)busVoltage * (uint64_t)0x1DCD65 / (uint64_t)0x989680; // conversion to get mV
-    // busVoltage_mV is maximum 0x31FFF = 204799mV (outside range of ADC/INA228 chip)
 
-    ESP_LOGD(TAG, "busVoltage mV=%u", busVoltage_mV);
+    //ESP_LOGD(TAG, "busVoltage mV=%u", busVoltage_mV);
 
     //  Return VOLTS
     return (float)busVoltage_mV / (float)1000.0;
 }
 
-// Read a 20 bit (3 byte) TWOS COMPLIMENT integer
+// Read a 20 bit (3 byte) TWOS COMPLIMENT integer from an INA register
+// Used to read VSHUNT value
 int32_t CurrentMonitorINA229::readInt20(INA_REGISTER r)
 {
-    uint32_t value = spi_readUint24(r);
+    // Returns
+    uint32_t value = readUInt24(r);
 
-    // The number is two's complement, check for negative
-    if (value & 0x800000)
+    // The number is two's complement, check for negative at bit 20
+    if (value & 0x80000)
     {
-        // first 12 bits are set to 1, indicating negative number
-        value = (value >> 4) | 0xFFF00000;
+        // Invert
+        value = ~value;
+        //Trim to 20 bits
+        value = value & 0x000FFFFFU;
+        // Add 1
+        value = value + 1;
+        // Return NEGATIVE of the value
+        return -(int32_t)value;
     }
-    else
-    {
-        value = value >> 4;
-    } // if-then negative
 
     return (int32_t)value;
 }
@@ -248,7 +266,8 @@ float CurrentMonitorINA229::ShuntVoltage()
     // 78.125 nV/LSB when ADCRANGE = 1
     // Differential voltage measured across the shunt output. Two's complement value.
     // 20 bit value max = 1048575
-    return (float)((uint64_t)readInt20(INA_REGISTER::VSHUNT) * 78125UL) / 1000000000.0;
+    int32_t vshunt = readInt20(INA_REGISTER::VSHUNT);
+    return (float)(((int64_t)vshunt) * 78125UL) / 1000000000.0;
 }
 
 void CurrentMonitorINA229::TakeReadings()
@@ -261,6 +280,11 @@ void CurrentMonitorINA229::TakeReadings()
     SOC = CalculateSOC();
 
     CalculateAmpHourCounts();
+
+    ESP_LOGI(TAG, "Current %.6f", current);
+
+    float sv = ShuntVoltage();
+    ESP_LOGI(TAG, "Shunt Voltage %.6fmV", sv);
 }
 
 uint16_t CurrentMonitorINA229::CalculateSOC()
@@ -472,17 +496,14 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
     // Default Power limit = 5kW
     registers.R_PWR_LIMIT = (uint16_t)(overpowerlimit / 256.0F / 3.2F / registers.CURRENT_LSB);
 
-    ESP_LOGI(TAG, "undercurrentlimit=%f, R_SUVL=%u", ((float)undercurrentlimit / 100.0F), registers.R_SUVL);
+    // ESP_LOGI(TAG, "undercurrentlimit=%f, R_SUVL=%u", ((float)undercurrentlimit / 100.0F), registers.R_SUVL);
+
+    registers.R_CONFIG = _BV(4); // ADCRANGE = 40.96mV scale
 
     if (TemperatureCompEnabled)
     {
         // Set bit
         registers.R_CONFIG |= bit(5);
-    }
-    else
-    {
-        // Clear bit
-        registers.R_CONFIG &= ~bit(5);
     }
 
     // Configure other registers
