@@ -2077,4 +2077,23 @@ $(function () {
 
     //On page ready
     queryBMS();
+
+
+    //Automatically open correct sub-page based on hash
+    var hash = $(location).attr('hash');
+    switch (hash) {
+        case "#tiles":
+        case "#modules":
+        case "#rules":
+        case "#settings":
+        case "#charging":
+        case "#integration":
+        case "#currentmonitor":
+        case "#storage":
+        case "#avrprogrammer":
+        case "#utility":
+            $(hash).click();
+            break;
+    }
+
 }); // end $(function ()
