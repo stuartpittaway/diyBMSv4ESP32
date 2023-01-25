@@ -279,6 +279,12 @@ public:
         registers.R_DIAG_ALRT = read16bits(INA_REGISTER::DIAG_ALRT);
         return registers.R_DIAG_ALRT & ALL_ALERT_BITS;
     }
+    void SetSOC(uint16_t value);
+
+    void ResetDailyAmpHourCounters() {
+        daily_milliamphour_out=0;
+        daily_milliamphour_in=0;
+    }
 
 private:
     uint16_t SOC = 0;
@@ -323,7 +329,7 @@ private:
     uint8_t readRegisterValue(INA_REGISTER r);
     uint8_t writeRegisterValue(INA_REGISTER r);
     void CalculateLSB();
-    void SetSOC(uint16_t value);
+    
     uint16_t read16bits(INA_REGISTER r);
     uint16_t write16bits(INA_REGISTER r, uint16_t value);
     void SetINA229Registers();

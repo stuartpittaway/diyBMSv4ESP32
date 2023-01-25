@@ -2019,11 +2019,21 @@ void currentMon_ResetDailyAmpHourCounters()
 
 bool CurrentMonitorSetSOC(float newSOC)
 {
-  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS && mysettings.currentMonitoringEnabled == true)
+  if (mysettings.currentMonitoringEnabled == true)
   {
     ESP_LOGI(TAG, "Set SOC");
-    currentMon_SetSOC(newSOC);
-    return true;
+    if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
+    {
+      currentMon_SetSOC(newSOC);
+      return true;
+    }
+
+    if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+    {
+      uint16_t value = newSOC * 100;
+      currentmon_internal.SetSOC(value);
+      return true;
+    }
   }
 
   return false;
@@ -2031,13 +2041,20 @@ bool CurrentMonitorSetSOC(float newSOC)
 
 bool CurrentMonitorResetDailyAmpHourCounters()
 {
-  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS && mysettings.currentMonitoringEnabled == true)
+  if (mysettings.currentMonitoringEnabled == true)
   {
     ESP_LOGI(TAG, "Reset daily Ah counter");
-    currentMon_ResetDailyAmpHourCounters();
-    return true;
+    if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
+    {
+      currentMon_ResetDailyAmpHourCounters();
+      return true;
+    }
+    if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+    {
+      currentmon_internal.ResetDailyAmpHourCounters();
+      return true;
+    }
   }
-
   return false;
 }
 
