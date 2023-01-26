@@ -361,7 +361,8 @@ void victron_message_35a()
   // ESP_LOGI(TAG, "numberOfBalancingModules=%u", rules.numberOfBalancingModules);
 
   // 7 (bit 0+1) Cell imbalance warning
-  data.byte7 |= (rules.numberOfBalancingModules > 0 ? BIT01_ALARM : BIT01_OK);
+  //data.byte7 |= (rules.numberOfBalancingModules > 0 ? BIT01_ALARM : BIT01_OK);
+  
   // 7 (bit 2+3) System status (online/offline) [1]
   data.byte7 |= ((_controller_state != ControllerState::Running) ? BIT23_ALARM : BIT23_OK);
   // 7 (rest) Reserved
