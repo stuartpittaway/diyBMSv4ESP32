@@ -3,8 +3,65 @@ static constexpr const char *const TAG = "diybms-set";
 
 #include "settings.h"
 
+/*
+THESE STRINGS ARE USED AS KEYS IN THE JSON SETTINGS BACKUP FILES
+DEFINED HERE (ONCE) TO ENSURE TYPOS ARE NOT MADE
+*/
 static const char totalNumberOfBanks_JSONKEY[] = "totalNumberOfBanks";
 static const char totalNumberOfSeriesModules_JSONKEY[] = "totalNumberOfSeriesModules";
+static const char baudRate_JSONKEY[] = "baudRate";
+static const char interpacketgap_JSONKEY[] = "interpacketgap";
+static const char graph_voltagehigh_JSONKEY[] = "graph_voltagehigh";
+static const char graph_voltagelow_JSONKEY[] = "graph_voltagelow";
+static const char BypassOverTempShutdown_JSONKEY[] = "BypassOverTempShutdown";
+static const char BypassThresholdmV_JSONKEY[] = "BypassThresholdmV";
+static const char timeZone_JSONKEY[] = "timeZone";
+static const char minutesTimeZone_JSONKEY[] = "minutesTimeZone";
+static const char daylight_JSONKEY[] = "daylight";
+static const char ntpServer_JSONKEY[] = "ntpServer";
+static const char loggingEnabled_JSONKEY[] = "loggingEnabled";
+static const char loggingFrequencySeconds_JSONKEY[] = "loggingFrequencySeconds";
+static const char currentMonitoringEnabled_JSONKEY[] = "currentMonitoringEnabled";
+static const char currentMonitoringModBusAddress_JSONKEY[] = "currentMonitoringModBusAddress";
+static const char rs485baudrate_JSONKEY[] = "rs485baudrate";
+static const char rs485databits_JSONKEY[] = "rs485databits";
+static const char rs485parity_JSONKEY[] = "rs485parity";
+static const char rs485stopbits_JSONKEY[] = "rs485stopbits";
+static const char language_JSONKEY[] = "language";
+static const char mqtt_enabled_JSONKEY[] = "enabled";
+static const char mqtt_uri_JSONKEY[] = "uri";
+static const char mqtt_topic_JSONKEY[] = "topic";
+static const char mqtt_username_JSONKEY[] = "username";
+static const char mqtt_password_JSONKEY[] = "password";
+static const char influxdb_enabled_JSONKEY[] = "enabled";
+static const char influxdb_apitoken_JSONKEY[] = "apitoken";
+static const char influxdb_databasebucket_JSONKEY[] = "bucket";
+static const char influxdb_orgid_JSONKEY[] = "org";
+static const char influxdb_serverurl_JSONKEY[] = "url";
+static const char influxdb_loggingFreqSeconds_JSONKEY[] = "logfreq";
+static const char canbusprotocol_JSONKEY[] = "canbusprotocol";
+static const char nominalbatcap_JSONKEY[] = "nominalbatcap";
+static const char chargevolt_JSONKEY[] = "chargevolt";
+static const char chargecurrent_JSONKEY[] = "chargecurrent";
+static const char dischargecurrent_JSONKEY[] = "dischargecurrent";
+static const char dischargevolt_JSONKEY[] = "dischargevolt";
+static const char chargetemplow_JSONKEY[] = "chargetemplow";
+static const char chargetemphigh_JSONKEY[] = "chargetemphigh";
+static const char dischargetemplow_JSONKEY[] = "dischargetemplow";
+static const char dischargetemphigh_JSONKEY[] = "dischargetemphigh";
+static const char stopchargebalance_JSONKEY[] = "stopchargebalance";
+static const char socoverride_JSONKEY[] = "socoverride";
+static const char socforcelow_JSONKEY[] = "socforcelow";
+static const char dynamiccharge_JSONKEY[] = "dynamiccharge";
+static const char preventdischarge_JSONKEY[] = "preventdischarge";
+static const char preventcharging_JSONKEY[] = "preventcharging";
+static const char cellminmv_JSONKEY[] = "cellminmv";
+static const char cellmaxmv_JSONKEY[] = "cellmaxmv";
+static const char kneemv_JSONKEY[] = "kneemv";
+static const char cellmaxspikemv_JSONKEY[] = "cellmaxspikemv";
+static const char sensitivity_JSONKEY[] = "sensitivity";
+static const char current_value1_JSONKEY[] = "cur_val1";
+static const char current_value2_JSONKEY[] = "cur_val2";
 
 /* NVS KEYS
 THESE STRINGS ARE USED TO HOLD THE PARAMETER IN NVS FLASH, MAXIMUM LENGTH OF 16 CHARACTERS
@@ -744,50 +801,42 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
 
     root[totalNumberOfBanks_JSONKEY] = settings->totalNumberOfBanks;
     root[totalNumberOfSeriesModules_JSONKEY] = settings->totalNumberOfSeriesModules;
-    root["baudRate"] = settings->baudRate;
-    root["interpacketgap"] = settings->interpacketgap;
-
-    root["graph_voltagehigh"] = settings->graph_voltagehigh;
-    root["graph_voltagelow"] = settings->graph_voltagelow;
-
-    root["BypassOverTempShutdown"] = settings->BypassOverTempShutdown;
-    root["BypassThresholdmV"] = settings->BypassThresholdmV;
-
-    root["timeZone"] = settings->timeZone;
-    root["minutesTimeZone"] = settings->minutesTimeZone;
-    root["daylight"] = settings->daylight;
-    root["ntpServer"] = settings->ntpServer;
-
-    root["loggingEnabled"] = settings->loggingEnabled;
-    root["loggingFrequencySeconds"] = settings->loggingFrequencySeconds;
-
-    root["currentMonitoringEnabled"] = settings->currentMonitoringEnabled;
-    root["currentMonitoringModBusAddress"] = settings->currentMonitoringModBusAddress;
-
-    root["rs485baudrate"] = settings->rs485baudrate;
-    root["rs485databits"] = settings->rs485databits;
-    root["rs485parity"] = settings->rs485parity;
-    root["rs485stopbits"] = settings->rs485stopbits;
-
-    root["language"] = settings->language;
+    root[baudRate_JSONKEY] = settings->baudRate;
+    root[interpacketgap_JSONKEY] = settings->interpacketgap;
+    root[graph_voltagehigh_JSONKEY] = settings->graph_voltagehigh;
+    root[graph_voltagelow_JSONKEY] = settings->graph_voltagelow;
+    root[BypassOverTempShutdown_JSONKEY] = settings->BypassOverTempShutdown;
+    root[BypassThresholdmV_JSONKEY] = settings->BypassThresholdmV;
+    root[timeZone_JSONKEY] = settings->timeZone;
+    root[minutesTimeZone_JSONKEY] = settings->minutesTimeZone;
+    root[daylight_JSONKEY] = settings->daylight;
+    root[ntpServer_JSONKEY] = settings->ntpServer;
+    root[loggingEnabled_JSONKEY] = settings->loggingEnabled;
+    root[loggingFrequencySeconds_JSONKEY] = settings->loggingFrequencySeconds;
+    root[currentMonitoringEnabled_JSONKEY] = settings->currentMonitoringEnabled;
+    root[currentMonitoringModBusAddress_JSONKEY] = settings->currentMonitoringModBusAddress;
+    root[rs485baudrate_JSONKEY] = settings->rs485baudrate;
+    root[rs485databits_JSONKEY] = settings->rs485databits;
+    root[rs485parity_JSONKEY] = settings->rs485parity;
+    root[rs485stopbits_JSONKEY] = settings->rs485stopbits;
+    root[language_JSONKEY] = settings->language;
 
     JsonObject mqtt = root.createNestedObject("mqtt");
-    mqtt["enabled"] = settings->mqtt_enabled;
-    mqtt["uri"] = settings->mqtt_uri;
-    mqtt["topic"] = settings->mqtt_topic;
-    mqtt["username"] = settings->mqtt_username;
-    mqtt["password"] = settings->mqtt_password;
+    mqtt[mqtt_enabled_JSONKEY] = settings->mqtt_enabled;
+    mqtt[mqtt_uri_JSONKEY] = settings->mqtt_uri;
+    mqtt[mqtt_topic_JSONKEY] = settings->mqtt_topic;
+    mqtt[mqtt_username_JSONKEY] = settings->mqtt_username;
+    mqtt[mqtt_password_JSONKEY] = settings->mqtt_password;
 
     JsonObject influxdb = root.createNestedObject("influxdb");
-    influxdb["enabled"] = settings->influxdb_enabled;
-    influxdb["apitoken"] = settings->influxdb_apitoken;
-    influxdb["bucket"] = settings->influxdb_databasebucket;
-    influxdb["org"] = settings->influxdb_orgid;
-    influxdb["url"] = settings->influxdb_serverurl;
-    influxdb["logfreq"] = settings->influxdb_loggingFreqSeconds;
+    influxdb[influxdb_enabled_JSONKEY] = settings->influxdb_enabled;
+    influxdb[influxdb_apitoken_JSONKEY] = settings->influxdb_apitoken;
+    influxdb[influxdb_databasebucket_JSONKEY] = settings->influxdb_databasebucket;
+    influxdb[influxdb_orgid_JSONKEY] = settings->influxdb_orgid;
+    influxdb[influxdb_serverurl_JSONKEY] = settings->influxdb_serverurl;
+    influxdb[influxdb_loggingFreqSeconds_JSONKEY] = settings->influxdb_loggingFreqSeconds;
 
     JsonObject outputs = root.createNestedObject("outputs");
-
     JsonArray d = outputs.createNestedArray("default");
     JsonArray t = outputs.createNestedArray("type");
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
@@ -825,32 +874,32 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
         }
     } // end for
 
-    root["canbusprotocol"] = (uint8_t)settings->canbusprotocol;
-    root["nominalbatcap"] = settings->nominalbatcap;
+    root[canbusprotocol_JSONKEY] = (uint8_t)settings->canbusprotocol;
+    root[nominalbatcap_JSONKEY] = settings->nominalbatcap;
 
-    root["chargevolt"] = settings->chargevolt;
-    root["chargecurrent"] = settings->chargecurrent;
-    root["dischargecurrent"] = settings->dischargecurrent;
-    root["dischargevolt"] = settings->dischargevolt;
+    root[chargevolt_JSONKEY] = settings->chargevolt;
+    root[chargecurrent_JSONKEY] = settings->chargecurrent;
+    root[dischargecurrent_JSONKEY] = settings->dischargecurrent;
+    root[dischargevolt_JSONKEY] = settings->dischargevolt;
 
-    root["chargetemplow"] = settings->chargetemplow;
-    root["chargetemphigh"] = settings->chargetemphigh;
-    root["dischargetemplow"] = settings->dischargetemplow;
-    root["dischargetemphigh"] = settings->dischargetemphigh;
-    root["stopchargebalance"] = settings->stopchargebalance;
-    root["socoverride"] = settings->socoverride;
-    root["socforcelow"] = settings->socforcelow;
-    root["dynamiccharge"] = settings->dynamiccharge;
-    root["preventdischarge"] = settings->preventdischarge;
-    root["preventcharging"] = settings->preventcharging;
-    root["cellminmv"] = settings->cellminmv;
-    root["cellmaxmv"] = settings->cellmaxmv;
-    root["kneemv"] = settings->kneemv;
+    root[chargetemplow_JSONKEY] = settings->chargetemplow;
+    root[chargetemphigh_JSONKEY] = settings->chargetemphigh;
+    root[dischargetemplow_JSONKEY] = settings->dischargetemplow;
+    root[dischargetemphigh_JSONKEY] = settings->dischargetemphigh;
+    root[stopchargebalance_JSONKEY] = settings->stopchargebalance;
+    root[socoverride_JSONKEY] = settings->socoverride;
+    root[socforcelow_JSONKEY] = settings->socforcelow;
+    root[dynamiccharge_JSONKEY] = settings->dynamiccharge;
+    root[preventdischarge_JSONKEY] = settings->preventdischarge;
+    root[preventcharging_JSONKEY] = settings->preventcharging;
+    root[cellminmv_JSONKEY] = settings->cellminmv;
+    root[cellmaxmv_JSONKEY] = settings->cellmaxmv;
+    root[kneemv_JSONKEY] = settings->kneemv;
 
-    root["cellmaxspikemv"] = settings->cellmaxspikemv;
-    root["sensitivity"] = settings->sensitivity;
-    root["cur_val1"] = settings->current_value1;
-    root["cur_val2"] = settings->current_value2;
+    root[cellmaxspikemv_JSONKEY] = settings->cellmaxspikemv;
+    root[sensitivity_JSONKEY] = settings->sensitivity;
+    root[current_value1_JSONKEY] = settings->current_value1;
+    root[current_value2_JSONKEY] = settings->current_value2;
 
     JsonArray tv = root.createNestedArray("tilevisibility");
     for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
@@ -876,78 +925,76 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
 
     settings->totalNumberOfBanks = root[totalNumberOfBanks_JSONKEY];
     settings->totalNumberOfSeriesModules = root[totalNumberOfSeriesModules_JSONKEY];
-    settings->baudRate = root["baudRate"];
-    settings->interpacketgap = root["interpacketgap"];
+    settings->baudRate = root[baudRate_JSONKEY];
+    settings->interpacketgap = root[interpacketgap_JSONKEY];
 
-    settings->graph_voltagehigh = root["graph_voltagehigh"];
-    settings->graph_voltagelow = root["graph_voltagelow"];
+    settings->graph_voltagehigh = root[graph_voltagehigh_JSONKEY];
+    settings->graph_voltagelow = root[graph_voltagelow_JSONKEY];
 
-    settings->BypassOverTempShutdown = root["BypassOverTempShutdown"];
-    settings->BypassThresholdmV = root["BypassThresholdmV"];
+    settings->BypassOverTempShutdown = root[BypassOverTempShutdown_JSONKEY];
+    settings->BypassThresholdmV = root[BypassThresholdmV_JSONKEY];
 
-    settings->timeZone = root["timeZone"];
-    settings->minutesTimeZone = root["minutesTimeZone"];
-    settings->daylight = root["daylight"];
-    strncpy(settings->ntpServer, root["ntpServer"].as<String>().c_str(), sizeof(settings->ntpServer));
+    settings->timeZone = root[timeZone_JSONKEY];
+    settings->minutesTimeZone = root[minutesTimeZone_JSONKEY];
+    settings->daylight = root[daylight_JSONKEY];
+    strncpy(settings->ntpServer, root[ntpServer_JSONKEY].as<String>().c_str(), sizeof(settings->ntpServer));
 
-    settings->loggingEnabled = root["loggingEnabled"];
-    settings->loggingFrequencySeconds = root["loggingFrequencySeconds"];
+    settings->loggingEnabled = root[loggingEnabled_JSONKEY];
+    settings->loggingFrequencySeconds = root[loggingFrequencySeconds_JSONKEY];
 
-    settings->currentMonitoringEnabled = root["currentMonitoringEnabled"];
-    settings->currentMonitoringModBusAddress = root["currentMonitoringModBusAddress"];
+    settings->currentMonitoringEnabled = root[currentMonitoringEnabled_JSONKEY];
+    settings->currentMonitoringModBusAddress = root[currentMonitoringModBusAddress_JSONKEY];
 
-    settings->rs485baudrate = root["rs485baudrate"];
-    settings->rs485databits = root["rs485databits"];
-    settings->rs485parity = root["rs485parity"];
-    settings->rs485stopbits = root["rs485stopbits"];
+    settings->rs485baudrate = root[rs485baudrate_JSONKEY];
+    settings->rs485databits = root[rs485databits_JSONKEY];
+    settings->rs485parity = root[rs485parity_JSONKEY];
+    settings->rs485stopbits = root[rs485stopbits_JSONKEY];
 
-    strncpy(settings->language, root["language"].as<String>().c_str(), sizeof(settings->language));
+    strncpy(settings->language, root[language_JSONKEY].as<String>().c_str(), sizeof(settings->language));
 
-    settings->canbusprotocol = (CanBusProtocolEmulation)root["canbusprotocol"];
-    settings->nominalbatcap = root["nominalbatcap"];
-    settings->chargevolt = root["chargevolt"];
-    settings->chargecurrent = root["chargecurrent"];
-    settings->dischargecurrent = root["dischargecurrent"];
-    settings->dischargevolt = root["dischargevolt"];
-    settings->chargetemplow = root["chargetemplow"];
-    settings->chargetemphigh = root["chargetemphigh"];
-    settings->dischargetemplow = root["dischargetemplow"];
-    settings->dischargetemphigh = root["dischargetemphigh"];
-    settings->stopchargebalance = root["stopchargebalance"];
-    settings->socoverride = root["socoverride"];
-    settings->socforcelow = root["socforcelow"];
-    settings->dynamiccharge = root["dynamiccharge"];
-    settings->preventdischarge = root["preventdischarge"];
-    settings->preventcharging = root["preventcharging"];
-    settings->cellminmv = root["cellminmv"];
-    settings->cellmaxmv = root["cellmaxmv"];
-    settings->kneemv = root["kneemv"];
-
-    settings->cellmaxspikemv = root["cellmaxspikemv"];
-    settings->sensitivity = root["sensitivity"];
-
-    settings->current_value1 = root["cur_val1"];
-    settings->current_value2 = root["cur_val2"];
+    settings->canbusprotocol = (CanBusProtocolEmulation)root[canbusprotocol_JSONKEY];
+    settings->nominalbatcap = root[nominalbatcap_JSONKEY];
+    settings->chargevolt = root[chargevolt_JSONKEY];
+    settings->chargecurrent = root[chargecurrent_JSONKEY];
+    settings->dischargecurrent = root[dischargecurrent_JSONKEY];
+    settings->dischargevolt = root[dischargevolt_JSONKEY];
+    settings->chargetemplow = root[chargetemplow_JSONKEY];
+    settings->chargetemphigh = root[chargetemphigh_JSONKEY];
+    settings->dischargetemplow = root[dischargetemplow_JSONKEY];
+    settings->dischargetemphigh = root[dischargetemphigh_JSONKEY];
+    settings->stopchargebalance = root[stopchargebalance_JSONKEY];
+    settings->socoverride = root[socoverride_JSONKEY];
+    settings->socforcelow = root[socforcelow_JSONKEY];
+    settings->dynamiccharge = root[dynamiccharge_JSONKEY];
+    settings->preventdischarge = root[preventdischarge_JSONKEY];
+    settings->preventcharging = root[preventcharging_JSONKEY];
+    settings->cellminmv = root[cellminmv_JSONKEY];
+    settings->cellmaxmv = root[cellmaxmv_JSONKEY];
+    settings->kneemv = root[kneemv_JSONKEY];
+    settings->cellmaxspikemv = root[cellmaxspikemv_JSONKEY];
+    settings->sensitivity = root[sensitivity_JSONKEY];
+    settings->current_value1 = root[current_value1_JSONKEY];
+    settings->current_value2 = root[current_value2_JSONKEY];
 
     JsonObject mqtt = root["mqtt"];
     if (!mqtt.isNull())
     {
-        settings->mqtt_enabled = mqtt["enabled"];
-        strncpy(settings->mqtt_uri, mqtt["uri"].as<String>().c_str(), sizeof(settings->mqtt_uri));
-        strncpy(settings->mqtt_topic, mqtt["topic"].as<String>().c_str(), sizeof(settings->mqtt_topic));
-        strncpy(settings->mqtt_username, mqtt["username"].as<String>().c_str(), sizeof(settings->mqtt_username));
-        strncpy(settings->mqtt_password, mqtt["password"].as<String>().c_str(), sizeof(settings->mqtt_password));
+        settings->mqtt_enabled = mqtt[mqtt_enabled_JSONKEY];
+        strncpy(settings->mqtt_uri, mqtt[mqtt_uri_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_uri));
+        strncpy(settings->mqtt_topic, mqtt[mqtt_topic_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_topic));
+        strncpy(settings->mqtt_username, mqtt[mqtt_username_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_username));
+        strncpy(settings->mqtt_password, mqtt[mqtt_password_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_password));
     }
 
     JsonObject influxdb = root["influxdb"];
     if (!influxdb.isNull())
     {
-        settings->influxdb_enabled = influxdb["enabled"];
-        strncpy(settings->influxdb_apitoken, influxdb["apitoken"].as<String>().c_str(), sizeof(settings->influxdb_apitoken));
-        strncpy(settings->influxdb_databasebucket, influxdb["bucket"].as<String>().c_str(), sizeof(settings->influxdb_databasebucket));
-        strncpy(settings->influxdb_orgid, influxdb["org"].as<String>().c_str(), sizeof(settings->influxdb_orgid));
-        strncpy(settings->influxdb_serverurl, influxdb["url"].as<String>().c_str(), sizeof(settings->influxdb_serverurl));
-        settings->influxdb_loggingFreqSeconds = influxdb["logfreq"];
+        settings->influxdb_enabled = influxdb[influxdb_enabled_JSONKEY];
+        strncpy(settings->influxdb_apitoken, influxdb[influxdb_apitoken_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_apitoken));
+        strncpy(settings->influxdb_databasebucket, influxdb[influxdb_databasebucket_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_databasebucket));
+        strncpy(settings->influxdb_orgid, influxdb[influxdb_orgid_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_orgid));
+        strncpy(settings->influxdb_serverurl, influxdb[influxdb_serverurl_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_serverurl));
+        settings->influxdb_loggingFreqSeconds = influxdb[influxdb_loggingFreqSeconds_JSONKEY];
     }
 
     JsonObject outputs = root["outputs"];
@@ -1027,54 +1074,4 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
         // Need to check for over flow of tileconfig array
         settings->tileconfig[i] = v.as<uint16_t>();
     }
-
-    // Victron
-    /*
-    JsonObject victron = root["victron"];
-    if (!victron.isNull())
-    {
-
-        JsonArray cvl = victron["cvl"].as<JsonArray>();
-
-        uint8_t i = 0;
-        for (JsonVariant v : cvl)
-        {
-            myset.cvl[i] = v.as<uint16_t>();
-            ESP_LOGI(TAG, "cvl %u %u", i, myset.cvl[i]);
-            i++;
-            if (i > 3)
-            {
-                break;
-            }
-        }
-
-        JsonArray ccl = victron["ccl"].as<JsonArray>();
-
-        i = 0;
-        for (JsonVariant v : ccl)
-        {
-            myset.ccl[i] = v.as<uint16_t>();
-            ESP_LOGI(TAG, "ccl %u %u", i, myset.ccl[i]);
-            i++;
-            if (i > 3)
-            {
-                break;
-            }
-        }
-
-        JsonArray dcl = victron["dcl"].as<JsonArray>();
-
-        i = 0;
-        for (JsonVariant v : dcl)
-        {
-            myset.dcl[i] = v.as<uint16_t>();
-            ESP_LOGI(TAG, "dcl %u %u", i, myset.dcl[i]);
-            i++;
-            if (i > 3)
-            {
-                break;
-            }
-        }
-    }
-    */
 }
