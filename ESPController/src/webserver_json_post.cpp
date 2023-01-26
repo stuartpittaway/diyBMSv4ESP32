@@ -1081,7 +1081,7 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
             ESP_LOGI(TAG, "Restore LittleFS config from %s", filename);
 
             // Needs to be large enough to de-serialize the JSON file
-            DynamicJsonDocument doc(5000);
+            DynamicJsonDocument doc(5500);
 
             File file = LittleFS.open(filename, "r");
 
@@ -1095,8 +1095,9 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
             {
                 // Restore the config...
                 diybms_eeprom_settings myset;
-
                 JSONToSettings(doc, &myset);
+                // Free up the memory
+                doc.clear();
                 // Repair any bad values
                 ValidateConfiguration(&myset);
 
