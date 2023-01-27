@@ -227,7 +227,7 @@ void ConfigurePins()
     // GPIO34 is interrupt pin from TCA9534A (doesnt have pull up/down resistors)
     pinMode(TCA9534A_INTERRUPT_PIN, INPUT);
 
-    // BOOT Button on ESP32 module is used for resetting wifi details
+    // BOOT Button on ESP32 module 
     pinMode(GPIO_NUM_0, INPUT_PULLUP);
     // attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);
 
@@ -244,6 +244,11 @@ void ConfigurePins()
     pinMode(RS485_ENABLE, OUTPUT);
     // Enable receive
     digitalWrite(RS485_ENABLE, LOW);
+
+
+    pinMode(GPIO_NUM_35, INPUT);
+    pinMode(GPIO_NUM_33, OUTPUT);
+    digitalWrite(GPIO_NUM_33, HIGH);
 }
 
 // Attempts connection to i2c device
@@ -570,7 +575,7 @@ SD CARD TEST
 */
     ESP_LOGI(TAG, "Mounting SD card");
 
-    if (SD.begin(SDCARD_CHIPSELECT, vspi))
+    if (SD.begin(SDCARD_CHIPSELECT, vspi, 4000000,"/sd", 5U,true))
     {
         uint8_t cardType = SD.cardType();
         if (cardType == CARD_NONE)
@@ -633,38 +638,35 @@ void setup()
     ConfigureI2C();
     ConfigureVSPI();
 
-    /*
-        mountSDCard();
+    mountSDCard();
 
-        // Create a test file
-        File file;
-        const char *filename = "/burnin.txt";
+    // Create a test file
+    File file;
+    const char *filename = "/burnin.txt";
 
-        if (SD.exists(filename))
+    if (SD.exists(filename))
+    {
+        file = SD.open(filename, FILE_APPEND);
+        ESP_LOGD(TAG, "Open %s", filename);
+    }
+    else
+    {
+        File file = SD.open(filename, FILE_WRITE);
+        if (file)
         {
-            file = SD.open(filename, FILE_APPEND);
-            ESP_LOGD(TAG, "Open %s", filename);
+            ESP_LOGI(TAG, "Created %s", filename);
         }
         else
         {
-            File file = SD.open(filename, FILE_WRITE);
-            if (file)
-            {
-                ESP_LOGI(TAG, "Created %s", filename);
-            }
-            else
-            {
-                Halt(RGBLED::Blue);
-            }
+            Halt(RGBLED::Blue);
         }
+    }
 
-        file.println("Mary had a little lamb...");
-        file.close();
+    file.println("Mary had a little lamb...");
+    file.close();
 
-        ESP_LOGI(TAG, "All good for SD card file %s", filename);
-        SD.end();
-
-    */
+    ESP_LOGI(TAG, "All good for SD card file %s", filename);
+    SD.end();
 
     // RGB led test
     ESP_LOGD(TAG, "RED");

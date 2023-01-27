@@ -380,6 +380,10 @@ void HAL_ESP32::ConfigurePins()
 
     pinMode(GPIO_NUM_0, OUTPUT);
     digitalWrite(GPIO_NUM_0, HIGH);
+
+    pinMode(GPIO_NUM_35, INPUT);
+    pinMode(GPIO_NUM_33, OUTPUT);
+    digitalWrite(GPIO_NUM_33, HIGH);
 }
 
 struct isr_param
