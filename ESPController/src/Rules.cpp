@@ -591,6 +591,11 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
     uint32_t R = min(
         (int16_t)((mysettings->cellmaxmv - highestCellVoltage) * UniformDerating),
         (int16_t)((mysettings->cellmaxspikemv - mysettings->kneemv) / ((float)mysettings->sensitivity / 10.0F)));
+    // Avoid future divide by zero errors
+    if (R == 0)
+    {
+        R = 1;
+    }
     ESP_LOGD(TAG, "R=%u", R);
 
     // We use the Bank with the highest cell voltage for these calculations - although hopefully all banks are very similar :-)
