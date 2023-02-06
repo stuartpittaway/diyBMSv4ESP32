@@ -50,17 +50,31 @@ $("#rf2").text("Значение сигнала тревоги");
 $("#rf3").text("Значение сброса");
 $("#rf4").text("Состояние реле");
 $("label[for='rule1value']").text("Аварийная остановка");
-$("label[for='rule2value']").text("Внутренняя ошибка BMS");
+//Internal BMS error 
+$("label[for='rule1value']").text("Внутренняя ошибка BMS");
+//Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Перенапряжение отдельной ячейки (мВ)");
+//Cell under voltage (mV)
 $("label[for='rule4value']").text("Пониженное напряжение ячейки (мВ)");
+//Module over temperature (internal) °C
 $("label[for='rule5value']").text("Максимальная температура модуля (внутренняя) °C");
+//Module under temperature (internal)
 $("label[for='rule6value']").text("Минимальная температура модуля (внутреняя)");
+//Cell over temperature (external)
 $("label[for='rule7value']").text("Максимальная температура ячейки (внешняя)");
+//Cell under temperature (external)
 $("label[for='rule8value']").text("Минимальная температура ячейки (внешняя)");
+//Bank over voltage (mV)
 $("label[for='rule9value']").text("Максимальное напряжение батареи (мВ)");
+//Bank under voltage (mV)
 $("label[for='rule10value']").text("Минимальное напряжение батареи (мВ)");
-$("label[for='rule11value']").text("Таймер 2");
-$("label[for='rule12value']").text("Таймер 1");
+//Bank over voltage (mV)
+//Bank under voltage (mV)
+//Bank range/deviation (mV)
+//Timer 2
+$("label[for='rule14value']").text("Таймер 2");
+//Timer 1
+$("label[for='rule15value']").text("Таймер 1");
 $("label[for='defaultvalue']").text("Реле по умолчанию");
 $("label[for='relaytype']").text("Тип реле");
 $("label[for='g1']").text("Максимальная температура байпаса");

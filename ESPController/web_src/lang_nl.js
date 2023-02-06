@@ -78,9 +78,10 @@ $("#rf4").text("Relaisstatus");
 
 
 //Emergency Stop
-$("label[for='rule1value']").text("Noodstop");
+$("label[for='rule0value']").text("Noodstop");
 //Internal BMS error 
-$("label[for='rule2value']").text("Interne BMS fout");
+$("label[for='rule1value']").text("Interne BMS fout");
+//Current monitoring over current (Amps)
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Celoverspannig (mV)");
 //Cell under voltage (mV)
@@ -94,13 +95,16 @@ $("label[for='rule7value']").text("Maximale celtemperatuur (extern)");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Minimale celtemperatuur (extern)");
 //Bank over voltage (mV)
-$("label[for='rule9value']").text("Maximale batterijspanning (mV)");
 //Bank under voltage (mV)
-$("label[for='rule10value']").text("Minimale batterijspanning (mV)");
+//Bank over voltage (mV)
+$("label[for='rule11value']").text("Maximale batterijspanning (mV)");
+//Bank under voltage (mV)
+$("label[for='rule12value']").text("Minimale batterijspanning (mV)");
+//Bank range/deviation (mV)
 //Timer 2
-$("label[for='rule11value']").text("Timer 2");
+$("label[for='rule14value']").text("Timer 2");
 //Timer 1
-$("label[for='rule12value']").text("Timer 1");
+$("label[for='rule15value']").text("Timer 1");
 //Relay default
 $("label[for='defaultvalue']").text("Standaardwaarde relais");
 //Relay type
