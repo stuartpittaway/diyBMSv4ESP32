@@ -169,11 +169,6 @@ void victron_message_351()
       number_of_active_errors += (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? 1 : 0);
     }
 
-    if (rules.moduleHasExternalTempSensor)
-    {
-      number_of_active_errors += (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? 1 : 0);
-    }
-
     number_of_active_errors += ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? 1 : 0);
   }
 
