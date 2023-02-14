@@ -18,27 +18,35 @@
 #error ESP8266 is not supported by this code
 #endif
 
-#undef CONFIG_DISABLE_HAL_LOCKS
-
 #define USE_ESP_IDF_LOG 1
 static constexpr const char *const TAG = "diybms";
 
+#define CONFIG_DISABLE_HAL_LOCKS 1
+
 #include "esp_log.h"
+#include "esp_netif.h"
+#include "esp_eth.h"
+#include "esp_ota_ops.h"
+#include "esp_flash_partitions.h"
+#include "esp_partition.h"
+#include "nvs_flash.h"
+#include "nvs.h"
+
 #include <Arduino.h>
 
-//#define PACKET_LOGGING_RECEIVE
-//#define PACKET_LOGGING_SEND
-//#define RULES_LOGGING
+// #define PACKET_LOGGING_RECEIVE
+// #define PACKET_LOGGING_SEND
+// #define RULES_LOGGING
 
 #include "FS.h"
 #include "LittleFS.h"
 #include <ESPmDNS.h>
-#include <SPI.h>
+
 #include "time.h"
 #include <esp_ipc.h>
 #include <esp_wifi.h>
 #include <esp_bt.h>
-#include <Preferences.h>
+
 #include <esp_event.h>
 
 // Libraries for SD card
@@ -55,12 +63,16 @@ static constexpr const char *const TAG = "diybms";
 #include "defines.h"
 #include "HAL_ESP32.h"
 #include "Rules.h"
+#include "settings.h"
 #include "avrisp_programmer.h"
 #include "tft.h"
 #include "influxdb.h"
 #include "mqtt.h"
 #include "victron_canbus.h"
+#include "pylon_canbus.h"
 #include "string_utils.h"
+
+#include <SPI.h>
 
 const uart_port_t rs485_uart_num = UART_NUM_1;
 
@@ -129,8 +141,8 @@ TaskHandle_t interrupt_task_handle = NULL;
 TaskHandle_t rs485_tx_task_handle = NULL;
 TaskHandle_t rs485_rx_task_handle = NULL;
 TaskHandle_t service_rs485_transmit_q_task_handle = NULL;
-TaskHandle_t victron_canbus_tx_task_handle = NULL;
-TaskHandle_t victron_canbus_rx_task_handle = NULL;
+TaskHandle_t canbus_tx_task_handle = NULL;
+TaskHandle_t canbus_rx_task_handle = NULL;
 
 // This large array holds all the information about the modules
 CellModuleInfo cmi[maximum_controller_cell_modules];
@@ -162,6 +174,10 @@ SerialEncoder myPacketSerial;
 uint16_t sequence = 0;
 
 ControllerState _controller_state = ControllerState::Unknown;
+
+uint32_t time100 = 0;
+uint32_t time20 = 0;
+uint32_t time10 = 0;
 
 void LED(uint8_t bits)
 {
@@ -216,9 +232,6 @@ void SetupRS485()
   // Zero all data to start with
   memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
 
-  // if (mysettings.currentMonitoringEnabled) {
-  // }
-
   uart_config_t uart_config = {
       .baud_rate = mysettings.rs485baudrate,
       .data_bits = mysettings.rs485databits,
@@ -254,28 +267,8 @@ void mountSDCard()
   }
 
   ESP_LOGI(TAG, "Mounting SD card");
-  if (hal.GetVSPIMutex())
-  {
-    // Initialize SD card
-    if (SD.begin(SDCARD_CHIPSELECT, hal.vspi))
-    {
-      uint8_t cardType = SD.cardType();
-      if (cardType == CARD_NONE)
-      {
-        ESP_LOGW(TAG, "No SD card attached");
-      }
-      else
-      {
-        ESP_LOGI(TAG, "SD card available");
-        _sd_card_installed = true;
-      }
-    }
-    else
-    {
-      ESP_LOGE(TAG, "Card mount failed");
-    }
-    hal.ReleaseVSPIMutex();
-  }
+
+  _sd_card_installed = hal.MountSDCard();
 }
 
 void unmountSDCard()
@@ -292,12 +285,8 @@ void unmountSDCard()
   }
 
   ESP_LOGI(TAG, "Unmounting SD card");
-  if (hal.GetVSPIMutex())
-  {
-    SD.end();
-    hal.ReleaseVSPIMutex();
-    _sd_card_installed = false;
-  }
+  hal.UnmountSDCard();
+  _sd_card_installed = false;
 }
 
 void wake_up_tft(bool force)
@@ -343,7 +332,8 @@ void avrprog_task(void *param)
         // although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
 
         uint32_t starttime = millis();
-        AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(&(hal.vspi), GPIO_NUM_0, false, VSPI_SCK);
+
+        AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(hal.VSPI_Ptr(), GPIO_NUM_0, false, VSPI_SCK);
 
         ESP_LOGI(TAG, "Programming AVR");
 
@@ -585,7 +575,7 @@ void sdcardlog_task(void *param)
                 if (file)
                 {
                   ESP_LOGI(TAG, "Create log %s", cmon_filename.c_str());
-                  file.println("DateTime,valid,voltage,current,mAhIn,mAhOut,power,temperature,shuntmV,relayState");
+                  file.println("DateTime,valid,voltage,current,mAhIn,mAhOut,DailymAhIn,DailymAhOut,power,temperature,relayState");
                 }
               }
               else
@@ -625,11 +615,13 @@ void sdcardlog_task(void *param)
                   .append(",")
                   .append(std::to_string(currentMonitor.modbus.milliamphour_out))
                   .append(",")
+                  .append(std::to_string(currentMonitor.modbus.daily_milliamphour_in))
+                  .append(",")
+                  .append(std::to_string(currentMonitor.modbus.daily_milliamphour_out))
+                  .append(",")
                   .append(float_to_string(currentMonitor.modbus.power))
                   .append(",")
                   .append(std::to_string(currentMonitor.modbus.temperature))
-                  .append(",")
-                  .append(float_to_string(currentMonitor.modbus.shuntmV))
                   .append(",")
                   .append(currentMonitor.RelayState ? "1" : "0")
                   .append("\r\n");
@@ -1123,9 +1115,9 @@ void transmit_task(void *param)
         myPacketSerial.sendBuffer((byte *)&transmitBuffer);
 
         // Output the packet we just transmitted to debug console
-        //#if defined(PACKET_LOGGING_SEND)
+        // #if defined(PACKET_LOGGING_SEND)
         //      dumpPacketToDebug('S', &transmitBuffer);
-        //#endif
+        // #endif
       }
 
       // Delay based on comms speed, ensure the first module has time to process and clear the request
@@ -1184,13 +1176,25 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::ErrorEmergencyStop);
   }
 
+  // Raise error is the current shunt stops responding for over 45 seconds
+  if (mysettings.currentMonitoringEnabled)
+  {
+    int64_t secondsSinceLastMessage = (esp_timer_get_time() - currentMonitor.timestamp) / 1E6;
+    if (secondsSinceLastMessage > 45)
+    {
+      rules.SetError(InternalErrorCode::CommunicationsError);
+      rules.rule_outcome[Rule::BMSError] = true;
+    }
+  }
+
+  rules.highestBankRange = 0;
   rules.numberOfBalancingModules = 0;
   uint8_t cellid = 0;
   for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
   {
     for (int8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
     {
-      rules.ProcessCell(bank, cellid, &cmi[cellid]);
+      rules.ProcessCell(bank, cellid, &cmi[cellid], mysettings.cellmaxmv);
 
       if (cmi[cellid].valid && cmi[cellid].settingsCached)
       {
@@ -1228,6 +1232,10 @@ void ProcessRules()
     rules.ProcessBank(bank);
   }
 
+  // Need to call these even if Dynamic is switch off, as it seeds the internal variables with the correct values
+  rules.CalculateDynamicChargeVoltage(&mysettings, cmi);
+  rules.CalculateDynamicChargeCurrent(&mysettings, cmi);
+
   if (mysettings.loggingEnabled && !_sd_card_installed && !_avrsettings.programmingModeEnabled)
   {
     rules.SetWarning(InternalWarningCode::LoggingEnabledNoSDCard);
@@ -1256,6 +1264,26 @@ void ProcessRules()
       emergencyStop,
       minutesSinceMidnight(),
       &currentMonitor);
+
+  if (rules.moduleHasExternalTempSensor == false)
+  {
+    // NoExternalTempSensor
+    rules.SetWarning(InternalWarningCode::NoExternalTempSensor);
+  }
+
+  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
+  {
+    if (!rules.IsChargeAllowed(&mysettings))
+    {
+      // Charge prevented
+      rules.SetWarning(InternalWarningCode::ChargePrevented);
+    }
+    if (!rules.IsDischargeAllowed(&mysettings))
+    {
+      // Discharge prevented
+      rules.SetWarning(InternalWarningCode::DischargePrevented);
+    }
+  }
 
   if (_controller_state == ControllerState::Stabilizing)
   {
@@ -1480,14 +1508,6 @@ void enqueue_task(void *param)
   }
 }
 
-/* FreeRTOS event group to signal when we are connected*/
-// static EventGroupHandle_t s_wifi_event_group;
-
-/* The event group allows multiple bits for each event, but we only care about two events:
- * - we are connected to the AP with an IP
- * - we failed to connect after the maximum amount of retries */
-//#define WIFI_CONNECTED_BIT BIT0
-//#define WIFI_FAIL_BIT BIT1
 static int s_retry_num = 0;
 
 void formatCurrentDateTime(char *buf, size_t buf_size)
@@ -1650,16 +1670,12 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     snprintf(ip_string, sizeof(ip_string), IPSTR, IP2STR(&event->ip_info.ip));
 
     ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, ip_string);
-
-    // Wake up the screen, this will show the IP address etc.
-    // Don't enable this, causes a cascade effect/race condition
-    // wake_up_tft(true);
   }
 }
 
 bool LoadWiFiConfig()
 {
-  return (Settings::ReadConfig("diybmswifi", (char *)&_wificonfig, sizeof(_wificonfig)));
+  return LoadWIFI(&_wificonfig);
 }
 
 void BuildHostname()
@@ -1938,8 +1954,88 @@ void currentMon_ConfigureBasic(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t 
   xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
 
   // Zero all data
-  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  // memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
   currentMonitor.validReadings = false;
+}
+
+void currentMon_SetSOC(float newSOC)
+{
+  uint16_t value = newSOC * 100;
+
+  //	Write Multiple Holding Registers
+  uint8_t cmd2[] = {
+      // The Slave Address
+      mysettings.currentMonitoringModBusAddress,
+      // The Function Code 16
+      16,
+      // Data Address of the first register (zero based so 26 = register 40027)
+      0,
+      26,
+      // number of registers to write (1)
+      0,
+      1,
+      // number of data bytes to follow (1 register x 2 bytes each = 2 bytes)
+      2,
+      // value to write to register |40027|State of charge % (unsigned int16)
+      // (scale x100 eg. 10000 = 100.00%, 8012 = 80.12%, 100 = 1.00%)
+      (uint8_t)(value >> 8),
+      (uint8_t)(value & 0xFF)};
+
+  xQueueSend(rs485_transmit_q_handle, &cmd2, portMAX_DELAY);
+}
+
+void currentMon_ResetDailyAmpHourCounters()
+{
+  //	Write Multiple Holding Registers
+  uint8_t cmd2[] = {
+      // The Slave Address
+      mysettings.currentMonitoringModBusAddress,
+      // The Function Code 16
+      16,
+      // Data Address of the first register (zero based so 11 = register 40012)
+      0,
+      11,
+      // number of registers to write
+      0,
+      4,
+      // number of data bytes to follow (2 registers x 2 bytes each = 4 bytes)
+      8,
+      // value to write to register 40012/13 |40012| daily milliamphour_out (uint32_t)
+      0,
+      0,
+      0,
+      0,
+      // value to write to register 40014/15 |40014| daily milliamphour_in (uint32_t)
+      0,
+      0,
+      0,
+      0};
+
+  xQueueSend(rs485_transmit_q_handle, &cmd2, portMAX_DELAY);
+}
+
+bool CurrentMonitorSetSOC(float newSOC)
+{
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON && mysettings.currentMonitoringEnabled == true)
+  {
+    ESP_LOGI(TAG, "Set SOC");
+    currentMon_SetSOC(newSOC);
+    return true;
+  }
+
+  return false;
+}
+
+bool CurrentMonitorResetDailyAmpHourCounters()
+{
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON && mysettings.currentMonitoringEnabled == true)
+  {
+    ESP_LOGI(TAG, "Reset daily Ah counter");
+    currentMon_ResetDailyAmpHourCounters();
+    return true;
+  }
+
+  return false;
 }
 
 void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
@@ -2015,8 +2111,59 @@ Flag 2
   ESP_LOGD(TAG, "Write register 10 = %u %u", flag1, flag2);
 
   // Zero all data
-  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+  // memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
   currentMonitor.validReadings = false;
+}
+
+// Calculate estimated time to various % SoC
+// This would be better to use an averaged current over a 3 or 5 minute period to avoid jumps in the readings
+void TimeToSoCCalculation()
+{
+  // ESP_LOGD(TAG, "SoC time estimation");
+
+  // Avoid divide by zero errors
+  if (currentMonitor.modbus.current == 0)
+    return;
+
+  // Calculate how "full" the battery is based on SoC %
+  float now_capacity_ah = currentMonitor.modbus.batterycapacityamphour / 100.0 * currentMonitor.stateofcharge;
+
+  // Target 100% - only if we are charging
+  if (currentMonitor.stateofcharge < 100.0 && currentMonitor.modbus.current > 0)
+  {
+    // Gap between now and 100%
+    float empty_ah = currentMonitor.modbus.batterycapacityamphour - now_capacity_ah;
+    // Use instantaneous current value to predict amp-hour (in number of seconds)
+    time100 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+  }
+  else
+  {
+    time100 = 0;
+  }
+
+  // Target 20% - only if we are discharging
+  if (currentMonitor.stateofcharge > 20.0 && currentMonitor.modbus.current < 0)
+  {
+    // Gap between now and 20%
+    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.20);
+    time20 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+  }
+  else
+  {
+    time20 = 0;
+  }
+
+  // Target 10% - only if we are discharging
+  if (currentMonitor.stateofcharge > 10.0 && currentMonitor.modbus.current < 0)
+  {
+    // Gap between now and 10%
+    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.10);
+    time10 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+  }
+  else
+  {
+    time10 = 0;
+  }
 }
 
 // Save the current monitor advanced settings back to the device over MODBUS/RS485
@@ -2087,17 +2234,6 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   ptr = SetMobusRegistersFromFloat(cmd2, ptr, newvalues.modbus.undercurrentlimit);
   ptr = SetMobusRegistersFromFloat(cmd2, ptr, newvalues.modbus.overpowerlimit);
 
-  /*
-    newvalues.shuntcal = p1->value().toInt();
-    newvalues.temperaturelimit = p1->value().toInt();
-    newvalues.overvoltagelimit = p1->value().toFloat();
-    newvalues.undervoltagelimit = p1->value().toFloat();
-    newvalues.overcurrentlimit = p1->value().toFloat();
-    newvalues.undercurrentlimit = p1->value().toFloat();
-    newvalues.overpowerlimit = p1->value().toFloat();
-    newvalues.shunttempcoefficient = p1->value().toInt();
-*/
-
   uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
   memset(&cmd, 0, sizeof(cmd));
   memcpy(&cmd, &cmd2, sizeof(cmd2));
@@ -2143,6 +2279,8 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
   // Finally, we have to fix the 32 bit fields
   currentMonitor.modbus.milliamphour_out = word16swap32(currentMonitor.modbus.milliamphour_out);
   currentMonitor.modbus.milliamphour_in = word16swap32(currentMonitor.modbus.milliamphour_in);
+  currentMonitor.modbus.daily_milliamphour_out = word16swap32(currentMonitor.modbus.daily_milliamphour_out);
+  currentMonitor.modbus.daily_milliamphour_in = word16swap32(currentMonitor.modbus.daily_milliamphour_in);
   currentMonitor.modbus.firmwareversion = word16swap32(currentMonitor.modbus.firmwareversion);
   currentMonitor.modbus.firmwaredatetime = word16swap32(currentMonitor.modbus.firmwaredatetime);
 
@@ -2202,6 +2340,8 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 
   currentMonitor.validReadings = true;
 
+  TimeToSoCCalculation();
+
   /*
   ESP_LOGD(TAG, "WDog = %u", currentMonitor.modbus.watchdogcounter);
   ESP_LOGD(TAG, "SOC = %i", currentMonitor.stateofcharge);
@@ -2218,14 +2358,79 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 */
 }
 
-void victron_canbus_tx(void *param)
+void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
+{
+  twai_message_t message;
+  message.identifier = identifier;
+  message.flags = TWAI_MSG_FLAG_NONE;
+  message.data_length_code = length;
+
+  memcpy(&message.data, buffer, length);
+
+  esp_err_t result = twai_transmit(&message, pdMS_TO_TICKS(250));
+
+  // Queue message for transmission
+  if (result != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Fail to queue CANBUS message (0x%x)", result);
+    canbus_messages_failed_sent++;
+  }
+  else
+  {
+    ESP_LOGD(TAG, "Sent CAN message 0x%x", identifier);
+    // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
+    canbus_messages_sent++;
+  }
+}
+
+void canbus_tx(void *param)
 {
   for (;;)
   {
-    // Delay 1 seconds
+    // Delay 1 second
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    if (mysettings.VictronEnabled)
+    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH)
+    {
+      // Pylon Tech Battery Emulation
+      // https://github.com/PaulSturbo/DIY-BMS-CAN/blob/main/SEPLOS%20BMS%20CAN%20Protocoll%20V1.0.pdf
+      // https://www.setfirelabs.com/green-energy/pylontech-can-reading-can-replication
+      // https://github.com/juamiso/PYLON_EMU
+      // https://www.studocu.com/row/document/abasyn-university/electronics-engineering/can-bus-protocol-pylon-low-voltage-v1/17205338
+
+      /*
+      PYLON TECH battery transmits these values....
+
+      CAN ID – followed by 2 to 8 bytes of data:
+      0x351 – 14 02 74 0E 74 0E CC 01 – Battery voltage + current limits
+      0x355 – 1A 00 64 00 – State of Health (SOH) / State of Charge (SOC)
+      0x356 – 4e 13 02 03 04 05 – Voltage / Current / Temp
+      0x359 – 00 00 00 00 0A 50 4E – Protection & Alarm flags
+      0x35C – C0 00 – Battery charge request flags
+      0x35E – 50 59 4C 4F 4E 20 20 20 – Manufacturer name (“PYLON “)
+
+      If you are watching the bus, you will also see a 0x305 ID message which is output by the inverter once per second.
+*/
+      pylon_message_351();
+      vTaskDelay(pdMS_TO_TICKS(20));
+
+      if (_controller_state == ControllerState::Running)
+      {
+        pylon_message_355();
+        vTaskDelay(pdMS_TO_TICKS(20));
+        pylon_message_356();
+        vTaskDelay(pdMS_TO_TICKS(20));
+      }
+      pylon_message_359();
+      vTaskDelay(pdMS_TO_TICKS(20));
+      pylon_message_35c();
+      vTaskDelay(pdMS_TO_TICKS(20));
+      pylon_message_35e();
+      // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
+      // vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
     {
       // minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
 
@@ -2259,12 +2464,12 @@ void victron_canbus_tx(void *param)
   }
 }
 
-void victron_canbus_rx(void *param)
+void canbus_rx(void *param)
 {
   for (;;)
   {
 
-    if (mysettings.VictronEnabled)
+    if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
     {
 
       // Wait for message to be received
@@ -2277,8 +2482,7 @@ void victron_canbus_rx(void *param)
                  message.identifier, message.data_length_code, message.flags);
         if (!(message.flags & TWAI_MSG_FLAG_RTR))
         {
-          ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code,
-                                 ESP_LOG_DEBUG);
+          ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
         }
       }
       else if (res == ESP_ERR_TIMEOUT)
@@ -2536,8 +2740,8 @@ void rs485_tx(void *param)
 
   for (;;)
   {
-    // Delay 5 seconds
-    vTaskDelay(pdMS_TO_TICKS(5000));
+    // Delay 4 seconds between requests
+    vTaskDelay(pdMS_TO_TICKS(4000));
 
     if (mysettings.currentMonitoringEnabled == true)
     {
@@ -2577,138 +2781,6 @@ void rs485_tx(void *param)
       }
     } // end if
   }
-}
-
-void DefaultConfiguration(diybms_eeprom_settings *_myset)
-{
-  ESP_LOGI(TAG, "Apply default config");
-
-  // Zero all the bytes
-  memset(_myset, 0, sizeof(diybms_eeprom_settings));
-
-  // Default to a single module
-  _myset->totalNumberOfBanks = 1;
-  _myset->totalNumberOfSeriesModules = 1;
-  // Default serial port speed
-  _myset->baudRate = COMMS_BAUD_RATE;
-  _myset->BypassOverTempShutdown = 65;
-  _myset->interpacketgap = 6000;
-  // 4.10V bypass
-  _myset->BypassThresholdmV = 4100;
-  _myset->graph_voltagehigh = 4.5;
-  _myset->graph_voltagelow = 2.75;
-
-  // EEPROM settings are invalid so default configuration
-  _myset->mqtt_enabled = false;
-
-  _myset->VictronEnabled = false;
-
-  // Charge current limit (CCL)
-  _myset->ccl[VictronDVCC::Default] = 10 * 10;
-  // Charge voltage limit (CVL)
-  _myset->cvl[VictronDVCC::Default] = 12 * 10;
-  // Discharge current limit (DCL)
-  _myset->dcl[VictronDVCC::Default] = 10 * 10;
-
-  // Balance
-  _myset->ccl[VictronDVCC::Balance] = 10 * 10;
-  _myset->cvl[VictronDVCC::Balance] = 10 * 10;
-  _myset->dcl[VictronDVCC::Balance] = 10 * 10;
-  // Error
-  _myset->ccl[VictronDVCC::ControllerError] = 0 * 10;
-  _myset->cvl[VictronDVCC::ControllerError] = 0 * 10;
-  _myset->dcl[VictronDVCC::ControllerError] = 0 * 10;
-
-  _myset->loggingEnabled = false;
-  _myset->loggingFrequencySeconds = 15;
-
-  _myset->currentMonitoringEnabled = false;
-  _myset->currentMonitoringModBusAddress = 90;
-  _myset->currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
-
-  _myset->rs485baudrate = 19200;
-  _myset->rs485databits = uart_word_length_t::UART_DATA_8_BITS;
-  _myset->rs485parity = uart_parity_t::UART_PARITY_DISABLE;
-  _myset->rs485stopbits = uart_stop_bits_t::UART_STOP_BITS_1;
-
-  _myset->currentMonitoringEnabled = false;
-
-  strcpy(_myset->language, "en");
-
-  // Default to EMONPI default MQTT settings
-  strcpy(_myset->mqtt_topic, "emon/diybms");
-  strcpy(_myset->mqtt_uri, "mqtt://192.168.0.26:1883");
-  strcpy(_myset->mqtt_username, "emonpi");
-  strcpy(_myset->mqtt_password, "emonpimqtt2016");
-
-  _myset->influxdb_enabled = false;
-  strcpy(_myset->influxdb_serverurl, "http://192.168.0.49:8086/api/v2/write");
-  strcpy(_myset->influxdb_databasebucket, "bucketname");
-  strcpy(_myset->influxdb_orgid, "organisation");
-  _myset->influxdb_loggingFreqSeconds = 15;
-
-  _myset->timeZone = 0;
-  _myset->minutesTimeZone = 0;
-  _myset->daylight = false;
-  strcpy(_myset->ntpServer, "time.google.com");
-
-  for (size_t x = 0; x < RELAY_TOTAL; x++)
-  {
-    _myset->rulerelaydefault[x] = RELAY_OFF;
-  }
-
-  // Emergency stop
-  _myset->rulevalue[Rule::EmergencyStop] = 0;
-  // Internal BMS error (communication issues, fault readings from modules etc)
-  _myset->rulevalue[Rule::BMSError] = 0;
-  // Current monitoring maximum AMPS
-  _myset->rulevalue[Rule::CurrentMonitorOverCurrentAmps] = 100;
-  // Individual cell over voltage
-  _myset->rulevalue[Rule::ModuleOverVoltage] = 4150;
-  // Individual cell under voltage
-  _myset->rulevalue[Rule::ModuleUnderVoltage] = 3000;
-  // Individual cell over temperature (external probe)
-  _myset->rulevalue[Rule::ModuleOverTemperatureExternal] = 55;
-  // Pack over voltage (mV)
-  _myset->rulevalue[Rule::ModuleUnderTemperatureExternal] = 5;
-  // Pack under voltage (mV)
-  _myset->rulevalue[Rule::BankOverVoltage] = 4200 * 8;
-  // RULE_PackUnderVoltage
-  _myset->rulevalue[Rule::BankUnderVoltage] = 3000 * 8;
-  _myset->rulevalue[Rule::Timer1] = 60 * 8;  // 8am
-  _myset->rulevalue[Rule::Timer2] = 60 * 17; // 5pm
-
-  _myset->rulevalue[Rule::ModuleOverTemperatureInternal] = 60;
-  _myset->rulevalue[Rule::ModuleUnderTemperatureInternal] = 5;
-
-  _myset->rulevalue[Rule::CurrentMonitorOverVoltage] = 4200 * 8;
-  _myset->rulevalue[Rule::CurrentMonitorUnderVoltage] = 3000 * 8;
-
-  for (size_t i = 0; i < RELAY_RULES; i++)
-  {
-    _myset->rulehysteresis[i] = _myset->rulevalue[i];
-
-    // Set all relays to don't care
-    for (size_t x = 0; x < RELAY_TOTAL; x++)
-    {
-      _myset->rulerelaystate[i][x] = RELAY_X;
-    }
-  }
-
-  for (size_t x = 0; x < RELAY_TOTAL; x++)
-  {
-    _myset->relaytype[x] = RELAY_STANDARD;
-  }
-}
-
-void LoadConfiguration()
-{
-  ESP_LOGI(TAG, "Fetch config");
-
-  if (Settings::ReadConfig("diybms", (char *)&mysettings, sizeof(mysettings)))
-    return;
-
-  DefaultConfiguration(&mysettings);
 }
 
 void periodic_task(void *param)
@@ -2774,13 +2846,14 @@ void periodic_task(void *param)
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 void lazy_tasks(void *param)
 {
+  int year_day = 0;
   for (;;)
   {
     // TODO: Perhaps this should be based on some improved logic - based on number of modules in system?
-    //  Delay 6.5 seconds
+    //  Delay 5.5 seconds
 
     // ESP_LOGI(TAG, "Sleep");
-    TickType_t delay_ticks = pdMS_TO_TICKS(6500);
+    TickType_t delay_ticks = pdMS_TO_TICKS(5500);
     vTaskDelay(delay_ticks);
 
     // Task 1
@@ -2788,19 +2861,41 @@ void lazy_tasks(void *param)
     //  Send a "ping" message through the cells to get a round trip time
     prg.sendTimingRequest();
 
+    // Check if clock has rolled over to next day, this won't fire exactly on midnight
+    // but should be within 0-20 seconds of it.
+    if (sntp_enabled())
+    {
+      time_t now;
+      time(&now);
+      struct tm timeinfo;
+      localtime_r(&now, &timeinfo);
+
+      if (year_day > 0 && year_day != timeinfo.tm_yday)
+      {
+        // Reset the current monitor at midnight (ish)
+        CurrentMonitorResetDailyAmpHourCounters();
+
+        for (size_t i = 0; i < maximum_controller_cell_modules; i++)
+        {
+          resetModuleMinMaxVoltage(i);
+        }
+      }
+      year_day = timeinfo.tm_yday;
+    }
+
     // Sleep between sections to give the ESP a chance to do other stuff
     vTaskDelay(delay_ticks);
 
     // Task 2
     ESP_LOGI(TAG, "Task 2");
-    uint8_t counter = 0;
-    // Find modules that don't have settings cached and request them
+    // uint8_t counter = 0;
+    //  Find modules that don't have settings cached and request them
     for (uint8_t module = 0; module < TotalNumberOfCells(); module++)
     {
       if (cmi[module].valid && !cmi[module].settingsCached)
       {
         prg.sendGetSettingsRequest(module);
-        counter++;
+        // counter++;
       }
     }
 
@@ -2824,7 +2919,7 @@ void lazy_tasks(void *param)
         endmodule = max - 1;
       }
 
-      ESP_LOGI(TAG, "Task 3, s=%i e=%i", startmodule, endmodule);
+      ESP_LOGD(TAG, "Task 3, s=%i e=%i", startmodule, endmodule);
       prg.sendReadBalanceCurrentCountRequest(startmodule, endmodule);
       prg.sendReadPacketsReceivedRequest(startmodule, endmodule);
       prg.sendReadBadPacketCounter(startmodule, endmodule);
@@ -3041,8 +3136,7 @@ void TerminalBasedWifiSetup()
       memset(&config, 0, sizeof(config));
       strncpy(config.wifi_ssid, (char *)ap_info[index].ssid, sizeof(config.wifi_ssid));
       strncpy(config.wifi_passphrase, buffer, sizeof(config.wifi_passphrase));
-      Settings::WriteConfig("diybmswifi", (char *)&config, sizeof(config));
-
+      SaveWIFI(&config);
       // Now delete the WIFICONFIG backup from the SDCard to prevent boot loops/resetting defaults
       DeleteWiFiConfigFromSDCard();
     }
@@ -3050,7 +3144,7 @@ void TerminalBasedWifiSetup()
 
   fputc('\n', stdout);
   fputc('\n', stdout);
-  for (size_t i = 10; i > 0; i--)
+  for (size_t i = 5; i > 0; i--)
   {
     char number[5];
     itoa(i, number, 10);
@@ -3109,9 +3203,7 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
           {
             memcpy(&_wificonfig, &_new_config, sizeof(_new_config));
             ESP_LOGI(TAG, "Wifi config is different, saving");
-
-            Settings::WriteConfig("diybmswifi", (char *)&_new_config, sizeof(_new_config));
-
+            SaveWIFI(&_new_config);
             ret = true;
           }
           else
@@ -3146,7 +3238,7 @@ log_level_t log_levels[] =
         {.tag = "dhcpc", .level = ESP_LOG_WARN},
         {.tag = "diybms", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-avrisp", .level = ESP_LOG_INFO},
-        {.tag = "diybms-hal", .level = ESP_LOG_INFO},
+        {.tag = "diybms-hal", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-influxdb", .level = ESP_LOG_INFO},
         {.tag = "diybms-rx", .level = ESP_LOG_INFO},
         {.tag = "diybms-tx", .level = ESP_LOG_INFO},
@@ -3158,7 +3250,9 @@ log_level_t log_levels[] =
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
-        {.tag = "diybms-mqtt", .level = ESP_LOG_INFO}};
+        {.tag = "diybms-set", .level = ESP_LOG_INFO},
+        {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
+        {.tag = "diybms-pylon", .level = ESP_LOG_INFO}};
 
 void consoleConfigurationCheck()
 {
@@ -3177,6 +3271,51 @@ void consoleConfigurationCheck()
     delay(250);
   }
   fputs("\n\nNo key press detected\n", stdout);
+}
+
+// Mark running firmware as ok/valid.
+// Believe this is also duplicated into ArduinoESP32 library/runtime
+extern "C" void confirmFirmwareIsValid()
+{
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  esp_ota_img_states_t ota_state;
+  if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK)
+  {
+    if (ota_state == ESP_OTA_IMG_PENDING_VERIFY)
+    {
+      // Validate image some how, then call:
+      ESP_LOGI(TAG, "esp_ota_mark_app_valid_cancel_rollback");
+      esp_ota_mark_app_valid_cancel_rollback();
+      // If needed: esp_ota_mark_app_invalid_rollback_and_reboot();
+    }
+  }
+}
+
+void resumeTasksAfterFirmwareUpdateFailure()
+{
+  vTaskResume(updatetftdisplay_task_handle);
+  vTaskResume(avrprog_task_handle);
+  vTaskResume(sdcardlog_task_handle);
+  vTaskResume(sdcardlog_outputs_task_handle);
+  vTaskResume(rs485_tx_task_handle);
+  vTaskResume(service_rs485_transmit_q_task_handle);
+  vTaskResume(canbus_tx_task_handle);
+  vTaskResume(transmit_task_handle);
+  vTaskResume(lazy_task_handle);
+  vTaskResume(canbus_rx_task_handle);
+}
+void suspendTasksDuringFirmwareUpdate()
+{
+  vTaskSuspend(updatetftdisplay_task_handle);
+  vTaskSuspend(avrprog_task_handle);
+  vTaskSuspend(sdcardlog_task_handle);
+  vTaskSuspend(sdcardlog_outputs_task_handle);
+  vTaskSuspend(rs485_tx_task_handle);
+  vTaskSuspend(service_rs485_transmit_q_task_handle);
+  vTaskSuspend(canbus_tx_task_handle);
+  vTaskSuspend(transmit_task_handle);
+  vTaskSuspend(lazy_task_handle);
+  vTaskSuspend(canbus_rx_task_handle);
 }
 
 void setup()
@@ -3210,6 +3349,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
   hal.ConfigureVSPI();
 
+  confirmFirmwareIsValid();
+
   _avrsettings.inProgress = false;
   _avrsettings.programmingModeEnabled = false;
 
@@ -3218,9 +3359,10 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   // Touch is on VSPI bus
   _tft_screen_available = hal.IsScreenAttached();
   SetControllerState(ControllerState::PowerUp);
-  // hal.ConfigureVSPI();
   init_tft_display();
   hal.Led(0);
+
+  InitializeNVS();
 
   // Switch CAN chip TJA1051T/3 ON
   hal.CANBUSEnable(true);
@@ -3257,13 +3399,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   resetAllRules();
 
-  LoadConfiguration();
-
-  // Check its not zero
-  if (mysettings.influxdb_loggingFreqSeconds < 5)
-  {
-    mysettings.influxdb_loggingFreqSeconds = 15;
-  }
+  LoadConfiguration(&mysettings);
+  ValidateConfiguration(&mysettings);
 
   if (!EepromConfigValid)
   {
@@ -3299,21 +3436,21 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   assert(tftwake_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
-  xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 1, &updatetftdisplay_task_handle);
+  xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 0, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 3, &avrprog_task_handle);
 
   // High priority task
   xTaskCreate(interrupt_task, "int", 2000, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
-  xTaskCreate(sdcardlog_task, "sdlog", 3000, nullptr, 1, &sdcardlog_task_handle);
-  xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 1, &sdcardlog_outputs_task_handle);
+  xTaskCreate(sdcardlog_task, "sdlog", 3000, nullptr, 0, &sdcardlog_task_handle);
+  xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 0, &sdcardlog_outputs_task_handle);
   xTaskCreate(rs485_tx, "485_TX", 2950, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2950, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
-  xTaskCreate(victron_canbus_tx, "v_cantx", 2950, nullptr, 1, &victron_canbus_tx_task_handle);
-  xTaskCreate(victron_canbus_rx, "v_canrx", 2950, nullptr, 1, &victron_canbus_rx_task_handle);
-  xTaskCreate(transmit_task, "tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, 1, &canbus_tx_task_handle);
+  xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
+  xTaskCreate(transmit_task, "Tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 2000, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
-  xTaskCreate(lazy_tasks, "lazyt", 2000, nullptr, 1, &lazy_task_handle);
+  xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 0, &lazy_task_handle);
 
   // Set relay defaults
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
@@ -3331,7 +3468,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   // Only run these after we have wifi...
   xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
   xTaskCreate(rules_task, "rules", 3500, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-  xTaskCreate(periodic_task, "period", 3500, nullptr, 1, &periodic_task_handle);
+  xTaskCreate(periodic_task, "period", 3500, nullptr, 0, &periodic_task_handle);
 
   // Start the wifi and connect to access point
   wifi_init_sta();

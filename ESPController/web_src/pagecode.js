@@ -8,10 +8,13 @@ const INTERNALRULENUMBER = {
     ModuleUnderTemperatureInternal: 6,
     IndividualcellovertemperatureExternal: 7,
     IndividualcellundertemperatureExternal: 8,
-    PackOverVoltage: 9,
-    PackUnderVoltage: 10,
-    Timer2: 11,
-    Timer1: 12
+    CurrentMonitorOverVoltage: 9,
+    CurrentMonitorUnderVoltage: 10,
+    BankOverVoltage: 11,
+    BankUnderVoltage: 12,
+    BankRange: 13,
+    Timer2: 14,
+    Timer1: 15
 }
 Object.freeze(INTERNALRULENUMBER);
 
@@ -41,17 +44,206 @@ const INTERNALERRORCODE =
 Object.freeze(INTERNALERRORCODE);
 
 
+// TILE_IDS holds an array of the statistic panels on the page
+// this array drives the ability to toggle visibility
+// DO NOT MODIFY THE ORDER/SEQUENCE - ADD NEW ITEMS AT THE END/USE EMPTY STRINGS
+// IF YOU NEED TO DELETE - REPLACE VALUE WITH null
+// THEY ARE ARRANGED IN SUB-ARRAY OF 16 ITEMS - CORRESPONDING TO A 16 BIT UNSIGNED VALUE
+// PAD ARRAYS TO 16 ITEMS
+const TILE_IDS = [
+    ["voltage0", "range0", "voltage1", "range1", "voltage2", "range2", "voltage3", "range3", "voltage4", "range4", "voltage5", "range5", "voltage6", "range6", "voltage7", "range7"],
+    ["voltage8", "range8", "voltage9", "range9", "voltage10", "range10", "voltage11", "range11", "voltage12", "range12", "voltage13", "range13", "voltage14", "range14", "voltage15", "range15"],
+    ["soc", "current", "shuntv", "power", "amphout", "amphin", "damphout", "damphin", "oos", "badcrc", "ignored", "canfail", "sent", "received", "roundtrip", "uptime"],
+    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", "graphOptions", "time100", "time20", "time10", "celltemp", null, null, null, null, null, null]
+];
+Object.freeze(TILE_IDS);
+
+var tileconfig = [];
+
+var timer_postTileVisibiltity = null;
+
+function upload_file() {
+
+    let data = document.getElementById("uploadfile_sel").files[0];
+    xhr = new XMLHttpRequest();
+    xhr.open("POST", "/uploadfile", true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            var status = xhr.status;
+            if (status >= 200 && status < 400) {
+                //Refresh the storage page
+                $("#storage").trigger("click");
+                $.notify("File upload success", { autoHide: true, globalPosition: 'top right', className: 'success' });
+            } else {
+                $.notify("File upload failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
+            }
+            $("#progress").hide();
+        }
+    };
+    xhr.send(data);
+    return false;
+
+}
+
+function upload_firmware() {
+    $("#progress").show();
+    $("#status_div").text("Upload in progress");
+    let data = document.getElementById("file_sel").files[0];
+    xhr = new XMLHttpRequest();
+    xhr.open("POST", "/ota", true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.upload.addEventListener("progress", function (event) {
+        if (event.lengthComputable) {
+            document.getElementById("progress").style.width = (event.loaded / event.total) * 100 + "%";
+        }
+    });
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+            var status = xhr.status;
+            if (status >= 200 && status < 400) {
+                $("#status_div").text("Upload accepted. BMS will reboot.");
+            } else {
+                $("#status_div").text("Upload rejected!");
+            }
+            $("#progress").hide();
+        }
+    };
+    xhr.send(data);
+    return false;
+}
+
+
+function CalculateChargeCurrent(value1, value2, highestCellVoltage, maximumchargecurrent, kneemv, cellmaxmv) {
+    if (highestCellVoltage < kneemv) {
+        // Voltage is below the knee voltage, so use full current
+        return maximumchargecurrent;
+    }
+
+    var knee_voltage = 0 / 100.0;
+    var at_knee = Math.pow(value1, knee_voltage * Math.pow(knee_voltage, value2));
+
+    var target_cell_voltage = (cellmaxmv - kneemv) / 100.0;
+    var at_target_cell_voltage = Math.pow(value1, target_cell_voltage * Math.pow(target_cell_voltage, value2));
+
+    var actual_cell_voltage = (highestCellVoltage - kneemv) / 100.0;
+    var at_actual_cell_voltage = Math.pow(value1, actual_cell_voltage * Math.pow(actual_cell_voltage, value2));
+
+    var percent = 1 - (at_actual_cell_voltage / at_knee) / at_target_cell_voltage;
+
+    if (percent < 0.01) {
+        percent = 0.01;
+    }
+
+    return Math.min(maximumchargecurrent, (maximumchargecurrent * percent));
+}
+
+function DrawChargingGraph() {
+
+
+    var xaxisvalues = [];
+    var yaxisvalues = [];
+
+    const chargecurrent = parseFloat($("#chargecurrent").val());
+    const cellminmv = parseInt($("#cellminmv").val());
+    const cellmaxmv = parseInt($("#cellmaxmv").val());
+    const kneemv = parseInt($("#kneemv").val());
+    const cellmaxspikemv = parseInt($("#cellmaxspikemv").val());
+
+    const value1 = parseFloat($("#cur_val1").val());
+    const value2 = parseFloat($("#cur_val2").val());
+
+    for (let voltage = cellminmv; voltage <= cellmaxspikemv; voltage += 5) {
+        xaxisvalues.push(voltage);
+        yaxisvalues.push(CalculateChargeCurrent(value1, value2, voltage, chargecurrent, kneemv, cellmaxmv));
+    }
+
+    /*
+        if (window.g3 != null) {
+            window.g3.dispose();
+            window.g3 = null;
+        }
+    */
+    if (window.g3 == null) {
+        window.g3 = echarts.init(document.getElementById('graph3'))
+
+        var option;
+
+        option = {
+
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'cross',
+                    label: {
+                        backgroundColor: '#6a7985'
+                    }
+                }
+            },
+            grid: {
+                left: '2%',
+                right: '2%',
+                bottom: '2%',
+                containLabel: true
+            },
+            xAxis: [
+                {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: xaxisvalues,
+                    axisLabel: {
+                        fontSize: '12',
+                        fontFamily: 'monospace',
+                        formatter: '{value}mV',
+                        color: '#ffffff'
+                    }
+                }
+            ],
+            yAxis: [
+                {
+                    type: 'value',
+                    axisLabel: {
+                        fontSize: '12',
+                        fontFamily: 'monospace',
+                        formatter: '{value}A',
+                        color: '#ffffff'
+                    },
+                    splitNumber: 10
+                }
+            ],
+            series: [
+                {
+                    name: 'Current',
+                    type: 'line',
+                    areaStyle: {},
+                    data: yaxisvalues
+                }
+            ]
+        };
+
+        option && window.g3.setOption(option);
+    } else {
+        //Update the values
+        window.g3.setOption({
+            xAxis: { data: xaxisvalues },
+            series: { data: yaxisvalues }
+        });
+
+    }
+}
+
 function switchPage(newPage) {
     $(".page").hide();
     $(newPage).show();
     $("#myNav").height("0%");
 }
+
 function identifyModule(button, cellid) {
     $.getJSON("/api/identifyModule", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
 }
 
-function restoreconfig(filename) {
-    let isConfirmed = confirm("Are you sure you wish to restore '"+filename+"' configuration file?");
+function restoreconfig(location, filename) {
+    let isConfirmed = confirm("Are you sure you wish to restore '" + filename + "' configuration file?");
 
     if (isConfirmed) {
 
@@ -60,9 +252,10 @@ function restoreconfig(filename) {
         $.ajax({
             type: 'POST',
             url: '/post/restoreconfig',
-            data: $.param({ filename: filename }),
+            data: $.param({ flashram: location, filename: filename }),
             success: function (data) {
-                location.reload();
+                showSuccess();
+                alert("Restore complete, you should now reboot the controller.");
             },
             error: function (data) {
                 showFailure();
@@ -92,8 +285,6 @@ function refreshCurrentMonitorValues() {
 
                 $("#cmtemperature").val(data.temperature);
                 $("#cmwatchdog").val(data.watchdog);
-                $("#cmactualshuntmv").val(data.actualshuntmv);
-                $("#cmcurrentlsb").val(data.currentlsb);
                 $("#cmresistance").val(data.resistance);
                 $("#cmcalibration").val(data.calibration);
 
@@ -159,6 +350,102 @@ function refreshCurrentMonitorValues() {
 
 }
 
+// Show and hide tiles based on bit pattern in tileconfig array
+function refreshVisibleTiles() {
+    for (i = 0; i < TILE_IDS.length; i++) {
+        var tc = TILE_IDS[i];
+        var value = tileconfig[i];
+        for (var a = tc.length - 1; a >= 0; a--) {
+            var visible = (value & 1) == 1 ? true : false;
+            value = value >>> 1;
+            if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
+                var obj = $("#" + tc[a]);
+                if (visible) {
+                    //Only show if we have not force hidden it
+                    if (obj.hasClass(".hide") == false) {
+                        obj.addClass("vistile").show();
+                    }
+                } else {
+                    obj.hide();
+                }
+            }
+        }
+    }
+}
+
+
+//Determine which tiles are visible and store config on controller
+//as bitmap pattern
+function postTileVisibiltity() {
+    $(".stat.vistile.hide").removeClass("vistile");
+
+    var newconfig = [];
+    for (var index = 0; index < tileconfig.length; index++) {
+        newconfig.push(0);
+    }
+
+    for (var i = 0; i < TILE_IDS.length; i++) {
+        var tc = TILE_IDS[i];
+        var value = 0;
+        var v = 0x8000;
+        for (var a = 0; a < tc.length; a++) {
+            if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
+                if ($("#" + tc[a]).hasClass("vistile")) {
+                    value = value | v;
+                }
+            }
+            //Right shift onto next item
+            v = v >>> 1;
+        }
+        newconfig[i] = value;
+    }
+
+    var diff = false;
+    for (var index = 0; index < tileconfig.length; index++) {
+        if (tileconfig[index] != newconfig[index]) {
+            tileconfig[index] = newconfig[index];
+            diff = true;
+        }
+    }
+
+    if (diff) {
+        $.ajax({
+            type: 'POST',
+            url: '/post/visibletiles',
+            //This is crappy, but ESP isn't great at handling POST array values
+            data: $.param({ v0: tileconfig[0], v1: tileconfig[1], v2: tileconfig[2], v3: tileconfig[3], v4: tileconfig[4] }),
+            success: function (data) {
+                //refresh if needed
+                if ($('#home').hasClass('active')) {
+                    refreshVisibleTiles();
+                }
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+    }
+
+}
+
+
+function loadVisibleTileData() {
+    //Only refresh if array is empty
+    if (tileconfig.length == 0) {
+
+        $.getJSON("/api/tileconfig",
+            function (data) {
+                for (i = 0; i < data.tileconfig.values.length; i++) {
+                    tileconfig[i] = data.tileconfig.values[i];
+                }
+                refreshVisibleTiles();
+            }).fail(
+                function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            );
+    }
+}
+
+
 function showFailure() {
     $.notify($("#saveerror").text(), { className: 'error', autoHideDelay: 15000 });
 }
@@ -190,11 +477,10 @@ function currentmonitorSubmitForm(form) {
     });
 }
 
+
 function avrProgrammingStatsUpdate(attempts) {
     $.getJSON("/api/avrstatus",
         function (data) {
-            console.log(data);
-
             if (data.inprogress == 0) {
                 //Finished or aborted with error, update display
                 $("#avrinfo").empty();
@@ -315,27 +601,33 @@ function queryBMS() {
         var tempext = [];
         var pwm = [];
 
-        var minVoltage = DEFAULT_GRAPH_MIN_VOLTAGE;
-        var maxVoltage = DEFAULT_GRAPH_MAX_VOLTAGE;
+        var minVoltage = DEFAULT_GRAPH_MIN_VOLTAGE / 1000.0;
+        var maxVoltage = DEFAULT_GRAPH_MAX_VOLTAGE / 1000.0;
+
+        var minExtTemp = 999;
+        var maxExtTemp = -999;
 
         var bankNumber = 0;
         var cellsInBank = 0;
 
-        // Need one color for each pack, could make it colourful I suppose :-)
+        // Need one color for each bank, could make it colourful I suppose :-)
         const colours = [
-            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
-            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
-            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
-            '#55a1ea', '#33628f', '#55a1ea', '#33628f',
+            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
+            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
+            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
+            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
         ]
 
         const red = '#B44247'
 
+        const highestCell = '#8c265d'
+        const lowestCell = '#b6a016'
+
         var markLineData = [];
 
         markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
-        markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
-        markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+        //markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+        //markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
 
         var xAxis = 0;
         for (let index = 0; index < jsondata.banks; index++) {
@@ -344,13 +636,39 @@ function queryBMS() {
         }
 
         if (jsondata.voltages) {
+            //Clone array of voltages
+            tempArray = [];
+            for (i = 0; i < jsondata.voltages.length; i++) {
+                tempArray[i] = jsondata.voltages[i];
+            }
+
+            //Split voltages into banks
+            sorted_voltages = [];
+            for (i = 0; i < jsondata.banks; i++) {
+                unsorted = tempArray.splice(0, jsondata.seriesmodules);
+                sorted_voltages.push(unsorted.sort());
+            }
+
             for (let i = 0; i < jsondata.voltages.length; i++) {
                 labels.push(bankNumber + "/" + i);
 
                 // Make different banks different colours (stripes)
                 var stdcolor = colours[bankNumber];
+
+                var color = stdcolor;
+
+                //Highlight lowest cell voltage in this bank
+                if (jsondata.voltages[i] === sorted_voltages[bankNumber][0]) {
+                    color = lowestCell;
+                }
+                //Highlight highest cell voltage in this bank
+                if (jsondata.voltages[i] === sorted_voltages[bankNumber][jsondata.seriesmodules - 1]) {
+                    color = highestCell;
+                }
                 // Red
-                var color = jsondata.bypass[i] == 1 ? red : stdcolor;
+                if (jsondata.bypass[i] === 1) {
+                    color = red;
+                }
 
                 var v = (parseFloat(jsondata.voltages[i]) / 1000.0);
                 voltages.push({ value: v, itemStyle: { color: color } });
@@ -378,7 +696,19 @@ function queryBMS() {
 
                 color = jsondata.bypasshot[i] == 1 ? red : stdcolor;
                 tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
-                tempext.push({ value: (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]), itemStyle: { color: stdcolor } });
+                var exttemp = (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]);
+                tempext.push({ value: exttemp, itemStyle: { color: stdcolor } });
+
+                if (jsondata.exttemp[i] != null) {
+                    if (exttemp > maxExtTemp) {
+                        maxExtTemp = exttemp;
+                    }
+                    if (exttemp < minExtTemp) {
+                        minExtTemp = exttemp;
+                    }
+                }
+
+
                 pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : Math.trunc(jsondata.bypasspwm[i] / 255 * 100) });
             }
         }
@@ -387,6 +717,7 @@ function queryBMS() {
         if (minVoltage < 2.5) { minVoltage = 0; }
 
         if (jsondata) {
+            /*
             if (jsondata.badcrc != 0) { $("#badcrc").show(); }
             if (jsondata.ignored != 0) { $("#ignored").show(); }
             if (jsondata.sent != 0) { $("#sent").show(); }
@@ -397,6 +728,7 @@ function queryBMS() {
             if (jsondata.can_sent != 0) { $("#cansent").show(); }
             if (jsondata.can_rec != 0) { $("#canrecd").show(); }
             if (jsondata.qlen != 0) { $("#qlen").show(); }
+            */
 
             $("#badcrc .v").html(jsondata.badcrc);
             $("#ignored .v").html(jsondata.ignored);
@@ -408,8 +740,12 @@ function queryBMS() {
             $("#cansent .v").html(jsondata.can_sent);
             $("#canrecd .v").html(jsondata.can_rec);
             $("#qlen .v").html(jsondata.qlen);
-
-            $("#uptime .v").html(secondsToHms(jsondata.uptime)); $("#uptime").show();
+            $("#uptime .v").html(secondsToHms(jsondata.uptime));
+            if (minExtTemp == 999 || maxExtTemp == -999) {
+                $("#celltemp .v").html("");
+            } else {
+                $("#celltemp .v").html(minExtTemp + "/" + maxExtTemp + "&deg;C");
+            }
 
             if (jsondata.activerules == 0) {
                 $("#activerules").hide();
@@ -417,82 +753,78 @@ function queryBMS() {
                 $("#activerules").html(jsondata.activerules);
                 $("#activerules").show(400);
             }
+
+            if (jsondata.dyncv) {
+                $("#dyncvolt .v").html(parseFloat(jsondata.dyncv / 10).toFixed(2) + "V");
+            } else { $("#dyncvolt .v").html(""); }
+            if (jsondata.dyncc) {
+                $("#dynccurr .v").html(parseFloat(jsondata.dyncc / 10).toFixed(2) + "A");
+            } else { $("#dynccurr .v").html(""); }
+
         }
 
         if (jsondata.bankv) {
             for (var bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
                 $("#voltage" + bankNumber + " .v").html((parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2) + "V");
                 $("#range" + bankNumber + " .v").html(jsondata.voltrange[bankNumber] + "mV");
-                $("#voltage" + bankNumber).show();
-                $("#range" + bankNumber).show();
-                //$("#bank" + (bankNumber )).show();
+                $("#voltage" + bankNumber).removeClass("hide");
+                $("#range" + bankNumber).removeClass("hide");
             }
 
             for (var bankNumber = jsondata.bankv.length; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
-                //$("#bank" + (bankNumber )).hide();
-                $("#voltage" + bankNumber).hide();
-                $("#range" + bankNumber).hide();
+                $("#voltage" + bankNumber).hide().addClass("hide");
+                $("#range" + bankNumber).hide().addClass("hide");
             }
         }
 
         if (jsondata.sec) {
             if (!XSS_KEY.endsWith(jsondata.sec)) {
-                if ($("#warning7").data("notify") == undefined) {
-                    $("#warning7").data("notify", 1);
-                    $.notify($("#warning7").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
+                if ($("#warningXSS").data("notify") == undefined) {
+                    $("#warningXSS").data("notify", 1);
+                    $.notify($("#warningXSS").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
                 }
             }
         }
 
         if (jsondata.current) {
             if (jsondata.current[0] == null) {
-                $("#current").hide();
-                $("#shuntv").hide();
-                $("#soc").hide();
-                $("#amphout").hide();
-                $("#amphin").hide();
-                $("#power").hide();
+                $("#current .v").html("");
+                $("#shuntv .v").html("");
+                $("#soc .v").html("");
+                $("#power .v").html("");
+                $("#amphout .v").html("");
+                $("#amphin .v").html("");
+                $("#damphout .v").html("");
+                $("#damphin .v").html("");
+                $("#time100 .v").html("");
+                $("#time10 .v").html("");
+                $("#time20 .v").html("");
             } else {
                 var data = jsondata.current[0];
-
                 $("#current .v").html(parseFloat(data.c).toFixed(2) + "A");
-                $("#current").show();
-
                 $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
-                $("#shuntv").show();
-
-                if (data.soc != 0) {
-                    $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
-                    $("#soc").show();
-                } else {
-                    $("#soc").hide();
-                }
-
+                $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
                 $("#power .v").html(parseFloat(data.p) + "W");
-                $("#power").show();
+                $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
+                $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
+                $("#damphout .v").html((parseFloat(data.dmahout) / 1000).toFixed(3));
+                $("#damphin .v").html((parseFloat(data.dmahin) / 1000).toFixed(3));
 
-                if (data.mahout != 0) {
-                    $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
-                    $("#amphout").show();
-                } else {
-                    $("#amphout").hide();
-                }
-
-                if (data.mahin != 0) {
-                    $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
-                    $("#amphin").show();
-                } else {
-                    $("#amphin").hide();
-                }
+                if (data.time100 > 0) {
+                    $("#time100 .v").html(secondsToHms(data.time100));
+                } else { $("#time100 .v").html("&infin;"); }
+                if (data.time20 > 0) {
+                    $("#time20 .v").html(secondsToHms(data.time20));
+                } else { $("#time20 .v").html("&infin;"); }
+                if (data.time10 > 0) {
+                    $("#time10 .v").html(secondsToHms(data.time10));
+                } else { $("#time10 .v").html("&infin;"); }
             }
         }
 
-
-
-
-        //Needs increasing when more warnings are added
+        //Loop size needs increasing when more warnings are added
         if (jsondata.warnings) {
-            for (let warning = 1; warning <= 6; warning++) {
+            for (let warning = 1; warning <= 9; warning++) {
                 if (jsondata.warnings.includes(warning)) {
                     //Once a warning has triggered, hide it from showing in the future
                     if ($("#warning" + warning).data("notify") == undefined) {
@@ -500,9 +832,14 @@ function queryBMS() {
                         $.notify($("#warning" + warning).text(), { autoHideDelay: 15000, globalPosition: 'top left', className: 'warn' });
                     }
                 }
-                //else {
-                //$("#warning" + warning).hide();
-                //}
+            }
+
+            //Allow charge/discharge warnings to reappear
+            if (jsondata.warnings.includes(7) == false) {
+                $("#warning7").removeData("notify");
+            }
+            if (jsondata.warnings.includes(8) == false) {
+                $("#warning8").removeData("notify");
             }
         }
 
@@ -589,10 +926,8 @@ function queryBMS() {
                 // specify chart configuration item and data
                 var option = {
                     tooltip: {
-                        show: true,
-                        axisPointer: {
-                            type: 'cross',
-                            label: {
+                        show: true, axisPointer: {
+                            type: 'cross', label: {
                                 backgroundColor: '#6a7985'
                             }
                         }
@@ -601,31 +936,18 @@ function queryBMS() {
                         show: false
                     },
                     xAxis: [{
-                        gridIndex: 0,
-                        type: 'category',
-                        axisLine: {
+                        gridIndex: 0, type: 'category', axisLine: {
                             lineStyle: {
                                 color: '#c1bdbd'
                             }
                         }
                     }, {
-                        gridIndex: 1,
-                        type: 'category',
-                        axisLine: {
-                            lineStyle: {
-                                color: '#c1bdbd'
-                            }
+                        gridIndex: 1, type: 'category', axisLine: {
+                            lineStyle: { color: '#c1bdbd' }
                         }
                     }],
                     yAxis: [{
-                        id: 0,
-                        gridIndex: 0,
-                        name: 'Volts',
-                        type: 'value',
-                        min: 2.5,
-                        max: 4.5,
-                        interval: 0.25,
-                        position: 'left',
+                        id: 0, gridIndex: 0, name: 'Volts', type: 'value', min: 2.5, max: 4.5, interval: 0.25, position: 'left',
                         axisLine: {
                             lineStyle: {
                                 color: '#c1bdbd'
@@ -639,13 +961,8 @@ function queryBMS() {
                     },
                     {
                         id: 1,
-                        gridIndex: 0,
-                        name: 'Bypass',
-                        type: 'value',
-                        min: 0,
-                        max: 100,
-                        interval: 10,
-                        position: 'right',
+                        gridIndex: 0, name: 'Bypass', type: 'value', min: 0,
+                        max: 100, interval: 10, position: 'right',
                         axisLabel: { formatter: '{value}%' },
                         splitLine: { show: false },
                         axisLine: { lineStyle: { type: 'dotted', color: '#c1bdbd' } },
@@ -659,13 +976,9 @@ function queryBMS() {
                         interval: 10,
                         position: 'left',
                         axisLine: {
-                            lineStyle: {
-                                color: '#c1bdbd'
-                            }
+                            lineStyle: { color: '#c1bdbd' }
                         },
-                        axisLabel: {
-                            formatter: '{value}°C'
-                        }
+                        axisLabel: { formatter: '{value}°C' }
                     }],
                     series: [
                         {
@@ -674,26 +987,13 @@ function queryBMS() {
                             yAxisIndex: 0,
                             type: 'bar',
                             data: [],
-
                             markLine: {
-                                silent: true,
-                                symbol: 'none',
-
-                                data: markLineData
+                                silent: true, symbol: 'none', data: markLineData
                             },
                             itemStyle: { color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'insideBottom',
-                                    distance: 10,
-                                    align: 'left',
-                                    verticalAlign: 'middle',
-                                    rotate: 90,
-                                    formatter: '{c}V',
-                                    fontSize: 24,
-                                    color: '#eeeeee',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'insideBottom', distance: 10, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                                 }
                             }
                         }, {
@@ -704,23 +1004,14 @@ function queryBMS() {
                             data: [],
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'bottom',
-                                    distance: 5,
-                                    formatter: '{c}V',
-                                    fontSize: 14,
-                                    color: '#eeeeee',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                                 }
                             },
                             symbolSize: 16,
                             symbol: ['circle'],
                             itemStyle: {
                                 normal: {
-                                    color: "#c1bdbd",
-                                    lineStyle: {
-                                        color: 'transparent'
-                                    }
+                                    color: "#c1bdbd", lineStyle: { color: 'transparent' }
                                 }
                             }
                         }
@@ -732,23 +1023,14 @@ function queryBMS() {
                             data: [],
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'top',
-                                    distance: 5,
-                                    formatter: '{c}V',
-                                    fontSize: 14,
-                                    color: '#c1bdbd',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Share Tech Mono'
                                 }
                             },
                             symbolSize: 16,
                             symbol: ['arrow'],
                             itemStyle: {
                                 normal: {
-                                    color: "#c1bdbd",
-                                    lineStyle: {
-                                        color: 'transparent'
-                                    }
+                                    color: "#c1bdbd", lineStyle: { color: 'transparent' }
                                 }
                             }
                         }
@@ -761,13 +1043,7 @@ function queryBMS() {
                             data: [],
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'right',
-                                    distance: 5,
-                                    formatter: '{c}%',
-                                    fontSize: 14,
-                                    color: '#f0e400',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'right', distance: 5, formatter: '{c}%', fontSize: 14, color: '#f0e400', fontFamily: 'Share Tech Mono'
                                 }
                             },
                             symbolSize: 16,
@@ -782,21 +1058,13 @@ function queryBMS() {
                             type: 'bar',
                             data: [],
                             itemStyle: {
-                                color: '#55a1ea',
-                                barBorderRadius: [8, 8, 0, 0]
+                                color: '#55a1ea', barBorderRadius: [8, 8, 0, 0]
                             },
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'insideBottom',
-                                    distance: 8,
-                                    align: 'left',
-                                    verticalAlign: 'middle',
-                                    rotate: 90,
-                                    formatter: '{c}°C',
-                                    fontSize: 20,
-                                    color: '#eeeeee',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'insideBottom', distance: 8,
+                                    align: 'left', verticalAlign: 'middle',
+                                    rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                                 }
                             }
                         }
@@ -808,21 +1076,13 @@ function queryBMS() {
                             type: 'bar',
                             data: [],
                             itemStyle: {
-                                color: '#55a1ea',
-                                barBorderRadius: [8, 8, 0, 0]
+                                color: '#55a1ea', barBorderRadius: [8, 8, 0, 0]
                             },
                             label: {
                                 normal: {
-                                    show: true,
-                                    position: 'insideBottom',
-                                    distance: 8,
-                                    align: 'left',
-                                    verticalAlign: 'middle',
-                                    rotate: 90,
-                                    formatter: '{c}°C',
-                                    fontSize: 20,
-                                    color: '#eeeeee',
-                                    fontFamily: 'Fira Code'
+                                    show: true, position: 'insideBottom', distance: 8,
+                                    align: 'left', verticalAlign: 'middle', rotate: 90,
+                                    formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                                 }
                             }
 
@@ -830,16 +1090,10 @@ function queryBMS() {
                     ],
                     grid: [
                         {
-                            containLabel: false,
-                            left: '4%',
-                            right: '4%',
-                            bottom: '30%'
+                            containLabel: false, left: '4%', right: '4%', bottom: '30%'
 
                         }, {
-                            containLabel: false,
-                            left: '4%',
-                            right: '4%',
-                            top: '76%'
+                            containLabel: false, left: '4%', right: '4%', top: '76%'
                         }]
                 };
 
@@ -951,7 +1205,9 @@ function queryBMS() {
         $("#homePage").css({ opacity: 1.0 });
         $("#loading").hide();
         //Call again in a few seconds
-        setTimeout(queryBMS, 4000);
+        setTimeout(queryBMS, 3500);
+
+        loadVisibleTileData();
 
     }).fail(function () {
         $("#iperror").show();
@@ -968,13 +1224,15 @@ $(window).on('resize', function () {
     if (g2 != null && g2 != undefined && $('#homePage').is(':visible')) { g2.resize(); }
 });
 
-
-
-
 $(function () {
     $("#loading").show();
     $("#avrprogconfirm").hide();
     $(".stat").hide();
+
+    if (Graph3DAvailable == true) {
+        //Re-show this as pagecode would have hidden it
+        $("#graphOptions").show();
+    }
 
     $("#more").on("click"
         , function (e) {
@@ -991,14 +1249,21 @@ $(function () {
     //Populate all the setting rules with relay select lists
     $.each($(".settings table tbody tr td:empty"), function (index, value) {
         $.each([1, 2, 3, 4], function (index1, relay) {
-            $(value).append('<select id="rule' + (index) + 'relay' + relay + '" name="rule' + (index) + 'relay' + relay + '"><option>On</option><option>Off</option><option>X</option></select>');
+            $(value).append('<select id="rule' + (index) + 'relay' + relay + '" class="rule" name="rule' + (index) + 'relay' + relay + '"><option>On</option><option>Off</option><option>X</option></select>');
         });
     }
     );
 
+    $(".rule").on("change", function () {
+        var origv = $(this).attr("data-origv")
+        if (origv !== this.value) {
+            $(this).addClass("modified");
+        } else {
+            $(this).removeClass("modified");
+        }
+    });
+
     $("#labelMaxModules").text(MAXIMUM_NUMBER_OF_SERIES_MODULES);
-
-
     for (var n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }
@@ -1010,8 +1275,6 @@ $(function () {
         $("#voltage" + n).hide();
         $("#range" + n).hide();
     }
-
-
 
     $("#graph1").show();
     $("#graph2").hide();
@@ -1027,8 +1290,6 @@ $(function () {
         $(window).trigger('resize');
     });
 
-
-
     $('#CalculateCalibration').click(function () {
         var currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
         var currentCalib = parseFloat($("#Calib").val());
@@ -1041,7 +1302,27 @@ $(function () {
     $("#home").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
+        $(".graphs").show();
+        $("#graph1").show();
+        $("#graph2").hide();
+        $("#info .stat").not(".vistile").hide();
+        $("#info .vistile").not(".hide").show();
         switchPage("#homePage");
+        g1.resize();
+        refreshVisibleTiles();
+        return true;
+    });
+
+    $("#tiles").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        //Use the home page for the grid, but hide graphs
+        switchPage("#homePage");
+        $(".graphs").hide();
+        $("#graph1").hide();
+        $("#graph2").hide();
+        //Show all statistic panels (which are not forced hidden)
+        $("#info .stat").not(".hide").show();
         return true;
     });
 
@@ -1086,8 +1367,6 @@ $(function () {
         return true;
     });
 
-
-
     $("#settings").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
@@ -1095,8 +1374,8 @@ $(function () {
         $("#banksForm").hide();
         $("#settingsPage").show();
 
-        $("#VoltageHigh").val(DEFAULT_GRAPH_MAX_VOLTAGE.toFixed(2));
-        $("#VoltageLow").val(DEFAULT_GRAPH_MIN_VOLTAGE.toFixed(2));
+        $("#VoltageHigh").val(DEFAULT_GRAPH_MAX_VOLTAGE);
+        $("#VoltageLow").val(DEFAULT_GRAPH_MIN_VOLTAGE);
 
         switchPage("#settingsPage");
 
@@ -1135,41 +1414,32 @@ $(function () {
         return true;
     });
 
-
-    $("#rules").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
-
-        $("#rulesForm").hide();
-
-        switchPage("#rulesPage");
-
+    function loadRelayRules() {
         $.getJSON("/api/rules",
             function (data) {
                 //Rules have loaded
+                $("#minutesnow").html(data.timenow);
 
                 //Default relay settings
                 $.each(data.relaydefault, function (index2, value2) {
                     var relay_value = "X";
                     if (value2 === true) { relay_value = "On"; }
                     if (value2 === false) { relay_value = "Off"; }
-                    $("#defaultrelay" + (index2 + 1)).val(relay_value);
+                    $("#defaultrelay" + (index2 + 1)).val(relay_value).attr("data-origv", relay_value).removeClass("modified");
                 });
 
                 //Default relay settings
                 $.each(data.relaytype, function (index2, value2) {
-                    $("#relaytype" + (index2 + 1)).val(value2);
+                    $("#relaytype" + (index2 + 1)).val(value2).attr("data-origv", value2).removeClass("modified");
                 });
-
-                $("#minutesnow").html(data.timenow);
-
 
                 //Loop through each rule updating the page
                 var i = 1;
                 var allrules = $(".settings table tbody tr td label");
                 $.each(data.rules, function (index, value) {
-                    $("#rule" + (index) + "value").val(value.value);
-                    $("#rule" + (index) + "hysteresis").val(value.hysteresis);
+                    $("#rule" + (index) + "value").val(value.value).attr("data-origv", value.value).removeClass("modified");
+
+                    $("#rule" + (index) + "hyst").val(value.hysteresis).attr("data-origv", value.hysteresis).removeClass("modified");
 
                     //Highlight rules which are active
                     if (value.triggered) {
@@ -1185,7 +1455,7 @@ $(function () {
                         if (value2 === true) { relay_value = "On"; }
                         if (value2 === false) { relay_value = "Off"; }
 
-                        $("#rule" + (index) + "relay" + (index2 + 1)).val(relay_value);
+                        $("#rule" + (index) + "relay" + (index2 + 1)).val(relay_value).attr("data-origv", relay_value).removeClass("modified");
                     });
                 });
 
@@ -1202,9 +1472,19 @@ $(function () {
                 }
 
                 $("#rulesForm").show();
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { $.notify("Read request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
+    }
 
+    $("#rules").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+
+        $("#rulesForm").hide();
+
+        switchPage("#rulesPage");
+
+        loadRelayRules();
         return true;
     });
 
@@ -1229,26 +1509,7 @@ $(function () {
         return true;
     });
 
-    $("#victroncanbus").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
 
-        $.getJSON("/api/victron",
-            function (data) {
-                $("#VictronEnabled").prop("checked", data.victron.enabled);
-
-                for (let index = 0; index < data.victron.cvl.length; index++) {
-                    $("#cvl" + index).val((data.victron.cvl[index] / 10).toFixed(2));
-                    $("#ccl" + index).val((data.victron.ccl[index] / 10).toFixed(2));
-                    $("#dcl" + index).val((data.victron.dcl[index] / 10).toFixed(2));
-                }
-
-                switchPage("#victroncanbusPage");
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
-            );
-
-        return true;
-    });
 
 
     $("#currentmonrefresh").click(function (e) {
@@ -1369,7 +1630,7 @@ $(function () {
                     $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
                     $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
                     //Allow warning to trigger again
-                    $("#warning7").removeData("notify");
+                    $("#warningXSS").removeData("notify");
                 })
             .fail(function (data) {
                 $("#avrinfo").html("Failed");
@@ -1443,6 +1704,13 @@ $(function () {
         return true;
     });
 
+    $("#utility").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        switchPage("#utilityPage");
+
+        $("#setsoc").val(75.5);
+    });
 
     $("#avrprogrammer").click(function () {
         $(".header-right a").removeClass("active");
@@ -1495,7 +1763,53 @@ $(function () {
     });
 
 
+    $("#charging").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        switchPage("#chargingPage");
+        $.getJSON("/api/chargeconfig",
+            function (data) {
 
+                $("#canbusprotocol").val(data.chargeconfig.canbusprotocol);
+                $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
+
+                $("#chargevolt").val((data.chargeconfig.chargevolt / 10.0).toFixed(1));
+                $("#chargecurrent").val((data.chargeconfig.chargecurrent / 10.0).toFixed(1));
+                $("#dischargecurrent").val((data.chargeconfig.dischargecurrent / 10.0).toFixed(1));
+                $("#dischargevolt").val((data.chargeconfig.dischargevolt / 10.0).toFixed(1));
+
+                $("#cellminmv").val(data.chargeconfig.cellminmv);
+                $("#cellmaxmv").val(data.chargeconfig.cellmaxmv);
+                $("#kneemv").val(data.chargeconfig.kneemv);
+                $("#sensitivity").val((data.chargeconfig.sensitivity / 10.0).toFixed(1));
+
+                $("#cur_val1").val((data.chargeconfig.cur_val1 / 10.0).toFixed(1));
+                $("#cur_val2").val((data.chargeconfig.cur_val2 / 10.0).toFixed(1));
+
+                $("#cellmaxspikemv").val(data.chargeconfig.cellmaxspikemv);
+
+                $("#chargetemplow").val(data.chargeconfig.chargetemplow);
+                $("#chargetemphigh").val(data.chargeconfig.chargetemphigh);
+                $("#dischargetemplow").val(data.chargeconfig.dischargetemplow);
+                $("#dischargetemphigh").val(data.chargeconfig.dischargetemphigh);
+
+
+                $("#stopchargebalance").prop("checked", data.chargeconfig.stopchargebalance);
+                $("#socoverride").prop("checked", data.chargeconfig.socoverride);
+                $("#socforcelow").prop("checked", data.chargeconfig.socforcelow);
+                $("#dynamiccharge").prop("checked", data.chargeconfig.dynamiccharge);
+                $("#preventcharging").prop("checked", data.chargeconfig.preventcharging);
+                $("#preventdischarge").prop("checked", data.chargeconfig.preventdischarge);
+
+                DrawChargingGraph();
+
+            }).fail(function () {
+                $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
+            }
+            );
+
+        return true;
+    });
     $("#storage").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
@@ -1526,11 +1840,11 @@ $(function () {
                 if (data.storage.sdcard.files) {
                     $.each(data.storage.sdcard.files, function (index, value) {
                         if (value != null) {
-                            link="<a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a>";
-                            if (value.startsWith("backup_config_")) {
-                                link+="<button class='small' onclick='restoreconfig(\"" + encodeURI(value) + "\")'>Restore</button>";                            
+                            link = "<a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a>";
+                            if (value.endsWith(".json") && value.startsWith("backup_config_")) {
+                                link += "<button class='small' onclick='restoreconfig(0,\"" + encodeURI(value) + "\")'>Restore</button>";
                             }
-                            $("#sdcardfiles").append("<li>"+link+"</li>");
+                            $("#sdcardfiles").append("<li>" + link + "</li>");
                         }
                     });
                 }
@@ -1547,7 +1861,11 @@ $(function () {
                 if (data.storage.flash.files) {
                     $.each(data.storage.flash.files, function (index, value) {
                         if (value != null) {
-                            $("#flashfiles").append("<li><a href='download?type=flash&file=" + encodeURI(value) + "'>" + value + "</a></li>");
+                            link = "<a href='download?type=flash&file=" + encodeURI(value) + "'>" + value + "</a>";
+                            if (value.endsWith(".json") && (value.startsWith("cfg_") || value.startsWith("upld_"))) {
+                                link += "<button class='small' onclick='restoreconfig(1,\"" + encodeURI(value) + "\")'>Restore</button>";
+                            }
+                            $("#flashfiles").append("<li>" + link + "</li>");
                         }
                     });
                 }
@@ -1577,6 +1895,23 @@ $(function () {
         });
     });
 
+    $("#rulesForm").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        $.ajax({
+            type: $(this).attr('method'),
+            url: $(this).attr('action'),
+            // Filter to only elements which have changed
+            data: $("#rulesForm input.rule.modified, #rulesForm select.rule.modified").serialize(),
+            success: function (data) {
+                showSuccess();
+                //Force reload of values to refresh the input boxes/attributes
+                loadRelayRules();
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+    });
 
     $("#diybmsCurrentMonitorForm2").unbind('submit').submit(function (e) {
         e.preventDefault();
@@ -1594,12 +1929,6 @@ $(function () {
         e.preventDefault();
         currentmonitorSubmitForm(this);
     });
-
-    /*
-        $("#victronForm1").unbind('submit').submit(function (e) {
-            e.preventDefault();        
-        });
-    */
 
     $("#globalSettingsForm").unbind('submit').submit(function (e) {
         e.preventDefault();
@@ -1702,8 +2031,69 @@ $(function () {
         $(this).removeClass("hover");
     });
 
+    $(".stat").click(function () {
+        if ($(this).hasClass("vistile") == false && $(this).hasClass(".hide") == false) {
+            $(this).addClass("vistile");
+        } else {
+            $(this).removeClass("vistile");
+        }
+
+        clearTimeout(timer_postTileVisibiltity);
+        timer_postTileVisibiltity = setTimeout(postTileVisibiltity, 3500);
+    });
+
+    $("#file_sel").change(function () { upload_firmware(); });
+    $("#uploadfw").click(function () { $("#file_sel").click(); });
+
+    $("#uploadfile").click(function () { $("#uploadfile_sel").click(); });
+    $("#uploadfile_sel").change(function () { upload_file(); });
+
+    $("#progress").hide();
+
     $("#homePage").show();
+
+
+    //Redraw graph if one of the values changes (and focus lost)
+    $("#chargecurrent")
+        .add("#cellminmv")
+        .add("#cellmaxmv")
+        .add("#kneemv")
+        .add("#cellmaxspikemv")
+        .add("#cur_val1")
+        .add("#cur_val2").focusout(function () {
+            DrawChargingGraph();
+        });
+
+    $("#chargecurrent")
+        .add("#cellminmv")
+        .add("#cellmaxmv")
+        .add("#kneemv")
+        .add("#cellmaxspikemv")
+        .add("#cur_val1")
+        .add("#cur_val2").change(function () {
+            DrawChargingGraph();
+        });
+
 
     //On page ready
     queryBMS();
+
+
+    //Automatically open correct sub-page based on hash
+    var hash = $(location).attr('hash');
+    switch (hash) {
+        case "#tiles":
+        case "#modules":
+        case "#rules":
+        case "#settings":
+        case "#charging":
+        case "#integration":
+        case "#currentmonitor":
+        case "#storage":
+        case "#avrprogrammer":
+        case "#utility":
+            $(hash).click();
+            break;
+    }
+
 }); // end $(function ()

@@ -13,35 +13,10 @@ The code supports the VICTRON CAN BUS BMS style messages.
 */
 
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms-victron";
+static constexpr const char *const TAG = "diybms-victron";
 
 #include "victron_canbus.h"
 
-void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
-{
-  //static const char *TAG = "canbus";
-
-  twai_message_t message;
-  message.identifier = identifier;
-  message.flags = TWAI_MSG_FLAG_NONE;
-  message.data_length_code = length;
-
-  memcpy(&message.data, buffer, length);
-
-  // Queue message for transmission
-  if (twai_transmit(&message, pdMS_TO_TICKS(250)) != ESP_OK)
-  {
-    ESP_LOGE(TAG, "Fail to queue message");
-    canbus_messages_failed_sent++;
-  }
-
-  else
-  {
-    // ESP_LOGD(TAG, "Sent CAN message %u", identifier);
-    // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(can_message_t), esp_log_level_t::ESP_LOG_DEBUG);
-    canbus_messages_sent++;
-  }
-}
 // Transmit the DIYBMS hostname via two CAN Messages
 void victron_message_370_371()
 {
@@ -71,14 +46,7 @@ void victron_message_35f()
   // Need to swap bytes for this to make sense.
   data.Firmwareversion = ((uint16_t)COMPILE_WEEK_NUMBER_BYTE << 8) | COMPILE_YEAR_BYTE;
 
-  if (mysettings.currentMonitoringEnabled && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
-  {
-    data.OnlinecapacityinAh = currentMonitor.modbus.batterycapacityamphour;
-  }
-  else
-  {
-    data.OnlinecapacityinAh = 0;
-  }
+  data.OnlinecapacityinAh = mysettings.nominalbatcap;
 
   send_canbus_message(0x35f, (uint8_t *)&data, sizeof(data35f));
 }
@@ -155,27 +123,7 @@ That strategy does not work with a Victron system.
 */
 void victron_message_351()
 {
-
   uint8_t number_of_active_errors = 0;
-
-  if (_controller_state == ControllerState::Running)
-  {
-    number_of_active_errors += (rules.rule_outcome[Rule::BankOverVoltage] ? 1 : 0);
-    //(bit 4+5) Battery high voltage alarm
-    number_of_active_errors += (rules.rule_outcome[Rule::BankUnderVoltage] ? 1 : 0);
-    //(bit 6+7) Battery high temperature alarm
-    if (rules.moduleHasExternalTempSensor)
-    {
-      number_of_active_errors += (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? 1 : 0);
-    }
-
-    if (rules.moduleHasExternalTempSensor)
-    {
-      number_of_active_errors += (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? 1 : 0);
-    }
-
-    number_of_active_errors += ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? 1 : 0);
-  }
 
   struct data351
   {
@@ -186,35 +134,38 @@ void victron_message_351()
     // DCL
     int16_t maxdischargecurrent;
     // Not currently used by Victron
-    // uint16_t dischargevoltage;
+    uint16_t dischargevoltage;
   };
 
   data351 data;
 
-  if ((_controller_state != ControllerState::Running) || (number_of_active_errors > 0))
+
+  //  Defaults (do nothing)
+  data.chargevoltagelimit = 0;
+  data.maxchargecurrent = 0;
+
+  if (rules.IsChargeAllowed(&mysettings) == false)
   {
-    ESP_LOGW(TAG, "active_errors=%u", number_of_active_errors);
-    // Error condition
-    data.chargevoltagelimit = mysettings.cvl[VictronDVCC::ControllerError];
-    data.maxchargecurrent = mysettings.ccl[VictronDVCC::ControllerError];
-    data.maxdischargecurrent = mysettings.dcl[VictronDVCC::ControllerError];
-    // data.dischargevoltage = 0;
+    if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
+    {
+      // Balancing, stop charge, allow discharge
+      data.chargevoltagelimit = 0;
+      data.maxchargecurrent = 0;
+    }
+    else
+    {
+      // Default - normal behaviour
+      data.chargevoltagelimit = rules.DynamicChargeVoltage();
+      data.maxchargecurrent = rules.DynamicChargeCurrent();
+    }
   }
-  else if (rules.numberOfBalancingModules > 0)
+
+  data.maxdischargecurrent = 0;
+  data.dischargevoltage = mysettings.dischargevolt;
+
+  if (rules.IsDischargeAllowed(&mysettings))
   {
-    // Balancing
-    data.chargevoltagelimit = mysettings.cvl[VictronDVCC::Balance];
-    data.maxchargecurrent = mysettings.ccl[VictronDVCC::Balance];
-    data.maxdischargecurrent = mysettings.dcl[VictronDVCC::Balance];
-    // data.dischargevoltage = 0;
-  }
-  else
-  {
-    // Default - normal behaviour
-    data.chargevoltagelimit = mysettings.cvl[VictronDVCC::Default];
-    data.maxchargecurrent = mysettings.ccl[VictronDVCC::Default];
-    data.maxdischargecurrent = mysettings.dcl[VictronDVCC::Default];
-    // data.dischargevoltage = 0;
+    data.maxdischargecurrent = mysettings.dischargecurrent;
   }
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
@@ -234,7 +185,7 @@ void victron_message_355()
   {
     data355 data;
     // 0 SOC value un16 1 %
-    data.stateofchargevalue = currentMonitor.stateofcharge;
+    data.stateofchargevalue = rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
     // 2 SOH value un16 1 %
     // data.stateofhealthvalue = 100;
 
@@ -254,8 +205,8 @@ void victron_message_356()
 
   data356 data;
 
-  // Use highest pack voltage calculated by controller and modules
-  data.voltage = rules.highestPackVoltage / 10;
+  // Use highest bank voltage calculated by controller and modules
+  data.voltage = rules.highestBankVoltage / 10;
 
   // If current shunt is installed, use the voltage from that as it should be more accurate
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
@@ -328,9 +279,9 @@ void victron_message_35a()
   if (_controller_state == ControllerState::Running)
   {
     /*
-    ESP_LOGI(TAG, "Rule PackOverVoltage=%u, PackUnderVoltage=%u, OverTemp=%u, UnderTemp=%u",
-             rules.rule_outcome[Rule::PackOverVoltage],
-             rules.rule_outcome[Rule::PackUnderVoltage],
+    ESP_LOGI(TAG, "Rule BankOverVoltage=%u, BankUnderVoltage=%u, OverTemp=%u, UnderTemp=%u",
+             rules.rule_outcome[Rule::BankOverVoltage],
+             rules.rule_outcome[Rule::BankUnderVoltage],
              rules.rule_outcome[Rule::IndividualcellovertemperatureExternal],
              rules.rule_outcome[Rule::IndividualcellundertemperatureExternal]);
   */
@@ -410,7 +361,8 @@ void victron_message_35a()
   // ESP_LOGI(TAG, "numberOfBalancingModules=%u", rules.numberOfBalancingModules);
 
   // 7 (bit 0+1) Cell imbalance warning
-  data.byte7 |= (rules.numberOfBalancingModules > 0 ? BIT01_ALARM : BIT01_OK);
+  //data.byte7 |= (rules.numberOfBalancingModules > 0 ? BIT01_ALARM : BIT01_OK);
+  
   // 7 (bit 2+3) System status (online/offline) [1]
   data.byte7 |= ((_controller_state != ControllerState::Running) ? BIT23_ALARM : BIT23_OK);
   // 7 (rest) Reserved

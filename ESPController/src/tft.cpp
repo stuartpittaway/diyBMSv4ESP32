@@ -25,6 +25,8 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #define USE_ESP_IDF_LOG 1
 static constexpr const char *const TAG = "diybms-tft";
 
+#define CONFIG_DISABLE_HAL_LOCKS 1
+
 #include "defines.h"
 #include "HAL_ESP32.h"
 #include <esp_wifi.h>
@@ -840,7 +842,7 @@ void DrawTFT_VoltageFourBank()
 
         tft.setTextColor(TFT_GREEN, TFT_BLACK);
         tft.setTextFont(7);
-        float value = rules.packvoltage[i] / 1000.0;
+        float value = rules.bankvoltage[i] / 1000.0;
         x += tft.drawFloat(value, 2, x, y);
 
         // Clear right hand side of display
@@ -900,7 +902,7 @@ void DrawTFT_VoltageOneBank()
     const int16_t xoffset = 32;
     int16_t y = fontHeight_2;
     int16_t x = tft.width() / 2;
-    float value = rules.packvoltage[0] / 1000.0;
+    float value = rules.bankvoltage[0] / 1000.0;
     x += tft.drawFloat(value, 2, x, y);
     // Clear right hand side of display
     tft.fillRect(x, y, tft.width() - x, tft.fontHeight(), TFT_BLACK);
@@ -990,7 +992,7 @@ void DrawTFT_Error()
             {
             case InternalErrorCode::CommunicationsError:
             {
-                tft.drawCentreString("Module", x, y, 4);
+                tft.drawCentreString("Module or RS485", x, y, 4);
                 y += fontHeight_4;
                 tft.drawCentreString("communications", x, y, 4);
                 y += fontHeight_4;

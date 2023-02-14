@@ -69,10 +69,10 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
                          currentMonitor.modbus.fullychargedvoltage, currentMonitor.chargeefficiency);
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         "\"voltage\":%.4f,\"current\":%.4f,\"mahout\":%u,\"mahin\":%u,\"temperature\":%i,\"watchdog\":%u,\"power\":%.4f,\"actualshuntmv\":%.4f,\"currentlsb\":%.4f,\"resistance\":%.4f,\"calibration\":%u,\"templimit\":%i,\"undervlimit\":%.4f,\"overvlimit\":%.4f,\"overclimit\":%.4f,\"underclimit\":%.4f,\"overplimit\":%.4f,\"tempcoeff\":%u,\"model\":%u,\"firmwarev\":%u,\"firmwaredate\":%u,",
+                         "\"voltage\":%.4f,\"current\":%.4f,\"mahout\":%u,\"mahin\":%u,\"temperature\":%i,\"watchdog\":%u,\"power\":%.4f,\"resistance\":%.4f,\"calibration\":%u,\"templimit\":%i,\"undervlimit\":%.4f,\"overvlimit\":%.4f,\"overclimit\":%.4f,\"underclimit\":%.4f,\"overplimit\":%.4f,\"tempcoeff\":%u,\"model\":%u,\"firmwarev\":%u,\"firmwaredate\":%u,",
                          currentMonitor.modbus.voltage, currentMonitor.modbus.current, currentMonitor.modbus.milliamphour_out, currentMonitor.modbus.milliamphour_in,
                          currentMonitor.modbus.temperature, currentMonitor.modbus.watchdogcounter, currentMonitor.modbus.power,
-                         currentMonitor.modbus.shuntmV, currentMonitor.modbus.currentlsb, currentMonitor.modbus.shuntresistance,
+                         currentMonitor.modbus.shuntresistance,
                          currentMonitor.modbus.shuntcal, currentMonitor.modbus.temperaturelimit,
                          currentMonitor.modbus.undervoltagelimit, currentMonitor.modbus.overvoltagelimit,
                          currentMonitor.modbus.overcurrentlimit, currentMonitor.modbus.undercurrentlimit,
@@ -497,17 +497,54 @@ esp_err_t content_handler_avrstatus(httpd_req_t *req)
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
-esp_err_t content_handler_victron(httpd_req_t *req)
+esp_err_t content_handler_tileconfig(httpd_req_t *req)
+{
+  StaticJsonDocument<200> doc;
+  JsonObject root = doc.to<JsonObject>();
+  JsonObject settings = root.createNestedObject("tileconfig");
+  JsonArray v = settings.createNestedArray("values");
+  for (uint8_t i = 0; i < 5; i++)
+  {
+    v.add(mysettings.tileconfig[i]);
+  }
+  int bufferused = serializeJson(doc, httpbuf, BUFSIZE);
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t content_handler_chargeconfig(httpd_req_t *req)
 {
   int bufferused = 0;
 
   DynamicJsonDocument doc(2048);
   JsonObject root = doc.to<JsonObject>();
+  JsonObject settings = root.createNestedObject("chargeconfig");
 
-  JsonObject settings = root.createNestedObject("victron");
+  settings["canbusprotocol"] = mysettings.canbusprotocol;
+  settings["nominalbatcap"] = mysettings.nominalbatcap;
+  settings["chargevolt"] = mysettings.chargevolt;
+  settings["chargecurrent"] = mysettings.chargecurrent;
+  settings["dischargecurrent"] = mysettings.dischargecurrent;
+  settings["dischargevolt"] = mysettings.dischargevolt;
+  settings["chargetemplow"] = mysettings.chargetemplow;
+  settings["chargetemphigh"] = mysettings.chargetemphigh;
+  settings["dischargetemplow"] = mysettings.dischargetemplow;
+  settings["dischargetemphigh"] = mysettings.dischargetemphigh;
+  settings["stopchargebalance"] = mysettings.stopchargebalance;
+  settings["socoverride"] = mysettings.socoverride;
+  settings["socforcelow"] = mysettings.socforcelow;
+  settings["dynamiccharge"] = mysettings.dynamiccharge;
+  settings["preventdischarge"] = mysettings.preventdischarge;
+  settings["preventcharging"] = mysettings.preventcharging;
+  settings["cellminmv"] = mysettings.cellminmv;
+  settings["cellmaxmv"] = mysettings.cellmaxmv;
+  settings["kneemv"] = mysettings.kneemv;
+  settings["sensitivity"] = mysettings.sensitivity;
+  settings["cellmaxspikemv"] = mysettings.cellmaxspikemv;
 
-  settings["enabled"] = mysettings.VictronEnabled;
+  settings["cur_val1"] = mysettings.current_value1;
+  settings["cur_val2"] = mysettings.current_value2;
 
+  /*settings["enabled"] = mysettings.VictronEnabled;
   JsonArray cvl = settings.createNestedArray("cvl");
   JsonArray ccl = settings.createNestedArray("ccl");
   JsonArray dcl = settings.createNestedArray("dcl");
@@ -516,13 +553,12 @@ esp_err_t content_handler_victron(httpd_req_t *req)
     cvl.add(mysettings.cvl[i]);
     ccl.add(mysettings.ccl[i]);
     dcl.add(mysettings.dcl[i]);
-  }
+  }*/
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
   return httpd_resp_send(req, httpbuf, bufferused);
 }
-
 esp_err_t content_handler_rules(httpd_req_t *req)
 {
   int bufferused = 0;
@@ -598,7 +634,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
         data.add(true);
         break;
       default:
-      //Null
+        // Null
         data.add((char *)0);
         break;
       }
@@ -646,9 +682,8 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   }
 
   char strftime_buf[64];
-  formatCurrentDateTime(strftime_buf,sizeof(strftime_buf));
-  settings["datetime"]= String(strftime_buf);
-
+  formatCurrentDateTime(strftime_buf, sizeof(strftime_buf));
+  settings["datetime"] = String(strftime_buf);
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
@@ -778,7 +813,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   const char *nullstring = "null";
 
   // Output the first batch of settings/parameters/values
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                          "{\"banks\":%u,\"seriesmodules\":%u,\"sent\":%u,\"received\":%u,\"modulesfnd\":%u,\"badcrc\":%u,\"ignored\":%u,\"roundtrip\":%u,\"oos\":%u,\"activerules\":%u,\"uptime\":%u,\"can_fail\":%u,\"can_sent\":%u,\"can_rec\":%u,\"sec\":\"%s\",\"qlen\":%u,",
                          mysettings.totalNumberOfBanks,
                          mysettings.totalNumberOfSeriesModules,
@@ -794,17 +829,29 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          canbus_messages_received, &CookieValue[sizeof(CookieValue) - 3],
                          prg.queueLength());
 
+  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
+  {
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                           "\"dyncv\":%u,\"dyncc\":%u,",
+                           rules.DynamicChargeVoltage(),
+                           rules.DynamicChargeCurrent());
+  }
+
   // current
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"current\":[");
 
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
-
     // Output current monitor values, this is inside an array, so could be more than 1
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
-                           "{\"c\":%.4f,\"v\":%.4f,\"mahout\":%u,\"mahin\":%u,\"p\":%.2f,\"soc\":%.2f}",
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                           "{\"c\":%.4f,\"v\":%.4f,\"mahout\":%u,\"mahin\":%u,\"p\":%.2f,\"soc\":%.2f,\"dmahout\":%u,\"dmahin\":%u",
                            currentMonitor.modbus.current, currentMonitor.modbus.voltage, currentMonitor.modbus.milliamphour_out,
-                           currentMonitor.modbus.milliamphour_in, currentMonitor.modbus.power, currentMonitor.stateofcharge);
+                           currentMonitor.modbus.milliamphour_in, currentMonitor.modbus.power, currentMonitor.stateofcharge,
+                           currentMonitor.modbus.daily_milliamphour_out, currentMonitor.modbus.daily_milliamphour_in);
+
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",\"time100\":%u,\"time20\":%u,\"time10\":%u", time100, time20, time10);
+
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "}");
   }
   else
   {
@@ -1070,7 +1117,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
     if (i)
       bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.packvoltage[i]);
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.bankvoltage[i]);
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
@@ -1111,9 +1158,9 @@ esp_err_t api_handler(httpd_req_t *req)
 
   const char *uri_array[] = {
       "monitor2", "monitor3", "integration", "settings", "rules",
-      "victron", "rs485settings", "currentmonitor",
+      "rs485settings", "currentmonitor",
       "avrstatus", "modules", "identifyModule", "storage",
-      "avrstorage"};
+      "avrstorage", "chargeconfig", "tileconfig"};
 
   esp_err_t (*func_ptr[])(httpd_req_t * req) = {
       content_handler_monitor2,
@@ -1121,14 +1168,15 @@ esp_err_t api_handler(httpd_req_t *req)
       content_handler_integration,
       content_handler_settings,
       content_handler_rules,
-      content_handler_victron,
       content_handler_rs485settings,
       content_handler_currentmonitor,
       content_handler_avrstatus,
       content_handler_modules,
       content_handler_identifymodule,
       content_handler_storage,
-      content_handler_avrstorage};
+      content_handler_avrstorage,
+      content_handler_chargeconfig,
+      content_handler_tileconfig};
 
   // Sanity check arrays are the same size
   ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);

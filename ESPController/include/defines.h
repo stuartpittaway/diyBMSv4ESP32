@@ -11,10 +11,10 @@
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
-// Needs to be at least 1550 bytes...
+// Needs to be at least 1800 bytes...
 #define BUFSIZE 1800
 
-// Data uses Rx2/TX2 and debug logs go to serial0 - USB
+// Data uses RX2/TX2 and debug logs go to serial0 - USB
 #define SERIAL_DATA Serial2
 #define SERIAL_DEBUG Serial
 #define SERIAL_RS485 Serial1
@@ -63,9 +63,6 @@ enum VictronDVCC : uint8_t
 // This also needs changing in default.htm (MAXIMUM_NUMBER_OF_BANKS)
 #define maximum_number_of_banks 16
 
-// Version 4.XX of DIYBMS modules operate at 5000 baud (since 26 Jan 2021)
-//#define COMMS_BAUD_RATE 5000
-
 enum enumInputState : uint8_t
 {
   INPUT_HIGH = 0xFF,
@@ -92,6 +89,13 @@ enum RelayType : uint8_t
   RELAY_PULSE = 0x01
 };
 
+enum CanBusProtocolEmulation : uint8_t
+{
+  CANBUS_DISABLED = 0x00,
+  CANBUS_VICTRON = 0x01,
+  CANBUS_PYLONTECH = 0x02
+};
+
 enum CurrentMonitorDevice : uint8_t
 {
   DIYBMS_CURRENT_MON = 0x00,
@@ -99,7 +103,8 @@ enum CurrentMonitorDevice : uint8_t
 };
 
 // Number of rules as defined in Rules.h (enum Rule)
-#define RELAY_RULES 15
+// This value is 1 + MAXIMUM_RuleNumber
+#define RELAY_RULES 16
 
 // Number of relays on board (4)
 #define RELAY_TOTAL 4
@@ -117,8 +122,8 @@ struct diybms_eeprom_settings
   uint16_t baudRate;
   uint16_t interpacketgap;
 
-  uint32_t rulevalue[RELAY_RULES];
-  uint32_t rulehysteresis[RELAY_RULES];
+  int32_t rulevalue[RELAY_RULES];
+  int32_t rulehysteresis[RELAY_RULES];
 
   // Use a bit pattern to indicate the relay states
   RelayState rulerelaystate[RELAY_RULES][RELAY_TOTAL];
@@ -127,8 +132,8 @@ struct diybms_eeprom_settings
   // Default starting state for relay types
   RelayType relaytype[RELAY_TOTAL];
 
-  float graph_voltagehigh;
-  float graph_voltagelow;
+  uint16_t graph_voltagehigh;
+  uint16_t graph_voltagelow;
 
   uint8_t BypassOverTempShutdown;
   uint16_t BypassThresholdmV;
@@ -145,18 +150,47 @@ struct diybms_eeprom_settings
   uint8_t currentMonitoringModBusAddress;
   CurrentMonitorDevice currentMonitoringDevice;
 
-  int rs485baudrate;
+  int32_t rs485baudrate;
   uart_word_length_t rs485databits;
   uart_parity_t rs485parity;
   uart_stop_bits_t rs485stopbits;
 
   char language[2 + 1];
 
-  uint16_t cvl[3];
-  int16_t ccl[3];
-  int16_t dcl[3];
+  CanBusProtocolEmulation canbusprotocol;
+  uint16_t nominalbatcap;
+  // Maximum charge voltage - scale 0.1
+  uint16_t chargevolt;
+  // Maximum charge current - scale 0.1
+  uint16_t chargecurrent;
+  uint16_t dischargecurrent;
+  uint16_t dischargevolt;
+  int16_t cellminmv;
+  int16_t cellmaxmv;
+  int16_t kneemv;
+  // Part of the dynamic charge calculation scale 0.1
+  int16_t sensitivity;
 
-  bool VictronEnabled;
+  int16_t cellmaxspikemv;
+
+  // charge current formula values - scale 0.1
+  uint16_t current_value1;
+  uint16_t current_value2;
+
+  int8_t chargetemplow;
+  int8_t chargetemphigh;
+  int8_t dischargetemplow;
+  int8_t dischargetemphigh;
+  //Stop charging is a module is balancing
+  bool stopchargebalance;
+  //Override SoC values reported over CANBUS - limited between 20% and 99%
+  bool socoverride;
+  //Force a 2% SoC over CANBUS to trick charger/inverter into trickle charging
+  bool socforcelow;
+  //Dynamic charge control - voltage & current
+  bool dynamiccharge;
+  bool preventcharging;
+  bool preventdischarge;
 
   // NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
@@ -172,6 +206,9 @@ struct diybms_eeprom_settings
   char influxdb_apitoken[128 + 1];
   char influxdb_orgid[128 + 1];
   uint8_t influxdb_loggingFreqSeconds;
+
+  // Holds a bit pattern indicating which "tiles" are visible on the web gui
+  uint16_t tileconfig[5];
 };
 
 typedef union
@@ -298,15 +335,15 @@ struct currentmonitor_raw_modbus
 
   // Voltage
   float voltage;
-  // Current in AMPS
+  // Current in AMPS.  Negative value is DISCHARGING
   float current;
   uint32_t milliamphour_out;
   uint32_t milliamphour_in;
   int16_t temperature;
   uint16_t flags;
   float power;
-  float shuntmV;
-  float currentlsb;
+  uint32_t daily_milliamphour_out;
+  uint32_t daily_milliamphour_in;
   float shuntresistance;
   uint16_t shuntmaxcurrent;
   uint16_t shuntmillivolt;
@@ -333,7 +370,6 @@ struct currentmonitoring_struct
 {
   currentmonitor_raw_modbus modbus;
 
-  // Uses float as these are 4 bytes on ESP32
   int64_t timestamp;
   bool validReadings;
 

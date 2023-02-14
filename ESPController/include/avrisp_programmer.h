@@ -15,6 +15,7 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 #ifndef avrisp_program_H_
 #define avrisp_program_H_
 
+#define CONFIG_DISABLE_HAL_LOCKS 1
 #include <Arduino.h>
 #include <SPI.h>
 #include "FS.h"

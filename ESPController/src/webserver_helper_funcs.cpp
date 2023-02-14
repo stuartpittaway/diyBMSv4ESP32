@@ -1,5 +1,5 @@
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms-webfuncs";
+static constexpr const char *const TAG = "diybms-webfuncs";
 
 #include "webserver_helper_funcs.h"
 
@@ -114,7 +114,7 @@ bool GetKeyValue(const char *buffer, const char *key, uint8_t *value, bool urlEn
     bool reply = GetKeyValue(buffer, key, &uint32Variable, urlEncoded);
     if (reply)
     {
-        // Truncate down to uint16
+        // Truncate down to uint8
         if (uint32Variable > 0xFF)
         {
             ESP_LOGW(TAG, "Overflow %i", uint32Variable);
@@ -148,7 +148,7 @@ bool GetKeyValue(const char *buffer, const char *key, int8_t *value, bool urlEnc
     {
         // Truncate down to int8
         // Check for overflow?
-        if (int32Variable > 255)
+        if (int32Variable > 0xFF)
         {
             ESP_LOGW(TAG, "Overflow %i", int32Variable);
         }
@@ -252,12 +252,9 @@ char from_hex(char ch)
 }
 
 /* Returns a url-decoded version of str */
-/* IMPORTANT: be sure to free() the returned string after use */
 void url_decode(char *str, char *buf)
 {
-
     // ESP_LOGD(TAG, "Encoded: %s", str);
-    //*buf = malloc(strlen(str) + 1),
     char *pstr = str, *pbuf = buf;
     while (*pstr)
     {
@@ -281,7 +278,7 @@ void url_decode(char *str, char *buf)
     }
     *pbuf = '\0';
 
-    //ESP_LOGD(TAG, "Decoded: %s", buf);
+    ESP_LOGD(TAG, "Decoded: %s", buf);
 }
 
 bool validateXSS(httpd_req_t *req)
@@ -302,11 +299,16 @@ bool validateXSS(httpd_req_t *req)
         }
 
         // Cookie found and returned correctly (not truncated etc)
-        ESP_LOGW(TAG, "Incorrect cookie received %s", requestcookie);
+        ESP_LOGW(TAG, "Incorrect cookie rec %s", requestcookie);
+
+        httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 1");
+        return false;
     }
 
+    ESP_LOGE(TAG, "httpd_req_get_cookie_val (%s)", esp_err_to_name(result));
+
     // Fail - wrong cookie or not supplied etc.
-    httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie");
+    httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 2");
     return false;
 }
 
@@ -344,7 +346,6 @@ bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer, bool urlencod
         char param[2 * sizeof(CookieValue)];
         if (httpd_query_key_value(postbuffer, "xss", param, sizeof(param)) == ESP_OK)
         {
-
             if (urlencoded)
             {
                 // Decode the incoming char array
@@ -363,13 +364,20 @@ bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer, bool urlencod
 
             // Cookie found and returned correctly (not truncated etc)
             ESP_LOGW(TAG, "Incorrect POST cookie %s", param);
+
+            // Failed POST XSS check
+            httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 3");
+            return false;
         }
         else
         {
             ESP_LOGW(TAG, "xss query key returned not OK");
+            // Failed POST XSS check
+            httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 4");
+            return false;
         }
         // Failed POST XSS check
-        httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie");
+        httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 5");
         return false;
     }
 

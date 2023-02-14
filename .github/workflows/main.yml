@@ -6,7 +6,7 @@ on:
     branches:
       - master
     paths-ignore:
-      - '**.md'
+      - "**.md"
   pull_request:
     branches:
       - master
@@ -15,155 +15,155 @@ jobs:
   job_build_modulecode:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Cache pip
-      uses: actions/cache@v2
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: ${{ runner.os }}-pip-
+      - uses: actions/checkout@v3
 
-    - name: Cache PlatformIO
-      uses: actions/cache@v2
-      with:
-        path: ~/.platformio
-        key: ${{ runner.os }}-platformio-2022-${{ hashFiles('**/lockfiles') }}
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
+      - name: Cache PlatformIO
+        uses: actions/cache@v3
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-platformio-2022-${{ hashFiles('**/lockfiles') }}
 
-    - uses: actions/cache@v2
-      with:
-        path: ~/.local/share/virtualenvs
-        key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
-        restore-keys: ${{ runner.os }}-pipenv-
+      - name: Set up Python
+        uses: actions/setup-python@v4
 
-    - name: Install PlatformIO
-      run: |
-        python -m pip install --upgrade pip
-        pip install --upgrade platformio
+      - uses: actions/cache@v3
+        with:
+          path: ~/.local/share/virtualenvs
+          key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
+          restore-keys: ${{ runner.os }}-pipenv-
 
-    - name: Create folders
-      run: |
-        mkdir -p ./ESPController/data/avr
-        mkdir -p ~/OUTPUT
-        mkdir -p ~/OUTPUT/Controller
-        mkdir -p ~/OUTPUT/ControllerBoardTest
-        mkdir -p ~/OUTPUT/Modules/HEX
-        mkdir -p ~/OUTPUT/Modules/BIN
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade platformio
 
-    - name: Build code for modules
-      run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
+      - name: Create folders
+        run: |
+          mkdir -p ./ESPController/data/avr
+          mkdir -p ~/OUTPUT
+          mkdir -p ~/OUTPUT/Controller
+          mkdir -p ~/OUTPUT/ControllerBoardTest
+          mkdir -p ~/OUTPUT/Modules/HEX
+          mkdir -p ~/OUTPUT/Modules/BIN
 
-    - name: Copy output
-      run: |
-        cp ./ATTINYCellModule/.pio/build/V*/*.hex ~/OUTPUT/Modules/HEX/
-        cp ./ATTINYCellModule/.pio/build/V*/*.bin ~/OUTPUT/Modules/BIN/
+      - name: Build code for modules
+        run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
 
-    - name: Get latest esptool
-      run: |
-        git clone https://github.com/espressif/esptool.git
-        cd esptool
-        pip install --user -e .
-        cd ~
-        python -m esptool version
+      - name: Copy output
+        run: |
+          cp ./ATTINYCellModule/.pio/build/V*/*.hex ~/OUTPUT/Modules/HEX/
+          cp ./ATTINYCellModule/.pio/build/V*/*.bin ~/OUTPUT/Modules/BIN/
 
-    - name: Build code for ESP32 controller
-      run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
+      - name: Get latest esptool
+        run: |
+          git clone https://github.com/espressif/esptool.git
+          cd esptool
+          pip install --user -e .
+          cd ~
+          python -m esptool version
 
-    - name: Copy output
-      run: |
-        cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin ~/OUTPUT/Controller/
-        cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.elf ~/OUTPUT/Controller/
-        cp ./ESPController/.pio/build/esp32-devkitc/partitions.bin ~/OUTPUT/Controller/
-        cp ./ESPController/.pio/build/esp32-devkitc/bootloader_dout_40m.bin ~/OUTPUT/Controller/
-        cp ./ESPController/.pio/build/esp32-devkitc/boot_app0.bin ~/OUTPUT/Controller/
-        cp ./ESPController/data/avr/manifest.json ~/OUTPUT/Modules/
+      - name: Build code for ESP32 controller
+        run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
 
-    - name: Build File System Image for ESP32
-      run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
+      - name: Copy output
+        run: |
+          cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.bin ~/OUTPUT/Controller/
+          cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_firmware_espressif32_esp32-devkitc.elf ~/OUTPUT/Controller/
+          cp ./ESPController/.pio/build/esp32-devkitc/partitions.bin ~/OUTPUT/Controller/
+          cp ./ESPController/.pio/build/esp32-devkitc/bootloader.bin ~/OUTPUT/Controller/
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin ~/OUTPUT/Controller/
+          cp ./ESPController/data/avr/manifest.json ~/OUTPUT/Modules/
 
-    - name: Copy output
-      run: |
-        cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin ~/OUTPUT/Controller/
+      - name: Build File System Image for ESP32
+        run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
 
-    - name: Build single ESP32 image
-      run: |
-        python -m esptool --chip esp32 merge_bin -o ~/OUTPUT/Controller/esp32-controller-firmware-complete.bin --flash_mode=keep --flash_size 4MB 0x1000 ~/OUTPUT/Controller/bootloader_dout_40m.bin  0x8000 ~/OUTPUT/Controller/partitions.bin  0xe000 ~/OUTPUT/Controller/boot_app0.bin  0x10000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x1C0000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x370000 ~/OUTPUT/Controller/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
+      - name: Copy output
+        run: |
+          cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin ~/OUTPUT/Controller/
 
-    - name: Board test code for ESP32 controller
-      run: pio run --project-dir=./ESP32BoardTest --environment esp32-devkitc --project-conf=./ESP32BoardTest/platformio.ini
+      - name: Build single ESP32 image
+        run: |
+          python -m esptool --chip esp32 merge_bin -o ~/OUTPUT/Controller/esp32-controller-firmware-complete.bin --flash_mode=keep --flash_size 4MB 0x1000 ~/OUTPUT/Controller/bootloader.bin 0x8000 ~/OUTPUT/Controller/partitions.bin 0xe000 ~/OUTPUT/Controller/boot_app0.bin 0x10000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x1C0000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x370000 ~/OUTPUT/Controller/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
 
-    - name: Copy board test output
-      run: |
-        cp ./ESP32BoardTest/.pio/build/esp32-devkitc/diybms_boardtest_espressif32_esp32-devkitc.bin ~/OUTPUT/ControllerBoardTest/
+      - name: Board test code for ESP32 controller
+        run: pio run --project-dir=./ESP32BoardTest --environment esp32-devkitc --project-conf=./ESP32BoardTest/platformio.ini
 
-    - name: Publish Artifacts 1
-      uses: actions/upload-artifact@v2
-      with:
-        name: DIYBMS-Compiled
-        path: ~/OUTPUT
-        if-no-files-found: error
+      - name: Copy board test output
+        run: |
+          cp ./ESP32BoardTest/.pio/build/esp32-devkitc/diybms_boardtest_espressif32_esp32-devkitc.bin ~/OUTPUT/ControllerBoardTest/
+
+      - name: Publish Artifacts 1
+        uses: actions/upload-artifact@v2
+        with:
+          name: DIYBMS-Compiled
+          path: ~/OUTPUT
+          if-no-files-found: error
 
   job_zip_code:
     runs-on: ubuntu-latest
     needs: [job_build_modulecode]
     steps:
-    - name: Download artifact DIYBMS-Compiled
-      uses: actions/download-artifact@v2
-      with:
-        name: DIYBMS-Compiled
+      - name: Download artifact DIYBMS-Compiled
+        uses: actions/download-artifact@v2
+        with:
+          name: DIYBMS-Compiled
 
-    - name: Display structure of downloaded files
-      run: ls -R
-  
-    - name: ZIP output for release
-      run: |
-        zip release.zip ./Controller/esp32-controller-firmware-complete.bin
-        zip release.zip ./ControllerBoardTest/diybms_boardtest_espressif32_esp32-devkitc.bin        
-        zip release.zip ./Modules/manifest.json
-        zip release.zip ./Modules/HEX/*.*
+      - name: Display structure of downloaded files
+        run: ls -R
 
-    - name: Get current date
-      id: date
-      run: echo "dt=$(date +'%Y-%m-%d-%H-%M')" >> $GITHUB_ENV
+      - name: ZIP output for release
+        run: |
+          zip release.zip ./Controller/esp32-controller-firmware-complete.bin
+          zip release.zip ./ControllerBoardTest/diybms_boardtest_espressif32_esp32-devkitc.bin        
+          zip release.zip ./Modules/manifest.json
+          zip release.zip ./Modules/HEX/*.*
 
-    - name: Display structure of downloaded files
-      run: mv release.zip release_${{ env.dt }}.zip
+      - name: Get current date
+        id: date
+        run: echo "dt=$(date +'%Y-%m-%d-%H-%M')" >> $GITHUB_ENV
 
-    - name: Publish Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: DIYBMS-Release-Artifact-${{ env.dt }}
-        path: |
+      - name: Display structure of downloaded files
+        run: mv release.zip release_${{ env.dt }}.zip
+
+      - name: Publish Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: DIYBMS-Release-Artifact-${{ env.dt }}
+          path: |
             ./Controller/*.*
             ./Modules/manifest.json
             ./Modules/HEX/*.*
-        if-no-files-found: error
+          if-no-files-found: error
 
-    - name: Create Release Files on MASTER branch only
-      id: create_release
-      uses: actions/create-release@v1
-      if: github.ref == 'refs/heads/master'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-      with:
-        tag_name: Tag-${{ env.dt }}
-        release_name: Release-${{ env.dt }}
-        body: |
-          Automatically generated release
-        draft: false
-        prerelease: false
+      - name: Create Release Files on MASTER branch only
+        id: create_release
+        uses: actions/create-release@v1
+        if: github.ref == 'refs/heads/master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: Tag-${{ env.dt }}
+          release_name: Release-${{ env.dt }}
+          body: |
+            Automatically generated release
+          draft: false
+          prerelease: false
 
-    - name: Upload Release Asset
-      id: upload-release-asset
-      uses: actions/upload-release-asset@v1
-      if: github.ref == 'refs/heads/master'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }} 
-        asset_path: ./release_${{ env.dt }}.zip
-        asset_name: Compiled_Firmware_${{ env.dt }}.zip
-        asset_content_type: application/zip
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        if: github.ref == 'refs/heads/master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release_${{ env.dt }}.zip
+          asset_name: Compiled_Firmware_${{ env.dt }}.zip
+          asset_content_type: application/zip

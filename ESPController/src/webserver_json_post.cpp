@@ -187,168 +187,68 @@ esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req, bool urlEncode
     return SendSuccess(req);
 }
 
-esp_err_t post_saveconfigurationtosdcard_json_handler(httpd_req_t *req, bool urlEncoded)
+// Saves all the BMS controller settings to a JSON file in FLASH
+esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    if (!_sd_card_installed)
+    DynamicJsonDocument doc(5000);
+    GenerateSettingsJSONDocument(&doc, &mysettings);
+
+    struct tm timeinfo;
+
+    // getLocalTime has delay() functions in it :-(
+    if (getLocalTime(&timeinfo, 1))
     {
-        return SendFailure(req);
+        timeinfo.tm_year += 1900;
+        // Month is 0 to 11 based!
+        timeinfo.tm_mon++;
+    }
+    else
+    {
+        memset(&timeinfo, 0, sizeof(tm));
     }
 
-    if (_avrsettings.programmingModeEnabled)
-    {
-        return SendFailure(req);
-    }
-
-    if (hal.GetVSPIMutex())
-    {
-
-        struct tm timeinfo;
-
-        // getLocalTime has delay() functions in it :-(
-        if (getLocalTime(&timeinfo, 1))
+    /*
+        if (!_sd_card_installed)
         {
-            timeinfo.tm_year += 1900;
-            // Month is 0 to 11 based!
-            timeinfo.tm_mon++;
+    */
+    // LittleFS only supports short filenames
+    char filename[32];
+    snprintf(filename, sizeof(filename), "/cfg_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+    // Get the file
+    ESP_LOGI(TAG, "Generating LittleFS file %s", filename);
+
+    // SD card not installed, so write to LITTLEFS instead (internal flash)
+    File file = LittleFS.open(filename, "w");
+    serializeJson(doc, file);
+    file.close();
+    /*
         }
         else
         {
-            memset(&timeinfo, 0, sizeof(tm));
-        }
-
-        char filename[128];
-        snprintf(filename, sizeof(filename), "/backup_config_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-
-        // ESP_LOGI(TAG, "Creating folder");
-        //_sdcard->mkdir("/diybms");
-
-        // Get the file
-        ESP_LOGI(TAG, "Generating SD file %s", filename);
-
-        if (SD.exists(filename))
-        {
-            ESP_LOGI(TAG, "Delete existing file %s", filename);
-            SD.remove(filename);
-        }
-
-        DynamicJsonDocument doc(4096);
-
-        // This code builds up a JSON document which mirrors the structure "diybms_eeprom_settings"
-        JsonObject root = doc.createNestedObject("diybms_settings");
-
-        root["totalNumberOfBanks"] = mysettings.totalNumberOfBanks;
-        root["totalNumberOfSeriesModules"] = mysettings.totalNumberOfSeriesModules;
-        root["baudRate"] = mysettings.baudRate;
-        root["interpacketgap"] = mysettings.interpacketgap;
-
-        root["graph_voltagehigh"] = mysettings.graph_voltagehigh;
-        root["graph_voltagelow"] = mysettings.graph_voltagelow;
-
-        root["BypassOverTempShutdown"] = mysettings.BypassOverTempShutdown;
-        root["BypassThresholdmV"] = mysettings.BypassThresholdmV;
-
-        root["timeZone"] = mysettings.timeZone;
-        root["minutesTimeZone"] = mysettings.minutesTimeZone;
-        root["daylight"] = mysettings.daylight;
-        root["ntpServer"] = mysettings.ntpServer;
-
-        root["loggingEnabled"] = mysettings.loggingEnabled;
-        root["loggingFrequencySeconds"] = mysettings.loggingFrequencySeconds;
-
-        root["currentMonitoringEnabled"] = mysettings.currentMonitoringEnabled;
-        root["currentMonitoringModBusAddress"] = mysettings.currentMonitoringModBusAddress;
-
-        root["rs485baudrate"] = mysettings.rs485baudrate;
-        root["rs485databits"] = mysettings.rs485databits;
-        root["rs485parity"] = mysettings.rs485parity;
-        root["rs485stopbits"] = mysettings.rs485stopbits;
-
-        root["language"] = mysettings.language;
-
-        root["VictronEnabled"] = mysettings.VictronEnabled;
-
-        JsonObject mqtt = root.createNestedObject("mqtt");
-        mqtt["enabled"] = mysettings.mqtt_enabled;
-        mqtt["uri"] = mysettings.mqtt_uri;
-        mqtt["topic"] = mysettings.mqtt_topic;
-        mqtt["username"] = mysettings.mqtt_username;
-        mqtt["password"] = mysettings.mqtt_password;
-
-        JsonObject influxdb = root.createNestedObject("influxdb");
-        influxdb["enabled"] = mysettings.influxdb_enabled;
-        influxdb["apitoken"] = mysettings.influxdb_apitoken;
-        influxdb["bucket"] = mysettings.influxdb_databasebucket;
-        influxdb["org"] = mysettings.influxdb_orgid;
-        influxdb["url"] = mysettings.influxdb_serverurl;
-        influxdb["logfreq"] = mysettings.influxdb_loggingFreqSeconds;
-
-        JsonObject outputs = root.createNestedObject("outputs");
-
-        JsonArray d = outputs.createNestedArray("default");
-        JsonArray t = outputs.createNestedArray("type");
-        for (uint8_t i = 0; i < RELAY_TOTAL; i++)
-        {
-            d.add(mysettings.rulerelaydefault[i]);
-            t.add(mysettings.relaytype[i]);
-        }
-
-        JsonObject rules = root.createNestedObject("rules");
-        for (uint8_t rr = 0; rr < RELAY_RULES; rr++)
-        {
-            // This is a default "catch all"
-            String elementName = String("rule") + String(rr);
-
-            if (rr >= 0 && rr <= MAXIMUM_RuleNumber)
+            if (hal.GetVSPIMutex())
             {
-                // Map enum to string so when this file is re-imported we are not locked to specific index offsets
-                // which may no longer map to the correct rule
-                elementName = String(RuleTextDescription[rr]);
+
+                char filename[128];
+                snprintf(filename, sizeof(filename), "/backup_config_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+                // Get the file
+                ESP_LOGI(TAG, "Generating SD file %s", filename);
+
+                if (SD.exists(filename))
+                {
+                    ESP_LOGI(TAG, "Delete existing file %s", filename);
+                    SD.remove(filename);
+                }
+
+                File file = SD.open(filename, "w");
+                serializeJson(doc, file);
+                file.close();
+
+                hal.ReleaseVSPIMutex();
             }
-            else
-            {
-                ESP_LOGE(TAG, "Loop outside bounds of MAXIMUM_RuleNumber");
-            }
-
-            JsonObject state = rules.createNestedObject(elementName);
-
-            state["value"] = mysettings.rulevalue[rr];
-            state["hysteresis"] = mysettings.rulehysteresis[rr];
-
-            JsonArray relaystate = state.createNestedArray("state");
-            for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
-            {
-                relaystate.add(mysettings.rulerelaystate[rr][rt]);
-            }
-        } // end for
-
-        JsonObject victron = root.createNestedObject("victron");
-        JsonArray cvl = victron.createNestedArray("cvl");
-        JsonArray ccl = victron.createNestedArray("ccl");
-        JsonArray dcl = victron.createNestedArray("dcl");
-        for (uint8_t i = 0; i < 3; i++)
-        {
-            cvl.add(mysettings.cvl[i]);
-            ccl.add(mysettings.ccl[i]);
-            dcl.add(mysettings.dcl[i]);
         }
-
-        /*
-    struct diybms_eeprom_settings
-    {
-      //Use a bit pattern to indicate the relay states
-      RelayState rulerelaystate[RELAY_RULES][RELAY_TOTAL];
-    };
     */
-
-        // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
-
-        File file = SD.open(filename, "w");
-        serializeJson(doc, file);
-        file.close();
-
-        hal.ReleaseVSPIMutex();
-    }
-
     return SendSuccess(req);
 }
 
@@ -462,6 +362,27 @@ esp_err_t post_savestorage_json_handler(httpd_req_t *req, bool urlEncoded)
     if (mysettings.loggingFrequencySeconds < 15 || mysettings.loggingFrequencySeconds > 600)
     {
         mysettings.loggingFrequencySeconds = 15;
+    }
+
+    saveConfiguration();
+
+    return SendSuccess(req);
+}
+
+esp_err_t post_visibletiles_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    char keyBuffer[16];
+
+    for (int i = 0; i < sizeof(mysettings.tileconfig) / sizeof(uint16_t); i++)
+    {
+        mysettings.tileconfig[i] = 0;
+        snprintf(keyBuffer, sizeof(keyBuffer), "v%i", i);
+        uint16_t temp;
+        if (GetKeyValue(httpbuf, keyBuffer, &temp, urlEncoded))
+        {
+            ESP_LOGD(TAG, "%s=%u", keyBuffer, temp);
+            mysettings.tileconfig[i] = temp;
+        }
     }
 
     saveConfiguration();
@@ -595,41 +516,100 @@ esp_err_t post_savers485settings_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendSuccess(req);
 }
 
-esp_err_t post_savevictron_json_handler(httpd_req_t *req, bool urlEncoded)
+esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    // uint32_t tempVariable;
-
-    mysettings.VictronEnabled = false;
-    if (GetKeyValue(httpbuf, "VictronEnabled", &mysettings.VictronEnabled, urlEncoded))
+    uint8_t temp;
+    if (GetKeyValue(httpbuf, "canbusprotocol", &temp, urlEncoded))
+    {
+        mysettings.canbusprotocol = (CanBusProtocolEmulation)temp;
+    }
+    else
+    {
+        // Field not found/invalid, so disable
+        mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+    }
+    if (GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "cellminmv", &mysettings.cellminmv, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "kneemv", &mysettings.kneemv, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "cellmaxspikemv", &mysettings.cellmaxspikemv, urlEncoded))
     {
     }
 
-    for (int i = 0; i < 3; i++)
+    float temp_float;
+
+    if (GetKeyValue(httpbuf, "cur_val1", &temp_float, urlEncoded))
     {
-        // TODO: Check return values are correct here... floats vs ints?
-        String name = "cvl";
-        name = name + i;
+        mysettings.current_value1 = 10 * temp_float;
+    }
+    if (GetKeyValue(httpbuf, "cur_val2", &temp_float, urlEncoded))
+    {
+        mysettings.current_value2 = 10 * temp_float;
+    }
 
-        float tempFloat;
-
-        if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
-        {
-            mysettings.cvl[i] = tempFloat * 10;
-        }
-
-        name = "ccl";
-        name = name + i;
-        if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
-        {
-            mysettings.ccl[i] = tempFloat * 10;
-        }
-
-        name = "dcl";
-        name = name + i;
-        if (GetKeyValue(httpbuf, name.c_str(), &tempFloat, urlEncoded))
-        {
-            mysettings.dcl[i] = tempFloat * 10;
-        }
+    if (GetKeyValue(httpbuf, "sensitivity", &temp_float, urlEncoded))
+    {
+        mysettings.sensitivity = 10 * temp_float;
+    }
+    if (GetKeyValue(httpbuf, "chargevolt", &temp_float, urlEncoded))
+    {
+        mysettings.chargevolt = 10 * temp_float;
+    }
+    if (GetKeyValue(httpbuf, "chargecurrent", &temp_float, urlEncoded))
+    {
+        mysettings.chargecurrent = 10 * temp_float;
+    }
+    if (GetKeyValue(httpbuf, "dischargecurrent", &temp_float, urlEncoded))
+    {
+        mysettings.dischargecurrent = 10 * temp_float;
+    }
+    if (GetKeyValue(httpbuf, "dischargevolt", &temp_float, urlEncoded))
+    {
+        mysettings.dischargevolt = 10 * temp_float;
+    }
+    mysettings.stopchargebalance = false;
+    if (GetKeyValue(httpbuf, "stopchargebalance", &mysettings.stopchargebalance, urlEncoded))
+    {
+    }
+    mysettings.socoverride = false;
+    if (GetKeyValue(httpbuf, "socoverride", &mysettings.socoverride, urlEncoded))
+    {
+    }
+    mysettings.socforcelow = false;
+    if (GetKeyValue(httpbuf, "socforcelow", &mysettings.socforcelow, urlEncoded))
+    {
+    }
+    mysettings.dynamiccharge = false;
+    if (GetKeyValue(httpbuf, "dynamiccharge", &mysettings.dynamiccharge, urlEncoded))
+    {
+    }
+    mysettings.preventcharging = false;
+    if (GetKeyValue(httpbuf, "preventcharging", &mysettings.preventcharging, urlEncoded))
+    {
+    }
+    mysettings.preventdischarge = false;
+    if (GetKeyValue(httpbuf, "preventdischarge", &mysettings.preventdischarge, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "chargetemplow", &mysettings.chargetemplow, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "chargetemphigh", &mysettings.chargetemphigh, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "dischargetemplow", &mysettings.dischargetemplow, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "dischargetemphigh", &mysettings.dischargetemphigh, urlEncoded))
+    {
     }
 
     saveConfiguration();
@@ -684,6 +664,28 @@ esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
     CurrentMonitorSetRelaySettings(newvalues);
 
     return SendSuccess(req);
+}
+
+esp_err_t post_setsoc_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    float new_soc = 0;
+    if (GetKeyValue(httpbuf, "setsoc", &new_soc, urlEncoded))
+    {
+        if (CurrentMonitorSetSOC(new_soc))
+        {
+            return SendSuccess(req);
+        }
+    }
+    return SendFailure(req);
+}
+
+esp_err_t post_resetdailyahcount_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    if (CurrentMonitorResetDailyAmpHourCounters())
+    {
+        return SendSuccess(req);
+    }
+    return SendFailure(req);
 }
 
 esp_err_t post_savecmbasic_json_handler(httpd_req_t *req, bool urlEncoded)
@@ -945,20 +947,20 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
     {
         snprintf(keyBuffer, sizeof(keyBuffer), "rule%ivalue", rule);
 
-        uint32_t tempuint32;
-        if (GetKeyValue(httpbuf, keyBuffer, &tempuint32, urlEncoded))
+        int32_t tempint32;
+        if (GetKeyValue(httpbuf, keyBuffer, &tempint32, urlEncoded))
         {
-            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempuint32);
+            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempint32);
 
-            mysettings.rulevalue[rule] = tempuint32;
+            mysettings.rulevalue[rule] = tempint32;
         }
 
-        snprintf(keyBuffer, sizeof(keyBuffer), "rule%ihysteresis", rule);
-        if (GetKeyValue(httpbuf, keyBuffer, &tempuint32, urlEncoded))
+        snprintf(keyBuffer, sizeof(keyBuffer), "rule%ihyst", rule);
+        if (GetKeyValue(httpbuf, keyBuffer, &tempint32, urlEncoded))
         {
-            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempuint32);
+            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempint32);
 
-            mysettings.rulehysteresis[rule] = tempuint32;
+            mysettings.rulehysteresis[rule] = tempint32;
         }
 
         // Rule/relay processing
@@ -990,18 +992,13 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     bool success = false;
 
-    if (!_sd_card_installed)
-    {
-        return SendFailure(req);
-    }
-
     if (_avrsettings.programmingModeEnabled)
     {
         return SendFailure(req);
     }
 
     char filename[128];
-    //Prepend "/"
+    // Prepend "/"
     strcpy(filename, "/");
 
     if (!GetTextFromKeyValue(httpbuf, "filename", &filename[1], sizeof(filename) - 1, urlEncoded))
@@ -1010,16 +1007,73 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         return SendFailure(req);
     }
 
-    if (hal.GetVSPIMutex())
+    uint16_t flashram = 0;
+    if (GetKeyValue(httpbuf, "flashram", &flashram, urlEncoded))
     {
+    }
 
-        if (SD.exists(filename))
+    if (flashram == 0)
+    {
+        if (!_sd_card_installed)
         {
-            ESP_LOGI(TAG, "Restore configuration from %s", filename);
+            return SendFailure(req);
+        }
 
-            DynamicJsonDocument doc(4096);
+        if (hal.GetVSPIMutex())
+        {
+            if (SD.exists(filename))
+            {
+                ESP_LOGI(TAG, "Restore SD config from %s", filename);
 
-            File file = SD.open(filename, "r");
+                // Needs to be large enough to de-serialize the JSON file
+                DynamicJsonDocument doc(5000);
+
+                File file = SD.open(filename, "r");
+
+                // Deserialize the JSON document
+                DeserializationError error = deserializeJson(doc, file);
+                if (error)
+                {
+                    ESP_LOGE(TAG, "Deserialization Error");
+                }
+                else
+                {
+                    // Restore the config...
+                    diybms_eeprom_settings myset;
+
+                    JSONToSettings(doc, &myset);
+                    // Repair any bad values
+                    ValidateConfiguration(&myset);
+
+                    // Copy the new settings over top of old
+                    memcpy(&mysettings, &myset, sizeof(mysettings));
+
+                    saveConfiguration();
+
+                    success = true;
+                }
+
+                file.close();
+            }
+            else
+            {
+                ESP_LOGE(TAG, "File does not exist %s", filename);
+            }
+
+            hal.ReleaseVSPIMutex();
+        }
+    }
+
+    if (flashram == 1)
+    {
+        if (LittleFS.exists(filename))
+        {
+            ESP_LOGI(TAG, "Restore LittleFS config from %s", filename);
+
+            // Needs to be large enough to de-serialize the JSON file
+            DynamicJsonDocument doc(5500);
+
+            File file = LittleFS.open(filename, "r");
 
             // Deserialize the JSON document
             DeserializationError error = deserializeJson(doc, file);
@@ -1030,187 +1084,11 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
             else
             {
                 // Restore the config...
-                JsonObject root = doc["diybms_settings"];
-
                 diybms_eeprom_settings myset;
 
-                DefaultConfiguration(&myset);
-
-                myset.totalNumberOfBanks = root["totalNumberOfBanks"];
-                myset.totalNumberOfSeriesModules = root["totalNumberOfSeriesModules"];
-                myset.baudRate = root["baudRate"];
-                myset.interpacketgap = root["interpacketgap"];
-
-                myset.graph_voltagehigh = root["graph_voltagehigh"];
-                myset.graph_voltagelow = root["graph_voltagelow"];
-
-                myset.BypassOverTempShutdown = root["BypassOverTempShutdown"];
-                myset.BypassThresholdmV = root["BypassThresholdmV"];
-
-                myset.timeZone = root["timeZone"];
-                myset.minutesTimeZone = root["minutesTimeZone"];
-                myset.daylight = root["daylight"];
-                strncpy(myset.ntpServer, root["ntpServer"].as<String>().c_str(), sizeof(myset.ntpServer));
-
-                myset.loggingEnabled = root["loggingEnabled"];
-                myset.loggingFrequencySeconds = root["loggingFrequencySeconds"];
-
-                myset.currentMonitoringEnabled = root["currentMonitoringEnabled"];
-                myset.currentMonitoringModBusAddress = root["currentMonitoringModBusAddress"];
-
-                myset.rs485baudrate = root["rs485baudrate"];
-                myset.rs485databits = root["rs485databits"];
-                myset.rs485parity = root["rs485parity"];
-                myset.rs485stopbits = root["rs485stopbits"];
-
-                strncpy(myset.language, root["language"].as<String>().c_str(), sizeof(myset.language));
-
-                myset.VictronEnabled = root["VictronEnabled"];
-
-                JsonObject mqtt = root["mqtt"];
-                if (!mqtt.isNull())
-                {
-                    myset.mqtt_enabled = mqtt["enabled"];
-                    strncpy(myset.mqtt_uri, mqtt["uri"].as<String>().c_str(), sizeof(myset.mqtt_uri));
-                    strncpy(myset.mqtt_topic, mqtt["topic"].as<String>().c_str(), sizeof(myset.mqtt_topic));
-                    strncpy(myset.mqtt_username, mqtt["username"].as<String>().c_str(), sizeof(myset.mqtt_username));
-                    strncpy(myset.mqtt_password, mqtt["password"].as<String>().c_str(), sizeof(myset.mqtt_password));
-                }
-
-                JsonObject influxdb = root["influxdb"];
-                if (!influxdb.isNull())
-                {
-                    myset.influxdb_enabled = influxdb["enabled"];
-                    strncpy(myset.influxdb_apitoken, influxdb["apitoken"].as<String>().c_str(), sizeof(myset.influxdb_apitoken));
-                    strncpy(myset.influxdb_databasebucket, influxdb["bucket"].as<String>().c_str(), sizeof(myset.influxdb_databasebucket));
-                    strncpy(myset.influxdb_orgid, influxdb["org"].as<String>().c_str(), sizeof(myset.influxdb_orgid));
-                    strncpy(myset.influxdb_serverurl, influxdb["url"].as<String>().c_str(), sizeof(myset.influxdb_serverurl));
-                    myset.influxdb_loggingFreqSeconds = influxdb["logfreq"];
-                }
-
-                JsonObject outputs = root["outputs"];
-                if (!outputs.isNull())
-                {
-                    JsonArray d = outputs["default"].as<JsonArray>();
-
-                    uint8_t i = 0;
-                    for (JsonVariant v : d)
-                    {
-                        myset.rulerelaydefault[i] = (RelayState)v.as<uint8_t>();
-
-                        // ESP_LOGI(TAG, "relay default %u=%u", i, myset.rulerelaydefault[i]);
-
-                        i++;
-
-                        if (i > RELAY_TOTAL)
-                        {
-                            break;
-                        }
-                    }
-
-                    JsonArray t = outputs["type"].as<JsonArray>();
-                    i = 0;
-                    for (JsonVariant v : t)
-                    {
-                        myset.relaytype[i] = (RelayType)v.as<uint8_t>();
-                        // ESP_LOGI(TAG, "relay type %u=%u", i, myset.relaytype[i]);
-                        i++;
-                        if (i > RELAY_TOTAL)
-                        {
-                            break;
-                        }
-                    }
-                }
-
-                JsonObject rules = root["rules"];
-                if (!rules.isNull())
-                {
-                    for (JsonPair kv : rules)
-                    {
-                        char key[64];
-                        strncpy(key, kv.key().c_str(), sizeof(key));
-                        ESP_LOGI(TAG, "rule %s", key);
-
-                        for (size_t rulenumber = 0; rulenumber <= MAXIMUM_RuleNumber; rulenumber++)
-                        {
-                            if (strcmp(RuleTextDescription[rulenumber], key) == 0)
-                            {
-                                ESP_LOGI(TAG, "Matched to rule %u", rulenumber);
-                                JsonVariant v = kv.value();
-
-                                myset.rulevalue[rulenumber] = v["value"].as<uint32_t>();
-                                // ESP_LOGI(TAG, "value=%u", myset.rulevalue[rulenumber]);
-
-                                myset.rulehysteresis[rulenumber] = v["hysteresis"].as<uint32_t>();
-                                // ESP_LOGI(TAG, "hysteresis=%u", myset.rulehysteresis[rulenumber]);
-
-                                JsonArray states = v["state"].as<JsonArray>();
-
-                                uint8_t i = 0;
-                                for (JsonVariant v : states)
-                                {
-                                    myset.rulerelaystate[rulenumber][i] = (RelayState)v.as<uint8_t>();
-                                    // ESP_LOGI(TAG, "rulerelaystate %u", myset.rulerelaystate[rulenumber][i]);
-                                    i++;
-                                    if (i > RELAY_TOTAL)
-                                    {
-                                        break;
-                                    }
-                                }
-
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                // Victron
-                JsonObject victron = root["victron"];
-                if (!victron.isNull())
-                {
-
-                    JsonArray cvl = victron["cvl"].as<JsonArray>();
-
-                    uint8_t i = 0;
-                    for (JsonVariant v : cvl)
-                    {
-                        myset.cvl[i] = v.as<uint16_t>();
-                        ESP_LOGI(TAG, "cvl %u %u", i, myset.cvl[i]);
-                        i++;
-                        if (i > 3)
-                        {
-                            break;
-                        }
-                    }
-
-                    JsonArray ccl = victron["ccl"].as<JsonArray>();
-
-                    i = 0;
-                    for (JsonVariant v : ccl)
-                    {
-                        myset.ccl[i] = v.as<uint16_t>();
-                        ESP_LOGI(TAG, "ccl %u %u", i, myset.ccl[i]);
-                        i++;
-                        if (i > 3)
-                        {
-                            break;
-                        }
-                    }
-
-                    JsonArray dcl = victron["dcl"].as<JsonArray>();
-
-                    i = 0;
-                    for (JsonVariant v : dcl)
-                    {
-                        myset.dcl[i] = v.as<uint16_t>();
-                        ESP_LOGI(TAG, "dcl %u %u", i, myset.dcl[i]);
-                        i++;
-                        if (i > 3)
-                        {
-                            break;
-                        }
-                    }
-                }
+                JSONToSettings(doc, &myset);
+                // Repair any bad values
+                ValidateConfiguration(&myset);
 
                 // Copy the new settings over top of old
                 memcpy(&mysettings, &myset, sizeof(mysettings));
@@ -1226,8 +1104,6 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         {
             ESP_LOGE(TAG, "File does not exist %s", filename);
         }
-
-        hal.ReleaseVSPIMutex();
     }
 
     if (success)
@@ -1262,18 +1138,20 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "restartcontroller", "saverules", "savedisplaysetting", "savestorage",
         "resetcounters", "sdmount", "sdunmount", "enableavrprog",
         "disableavrprog", "avrprog", "savers485settings", "savecurrentmon",
-        "savecmbasic", "savecmadvanced", "savecmrelay", "savevictron", "restoreconfig"};
+        "savecmbasic", "savecmadvanced", "savecmrelay", "restoreconfig", "savechargeconfig",
+        "visibletiles", "dailyahreset", "setsoc"};
 
     esp_err_t (*func_ptr[])(httpd_req_t * req, bool urlEncoded) = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
         post_savemqtt_json_handler, post_saveinfluxdbsetting_json_handler,
-        post_saveconfigurationtosdcard_json_handler, post_savewificonfigtosdcard_json_handler,
+        post_saveconfigurationtoflash_json_handler, post_savewificonfigtosdcard_json_handler,
         post_savesetting_json_handler, post_restartcontroller_json_handler, post_saverules_json_handler,
         post_savedisplaysetting_json_handler, post_savestorage_json_handler, post_resetcounters_json_handler,
         post_sdmount_json_handler, post_sdunmount_json_handler, post_enableavrprog_json_handler,
         post_disableavrprog_json_handler, post_avrprog_json_handler, post_savers485settings_json_handler,
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
-        post_savecmrelay_json_handler, post_savevictron_json_handler, post_restoreconfig_json_handler};
+        post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler,
+        post_visibletiles_json_handler, post_resetdailyahcount_json_handler, post_setsoc_json_handler};
 
     // Sanity check arrays are the same size
     ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);

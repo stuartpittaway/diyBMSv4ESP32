@@ -35,12 +35,15 @@ extern TaskHandle_t avrprog_task_handle;
 extern uint32_t canbus_messages_received;
 extern uint32_t canbus_messages_sent;
 extern uint32_t canbus_messages_failed_sent;
-extern void sdcardaction_callback(uint8_t action);
+
 extern Rules rules;
 extern ControllerState _controller_state;
 extern void formatCurrentDateTime(char* buf, size_t buf_size);
-
 extern void setNoStoreCacheControl(httpd_req_t *req);
 extern char CookieValue[20 + 1];
 extern char hostname[16];
+
+extern uint32_t time100;
+extern uint32_t time20;
+extern uint32_t time10;
 #endif

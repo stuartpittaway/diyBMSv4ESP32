@@ -32,14 +32,12 @@ static constexpr const char *const TAG = "diybms";
 
 #include "FS.h"
 #include "SD.h"
-//#include <LITTLEFS.h>
 #include <WiFi.h>
 #include <SPI.h>
 #include "driver/gpio.h"
 #include "driver/twai.h"
 #include "driver/adc.h"
 #include <driver/uart.h>
-//#include <XPT2046_Touchscreen.h>
 #include "TFT_eSPI.h"
 #include "driver/i2c.h"
 #include "esp32-hal-i2c.h"
@@ -89,7 +87,6 @@ static constexpr const char *const TAG = "diybms";
 #define RS485_TX GPIO_NUM_22
 #define RS485_ENABLE GPIO_NUM_25
 
-
 enum RGBLED : uint8_t
 {
     OFF = 0,
@@ -111,14 +108,13 @@ void Led(uint8_t bits);
 uint8_t readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg);
 uint16_t read16bitWord(i2c_port_t i2c_num, uint8_t dev, uint8_t reg);
 
-SPIClass vspi;
+SPIClass vspi(VSPI);
 // Copy of pin state for TCA9534
 uint8_t TCA9534APWR_Value;
 // Copy of pin state for TCA6408
 uint8_t TCA6408_Value;
 
 TFT_eSPI tft = TFT_eSPI();
-
 
 uint8_t readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
 {
@@ -231,7 +227,7 @@ void ConfigurePins()
     // GPIO34 is interrupt pin from TCA9534A (doesnt have pull up/down resistors)
     pinMode(TCA9534A_INTERRUPT_PIN, INPUT);
 
-    // BOOT Button on ESP32 module is used for resetting wifi details
+    // BOOT Button on ESP32 module 
     pinMode(GPIO_NUM_0, INPUT_PULLUP);
     // attachInterrupt(GPIO_NUM_0, WiFiPasswordResetInterrupt, CHANGE);
 
@@ -248,6 +244,11 @@ void ConfigurePins()
     pinMode(RS485_ENABLE, OUTPUT);
     // Enable receive
     digitalWrite(RS485_ENABLE, LOW);
+
+
+    pinMode(GPIO_NUM_35, INPUT);
+    pinMode(GPIO_NUM_33, OUTPUT);
+    digitalWrite(GPIO_NUM_33, HIGH);
 }
 
 // Attempts connection to i2c device
@@ -301,7 +302,7 @@ void WriteTCA6416OutputState()
     // Emulate the 9534 + 6408 and set the state on the 16 bit output
     TCA6416_Output_Pins = ((uint16_t)TCA9534APWR_Output_Pins << 8) | TCA6408_Output_Pins;
 
-    //ESP_LOGD(TAG, "TCA6416_Output_Pins=%x", TCA6416_Output_Pins);
+    // ESP_LOGD(TAG, "TCA6416_Output_Pins=%x", TCA6416_Output_Pins);
 
     ESP_ERROR_CHECK_WITHOUT_ABORT(write16bitWord(I2C_NUM_0, TCA6416_ADDRESS, TCA6416_OUTPUT, TCA6416_Output_Pins));
 
@@ -574,7 +575,7 @@ SD CARD TEST
 */
     ESP_LOGI(TAG, "Mounting SD card");
 
-    if (SD.begin(SDCARD_CHIPSELECT, vspi))
+    if (SD.begin(SDCARD_CHIPSELECT, vspi, 4000000,"/sd", 5U,true))
     {
         uint8_t cardType = SD.cardType();
         if (cardType == CARD_NONE)
@@ -595,17 +596,17 @@ SD CARD TEST
 }
 void testSerial()
 {
-    ESP_LOGI(TAG, "Test serial TX1/RX1");
-    for (size_t i = 0; i < 5; i++)
+    // Clear send and reply buffers
+    SERIAL_DATA.flush();
+    while (SERIAL_DATA.available())
     {
-        delay(100);
-        // Clear send and reply buffers
-        SERIAL_DATA.flush();
-        while (SERIAL_DATA.available())
-        {
-            SERIAL_DATA.read();
-        }
+        SERIAL_DATA.read();
+    }
+    delay(10);
 
+    ESP_LOGI(TAG, "Test serial TX1/RX1");
+    for (size_t i = 0; i < 50; i++)
+    {
         SERIAL_DATA.println("test!");
 
         Led(RGBLED::Blue);
@@ -633,46 +634,41 @@ void setup()
     SERIAL_DEBUG.begin(115200, SERIAL_8N1);
     SERIAL_DEBUG.setDebugOutput(true);
 
-    vspi = SPIClass(VSPI);
-
     ConfigurePins();
     ConfigureI2C();
     ConfigureVSPI();
 
-    /*
-        mountSDCard();
+    mountSDCard();
 
-        // Create a test file
-        File file;
-        const char *filename = "/burnin.txt";
+    // Create a test file
+    File file;
+    const char *filename = "/burnin.txt";
 
-        if (SD.exists(filename))
+    if (SD.exists(filename))
+    {
+        file = SD.open(filename, FILE_APPEND);
+        ESP_LOGD(TAG, "Open %s", filename);
+    }
+    else
+    {
+        File file = SD.open(filename, FILE_WRITE);
+        if (file)
         {
-            file = SD.open(filename, FILE_APPEND);
-            ESP_LOGD(TAG, "Open %s", filename);
+            ESP_LOGI(TAG, "Created %s", filename);
         }
         else
         {
-            File file = SD.open(filename, FILE_WRITE);
-            if (file)
-            {
-                ESP_LOGI(TAG, "Created %s", filename);
-            }
-            else
-            {
-                Halt(RGBLED::Blue);
-            }
+            Halt(RGBLED::Blue);
         }
+    }
 
-        file.println("Mary had a little lamb...");
-        file.close();
+    file.println("Mary had a little lamb...");
+    file.close();
 
-        ESP_LOGI(TAG, "All good for SD card file %s", filename);
-        SD.end();
+    ESP_LOGI(TAG, "All good for SD card file %s", filename);
+    SD.end();
 
-    */
-
-    //RGB led test
+    // RGB led test
     ESP_LOGD(TAG, "RED");
     Led(RGBLED::Red);
     delay(1000);
@@ -684,13 +680,11 @@ void setup()
     delay(1000);
     Led(RGBLED::OFF);
 
-
     // Test SERIAL
     SERIAL_DATA.begin(2400, SERIAL_8N1, 2, 32); // Serial for comms to modules
     testSerial();
 
     init_tft_display();
-
 }
 
 void SetOutputState(uint8_t outputId, bool state)
@@ -827,22 +821,23 @@ void loop()
         state = !state;
     }
 
-    if (TCA6416_Fitted) {
+    if (TCA6416_Fitted)
+    {
         ReadTCA6416InputRegisters();
-    } else {
+    }
+    else
+    {
         ReadTCA6408InputRegisters();
         ReadTCA9534InputRegisters();
     }
 
-  
-    //Hex dump the input status
+    // Hex dump the input status
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
     tft.setCursor(0, 150, 4);
     tft.print("INPUTS= ");
-    tft.print(TCA6408_Input,16);
+    tft.print(TCA6408_Input, 16);
     tft.print(" / ");
-    tft.print(TCA9534APWR_Input,16);
-
+    tft.print(TCA9534APWR_Input, 16);
 
     TouchScreenValues touchscreen = TouchScreenUpdate();
 

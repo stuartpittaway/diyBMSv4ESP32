@@ -1,11 +1,11 @@
 
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms-web";
+static constexpr const char *const TAG = "diybms-web";
 
-//Enable USE_WEBSOCKET_DEBUG_LOG to redirect console/debug serial port output
-//to a websocket stream, viewable in the browser DEBUG window/console.
-//Experimental feature
-//#define USE_WEBSOCKET_DEBUG_LOG
+// Enable USE_WEBSOCKET_DEBUG_LOG to redirect console/debug serial port output
+// to a websocket stream, viewable in the browser DEBUG window/console.
+// Experimental feature
+// #define USE_WEBSOCKET_DEBUG_LOG
 
 #include "webserver.h"
 #include "webserver_helper_funcs.h"
@@ -14,6 +14,7 @@ static constexpr const char * const TAG = "diybms-web";
 
 #include <esp_log.h>
 #include <stdarg.h>
+#include "esp_ota_ops.h"
 
 httpd_handle_t _myserver;
 
@@ -78,24 +79,23 @@ int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean 
 
 esp_err_t SendFailure(httpd_req_t *req)
 {
+  ESP_LOGD(TAG, "Failure");
   return httpd_resp_send_500(req);
 }
 
 esp_err_t SendSuccess(httpd_req_t *req)
 {
+  ESP_LOGD(TAG, "Success");
   httpd_resp_set_type(req, "application/json");
   setNoStoreCacheControl(req);
-
-  StaticJsonDocument<100> doc;
-  doc["success"] = true;
-  int bufferused = 0;
-  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+  int bufferused = snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{\"success\":true}");
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
 void saveConfiguration()
 {
-  Settings::WriteConfig("diybms", (char *)(&mysettings), sizeof(diybms_eeprom_settings));
+  ValidateConfiguration(&mysettings);
+  SaveConfiguration(&mysettings);
 }
 
 // The main home page
@@ -176,7 +176,10 @@ esp_err_t default_htm_handler(httpd_req_t *req)
   }
 
   // Indicate last chunk (zero byte length)
-  return httpd_resp_send_chunk(req, p, 0);
+  esp_err_t e = httpd_resp_send_chunk(req, p, 0);
+
+  ESP_LOGI(TAG, "default.htm complete");
+  return e;
 }
 
 void SetCacheAndETag(httpd_req_t *req, const char *ETag)
@@ -196,10 +199,10 @@ esp_err_t static_content_handler(httpd_req_t *req)
 
   enum enum_mimetype : uint8_t
   {
-    text_css ,
-    application_javascript ,
-    image_x_icon ,
-    image_png 
+    text_css,
+    application_javascript,
+    image_x_icon,
+    image_png
   };
 
   typedef struct
@@ -231,7 +234,7 @@ esp_err_t static_content_handler(httpd_req_t *req)
 
   const char *uri_array[] = {
       "/style.css", "/pagecode.js", "/jquery.js", "/notify.min.js", "/echarts.min.js",
-      "/lang_fr.js","/lang_ru.js", "/lang_hr.js", "/lang_nl.js", "/lang_pt.js", "/lang_de.js", "/lang_es.js", "/lang_en.js",
+      "/lang_fr.js", "/lang_ru.js", "/lang_hr.js", "/lang_nl.js", "/lang_pt.js", "/lang_de.js", "/lang_es.js", "/lang_en.js",
       "/favicon.ico", "/logo.png", "/wait.png", "/patron.png", "/warning.png"};
 
   WEBKIT_RESPONSE_ARGS arguments[] = {
@@ -296,7 +299,6 @@ esp_err_t static_content_handler(httpd_req_t *req)
   return httpd_resp_send_404(req);
 }
 
-
 /* Our URI handler function to be called during GET /uri request */
 esp_err_t get_root_handler(httpd_req_t *req)
 {
@@ -317,6 +319,210 @@ static esp_err_t ws_handler(httpd_req_t *req)
 static const httpd_uri_t uri_ws_get = {.uri = "/ws", .method = HTTP_GET, .handler = ws_handler, .user_ctx = NULL, .is_websocket = true};
 #endif
 
+static esp_err_t uploadfile_post_handler(httpd_req_t *req)
+{
+  if (!validateXSS(req))
+  {
+    // validateXSS has already sent httpd_resp_send_err...
+    return false;
+  }
+
+  ESP_LOGI(TAG, "Upload file");
+
+  httpd_resp_set_status(req, HTTPD_500); // Assume failure
+
+  int ret, remaining = req->content_len;
+
+  if (req->content_len > (10 * 1024))
+  {
+    ESP_LOGE("UPLOAD", "File too large : %d bytes", req->content_len);
+    /* Respond with 400 Bad Request */
+    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "File too large");
+    /* Return failure to close underlying connection else the
+     * incoming file content will keep the socket busy */
+    return ESP_FAIL;
+  }
+
+  struct tm timeinfo;
+
+  // getLocalTime has delay() functions in it :-(
+  if (getLocalTime(&timeinfo, 1))
+  {
+    timeinfo.tm_year += 1900;
+    // Month is 0 to 11 based!
+    timeinfo.tm_mon++;
+  }
+  else
+  {
+    memset(&timeinfo, 0, sizeof(tm));
+  }
+
+  // LittleFS only supports short filenames
+  char filename[32];
+  snprintf(filename, sizeof(filename), "/upld_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+  // Get the file
+  ESP_LOGI(TAG, "Generating LittleFS file %s", filename);
+
+  // SD card not installed, so write to LITTLEFS instead (internal flash)
+  File file = LittleFS.open(filename, "w");
+
+  int received;
+  while (remaining > 0)
+  {
+    ESP_LOGI(TAG, "Remaining size : %d", remaining);
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+    /* Receive the file part by part into a buffer */
+    if ((received = httpd_req_recv(req, httpbuf, MIN(remaining, BUFSIZE))) <= 0)
+    {
+      if (received == HTTPD_SOCK_ERR_TIMEOUT)
+      {
+        /* Retry if timeout occurred */
+        continue;
+      }
+
+      /* In case of unrecoverable error,
+       * close and delete the unfinished file*/
+      file.close();
+      LittleFS.remove(filename);
+
+      ESP_LOGE(TAG, "File reception failed!");
+      /* Respond with 500 Internal Server Error */
+      httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive file");
+      return ESP_FAIL;
+    }
+
+    /* Write buffer content to file on storage */
+    if (received && (received != file.write((uint8_t *)httpbuf, received)))
+    {
+      /* Couldn't write everything to file! Storage may be full? */
+      file.close();
+      LittleFS.remove(filename);
+
+      ESP_LOGE(TAG, "File write failed!");
+      /* Respond with 500 Internal Server Error */
+      httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to write file to storage");
+      return ESP_FAIL;
+    }
+
+    /* Keep track of remaining size of
+     * the file left to be uploaded */
+    remaining -= received;
+
+    // Allow other tasks to do stuff (avoid watchdog timeouts)
+    vTaskDelay(10);
+  }
+
+  file.close();
+  ESP_LOGI(TAG, "File upload complete");
+
+  httpd_resp_set_status(req, HTTPD_200);
+  httpd_resp_send(req, NULL, 0);
+  return ESP_OK;
+}
+//-----------------------------------------------------------------------------
+// Over the air firmware upgrade - note this is not securely implemented
+// anyone on the local LAN can send new ESP32 firmware to the controller
+//
+static esp_err_t ota_post_handler(httpd_req_t *req)
+{
+  if (!validateXSS(req))
+  {
+    // validateXSS has already sent httpd_resp_send_err...
+    return false;
+  }
+
+  httpd_resp_set_status(req, HTTPD_500); // Assume failure
+
+  int ret, remaining = req->content_len;
+  ESP_LOGI(TAG, "OTA Receiving");
+
+  esp_ota_handle_t update_handle = 0;
+  const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  esp_err_t err = ESP_OK;
+
+  if (update_partition == NULL)
+  {
+    ESP_LOGE(TAG, "OTA Failed, no partition");
+    goto return_failure;
+  }
+
+  ESP_LOGD(TAG, "OTA Writing: type %d, subtype %d, offset 0x%08x", update_partition->type, update_partition->subtype, update_partition->address);
+  ESP_LOGD(TAG, "OTA Running: type %d, subtype %d, offset 0x%08x", running->type, running->subtype, running->address);
+  err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
+  if (err != ESP_OK)
+  {
+    ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
+    goto return_failure;
+  }
+
+  suspendTasksDuringFirmwareUpdate();
+
+  while (remaining > 0)
+  {
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+    // Read the data for the request
+    if ((ret = httpd_req_recv(req, httpbuf, MIN(remaining, BUFSIZE))) <= 0)
+    {
+      if (ret == HTTPD_SOCK_ERR_TIMEOUT)
+      {
+        // Retry receiving if timeout occurred
+        continue;
+      }
+
+      goto return_failure;
+    }
+
+    size_t bytes_read = ret;
+
+    remaining -= bytes_read;
+    err = esp_ota_write(update_handle, httpbuf, bytes_read);
+    if (err != ESP_OK)
+    {
+      goto return_failure;
+    }
+    ESP_LOGD(TAG, "OTA Write: remaining %d", remaining);
+
+    // Allow other tasks to do stuff (avoid watchdog timeouts)
+    vTaskDelay(10);
+  }
+
+  ESP_LOGI(TAG, "OTA Receiving complete");
+
+  // End response
+  if ((esp_ota_end(update_handle) == ESP_OK) &&
+      (esp_ota_set_boot_partition(update_partition) == ESP_OK))
+  {
+    ESP_LOGI(TAG, "OTA Success?! - Rebooting");
+
+    httpd_resp_set_status(req, HTTPD_200);
+    httpd_resp_send(req, NULL, 0);
+
+    vTaskDelay(2000 / portTICK_RATE_MS);
+    esp_restart();
+
+    return ESP_OK;
+  }
+
+  ESP_LOGE(TAG, "OTA End failed-%s", esp_err_to_name(err));
+
+return_failure:
+
+  if (update_handle)
+  {
+    esp_ota_abort(update_handle);
+  }
+
+  resumeTasksAfterFirmwareUpdateFailure();
+
+  httpd_resp_set_status(req, HTTPD_500); // Assume failure
+  httpd_resp_send(req, NULL, 0);
+  return ESP_FAIL;
+}
+
 /* URI handler structure for GET /uri */
 static const httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_defaulthtm_get = {.uri = "/default.htm", .method = HTTP_GET, .handler = default_htm_handler, .user_ctx = NULL};
@@ -325,27 +531,35 @@ static const httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_
 static const httpd_uri_t uri_save_data_post = {.uri = "/post/*", .method = HTTP_POST, .handler = save_data_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = NULL};
 
+static const httpd_uri_t uri_ota_post = {.uri = "/ota", .method = HTTP_POST, .handler = ota_post_handler, .user_ctx = NULL};
+static const httpd_uri_t uri_uploadfile_post = {.uri = "/uploadfile", .method = HTTP_POST, .handler = uploadfile_post_handler, .user_ctx = NULL};
+
+void resetModuleMinMaxVoltage(uint8_t module)
+{
+  cmi[module].voltagemVMin = 6000;
+  cmi[module].voltagemVMax = 0;
+}
+
 void clearModuleValues(uint8_t module)
 {
   cmi[module].valid = false;
   cmi[module].voltagemV = 0;
-  cmi[module].voltagemVMin = 6000;
-  cmi[module].voltagemVMax = 0;
   cmi[module].badPacketCount = 0;
   cmi[module].inBypass = false;
   cmi[module].bypassOverTemp = false;
   cmi[module].internalTemp = -40;
   cmi[module].externalTemp = -40;
+  resetModuleMinMaxVoltage(module);
 }
 
 #ifdef USE_WEBSOCKET_DEBUG_LOG
-extern "C" int log_output_redirector(const char * format, va_list args)
+extern "C" int log_output_redirector(const char *format, va_list args)
 {
   size_t fd_count = CONFIG_LWIP_MAX_LISTENING_TCP;
   int client_fds[CONFIG_LWIP_MAX_LISTENING_TCP] = {0};
   httpd_ws_frame_t ws_pkt = {};
   char log_buffer[64];
-  char * temp = &log_buffer[0];
+  char *temp = &log_buffer[0];
   va_list copy;
 
   va_copy(copy, args);
@@ -367,8 +581,8 @@ extern "C" int log_output_redirector(const char * format, va_list args)
     format_len = vsnprintf(temp, format_len + 1, format, args);
   }
   va_end(args);
-  //Don't use printf - uses lots of stack space and causes task stack crash/growth.
-  //printf(temp);
+  // Don't use printf - uses lots of stack space and causes task stack crash/growth.
+  // printf(temp);
   fputs(temp, stdout);
   ws_pkt.len = format_len;
   ws_pkt.type = HTTPD_WS_TYPE_TEXT;
@@ -376,7 +590,7 @@ extern "C" int log_output_redirector(const char * format, va_list args)
 
   // blast the message out to any connected websocket clients
   httpd_get_client_list(_myserver, &fd_count, client_fds);
-  for (int idx = 0; idx < fd_count ; idx++)
+  for (int idx = 0; idx < fd_count; idx++)
   {
     if (httpd_ws_get_fd_info(_myserver, client_fds[idx]) == HTTPD_WS_CLIENT_WEBSOCKET)
     {
@@ -391,18 +605,18 @@ extern "C" int log_output_redirector(const char * format, va_list args)
 }
 #endif
 
-
 /* Function for starting the webserver */
 httpd_handle_t start_webserver(void)
 {
   /* Generate default configuration */
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-  config.max_uri_handlers = 8;
-  config.max_open_sockets = 5;
+  config.max_uri_handlers = 10;
+  config.max_open_sockets = 7;
   config.max_resp_headers = 16;
   config.stack_size = 5000;
   config.uri_match_fn = httpd_uri_match_wildcard;
+  config.lru_purge_enable = true;
 
   /* Empty handle to esp_http_server */
   httpd_handle_t server = NULL;
@@ -420,6 +634,10 @@ httpd_handle_t start_webserver(void)
 
     // Post services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_save_data_post));
+
+    // OTA services
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_ota_post));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_uploadfile_post));
 
 #ifdef USE_WEBSOCKET_DEBUG_LOG
     // Websocket

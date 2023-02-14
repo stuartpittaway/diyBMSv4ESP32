@@ -6,9 +6,9 @@
 #include "defines.h"
 
 // Needs to match the ordering on the HTML screen
-// You also need to update "RuleTextDescription"
+// You also need to update "RuleTextDescription" (Rules.cpp)
 // Define a max constant for the highest value (change if you add more rules)
-#define MAXIMUM_RuleNumber 14
+#define MAXIMUM_RuleNumber 15
 enum Rule : uint8_t
 {
     EmergencyStop = 0,
@@ -24,12 +24,13 @@ enum Rule : uint8_t
     CurrentMonitorUnderVoltage = 10,
     BankOverVoltage = 11,
     BankUnderVoltage = 12,
-    Timer2 = 13,
-    Timer1 = 14
+    BankRange = 13,
+    Timer2 = 14,
+    Timer1 = 15
 };
 
 // Define a max constant for the highest value (change if you add more warnings)
-#define MAXIMUM_InternalWarningCode 6
+#define MAXIMUM_InternalWarningCode 9
 enum InternalWarningCode : uint8_t
 {
     NoWarning = 0,
@@ -38,7 +39,10 @@ enum InternalWarningCode : uint8_t
     ModuleInconsistantCodeVersion = 3,
     ModuleInconsistantBoardRevision = 4,
     LoggingEnabledNoSDCard = 5,
-    AVRProgrammingMode = 6
+    AVRProgrammingMode = 6,
+    ChargePrevented = 7,
+    DischargePrevented = 8,
+    NoExternalTempSensor = 9
 };
 
 // Define a max constant for the highest value (change if you add more errors)
@@ -57,26 +61,45 @@ enum InternalErrorCode : uint8_t
 
 class Rules
 {
+private:
+    uint16_t dynamicChargeVoltage;
+    uint16_t dynamicChargeCurrent;
+
+    bool SharedChargingDischargingRules(diybms_eeprom_settings *mysettings);
 
 public:
     bool rule_outcome[RELAY_RULES];
     // Number of TRUE values in array rule_outcome
     uint8_t active_rule_count;
 
-    uint32_t packvoltage[maximum_number_of_banks];
+    // Actual bank voltage reported by the modules (sum of voltage reported by modules)
+    uint32_t bankvoltage[maximum_number_of_banks];
+    // As above, but each voltage reading limited to "cellmaxmv" setting (used for charge voltage calc)
+    uint32_t limitedbankvoltage[maximum_number_of_banks];
 
-    uint16_t lowestvoltageinpack[maximum_number_of_banks];
-    uint16_t highestvoltageinpack[maximum_number_of_banks];
+    uint16_t LowestCellVoltageInBank[maximum_number_of_banks];
+    uint16_t HighestCellVoltageInBank[maximum_number_of_banks];
 
+    // Number of modules who have reported zero volts (bad!)
     uint8_t zeroVoltageModuleCount;
 
-    uint32_t highestPackVoltage;
-    uint32_t lowestPackVoltage;
+    // Highest pack voltage
+    uint32_t highestBankVoltage;
+    // Lowest pack voltage
+    uint32_t lowestBankVoltage;
+
+    // Highest cell voltage in the whole system
     uint16_t highestCellVoltage;
+    // Lowest cell voltage in the whole system
     uint16_t lowestCellVoltage;
+
+    // Highest cell voltage range (mV) across all banks
+    uint16_t highestBankRange;
 
     // Identify address (id) of which module reports the highest/lowest values
     uint8_t address_HighestCellVoltage;
+    // Bank with the highest cell voltage in it
+    uint8_t index_bank_HighestCellVoltage;
     uint8_t address_LowestCellVoltage;
     uint8_t address_highestExternalTemp;
     uint8_t address_lowestExternalTemp;
@@ -100,7 +123,7 @@ public:
     int8_t numberOfBalancingModules;
 
     void ClearValues();
-    void ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c);
+    void ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uint16_t cellmaxmv);
     void ProcessBank(uint8_t bank);
     void SetWarning(InternalWarningCode warncode);
 
@@ -119,10 +142,18 @@ public:
     void SetError(InternalErrorCode err);
     uint16_t VoltageRangeInBank(uint8_t bank);
     void RunRules(
-        uint32_t *value,
-        uint32_t *hysteresisvalue,
+        int32_t *value,
+        int32_t *hysteresisvalue,
         bool emergencyStop,
         uint16_t mins, currentmonitoring_struct *currentMonitor);
+
+    bool IsChargeAllowed(diybms_eeprom_settings *mysettings);
+    bool IsDischargeAllowed(diybms_eeprom_settings *mysettings);
+    void CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
+    void CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
+    uint16_t DynamicChargeVoltage();
+    int16_t DynamicChargeCurrent();
+    uint16_t StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC);
 };
 
 #endif

@@ -141,7 +141,7 @@ void connectToMqtt()
     }
 }
 
-void GeneralStatusPayload(PacketRequestGenerator *prg, PacketReceiveProcessor *receiveProc, uint16_t requestq_count)
+void GeneralStatusPayload(PacketRequestGenerator *prg, PacketReceiveProcessor *receiveProc, uint16_t requestq_count, Rules *rules)
 {
     ESP_LOGI(TAG, "General status payload");
     std::string status;
@@ -157,6 +157,11 @@ void GeneralStatusPayload(PacketRequestGenerator *prg, PacketReceiveProcessor *r
     status.append(",\"oos\":").append(std::to_string(receiveProc->totalOutofSequenceErrors));
     status.append(",\"sendqlvl\":").append(std::to_string(requestq_count));
     status.append(",\"roundtrip\":").append(std::to_string(receiveProc->packetTimerMillisecond));
+    if (mysettings.dynamiccharge)
+    {
+        status.append(",\"dynchargev\":").append(float_to_string(((float)rules->DynamicChargeVoltage()) / 10.0));
+        status.append(",\"dynchargec\":").append(float_to_string(((float)rules->DynamicChargeCurrent()) / 10.0));
+    }
     status.append("}");
 
     std::string topic = mysettings.mqtt_topic;
@@ -173,8 +178,11 @@ void BankLevelInformation(Rules *rules)
         ESP_LOGI(TAG, "Bank(%d) status payload", bank);
         std::string bank_status;
         bank_status.reserve(128);
-        bank_status.append("{\"voltage\":").append(float_to_string(rules->packvoltage[bank] / 1000.0f)).append("}");
-
+        bank_status.append("{\"voltage\":")
+            .append(float_to_string(rules->bankvoltage[bank] / 1000.0f))
+            .append(",\"range\":")
+            .append(std::to_string(rules->VoltageRangeInBank(bank)))
+            .append("}");
         std::string topic = mysettings.mqtt_topic;
         topic.append("/bank/").append(std::to_string(bank));
         publish_message(topic, bank_status);
@@ -242,8 +250,9 @@ void MQTTCurrentMonitoring(currentmonitoring_struct *currentMonitor)
         {
             status.append(",\"mAhIn\":").append(std::to_string(currentMonitor->modbus.milliamphour_in));
             status.append(",\"mAhOut\":").append(std::to_string(currentMonitor->modbus.milliamphour_out));
+            status.append(",\"DailymAhIn\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_in));
+            status.append(",\"DailymAhOut\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_out));
             status.append(",\"temperature\":").append(std::to_string(currentMonitor->modbus.temperature));
-            status.append(",\"shuntmV\":").append(std::to_string(currentMonitor->modbus.shuntmV));
             status.append(",\"relayState\":").append(std::to_string(currentMonitor->RelayState ? 1 : 0));
             status.append(",\"soc\":").append(float_to_string(currentMonitor->stateofcharge));
         }
@@ -365,7 +374,7 @@ void mqtt2(PacketReceiveProcessor *receiveProc,
         return;
     }
 
-    GeneralStatusPayload(prg, receiveProc, requestq_count);
+    GeneralStatusPayload(prg, receiveProc, requestq_count, rules);
     BankLevelInformation(rules);
     RuleStatus(rules);
     OutputStatus(previousRelayState);
