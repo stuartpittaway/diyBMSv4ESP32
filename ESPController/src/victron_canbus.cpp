@@ -144,7 +144,7 @@ void victron_message_351()
   data.chargevoltagelimit = 0;
   data.maxchargecurrent = 0;
 
-  if (rules.IsChargeAllowed(&mysettings) == false)
+  if (rules.IsChargeAllowed(&mysettings))
   {
     if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
     {
