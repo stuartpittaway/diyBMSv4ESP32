@@ -72,7 +72,7 @@ public:
     // Number of TRUE values in array rule_outcome
     uint8_t active_rule_count;
 
-    // Actual bank voltage reported by the modules (sum of voltage reported by modules)
+    // Actual bank voltage reported by the modules (sum of voltage reported by modules) (millivolts)
     uint32_t bankvoltage[maximum_number_of_banks];
     // As above, but each voltage reading limited to "cellmaxmv" setting (used for charge voltage calc)
     uint32_t limitedbankvoltage[maximum_number_of_banks];
@@ -83,14 +83,14 @@ public:
     // Number of modules who have reported zero volts (bad!)
     uint8_t zeroVoltageModuleCount;
 
-    // Highest pack voltage
+    // Highest pack voltage (millivolts)
     uint32_t highestBankVoltage;
-    // Lowest pack voltage
+    // Lowest pack voltage (millivolts)
     uint32_t lowestBankVoltage;
 
-    // Highest cell voltage in the whole system
+    // Highest cell voltage in the whole system (millivolts)
     uint16_t highestCellVoltage;
-    // Lowest cell voltage in the whole system
+    // Lowest cell voltage in the whole system (millivolts)
     uint16_t lowestCellVoltage;
 
     // Highest cell voltage range (mV) across all banks
