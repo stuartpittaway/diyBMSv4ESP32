@@ -164,6 +164,7 @@ struct diybms_eeprom_settings
   // Maximum charge current - scale 0.1
   uint16_t chargecurrent;
   uint16_t dischargecurrent;
+  // Scale 0.1
   uint16_t dischargevolt;
   int16_t cellminmv;
   int16_t cellmaxmv;
