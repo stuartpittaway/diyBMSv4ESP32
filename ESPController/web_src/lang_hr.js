@@ -79,9 +79,10 @@ $("#rf4").text("Status releja");
 
 
 //Emergency Stop
-$("label[for='rule1value']").text("Not Stop");
+$("label[for='rule0value']").text("Not Stop");
 //Internal BMS error 
-$("label[for='rule2value']").text("Greška unutrašnjeg BMSa");
+$("label[for='rule1value']").text("Greška unutrašnjeg BMSa");
+//Current monitoring over current (Amps)
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Prenapon pojedine čelije (mV)");
 //Cell under voltage (mV)
@@ -95,13 +96,16 @@ $("label[for='rule7value']").text("Prekomjerna temperatura čelije (vanjski)");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Podtemperatura čelije (vanjski)");
 //Bank over voltage (mV)
-$("label[for='rule9value']").text("Prenapon bloka (mV)");
 //Bank under voltage (mV)
-$("label[for='rule10value']").text("Podnapon bloka (mV)");
+//Bank over voltage (mV)
+$("label[for='rule11value']").text("Prenapon bloka (mV)");
+//Bank under voltage (mV)
+$("label[for='rule12value']").text("Podnapon bloka (mV)");
+//Bank range/deviation (mV)
 //Timer 2
-$("label[for='rule11value']").text("Vremenski brojač 2");
+$("label[for='rule14value']").text("Vremenski brojač 2");
 //Timer 1
-$("label[for='rule12value']").text("Vremenski brojač 1");
+$("label[for='rule15value']").text("Vremenski brojač 1");
 //Relay default
 $("label[for='defaultvalue']").text("Defaultni relej");
 //Relay type

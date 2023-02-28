@@ -60,7 +60,7 @@ $("#rt2").text("Regels worden gevalueerd van laag naar hoog (van onder naar bove
 //Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will only disable when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing on/off rapidly.
 $("#rt3").text("Regels worden actief wanneer de waarde boven de alarmwaarde gaat en wordt pas terug inactief wanneer de waarde onder de herstelwaarde gaat.  Dit vermijdt onstabiele regelingen.");
 //'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of minutes past midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch on at 8:15am and off at 9:15am. This only works if connected to internet for regular time updates.
-$("#rt4").text("De regels 'Timer 1' und 'Timer 2' laten een tijdsturing toe, de regel is actiev wanneer het aantal minuten na middernacht is bereikt.  Bijvoorbeeld Timer 1 alarmwaarde 495 en herstelwaarde 555 zou activeren om 08:15 en deactiveren om 21:15. Deze regel werkt enkel als er internetverbinding is (NTP). ");
+$("#rt4").text("De regels 'Timer 1' en 'Timer 2' laten een tijdsturing toe, de regel is actief wanneer het aantal minuten na middernacht is bereikt.  Bijvoorbeeld Timer 1 alarmwaarde 495 en herstelwaarde 555 zou activeren om 08:15 en deactiveren om 21:15. Deze regel werkt enkel als er internetverbinding is (NTP). ");
 //Minutes since midnight now is: 
 $("#rt5").text("Tijd na middernacht in minuten: ");
 //Emergency stop is triggered by connector J1, once triggered controller needs to be reset to disable.
@@ -78,9 +78,10 @@ $("#rf4").text("Relaisstatus");
 
 
 //Emergency Stop
-$("label[for='rule1value']").text("Noodstop");
+$("label[for='rule0value']").text("Noodstop");
 //Internal BMS error 
-$("label[for='rule2value']").text("Interne BMS fout");
+$("label[for='rule1value']").text("Interne BMS fout");
+//Current monitoring over current (Amps)
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Celoverspannig (mV)");
 //Cell under voltage (mV)
@@ -94,13 +95,16 @@ $("label[for='rule7value']").text("Maximale celtemperatuur (extern)");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Minimale celtemperatuur (extern)");
 //Bank over voltage (mV)
-$("label[for='rule9value']").text("Maximale batterijspanning (mV)");
 //Bank under voltage (mV)
-$("label[for='rule10value']").text("Minimale batterijspanning (mV)");
+//Bank over voltage (mV)
+$("label[for='rule11value']").text("Maximale batterijspanning (mV)");
+//Bank under voltage (mV)
+$("label[for='rule12value']").text("Minimale batterijspanning (mV)");
+//Bank range/deviation (mV)
 //Timer 2
-$("label[for='rule11value']").text("Timer 2");
+$("label[for='rule14value']").text("Timer 2");
 //Timer 1
-$("label[for='rule12value']").text("Timer 1");
+$("label[for='rule15value']").text("Timer 1");
 //Relay default
 $("label[for='defaultvalue']").text("Standaardwaarde relais");
 //Relay type
@@ -120,7 +124,7 @@ $("#received > span.x.t").text("Paketten ontvangen:");
 $("#roundtrip > span.x.t").text("Roundtrip (ms):");
 
 //Integration
-$("#ip1").text("Intagratie");
+$("#ip1").text("Integratie");
 //For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.
 $("#ip2").text("Paswoorden moeten opnieuw ingegeven worden voor de service(s) die geactiveerd of gewijzigd worden.");
 //After changes are made, the controller will need to be rebooted, do this manually.

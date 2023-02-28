@@ -75,9 +75,10 @@ $("#rf4").text("Estado do relé");
 
 
 //Emergency Stop
-$("label[for='rule1value']").text("Paragem de emergência");
+$("label[for='rule0value']").text("Paragem de emergência");
 //Internal BMS error= 
-$("label[for='rule2value']").text("Erro interno do BMS");
+$("label[for='rule1value']").text("Erro interno do BMS");
+//Current monitoring over current (Amps)
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Sobretensão de célula individual (mV)");
 //Cell under voltage (mV)
@@ -94,10 +95,13 @@ $("label[for='rule8value']").text("Célula abaixo da temperatura (externa) °C")
 $("label[for='rule9value']").text("Sobretensão do conjunto (mV)");
 //Bank under voltage (mV)
 $("label[for='rule10value']").text("Subtensão do conjunto (mV)");
+//Bank over voltage (mV)
+//Bank under voltage (mV)
+//Bank range/deviation (mV)
 //Timer 2
-$("label[for='rule11value']").text("Temporizador 2");
+$("label[for='rule14value']").text("Temporizador 2");
 //Timer 1
-$("label[for='rule12value']").text("Temporizador 1");
+$("label[for='rule15value']").text("Temporizador 1");
 //Relay default
 $("label[for='defaultvalue']").text("Configuração por defeito do Relé");
 //Relay type = 

@@ -79,9 +79,11 @@ $("#rf4").text("Relaisstatus");
 
 
 //Emergency Stop
-$("label[for='rule1value']").text("Not Stop");
+$("label[for='rule0value']").text("Not-Aus");
 //Internal BMS error 
-$("label[for='rule2value']").text("Interner BMS Fehler");
+$("label[for='rule1value']").text("Interner fehler im BMS");
+//Current monitoring over current (Amps)
+$("label[for='rule2value']").text("maximaler Strom (A)");
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Zellenüberspannung (mV)");
 //Cell under voltage (mV)
@@ -95,13 +97,19 @@ $("label[for='rule7value']").text("Zellen Übertemperatur (extern)");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Zellen Untertemperatur (extern)");
 //Bank over voltage (mV)
-$("label[for='rule9value']").text("Paket Überspannung (mV)");
+$("label[for='rule9value']").text("Überspannung des Strommonitors (mV)");
 //Bank under voltage (mV)
-$("label[for='rule10value']").text("Paket Unterspannung (mV)");
+$("label[for='rule10value']").text("Stromwächter unter Spannung (mV)");
+//Bank over voltage (mV)
+$("label[for='rule11value'").text("Paket Überspannung (mV)");
+//Bank under voltage (mV)
+$("label[for='rule12value'").text("Paket Unterspannung (mV)");
+//Bank range/deviation (mV)
+$("label[for='rule13value'").text("Bankbereich/Varianz (mV)");
 //Timer 2
-$("label[for='rule11value']").text("Timer 2");
+$("label[for='rule14value']").text("Timer 2");
 //Timer 1
-$("label[for='rule12value']").text("Timer 1");
+$("label[for='rule15value']").text("Timer 1");
 //Relay default
 $("label[for='defaultvalue']").text("Relais Grundeinstellung");
 //Relay type

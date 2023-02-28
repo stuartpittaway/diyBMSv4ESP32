@@ -84,9 +84,9 @@ $("#rf4").text("Etat relais");
 
 //Emergency Stop
 $("label[for='rule0value']").text("Arret d'urgence");
-//Internal BMS error= 
+//Internal BMS error
 $("label[for='rule1value']").text("Erreur interne BMS");
-//overcuerrent
+//Current monitoring over current (Amps)
 $("label[for='rule2value']").text("Surintensité vu par le moniteur de courant (A)");
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Seuil de surtension cellule individuelle (mV)");
@@ -104,13 +104,16 @@ $("label[for='rule8value']").text("Cellule Soustemperature (Ext) °C");
 $("label[for='rule9value']").text("Surtention chaîne (mV)");
 //Bank under voltage (mV)
 $("label[for='rule10value']").text("Soustention chaîne (mV)");
+//Bank over voltage (mV)
+//Bank under voltage (mV)
+//Bank range/deviation (mV)
 //Timer 2
-$("label[for='rule11value']").text("Tempo 2");
+$("label[for='rule14value']").text("Tempo 2");
 //Timer 1
-$("label[for='rule12value']").text("Tempo 1");
+$("label[for='rule15value']").text("Tempo 1");
 //Relay default
 $("label[for='defaultvalue']").text("Défault relais");
-//Relay type = 
+//Relay type
 $("label[for='relaytype']").text("Type de Relais");
 
 

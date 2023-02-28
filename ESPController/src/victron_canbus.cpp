@@ -4,12 +4,11 @@
  )(_) )_)(_  \  /  ) _ < )    ( \__ \
 (____/(____) (__) (____/(_/\/\_)(___/
 
-  (c) 2021 Stuart Pittaway
+(c) 2021-2023 Stuart Pittaway
 
 This code communicates with VICTRON CERBO GX style devices using CANBUS @ 500kbps and 11 bit addresses.
 
 The code supports the VICTRON CAN BUS BMS style messages.
-
 */
 
 #define USE_ESP_IDF_LOG 1
@@ -127,29 +126,31 @@ void victron_message_351()
 
   struct data351
   {
-    // CVL
+    // CVL - 0.1V scale
     uint16_t chargevoltagelimit;
-    // CCL
+    // CCL - 0.1A scale
     int16_t maxchargecurrent;
-    // DCL
+    // DCL - 0.1A scale
     int16_t maxdischargecurrent;
     // Not currently used by Victron
+    // 0.1V scale
     uint16_t dischargevoltage;
   };
 
   data351 data;
 
-
-  //  Defaults (do nothing)
-  data.chargevoltagelimit = 0;
+  // Defaults (do nothing)
+  // Don't use zero for voltage - this indicates to Victron an over voltage situation, and Victron gear attempts to dump
+  // the whole battery contents!  (feedback from end users)
+  data.chargevoltagelimit = rules.lowestBankVoltage / 100;
   data.maxchargecurrent = 0;
 
-  if (rules.IsChargeAllowed(&mysettings) == false)
+  if (rules.IsChargeAllowed(&mysettings))
   {
     if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
     {
-      // Balancing, stop charge, allow discharge
-      data.chargevoltagelimit = 0;
+      // Balancing, stop charge
+      data.chargevoltagelimit = rules.lowestBankVoltage / 100;
       data.maxchargecurrent = 0;
     }
     else
@@ -160,6 +161,7 @@ void victron_message_351()
     }
   }
 
+  // Discharge settings....
   data.maxdischargecurrent = 0;
   data.dischargevoltage = mysettings.dischargevolt;
 
@@ -206,6 +208,7 @@ void victron_message_356()
   data356 data;
 
   // Use highest bank voltage calculated by controller and modules
+  // Scale 0.01V
   data.voltage = rules.highestBankVoltage / 10;
 
   // If current shunt is installed, use the voltage from that as it should be more accurate
@@ -218,10 +221,11 @@ void victron_message_356()
   // If current shunt is installed, use it
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
+    // Scale 0.1A
     data.current = currentMonitor.modbus.current * 10;
   }
 
-  // Temperature 0.1 C using external temperature sensor
+  // Temperature 0.1C using external temperature sensor
   if (rules.moduleHasExternalTempSensor)
   {
     data.temperature = (int16_t)rules.highestExternalTemp * (int16_t)10;
@@ -361,8 +365,8 @@ void victron_message_35a()
   // ESP_LOGI(TAG, "numberOfBalancingModules=%u", rules.numberOfBalancingModules);
 
   // 7 (bit 0+1) Cell imbalance warning
-  //data.byte7 |= (rules.numberOfBalancingModules > 0 ? BIT01_ALARM : BIT01_OK);
-  
+  // data.byte7 |= (rules.numberOfBalancingModules > 0 ? BIT01_ALARM : BIT01_OK);
+
   // 7 (bit 2+3) System status (online/offline) [1]
   data.byte7 |= ((_controller_state != ControllerState::Running) ? BIT23_ALARM : BIT23_OK);
   // 7 (rest) Reserved

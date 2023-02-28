@@ -75,14 +75,14 @@ $("#rf4").text("Estado del relé");
 
 
 //Emergency Stop
-$("label[for='rule1value']").text("Parada de emergencia");
+$("label[for='rule0value']").text("Parada de emergencia");
 //Internal BMS error= 
-$("label[for='rule2value']").text("Error interno de BMS");
+$("label[for='rule1value']").text("Error interno de BMS");
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Celda individual por encima de voltaje (mV)");
 //Cell under voltage (mV)
 $("label[for='rule4value']").text("Celda individual por debajo de voltaje (mV)");
-//Module over temperature (internal) °C	= 
+//Module over temperature (internal) °C
 $("label[for='rule5value']").text("Modulo por encima de temperatua (interna) °C");
 //Module under temperature (internal)
 $("label[for='rule6value']").text("Modulo por debajo de temperatua (interna) °C");
@@ -93,11 +93,14 @@ $("label[for='rule8value']").text("Celda por debajo de temperatua (externa) °C"
 //Bank over voltage (mV)
 $("label[for='rule9value']").text("Paquete por encima de voltaje (mV)");
 //Bank under voltage (mV)
-$("label[for='rule10value']").text("Paquete por debajo de voltaje (mV)");
+//Bank over voltage (mV)
+$("label[for='rule11value']").text("Paquete por debajo de voltaje (mV)");
+//Bank under voltage (mV)
+//Bank range/deviation (mV)
 //Timer 2
-$("label[for='rule11value']").text("Temporizador 2");
+$("label[for='rule14value']").text("Temporizador 2");
 //Timer 1
-$("label[for='rule12value']").text("Temporizador 1");
+$("label[for='rule15value']").text("Temporizador 1");
 //Relay default
 $("label[for='defaultvalue']").text("Configuracion Relé");
 //Relay type = 
