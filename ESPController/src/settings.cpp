@@ -63,6 +63,24 @@ static const char sensitivity_JSONKEY[] = "sensitivity";
 static const char current_value1_JSONKEY[] = "cur_val1";
 static const char current_value2_JSONKEY[] = "cur_val2";
 
+static const char currentMonitoringDevice_JSONKEY[] = "currentMonitoringDevice";
+static const char currentMonitoring_shuntmv_JSONKEY[] = "currentMonitoringShuntmv";
+static const char currentMonitoring_shuntmaxcur_JSONKEY[] = "currentMonitoringShuntMaxCur";
+static const char currentMonitoring_batterycapacity_JSONKEY[] = "currentMonitoringBatteryCap";
+static const char currentMonitoring_fullchargevolt_JSONKEY[] = "currentMonitoringFullChargeVolt";
+static const char currentMonitoring_tailcurrent_JSONKEY[] = "currentMonitoringTailCurrent";
+static const char currentMonitoring_chargeefficiency_JSONKEY[] = "currentMonitoringChargeEfficiency";
+
+static const char currentMonitoring_shuntcal_JSONKEY[] = "currentMonitoringShuntCal";
+static const char currentMonitoring_temperaturelimit_JSONKEY[] = "currentMonitoringTempLimit";
+static const char currentMonitoring_overvoltagelimit_JSONKEY[] = "currentMonitoringOverVLimit";
+static const char currentMonitoring_undervoltagelimit_JSONKEY[] = "currentMonitoringUnderVLimit";
+static const char currentMonitoring_overcurrentlimit_JSONKEY[] = "currentMonitoringOverCurrent";
+static const char currentMonitoring_undercurrentlimit_JSONKEY[] = "currentMonitoringUnderCurrent";
+static const char currentMonitoring_overpowerlimit_JSONKEY[] = "currentMonitoringOverPower";
+static const char currentMonitoring_shunttempcoefficient_JSONKEY[] = "currentMonitoringShuntTempCoeff";
+static const char currentMonitoring_tempcompenabled_JSONKEY[] = "currentMonitoringTempCompEnable";
+
 /* NVS KEYS
 THESE STRINGS ARE USED TO HOLD THE PARAMETER IN NVS FLASH, MAXIMUM LENGTH OF 16 CHARACTERS
 */
@@ -128,6 +146,22 @@ static const char influxdb_serverurl_NVSKEY[] = "inf_serverurl";
 static const char influxdb_databasebucket_NVSKEY[] = "inf_bucket";
 static const char influxdb_apitoken_NVSKEY[] = "inf_apitoken";
 static const char influxdb_orgid_NVSKEY[] = "inf_orgid";
+
+static const char currentMonitoring_shuntmv_NVSKEY[] = "curMonshuntmv";
+static const char currentMonitoring_shuntmaxcur_NVSKEY[] = "curMonShtMaxCur";
+static const char currentMonitoring_batterycapacity_NVSKEY[] = "curMonBatCap";
+static const char currentMonitoring_fullchargevolt_NVSKEY[] = "curMonFullChgV";
+static const char currentMonitoring_tailcurrent_NVSKEY[] = "curMonTailCur";
+static const char currentMonitoring_chargeefficiency_NVSKEY[] = "curMonChargeEff";
+static const char currentMonitoring_shuntcal_NVSKEY[] = "curMonShuntCal";
+static const char currentMonitoring_temperaturelimit_NVSKEY[] = "curMontemplimit";
+static const char currentMonitoring_overvoltagelimit_NVSKEY[] = "curMonovervolt";
+static const char currentMonitoring_undervoltagelimit_NVSKEY[] = "curMonundervolt";
+static const char currentMonitoring_overcurrentlimit_NVSKEY[] = "curMonovercur";
+static const char currentMonitoring_undercurrentlimit_NVSKEY[] = "curMonundercur";
+static const char currentMonitoring_overpowerlimit_NVSKEY[] = "curMonoverpower";
+static const char currentMonitoring_shunttempcoefficient_NVSKEY[] = "curMontempcoef";
+static const char currentMonitoring_tempcompenabled_NVSKEY[] = "curMonTempCompE";
 
 #define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
 #define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
@@ -237,12 +271,10 @@ void InitializeNVS()
     }
     ESP_ERROR_CHECK(err);
 }
-
 void writeSetting(nvs_handle_t handle, const char *key, bool value)
 {
     writeSetting(handle, key, (uint8_t)value);
 }
-
 void writeSetting(nvs_handle_t handle, const char *key, int8_t value)
 {
     ESP_LOGD(TAG, "Writing (%s)=%i", key, value);
@@ -324,7 +356,21 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE_UINT8(rs485stopbits);
         MACRO_NVSWRITE_UINT8(canbusprotocol);
 
-        MACRO_NVSWRITE(nominalbatcap)
+        MACRO_NVSWRITE(currentMonitoring_shuntmv);
+        MACRO_NVSWRITE(currentMonitoring_shuntmaxcur);
+        MACRO_NVSWRITE(currentMonitoring_batterycapacity);
+        MACRO_NVSWRITE(currentMonitoring_fullchargevolt);
+        MACRO_NVSWRITE(currentMonitoring_tailcurrent);
+        MACRO_NVSWRITE(currentMonitoring_chargeefficiency);
+        MACRO_NVSWRITE(currentMonitoring_shuntcal);
+        MACRO_NVSWRITE(currentMonitoring_temperaturelimit);
+        MACRO_NVSWRITE(currentMonitoring_overvoltagelimit);
+        MACRO_NVSWRITE(currentMonitoring_undervoltagelimit);
+        MACRO_NVSWRITE(currentMonitoring_overcurrentlimit);
+        MACRO_NVSWRITE(currentMonitoring_undercurrentlimit);
+        MACRO_NVSWRITE(currentMonitoring_overpowerlimit);
+        MACRO_NVSWRITE(currentMonitoring_shunttempcoefficient);
+        MACRO_NVSWRITE(currentMonitoring_tempcompenabled);
 
         MACRO_NVSWRITE(chargevolt)
         MACRO_NVSWRITE(chargecurrent)
@@ -415,9 +461,27 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(daylight);
         MACRO_NVSREAD(loggingEnabled);
         MACRO_NVSREAD(loggingFrequencySeconds);
+
         MACRO_NVSREAD(currentMonitoringEnabled);
         MACRO_NVSREAD(currentMonitoringModBusAddress);
-        MACRO_NVSREAD_UINT8(currentMonitoringModBusAddress);
+        MACRO_NVSREAD_UINT8(currentMonitoringDevice);
+
+        MACRO_NVSREAD(currentMonitoring_shuntmv);
+        MACRO_NVSREAD(currentMonitoring_shuntmaxcur);
+        MACRO_NVSREAD(currentMonitoring_batterycapacity);
+        MACRO_NVSREAD(currentMonitoring_fullchargevolt);
+        MACRO_NVSREAD(currentMonitoring_tailcurrent);
+        MACRO_NVSREAD(currentMonitoring_chargeefficiency);
+        MACRO_NVSREAD(currentMonitoring_shuntcal);
+        MACRO_NVSREAD(currentMonitoring_temperaturelimit);
+        MACRO_NVSREAD(currentMonitoring_overvoltagelimit);
+        MACRO_NVSREAD(currentMonitoring_undervoltagelimit);
+        MACRO_NVSREAD(currentMonitoring_overcurrentlimit);
+        MACRO_NVSREAD(currentMonitoring_undercurrentlimit);
+        MACRO_NVSREAD(currentMonitoring_overpowerlimit);
+        MACRO_NVSREAD(currentMonitoring_shunttempcoefficient);
+        MACRO_NVSREAD(currentMonitoring_tempcompenabled);
+
         MACRO_NVSREAD(rs485baudrate);
         MACRO_NVSREAD_UINT8(rs485databits);
         MACRO_NVSREAD_UINT8(rs485parity);
@@ -463,7 +527,6 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREADSTRING(influxdb_databasebucket);
         MACRO_NVSREADSTRING(influxdb_apitoken);
         MACRO_NVSREADSTRING(influxdb_orgid);
-
         nvs_close(nvs_handle);
     }
 
@@ -526,14 +589,28 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
     _myset->currentMonitoringEnabled = false;
     _myset->currentMonitoringModBusAddress = 90;
-    _myset->currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
+    _myset->currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS;
+
+    _myset->currentMonitoring_shuntmv = 50;
+    _myset->currentMonitoring_shuntmaxcur = 150;
+    _myset->currentMonitoring_batterycapacity = 280;
+    _myset->currentMonitoring_fullchargevolt = 5600;   // 56.00V
+    _myset->currentMonitoring_tailcurrent = 1400;      // 14.00A
+    _myset->currentMonitoring_chargeefficiency = 9950; // 99.50%
+    _myset->currentMonitoring_shuntcal = 0;
+    _myset->currentMonitoring_temperaturelimit = 80;
+    _myset->currentMonitoring_overvoltagelimit = 5840;    // 58.4V
+    _myset->currentMonitoring_undervoltagelimit = 4000;   // 40V
+    _myset->currentMonitoring_overcurrentlimit = 15000;   // 150.00A
+    _myset->currentMonitoring_undercurrentlimit = -15000; //-150.00A
+    _myset->currentMonitoring_overpowerlimit = 5000;      // 5000W
+    _myset->currentMonitoring_shunttempcoefficient = 15;
+    _myset->currentMonitoring_tempcompenabled = false; // Disabled
 
     _myset->rs485baudrate = 19200;
     _myset->rs485databits = uart_word_length_t::UART_DATA_8_BITS;
     _myset->rs485parity = uart_parity_t::UART_PARITY_DISABLE;
     _myset->rs485stopbits = uart_stop_bits_t::UART_STOP_BITS_1;
-
-    _myset->currentMonitoringEnabled = false;
 
     strncpy(_myset->language, "en", sizeof(_myset->language));
 
@@ -815,6 +892,25 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[loggingFrequencySeconds_JSONKEY] = settings->loggingFrequencySeconds;
     root[currentMonitoringEnabled_JSONKEY] = settings->currentMonitoringEnabled;
     root[currentMonitoringModBusAddress_JSONKEY] = settings->currentMonitoringModBusAddress;
+
+    root[currentMonitoringDevice_JSONKEY] = (uint8_t)settings->currentMonitoringDevice;
+    root[currentMonitoring_shuntmv_JSONKEY] = settings->currentMonitoring_shuntmv;
+    root[currentMonitoring_shuntmaxcur_JSONKEY] = settings->currentMonitoring_shuntmaxcur;
+    root[currentMonitoring_batterycapacity_JSONKEY] = settings->currentMonitoring_batterycapacity;
+    root[currentMonitoring_fullchargevolt_JSONKEY] = settings->currentMonitoring_fullchargevolt;
+    root[currentMonitoring_tailcurrent_JSONKEY] = settings->currentMonitoring_tailcurrent;
+    root[currentMonitoring_chargeefficiency_JSONKEY] = settings->currentMonitoring_chargeefficiency;
+
+    root[currentMonitoring_shuntcal_JSONKEY] = settings->currentMonitoring_shuntcal;
+    root[currentMonitoring_temperaturelimit_JSONKEY] = settings->currentMonitoring_temperaturelimit;
+    root[currentMonitoring_overvoltagelimit_JSONKEY] = settings->currentMonitoring_overvoltagelimit;
+    root[currentMonitoring_undervoltagelimit_JSONKEY] = settings->currentMonitoring_undervoltagelimit;
+    root[currentMonitoring_overcurrentlimit_JSONKEY] = settings->currentMonitoring_overcurrentlimit;
+    root[currentMonitoring_undercurrentlimit_JSONKEY] = settings->currentMonitoring_undercurrentlimit;
+    root[currentMonitoring_overpowerlimit_JSONKEY] = settings->currentMonitoring_overpowerlimit;
+    root[currentMonitoring_shunttempcoefficient_JSONKEY] = settings->currentMonitoring_shunttempcoefficient;
+    root[currentMonitoring_tempcompenabled_JSONKEY] = settings->currentMonitoring_tempcompenabled;
+
     root[rs485baudrate_JSONKEY] = settings->rs485baudrate;
     root[rs485databits_JSONKEY] = settings->rs485databits;
     root[rs485parity_JSONKEY] = settings->rs485parity;
@@ -944,6 +1040,23 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
 
     settings->currentMonitoringEnabled = root[currentMonitoringEnabled_JSONKEY];
     settings->currentMonitoringModBusAddress = root[currentMonitoringModBusAddress_JSONKEY];
+
+    settings->currentMonitoringDevice = (CurrentMonitorDevice)(uint8_t)root[currentMonitoringDevice_JSONKEY];
+    settings->currentMonitoring_shuntmv = root[currentMonitoring_shuntmv_JSONKEY];
+    settings->currentMonitoring_shuntmaxcur = root[currentMonitoring_shuntmaxcur_JSONKEY];
+    settings->currentMonitoring_batterycapacity = root[currentMonitoring_batterycapacity_JSONKEY];
+    settings->currentMonitoring_fullchargevolt = root[currentMonitoring_fullchargevolt_JSONKEY];
+    settings->currentMonitoring_tailcurrent = root[currentMonitoring_tailcurrent_JSONKEY];
+    settings->currentMonitoring_chargeefficiency = root[currentMonitoring_chargeefficiency_JSONKEY];
+    settings->currentMonitoring_shuntcal = root[currentMonitoring_shuntcal_JSONKEY];
+    settings->currentMonitoring_temperaturelimit = root[currentMonitoring_temperaturelimit_JSONKEY];
+    settings->currentMonitoring_overvoltagelimit = root[currentMonitoring_overvoltagelimit_JSONKEY];
+    settings->currentMonitoring_undervoltagelimit = root[currentMonitoring_undervoltagelimit_JSONKEY];
+    settings->currentMonitoring_overcurrentlimit = root[currentMonitoring_overcurrentlimit_JSONKEY];
+    settings->currentMonitoring_undercurrentlimit = root[currentMonitoring_undercurrentlimit_JSONKEY];
+    settings->currentMonitoring_overpowerlimit = root[currentMonitoring_overpowerlimit_JSONKEY];
+    settings->currentMonitoring_shunttempcoefficient = root[currentMonitoring_shunttempcoefficient_JSONKEY];
+    settings->currentMonitoring_tempcompenabled = root[currentMonitoring_tempcompenabled_JSONKEY];
 
     settings->rs485baudrate = root[rs485baudrate_JSONKEY];
     settings->rs485databits = root[rs485databits_JSONKEY];

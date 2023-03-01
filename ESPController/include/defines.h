@@ -6,7 +6,7 @@
 
 #include "EmbeddedFiles_Integrity.h"
 
-//#define TOUCH_SCREEN
+// #define TOUCH_SCREEN
 
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
@@ -98,8 +98,9 @@ enum CanBusProtocolEmulation : uint8_t
 
 enum CurrentMonitorDevice : uint8_t
 {
-  DIYBMS_CURRENT_MON = 0x00,
-  PZEM_017 = 0x01
+  DIYBMS_CURRENT_MON_MODBUS = 0x00,
+  PZEM_017 = 0x01,
+  DIYBMS_CURRENT_MON_INTERNAL = 0x02
 };
 
 // Number of rules as defined in Rules.h (enum Rule)
@@ -150,6 +151,22 @@ struct diybms_eeprom_settings
   uint8_t currentMonitoringModBusAddress;
   CurrentMonitorDevice currentMonitoringDevice;
 
+  uint16_t currentMonitoring_shuntmv;
+  uint16_t currentMonitoring_shuntmaxcur;
+  uint16_t currentMonitoring_batterycapacity;
+  uint16_t currentMonitoring_fullchargevolt;
+  uint16_t currentMonitoring_tailcurrent;
+  uint16_t currentMonitoring_chargeefficiency;
+  uint16_t currentMonitoring_shuntcal;
+  int16_t currentMonitoring_temperaturelimit;
+  int16_t currentMonitoring_overvoltagelimit;
+  int16_t currentMonitoring_undervoltagelimit;
+  int32_t currentMonitoring_overcurrentlimit;
+  int32_t currentMonitoring_undercurrentlimit;
+  int32_t currentMonitoring_overpowerlimit;
+  uint16_t currentMonitoring_shunttempcoefficient;
+    bool currentMonitoring_tempcompenabled;
+
   int32_t rs485baudrate;
   uart_word_length_t rs485databits;
   uart_parity_t rs485parity;
@@ -182,13 +199,13 @@ struct diybms_eeprom_settings
   int8_t chargetemphigh;
   int8_t dischargetemplow;
   int8_t dischargetemphigh;
-  //Stop charging is a module is balancing
+  // Stop charging is a module is balancing
   bool stopchargebalance;
-  //Override SoC values reported over CANBUS - limited between 20% and 99%
+  // Override SoC values reported over CANBUS - limited between 20% and 99%
   bool socoverride;
-  //Force a 2% SoC over CANBUS to trick charger/inverter into trickle charging
+  // Force a 2% SoC over CANBUS to trick charger/inverter into trickle charging
   bool socforcelow;
-  //Dynamic charge control - voltage & current
+  // Dynamic charge control - voltage & current
   bool dynamiccharge;
   bool preventcharging;
   bool preventdischarge;
@@ -298,7 +315,7 @@ enum ControllerState : uint8_t
   Unknown = 0,
   PowerUp = 1,
   Stabilizing = 2,
-  NoWifiConfiguration=3,
+  NoWifiConfiguration = 3,
   Running = 255,
 };
 
@@ -309,7 +326,6 @@ enum CardAction : uint8_t
   Unmount = 2,
   Remount = 3
 };
-
 
 // This holds all the cell information in a large array array
 extern CellModuleInfo cmi[maximum_controller_cell_modules];
@@ -395,7 +411,6 @@ struct currentmonitoring_struct
   bool RelayState : 1;
 };
 
-
 enum DIAG_ALRT_FIELD : uint16_t
 {
   ALATCH = 15,
@@ -416,8 +431,7 @@ enum DIAG_ALRT_FIELD : uint16_t
   MEMSTAT = 0
 };
 
-
-//Where in EEPROM do we store the configuration
+// Where in EEPROM do we store the configuration
 #define EEPROM_WIFI_START_ADDRESS 0
 
 struct wifi_eeprom_settings

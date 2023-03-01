@@ -277,7 +277,8 @@ function refreshCurrentMonitorValues() {
             $("#cmvalid").val(data.valid);
             $("#cmtimestampage").val(data.timestampage);
 
-            if (data.devicetype == 0) {
+            //INA228 or INA229 based devices
+            if (data.devicetype == 0 || data.devicetype == 2) {
                 $("#cmbatterycapacity").val(data.batterycapacity);
                 $("#cmfullchargevolt").val(data.fullchargevolt.toFixed(2));
                 $("#cmtailcurrent").val(data.tailcurrent.toFixed(2));
@@ -316,7 +317,11 @@ function refreshCurrentMonitorValues() {
                 $("#cmVoltageUnderLimit").val(data.VOLTUL);
                 $("#cmPowerOverLimit").val(data.POL);
 
-                $("#cmRelayState").val(data.RelayState ? "CLOSED" : "OPEN");
+                if (data.RelayState == null) {
+                    $("#cmRelayState").val("N/A");
+                } else {
+                    $("#cmRelayState").val(data.RelayState ? "CLOSED" : "OPEN");
+                }
 
                 $("#cmTMPOL").prop("checked", data.T_TMPOL);
                 $("#cmCURROL").prop("checked", data.T_CURROL);
@@ -328,10 +333,9 @@ function refreshCurrentMonitorValues() {
 
             if (data.enabled) {
                 $("#currentmonbasic").show();
-                if (data.devicetype == 0) {
-                    //DIYBMS Current Monitor
+                if (data.devicetype == 0 || data.devicetype == 2) {
+                    //DIYBMS Current Monitor (internal/external)
                     $("#currentmonadvanced").show();
-
                     $("#currentmonrelay").show();
                 } else {
                     //PZEM-017

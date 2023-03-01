@@ -1,5 +1,6 @@
 """ Script for DIYBMS """
 import datetime
+import time
 import subprocess
 import os
 from os import path
@@ -26,8 +27,7 @@ else:
     if (path.exists('..'+os.path.sep+'.git')):
         # Get the latest GIT version header/name
         try:
-            git_sha = subprocess.check_output(
-                ['git', 'log', '-1', '--pretty=format:%H']).decode('utf-8')
+            git_sha = subprocess.check_output(['git', 'log', '-1', '--pretty=format:%H']).decode('utf-8')
         except:
             # Ignore any error, user may not have GIT installed
             git_sha = None
@@ -90,5 +90,16 @@ with open(os.path.join(include_dir, 'EmbeddedFiles_Defines.h'), 'w') as f:
     f.write("static const uint8_t COMPILE_WEEK_NUMBER_BYTE = ")
     f.write(str(int(datetime.datetime.utcnow().strftime("%W"))))
     f.write(";\n\n")
+
+    # dt=datetime.datetime.utcnow()
+    dt=datetime.datetime.utcnow()
+
+    f.write("const char COMPILE_DATE_TIME_UTC[] = \"")
+    f.write(dt.isoformat()[:-3]+'Z')
+    f.write("\";\n\n")
+
+    f.write("const uint32_t COMPILE_DATE_TIME_UTC_EPOCH = ")
+    f.write(int(time.mktime(dt.timetuple())).__str__())
+    f.write("UL;\n\n")
 
     f.write("#endif")

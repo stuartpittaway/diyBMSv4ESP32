@@ -661,7 +661,17 @@ esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
         newvalues.RelayTriggerPowerOverLimit = tempBool;
     }
 
-    CurrentMonitorSetRelaySettings(newvalues);
+    if (mysettings.currentMonitoringEnabled)
+    {
+        if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
+        {
+            CurrentMonitorSetRelaySettingsExternal(newvalues);
+        }
+        if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+        {
+            CurrentMonitorSetRelaySettingsInternal(newvalues);
+        }
+    }
 
     return SendSuccess(req);
 }
@@ -882,7 +892,7 @@ esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req, bool urlEncoded)
         // Switch off current monitor, clear out the values
         memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
         currentMonitor.validReadings = false;
-        mysettings.currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON;
+        mysettings.currentMonitoringDevice = CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS;
         mysettings.currentMonitoringModBusAddress = 90;
     }
 
@@ -1085,8 +1095,9 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
             {
                 // Restore the config...
                 diybms_eeprom_settings myset;
-
                 JSONToSettings(doc, &myset);
+                // Free up the memory
+                doc.clear();
                 // Repair any bad values
                 ValidateConfiguration(&myset);
 

@@ -73,6 +73,9 @@ static constexpr const char *const TAG = "diybms";
 #include "string_utils.h"
 
 #include <SPI.h>
+#include "CurrentMonitorINA229.h"
+
+CurrentMonitorINA229 currentmon_internal = CurrentMonitorINA229();
 
 const uart_port_t rs485_uart_num = UART_NUM_1;
 
@@ -2016,11 +2019,21 @@ void currentMon_ResetDailyAmpHourCounters()
 
 bool CurrentMonitorSetSOC(float newSOC)
 {
-  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON && mysettings.currentMonitoringEnabled == true)
+  if (mysettings.currentMonitoringEnabled == true)
   {
     ESP_LOGI(TAG, "Set SOC");
-    currentMon_SetSOC(newSOC);
-    return true;
+    if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
+    {
+      currentMon_SetSOC(newSOC);
+      return true;
+    }
+
+    if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+    {
+      uint16_t value = newSOC * 100;
+      currentmon_internal.SetSOC(value);
+      return true;
+    }
   }
 
   return false;
@@ -2028,21 +2041,63 @@ bool CurrentMonitorSetSOC(float newSOC)
 
 bool CurrentMonitorResetDailyAmpHourCounters()
 {
-  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON && mysettings.currentMonitoringEnabled == true)
+  if (mysettings.currentMonitoringEnabled == true)
   {
     ESP_LOGI(TAG, "Reset daily Ah counter");
-    currentMon_ResetDailyAmpHourCounters();
-    return true;
+    if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
+    {
+      currentMon_ResetDailyAmpHourCounters();
+      return true;
+    }
+    if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+    {
+      currentmon_internal.ResetDailyAmpHourCounters();
+      return true;
+    }
   }
-
   return false;
 }
 
 void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
 {
-  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+  mysettings.currentMonitoring_shuntmv = shuntmv;
+  mysettings.currentMonitoring_shuntmaxcur = shuntmaxcur;
+  mysettings.currentMonitoring_batterycapacity = batterycapacity;
+  mysettings.currentMonitoring_fullchargevolt = (uint16_t)(100.0 * fullchargevolt);
+  mysettings.currentMonitoring_tailcurrent = (uint16_t)(100.0 * tailcurrent);
+  mysettings.currentMonitoring_chargeefficiency = (uint16_t)(100.0 * chargeefficiency);
+  // Reset stored shuntcal to zero to allow automatic calibration
+  // this is updated by the CurrentMonitorSetAdvancedSettings call
+  mysettings.currentMonitoring_shuntcal = 0;
+
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
   {
-    currentMon_ConfigureBasic(shuntmv, shuntmaxcur, batterycapacity, fullchargevolt, tailcurrent, chargeefficiency);
+    currentMon_ConfigureBasic(mysettings.currentMonitoring_shuntmv, mysettings.currentMonitoring_shuntmaxcur, mysettings.currentMonitoring_batterycapacity, mysettings.currentMonitoring_fullchargevolt, mysettings.currentMonitoring_tailcurrent, mysettings.currentMonitoring_chargeefficiency);
+  }
+
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+  {
+    if (hal.GetVSPIMutex())
+    {
+      currentmon_internal.Configure(
+          mysettings.currentMonitoring_shuntmv,
+          mysettings.currentMonitoring_shuntmaxcur,
+          mysettings.currentMonitoring_batterycapacity,
+          mysettings.currentMonitoring_fullchargevolt,
+          mysettings.currentMonitoring_tailcurrent,
+          mysettings.currentMonitoring_chargeefficiency,
+          mysettings.currentMonitoring_shuntcal,
+          mysettings.currentMonitoring_temperaturelimit,
+          mysettings.currentMonitoring_overvoltagelimit,
+          mysettings.currentMonitoring_undervoltagelimit,
+          mysettings.currentMonitoring_overcurrentlimit,
+          mysettings.currentMonitoring_undercurrentlimit,
+          mysettings.currentMonitoring_overpowerlimit,
+          mysettings.currentMonitoring_shunttempcoefficient,
+          mysettings.currentMonitoring_tempcompenabled);
+
+      hal.ReleaseVSPIMutex();
+    }
   }
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
@@ -2050,10 +2105,48 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
     PZEM017_SetDeviceAddress(mysettings.currentMonitoringModBusAddress);
     PZEM017_SetShuntType(mysettings.currentMonitoringModBusAddress, shuntmaxcur);
   }
+
+  ValidateConfiguration(&mysettings);
+  SaveConfiguration(&mysettings);
+}
+
+// Save the current monitor advanced settings back to the internal device
+void CurrentMonitorSetRelaySettingsInternal(currentmonitoring_struct newvalues)
+{
+  // Internal current shunt doesn't support any of the relay trigger values
+  // so only TempCompEnabled is stored
+  if (hal.GetVSPIMutex())
+  {
+    mysettings.currentMonitoring_tempcompenabled = newvalues.TempCompEnabled;
+
+    currentmon_internal.Configure(
+        mysettings.currentMonitoring_shuntmv,
+        mysettings.currentMonitoring_shuntmaxcur,
+        mysettings.currentMonitoring_batterycapacity,
+        mysettings.currentMonitoring_fullchargevolt,
+        mysettings.currentMonitoring_tailcurrent,
+        mysettings.currentMonitoring_chargeefficiency,
+        mysettings.currentMonitoring_shuntcal,
+        mysettings.currentMonitoring_temperaturelimit,
+        mysettings.currentMonitoring_overvoltagelimit,
+        mysettings.currentMonitoring_undervoltagelimit,
+        mysettings.currentMonitoring_overcurrentlimit,
+        mysettings.currentMonitoring_undercurrentlimit,
+        mysettings.currentMonitoring_overpowerlimit,
+        mysettings.currentMonitoring_shunttempcoefficient,
+        mysettings.currentMonitoring_tempcompenabled);
+
+    mysettings.currentMonitoring_tempcompenabled = currentmon_internal.calc_tempcompenabled();
+
+    hal.ReleaseVSPIMutex();
+  }
+
+  ValidateConfiguration(&mysettings);
+  SaveConfiguration(&mysettings);
 }
 
 // Save the current monitor advanced settings back to the device over MODBUS/RS485
-void CurrentMonitorSetRelaySettings(currentmonitoring_struct newvalues)
+void CurrentMonitorSetRelaySettingsExternal(currentmonitoring_struct newvalues)
 {
   uint8_t flag1 = 0;
   uint8_t flag2 = 0;
@@ -2116,25 +2209,29 @@ Flag 2
 }
 
 // Calculate estimated time to various % SoC
-// This would be better to use an averaged current over a 3 or 5 minute period to avoid jumps in the readings
 void TimeToSoCCalculation()
 {
-  // ESP_LOGD(TAG, "SoC time estimation");
+  // Ideally this current value would be averaged over the past few minutes
+  float current = currentMonitor.modbus.current;
+
+  time20 = 0;
+  time10 = 0;
+  time100 = 0;
 
   // Avoid divide by zero errors
-  if (currentMonitor.modbus.current == 0)
+  if (current == 0)
     return;
 
   // Calculate how "full" the battery is based on SoC %
   float now_capacity_ah = currentMonitor.modbus.batterycapacityamphour / 100.0 * currentMonitor.stateofcharge;
 
   // Target 100% - only if we are charging
-  if (currentMonitor.stateofcharge < 100.0 && currentMonitor.modbus.current > 0)
+  if (currentMonitor.stateofcharge < 100.0 && current > 0)
   {
     // Gap between now and 100%
     float empty_ah = currentMonitor.modbus.batterycapacityamphour - now_capacity_ah;
     // Use instantaneous current value to predict amp-hour (in number of seconds)
-    time100 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+    time100 = (empty_ah / abs(current)) * 60 * 60;
   }
   else
   {
@@ -2142,11 +2239,11 @@ void TimeToSoCCalculation()
   }
 
   // Target 20% - only if we are discharging
-  if (currentMonitor.stateofcharge > 20.0 && currentMonitor.modbus.current < 0)
+  if (currentMonitor.stateofcharge > 20.0 && current < 0)
   {
     // Gap between now and 20%
     float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.20);
-    time20 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+    time20 = (empty_ah / abs(current)) * 60 * 60;
   }
   else
   {
@@ -2154,22 +2251,36 @@ void TimeToSoCCalculation()
   }
 
   // Target 10% - only if we are discharging
-  if (currentMonitor.stateofcharge > 10.0 && currentMonitor.modbus.current < 0)
+  if (currentMonitor.stateofcharge > 10.0 && current < 0)
   {
     // Gap between now and 10%
     float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.10);
-    time10 = (empty_ah / abs(currentMonitor.modbus.current)) * 60 * 60;
+    time10 = (empty_ah / abs(current)) * 60 * 60;
   }
   else
   {
     time10 = 0;
   }
+
+  // Sensible maximums to avoid silly timespans - limit anything over 10 days remaining...
+  const uint32_t limit = 10 * 86400U;
+
+  if (time100 > limit)
+  {
+    time100 = 0;
+  }
+  if (time20 > limit)
+  {
+    time20 = 0;
+  }
+  if (time10 > limit)
+  {
+    time10 = 0;
+  }
 }
 
-// Save the current monitor advanced settings back to the device over MODBUS/RS485
-void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
+void currentMon_ConfigureAdvancedExternal(currentmonitoring_struct newvalues)
 {
-
   //	Write Multiple Holding Registers
   uint8_t cmd2[] = {
       // The Slave Address
@@ -2238,12 +2349,57 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   memset(&cmd, 0, sizeof(cmd));
   memcpy(&cmd, &cmd2, sizeof(cmd2));
   xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
+}
+
+// Save the current monitor advanced settings back to the device over MODBUS/RS485
+void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
+{
+  mysettings.currentMonitoring_shuntcal = newvalues.modbus.shuntcal;
+  mysettings.currentMonitoring_temperaturelimit = newvalues.modbus.temperaturelimit;
+  mysettings.currentMonitoring_overvoltagelimit = 100 * newvalues.modbus.overvoltagelimit;
+  mysettings.currentMonitoring_undervoltagelimit = 100 * newvalues.modbus.undervoltagelimit;
+  mysettings.currentMonitoring_overcurrentlimit = 100 * newvalues.modbus.overcurrentlimit;
+  mysettings.currentMonitoring_undercurrentlimit = 100 * newvalues.modbus.undercurrentlimit;
+  mysettings.currentMonitoring_overpowerlimit = newvalues.modbus.overpowerlimit;
+  mysettings.currentMonitoring_shunttempcoefficient = newvalues.modbus.shunttempcoefficient;
+
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
+  {
+    currentMon_ConfigureAdvancedExternal(newvalues);
+  }
+
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+  {
+    if (hal.GetVSPIMutex())
+    {
+      currentmon_internal.Configure(
+          mysettings.currentMonitoring_shuntmv,
+          mysettings.currentMonitoring_shuntmaxcur,
+          mysettings.currentMonitoring_batterycapacity,
+          mysettings.currentMonitoring_fullchargevolt,
+          mysettings.currentMonitoring_tailcurrent,
+          mysettings.currentMonitoring_chargeefficiency,
+          mysettings.currentMonitoring_shuntcal,
+          mysettings.currentMonitoring_temperaturelimit,
+          mysettings.currentMonitoring_overvoltagelimit,
+          mysettings.currentMonitoring_undervoltagelimit,
+          mysettings.currentMonitoring_overcurrentlimit,
+          mysettings.currentMonitoring_undercurrentlimit,
+          mysettings.currentMonitoring_overpowerlimit,
+          mysettings.currentMonitoring_shunttempcoefficient,
+          mysettings.currentMonitoring_tempcompenabled);
+      hal.ReleaseVSPIMutex();
+    }
+  }
 
   ESP_LOGD(TAG, "Advanced save settings");
 
   // Zero all data
   memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
   currentMonitor.validReadings = false;
+
+  ValidateConfiguration(&mysettings);
+  SaveConfiguration(&mysettings);
 }
 
 // Swap the two 16 bit words in a 32bit word
@@ -2341,6 +2497,85 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
   currentMonitor.validReadings = true;
 
   TimeToSoCCalculation();
+}
+
+// Extract onboard/internal current monitor values into our internal STRUCTURE variables
+void ProcessDIYBMSCurrentMonitorInternal()
+{
+  memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
+  currentMonitor.validReadings = false;
+
+  currentMonitor.timestamp = esp_timer_get_time();
+  currentMonitor.modbus.milliamphour_out = currentmon_internal.calc_milliamphour_out();
+  currentMonitor.modbus.milliamphour_in = currentmon_internal.calc_milliamphour_in();
+  currentMonitor.modbus.daily_milliamphour_out = currentmon_internal.calc_daily_milliamphour_out();
+  currentMonitor.modbus.daily_milliamphour_in = currentmon_internal.calc_daily_milliamphour_in();
+  currentMonitor.modbus.firmwareversion = (((uint32_t)GIT_VERSION_B1) << 16) + (uint32_t)GIT_VERSION_B2;
+  currentMonitor.modbus.firmwaredatetime = COMPILE_DATE_TIME_UTC_EPOCH;
+
+  /*
+
+    // High byte
+    uint8_t flag1 = currentMonitor.modbus.flags >> 8;
+    // Low byte
+    uint8_t flag2 = currentMonitor.modbus.flags;
+
+    /*
+  16|TMPOL|Read only
+  15|SHNTOL|Read only
+  14|SHNTUL|Read only
+  13|BUSOL|Read only
+  12|BUSUL|Read only
+  11|POL|Read only
+  10|Temperature compensation enabled|Read write
+  9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
+  */
+  uint16_t flag1 = currentmon_internal.calc_alerts();
+  currentMonitor.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
+  currentMonitor.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
+  currentMonitor.CurrentUnderLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTUL);
+  currentMonitor.VoltageOverlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSOL);
+  currentMonitor.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
+  currentMonitor.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
+
+  currentMonitor.TempCompEnabled = currentmon_internal.calc_tempcompenabled();
+  currentMonitor.ADCRange4096mV = true;
+  // mysettings.currentMonitoring_tempcompenabled = currentmon_internal.calc_tempcompenabled();
+
+  currentMonitor.RelayTriggerTemperatureOverLimit = false;
+  currentMonitor.RelayTriggerCurrentOverLimit = false;
+  currentMonitor.RelayTriggerCurrentUnderLimit = false;
+  currentMonitor.RelayTriggerVoltageOverlimit = false;
+  currentMonitor.RelayTriggerVoltageUnderlimit = false;
+  currentMonitor.RelayTriggerPowerOverLimit = false;
+  currentMonitor.RelayState = false;
+
+  currentMonitor.modbus.temperature = currentmon_internal.calc_temperature();
+  currentMonitor.modbus.temperaturelimit = currentmon_internal.calc_temperaturelimit();
+  currentMonitor.modbus.shunttempcoefficient = currentmon_internal.calc_shunttempcoefficient();
+  currentMonitor.modbus.batterycapacityamphour = currentmon_internal.calc_batterycapacityAh();
+  currentMonitor.modbus.shuntmaxcurrent = currentmon_internal.calc_shuntmaxcurrent();
+  currentMonitor.modbus.shuntmillivolt = currentmon_internal.calc_shuntmillivolt();
+  currentMonitor.modbus.shuntcal = currentmon_internal.calc_shuntcalibration();
+  currentMonitor.modbus.modelnumber = 0x229;
+  currentMonitor.modbus.power = currentmon_internal.calc_power();
+  currentMonitor.modbus.overpowerlimit = currentmon_internal.calc_overpowerlimit();
+  currentMonitor.modbus.voltage = currentmon_internal.calc_voltage();
+  currentMonitor.modbus.current = currentmon_internal.calc_current();
+  currentMonitor.modbus.shuntresistance = currentmon_internal.calc_shuntresistance();
+  currentMonitor.modbus.tailcurrentamps = currentmon_internal.calc_tailcurrentamps();
+  currentMonitor.chargeefficiency = currentmon_internal.calc_charge_efficiency_factor();
+  currentMonitor.stateofcharge = currentmon_internal.calc_state_of_charge();
+  currentMonitor.modbus.fullychargedvoltage = currentmon_internal.calc_fullychargedvoltage();
+  currentMonitor.modbus.overvoltagelimit = currentmon_internal.calc_overvoltagelimit();
+  currentMonitor.modbus.undervoltagelimit = currentmon_internal.calc_undervoltagelimit();
+  currentMonitor.modbus.overcurrentlimit = currentmon_internal.calc_overcurrentlimit();
+  currentMonitor.modbus.undercurrentlimit = currentmon_internal.calc_undercurrentlimit();
+
+  // uint16_t flags;
+
+  currentMonitor.validReadings = true;
+  TimeToSoCCalculation();
 
   /*
   ESP_LOGD(TAG, "WDog = %u", currentMonitor.modbus.watchdogcounter);
@@ -2357,7 +2592,6 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
   ESP_LOGD(TAG, "Date = %u", currentMonitor.modbus.firmwaredatetime);
 */
 }
-
 void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 {
   twai_message_t message;
@@ -2683,7 +2917,7 @@ void rs485_rx(void *param)
             }
           }
           // ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
-          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
           {
             if (id == mysettings.currentMonitoringModBusAddress && cmd == 3)
             {
@@ -2745,7 +2979,26 @@ void rs485_tx(void *param)
 
     if (mysettings.currentMonitoringEnabled == true)
     {
-      if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+
+      if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+      {
+        if (currentmon_internal.Available())
+        {
+          // Take readings from internal INA229 chip (on controller board)
+          if (hal.GetVSPIMutex())
+          {
+            currentmon_internal.TakeReadings();
+            ProcessDIYBMSCurrentMonitorInternal();
+            hal.ReleaseVSPIMutex();
+          }
+        }
+        else
+        {
+          currentMonitor.validReadings = false;
+        }
+      }
+
+      if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
       {
         // This is the request we send to diyBMS current monitor, it pulls back 38 registers
         // this is all the registers diyBMS current monitor has
@@ -3252,7 +3505,9 @@ log_level_t log_levels[] =
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
         {.tag = "diybms-set", .level = ESP_LOG_INFO},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
-        {.tag = "diybms-pylon", .level = ESP_LOG_INFO}};
+        {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
+        {.tag = "curmon", .level = ESP_LOG_INFO}
+};
 
 void consoleConfigurationCheck()
 {
@@ -3406,6 +3661,41 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   {
     // We don't have a valid WIFI configuration, so force terminal based setup
     TerminalBasedWifiSetup();
+  }
+
+  // Check and configure internal current monitor (if it exists)
+  if (hal.GetVSPIMutex())
+  {
+    if (currentmon_internal.Initialise(hal.VSPI_Ptr(), INA229_CHIPSELECT))
+    {
+      ESP_LOGI(TAG, "Onboard/internal current monitoring chip available");
+
+      currentmon_internal.Configure(
+          mysettings.currentMonitoring_shuntmv,
+          mysettings.currentMonitoring_shuntmaxcur,
+          mysettings.currentMonitoring_batterycapacity,
+          mysettings.currentMonitoring_fullchargevolt,
+          mysettings.currentMonitoring_tailcurrent,
+          mysettings.currentMonitoring_chargeefficiency,
+          mysettings.currentMonitoring_shuntcal,
+          mysettings.currentMonitoring_temperaturelimit,
+          mysettings.currentMonitoring_overvoltagelimit,
+          mysettings.currentMonitoring_undervoltagelimit,
+          mysettings.currentMonitoring_overcurrentlimit,
+          mysettings.currentMonitoring_undercurrentlimit,
+          mysettings.currentMonitoring_overpowerlimit,
+          mysettings.currentMonitoring_shunttempcoefficient,
+          mysettings.currentMonitoring_tempcompenabled);
+
+      currentmon_internal.GuessSOC();
+
+      currentmon_internal.TakeReadings();
+    }
+    else
+    {
+      ESP_LOGI(TAG, "Onboard/internal current monitoring chip not installed");
+    }
+    hal.ReleaseVSPIMutex();
   }
 
   // Serial pins IO2/IO32

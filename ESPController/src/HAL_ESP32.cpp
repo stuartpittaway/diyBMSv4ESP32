@@ -374,6 +374,11 @@ void HAL_ESP32::ConfigurePins()
     pinMode(SDCARD_CHIPSELECT, OUTPUT);
     digitalWrite(SDCARD_CHIPSELECT, HIGH);
 
+    // Onboard INA229 current monitoring chip
+    pinMode(INA229_INTERRUPT_PIN,INPUT);
+    pinMode(INA229_CHIPSELECT, OUTPUT);
+    digitalWrite(INA229_CHIPSELECT, HIGH);
+
     pinMode(RS485_ENABLE, OUTPUT);
     // Enable receive
     digitalWrite(RS485_ENABLE, LOW);

@@ -75,7 +75,7 @@ void pylon_message_355()
   };
 
   //Only send CANBUS message if we have a current monitor enabled & valid
-  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON)
+  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
   {
     data355 data;
     // 0 SOC value un16 1 %

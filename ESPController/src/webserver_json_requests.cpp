@@ -97,7 +97,19 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "T_VOLTOL", currentMonitor.RelayTriggerVoltageOverlimit);
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "T_VOLTUL", currentMonitor.RelayTriggerVoltageUnderlimit);
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "T_POL", currentMonitor.RelayTriggerPowerOverLimit);
-  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "RelayState", currentMonitor.RelayState);
+
+  if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
+  {
+    bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "RelayState", currentMonitor.RelayState);
+  }
+  else
+  {
+    // Relay doesn't exist
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"RelayState\":null,");
+  }
+
+  // Onboard INA229 current monitor chip
+  bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "OnboardCM", currentmon_internal.Available());
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                          "\"shuntmv\":%u,\"shuntmaxcur\":%u}",
