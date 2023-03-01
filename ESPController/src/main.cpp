@@ -3096,10 +3096,40 @@ void periodic_task(void *param)
   }
 }
 
+history historic_readings[24];
+// Capture important statistics as a snapshot in time into circular buffer
+void SnapshotHistory(time_t now)
+{
+  history *ptr = &historic_readings[0];
+
+  //Zero all values
+  memset(ptr,0,sizeof(history));
+  // Capture the values
+  ptr->historic_time = now;
+  ptr->highestBankRange = rules.highestBankRange;
+  ptr->highestCellVoltage = rules.highestCellVoltage;
+  ptr->lowestCellVoltage = rules.lowestCellVoltage;
+  ptr->highestBankVoltage = rules.highestBankVoltage;
+  ptr->lowestBankVoltage = rules.lowestBankVoltage;
+  ptr->highestExternalTemp = rules.highestExternalTemp;
+  ptr->lowestExternalTemp = rules.lowestExternalTemp;
+  ptr->stateofcharge = currentMonitor.stateofcharge;
+  
+  if (currentMonitor.validReadings)
+  {
+    ptr->voltage = currentMonitor.modbus.voltage;
+    ptr->current = currentMonitor.modbus.current;
+    ptr->milliamphour_in = currentMonitor.modbus.milliamphour_in;
+    ptr->milliamphour_out = currentMonitor.modbus.milliamphour_out;
+  }
+}
+
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 void lazy_tasks(void *param)
 {
-  int year_day = 0;
+  int year_day = -1;
+  int hour = -1;
+
   for (;;)
   {
     // TODO: Perhaps this should be based on some improved logic - based on number of modules in system?
@@ -3123,17 +3153,34 @@ void lazy_tasks(void *param)
       struct tm timeinfo;
       localtime_r(&now, &timeinfo);
 
-      if (year_day > 0 && year_day != timeinfo.tm_yday)
+      // Wait for SNTP to get a valid date/time
+      if (timeinfo.tm_year > 70)
       {
-        // Reset the current monitor at midnight (ish)
-        CurrentMonitorResetDailyAmpHourCounters();
-
-        for (size_t i = 0; i < maximum_controller_cell_modules; i++)
+        // Has day rolled over?
+        if (year_day != timeinfo.tm_yday)
         {
-          resetModuleMinMaxVoltage(i);
+          // Reset the current monitor at midnight (ish)
+          CurrentMonitorResetDailyAmpHourCounters();
+
+          for (size_t i = 0; i < maximum_controller_cell_modules; i++)
+          {
+            resetModuleMinMaxVoltage(i);
+          }
         }
+        year_day = timeinfo.tm_yday;
+
+        // Has hour rolled over?
+        if (hour != timeinfo.tm_hour)
+        {
+          // Another hour has ticked by...
+          char strftime_buf[64];
+          strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+          ESP_LOGI(TAG, "Hourly timer: %s", strftime_buf);
+
+          SnapshotHistory(now);
+        }
+        hour = timeinfo.tm_hour;
       }
-      year_day = timeinfo.tm_yday;
     }
 
     // Sleep between sections to give the ESP a chance to do other stuff
@@ -3506,8 +3553,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-set", .level = ESP_LOG_INFO},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
         {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
-        {.tag = "curmon", .level = ESP_LOG_INFO}
-};
+        {.tag = "curmon", .level = ESP_LOG_INFO}};
 
 void consoleConfigurationCheck()
 {
