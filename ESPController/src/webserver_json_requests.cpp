@@ -177,6 +177,13 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
   return bufferused;
 }
 
+esp_err_t content_handler_history(httpd_req_t *req)
+{
+  int bufferused = 0;
+  bufferused+=history.GenerateJSON(httpbuf, BUFSIZE);
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
 esp_err_t content_handler_storage(httpd_req_t *req)
 {
   int bufferused = 0;
@@ -1172,7 +1179,7 @@ esp_err_t api_handler(httpd_req_t *req)
       "monitor2", "monitor3", "integration", "settings", "rules",
       "rs485settings", "currentmonitor",
       "avrstatus", "modules", "identifyModule", "storage",
-      "avrstorage", "chargeconfig", "tileconfig"};
+      "avrstorage", "chargeconfig", "tileconfig", "history"};
 
   esp_err_t (*func_ptr[])(httpd_req_t * req) = {
       content_handler_monitor2,
@@ -1188,7 +1195,8 @@ esp_err_t api_handler(httpd_req_t *req)
       content_handler_storage,
       content_handler_avrstorage,
       content_handler_chargeconfig,
-      content_handler_tileconfig};
+      content_handler_tileconfig,
+      content_handler_history};
 
   // Sanity check arrays are the same size
   ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);

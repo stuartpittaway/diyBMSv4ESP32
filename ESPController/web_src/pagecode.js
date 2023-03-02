@@ -1330,6 +1330,34 @@ $(function () {
         return true;
     });
 
+
+    $("#history").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        switchPage("#historyPage");
+
+        $.getJSON("/api/history",
+            function (data) {
+                $("#historyTable tbody").empty();
+
+                for (var index = 0; index < data.time.length; index++) {
+
+                    var dt = new Date(data.time[index] * 1000).toLocaleString();
+                    var newRowContent = "<tr><td>" + dt + "</td></tr>";
+
+                    $("#historyTable tbody").append(newRowContent);
+
+                }
+
+
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            );
+
+        return true;
+    });
+
+
+
     $("#about").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
@@ -1347,6 +1375,7 @@ $(function () {
 
         return true;
     });
+
 
     $("#modules").click(function () {
         $("#loading").show();
@@ -2096,6 +2125,7 @@ $(function () {
         case "#storage":
         case "#avrprogrammer":
         case "#utility":
+        case "#history":
             $(hash).click();
             break;
     }

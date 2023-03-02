@@ -116,32 +116,6 @@ enum CurrentMonitorDevice : uint8_t
 #define SHOW_TIME_PERIOD 5000
 #define NTP_TIMEOUT 1500
 
-struct history
-{
-  time_t historic_time;
-  // Highest cell voltage range (mV) across all banks
-  uint16_t highestBankRange;
-
-  // Highest cell voltage in the whole system (millivolts)
-  uint16_t highestCellVoltage;
-  // Lowest cell voltage in the whole system (millivolts)
-  uint16_t lowestCellVoltage;
-
-  // Highest pack voltage (millivolts)
-  uint32_t highestBankVoltage;
-  // Lowest pack voltage (millivolts)
-  uint32_t lowestBankVoltage;
-
-  int8_t highestExternalTemp;
-  int8_t lowestExternalTemp;
-
-  float voltage;
-  float current;
-  float stateofcharge;
-  uint32_t milliamphour_in;
-  uint32_t milliamphour_out;
-};
-
 struct diybms_eeprom_settings
 {
   uint8_t totalNumberOfBanks;

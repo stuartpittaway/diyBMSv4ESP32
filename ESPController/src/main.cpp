@@ -75,6 +75,8 @@ static constexpr const char *const TAG = "diybms";
 #include <SPI.h>
 #include "CurrentMonitorINA229.h"
 
+#include "history.h"
+
 CurrentMonitorINA229 currentmon_internal = CurrentMonitorINA229();
 
 const uart_port_t rs485_uart_num = UART_NUM_1;
@@ -89,6 +91,8 @@ char hostname[16];
 char ip_string[16]; // xxx.xxx.xxx.xxx
 
 bool wifi_isconnected = false;
+
+History history = History();
 
 // holds modbus data
 uint8_t frame[256];
@@ -3096,34 +3100,6 @@ void periodic_task(void *param)
   }
 }
 
-history historic_readings[24];
-// Capture important statistics as a snapshot in time into circular buffer
-void SnapshotHistory(time_t now)
-{
-  history *ptr = &historic_readings[0];
-
-  //Zero all values
-  memset(ptr,0,sizeof(history));
-  // Capture the values
-  ptr->historic_time = now;
-  ptr->highestBankRange = rules.highestBankRange;
-  ptr->highestCellVoltage = rules.highestCellVoltage;
-  ptr->lowestCellVoltage = rules.lowestCellVoltage;
-  ptr->highestBankVoltage = rules.highestBankVoltage;
-  ptr->lowestBankVoltage = rules.lowestBankVoltage;
-  ptr->highestExternalTemp = rules.highestExternalTemp;
-  ptr->lowestExternalTemp = rules.lowestExternalTemp;
-  ptr->stateofcharge = currentMonitor.stateofcharge;
-  
-  if (currentMonitor.validReadings)
-  {
-    ptr->voltage = currentMonitor.modbus.voltage;
-    ptr->current = currentMonitor.modbus.current;
-    ptr->milliamphour_in = currentMonitor.modbus.milliamphour_in;
-    ptr->milliamphour_out = currentMonitor.modbus.milliamphour_out;
-  }
-}
-
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 void lazy_tasks(void *param)
 {
@@ -3176,9 +3152,11 @@ void lazy_tasks(void *param)
           char strftime_buf[64];
           strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
           ESP_LOGI(TAG, "Hourly timer: %s", strftime_buf);
-
-          SnapshotHistory(now);
         }
+
+        // Do on everyloop (debug)...
+        history.SnapshotHistory(now, &rules, &currentMonitor);
+
         hour = timeinfo.tm_hour;
       }
     }
@@ -3697,6 +3675,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
   {
     clearModuleValues(i);
   }
+
+  history.Clear();
 
   resetAllRules();
 

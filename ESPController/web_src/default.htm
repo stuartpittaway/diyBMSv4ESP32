@@ -61,6 +61,9 @@
           <a id="modules" href="#modules">Modules</a>
         </div>
         <div class="notify-container">
+          <a id="history" href="#history">History</a>
+        </div>
+        <div class="notify-container">
           <span class="notify-bubble" id="activerules"></span>
           <a id="rules" href="#rules">Rules</a>
         </div>
@@ -605,6 +608,24 @@
         </form>
       </div>
     </div>
+
+    <div class="page" id="historyPage">
+      <h1>History</h1>
+      <div class="region">
+        <table id="historyTable">
+          <thead>
+            <tr>
+              <th id="ht1">A</th>
+              <th id="ht2">B</th>
+              <th id="ht3">C</th>
+              <th id="ht4">D</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="page" id="rulesPage">
       <h1>Rules</h1>
       <div class="region">
@@ -1527,7 +1548,8 @@
       <div class="region" id="currentmonadvanced">
         <h2>Advanced Current Monitor Settings</h2>
         <p id="b5">
-          If you wish to use the relay control on the DIYBMS MODBUS shunt monitor, set the parameters here.  These settings have no effect on the internal current monitor.          
+          If you wish to use the relay control on the DIYBMS MODBUS shunt monitor, set the parameters here. These
+          settings have no effect on the internal current monitor.
         </p>
         <p id="b6">
           Current limit is for use whilst discharging the battery, under current limit is used when charging, so
@@ -1648,20 +1670,12 @@
           </div>
         </form>
 
-
         <h2>Set DIYBMS Current Monitor State Of Charge</h2>
         <form id="setSOCForm" method="POST" action="/post/setsoc" autocomplete="off">
           <div class="settings">
             <div>
               <label for="setsoc">Set State Of Charge &percnt;</label>
-              <input
-                id="setsoc"
-                name="setsoc"
-                value=""
-                type="number"
-                min="1"
-                max="100"
-                step="0.1" value="75.0" />
+              <input id="setsoc" name="setsoc" value="" type="number" min="1" max="100" step="0.1" value="75.0" />
             </div>
             <button type="submit">Submit</button>
           </div>
@@ -1894,7 +1908,7 @@
         <p>
           <button type="button" id="unmount">Unmount</button>
           <button type="button" id="mount">Mount</button>
-          <button type="button" id="savewifi">Save Wifi</button>          
+          <button type="button" id="savewifi">Save Wifi</button>
         </p>
         <ul id="sdcardfiles"></ul>
       </div>
@@ -1911,13 +1925,11 @@
         </p>
         <ul id="flashfiles"></ul>
 
-
         <div>
           <button type="button" id="saveconfig">Save Configuration</button>
           <button id="uploadfile" type="button">Upload file</button>
-          <input type="file" id="uploadfile_sel" style="display:none;"/>
+          <input type="file" id="uploadfile_sel" style="display: none" />
         </div>
-
       </div>
 
       <div class="region">
