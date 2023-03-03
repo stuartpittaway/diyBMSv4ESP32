@@ -88,7 +88,7 @@ public:
         if (h == NULL)
         {
             // malloc failed
-            return httpd_resp_set_status(req, HTTPD_500); 
+            return httpd_resp_set_status(req, HTTPD_500);
         }
 
         // Take a copy of all the historic readings, this allows the loops further on to work optimaly in creating JSON.
@@ -265,7 +265,11 @@ public:
         // Closing tag
         bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "]}");
 
+        //  Send it...
+        httpd_resp_send_chunk(req, buffer, bufferused);
+
         free(h);
+
 
         // Indicate last chunk (zero byte length)
         return httpd_resp_send_chunk(req, buffer, 0);
