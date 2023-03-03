@@ -179,9 +179,7 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
 
 esp_err_t content_handler_history(httpd_req_t *req)
 {
-  int bufferused = 0;
-  bufferused+=history.GenerateJSON(httpbuf, BUFSIZE);
-  return httpd_resp_send(req, httpbuf, bufferused);
+  return history.GenerateJSON(req,httpbuf, BUFSIZE);
 }
 
 esp_err_t content_handler_storage(httpd_req_t *req)

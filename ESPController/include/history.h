@@ -9,11 +9,12 @@ static constexpr const char *const TAG = "diybms-hist";
 #include "defines.h"
 #include "Rules.h"
 #include "circular_buffer.hpp"
+#include <esp_http_server.h>
 
 class History
 {
 private:
-    static const int NUMBER_OF_HOURS_HISTORY = 36;
+    static const int NUMBER_OF_HISTORY_POINTS = 36;
     struct history_values
     {
         time_t historic_time;
@@ -40,7 +41,7 @@ private:
         uint32_t milliamphour_out;
     };
 
-    circular_buffer<history_values, NUMBER_OF_HOURS_HISTORY> historic_readings;
+    circular_buffer<history_values, NUMBER_OF_HISTORY_POINTS> historic_readings;
 
 public:
     void Clear()
@@ -79,15 +80,15 @@ public:
         historic_readings.put(hr);
     }
 
-    int GenerateJSON(char buffer[], int bufferLenMax)
+    esp_err_t GenerateJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
     {
         // allocate & clear memory for copy of history values
-        history_values *h = (history_values *)calloc(NUMBER_OF_HOURS_HISTORY, sizeof(history_values));
+        history_values *h = (history_values *)calloc(NUMBER_OF_HISTORY_POINTS, sizeof(history_values));
 
         if (h == NULL)
         {
             // malloc failed
-            return 0;
+            return httpd_resp_set_status(req, HTTPD_500); 
         }
 
         // Take a copy of all the historic readings, this allows the loops further on to work optimaly in creating JSON.
@@ -131,6 +132,11 @@ public:
                 bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
             }
         }
+        //  Send it...
+        httpd_resp_send_chunk(req, buffer, bufferused);
+
+        // voltrange
+        bufferused = 0;
 
         // milliamphour_in
         bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"milliamphour_in\":[");
@@ -164,6 +170,11 @@ public:
                 bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
             }
         }
+        //  Send it...
+        httpd_resp_send_chunk(req, buffer, bufferused);
+
+        // voltrange
+        bufferused = 0;
 
         // highestExternalTemp
         bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"highestExternalTemp\":[");
@@ -197,6 +208,13 @@ public:
                 bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
             }
         }
+
+        //  Send it...
+        httpd_resp_send_chunk(req, buffer, bufferused);
+
+        // voltrange
+        bufferused = 0;
+
         // HighestBankVoltage
         bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"highestBankVoltage\":[");
         for (uint16_t i = 0; i < size; i++)
@@ -227,6 +245,12 @@ public:
                 bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
             }
         }
+        //  Send it...
+        httpd_resp_send_chunk(req, buffer, bufferused);
+
+        // voltrange
+        bufferused = 0;
+
         // lowestCellVoltage
         bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"lowestCellVoltage\":[");
         for (uint16_t i = 0; i < size; i++)
@@ -243,7 +267,8 @@ public:
 
         free(h);
 
-        return bufferused;
+        // Indicate last chunk (zero byte length)
+        return httpd_resp_send_chunk(req, buffer, 0);
     }
 };
 
