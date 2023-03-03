@@ -11,8 +11,8 @@
 #ifndef DIYBMS_DEFINES_H_
 #define DIYBMS_DEFINES_H_
 
-// Needs to be at least 2048 bytes...
-#define BUFSIZE 2048
+// Needs to be at least 1800 bytes...
+#define BUFSIZE 1800
 
 // Data uses RX2/TX2 and debug logs go to serial0 - USB
 #define SERIAL_DATA Serial2
