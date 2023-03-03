@@ -1341,14 +1341,23 @@ $(function () {
                 $("#historyTable tbody").empty();
 
                 for (var index = 0; index < data.time.length; index++) {
-
                     var dt = new Date(data.time[index] * 1000).toLocaleString();
-                    var newRowContent = "<tr><td>" + dt + "</td></tr>";
-
+                    var newRowContent = "<tr><td>" + dt + "</td>"
+                        + "<td>" + data.voltage[index] + "</td>"
+                        + "<td>" + data.current[index] + "</td>"
+                        + "<td>" + data.stateofcharge[index] + "</td>"
+                        + "<td>" + data.milliamphour_in[index] + "</td>"
+                        + "<td>" + data.milliamphour_out[index] + "</td>"
+                        + "<td>" + data.highestBankRange[index] + "</td>"
+                        + "<td>" + data.lowestCellVoltage[index] + "</td>"
+                        + "<td>" + data.highestCellVoltage[index] + "</td>"
+                        + "<td>" + data.lowestBankVoltage[index] + "</td>"
+                        + "<td>" + data.highestBankVoltage[index] + "</td>"
+                        + "<td>" + data.lowestExternalTemp[index] + "</td>"
+                        + "<td>" + data.highestExternalTemp[index] + "</td>"
+                        + "</tr>";
                     $("#historyTable tbody").append(newRowContent);
-
                 }
-
 
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
