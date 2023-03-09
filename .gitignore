@@ -53,3 +53,4 @@ dkms.conf
 
 **/.vscode
 *.log
+ESPController/compile_commands.json

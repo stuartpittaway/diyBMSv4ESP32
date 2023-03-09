@@ -114,7 +114,7 @@ wifi_eeprom_settings _wificonfig;
 
 Rules rules;
 diybms_eeprom_settings mysettings;
-uint16_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
+uint8_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
 
 uint32_t canbus_messages_received = 0;
 uint32_t canbus_messages_sent = 0;
@@ -131,25 +131,25 @@ currentmonitoring_struct currentMonitor;
 TimerHandle_t led_off_timer;
 TimerHandle_t pulse_relay_off_timer;
 
-TaskHandle_t i2c_task_handle = NULL;
-TaskHandle_t sdcardlog_task_handle = NULL;
-TaskHandle_t sdcardlog_outputs_task_handle = NULL;
-TaskHandle_t avrprog_task_handle = NULL;
-TaskHandle_t enqueue_task_handle = NULL;
-TaskHandle_t transmit_task_handle = NULL;
-TaskHandle_t replyqueue_task_handle = NULL;
-TaskHandle_t lazy_task_handle = NULL;
-TaskHandle_t rule_task_handle = NULL;
+TaskHandle_t i2c_task_handle = nullptr;
+TaskHandle_t sdcardlog_task_handle = nullptr;
+TaskHandle_t sdcardlog_outputs_task_handle = nullptr;
+TaskHandle_t avrprog_task_handle = nullptr;
+TaskHandle_t enqueue_task_handle = nullptr;
+TaskHandle_t transmit_task_handle = nullptr;
+TaskHandle_t replyqueue_task_handle = nullptr;
+TaskHandle_t lazy_task_handle = nullptr;
+TaskHandle_t rule_task_handle = nullptr;
 
-TaskHandle_t voltageandstatussnapshot_task_handle = NULL;
-TaskHandle_t updatetftdisplay_task_handle = NULL;
-TaskHandle_t periodic_task_handle = NULL;
-TaskHandle_t interrupt_task_handle = NULL;
-TaskHandle_t rs485_tx_task_handle = NULL;
-TaskHandle_t rs485_rx_task_handle = NULL;
-TaskHandle_t service_rs485_transmit_q_task_handle = NULL;
-TaskHandle_t canbus_tx_task_handle = NULL;
-TaskHandle_t canbus_rx_task_handle = NULL;
+TaskHandle_t voltageandstatussnapshot_task_handle = nullptr;
+TaskHandle_t updatetftdisplay_task_handle = nullptr;
+TaskHandle_t periodic_task_handle = nullptr;
+TaskHandle_t interrupt_task_handle = nullptr;
+TaskHandle_t rs485_tx_task_handle = nullptr;
+TaskHandle_t rs485_rx_task_handle = nullptr;
+TaskHandle_t service_rs485_transmit_q_task_handle = nullptr;
+TaskHandle_t canbus_tx_task_handle = nullptr;
+TaskHandle_t canbus_rx_task_handle = nullptr;
 
 // This large array holds all the information about the modules
 CellModuleInfo cmi[maximum_controller_cell_modules];
@@ -157,7 +157,7 @@ CellModuleInfo cmi[maximum_controller_cell_modules];
 avrprogramsettings _avrsettings;
 
 // Number of bytes of the largest MODBUS request we make
-#define MAX_SEND_RS485_PACKET_LENGTH 36
+const uint16_t MAX_SEND_RS485_PACKET_LENGTH = 36;
 
 QueueHandle_t rs485_transmit_q_handle;
 QueueHandle_t request_q_handle;
@@ -193,14 +193,12 @@ void LED(uint8_t bits)
 
 // When triggered, the VOLTAGE and STATUS in the CellModuleInfo structure are accurate and consistant at this point in time.
 // Good point to apply rules and update screen/statistics
-void voltageandstatussnapshot_task(void *param)
+[[noreturn]] void voltageandstatussnapshot_task(void *)
 {
   for (;;)
   {
     // Wait until this task is triggered, when
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-    // ESP_LOGD(TAG, "Snap");
 
     if (_tft_screen_available)
     {
@@ -255,7 +253,7 @@ void SetupRS485()
   ESP_ERROR_CHECK(uart_set_pin(rs485_uart_num, RS485_TX, RS485_RX, RS485_ENABLE, UART_PIN_NO_CHANGE));
 
   // Install UART driver (we don't need an event queue here)
-  ESP_ERROR_CHECK(uart_driver_install(rs485_uart_num, 256, 256, 0, NULL, 0));
+  ESP_ERROR_CHECK(uart_driver_install(rs485_uart_num, 256, 256, 0, nullptr, 0));
 
   // Set RS485 half duplex mode
   ESP_ERROR_CHECK(uart_set_mode(rs485_uart_num, uart_mode_t::UART_MODE_RS485_HALF_DUPLEX));
@@ -299,7 +297,7 @@ void unmountSDCard()
 void wake_up_tft(bool force)
 {
   // Wake up the display
-  if (tftwake_timer != NULL)
+  if (tftwake_timer != nullptr)
   {
     force_tft_wake = force;
     if (xTimerStart(tftwake_timer, pdMS_TO_TICKS(10)) != pdPASS)
@@ -309,7 +307,7 @@ void wake_up_tft(bool force)
   }
 }
 
-void avrprog_task(void *param)
+[[noreturn]] void avrprog_task(void *param)
 {
   for (;;)
   {
@@ -338,14 +336,14 @@ void avrprog_task(void *param)
         // This will block for the 6 seconds it takes to program ATTINY841...
         // although AVRISP_PROGRAMMER will call the watchdog to prevent reboots
 
-        uint32_t starttime = millis();
+        auto starttime = millis();
 
-        AVRISP_PROGRAMMER isp = AVRISP_PROGRAMMER(hal.VSPI_Ptr(), GPIO_NUM_0, false, VSPI_SCK);
+        auto isp = AVRISP_PROGRAMMER(hal.VSPI_Ptr(), GPIO_NUM_0, false, VSPI_SCK);
 
         ESP_LOGI(TAG, "Programming AVR");
 
         s->progresult = isp.ProgramAVRDevice(&tftdisplay_avrprogrammer_progress, s->mcu, s->programsize, binaryfile, s->lfuse, s->hfuse, s->efuse);
-        s->duration = millis() - starttime;
+        s->duration = (uint32_t)(millis() - starttime);
 
         // Return VSPI to default speed/settings
         hal.ConfigureVSPI();
@@ -354,12 +352,10 @@ void avrprog_task(void *param)
 
         if (s->progresult == AVRISP_PROGRAMMER_RESULT::SUCCESS)
         {
-          // sprintf(message, "Programming complete, duration %ums, %i bytes", s->duration, programsize);
           ESP_LOGI(TAG, "Success");
         }
         else
         {
-          // sprintf(message, "Programming failed, reason %i", (int)progresult);
           ESP_LOGE(TAG, "Failed %i", s->progresult);
         }
 
@@ -385,7 +381,7 @@ void avrprog_task(void *param)
 }
 
 // Output a status log to the SD Card in CSV format
-void sdcardlog_task(void *param)
+[[noreturn]] void sdcardlog_task(void *)
 {
   for (;;)
   {
@@ -414,7 +410,7 @@ void sdcardlog_task(void *param)
 
         std::string filename;
         filename.reserve(32);
-        filename.append("/data_").append(std::to_string(timeinfo.tm_year)).append(pad_zero(2, timeinfo.tm_mon)).append(pad_zero(2, timeinfo.tm_mday)).append(".csv");
+        filename.append("/data_").append(std::to_string(timeinfo.tm_year)).append(pad_zero(2, (uint16_t)timeinfo.tm_mon)).append(pad_zero(2, (uint16_t)timeinfo.tm_mday)).append(".csv");
 
         File file;
 
@@ -436,14 +432,14 @@ void sdcardlog_task(void *param)
             if (freeSpace > (uint64_t)(25 * 1024 * 1024))
             {
               // Create the file
-              File file = SD.open(filename.c_str(), FILE_WRITE);
+              file = SD.open(filename.c_str(), FILE_WRITE);
               if (file)
               {
                 ESP_LOGI(TAG, "Create log %s", filename.c_str());
 
                 file.print("DateTime,");
 
-                for (uint8_t i = 0; i < TotalNumberOfCells(); i++)
+                for (auto i = 0; i < TotalNumberOfCells(); i++)
                 {
                   std::string n;
                   n = std::to_string(i);
@@ -477,7 +473,7 @@ void sdcardlog_task(void *param)
                     header.append("\r\n");
                   }
 
-                  file.write((uint8_t *)header.c_str(), header.length());
+                  file.write((const uint8_t *)header.c_str(), header.length());
                 }
               }
             }
@@ -494,20 +490,20 @@ void sdcardlog_task(void *param)
             std::string dataMessage;
             dataMessage.reserve(128);
 
-            dataMessage.append(pad_zero(4, timeinfo.tm_year))
+            dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
                 .append("-")
-                .append(pad_zero(2, timeinfo.tm_mon))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
                 .append("-")
-                .append(pad_zero(2, timeinfo.tm_mday))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
                 .append(" ")
-                .append(pad_zero(2, timeinfo.tm_hour))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
                 .append(":")
-                .append(pad_zero(2, timeinfo.tm_min))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
                 .append(":")
-                .append(pad_zero(2, timeinfo.tm_sec))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
                 .append(",");
 
-            for (uint8_t i = 0; i < TotalNumberOfCells(); i++)
+            for (auto i = 0; i < TotalNumberOfCells(); i++)
             {
               // This may output invalid data when controller is first powered up
               dataMessage.append(std::to_string(cmi[i].voltagemV))
@@ -535,7 +531,7 @@ void sdcardlog_task(void *param)
                 dataMessage.append("\r\n");
               }
 
-              file.write((uint8_t *)dataMessage.c_str(), dataMessage.length());
+              file.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
 
               dataMessage.clear();
             }
@@ -557,17 +553,16 @@ void sdcardlog_task(void *param)
                 .append(pad_zero(2, mysettings.currentMonitoringModBusAddress))
                 .append("_")
                 .append(std::to_string(timeinfo.tm_year))
-                .append(pad_zero(2, timeinfo.tm_mon))
-                .append(pad_zero(2, timeinfo.tm_mday))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
                 .append(".csv");
 
-            File file;
+            File file2;
 
             if (SD.exists(cmon_filename.c_str()))
             {
               // Open existing file (assumes there is enough SD card space to log)
-              file = SD.open(cmon_filename.c_str(), FILE_APPEND);
-              // ESP_LOGD(TAG, "Open log %s", filename);
+              file2 = SD.open(cmon_filename.c_str(), FILE_APPEND);
             }
             else
             {
@@ -578,7 +573,7 @@ void sdcardlog_task(void *param)
               if (freeSpace > (uint64_t)(25 * 1024 * 1024))
               {
                 // Create the file
-                File file = SD.open(cmon_filename.c_str(), FILE_WRITE);
+                file2 = SD.open(cmon_filename.c_str(), FILE_WRITE);
                 if (file)
                 {
                   ESP_LOGI(TAG, "Create log %s", cmon_filename.c_str());
@@ -593,23 +588,23 @@ void sdcardlog_task(void *param)
               }
             }
 
-            if (file && mysettings.loggingEnabled)
+            if (file2 && mysettings.loggingEnabled)
             {
 
               std::string dataMessage;
               dataMessage.reserve(128);
 
-              dataMessage.append(pad_zero(4, timeinfo.tm_year))
+              dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
                   .append("-")
-                  .append(pad_zero(2, timeinfo.tm_mon))
+                  .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
                   .append("-")
-                  .append(pad_zero(2, timeinfo.tm_mday))
+                  .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
                   .append(" ")
-                  .append(pad_zero(2, timeinfo.tm_hour))
+                  .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
                   .append(":")
-                  .append(pad_zero(2, timeinfo.tm_min))
+                  .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
                   .append(":")
-                  .append(pad_zero(2, timeinfo.tm_sec))
+                  .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
                   .append(",");
 
               dataMessage.append(currentMonitor.validReadings ? "1" : "0")
@@ -633,8 +628,8 @@ void sdcardlog_task(void *param)
                   .append(currentMonitor.RelayState ? "1" : "0")
                   .append("\r\n");
 
-              file.write((uint8_t *)dataMessage.c_str(), dataMessage.length());
-              file.close();
+              file2.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
+              file2.close();
 
               ESP_LOGD(TAG, "Wrote current monitor data to SD log");
             }
@@ -657,7 +652,7 @@ void sdcardlog_task(void *param)
 }
 
 // Writes a status log of the OUTPUT STATUES to the SD Card in CSV format
-void sdcardlog_outputs_task(void *param)
+[[noreturn]] void sdcardlog_outputs_task(void *)
 {
   for (;;)
   {
@@ -682,7 +677,7 @@ void sdcardlog_outputs_task(void *param)
 
         std::string filename;
         filename.reserve(32);
-        filename.append("/output_status_").append(std::to_string(timeinfo.tm_year)).append(pad_zero(2, timeinfo.tm_mon)).append(pad_zero(2, timeinfo.tm_mday)).append(".csv");
+        filename.append("/output_status_").append(std::to_string(timeinfo.tm_year)).append(pad_zero(2, (uint16_t)timeinfo.tm_mon)).append(pad_zero(2, (uint16_t)timeinfo.tm_mday)).append(".csv");
 
         File file;
 
@@ -703,7 +698,7 @@ void sdcardlog_outputs_task(void *param)
             if (freeSpace > (uint64_t)(25 * 1024 * 1024))
             {
               // Create the file
-              File file = SD.open(filename.c_str(), FILE_WRITE);
+              file = SD.open(filename.c_str(), FILE_WRITE);
               if (file)
               {
                 ESP_LOGD(TAG, "Create log %s", filename.c_str());
@@ -722,7 +717,7 @@ void sdcardlog_outputs_task(void *param)
                   }
                 }
                 header.append("\r\n");
-                file.write((uint8_t *)header.c_str(), header.length());
+                file.write((const uint8_t *)header.c_str(), header.length());
               }
             }
             else
@@ -737,17 +732,17 @@ void sdcardlog_outputs_task(void *param)
             std::string dataMessage;
             dataMessage.reserve(128);
 
-            dataMessage.append(pad_zero(4, timeinfo.tm_year))
+            dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
                 .append("-")
-                .append(pad_zero(2, timeinfo.tm_mon))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
                 .append("-")
-                .append(pad_zero(2, timeinfo.tm_mday))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
                 .append(" ")
-                .append(pad_zero(2, timeinfo.tm_hour))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
                 .append(":")
-                .append(pad_zero(2, timeinfo.tm_min))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
                 .append(":")
-                .append(pad_zero(2, timeinfo.tm_sec))
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
                 .append(",")
                 .append(uint8_to_binary_string(hal.LastTCA6408Value()))
                 .append(",")
@@ -764,7 +759,7 @@ void sdcardlog_outputs_task(void *param)
               }
             }
             dataMessage.append("\r\n");
-            file.write((uint8_t *)dataMessage.c_str(), dataMessage.length());
+            file.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
             file.close();
 
             ESP_LOGD(TAG, "Wrote to SD log");
@@ -787,7 +782,7 @@ void sdcardlog_outputs_task(void *param)
 }
 
 // Switch the LED off (triggered by timer on 100ms delay)
-void ledoff(TimerHandle_t xTimer)
+void ledoff(const TimerHandle_t)
 {
   LED(RGBLED::OFF);
 }
@@ -850,7 +845,7 @@ void ProcessTCA9534Input_States(uint8_t v)
 }
 
 // Handles interrupt requests raised by ESP32 ISR routines
-void interrupt_task(void *param)
+[[noreturn]] void interrupt_task(void *)
 {
   uint32_t ulInterruptStatus;
 
@@ -858,8 +853,6 @@ void interrupt_task(void *param)
   {
     // ULONG_MAX
     xTaskNotifyWait(0, ULONG_MAX, &ulInterruptStatus, portMAX_DELAY);
-
-    // ESP_LOGD(TAG, "ulInterruptStatus %u", ulInterruptStatus);
 
     if ((ulInterruptStatus & ISRTYPE::TCA6416A) != 0x00)
     {
@@ -895,9 +888,9 @@ void interrupt_task(void *param)
 
 void IRAM_ATTR InterruptTrigger(ISRTYPE isrvalue)
 {
-  if (interrupt_task_handle != NULL)
+  if (interrupt_task_handle != nullptr)
   {
-    BaseType_t wokenTask = pdFALSE;
+    auto wokenTask = pdFALSE;
     xTaskNotifyFromISR(interrupt_task_handle, isrvalue, eNotifyAction::eSetBits, &wokenTask);
     if (wokenTask == pdTRUE)
     {
@@ -960,12 +953,12 @@ const char *packetType(uint8_t cmd)
   case COMMAND::ReadPacketReceivedCounter:
     return "PktRvd";
     break;
+  default:
+    return " ??????   ";
   }
-
-  return " ??????   ";
 }
 
-void dumpPacketToDebug(char indicator, PacketStruct *buffer)
+void dumpPacketToDebug(char indicator, const PacketStruct *buffer)
 {
   // Filter on some commands
   // if ((buffer->command & 0x0F) != COMMAND::Timing)    return;
@@ -1041,15 +1034,15 @@ uint16_t minutesSinceMidnight()
   }
   else
   {
-    return (timeinfo.tm_hour * 60) + timeinfo.tm_min;
+    return ((uint16_t)timeinfo.tm_hour * 60) + (uint16_t)timeinfo.tm_min;
   }
 }
 
-void replyqueue_task(void *param)
+[[noreturn]] void replyqueue_task(void *)
 {
   for (;;)
   {
-    if (reply_q_handle != NULL)
+    if (reply_q_handle != nullptr)
     {
       PacketStruct ps;
       if (xQueueReceive(reply_q_handle, &ps, portMAX_DELAY) == pdPASS)
@@ -1082,9 +1075,9 @@ void onPacketReceived()
   if ((ps.command & 0x0F) == COMMAND::Timing)
   {
     // Timestamp at the earliest possible moment
-    uint32_t t = millis();
+    auto t = millis();
     ps.moduledata[2] = (t & 0xFFFF0000) >> 16;
-    ps.moduledata[3] = t & 0x0000FFFF;
+    ps.moduledata[3] = t & (uint32_t)0x0000FFFF;
     // Ensure CRC is correct
     ps.crc = CRC16::CalculateArray((uint8_t *)&ps, sizeof(PacketStruct) - 2);
   }
@@ -1097,12 +1090,12 @@ void onPacketReceived()
   // ESP_LOGI(TAG,"Reply Q length %i",replyQueue.getCount());
 }
 
-void transmit_task(void *param)
+[[noreturn]] void transmit_task(void *)
 {
   for (;;)
   {
     PacketStruct transmitBuffer;
-    if (request_q_handle != NULL)
+    if (request_q_handle != nullptr)
     {
       if (xQueueReceive(request_q_handle, &transmitBuffer, portMAX_DELAY) == pdPASS)
       {
@@ -1113,9 +1106,9 @@ void transmit_task(void *param)
         if (transmitBuffer.command == COMMAND::Timing)
         {
           // Timestamp at the last possible moment
-          uint32_t t = millis();
+          auto t = millis();
           transmitBuffer.moduledata[0] = (t & 0xFFFF0000) >> 16;
-          transmitBuffer.moduledata[1] = t & 0x0000FFFF;
+          transmitBuffer.moduledata[1] = t & (uint32_t)0x0000FFFF;
         }
 
         transmitBuffer.crc = CRC16::CalculateArray((uint8_t *)&transmitBuffer, sizeof(PacketStruct) - 2);
@@ -1157,7 +1150,7 @@ void ProcessRules()
 
   rules.rule_outcome[Rule::BMSError] = false;
 
-  uint16_t totalConfiguredModules = TotalNumberOfCells();
+  auto totalConfiguredModules = TotalNumberOfCells();
   if (totalConfiguredModules > maximum_controller_cell_modules)
   {
     // System is configured with more than maximum modules - abort!
@@ -1186,7 +1179,7 @@ void ProcessRules()
   // Raise error is the current shunt stops responding for over 45 seconds
   if (mysettings.currentMonitoringEnabled)
   {
-    int64_t secondsSinceLastMessage = (esp_timer_get_time() - currentMonitor.timestamp) / 1E6;
+    auto secondsSinceLastMessage = (int64_t)((esp_timer_get_time() - currentMonitor.timestamp) / 1E6);
     if (secondsSinceLastMessage > 45)
     {
       rules.SetError(InternalErrorCode::CommunicationsError);
@@ -1318,7 +1311,7 @@ void ProcessRules()
   }
 }
 
-void pulse_relay_off(TimerHandle_t xTimer)
+void pulse_relay_off(const TimerHandle_t)
 {
   for (int8_t y = 0; y < RELAY_TOTAL; y++)
   {
@@ -1367,7 +1360,7 @@ void pulse_relay_off_task(void *param)
 }
 */
 
-void rules_task(void *param)
+[[noreturn]] void rules_task(void *)
 {
   for (;;)
   {
@@ -1464,7 +1457,7 @@ void rules_task(void *param)
 // This task periodically adds requests to the queue
 // to schedule reading data from the cell modules
 // The actual serial comms is handled by the transmit task
-void enqueue_task(void *param)
+[[noreturn]] void enqueue_task(void *)
 {
   for (;;)
   {
@@ -1479,12 +1472,12 @@ void enqueue_task(void *param)
     }
 
     uint16_t i = 0;
-    uint16_t max = TotalNumberOfCells();
+    auto max = TotalNumberOfCells();
     uint8_t startmodule = 0;
 
     while (i < max)
     {
-      uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
+      uint8_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
 
       // Limit to number of modules we have configured
       if (endmodule > max)
@@ -1526,7 +1519,7 @@ void formatCurrentDateTime(char *buf, size_t buf_size)
   strftime(buf, buf_size, "%c", &timeinfo);
 }
 
-static void setTimeZone(long offset, int daylight)
+static void setTimeZone(long offset, unsigned int daylight)
 {
   char cst[17] = {0};
   char cdt[17] = "DST";
@@ -1534,7 +1527,7 @@ static void setTimeZone(long offset, int daylight)
 
   if (offset % 3600)
   {
-    sprintf(cst, "UTC%ld:%02u:%02u", offset / 3600, abs((offset % 3600) / 60), abs(offset % 60));
+    sprintf(cst, "UTC%ld:%02ld:%02ld", offset / 3600, abs((offset % 3600) / 60), abs(offset % 60));
   }
   else
   {
@@ -1545,7 +1538,7 @@ static void setTimeZone(long offset, int daylight)
     long tz_dst = offset - daylight;
     if (tz_dst % 3600)
     {
-      sprintf(cdt, "DST%ld:%02u:%02u", tz_dst / 3600, abs((tz_dst % 3600) / 60), abs(tz_dst % 60));
+      sprintf(cdt, "DST%ld:%02lu:%02lu", tz_dst / 3600, abs((tz_dst % 3600) / 60), abs(tz_dst % 60));
     }
     else
     {
@@ -1571,7 +1564,7 @@ void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char *serve
     sntp_stop();
   }
   sntp_setoperatingmode(SNTP_OPMODE_POLL);
-  sntp_setservername(0, (char *)server1);
+  sntp_setservername(0, server1);
   // sntp_setservername(1, (char*)server2);
   // sntp_setservername(2, (char*)server3);
   sntp_init();
@@ -1600,12 +1593,12 @@ static void startMDNS()
   {
     mdns_hostname_set(hostname);
     mdns_instance_name_set("diybms");
-    mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
+    mdns_service_add(nullptr, "_http", "_tcp", 80, nullptr, 0);
   }
 }
 
 // WIFI Event Handler
-static void event_handler(void *arg, esp_event_base_t event_base,
+static void event_handler(void *, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
   if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_BSS_RSSI_LOW)
@@ -1730,13 +1723,13 @@ void wifi_init_sta(void)
   ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
                                                       ESP_EVENT_ANY_ID,
                                                       &event_handler,
-                                                      NULL,
-                                                      NULL));
+                                                      nullptr,
+                                                      nullptr));
   ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
                                                       IP_EVENT_STA_GOT_IP,
                                                       &event_handler,
-                                                      NULL,
-                                                      NULL));
+                                                      nullptr,
+                                                      nullptr));
 
   wifi_config_t wifi_config;
   memset(&wifi_config, 0, sizeof(wifi_config));
@@ -1911,7 +1904,7 @@ void PZEM017_SetDeviceAddress(uint8_t newAddress)
 
 void currentMon_ConfigureBasic(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
 {
-  uint16_t chargeeff = chargeefficiency * 100.0;
+  auto chargeeff = (uint16_t)(chargeefficiency * 100.0F);
 
   uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
   memset(&cmd, 0, sizeof(cmd));
@@ -1954,7 +1947,7 @@ void currentMon_ConfigureBasic(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t 
       (uint8_t)(chargeeff & 0xFF),
   };
 
-  uint8_t ptr = SetMobusRegistersFromFloat(cmd2, 13, fullchargevolt);
+  auto ptr = SetMobusRegistersFromFloat(cmd2, 13, fullchargevolt);
   ptr = SetMobusRegistersFromFloat(cmd2, ptr, tailcurrent);
 
   memcpy(&cmd, &cmd2, sizeof(cmd2));
@@ -1967,7 +1960,7 @@ void currentMon_ConfigureBasic(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t 
 
 void currentMon_SetSOC(float newSOC)
 {
-  uint16_t value = newSOC * 100;
+  auto value = (uint16_t)(newSOC * 100);
 
   //	Write Multiple Holding Registers
   uint8_t cmd2[] = {
@@ -2034,7 +2027,7 @@ bool CurrentMonitorSetSOC(float newSOC)
 
     if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
     {
-      uint16_t value = newSOC * 100;
+      auto value = (uint16_t)(newSOC * 100);
       currentmon_internal.SetSOC(value);
       return true;
     }
@@ -2227,15 +2220,15 @@ void TimeToSoCCalculation()
     return;
 
   // Calculate how "full" the battery is based on SoC %
-  float now_capacity_ah = currentMonitor.modbus.batterycapacityamphour / 100.0 * currentMonitor.stateofcharge;
+  float now_capacity_ah = currentMonitor.modbus.batterycapacityamphour / 100.0F * currentMonitor.stateofcharge;
 
   // Target 100% - only if we are charging
-  if (currentMonitor.stateofcharge < 100.0 && current > 0)
+  if (currentMonitor.stateofcharge < 100.0F && current > 0)
   {
     // Gap between now and 100%
     float empty_ah = currentMonitor.modbus.batterycapacityamphour - now_capacity_ah;
     // Use instantaneous current value to predict amp-hour (in number of seconds)
-    time100 = (empty_ah / abs(current)) * 60 * 60;
+    time100 = (uint32_t)((empty_ah / abs(current)) * 60 * 60);
   }
   else
   {
@@ -2246,8 +2239,8 @@ void TimeToSoCCalculation()
   if (currentMonitor.stateofcharge > 20.0 && current < 0)
   {
     // Gap between now and 20%
-    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.20);
-    time20 = (empty_ah / abs(current)) * 60 * 60;
+    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.20F);
+    time20 = (uint32_t)((empty_ah / abs(current)) * 60 * 60);
   }
   else
   {
@@ -2258,7 +2251,7 @@ void TimeToSoCCalculation()
   if (currentMonitor.stateofcharge > 10.0 && current < 0)
   {
     // Gap between now and 10%
-    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.10);
+    float empty_ah = now_capacity_ah - (currentMonitor.modbus.batterycapacityamphour * 0.10F);
     time10 = (empty_ah / abs(current)) * 60 * 60;
   }
   else
@@ -2360,11 +2353,11 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
 {
   mysettings.currentMonitoring_shuntcal = newvalues.modbus.shuntcal;
   mysettings.currentMonitoring_temperaturelimit = newvalues.modbus.temperaturelimit;
-  mysettings.currentMonitoring_overvoltagelimit = 100 * newvalues.modbus.overvoltagelimit;
-  mysettings.currentMonitoring_undervoltagelimit = 100 * newvalues.modbus.undervoltagelimit;
-  mysettings.currentMonitoring_overcurrentlimit = 100 * newvalues.modbus.overcurrentlimit;
-  mysettings.currentMonitoring_undercurrentlimit = 100 * newvalues.modbus.undercurrentlimit;
-  mysettings.currentMonitoring_overpowerlimit = newvalues.modbus.overpowerlimit;
+  mysettings.currentMonitoring_overvoltagelimit = (int16_t)(100.0F * newvalues.modbus.overvoltagelimit);
+  mysettings.currentMonitoring_undervoltagelimit = (int16_t)(100.0F * newvalues.modbus.undervoltagelimit);
+  mysettings.currentMonitoring_overcurrentlimit = (int32_t)(100.0F * newvalues.modbus.overcurrentlimit);
+  mysettings.currentMonitoring_undercurrentlimit = (int32_t)(100.0F * newvalues.modbus.undercurrentlimit);
+  mysettings.currentMonitoring_overpowerlimit = (int32_t)(newvalues.modbus.overpowerlimit);
   mysettings.currentMonitoring_shunttempcoefficient = newvalues.modbus.shunttempcoefficient;
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
@@ -2428,7 +2421,7 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
   }
 
   // Now byte swap to align to ESP32 endiness, and copy as we go into new structure
-  uint8_t *ptr = (uint8_t *)&currentMonitor.modbus;
+  auto *ptr = (uint8_t *)&currentMonitor.modbus;
   for (size_t i = 0; i < length; i += 2)
   {
     uint8_t temp = frame[3 + i];
@@ -2449,9 +2442,9 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
   currentMonitor.timestamp = esp_timer_get_time();
 
   // High byte
-  uint8_t flag1 = currentMonitor.modbus.flags >> 8;
+  auto flag1 = (uint8_t)(currentMonitor.modbus.flags >> 8);
   // Low byte
-  uint8_t flag2 = currentMonitor.modbus.flags;
+  auto flag2 = (uint8_t)(currentMonitor.modbus.flags);
 
   // ESP_LOGD(TAG, "Read relay trigger settings %u %u", flag1, flag2);
 
@@ -2495,8 +2488,8 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
   currentMonitor.RelayState = flag2 & B00000010;
   // Last bit is for factory reset (always zero)
 
-  currentMonitor.chargeefficiency = ((float)currentMonitor.modbus.raw_chargeefficiency) / 100.0;
-  currentMonitor.stateofcharge = ((float)currentMonitor.modbus.raw_stateofcharge) / 100.0;
+  currentMonitor.chargeefficiency = ((float)currentMonitor.modbus.raw_chargeefficiency) / 100.0F;
+  currentMonitor.stateofcharge = ((float)currentMonitor.modbus.raw_stateofcharge) / 100.0F;
 
   currentMonitor.validReadings = true;
 
@@ -2518,22 +2511,15 @@ void ProcessDIYBMSCurrentMonitorInternal()
   currentMonitor.modbus.firmwaredatetime = COMPILE_DATE_TIME_UTC_EPOCH;
 
   /*
-
-    // High byte
-    uint8_t flag1 = currentMonitor.modbus.flags >> 8;
-    // Low byte
-    uint8_t flag2 = currentMonitor.modbus.flags;
-
-    /*
-  16|TMPOL|Read only
-  15|SHNTOL|Read only
-  14|SHNTUL|Read only
-  13|BUSOL|Read only
-  12|BUSUL|Read only
-  11|POL|Read only
-  10|Temperature compensation enabled|Read write
-  9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
-  */
+16|TMPOL|Read only
+15|SHNTOL|Read only
+14|SHNTUL|Read only
+13|BUSOL|Read only
+12|BUSUL|Read only
+11|POL|Read only
+10|Temperature compensation enabled|Read write
+9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
+*/
   uint16_t flag1 = currentmon_internal.calc_alerts();
   currentMonitor.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
   currentMonitor.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
@@ -2621,7 +2607,7 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
   }
 }
 
-void canbus_tx(void *param)
+[[noreturn]] void canbus_tx(void *)
 {
   for (;;)
   {
@@ -2702,7 +2688,7 @@ void canbus_tx(void *param)
   }
 }
 
-void canbus_rx(void *param)
+[[noreturn]] void canbus_rx(void *)
 {
   for (;;)
   {
@@ -2728,27 +2714,6 @@ void canbus_rx(void *param)
         /// ignore the timeout or do something
         ESP_LOGE(TAG, "CANBUS timeout");
       }
-
-      /*
-    // check the health of the bus
-    can_status_info_t status;
-    can_get_status_info(&status);
-    SERIAL_DEBUG.printf("  rx-q:%d, tx-q:%d, rx-err:%d, tx-err:%d, arb-lost:%d, bus-err:%d, state: %s",
-                        status.msgs_to_rx, status.msgs_to_tx, status.rx_error_counter, status.tx_error_counter, status.arb_lost_count,
-                        status.bus_error_count, ESP32_CAN_STATUS_STRINGS[status.state]);
-    if (status.state == can_state_t::CAN_STATE_BUS_OFF)
-    {
-      // When the bus is OFF we need to initiate recovery, transmit is
-      // not possible when in this state.
-      SERIAL_DEBUG.printf("ESP32-CAN: initiating recovery");
-      can_initiate_recovery();
-    }
-    else if (status.state == can_state_t::CAN_STATE_RECOVERING)
-    {
-      // when the bus is in recovery mode transmit is not possible.
-      //delay(200);
-    }
-*/
     }
     else
     {
@@ -2758,13 +2723,13 @@ void canbus_rx(void *param)
   }
 }
 
-void service_rs485_transmit_q(void *param)
+[[noreturn]] void service_rs485_transmit_q(void *)
 {
   for (;;)
   {
     uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
 
-    if (rs485_transmit_q_handle != NULL)
+    if (rs485_transmit_q_handle != nullptr)
     {
       // Wait for a item in the queue, blocking indefinately
       xQueueReceive(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
@@ -2788,11 +2753,11 @@ void service_rs485_transmit_q(void *param)
         }
 
         // Calculate the MODBUS CRC
-        uint16_t temp = calculateCRC(cmd, packet_length - 2);
+        auto temp = calculateCRC(cmd, (uint8_t)(packet_length - 2));
         // Byte swap the Hi and Lo bytes
-        uint16_t crc16 = (temp << 8) | (temp >> 8);
-        cmd[packet_length - 2] = crc16 >> 8; // split crc into 2 bytes
-        cmd[packet_length - 1] = crc16 & 0xFF;
+        auto crc16 = (uint16_t)(temp << 8) | (temp >> 8);
+        cmd[packet_length - 2] = (uint8_t)(crc16 >> 8); // split crc into 2 bytes
+        cmd[packet_length - 1] = (uint8_t)(crc16 & 0xFF);
 
         // Send the bytes (actually just put them into the TX FIFO buffer)
         uart_write_bytes(rs485_uart_num, (char *)cmd, packet_length);
@@ -2800,7 +2765,7 @@ void service_rs485_transmit_q(void *param)
         hal.ReleaseRS485Mutex();
 
         // Notify the receive task that a packet should be on its way
-        if (rs485_rx_task_handle != NULL)
+        if (rs485_rx_task_handle != nullptr)
         {
           xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
         }
@@ -2822,7 +2787,7 @@ void service_rs485_transmit_q(void *param)
 }
 
 // RS485 receive
-void rs485_rx(void *param)
+[[noreturn]] void rs485_rx(void *)
 {
   for (;;)
   {
@@ -2832,12 +2797,12 @@ void rs485_rx(void *param)
     // Delay 50ms for the data to arrive
     vTaskDelay(pdMS_TO_TICKS(50));
 
-    int len = 0;
+    uint16_t len = 0;
 
     if (hal.GetRS485Mutex())
     {
       // Wait 200ms before timeout
-      len = uart_read_bytes(rs485_uart_num, frame, sizeof(frame), pdMS_TO_TICKS(200));
+      len = (uint16_t)uart_read_bytes(rs485_uart_num, frame, sizeof(frame), pdMS_TO_TICKS(200));
       hal.ReleaseRS485Mutex();
     }
 
@@ -2846,11 +2811,11 @@ void rs485_rx(void *param)
     {
       uint8_t id = frame[0];
 
-      uint16_t crc = ((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
+      auto crc = (uint16_t)((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
 
-      uint16_t temp = calculateCRC(frame, len - 2);
+      auto temp = calculateCRC(frame, (uint8_t)(len - 2));
       // Swap bytes to match MODBUS ordering
-      uint16_t calculatedCRC = (temp << 8) | (temp >> 8);
+      auto calculatedCRC = (uint16_t)(temp << 8) | (uint16_t)(temp >> 8);
 
       // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
 
@@ -2971,7 +2936,7 @@ void rs485_rx(void *param)
 }
 
 // RS485 transmit
-void rs485_tx(void *param)
+[[noreturn]] void rs485_tx(void *)
 {
   uint8_t cmd[MAX_SEND_RS485_PACKET_LENGTH];
   memset(&cmd, 0, sizeof(cmd));
@@ -3040,7 +3005,7 @@ void rs485_tx(void *param)
   }
 }
 
-void periodic_task(void *param)
+[[noreturn]] void periodic_task(void *)
 {
   uint8_t countdown_influx = mysettings.influxdb_loggingFreqSeconds;
   uint8_t countdown_mqtt1 = 5;
@@ -3101,10 +3066,10 @@ void periodic_task(void *param)
 }
 
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
-void lazy_tasks(void *param)
+[[noreturn]] void lazy_tasks(void *)
 {
   int year_day = -1;
-  int hour = -1;
+  time_t snapshot_time = 0;
 
   for (;;)
   {
@@ -3112,7 +3077,7 @@ void lazy_tasks(void *param)
     //  Delay 5.5 seconds
 
     // ESP_LOGI(TAG, "Sleep");
-    TickType_t delay_ticks = pdMS_TO_TICKS(5500);
+    auto delay_ticks = pdMS_TO_TICKS(5500);
     vTaskDelay(delay_ticks);
 
     // Task 1
@@ -3138,26 +3103,29 @@ void lazy_tasks(void *param)
           // Reset the current monitor at midnight (ish)
           CurrentMonitorResetDailyAmpHourCounters();
 
-          for (size_t i = 0; i < maximum_controller_cell_modules; i++)
+          for (uint8_t i = 0; i < maximum_controller_cell_modules; i++)
           {
             resetModuleMinMaxVoltage(i);
           }
         }
         year_day = timeinfo.tm_yday;
 
-        // Has hour rolled over?
-        if (hour != timeinfo.tm_hour)
+        // Has clock rolled over for snaps?
+        if (snapshot_time != 0 && now > snapshot_time)
         {
-          // Another hour has ticked by...
           char strftime_buf[64];
           strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-          ESP_LOGI(TAG, "Hourly timer: %s", strftime_buf);
+          ESP_LOGI(TAG, "Snap timer: %s", strftime_buf);
+
+          history.SnapshotHistory(now, &rules, &currentMonitor);
+          snapshot_time = 0;
         }
 
-        // Do on everyloop (debug)...
-        history.SnapshotHistory(now, &rules, &currentMonitor);
-
-        hour = timeinfo.tm_hour;
+        if (snapshot_time == 0)
+        {
+          // Calculate the next time to do a snapshot in 30 minutes
+          snapshot_time = (now - (now % 1800)) + 1800;
+        }
       }
     }
 
@@ -3168,12 +3136,12 @@ void lazy_tasks(void *param)
     ESP_LOGI(TAG, "Task 2");
     // uint8_t counter = 0;
     //  Find modules that don't have settings cached and request them
-    for (uint8_t module = 0; module < TotalNumberOfCells(); module++)
+    for (uint8_t m = 0; m < TotalNumberOfCells(); m++)
     {
-      if (cmi[module].valid && !cmi[module].settingsCached)
+      if (cmi[m].valid && !cmi[m].settingsCached)
       {
-        prg.sendGetSettingsRequest(module);
-        // counter++;
+        //This will block if the queue length is reached
+        prg.sendGetSettingsRequest(m);
       }
     }
 
@@ -3252,11 +3220,7 @@ bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool Show
         fputs("\b \b", stdout);
       }
     }
-    /*    else if (data == '\n')
-        {
-          // Ignore
-          fputc('\n', stdout); // output CRLF
-        }*/
+
     else if (data == '\n' || data == '\r')
     {
       if (length > 0)
@@ -3325,7 +3289,7 @@ bool DeleteWiFiConfigFromSDCard()
   return ret;
 }
 
-void TerminalBasedWifiSetup()
+[[noreturn]] void TerminalBasedWifiSetup()
 {
   SetControllerState(ControllerState::NoWifiConfiguration);
 
@@ -3353,7 +3317,7 @@ void TerminalBasedWifiSetup()
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
   ESP_ERROR_CHECK(esp_wifi_start());
-  esp_wifi_scan_start(NULL, true);
+  esp_wifi_scan_start(nullptr, true);
 
   // Max of 32 stations to return
   uint16_t number = 32;
@@ -3424,10 +3388,10 @@ void TerminalBasedWifiSetup()
   fputc('\n', stdout);
   for (size_t i = 5; i > 0; i--)
   {
-    char number[5];
-    itoa(i, number, 10);
+    char n[5];
+    itoa(i, n, 10);
     fputs("Rebooting in ", stdout);
-    fputs(number, stdout);
+    fputs(n, stdout);
     fputs(" seconds\n", stdout);
     delay(1000);
   }
@@ -3497,7 +3461,7 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
   return ret;
 }
 
-static void tft_interrupt_attach(void *param)
+static void tft_interrupt_attach(void *)
 {
   attachInterrupt(TOUCH_IRQ, TFTScreenTouchInterrupt, FALLING);
 }
@@ -3541,7 +3505,7 @@ void consoleConfigurationCheck()
   for (size_t i = 0; i < (5000 / 250); i++)
   {
     fputc('.', stdout);
-    uint8_t ch = fgetc(stdin);
+    auto ch = (uint8_t)fgetc(stdin);
     // SPACE BAR
     if (ch == 32)
     {
@@ -3671,7 +3635,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
 
   // Pre configure the array
   memset(&cmi, 0, sizeof(cmi));
-  for (size_t i = 0; i < maximum_controller_cell_modules; i++)
+  for (uint8_t i = 0; i < maximum_controller_cell_modules; i++)
   {
     clearModuleValues(i);
   }
@@ -3852,13 +3816,13 @@ void loop()
   if (currentMillis > heaptimer)
   {
     /*
-    size_t total_free_bytes;      ///<  Total free bytes in the heap. Equivalent to multi_free_heap_size().
-    size_t total_allocated_bytes; ///<  Total bytes allocated to data in the heap.
-    size_t largest_free_block;    ///<  Size of largest free block in the heap. This is the largest malloc-able size.
-    size_t minimum_free_bytes;    ///<  Lifetime minimum free heap size. Equivalent to multi_minimum_free_heap_size().
-    size_t allocated_blocks;      ///<  Number of (variable size) blocks allocated in the heap.
-    size_t free_blocks;           ///<  Number of (variable size) free blocks in the heap.
-    size_t total_blocks;          ///<  Total number of (variable size) blocks in the heap.
+    size_t total_free_bytes;        Total free bytes in the heap. Equivalent to multi_free_heap_size().
+    size_t total_allocated_bytes;   Total bytes allocated to data in the heap.
+    size_t largest_free_block;      Size of largest free block in the heap. This is the largest malloc-able size.
+    size_t minimum_free_bytes;      Lifetime minimum free heap size. Equivalent to multi_minimum_free_heap_size().
+    size_t allocated_blocks;        Number of (variable size) blocks allocated in the heap.
+    size_t free_blocks;             Number of (variable size) free blocks in the heap.
+    size_t total_blocks;            Total number of (variable size) blocks in the heap.
     */
     multi_heap_info_t heap;
     heap_caps_get_info(&heap, MALLOC_CAP_INTERNAL);
