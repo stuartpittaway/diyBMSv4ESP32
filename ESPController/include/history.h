@@ -104,7 +104,7 @@ public:
         bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "{\"time\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%u", h[i].historic_time);
+            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%ld", h[i].historic_time);
             if (i != (size - 1))
             {
                 bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
@@ -164,7 +164,7 @@ public:
         bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"current\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%u", h[i].current);
+            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%.4f", h[i].current);
             if (i != (size - 1))
             {
                 bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
