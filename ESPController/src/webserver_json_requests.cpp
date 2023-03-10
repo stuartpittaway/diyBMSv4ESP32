@@ -1166,41 +1166,30 @@ esp_err_t api_handler(httpd_req_t *req)
     return ESP_FAIL;
   }
 
-  const char *uri_array[] = {
-      "monitor2", "monitor3", "integration", "settings", "rules",
-      "rs485settings", "currentmonitor",
-      "avrstatus", "modules", "identifyModule", "storage",
-      "avrstorage", "chargeconfig", "tileconfig", "history"};
+  std::array<std::string, 15> uri_array = {
+      "monitor2", "monitor3", "integration",
+      "settings", "rules", "rs485settings",
+      "currentmonitor", "avrstatus", "modules",
+      "identifyModule", "storage", "avrstorage",
+      "chargeconfig", "tileconfig", "history"};
 
-  esp_err_t (*func_ptr[])(httpd_req_t * req) = {
-      content_handler_monitor2,
-      content_handler_monitor3,
-      content_handler_integration,
-      content_handler_settings,
-      content_handler_rules,
-      content_handler_rs485settings,
-      content_handler_currentmonitor,
-      content_handler_avrstatus,
-      content_handler_modules,
-      content_handler_identifymodule,
-      content_handler_storage,
-      content_handler_avrstorage,
-      content_handler_chargeconfig,
-      content_handler_tileconfig,
-      content_handler_history};
+  std::array<std::function<esp_err_t(httpd_req_t * req)>, 15> func_ptr = {
+      content_handler_monitor2, content_handler_monitor3, content_handler_integration,
+      content_handler_settings, content_handler_rules, content_handler_rs485settings,
+      content_handler_currentmonitor, content_handler_avrstatus, content_handler_modules,
+      content_handler_identifymodule, content_handler_storage, content_handler_avrstorage,
+      content_handler_chargeconfig, content_handler_tileconfig, content_handler_history};
 
-  // Sanity check arrays are the same size
-  ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);
-
-  // TODO: Improve the string comparision here to avoid any potential
-  //       security/buffer overflows
-  char name[32];
-  memset(&name, 0, sizeof(name));
-  strncpy(name, &(req->uri[5]), sizeof(name) - 1);
-
-  for (size_t i = 0; i < sizeof(uri_array) / sizeof(unsigned int); i++)
+  auto name = std::string(req->uri);
+  if (name.rfind("/api/", 0) == 0)
   {
-    if (strncmp(name, uri_array[i], strlen(uri_array[i])) == 0)
+    // skip over first 5 characters "/api/" characters
+    name = name.substr(5);
+  }
+
+  for (size_t i = 0; i < uri_array.size(); i++)
+  {
+    if (name.compare(uri_array.at(i)) == 0)
     {
       // Found it
       ESP_LOGI(TAG, "API call: %s", name);
