@@ -15,7 +15,7 @@ esp_err_t content_handler_avrstorage(httpd_req_t *req)
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "InProgress", _avrsettings.inProgress);
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"avrprog\":");
 
-  String manifest = String("/avr/manifest.json");
+  auto manifest = String("/avr/manifest.json");
   if (LittleFS.exists(manifest))
   {
     // Use Dynamic to avoid head issues
@@ -53,7 +53,7 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
   uint32_t timestampage = 0;
   if (currentMonitor.validReadings)
   {
-    timestampage = (esp_timer_get_time() - currentMonitor.timestamp) / 1000;
+    timestampage = (uint32_t)((esp_timer_get_time() - currentMonitor.timestamp) / 1000);
   }
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{");
@@ -131,7 +131,7 @@ esp_err_t content_handler_rs485settings(httpd_req_t *req)
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
-int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t levels)
+int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t)
 {
   // This needs to check for buffer overrun as too many files are likely to exceed the buffer capacity
   int bufferused = 0;
@@ -153,15 +153,6 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
     if (file.isDirectory())
     {
       // Hide folders
-
-      /*
-      // Hide the diybms folder where the config files are kept
-      if (levels && String(file.name()).startsWith("/diybms") == false)
-      {
-        bufferused += fileSystemListDirectory(&buffer[bufferused], bufferLen - bufferused, fs, file.name(), levels - 1);
-        bufferused += snprintf(&buffer[bufferused], bufferLen - bufferused, ",");
-      }
-      */
     }
     else
     {
@@ -179,7 +170,7 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
 
 esp_err_t content_handler_history(httpd_req_t *req)
 {
-  return history.GenerateJSON(req,httpbuf, BUFSIZE);
+  return history.GenerateJSON(req, httpbuf, BUFSIZE);
 }
 
 esp_err_t content_handler_storage(httpd_req_t *req)
@@ -205,8 +196,8 @@ esp_err_t content_handler_storage(httpd_req_t *req)
   if (available && hal.GetVSPIMutex())
   {
     // Convert to KiB
-    totalkilobytes = SD.totalBytes() / 1024;
-    usedkilobytes = SD.usedBytes() / 1024;
+    totalkilobytes = (uint32_t)(SD.totalBytes() / 1024);
+    usedkilobytes = (uint32_t)(SD.usedBytes() / 1024);
     hal.ReleaseVSPIMutex();
   }
   else
@@ -215,8 +206,8 @@ esp_err_t content_handler_storage(httpd_req_t *req)
     usedkilobytes = 0;
   }
 
-  flash_totalkilobytes = LittleFS.totalBytes() / 1024;
-  flash_usedkilobytes = LittleFS.usedBytes() / 1024;
+  flash_totalkilobytes = (uint32_t)(LittleFS.totalBytes() / 1024);
+  flash_usedkilobytes = (uint32_t)(LittleFS.usedBytes() / 1024);
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{\"storage\":{");
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "logging", mysettings.loggingEnabled);
@@ -520,10 +511,12 @@ esp_err_t content_handler_tileconfig(httpd_req_t *req)
   JsonObject root = doc.to<JsonObject>();
   JsonObject settings = root.createNestedObject("tileconfig");
   JsonArray v = settings.createNestedArray("values");
-  for (uint8_t i = 0; i < 5; i++)
+
+  for (auto n : mysettings.tileconfig)
   {
-    v.add(mysettings.tileconfig[i]);
+    v.add(n);
   }
+
   int bufferused = serializeJson(doc, httpbuf, BUFSIZE);
   return httpd_resp_send(req, httpbuf, bufferused);
 }
@@ -608,7 +601,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
       break;
     default:
       // Null value
-      defaultArray.add((char *)0);
+      defaultArray.add(nullptr);
       break;
     }
   }
@@ -625,7 +618,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
       typeArray.add("Pulse");
       break;
     default:
-      typeArray.add((char *)0);
+      typeArray.add(nullptr);
       break;
     }
   }
@@ -652,7 +645,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
         break;
       default:
         // Null
-        data.add((char *)0);
+        data.add(nullptr);
         break;
       }
     }
