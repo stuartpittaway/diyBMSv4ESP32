@@ -60,7 +60,7 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "enabled", mysettings.currentMonitoringEnabled);
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         "\"address\":%u,\"devicetype\":%u,\"timestampage\":%u,\"valid\":%s,\"batterycapacity\":%u,\"tailcurrent\":%.4f,\"fullchargevolt\":%.4f,\"chargeefficiency\":%.4f,",
+                         R"("address":%u,"devicetype":%u,"timestampage":%u,"valid":%s,"batterycapacity":%u,"tailcurrent":%.4f,"fullchargevolt":%.4f,"chargeefficiency":%.4f,)",
                          mysettings.currentMonitoringModBusAddress,
                          mysettings.currentMonitoringDevice,
                          timestampage,
@@ -69,7 +69,7 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
                          currentMonitor.modbus.fullychargedvoltage, currentMonitor.chargeefficiency);
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         "\"voltage\":%.4f,\"current\":%.4f,\"mahout\":%u,\"mahin\":%u,\"temperature\":%i,\"watchdog\":%u,\"power\":%.4f,\"resistance\":%.4f,\"calibration\":%u,\"templimit\":%i,\"undervlimit\":%.4f,\"overvlimit\":%.4f,\"overclimit\":%.4f,\"underclimit\":%.4f,\"overplimit\":%.4f,\"tempcoeff\":%u,\"model\":%u,\"firmwarev\":%u,\"firmwaredate\":%u,",
+                         R"("voltage":%.4f,"current":%.4f,"mahout":%u,"mahin":%u,"temperature":%i,"watchdog":%u,"power":%.4f,"resistance":%.4f,"calibration":%u,"templimit":%i,"undervlimit":%.4f,"overvlimit":%.4f,"overclimit":%.4f,"underclimit":%.4f,"overplimit":%.4f,"tempcoeff":%u,"model":%u,"firmwarev":%u,"firmwaredate":%u,)",
                          currentMonitor.modbus.voltage, currentMonitor.modbus.current, currentMonitor.modbus.milliamphour_out, currentMonitor.modbus.milliamphour_in,
                          currentMonitor.modbus.temperature, currentMonitor.modbus.watchdogcounter, currentMonitor.modbus.power,
                          currentMonitor.modbus.shuntresistance,
@@ -105,14 +105,14 @@ esp_err_t content_handler_currentmonitor(httpd_req_t *req)
   else
   {
     // Relay doesn't exist
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"RelayState\":null,");
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"("RelayState":null,)");
   }
 
   // Onboard INA229 current monitor chip
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "OnboardCM", currentmon_internal.Available());
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         "\"shuntmv\":%u,\"shuntmaxcur\":%u}",
+                         R"("shuntmv":%u,"shuntmaxcur":%u})",
                          currentMonitor.modbus.shuntmillivolt, currentMonitor.modbus.shuntmaxcurrent);
 
   return httpd_resp_send(req, httpbuf, bufferused);
@@ -124,7 +124,7 @@ esp_err_t content_handler_rs485settings(httpd_req_t *req)
 
   // Output the first batch of settings/parameters/values
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE,
-                         "{\"baudrate\":%i,\"databits\":%i,\"parity\":%i,\"stopbits\":%i}",
+                         R"({"baudrate":%i,"databits":%i,"parity":%i,"stopbits":%i})",
                          mysettings.rs485baudrate, mysettings.rs485databits,
                          mysettings.rs485parity, mysettings.rs485stopbits);
 
@@ -209,11 +209,11 @@ esp_err_t content_handler_storage(httpd_req_t *req)
   flash_totalkilobytes = (uint32_t)(LittleFS.totalBytes() / 1024);
   flash_usedkilobytes = (uint32_t)(LittleFS.usedBytes() / 1024);
 
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{\"storage\":{");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"({"storage":{)");
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "logging", mysettings.loggingEnabled);
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"frequency\":%u,\"sdcard\":{", mysettings.loggingFrequencySeconds);
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"("frequency":%u,"sdcard":{)", mysettings.loggingFrequencySeconds);
   bufferused += printBoolean(&httpbuf[bufferused], BUFSIZE - bufferused, "available", available);
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"total\":%u,\"used\":%u,\"files\":[", totalkilobytes, usedkilobytes);
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"("total":%u,"used":%u,"files":[)", totalkilobytes, usedkilobytes);
 
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
@@ -229,13 +229,13 @@ esp_err_t content_handler_storage(httpd_req_t *req)
     }
   }
 
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]},\"flash\":{");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"()]},"flash":{)");
 
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 
   bufferused = 0;
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "\"total\":%u,\"used\":%u,\"files\":[", flash_totalkilobytes, flash_usedkilobytes);
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"("total":%u,"used":%u,"files":[)", flash_totalkilobytes, flash_usedkilobytes);
   bufferused += fileSystemListDirectory(&httpbuf[bufferused], BUFSIZE - bufferused, LittleFS, "/", 0);
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]}}}");
 
@@ -252,7 +252,7 @@ esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filenam
   {
     httpd_resp_set_type(req, "application/octet-stream");
 
-    char *httpheader = NULL;
+    char *httpheader = nullptr;
 
     asprintf(&httpheader, "attachment; filename=\"%s\"", filename);
 
@@ -263,7 +263,6 @@ esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filenam
       return ESP_ERR_NO_MEM;
     }
     httpd_resp_set_hdr(req, "Content-Disposition", httpheader);
-    // ESP_LOGD(TAG, "Content-Disposition: %s", httpheader);
 
     ESP_LOGD(TAG, "Stream file %s", filename);
     File f = filesystem.open(filename, FILE_READ);
@@ -824,7 +823,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // Output the first batch of settings/parameters/values
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         "{\"banks\":%u,\"seriesmodules\":%u,\"sent\":%u,\"received\":%u,\"modulesfnd\":%u,\"badcrc\":%u,\"ignored\":%u,\"roundtrip\":%u,\"oos\":%u,\"activerules\":%u,\"uptime\":%u,\"can_fail\":%u,\"can_sent\":%u,\"can_rec\":%u,\"sec\":\"%s\",\"qlen\":%u,",
+                         R"({"banks":%u,"seriesmodules":%u,"sent":%u,"received":%u,"modulesfnd":%u,"badcrc":%u,"ignored":%u,"roundtrip":%u,"oos":%u,"activerules":%u,"uptime":%u,"can_fail":%u,"can_sent":%u,"can_rec":%u,"sec":"%s","qlen":%u,)",
                          mysettings.totalNumberOfBanks,
                          mysettings.totalNumberOfSeriesModules,
                          prg.packetsGenerated,
@@ -842,7 +841,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
   {
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                           "\"dyncv\":%u,\"dyncc\":%u,",
+                           R"("dyncv":%u,"dyncc":%u,)",
                            rules.DynamicChargeVoltage(),
                            rules.DynamicChargeCurrent());
   }
@@ -854,12 +853,12 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   {
     // Output current monitor values, this is inside an array, so could be more than 1
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                           "{\"c\":%.4f,\"v\":%.4f,\"mahout\":%u,\"mahin\":%u,\"p\":%.2f,\"soc\":%.2f,\"dmahout\":%u,\"dmahin\":%u",
+                           R"({"c":%.4f,"v":%.4f,"mahout":%u,"mahin":%u,"p":%.2f,"soc":%.2f,"dmahout":%u,"dmahin":%u)",
                            currentMonitor.modbus.current, currentMonitor.modbus.voltage, currentMonitor.modbus.milliamphour_out,
                            currentMonitor.modbus.milliamphour_in, currentMonitor.modbus.power, currentMonitor.stateofcharge,
                            currentMonitor.modbus.daily_milliamphour_out, currentMonitor.modbus.daily_milliamphour_in);
 
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",\"time100\":%u,\"time20\":%u,\"time10\":%u", time100, time20, time10);
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"(,"time100":%u,"time20":%u,"time10":%u)", time100, time20, time10);
 
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "}");
   }
@@ -956,7 +955,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
-  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 
@@ -982,7 +980,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
-  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 
@@ -1008,7 +1005,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
-  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 
@@ -1034,7 +1030,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
-  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 
@@ -1059,7 +1054,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
-  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 
@@ -1084,7 +1078,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
-  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 
@@ -1110,7 +1103,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
-  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 
@@ -1128,7 +1120,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
-  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 
@@ -1148,7 +1139,6 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]}");
 
-  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
 
@@ -1163,14 +1153,14 @@ esp_err_t api_handler(httpd_req_t *req)
     return ESP_FAIL;
   }
 
-  std::array<std::string, 15> uri_array = {
+  const std::array<std::string, 15> uri_array = {
       "monitor2", "monitor3", "integration",
       "settings", "rules", "rs485settings",
       "currentmonitor", "avrstatus", "modules",
       "identifyModule", "storage", "avrstorage",
       "chargeconfig", "tileconfig", "history"};
 
-  std::array<std::function<esp_err_t(httpd_req_t * req)>, 15> func_ptr = {
+  const std::array<std::function<esp_err_t(httpd_req_t * req)>, 15> func_ptr = {
       content_handler_monitor2, content_handler_monitor3, content_handler_integration,
       content_handler_settings, content_handler_rules, content_handler_rs485settings,
       content_handler_currentmonitor, content_handler_avrstatus, content_handler_modules,
@@ -1189,10 +1179,10 @@ esp_err_t api_handler(httpd_req_t *req)
     if (name.compare(uri_array.at(i)) == 0)
     {
       // Found it
-      ESP_LOGI(TAG, "API call: %s", name);
+      ESP_LOGI(TAG, "API call: %s", name.c_str());
       httpd_resp_set_type(req, "application/json");
       setNoStoreCacheControl(req);
-      return func_ptr[i](req);
+      return func_ptr.at(i)(req);
     }
   }
 
