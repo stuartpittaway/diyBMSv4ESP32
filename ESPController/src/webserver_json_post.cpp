@@ -1123,6 +1123,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
         post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler,
         post_visibletiles_json_handler, post_resetdailyahcount_json_handler, post_setsoc_json_handler};
+
     auto name = std::string(req->uri);
 
     if (name.rfind("/post/", 0) == 0)
@@ -1137,7 +1138,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         {
             // Found it
             ESP_LOGI(TAG, "API post: %s", name.c_str());
-            return func_ptr[i](req, urlEncoded);
+            return func_ptr.at(i)(req, urlEncoded);
         }
     }
 
