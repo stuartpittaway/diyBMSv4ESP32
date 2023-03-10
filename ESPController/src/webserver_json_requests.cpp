@@ -589,9 +589,9 @@ esp_err_t content_handler_rules(httpd_req_t *req)
   root["ControlState"] = _controller_state;
 
   JsonArray defaultArray = root.createNestedArray("relaydefault");
-  for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
+  for (auto v : mysettings.rulerelaydefault)
   {
-    switch (mysettings.rulerelaydefault[relay])
+    switch (v)
     {
     case RELAY_OFF:
       defaultArray.add(false);
@@ -607,9 +607,9 @@ esp_err_t content_handler_rules(httpd_req_t *req)
   }
 
   JsonArray typeArray = root.createNestedArray("relaytype");
-  for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
+  for (auto v : mysettings.relaytype)
   {
-    switch (mysettings.relaytype[relay])
+    switch (v)
     {
     case RELAY_STANDARD:
       typeArray.add("Std");
@@ -633,9 +633,9 @@ esp_err_t content_handler_rules(httpd_req_t *req)
     rule["triggered"] = rules.rule_outcome[r];
     JsonArray data = rule.createNestedArray("relays");
 
-    for (uint8_t relay = 0; relay < RELAY_TOTAL; relay++)
+    for (auto v : mysettings.rulerelaystate[r])
     {
-      switch (mysettings.rulerelaystate[r][relay])
+      switch (v)
       {
       case RELAY_OFF:
         data.add(false);
@@ -871,27 +871,26 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE, "\"errors\":[");
-  uint8_t count = 0;
-
-  for (size_t i = 0; i < sizeof(rules.ErrorCodes); i++)
+  int count = 0;
+  for (auto v : rules.ErrorCodes)
   {
-    if (rules.ErrorCodes[i] != InternalErrorCode::NoError)
+    if (v != InternalErrorCode::NoError)
     {
       // Comma if not zero
       if (count)
       {
         bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
       }
-      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.ErrorCodes[i]);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", v);
       count++;
     }
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],\"warnings\":[");
 
   count = 0;
-  for (size_t i = 0; i < sizeof(rules.WarningCodes); i++)
+  for (auto v : rules.WarningCodes)
   {
-    if (rules.WarningCodes[i] != InternalWarningCode::NoWarning)
+    if (v != InternalWarningCode::NoWarning)
     {
       // Comma if not zero
       if (count)
@@ -899,13 +898,11 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
         bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
       }
 
-      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.WarningCodes[i]);
+      bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", v);
       count++;
     }
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
-
-  // ESP_LOGD(TAG, "bufferused=%i", bufferused);  ESP_LOGD(TAG, "monitor2: %s", buf);
 
   // Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
