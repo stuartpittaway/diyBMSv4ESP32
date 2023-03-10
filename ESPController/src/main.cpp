@@ -1330,36 +1330,6 @@ void pulse_relay_off(const TimerHandle_t)
   xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
 }
 
-/*
-void pulse_relay_off_task(void *param)
-{
-  for (;;)
-  {
-    // Wait until this task is triggered
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-    // Now wait 200ms before switching off the relays
-    vTaskDelay(pdMS_TO_TICKS(200));
-
-    for (int8_t y = 0; y < RELAY_TOTAL; y++)
-    {
-      if (previousRelayPulse[y])
-      {
-        // We now need to rapidly turn off the relay after a fixed period of time (pulse mode)
-        // However we leave the relay and previousRelayState looking like the relay has triggered (it has!)
-        // to prevent multiple pulses being sent on each rule refresh
-        hal.SetOutputState(y, RelayState::RELAY_OFF);
-
-        previousRelayPulse[y] = false;
-      }
-    }
-
-    // Fire task to record state of outputs to SD Card
-    xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
-  }
-}
-*/
-
 [[noreturn]] void rules_task(void *)
 {
   for (;;)
@@ -3150,14 +3120,14 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 
     // Task 3
     //  Send these requests to all banks of modules
-    uint16_t i = 0;
-    uint16_t max = TotalNumberOfCells();
+    uint8_t i = 0;
+    uint8_t max = TotalNumberOfCells();
 
     uint8_t startmodule = 0;
 
     while (i < max)
     {
-      uint16_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
+      uint8_t endmodule = (startmodule + maximum_cell_modules_per_packet) - 1;
 
       // Limit to number of modules we have configured
       if (endmodule > max)

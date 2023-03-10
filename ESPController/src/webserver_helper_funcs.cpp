@@ -80,15 +80,15 @@ bool getPostDataIntoBuffer(httpd_req_t *req)
 // Gets text value from a character buffer (as returned in HTTP request, query string etc)
 bool GetTextFromKeyValue(const char *buffer, const char *key, char *text, size_t textLength, bool urlEncoded)
 {
-    if (httpd_query_key_value(httpbuf, key, text, textLength) == ESP_OK)
+    if (httpd_query_key_value(buffer, key, text, textLength) == ESP_OK)
     {
         // ESP_LOGD(TAG, "Found: %s=%s", key, param);
 
         if (urlEncoded)
         {
             // Decode the incoming char array
-            char *buf = (char *)malloc(textLength + 1);
-            if (buf == NULL)
+            auto buf = (char *)malloc(textLength + 1);
+            if (buf == nullptr)
             {
                 ESP_LOGE(TAG, "Unable to malloc");
                 return false;
@@ -175,13 +175,13 @@ bool GetKeyValue(const char *buffer, const char *key, int32_t *value, bool urlEn
 {
     char param[32];
 
-    if (GetTextFromKeyValue(httpbuf, key, param, sizeof(param), urlEncoded))
+    if (GetTextFromKeyValue(buffer, key, param, sizeof(param), urlEncoded))
     {
         // String to number conversion
-        char **endptr = NULL;
+        char **endptr = nullptr;
         long v = strtol(param, endptr, 10);
 
-        *value = v;
+        *value = (int32_t)v;
         return true;
     }
 
@@ -193,10 +193,10 @@ bool GetKeyValue(const char *buffer, const char *key, float *value, bool urlEnco
 {
     char param[32];
 
-    if (GetTextFromKeyValue(httpbuf, key, param, sizeof(param), urlEncoded))
+    if (GetTextFromKeyValue(buffer, key, param, sizeof(param), urlEncoded))
     {
         // String to number conversion
-        char **endptr = NULL;
+        char **endptr = nullptr;
         float v = strtof(param, endptr);
 
         *value = v;
@@ -211,13 +211,13 @@ bool GetKeyValue(const char *buffer, const char *key, uint32_t *value, bool urlE
 {
     char param[32];
 
-    if (GetTextFromKeyValue(httpbuf, key, param, sizeof(param), urlEncoded))
+    if (GetTextFromKeyValue(buffer, key, param, sizeof(param), urlEncoded))
     {
         // String to number conversion
-        char **endptr = NULL;
+        char **endptr = nullptr;
         unsigned long v = strtoul(param, endptr, 10);
 
-        *value = v;
+        *value = (uint32_t)v;
         return true;
     }
 
@@ -228,7 +228,7 @@ bool GetKeyValue(const char *buffer, const char *key, bool *value, bool urlEncod
 {
     char param[32];
 
-    if (GetTextFromKeyValue(httpbuf, key, param, sizeof(param), urlEncoded))
+    if (GetTextFromKeyValue(buffer, key, param, sizeof(param), urlEncoded))
     {
         // Compare strings
         bool v = false;
@@ -255,7 +255,8 @@ char from_hex(char ch)
 void url_decode(char *str, char *buf)
 {
     // ESP_LOGD(TAG, "Encoded: %s", str);
-    char *pstr = str, *pbuf = buf;
+    char *pstr = str;
+    char *pbuf = buf;
     while (*pstr)
     {
         if (*pstr == '%')
