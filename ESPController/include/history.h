@@ -83,9 +83,9 @@ public:
     esp_err_t GenerateJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
     {
         // allocate & clear memory for copy of history values
-        history_values *h = (history_values *)calloc(NUMBER_OF_HISTORY_POINTS, sizeof(history_values));
+        auto h = (history_values *)calloc(NUMBER_OF_HISTORY_POINTS, sizeof(history_values));
 
-        if (h == NULL)
+        if (h == nullptr)
         {
             // malloc failed
             return httpd_resp_set_status(req, HTTPD_500);
@@ -101,35 +101,35 @@ public:
         int bufferused = 0;
 
         // TIME
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "{\"time\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "{\"time\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%ld", h[i].historic_time);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%ld", h[i].historic_time);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
 
         // stateofcharge
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"stateofcharge\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"stateofcharge\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%.2f", h[i].stateofcharge);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%.2f", h[i].stateofcharge);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
 
         // voltage
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"voltage\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"voltage\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%.2f", h[i].voltage);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%.2f", h[i].voltage);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
         //  Send it...
@@ -139,35 +139,35 @@ public:
         bufferused = 0;
 
         // milliamphour_in
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"milliamphour_in\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"milliamphour_in\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%u", h[i].milliamphour_in);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%u", h[i].milliamphour_in);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
 
         // milliamphour_out
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"milliamphour_out\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"milliamphour_out\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%u", h[i].milliamphour_out);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%u", h[i].milliamphour_out);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
 
         // current
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"current\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"current\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%.4f", h[i].current);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%.4f", h[i].current);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
         //  Send it...
@@ -177,35 +177,35 @@ public:
         bufferused = 0;
 
         // highestExternalTemp
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"highestExternalTemp\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"highestExternalTemp\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%i", h[i].highestExternalTemp);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%i", h[i].highestExternalTemp);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
 
         // lowestExternalTemp
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"lowestExternalTemp\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"lowestExternalTemp\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%i", h[i].lowestExternalTemp);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%i", h[i].lowestExternalTemp);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
 
         // lowestBankVoltage
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"lowestBankVoltage\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"lowestBankVoltage\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%u", h[i].lowestBankVoltage);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%u", h[i].lowestBankVoltage);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
 
@@ -216,33 +216,33 @@ public:
         bufferused = 0;
 
         // HighestBankVoltage
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"highestBankVoltage\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"highestBankVoltage\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%u", h[i].highestBankVoltage);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%u", h[i].highestBankVoltage);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
         // HighestBankRange
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"highestBankRange\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"highestBankRange\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%u", h[i].highestBankRange);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%u", h[i].highestBankRange);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
         // highestCellVoltage
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"highestCellVoltage\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"highestCellVoltage\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%u", h[i].highestCellVoltage);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%u", h[i].highestCellVoltage);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
         //  Send it...
@@ -252,18 +252,18 @@ public:
         bufferused = 0;
 
         // lowestCellVoltage
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "],\"lowestCellVoltage\":[");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"lowestCellVoltage\":[");
         for (uint16_t i = 0; i < size; i++)
         {
-            bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "%u", h[i].lowestCellVoltage);
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%u", h[i].lowestCellVoltage);
             if (i != (size - 1))
             {
-                bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, ",");
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
 
         // Closing tag
-        bufferused += snprintf(&buffer[bufferused], BUFSIZE - bufferused, "]}");
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "]}");
 
         //  Send it...
         httpd_resp_send_chunk(req, buffer, bufferused);
