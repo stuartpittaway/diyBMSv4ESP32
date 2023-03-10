@@ -81,6 +81,8 @@ CurrentMonitorINA229 currentmon_internal = CurrentMonitorINA229();
 
 const uart_port_t rs485_uart_num = UART_NUM_1;
 
+const char *wificonfigfilename = "/diybms/wifi.json";
+
 HAL_ESP32 hal;
 
 volatile bool emergencyStop = false;
@@ -3200,9 +3202,6 @@ bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool Show
         // Mark end of string
         buffer[length] = '\0';
 
-        // Soak up any other characters on the buffer and throw away
-        // while (stream.available())        {          stream.read();        }
-
         // Return to caller
         return true;
       }
@@ -3220,22 +3219,13 @@ bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool Show
       }
       else
       {
-        buffer[length++] = data;
-        if (ShowPasswordChar)
-        {
-          // Hide real character
-          fputc('*', stdout);
-        }
-        else
-        {
-          fputc(data, stdout);
-        }
+        buffer[length++] = (char)data;
+        fputc(ShowPasswordChar ? '*' : (char)data, stdout);
       }
     }
   }
 }
 
-const char *wificonfigfilename = "/diybms/wifi.json";
 
 bool DeleteWiFiConfigFromSDCard()
 {
@@ -3443,9 +3433,9 @@ struct log_level_t
 };
 
 // Default log levels to use for various components.
-log_level_t log_levels[] =
+const std::array<log_level_t, 21> log_levels =
     {
-        {.tag = "*", .level = ESP_LOG_DEBUG},
+        log_level_t{.tag = "*", .level = ESP_LOG_DEBUG},
         {.tag = "wifi", .level = ESP_LOG_WARN},
         {.tag = "dhcpc", .level = ESP_LOG_WARN},
         {.tag = "diybms", .level = ESP_LOG_DEBUG},
@@ -3536,14 +3526,14 @@ void setup()
   esp_chip_info_t chip_info;
 
   // Configure log levels
-  for (log_level_t log : log_levels)
+  for (auto log : log_levels)
   {
     esp_log_level_set(log.tag, log.level);
   }
 
   esp_chip_info(&chip_info);
 
-  ESP_LOGI(TAG, R"RAW(
+  ESP_LOGI(TAG, R"(
 
 
                _          __ 
@@ -3552,7 +3542,7 @@ void setup()
          /
 
 CONTROLLER - ver:%s compiled %s
-ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)RAW",
+ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
            GIT_VERSION, COMPILE_DATE_TIME,
            chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
