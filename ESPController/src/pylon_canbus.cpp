@@ -30,8 +30,8 @@ void pylon_message_351()
 
   data351 data;
 
-  //If we pass ZERO's to SOFAR inverter it appears to ignore them
-  //so send 0.1V and 0.1Amps instead to indicate "stop"
+  // If we pass ZERO's to SOFAR inverter it appears to ignore them
+  // so send 0.1V and 0.1Amps instead to indicate "stop"
 
   //  Defaults (do nothing)
   data.battery_charge_voltage = 1;
@@ -74,8 +74,8 @@ void pylon_message_355()
     uint16_t stateofhealthvalue;
   };
 
-  //Only send CANBUS message if we have a current monitor enabled & valid
-  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
+  // Only send CANBUS message if we have a current monitor enabled & valid
+  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings && (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS || mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL))
   {
     data355 data;
     // 0 SOC value un16 1 %
