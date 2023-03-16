@@ -2060,23 +2060,26 @@ bool CurrentMonitorResetDailyAmpHourCounters()
 
 void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint16_t batterycapacity, float fullchargevolt, float tailcurrent, float chargeefficiency)
 {
-  mysettings.currentMonitoring_shuntmv = shuntmv;
-  mysettings.currentMonitoring_shuntmaxcur = shuntmaxcur;
-  mysettings.currentMonitoring_batterycapacity = batterycapacity;
-  mysettings.currentMonitoring_fullchargevolt = (uint16_t)(100.0 * fullchargevolt);
-  mysettings.currentMonitoring_tailcurrent = (uint16_t)(100.0 * tailcurrent);
-  mysettings.currentMonitoring_chargeefficiency = (uint16_t)(100.0 * chargeefficiency);
-  // Reset stored shuntcal to zero to allow automatic calibration
-  // this is updated by the CurrentMonitorSetAdvancedSettings call
-  mysettings.currentMonitoring_shuntcal = 0;
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
   {
-    currentMon_ConfigureBasic(mysettings.currentMonitoring_shuntmv, mysettings.currentMonitoring_shuntmaxcur, mysettings.currentMonitoring_batterycapacity, mysettings.currentMonitoring_fullchargevolt, mysettings.currentMonitoring_tailcurrent, mysettings.currentMonitoring_chargeefficiency);
+    currentMon_ConfigureBasic(shuntmv, shuntmaxcur, batterycapacity, fullchargevolt, tailcurrent, chargeefficiency);
   }
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
   {
+    mysettings.currentMonitoring_shuntmv = shuntmv;
+    mysettings.currentMonitoring_shuntmaxcur = shuntmaxcur;
+    mysettings.currentMonitoring_batterycapacity = batterycapacity;
+    mysettings.currentMonitoring_fullchargevolt = (uint16_t)(100.0 * fullchargevolt);
+    mysettings.currentMonitoring_tailcurrent = (uint16_t)(100.0 * tailcurrent);
+    mysettings.currentMonitoring_chargeefficiency = (uint16_t)(100.0 * chargeefficiency);
+    // Reset stored shuntcal to zero to allow automatic calibration
+    // this is updated by the CurrentMonitorSetAdvancedSettings call
+    mysettings.currentMonitoring_shuntcal = 0;
+    ValidateConfiguration(&mysettings);
+    SaveConfiguration(&mysettings);
+
     if (hal.GetVSPIMutex())
     {
       currentmon_internal.Configure(
@@ -2105,9 +2108,6 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
     PZEM017_SetDeviceAddress(mysettings.currentMonitoringModBusAddress);
     PZEM017_SetShuntType(mysettings.currentMonitoringModBusAddress, shuntmaxcur);
   }
-
-  ValidateConfiguration(&mysettings);
-  SaveConfiguration(&mysettings);
 }
 
 // Save the current monitor advanced settings back to the internal device
@@ -2354,14 +2354,6 @@ void currentMon_ConfigureAdvancedExternal(currentmonitoring_struct newvalues)
 // Save the current monitor advanced settings back to the device over MODBUS/RS485
 void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
 {
-  mysettings.currentMonitoring_shuntcal = newvalues.modbus.shuntcal;
-  mysettings.currentMonitoring_temperaturelimit = newvalues.modbus.temperaturelimit;
-  mysettings.currentMonitoring_overvoltagelimit = 100 * newvalues.modbus.overvoltagelimit;
-  mysettings.currentMonitoring_undervoltagelimit = 100 * newvalues.modbus.undervoltagelimit;
-  mysettings.currentMonitoring_overcurrentlimit = 100 * newvalues.modbus.overcurrentlimit;
-  mysettings.currentMonitoring_undercurrentlimit = 100 * newvalues.modbus.undercurrentlimit;
-  mysettings.currentMonitoring_overpowerlimit = newvalues.modbus.overpowerlimit;
-  mysettings.currentMonitoring_shunttempcoefficient = newvalues.modbus.shunttempcoefficient;
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
   {
@@ -2370,6 +2362,17 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
 
   if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
   {
+    mysettings.currentMonitoring_shuntcal = newvalues.modbus.shuntcal;
+    mysettings.currentMonitoring_temperaturelimit = newvalues.modbus.temperaturelimit;
+    mysettings.currentMonitoring_overvoltagelimit = 100 * newvalues.modbus.overvoltagelimit;
+    mysettings.currentMonitoring_undervoltagelimit = 100 * newvalues.modbus.undervoltagelimit;
+    mysettings.currentMonitoring_overcurrentlimit = 100 * newvalues.modbus.overcurrentlimit;
+    mysettings.currentMonitoring_undercurrentlimit = 100 * newvalues.modbus.undercurrentlimit;
+    mysettings.currentMonitoring_overpowerlimit = newvalues.modbus.overpowerlimit;
+    mysettings.currentMonitoring_shunttempcoefficient = newvalues.modbus.shunttempcoefficient;
+    ValidateConfiguration(&mysettings);
+    SaveConfiguration(&mysettings);
+    
     if (hal.GetVSPIMutex())
     {
       currentmon_internal.Configure(
@@ -2397,9 +2400,6 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   // Zero all data
   memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
   currentMonitor.validReadings = false;
-
-  ValidateConfiguration(&mysettings);
-  SaveConfiguration(&mysettings);
 }
 
 // Swap the two 16 bit words in a 32bit word
@@ -3506,8 +3506,7 @@ log_level_t log_levels[] =
         {.tag = "diybms-set", .level = ESP_LOG_INFO},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
         {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
-        {.tag = "curmon", .level = ESP_LOG_INFO}
-};
+        {.tag = "curmon", .level = ESP_LOG_INFO}};
 
 void consoleConfigurationCheck()
 {
