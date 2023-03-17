@@ -116,11 +116,15 @@ jobs:
           name: DIYBMS-Compiled
 
       - name: Display structure of downloaded files
+        run: mv ./Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin ./Controller/esp32-controller-firmware-over-the-air.bin
+
+      - name: Display structure of downloaded files
         run: ls -R
 
       - name: ZIP output for release
         run: |
           zip release.zip ./Controller/esp32-controller-firmware-complete.bin
+          zip release.zip ./Controller/esp32-controller-firmware-over-the-air.bin
           zip release.zip ./ControllerBoardTest/diybms_boardtest_espressif32_esp32-devkitc.bin        
           zip release.zip ./Modules/manifest.json
           zip release.zip ./Modules/HEX/*.*
