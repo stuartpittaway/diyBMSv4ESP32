@@ -175,7 +175,7 @@ void pylon_message_359()
     // Pylon can have multiple battery each of 74Ah capacity, so emulate this based on total Ah capacity
     // this drives the inverter to assume certain charge/discharge parameters based on number of battery banks installed
     // Set inverter to use "Pylontech US3000C 3.5kWh" in its settings (these are 74Ah each)
-    data.byte4 = min((uint8_t)1, (uint8_t)round(mysettings.nominalbatcap / 74.0));
+    data.byte4 = max((uint8_t)1, (uint8_t)round(mysettings.nominalbatcap / 74.0));
   }
   else
   {
