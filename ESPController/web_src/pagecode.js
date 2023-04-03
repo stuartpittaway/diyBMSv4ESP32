@@ -1774,7 +1774,7 @@ $(function () {
         $.getJSON("/api/chargeconfig",
             function (data) {
 
-                $("#canbusprotocol").val(data.chargeconfig.canbusprotocol);
+                $("#protocol").val(data.chargeconfig.protocol);
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
 
                 $("#chargevolt").val((data.chargeconfig.chargevolt / 10.0).toFixed(1));

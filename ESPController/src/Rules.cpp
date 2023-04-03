@@ -401,7 +401,7 @@ void Rules::RunRules(
 
 bool Rules::SharedChargingDischargingRules(diybms_eeprom_settings *mysettings)
 {
-    if (mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    if (mysettings->protocol == ProtocolEmulation::EMULATION_DISABLED)
         return false;
 
     if (invalidModuleCount > 0)
@@ -496,7 +496,7 @@ void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, Ce
     // Remember dynamicChargeCurrent scale is 0.1
     dynamicChargeCurrent = mysettings->chargecurrent;
 
-    if (!mysettings->dynamiccharge || mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    if (!mysettings->dynamiccharge || mysettings->protocol == ProtocolEmulation::EMULATION_DISABLED)
     {
         // Its switched off, use default
         return;
@@ -549,7 +549,7 @@ void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, Ce
 // Output is cached in variable dynamicChargeVoltage as its used in multiple places
 void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray)
 {
-    if (!mysettings->dynamiccharge || mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    if (!mysettings->dynamiccharge || mysettings->protocol == ProtocolEmulation::EMULATION_DISABLED)
     {
         // Its switched off, use default voltage
         dynamicChargeVoltage = mysettings->chargevolt;

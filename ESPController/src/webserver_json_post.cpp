@@ -519,14 +519,14 @@ esp_err_t post_savers485settings_json_handler(httpd_req_t *req, bool urlEncoded)
 esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     uint8_t temp;
-    if (GetKeyValue(httpbuf, "canbusprotocol", &temp, urlEncoded))
+    if (GetKeyValue(httpbuf, "protocol", &temp, urlEncoded))
     {
-        mysettings.canbusprotocol = (CanBusProtocolEmulation)temp;
+        mysettings.protocol = (ProtocolEmulation)temp;
     }
     else
     {
         // Field not found/invalid, so disable
-        mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+        mysettings.protocol = ProtocolEmulation::EMULATION_DISABLED;
     }
     if (GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded))
     {
@@ -613,6 +613,12 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
 
     saveConfiguration();
+
+   // Notify the RS458 RX task that might be in bocking state (after enabling the RS485_PYLONTECH emulation)
+   if (rs485_rx_task_handle != NULL)
+   {
+     xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+   }
 
     return SendSuccess(req);
 }

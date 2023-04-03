@@ -531,7 +531,7 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   JsonObject root = doc.to<JsonObject>();
   JsonObject settings = root.createNestedObject("chargeconfig");
 
-  settings["canbusprotocol"] = mysettings.canbusprotocol;
+  settings["protocol"] = mysettings.protocol;
   settings["nominalbatcap"] = mysettings.nominalbatcap;
   settings["chargevolt"] = mysettings.chargevolt;
   settings["chargecurrent"] = mysettings.chargecurrent;
@@ -841,7 +841,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          canbus_messages_received, &CookieValue[sizeof(CookieValue) - 3],
                          prg.queueLength());
 
-  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
+  if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED && mysettings.dynamiccharge)
   {
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                            "\"dyncv\":%u,\"dyncc\":%u,",

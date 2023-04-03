@@ -89,11 +89,12 @@ enum RelayType : uint8_t
   RELAY_PULSE = 0x01
 };
 
-enum CanBusProtocolEmulation : uint8_t
+enum ProtocolEmulation : uint8_t
 {
-  CANBUS_DISABLED = 0x00,
+  EMULATION_DISABLED = 0x00,
   CANBUS_VICTRON = 0x01,
-  CANBUS_PYLONTECH = 0x02
+  CANBUS_PYLONTECH = 0x02,
+  RS485_PYLONTECH = 0x03
 };
 
 enum CurrentMonitorDevice : uint8_t
@@ -174,7 +175,7 @@ struct diybms_eeprom_settings
 
   char language[2 + 1];
 
-  CanBusProtocolEmulation canbusprotocol;
+  ProtocolEmulation protocol;
   uint16_t nominalbatcap;
   // Maximum charge voltage - scale 0.1
   uint16_t chargevolt;

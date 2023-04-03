@@ -39,7 +39,7 @@ static const char influxdb_databasebucket_JSONKEY[] = "bucket";
 static const char influxdb_orgid_JSONKEY[] = "org";
 static const char influxdb_serverurl_JSONKEY[] = "url";
 static const char influxdb_loggingFreqSeconds_JSONKEY[] = "logfreq";
-static const char canbusprotocol_JSONKEY[] = "canbusprotocol";
+static const char protocol_JSONKEY[] = "protocol";
 static const char nominalbatcap_JSONKEY[] = "nominalbatcap";
 static const char chargevolt_JSONKEY[] = "chargevolt";
 static const char chargecurrent_JSONKEY[] = "chargecurrent";
@@ -109,7 +109,7 @@ static const char rs485baudrate_NVSKEY[] = "485baudrate";
 static const char rs485databits_NVSKEY[] = "485databits";
 static const char rs485parity_NVSKEY[] = "485parity";
 static const char rs485stopbits_NVSKEY[] = "485stopbits";
-static const char canbusprotocol_NVSKEY[] = "canbusprotocol";
+static const char protocol_NVSKEY[] = "protocol";
 static const char nominalbatcap_NVSKEY[] = "nominalbatcap";
 static const char chargevolt_NVSKEY[] = "cha_volt";
 static const char chargecurrent_NVSKEY[] = "cha_current";
@@ -354,7 +354,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE_UINT8(rs485databits);
         MACRO_NVSWRITE_UINT8(rs485parity);
         MACRO_NVSWRITE_UINT8(rs485stopbits);
-        MACRO_NVSWRITE_UINT8(canbusprotocol);
+        MACRO_NVSWRITE_UINT8(protocol);
 
         MACRO_NVSWRITE(currentMonitoring_shuntmv);
         MACRO_NVSWRITE(currentMonitoring_shuntmaxcur);
@@ -486,7 +486,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD_UINT8(rs485databits);
         MACRO_NVSREAD_UINT8(rs485parity);
         MACRO_NVSREAD_UINT8(rs485stopbits);
-        MACRO_NVSREAD_UINT8(canbusprotocol);
+        MACRO_NVSREAD_UINT8(protocol);
         MACRO_NVSREAD(nominalbatcap);
         MACRO_NVSREAD(chargevolt);
         MACRO_NVSREAD(chargecurrent);
@@ -556,7 +556,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     // EEPROM settings are invalid so default configuration
     _myset->mqtt_enabled = false;
 
-    _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+    _myset->protocol = ProtocolEmulation::EMULATION_DISABLED;
     _myset->nominalbatcap = 280;    // Scale 1
     _myset->chargevolt = 565;       // Scale 0.1
     _myset->chargecurrent = 650;    // Scale 0.1
@@ -970,7 +970,7 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
         }
     } // end for
 
-    root[canbusprotocol_JSONKEY] = (uint8_t)settings->canbusprotocol;
+    root[protocol_JSONKEY] = (uint8_t)settings->protocol;
     root[nominalbatcap_JSONKEY] = settings->nominalbatcap;
 
     root[chargevolt_JSONKEY] = settings->chargevolt;
@@ -1065,7 +1065,7 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
 
     strncpy(settings->language, root[language_JSONKEY].as<String>().c_str(), sizeof(settings->language));
 
-    settings->canbusprotocol = (CanBusProtocolEmulation)root[canbusprotocol_JSONKEY];
+    settings->protocol = (ProtocolEmulation)root[protocol_JSONKEY];
     settings->nominalbatcap = root[nominalbatcap_JSONKEY];
     settings->chargevolt = root[chargevolt_JSONKEY];
     settings->chargecurrent = root[chargecurrent_JSONKEY];
