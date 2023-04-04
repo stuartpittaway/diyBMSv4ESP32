@@ -47,7 +47,6 @@ class PylonRS485 {
       char tmp_buf[150];
 
       uint32_t hex2int(char *hex, char len);
-      void recomputeFlags();
       void insertLength(char *buf, int payload_len);
       int appendChecksum(char *buf, int buf_size, int payload_len);
 };

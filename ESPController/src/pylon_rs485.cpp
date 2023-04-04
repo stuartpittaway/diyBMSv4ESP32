@@ -11,6 +11,8 @@
 
 #include "pylon_rs485.h"
 
+static constexpr const char * const TAG = "diybms-pylon485";
+
 #define PYL_VERSION 0x3832    // '28' in ASCII
 #define PYL_ADDR    0x3230    // '02' in ASCII
 #define PYL_CID1    0x3634    // '46' in ASCII
@@ -47,22 +49,6 @@ uint32_t PylonRS485::hex2int(char *hex, char len) {
         val = (val << 4) | (byte & 0xF);
     }
     return val;
-}
-
-
-void PylonRS485::recomputeFlags() {
-   uint8_t tmp = 0x00;
-
-   if (!stop_charging) {
-      tmp |= 0x80;
-   }
-
-   if (!stop_discharging) {
-      tmp |= 0x40;
-   }
-
-   //single assignment at the end
-   flags = tmp;
 }
 
 
@@ -229,34 +215,30 @@ void PylonRS485::handle_rx() {
                stop_charging = !rules.IsChargeAllowed(&settings);
                stop_discharging = !rules.IsDischargeAllowed(&settings);
 
-               // Battery high voltage alarm -> stop charging
-               stop_charging |= rules.rule_outcome[Rule::BankOverVoltage] | rules.rule_outcome[Rule::CurrentMonitorOverVoltage];
+               // The IsChargeAllowed / IsDischargeAllowed methods already cover:
+               //  - Internal errors, Emergency stop
+               //  - Low & High module temperature alarms (set in Rules, stops both chrg & dischrg)
+               //  - Bank overvoltage & undervoltage alarm (set in Rules, stops both chrg & dischrg)
+               //  - External temperature alarm (set on Charging page, stops both chrg & dischrg)
+               //  - Low bank voltage (set on Charging page, stops discharging)
+               //  - High bank voltage (set on Charging page, stops charging)
+               //  - Cell undervoltage (set on Charging page, stops discharging)
+               //  - Cell overvoltage (set on Charging page, stops charging)
 
-               // Battery low voltage alarm -> stop discharging
-               stop_discharging |= rules.rule_outcome[Rule::BankUnderVoltage] | rules.rule_outcome[Rule::CurrentMonitorUnderVoltage];
+               // Battery high voltage alarm from Current monitor -> stop charging
+               stop_charging |= rules.rule_outcome[Rule::CurrentMonitorOverVoltage];
 
-               // Cell high voltage alarm -> stop charging
-               stop_charging |= rules.rule_outcome[Rule::ModuleOverVoltage];
-
-               // Cell low voltage alarm -> stop discharging
-               stop_discharging |= rules.rule_outcome[Rule::ModuleUnderVoltage];
-
-               // Battery temperature alarm, stop charging & discharging
-               if (rules.moduleHasExternalTempSensor) {
-                  if (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] || rules.rule_outcome[Rule::ModuleUnderTemperatureExternal]) {
-                     stop_charging = true;
-                     stop_discharging = true;
-                  }
-               }
-
-               // Comms error? Stop charging & discharging
-               if (rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop] | (controller_state != ControllerState::Running)) {
-                  stop_charging = true;
-                  stop_discharging = true;
-               }
+               // Battery low voltage alarm from Current monitor -> stop discharging
+               stop_discharging |= rules.rule_outcome[Rule::CurrentMonitorUnderVoltage];
 
                // Place bolean flags into byte status field
-               recomputeFlags();
+               flags = 0;
+               if (!stop_charging) {
+                  flags |= 0x80;
+               }
+               if (!stop_discharging) {
+                  flags |= 0x40;
+               }
 
                response_len = snprintf(tmp_buf, sizeof(tmp_buf),"~"      // SOH
                                                                "28"     // VER
@@ -276,6 +258,7 @@ void PylonRS485::handle_rx() {
 
             default:
                //ignore unsupported commands
+               ESP_LOGD(TAG, "Unsupported command 0x%04X", hdr.cid2);
             break;
          }
 
