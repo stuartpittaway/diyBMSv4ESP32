@@ -208,8 +208,8 @@ void PylonRS485::handle_rx() {
                // Defaults (do nothing)
                charge_current_limit = 1;
                discharge_current_limit = 1;
-               charge_voltage = rules.DynamicChargeVoltage();
-               discharge_voltage = settings.dischargevolt;
+               charge_voltage = rules.DynamicChargeVoltage() * 100; //convert to mV scale
+               discharge_voltage = settings.dischargevolt * 100;    //convert to mV scale
                if (rules.IsChargeAllowed(&settings)) {
                   if (rules.numberOfBalancingModules > 0 && settings.stopchargebalance == true) {
                      // Balancing is active, so stop charging
