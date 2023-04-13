@@ -718,7 +718,7 @@ function queryBMS() {
         }
 
         //Scale down for low voltages
-        if (minVoltage < 2.5) { minVoltage = 0; }
+        if (minVoltage < 0) { minVoltage = 0; }
 
         if (jsondata) {
             /*
