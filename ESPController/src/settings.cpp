@@ -354,7 +354,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE_UINT8(rs485databits);
         MACRO_NVSWRITE_UINT8(rs485parity);
         MACRO_NVSWRITE_UINT8(rs485stopbits);
-        MACRO_NVSWRITE_UINT8(canbusprotocol);
+        MACRO_NVSWRITE_UINT8(canbusprotocol);     
 
         MACRO_NVSWRITE(currentMonitoring_shuntmv);
         MACRO_NVSWRITE(currentMonitoring_shuntmaxcur);
@@ -372,6 +372,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(currentMonitoring_shunttempcoefficient);
         MACRO_NVSWRITE(currentMonitoring_tempcompenabled);
 
+        MACRO_NVSWRITE(nominalbatcap);
         MACRO_NVSWRITE(chargevolt)
         MACRO_NVSWRITE(chargecurrent)
         MACRO_NVSWRITE(dischargecurrent)
@@ -457,6 +458,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(graph_voltagelow);
         MACRO_NVSREAD(BypassOverTempShutdown);
         MACRO_NVSREAD(BypassThresholdmV);
+        MACRO_NVSREAD(timeZone);
         MACRO_NVSREAD(minutesTimeZone);
         MACRO_NVSREAD(daylight);
         MACRO_NVSREAD(loggingEnabled);
