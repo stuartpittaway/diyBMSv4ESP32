@@ -23,9 +23,14 @@ else:
 
 # print(env.Dump())
 
-env.Append(git_sha=git_sha)
-env.Append(git_sha_short=git_sha[32:])
-
+# These are used by GenerateBinaryFile.py
+# If a user doesn't have GIT installed, use fake fffff numbers...
+if (git_sha!=None):
+    env.Append(git_sha=git_sha)
+    env.Append(git_sha_short=git_sha[32:])
+else:                       
+    env.Append(git_sha="ffffffffffffffffffffffffffffffffffffffff")
+    env.Append(git_sha_short="ffffffff")
 
 include_dir = os.path.join(env.get('PROJECT_DIR'), 'include')
 
