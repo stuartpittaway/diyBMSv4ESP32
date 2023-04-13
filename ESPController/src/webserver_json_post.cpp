@@ -79,25 +79,19 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded)
     // Default to off
     mysettings.mqtt_enabled = false;
 
-    if (GetKeyValue(httpbuf, "mqttEnabled", &mysettings.mqtt_enabled, urlEncoded))
-    {
-    }
+    // Username and password are optional and may not be HTTP posted from web browser
+    memset(mysettings.mqtt_username, 0, sizeof(mysettings.mqtt_username));
+    memset(mysettings.mqtt_password, 0, sizeof(mysettings.mqtt_password));
 
-    if (GetTextFromKeyValue(httpbuf, "mqttTopic", mysettings.mqtt_topic, sizeof(mysettings.mqtt_topic), urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "mqttEnabled", &mysettings.mqtt_enabled, urlEncoded);
 
-    if (GetTextFromKeyValue(httpbuf, "mqttUri", mysettings.mqtt_uri, sizeof(mysettings.mqtt_uri), urlEncoded))
-    {
-    }
+    GetTextFromKeyValue(httpbuf, "mqttTopic", mysettings.mqtt_topic, sizeof(mysettings.mqtt_topic), urlEncoded);
 
-    if (GetTextFromKeyValue(httpbuf, "mqttUsername", mysettings.mqtt_username, sizeof(mysettings.mqtt_username), urlEncoded))
-    {
-    }
+    GetTextFromKeyValue(httpbuf, "mqttUri", mysettings.mqtt_uri, sizeof(mysettings.mqtt_uri), urlEncoded);
 
-    if (GetTextFromKeyValue(httpbuf, "mqttPassword", mysettings.mqtt_password, sizeof(mysettings.mqtt_password), urlEncoded))
-    {
-    }
+    GetTextFromKeyValue(httpbuf, "mqttUsername", mysettings.mqtt_username, sizeof(mysettings.mqtt_username), urlEncoded);
+
+    GetTextFromKeyValue(httpbuf, "mqttPassword", mysettings.mqtt_password, sizeof(mysettings.mqtt_password), urlEncoded);
 
     saveConfiguration();
 
