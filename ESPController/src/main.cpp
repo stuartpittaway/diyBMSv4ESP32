@@ -441,13 +441,15 @@ void wake_up_tft(bool force)
 
                 file.print("DateTime,");
 
+                std::string header;
+                header.reserve(150);
+
                 for (auto i = 0; i < TotalNumberOfCells(); i++)
                 {
                   std::string n;
                   n = std::to_string(i);
 
-                  std::string header;
-                  header.reserve(128);
+                  header.clear();
 
                   header.append("VoltagemV_")
                       .append(n)
@@ -490,7 +492,7 @@ void wake_up_tft(bool force)
           if (file && mysettings.loggingEnabled)
           {
             std::string dataMessage;
-            dataMessage.reserve(128);
+            dataMessage.reserve(150);
 
             dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
                 .append("-")
@@ -533,8 +535,10 @@ void wake_up_tft(bool force)
                 dataMessage.append("\r\n");
               }
 
+              // Write the string out to file on each cell to avoid generating a huge string
               file.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
 
+              // Start another string
               dataMessage.clear();
             }
             file.close();
@@ -2341,7 +2345,7 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
     mysettings.currentMonitoring_shunttempcoefficient = newvalues.modbus.shunttempcoefficient;
     ValidateConfiguration(&mysettings);
     SaveConfiguration(&mysettings);
-    
+
     if (hal.GetVSPIMutex())
     {
       currentmon_internal.Configure(
@@ -3225,7 +3229,6 @@ bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool Show
     }
   }
 }
-
 
 bool DeleteWiFiConfigFromSDCard()
 {
