@@ -229,7 +229,7 @@ esp_err_t content_handler_storage(httpd_req_t *req)
     }
   }
 
-  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"()]},"flash":{)");
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"(]},"flash":{)");
 
   //  Send it...
   httpd_resp_send_chunk(req, httpbuf, bufferused);
