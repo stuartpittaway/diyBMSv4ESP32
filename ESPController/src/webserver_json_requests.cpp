@@ -1174,6 +1174,14 @@ esp_err_t api_handler(httpd_req_t *req)
     name = name.substr(5);
   }
 
+  // Don't forget URLs can have a querystring attached to them!
+  auto questionmark = name.find("?", 0);
+  if (questionmark > 0)
+  {
+    // Strip string at querystring
+    name = name.substr(0, questionmark);
+  }
+
   for (size_t i = 0; i < uri_array.size(); i++)
   {
     if (name.compare(uri_array.at(i)) == 0)
@@ -1186,7 +1194,7 @@ esp_err_t api_handler(httpd_req_t *req)
     }
   }
 
-  ESP_LOGE(TAG, "No API match: %s", name);
+  ESP_LOGE(TAG, "No API match: %s", name.c_str());
 
   return httpd_resp_send_500(req);
 }
