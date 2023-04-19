@@ -13,7 +13,7 @@ void pylon_message_359();
 void pylon_message_35c();
 
 
-extern uint16_t TotalNumberOfCells();
+extern uint8_t TotalNumberOfCells();
 extern Rules rules;
 extern currentmonitoring_struct currentMonitor;
 extern diybms_eeprom_settings mysettings;

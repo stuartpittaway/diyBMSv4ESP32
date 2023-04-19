@@ -20,6 +20,7 @@
 #include "HAL_ESP32.h"
 
 #include "CurrentMonitorINA229.h"
+#include "history.h"
 
 esp_err_t api_handler(httpd_req_t *req);
 esp_err_t content_handler_downloadfile(httpd_req_t *req);
@@ -49,4 +50,6 @@ extern uint32_t time100;
 extern uint32_t time20;
 extern uint32_t time10;
 extern CurrentMonitorINA229 currentmon_internal;
+
+extern History history;
 #endif

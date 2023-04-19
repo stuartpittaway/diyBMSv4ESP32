@@ -166,7 +166,7 @@ struct diybms_eeprom_settings
   int32_t currentMonitoring_undercurrentlimit;
   int32_t currentMonitoring_overpowerlimit;
   uint16_t currentMonitoring_shunttempcoefficient;
-    bool currentMonitoring_tempcompenabled;
+  bool currentMonitoring_tempcompenabled;
 
   int32_t rs485baudrate;
   uart_word_length_t rs485databits;

@@ -79,25 +79,19 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded)
     // Default to off
     mysettings.mqtt_enabled = false;
 
-    if (GetKeyValue(httpbuf, "mqttEnabled", &mysettings.mqtt_enabled, urlEncoded))
-    {
-    }
+    // Username and password are optional and may not be HTTP posted from web browser
+    memset(mysettings.mqtt_username, 0, sizeof(mysettings.mqtt_username));
+    memset(mysettings.mqtt_password, 0, sizeof(mysettings.mqtt_password));
 
-    if (GetTextFromKeyValue(httpbuf, "mqttTopic", mysettings.mqtt_topic, sizeof(mysettings.mqtt_topic), urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "mqttEnabled", &mysettings.mqtt_enabled, urlEncoded);
 
-    if (GetTextFromKeyValue(httpbuf, "mqttUri", mysettings.mqtt_uri, sizeof(mysettings.mqtt_uri), urlEncoded))
-    {
-    }
+    GetTextFromKeyValue(httpbuf, "mqttTopic", mysettings.mqtt_topic, sizeof(mysettings.mqtt_topic), urlEncoded);
 
-    if (GetTextFromKeyValue(httpbuf, "mqttUsername", mysettings.mqtt_username, sizeof(mysettings.mqtt_username), urlEncoded))
-    {
-    }
+    GetTextFromKeyValue(httpbuf, "mqttUri", mysettings.mqtt_uri, sizeof(mysettings.mqtt_uri), urlEncoded);
 
-    if (GetTextFromKeyValue(httpbuf, "mqttPassword", mysettings.mqtt_password, sizeof(mysettings.mqtt_password), urlEncoded))
-    {
-    }
+    GetTextFromKeyValue(httpbuf, "mqttUsername", mysettings.mqtt_username, sizeof(mysettings.mqtt_username), urlEncoded);
+
+    GetTextFromKeyValue(httpbuf, "mqttPassword", mysettings.mqtt_password, sizeof(mysettings.mqtt_password), urlEncoded);
 
     saveConfiguration();
 
@@ -207,10 +201,6 @@ esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlE
         memset(&timeinfo, 0, sizeof(tm));
     }
 
-    /*
-        if (!_sd_card_installed)
-        {
-    */
     // LittleFS only supports short filenames
     char filename[32];
     snprintf(filename, sizeof(filename), "/cfg_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
@@ -222,37 +212,11 @@ esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlE
     File file = LittleFS.open(filename, "w");
     serializeJson(doc, file);
     file.close();
-    /*
-        }
-        else
-        {
-            if (hal.GetVSPIMutex())
-            {
 
-                char filename[128];
-                snprintf(filename, sizeof(filename), "/backup_config_%04u%02u%02u_%02u%02u%02u.json", timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-
-                // Get the file
-                ESP_LOGI(TAG, "Generating SD file %s", filename);
-
-                if (SD.exists(filename))
-                {
-                    ESP_LOGI(TAG, "Delete existing file %s", filename);
-                    SD.remove(filename);
-                }
-
-                File file = SD.open(filename, "w");
-                serializeJson(doc, file);
-                file.close();
-
-                hal.ReleaseVSPIMutex();
-            }
-        }
-    */
     return SendSuccess(req);
 }
 
-esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool urlEncoded)
+esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool)
 {
     if (!_sd_card_installed)
     {
@@ -301,7 +265,7 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded)
 
     if (GetKeyValue(httpbuf, "m", &tempVariable, urlEncoded))
     {
-        uint8_t m = (uint8_t)tempVariable;
+        auto m = (uint8_t)tempVariable;
 
         if (m > maximum_controller_cell_modules)
         {
@@ -415,7 +379,7 @@ esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req, bool urlEncoded
     return SendSuccess(req);
 }
 
-esp_err_t post_resetcounters_json_handler(httpd_req_t *req, bool urlEncoded)
+esp_err_t post_resetcounters_json_handler(httpd_req_t *req, bool)
 {
     // Ask modules to reset bad packet counters
     // If this fails, queue could be full so return error
@@ -441,7 +405,7 @@ esp_err_t post_resetcounters_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendFailure(req);
 }
 
-esp_err_t post_sdmount_json_handler(httpd_req_t *req, bool urlEncoded)
+esp_err_t post_sdmount_json_handler(httpd_req_t *req, bool)
 {
     if (_avrsettings.programmingModeEnabled)
     {
@@ -453,7 +417,7 @@ esp_err_t post_sdmount_json_handler(httpd_req_t *req, bool urlEncoded)
 
     return SendSuccess(req);
 }
-esp_err_t post_sdunmount_json_handler(httpd_req_t *req, bool urlEncoded)
+esp_err_t post_sdunmount_json_handler(httpd_req_t *req, bool)
 {
     if (_avrsettings.programmingModeEnabled)
     {
@@ -468,7 +432,7 @@ esp_err_t post_sdunmount_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendSuccess(req);
 }
 
-esp_err_t post_enableavrprog_json_handler(httpd_req_t *req, bool urlEncoded)
+esp_err_t post_enableavrprog_json_handler(httpd_req_t *req, bool)
 {
     // unmountSDCard();
 
@@ -476,7 +440,7 @@ esp_err_t post_enableavrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 
     return SendSuccess(req);
 }
-esp_err_t post_disableavrprog_json_handler(httpd_req_t *req, bool urlEncoded)
+esp_err_t post_disableavrprog_json_handler(httpd_req_t *req, bool)
 {
     _avrsettings.programmingModeEnabled = false;
 
@@ -548,32 +512,32 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 
     if (GetKeyValue(httpbuf, "cur_val1", &temp_float, urlEncoded))
     {
-        mysettings.current_value1 = 10 * temp_float;
+        mysettings.current_value1 = (uint16_t)(10 * temp_float);
     }
     if (GetKeyValue(httpbuf, "cur_val2", &temp_float, urlEncoded))
     {
-        mysettings.current_value2 = 10 * temp_float;
+        mysettings.current_value2 = (uint16_t)(10 * temp_float);
     }
 
     if (GetKeyValue(httpbuf, "sensitivity", &temp_float, urlEncoded))
     {
-        mysettings.sensitivity = 10 * temp_float;
+        mysettings.sensitivity = (int16_t)(10 * temp_float);
     }
     if (GetKeyValue(httpbuf, "chargevolt", &temp_float, urlEncoded))
     {
-        mysettings.chargevolt = 10 * temp_float;
+        mysettings.chargevolt = (uint16_t)(10 * temp_float);
     }
     if (GetKeyValue(httpbuf, "chargecurrent", &temp_float, urlEncoded))
     {
-        mysettings.chargecurrent = 10 * temp_float;
+        mysettings.chargecurrent = (uint16_t)(10 * temp_float);
     }
     if (GetKeyValue(httpbuf, "dischargecurrent", &temp_float, urlEncoded))
     {
-        mysettings.dischargecurrent = 10 * temp_float;
+        mysettings.dischargecurrent = (uint16_t)(10 * temp_float);
     }
     if (GetKeyValue(httpbuf, "dischargevolt", &temp_float, urlEncoded))
     {
-        mysettings.dischargevolt = 10 * temp_float;
+        mysettings.dischargevolt = (uint16_t)(10 * temp_float);
     }
     mysettings.stopchargebalance = false;
     if (GetKeyValue(httpbuf, "stopchargebalance", &mysettings.stopchargebalance, urlEncoded))
@@ -695,7 +659,7 @@ esp_err_t post_setsoc_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendFailure(req);
 }
 
-esp_err_t post_resetdailyahcount_json_handler(httpd_req_t *req, bool urlEncoded)
+esp_err_t post_resetdailyahcount_json_handler(httpd_req_t *req, bool)
 {
     if (CurrentMonitorResetDailyAmpHourCounters())
     {
@@ -706,10 +670,10 @@ esp_err_t post_resetdailyahcount_json_handler(httpd_req_t *req, bool urlEncoded)
 
 esp_err_t post_savecmbasic_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    int shuntmaxcur = 0;
+    uint16_t shuntmaxcur = 0;
     if (GetKeyValue(httpbuf, "shuntmaxcur", &shuntmaxcur, urlEncoded))
     {
-        int shuntmv = 0;
+        uint16_t shuntmv = 0;
         if (GetKeyValue(httpbuf, "shuntmv", &shuntmv, urlEncoded))
         {
             uint16_t batterycapacity = 0;
@@ -787,19 +751,6 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 
     int bufferused = 0;
 
-    /*
-        if (_sd_card_installed)
-        {
-            httpd_resp_set_type(req, "application/json");
-            setNoStoreCacheControl(req);
-
-            doc["message"] = "Failed: Unable to program AVR whilst SD Card is mounted";
-            bufferused += serializeJson(doc, httpbuf, BUFSIZE);
-
-            return httpd_resp_send(req, httpbuf, bufferused);
-        }
-        */
-
     if (!_avrsettings.programmingModeEnabled)
     {
         httpd_resp_set_type(req, "application/json");
@@ -811,7 +762,7 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
         return httpd_resp_send(req, httpbuf, bufferused);
     }
 
-    String manifestfilename = String("/avr/manifest.json");
+    auto manifestfilename = String("/avr/manifest.json");
 
     if (LittleFS.exists(manifestfilename))
     {
@@ -840,10 +791,10 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 
             JsonObject x = toplevel[filenumber];
 
-            _avrsettings.efuse = strtoul(x["efuse"].as<String>().c_str(), nullptr, 16);
-            _avrsettings.hfuse = strtoul(x["hfuse"].as<String>().c_str(), nullptr, 16);
-            _avrsettings.lfuse = strtoul(x["lfuse"].as<String>().c_str(), nullptr, 16);
-            _avrsettings.mcu = strtoul(x["mcu"].as<String>().c_str(), nullptr, 16);
+            _avrsettings.efuse = (uint8_t)strtoul(x["efuse"].as<String>().c_str(), nullptr, 16);
+            _avrsettings.hfuse = (uint8_t)strtoul(x["hfuse"].as<String>().c_str(), nullptr, 16);
+            _avrsettings.lfuse = (uint8_t)strtoul(x["lfuse"].as<String>().c_str(), nullptr, 16);
+            _avrsettings.mcu = (uint32_t)strtoul(x["mcu"].as<String>().c_str(), nullptr, 16);
 
             String avrfilename = String("/avr/") + x["name"].as<String>();
 
@@ -1149,16 +1100,19 @@ esp_err_t save_data_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    const char *uri_array[] = {
+    std::array<std::string, 28> uri_array = {
         "savebankconfig", "saventp", "saveglobalsetting",
-        "savemqtt", "saveinfluxdb", "saveconfigtofile", "wificonfigtofile", "savesetting",
-        "restartcontroller", "saverules", "savedisplaysetting", "savestorage",
-        "resetcounters", "sdmount", "sdunmount", "enableavrprog",
-        "disableavrprog", "avrprog", "savers485settings", "savecurrentmon",
-        "savecmbasic", "savecmadvanced", "savecmrelay", "restoreconfig", "savechargeconfig",
+        "savemqtt", "saveinfluxdb",
+        "saveconfigtofile", "wificonfigtofile",
+        "savesetting", "restartcontroller", "saverules",
+        "savedisplaysetting", "savestorage", "resetcounters",
+        "sdmount", "sdunmount", "enableavrprog",
+        "disableavrprog", "avrprog", "savers485settings",
+        "savecurrentmon", "savecmbasic", "savecmadvanced",
+        "savecmrelay", "restoreconfig", "savechargeconfig",
         "visibletiles", "dailyahreset", "setsoc"};
 
-    esp_err_t (*func_ptr[])(httpd_req_t * req, bool urlEncoded) = {
+    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 28> func_ptr = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
         post_savemqtt_json_handler, post_saveinfluxdbsetting_json_handler,
         post_saveconfigurationtoflash_json_handler, post_savewificonfigtosdcard_json_handler,
@@ -1170,27 +1124,25 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler,
         post_visibletiles_json_handler, post_resetdailyahcount_json_handler, post_setsoc_json_handler};
 
-    // Sanity check arrays are the same size
-    ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);
+    auto name = std::string(req->uri);
 
-    // TODO: Improve the string comparision here to avoid any potential
-    //       security/buffer overflows
-    char name[32];
-    memset(&name, 0, sizeof(name));
-    // 6= skip over /post/ characters
-    strncpy(name, &(req->uri[6]), sizeof(name) - 1);
-
-    for (size_t i = 0; i < sizeof(uri_array) / sizeof(unsigned int); i++)
+    if (name.rfind("/post/", 0) == 0)
     {
-        if (strncmp(name, uri_array[i], strlen(uri_array[i])) == 0)
+        // skip over first 6 characters "/post/" characters
+        name = name.substr(6);
+    }
+
+    for (size_t i = 0; i < uri_array.size(); i++)
+    {
+        if (name.compare(uri_array.at(i)) == 0)
         {
             // Found it
-            ESP_LOGI(TAG, "API post: %s", name);
-            return func_ptr[i](req, urlEncoded);
+            ESP_LOGI(TAG, "API post: %s", name.c_str());
+            return func_ptr.at(i)(req, urlEncoded);
         }
     }
 
-    ESP_LOGE(TAG, "No API post match: %s", name);
+    ESP_LOGE(TAG, "No API post match: %s", name.c_str());
 
     return httpd_resp_send_500(req);
 }

@@ -718,7 +718,7 @@ function queryBMS() {
         }
 
         //Scale down for low voltages
-        if (minVoltage < 2.5) { minVoltage = 0; }
+        if (minVoltage < 0) { minVoltage = 0; }
 
         if (jsondata) {
             /*
@@ -1330,6 +1330,43 @@ $(function () {
         return true;
     });
 
+
+    $("#history").click(function () {
+        $(".header-right a").removeClass("active");
+        $(this).addClass("active");
+        switchPage("#historyPage");
+
+        $.getJSON("/api/history",
+            function (data) {
+                $("#historyTable tbody").empty();
+
+                for (var index = 0; index < data.time.length; index++) {
+                    var dt = new Date(data.time[index] * 1000).toLocaleString();
+                    var newRowContent = "<tr><td>" + dt + "</td>"
+                        + "<td>" + data.voltage[index] + "</td>"
+                        + "<td>" + data.current[index] + "</td>"
+                        + "<td>" + data.stateofcharge[index] + "</td>"
+                        + "<td>" + data.milliamphour_in[index] + "</td>"
+                        + "<td>" + data.milliamphour_out[index] + "</td>"
+                        + "<td>" + data.highestBankRange[index] + "</td>"
+                        + "<td>" + data.lowestCellVoltage[index] + "</td>"
+                        + "<td>" + data.highestCellVoltage[index] + "</td>"
+                        + "<td>" + data.lowestBankVoltage[index] + "</td>"
+                        + "<td>" + data.highestBankVoltage[index] + "</td>"
+                        + "<td>" + data.lowestExternalTemp[index] + "</td>"
+                        + "<td>" + data.highestExternalTemp[index] + "</td>"
+                        + "</tr>";
+                    $("#historyTable tbody").append(newRowContent);
+                }
+
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            );
+
+        return true;
+    });
+
+
+
     $("#about").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
@@ -1347,6 +1384,7 @@ $(function () {
 
         return true;
     });
+
 
     $("#modules").click(function () {
         $("#loading").show();
@@ -2096,6 +2134,7 @@ $(function () {
         case "#storage":
         case "#avrprogrammer":
         case "#utility":
+        case "#history":
             $(hash).click();
             break;
     }

@@ -18,7 +18,7 @@ void victron_message_374_375_376_377();
 
 extern void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length);
 
-extern uint16_t TotalNumberOfCells();
+extern uint8_t TotalNumberOfCells();
 extern Rules rules;
 extern currentmonitoring_struct currentMonitor;
 extern diybms_eeprom_settings mysettings;
