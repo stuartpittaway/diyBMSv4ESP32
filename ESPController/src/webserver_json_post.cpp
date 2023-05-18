@@ -567,6 +567,15 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     GetKeyValue(httpbuf, "floattimer", &mysettings.floatvoltagetimer, urlEncoded);
     GetKeyValue(httpbuf, "socresume", &mysettings.stateofchargeresumevalue, urlEncoded);
 
+    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    {
+        //Reset CAN counters if its disabled.
+        canbus_messages_received = 0;
+        canbus_messages_received_error = 0;
+        canbus_messages_sent = 0;
+        canbus_messages_failed_sent = 0;
+    }
+
     saveConfiguration();
 
     return SendSuccess(req);
