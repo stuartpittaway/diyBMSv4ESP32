@@ -546,9 +546,8 @@ void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, Ce
     ESP_LOGD(TAG, "dynamicChargeCurrent=%u", dynamicChargeCurrent);
 }
 
-// Apply "dynamic" charge voltage rules
-// This will always return a charge voltage - its the calling functions responsibility
-// to check "IsChargeAllowed" function and take necessary action.
+/// @brief Apply "dynamic" charge voltage rules
+// This will always return a charge voltage - its the calling functions responsibility  to check "IsChargeAllowed" function and take necessary action.
 // Thanks to Matthias U (Smurfix) for the ideas and pseudo code https://community.openenergymonitor.org/u/smurfix/
 // Output is cached in variable dynamicChargeVoltage as its used in multiple places
 void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray)
@@ -638,10 +637,11 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
     }
 }
 
-// Return SoC value after applying SOCFORCELOW and SOCOVERRIDE settings
-// also limits output range between 0 and 100.
-// SoC is rounded down to nearest integer
-uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC)
+/// @brief Return SoC value after applying SOCFORCELOW and SOCOVERRIDE settings
+/// @param mysettings
+/// @param realSOC True value of SoC
+/// @return SoC is rounded down to nearest integer and limits output range between 0 and 100.
+uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC) const
 {
     uint16_t value = floor(realSOC);
 
@@ -677,6 +677,9 @@ uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings
     return value;
 }
 
+/// @brief Determine which charging mode the controller should be operating in
+/// @param mysettings 
+/// @param currentMonitor 
 void Rules::CalculateChargingMode(diybms_eeprom_settings *mysettings, currentmonitoring_struct *currentMonitor)
 {
     ChargingMode mode = getChargingMode();

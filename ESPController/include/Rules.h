@@ -194,7 +194,7 @@ public:
     void CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
     uint16_t DynamicChargeVoltage() const;
     int16_t DynamicChargeCurrent() const;
-    uint16_t StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC);
+    uint16_t StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC) const;
 };
 
 #endif
