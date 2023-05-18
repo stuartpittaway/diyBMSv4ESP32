@@ -68,7 +68,7 @@ jobs:
           python -m esptool version
 
       - name: Build code for ESP32 controller
-        run: pio run --project-dir=./ESPController --environment esp32-devkitc --project-conf=./ESPController/platformio.ini
+        run: pio run --project-dir=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ESPController --environment esp32-devkitc --project-conf=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ESPController/platformio.ini
 
       - name: Copy output
         run: |
@@ -80,7 +80,7 @@ jobs:
           cp ./ESPController/data/avr/manifest.json ~/OUTPUT/Modules/
 
       - name: Build File System Image for ESP32
-        run: pio run --project-dir=./ESPController --target buildfs --environment esp32-devkitc
+        run: pio run --project-dir=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ESPController --target buildfs --environment esp32-devkitc
 
       - name: Copy output
         run: |
@@ -91,7 +91,7 @@ jobs:
           python -m esptool --chip esp32 merge_bin -o ~/OUTPUT/Controller/esp32-controller-firmware-complete.bin --flash_mode=keep --flash_size 4MB 0x1000 ~/OUTPUT/Controller/bootloader.bin 0x8000 ~/OUTPUT/Controller/partitions.bin 0xe000 ~/OUTPUT/Controller/boot_app0.bin 0x10000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x1C0000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x370000 ~/OUTPUT/Controller/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
 
       - name: Board test code for ESP32 controller
-        run: pio run --project-dir=./ESP32BoardTest --environment esp32-devkitc --project-conf=./ESP32BoardTest/platformio.ini
+        run: pio run --project-dir=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ESP32BoardTest --environment esp32-devkitc --project-conf=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ESP32BoardTest/platformio.ini
 
       - name: Copy board test output
         run: |
