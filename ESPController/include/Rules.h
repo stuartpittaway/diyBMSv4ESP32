@@ -85,8 +85,7 @@ private:
     }
     ChargingMode chargemode{ChargingMode::standard};
 
-    int64_t ChargingAbsorbTimer{0};
-    int64_t ChargingFloatTimer{0};
+    int64_t ChargingTimer{0};
 
 public:
     bool rule_outcome[RELAY_RULES];
@@ -142,6 +141,7 @@ public:
     }
     void setChargingMode(ChargingMode newMode)
     {
+        if (chargemode == newMode) return;
         ESP_LOGI(TAG, "Charging mode changed %u", newMode);
         chargemode = newMode;
     }

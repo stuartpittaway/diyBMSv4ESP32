@@ -707,28 +707,29 @@ void Rules::CalculateChargingMode(diybms_eeprom_settings *mysettings, currentmon
         {
             // Battery is almost full at over 99.0%, therefore enable "absorb mode"
             setChargingMode(ChargingMode::absorb);
-            ChargingAbsorbTimer = FutureTime(mysettings->absorptiontimer);
-            ChargingFloatTimer = 0;
+            ChargingTimer = FutureTime(mysettings->absorptiontimer);
             return;
         }
 
-        if (mode == ChargingMode::absorb && time_now > ChargingAbsorbTimer)
+        // Has time interval passed?
+        if (time_now > ChargingTimer)
         {
-            // Absorb has finished, switch to float
-            ChargingAbsorbTimer = 0;
-            ChargingFloatTimer = FutureTime(mysettings->floatvoltagetimer);
-            setChargingMode(ChargingMode::floating);
-            return;
-        }
+            if (mode == ChargingMode::absorb)
+            {
+                // Absorb has finished, switch to float
+                setChargingMode(ChargingMode::floating);
+                ChargingTimer = FutureTime(mysettings->floatvoltagetimer);
+                return;
+            }
 
-        if (mode == ChargingMode::floating && time_now > ChargingFloatTimer)
-        {
-            // Floating has finished, stop charging completely
-            //  Charge will not start again until state of charge drops
-            ChargingAbsorbTimer = 0;
-            ChargingFloatTimer = 0;
-            setChargingMode(ChargingMode::stopped);
-            return;
+            if (mode == ChargingMode::floating)
+            {
+                // Floating has finished, stop charging completely
+                // Charge will not start again until state of charge drops
+                setChargingMode(ChargingMode::stopped);
+                ChargingTimer = 0;
+                return;
+            }
         }
     }
 }
