@@ -98,7 +98,7 @@ jobs:
           cp ./ESP32BoardTest/.pio/build/esp32-devkitc/diybms_boardtest_espressif32_esp32-devkitc.bin ~/OUTPUT/ControllerBoardTest/
 
       - name: Publish Artifacts 1
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: DIYBMS-Compiled
           path: ~/OUTPUT
@@ -135,7 +135,7 @@ jobs:
         run: mv release.zip release_${{ env.dt }}.zip
 
       - name: Publish Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: DIYBMS-Release-Artifact-${{ env.dt }}
           path: |
