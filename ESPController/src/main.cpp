@@ -119,8 +119,10 @@ diybms_eeprom_settings mysettings;
 uint8_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
 
 uint32_t canbus_messages_received = 0;
+uint32_t canbus_messages_received_error = 0;
 uint32_t canbus_messages_sent = 0;
 uint32_t canbus_messages_failed_sent = 0;
+int64_t canbus_last_305_message_time = 0;
 
 bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
@@ -2668,33 +2670,40 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 {
   for (;;)
   {
-
-    if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
+    while (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
     {
+      // Canbus is disbled, sleep until this changes....
+      vTaskDelay(pdMS_TO_TICKS(2000));
+    }
 
-      // Wait for message to be received
-      twai_message_t message;
-      esp_err_t res = twai_receive(&message, pdMS_TO_TICKS(10000));
-      if (res == ESP_OK)
+    // Wait for message to be received, up to 20 seconds
+    twai_message_t message;
+    esp_err_t res = twai_receive(&message, pdMS_TO_TICKS(20000));
+    if (res == ESP_OK)
+    {
+      canbus_messages_received++;
+      ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
+               message.identifier, message.data_length_code, message.flags);
+      /*
+      if (!(message.flags & TWAI_MSG_FLAG_RTR))
       {
-        canbus_messages_received++;
-        ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
-                 message.identifier, message.data_length_code, message.flags);
-        if (!(message.flags & TWAI_MSG_FLAG_RTR))
-        {
-          ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
-        }
-      }
-      else if (res == ESP_ERR_TIMEOUT)
+        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
+      }*/
+
+      // Remote inverter should send a 305 message every few seconds
+      // for now, keep track of last message. 
+      // TODO: in future, add timeout/error condition to shut down
+      if (message.identifier == 0x305)
       {
-        /// ignore the timeout or do something
-        ESP_LOGE(TAG, "CANBUS timeout");
+        canbus_last_305_message_time = esp_timer_get_time();
       }
     }
     else
     {
-      // Canbus is disbled, sleep....
-      vTaskDelay(pdMS_TO_TICKS(2000));
+      /// ignore the timeout or do something
+      ESP_LOGE(TAG, "CANBUS error %s", esp_err_to_name(res));
+      canbus_messages_received_error++;
+      ESP_LOGI(TAG, "CANBUS error count %u", canbus_messages_received_error);
     }
   }
 }

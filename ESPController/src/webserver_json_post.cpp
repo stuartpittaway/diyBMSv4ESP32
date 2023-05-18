@@ -388,8 +388,9 @@ esp_err_t post_resetcounters_json_handler(httpd_req_t *req, bool)
         canbus_messages_failed_sent = 0;
         canbus_messages_received = 0;
         canbus_messages_sent = 0;
+        canbus_messages_received_error = 0;
 
-        for (uint8_t i = 0; i < maximum_controller_cell_modules; i++)
+        for (auto i = 0; i < maximum_controller_cell_modules; i++)
         {
             cmi[i].badPacketCount = 0;
             cmi[i].PacketReceivedCount = 0;
