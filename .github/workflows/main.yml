@@ -47,6 +47,9 @@ jobs:
           mkdir -p ~/OUTPUT/ControllerBoardTest
           mkdir -p ~/OUTPUT/Modules/HEX
           mkdir -p ~/OUTPUT/Modules/BIN
+          pwd
+          ls
+
 
       - name: Build code for modules
         run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
