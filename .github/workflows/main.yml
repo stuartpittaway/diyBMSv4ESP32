@@ -52,7 +52,7 @@ jobs:
 
 
       - name: Build code for modules
-        run: pio run --project-dir=./ATTINYCellModule --project-conf=./ATTINYCellModule/platformio.ini
+        run: pio run --project-dir=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ATTINYCellModule --project-conf=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ATTINYCellModule/platformio.ini
 
       - name: Copy output
         run: |
