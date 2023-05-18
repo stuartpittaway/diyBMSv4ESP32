@@ -430,6 +430,10 @@ bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
     // Battery high voltage alarm - stop charging
     if (rule_outcome[Rule::BankOverVoltage])
         return false;
+    
+    // Battery high voltage alarm - stop charging
+    if (rule_outcome[Rule::CurrentMonitorOverVoltage])
+        return false;
 
     if (mysettings->preventcharging == true)
         return false;
@@ -462,6 +466,10 @@ bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
 
     // Low voltage alarm - stop discharge
     if (rule_outcome[Rule::BankUnderVoltage])
+        return false;
+
+    // Low voltage alarm - stop charging
+    if (rule_outcome[Rule::CurrentMonitorUnderVoltage])
         return false;
 
     if (mysettings->preventdischarge == true)
