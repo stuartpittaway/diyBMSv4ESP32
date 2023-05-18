@@ -553,16 +553,10 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   settings["cur_val1"] = mysettings.current_value1;
   settings["cur_val2"] = mysettings.current_value2;
 
-  /*settings["enabled"] = mysettings.VictronEnabled;
-  JsonArray cvl = settings.createNestedArray("cvl");
-  JsonArray ccl = settings.createNestedArray("ccl");
-  JsonArray dcl = settings.createNestedArray("dcl");
-  for (uint8_t i = 0; i < 3; i++)
-  {
-    cvl.add(mysettings.cvl[i]);
-    ccl.add(mysettings.ccl[i]);
-    dcl.add(mysettings.dcl[i]);
-  }*/
+  settings["absorptimer"] = mysettings.absorptiontimer;
+  settings["floattimer"] = mysettings.floatvoltagetimer;
+  settings["socresume"] = mysettings.stateofchargeresumevalue;
+  settings["floatvolt"] = mysettings.floatvoltage;
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
@@ -823,7 +817,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // Output the first batch of settings/parameters/values
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         R"({"banks":%u,"seriesmodules":%u,"sent":%u,"received":%u,"modulesfnd":%u,"badcrc":%u,"ignored":%u,"roundtrip":%u,"oos":%u,"activerules":%u,"uptime":%u,"can_fail":%u,"can_sent":%u,"can_rec":%u,"can_r_err":%u,"sec":"%s","qlen":%u,)",
+                         R"({"banks":%u,"seriesmodules":%u,"sent":%u,"received":%u,"modulesfnd":%u,"badcrc":%u,"ignored":%u,"roundtrip":%u,"oos":%u,"activerules":%u,"uptime":%u,"can_fail":%u,"can_sent":%u,"can_rec":%u,"can_r_err":%u,"qlen":%u,"cmode":%u,)",
                          mysettings.totalNumberOfBanks,
                          mysettings.totalNumberOfSeriesModules,
                          prg.packetsGenerated,
@@ -833,10 +827,14 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          receiveProc.totalNotProcessedErrors,
                          receiveProc.packetTimerMillisecond,
                          receiveProc.totalOutofSequenceErrors,
-                         rules.active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6),
-                         canbus_messages_failed_sent, canbus_messages_sent,
-                         canbus_messages_received, canbus_messages_received_error, &CookieValue[sizeof(CookieValue) - 3],
-                         prg.queueLength());
+                         rules.active_rule_count,
+                         (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6),
+                         canbus_messages_failed_sent,
+                         canbus_messages_sent,
+                         canbus_messages_received,
+                         canbus_messages_received_error,
+                         prg.queueLength(),
+                         (unsigned int)rules.chargemode);
 
   if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
   {

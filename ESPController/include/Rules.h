@@ -59,6 +59,15 @@ enum InternalErrorCode : uint8_t
     ErrorEmergencyStop = 7
 };
 
+enum class ChargingMode : uint8_t
+{
+  standard=0,
+  absorb=1,
+  floating=2,
+  dynamic=3
+};
+
+
 class Rules
 {
 private:
@@ -121,6 +130,8 @@ public:
     int8_t numberOfActiveErrors;
     int8_t numberOfActiveWarnings;
     int8_t numberOfBalancingModules;
+
+    ChargingMode chargemode{ChargingMode::standard};
 
     void ClearValues();
     void ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uint16_t cellmaxmv);

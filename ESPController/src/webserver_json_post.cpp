@@ -484,6 +484,10 @@ esp_err_t post_savers485settings_json_handler(httpd_req_t *req, bool urlEncoded)
 esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     uint8_t temp;
+
+    //If a user updates the charge config, reset the charging mode as well 
+    rules.chargemode=ChargingMode::standard;
+
     if (GetKeyValue(httpbuf, "canbusprotocol", &temp, urlEncoded))
     {
         mysettings.canbusprotocol = (CanBusProtocolEmulation)temp;
@@ -493,21 +497,11 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         // Field not found/invalid, so disable
         mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
     }
-    if (GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded))
-    {
-    }
-    if (GetKeyValue(httpbuf, "cellminmv", &mysettings.cellminmv, urlEncoded))
-    {
-    }
-    if (GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded))
-    {
-    }
-    if (GetKeyValue(httpbuf, "kneemv", &mysettings.kneemv, urlEncoded))
-    {
-    }
-    if (GetKeyValue(httpbuf, "cellmaxspikemv", &mysettings.cellmaxspikemv, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded);
+    GetKeyValue(httpbuf, "cellminmv", &mysettings.cellminmv, urlEncoded);
+    GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded);
+    GetKeyValue(httpbuf, "kneemv", &mysettings.kneemv, urlEncoded);
+    GetKeyValue(httpbuf, "cellmaxspikemv", &mysettings.cellmaxspikemv, urlEncoded);
 
     float temp_float;
 
@@ -515,6 +509,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     {
         mysettings.current_value1 = (uint16_t)(10 * temp_float);
     }
+
     if (GetKeyValue(httpbuf, "cur_val2", &temp_float, urlEncoded))
     {
         mysettings.current_value2 = (uint16_t)(10 * temp_float);
@@ -541,41 +536,36 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         mysettings.dischargevolt = (uint16_t)(10 * temp_float);
     }
     mysettings.stopchargebalance = false;
-    if (GetKeyValue(httpbuf, "stopchargebalance", &mysettings.stopchargebalance, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "stopchargebalance", &mysettings.stopchargebalance, urlEncoded);
+
     mysettings.socoverride = false;
-    if (GetKeyValue(httpbuf, "socoverride", &mysettings.socoverride, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "socoverride", &mysettings.socoverride, urlEncoded);
+
     mysettings.socforcelow = false;
-    if (GetKeyValue(httpbuf, "socforcelow", &mysettings.socforcelow, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "socforcelow", &mysettings.socforcelow, urlEncoded);
+
     mysettings.dynamiccharge = false;
-    if (GetKeyValue(httpbuf, "dynamiccharge", &mysettings.dynamiccharge, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "dynamiccharge", &mysettings.dynamiccharge, urlEncoded);
+
     mysettings.preventcharging = false;
-    if (GetKeyValue(httpbuf, "preventcharging", &mysettings.preventcharging, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "preventcharging", &mysettings.preventcharging, urlEncoded);
+
     mysettings.preventdischarge = false;
-    if (GetKeyValue(httpbuf, "preventdischarge", &mysettings.preventdischarge, urlEncoded))
+    GetKeyValue(httpbuf, "preventdischarge", &mysettings.preventdischarge, urlEncoded);
+
+    GetKeyValue(httpbuf, "chargetemplow", &mysettings.chargetemplow, urlEncoded);
+    GetKeyValue(httpbuf, "chargetemphigh", &mysettings.chargetemphigh, urlEncoded);
+    GetKeyValue(httpbuf, "dischargetemplow", &mysettings.dischargetemplow, urlEncoded);
+    GetKeyValue(httpbuf, "dischargetemphigh", &mysettings.dischargetemphigh, urlEncoded);
+
+    GetKeyValue(httpbuf, "absorptimer", &mysettings.absorptiontimer, urlEncoded);
+
+    if (GetKeyValue(httpbuf, "floatvolt", &temp_float, urlEncoded))
     {
+        mysettings.floatvoltage = (uint16_t)(10 * temp_float);
     }
-    if (GetKeyValue(httpbuf, "chargetemplow", &mysettings.chargetemplow, urlEncoded))
-    {
-    }
-    if (GetKeyValue(httpbuf, "chargetemphigh", &mysettings.chargetemphigh, urlEncoded))
-    {
-    }
-    if (GetKeyValue(httpbuf, "dischargetemplow", &mysettings.dischargetemplow, urlEncoded))
-    {
-    }
-    if (GetKeyValue(httpbuf, "dischargetemphigh", &mysettings.dischargetemphigh, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "floattimer", &mysettings.floatvoltagetimer, urlEncoded);
+    GetKeyValue(httpbuf, "socresume", &mysettings.stateofchargeresumevalue, urlEncoded);
 
     saveConfiguration();
 

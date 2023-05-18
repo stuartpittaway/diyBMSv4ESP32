@@ -54,7 +54,7 @@ const TILE_IDS = [
     ["voltage0", "range0", "voltage1", "range1", "voltage2", "range2", "voltage3", "range3", "voltage4", "range4", "voltage5", "range5", "voltage6", "range6", "voltage7", "range7"],
     ["voltage8", "range8", "voltage9", "range9", "voltage10", "range10", "voltage11", "range11", "voltage12", "range12", "voltage13", "range13", "voltage14", "range14", "voltage15", "range15"],
     ["soc", "current", "shuntv", "power", "amphout", "amphin", "damphout", "damphin", "oos", "badcrc", "ignored", "canfail", "sent", "received", "roundtrip", "uptime"],
-    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", "graphOptions", "time100", "time20", "time10", "celltemp", "canrecerr", null, null, null, null, null]
+    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", "graphOptions", "time100", "time20", "time10", "celltemp", "canrecerr", "chgmode", null, null, null, null]
 ];
 Object.freeze(TILE_IDS);
 
@@ -728,7 +728,7 @@ function queryBMS() {
             $("#roundtrip .v").html(jsondata.roundtrip);
             $("#oos .v").html(jsondata.oos);
             $("#canfail .v").html(jsondata.can_fail);
-            $("#canrecerr .v").html(jsondata.can_r_err);            
+            $("#canrecerr .v").html(jsondata.can_r_err);
             $("#cansent .v").html(jsondata.can_sent);
             $("#canrecd .v").html(jsondata.can_rec);
             $("#qlen .v").html(jsondata.qlen);
@@ -753,6 +753,14 @@ function queryBMS() {
             if (jsondata.dyncc) {
                 $("#dynccurr .v").html(parseFloat(jsondata.dyncc / 10).toFixed(2) + "A");
             } else { $("#dynccurr .v").html(""); }
+
+            switch (jsondata.cmode) {
+                case 0: $("#chgmode .v").html("Standard"); break;
+                case 1: $("#chgmode .v").html("Absorb"); break;
+                case 2: $("#chgmode .v").html("Float"); break;
+                case 3: $("#chgmode .v").html("Dynamic"); break;
+                default: $("#chgmode .v").html("Unknown");
+            }
         }
 
         if (jsondata.bankv) {
@@ -769,14 +777,6 @@ function queryBMS() {
             }
         }
 
-        if (jsondata.sec) {
-            if (!XSS_KEY.endsWith(jsondata.sec)) {
-                if ($("#warningXSS").data("notify") == undefined) {
-                    $("#warningXSS").data("notify", 1);
-                    $.notify($("#warningXSS").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
-                }
-            }
-        }
 
         if (jsondata.current) {
             if (jsondata.current[0] == null) {
@@ -1201,11 +1201,20 @@ function queryBMS() {
 
         loadVisibleTileData();
 
-    }).fail(function () {
-        $("#iperror").show();
-        //Try again in a few seconds (2 seconds if errored)
-        setTimeout(queryBMS, 2000);
-        $("#loading").hide();
+    }).fail(function (jqXHR, textStatus, errorThrown) {
+        
+        if (jqXHR.status == 400 && jqXHR.responseJSON.error === "Invalid cookie") {
+            if ($("#warningXSS").data("notify") == undefined) {
+                $("#warningXSS").data("notify", 1);
+                $.notify($("#warningXSS").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
+            }
+        } else {
+            //Other type of error
+            $("#iperror").show();
+            //Try again in a few seconds (2 seconds if errored)
+            setTimeout(queryBMS, 2000);
+            $("#loading").hide();
+        }
         //Dim the main home page graph
         $("#homePage").css({ opacity: 0.1 });
     });
@@ -1822,6 +1831,11 @@ $(function () {
                 $("#chargetemphigh").val(data.chargeconfig.chargetemphigh);
                 $("#dischargetemplow").val(data.chargeconfig.dischargetemplow);
                 $("#dischargetemphigh").val(data.chargeconfig.dischargetemphigh);
+
+                $("#absorptimer").val(data.chargeconfig.absorptimer);
+                $("#floattimer").val(data.chargeconfig.floattimer);
+                $("#socresume").val(data.chargeconfig.socresume);
+                $("#floatvolt").val((data.chargeconfig.floatvolt / 10.0).toFixed(1));
 
 
                 $("#stopchargebalance").prop("checked", data.chargeconfig.stopchargebalance);

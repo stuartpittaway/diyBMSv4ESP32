@@ -210,6 +210,17 @@ struct diybms_eeprom_settings
   bool preventcharging;
   bool preventdischarge;
 
+
+  // Below makes reference to "float" this doesn't really exist in Lithium world
+  // Once state of charge exceeds 99%, wait this many minutes until switching to float mode
+  uint16_t absorptiontimer;
+  // Voltage to drop to when in float mode. Scale 0.1
+  uint16_t floatvoltage;
+  // Wait this many minutes in float mode before disabling charge completely
+  uint16_t floatvoltagetimer;
+  // Once battery discharges below this value, resume normal charging operation
+  uint8_t stateofchargeresumevalue;
+
   // NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
   char mqtt_uri[128 + 1];

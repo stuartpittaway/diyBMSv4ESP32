@@ -208,6 +208,10 @@
           <span class="x t">CAN received:</span>
           <span class="x v"></span>
         </div>
+        <div id="chgmode" class="stat">
+          <span class="x t">Charge mode:</span>
+          <span class="x v"></span>
+        </div>
         <div id="dyncvolt" class="stat">
           <span class="x t">Dyn. Chg. V:</span>
           <span class="x v"></span>
@@ -1195,6 +1199,22 @@
             <div>
               <label for="chargetemphigh">Charge working temperature high (&deg;C)</label>
               <input id="chargetemphigh" name="chargetemphigh" value="" type="number" min="20" max="99" step="1" />
+            </div>
+            <div>
+              <label for="absorptimer">Absorption timer (minutes)</label>
+              <input id="absorptimer" name="absorptimer" value="" type="number" min="1" max="720" step="1" />
+            </div>
+            <div>
+              <label for="floatvolt">'Float' voltage (V)</label>
+              <input id="floatvolt" name="floatvolt" value="" type="number" min="1" max="999.9" step="0.1" />
+            </div>
+            <div>
+              <label for="floattimer">'Float' timer (minutes)</label>
+              <input id="floattimer" name="floattimer" value="" type="number" min="1" max="720" step="1" />
+            </div>
+            <div>
+              <label for="socresume">S.o.C charge resume</label>
+              <input id="socresume" name="socresume" value="" type="number" min="25" max="98" step="1" />
             </div>
             <p>Dynamic Charging Algorithm</p>
             <div>

@@ -38,4 +38,35 @@ extern wifi_eeprom_settings _wificonfig;
 extern void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char *server1);
 extern const char *RuleTextDescription[];
 extern void DefaultConfiguration(diybms_eeprom_settings *_myset);
+
+esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_saventp_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_saveglobalsetting_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_restartcontroller_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool);
+esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_savestorage_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_visibletiles_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_resetcounters_json_handler(httpd_req_t *req, bool);
+esp_err_t post_sdmount_json_handler(httpd_req_t *req, bool);
+esp_err_t post_sdunmount_json_handler(httpd_req_t *req, bool);
+esp_err_t post_enableavrprog_json_handler(httpd_req_t *req, bool);
+esp_err_t post_disableavrprog_json_handler(httpd_req_t *req, bool);
+esp_err_t post_savers485settings_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_setsoc_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_resetdailyahcount_json_handler(httpd_req_t *req, bool);
+esp_err_t post_savecmbasic_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_savecmadvanced_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t save_data_handler(httpd_req_t *req);
+
 #endif

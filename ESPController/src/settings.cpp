@@ -81,6 +81,11 @@ static const char currentMonitoring_overpowerlimit_JSONKEY[] = "currentMonitorin
 static const char currentMonitoring_shunttempcoefficient_JSONKEY[] = "currentMonitoringShuntTempCoeff";
 static const char currentMonitoring_tempcompenabled_JSONKEY[] = "currentMonitoringTempCompEnable";
 
+static const char absorptiontimer_JSONKEY[] = "absorptiontimer";
+static const char floatvoltage_JSONKEY[] = "floatvoltage";
+static const char floatvoltagetimer_JSONKEY[] = "floatvoltagetimer";
+static const char stateofchargeresumevalue_JSONKEY[] = "stateofchargeresumevalue";
+
 /* NVS KEYS
 THESE STRINGS ARE USED TO HOLD THE PARAMETER IN NVS FLASH, MAXIMUM LENGTH OF 16 CHARACTERS
 */
@@ -162,6 +167,11 @@ static const char currentMonitoring_undercurrentlimit_NVSKEY[] = "curMonundercur
 static const char currentMonitoring_overpowerlimit_NVSKEY[] = "curMonoverpower";
 static const char currentMonitoring_shunttempcoefficient_NVSKEY[] = "curMontempcoef";
 static const char currentMonitoring_tempcompenabled_NVSKEY[] = "curMonTempCompE";
+
+static const char absorptiontimer_NVSKEY[] = "absorptimer";
+static const char floatvoltage_NVSKEY[] = "floatV";
+static const char floatvoltagetimer_NVSKEY[] = "floatVtimer";
+static const char stateofchargeresumevalue_NVSKEY[] = "socresume";
 
 #define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
 #define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
@@ -354,7 +364,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE_UINT8(rs485databits);
         MACRO_NVSWRITE_UINT8(rs485parity);
         MACRO_NVSWRITE_UINT8(rs485stopbits);
-        MACRO_NVSWRITE_UINT8(canbusprotocol);     
+        MACRO_NVSWRITE_UINT8(canbusprotocol);
 
         MACRO_NVSWRITE(currentMonitoring_shuntmv);
         MACRO_NVSWRITE(currentMonitoring_shuntmaxcur);
@@ -411,6 +421,11 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITESTRING(influxdb_databasebucket);
         MACRO_NVSWRITESTRING(influxdb_apitoken);
         MACRO_NVSWRITESTRING(influxdb_orgid);
+
+        MACRO_NVSWRITE(absorptiontimer);
+        MACRO_NVSWRITE(floatvoltage);
+        MACRO_NVSWRITE(floatvoltagetimer);
+        MACRO_NVSWRITE(stateofchargeresumevalue);
 
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
@@ -529,6 +544,12 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREADSTRING(influxdb_databasebucket);
         MACRO_NVSREADSTRING(influxdb_apitoken);
         MACRO_NVSREADSTRING(influxdb_orgid);
+
+        MACRO_NVSREAD(absorptiontimer);
+        MACRO_NVSREAD(floatvoltage);
+        MACRO_NVSREAD(floatvoltagetimer);
+        MACRO_NVSREAD_UINT8(stateofchargeresumevalue);
+
         nvs_close(nvs_handle);
     }
 
@@ -696,6 +717,16 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
     // Override hysteresis values if needed
     _myset->rulehysteresis[Rule::BankRange] = 15;
+
+    // Below makes reference to "float" this doesn't really exist in Lithium world
+    // Once state of charge exceeds 99%, wait this many minutes until switching to float mode
+    _myset->absorptiontimer = 60;
+    // Voltage to drop to when in float mode. Scale 0.1 (3.3V * 16)
+    _myset->floatvoltage = 528;
+    // Wait this many minutes in float mode before disabling charge completely (6 hours)
+    _myset->floatvoltagetimer = 6 * 60;
+    // Once battery SoC drops below this value, resume normal charging operation
+    _myset->stateofchargeresumevalue = 96;
 }
 
 void SaveWIFI(wifi_eeprom_settings *wifi)
@@ -870,6 +901,28 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
             ESP_LOGI(TAG, "Fixed GREATER hysteresis %u from %i to %i", (uint8_t)index, settings->rulehysteresis[index], settings->rulevalue[index]);
             settings->rulehysteresis[index] = settings->rulevalue[index];
         }
+    }
+
+    // 24hr max
+    if (settings->absorptiontimer > 60 * 24)
+    {
+        settings->absorptiontimer = settings->absorptiontimer;
+    }
+    if (settings->floatvoltagetimer > 60 * 24)
+    {
+        settings->floatvoltagetimer = settings->floatvoltagetimer;
+    }
+
+    // Float voltage must be equal or below charge voltage
+    if (settings->floatvoltage > settings->chargevolt)
+    {
+        settings->floatvoltage = settings->chargevolt;
+    }
+
+    // SoC cannot be over 99%
+    if (settings->stateofchargeresumevalue > 99)
+    {
+        settings->stateofchargeresumevalue = settings->stateofchargeresumevalue;
     }
 }
 
