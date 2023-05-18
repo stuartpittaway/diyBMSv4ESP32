@@ -1622,6 +1622,8 @@ static void event_handler(void *, esp_event_base_t event_base,
 
     esp_wifi_disconnect();
 
+    wake_up_tft(true);
+
     // Try and reconnect
     esp_wifi_connect();
   }
@@ -1647,6 +1649,8 @@ static void event_handler(void *, esp_event_base_t event_base,
     startMDNS();
 
     snprintf(ip_string, sizeof(ip_string), IPSTR, IP2STR(&event->ip_info.ip));
+
+    wake_up_tft(true);
 
     ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, ip_string);
   }
@@ -3739,6 +3743,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   {
     ESP_LOGI(TAG, "TFT screen is NOT installed");
   }
+
+  // Force Refresh the TFT display
+  wake_up_tft(true);
 }
 
 unsigned long wifitimer = 0;

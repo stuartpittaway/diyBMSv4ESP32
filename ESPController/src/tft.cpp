@@ -487,7 +487,7 @@ void tftwakeup(TimerHandle_t xTimer)
         }
 
         // Trigger a refresh of the screen
-        if (updatetftdisplay_task_handle != NULL)
+        if (updatetftdisplay_task_handle != nullptr)
         {
             xTaskNotify(updatetftdisplay_task_handle, force_tft_wake ? 1 : 0, eNotifyAction::eSetValueWithOverwrite);
         }
