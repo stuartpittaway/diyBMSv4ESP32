@@ -698,58 +698,59 @@ void Rules::CalculateChargingMode(diybms_eeprom_settings *mysettings, currentmon
         return;
     }
 
-    ChargingMode mode = getChargingMode();
-
     // Determine charging mode - this is only possible if current monitor/state of charge calculation is functioning/installed
-    if (IsStateOfChargeValid(mysettings, currentMonitor))
+    if (IsStateOfChargeValid(mysettings, currentMonitor) == false)
     {
-        if (currentMonitor->stateofcharge < (float)mysettings->stateofchargeresumevalue || mysettings->socforcelow || mysettings->socoverride)
-        {
-            // If S.o.C FORCE LOW or OVERRIDE are enabled, assume standard charging modes.
-            // or battery is below resume level so normal charging operation in progress
+        return;
+    }
 
-            // No difference in STANDARD or DYNAMIC modes - purely visual on screen/cosmetic
-            if (mysettings->dynamiccharge == true && mysettings->canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
-            {
-                setChargingMode(ChargingMode::dynamic);
-            }
-            else
-            {
-                setChargingMode(ChargingMode::standard);
-            }
+    ChargingMode mode = getChargingMode();
+    if (currentMonitor->stateofcharge < (float)mysettings->stateofchargeresumevalue || mysettings->socforcelow || mysettings->socoverride)
+    {
+        // If S.o.C FORCE LOW or OVERRIDE are enabled, assume standard charging modes.
+        // or battery is below resume level so normal charging operation in progress
+
+        // No difference in STANDARD or DYNAMIC modes - purely visual on screen/cosmetic
+        if (mysettings->dynamiccharge == true && mysettings->canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
+        {
+            setChargingMode(ChargingMode::dynamic);
+        }
+        else
+        {
+            setChargingMode(ChargingMode::standard);
+        }
+        return;
+    }
+
+    // S.o.C is above stateofchargeresumevalue (so nearly fully charged)
+
+    auto time_now = esp_timer_get_time();
+    if ((mode == ChargingMode::standard || mode == ChargingMode::dynamic) && (currentMonitor->stateofcharge >= 99.0F))
+    {
+        // Battery is almost full at over 99.0%, therefore enable "absorb mode"
+        setChargingMode(ChargingMode::absorb);
+        ChargingTimer = FutureTime(mysettings->absorptiontimer);
+        return;
+    }
+
+    // Has time interval passed?
+    if (time_now > ChargingTimer)
+    {
+        if (mode == ChargingMode::absorb)
+        {
+            // Absorb has finished, switch to float
+            setChargingMode(ChargingMode::floating);
+            ChargingTimer = FutureTime(mysettings->floatvoltagetimer);
             return;
         }
 
-        // S.o.C is above stateofchargeresumevalue (so nearly fully charged)
-
-        auto time_now = esp_timer_get_time();
-        if ((mode == ChargingMode::standard || mode == ChargingMode::dynamic) && (currentMonitor->stateofcharge >= 99.0F))
+        if (mode == ChargingMode::floating)
         {
-            // Battery is almost full at over 99.0%, therefore enable "absorb mode"
-            setChargingMode(ChargingMode::absorb);
-            ChargingTimer = FutureTime(mysettings->absorptiontimer);
+            // Floating has finished, stop charging completely
+            // Charge will not start again until state of charge drops
+            setChargingMode(ChargingMode::stopped);
+            ChargingTimer = 0;
             return;
-        }
-
-        // Has time interval passed?
-        if (time_now > ChargingTimer)
-        {
-            if (mode == ChargingMode::absorb)
-            {
-                // Absorb has finished, switch to float
-                setChargingMode(ChargingMode::floating);
-                ChargingTimer = FutureTime(mysettings->floatvoltagetimer);
-                return;
-            }
-
-            if (mode == ChargingMode::floating)
-            {
-                // Floating has finished, stop charging completely
-                // Charge will not start again until state of charge drops
-                setChargingMode(ChargingMode::stopped);
-                ChargingTimer = 0;
-                return;
-            }
         }
     }
 }
