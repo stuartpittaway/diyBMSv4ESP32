@@ -412,7 +412,6 @@ bool Rules::SharedChargingDischargingRules(diybms_eeprom_settings *mysettings)
     if (numberOfActiveErrors > 0)
         return false;
 
-        
     // Battery high temperature alarm
     if (rule_outcome[Rule::ModuleOverTemperatureExternal])
         return false;
@@ -430,7 +429,7 @@ bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
     // Battery high voltage alarm - stop charging
     if (rule_outcome[Rule::BankOverVoltage])
         return false;
-    
+
     // Battery high voltage alarm - stop charging
     if (rule_outcome[Rule::CurrentMonitorOverVoltage])
         return false;
@@ -693,14 +692,21 @@ uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings
 /// @param currentMonitor
 void Rules::CalculateChargingMode(diybms_eeprom_settings *mysettings, currentmonitoring_struct *currentMonitor)
 {
+    // If we are not using CANBUS - ignore the charge mode, it doesn't mean anything
+    if (mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    {
+        return;
+    }
+
     ChargingMode mode = getChargingMode();
 
     // Determine charging mode - this is only possible if current monitor/state of charge calculation is functioning/installed
     if (IsStateOfChargeValid(mysettings, currentMonitor))
     {
-        if (currentMonitor->stateofcharge < (float)mysettings->stateofchargeresumevalue)
+        if (currentMonitor->stateofcharge < (float)mysettings->stateofchargeresumevalue || mysettings->socforcelow || mysettings->socoverride)
         {
-            // Battery is below resume level, normal charging operation in progress
+            // If S.o.C FORCE LOW or OVERRIDE are enabled, assume standard charging modes.
+            // or battery is below resume level so normal charging operation in progress
 
             // No difference in STANDARD or DYNAMIC modes - purely visual on screen/cosmetic
             if (mysettings->dynamiccharge == true && mysettings->canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
