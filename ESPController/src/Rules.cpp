@@ -450,6 +450,10 @@ bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
     if (highestCellVoltage > mysettings->cellmaxmv)
         return false;
 
+    // Prevent charging if we stopped it (after float/absorb)
+    if (chargemode == ChargingMode::stopped)
+        return false;
+
     return true;
 }
 bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
@@ -479,13 +483,13 @@ bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
 
 // Charge voltage calculated by CalculateDynamicChargeVoltage
 // Scale 0.1 = 567 = 56.7V
-uint16_t Rules::DynamicChargeVoltage()
+uint16_t Rules::DynamicChargeVoltage() const
 {
     return dynamicChargeVoltage;
 }
 // Charge current calculated by CalculateDynamicChargeCurrent
 // Scale 0.1 = 123 = 12.3Amps
-int16_t Rules::DynamicChargeCurrent()
+int16_t Rules::DynamicChargeCurrent() const
 {
     return dynamicChargeCurrent;
 }
@@ -551,8 +555,8 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
 {
     if (!mysettings->dynamiccharge || mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
     {
-        // Its switched off, use default voltage
-        dynamicChargeVoltage = mysettings->chargevolt;
+        // Dynamic charge switched off, use default or float voltage
+        dynamicChargeVoltage = (chargemode == ChargingMode::floating) ? mysettings->floatvoltage : mysettings->chargevolt;
         return;
     }
 
@@ -626,6 +630,12 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
 
     // Return MIN of either the above calculation or the "user specified value"
     dynamicChargeVoltage = min(S, (uint32_t)mysettings->chargevolt);
+
+    // If we are floating, then use lowest of calculated voltage or float voltage
+    if (chargemode == ChargingMode::floating)
+    {
+        dynamicChargeVoltage = min(dynamicChargeVoltage, mysettings->floatvoltage);
+    }
 }
 
 // Return SoC value after applying SOCFORCELOW and SOCOVERRIDE settings
@@ -665,4 +675,60 @@ uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings
         value = 100;
     }
     return value;
+}
+
+void Rules::CalculateChargingMode(diybms_eeprom_settings *mysettings, currentmonitoring_struct *currentMonitor)
+{
+    ChargingMode mode = getChargingMode();
+
+    // Determine charging mode - this is only possible if current monitor/state of charge calculation is functioning/installed
+    if (IsStateOfChargeValid(mysettings, currentMonitor))
+    {
+        if (currentMonitor->stateofcharge < (float)mysettings->stateofchargeresumevalue)
+        {
+            // Battery is below resume level, normal charging operation in progress
+
+            // No difference in STANDARD or DYNAMIC modes - purely visual on screen/cosmetic
+            if (mysettings->dynamiccharge == true && mysettings->canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
+            {
+                setChargingMode(ChargingMode::dynamic);
+            }
+            else
+            {
+                setChargingMode(ChargingMode::standard);
+            }
+            return;
+        }
+
+        // S.o.C is above stateofchargeresumevalue (so nearly fully charged)
+
+        auto time_now = esp_timer_get_time();
+        if ((mode == ChargingMode::standard || mode == ChargingMode::dynamic) && (currentMonitor->stateofcharge >= 99.0F))
+        {
+            // Battery is almost full at over 99.0%, therefore enable "absorb mode"
+            setChargingMode(ChargingMode::absorb);
+            ChargingAbsorbTimer = FutureTime(mysettings->absorptiontimer);
+            ChargingFloatTimer = 0;
+            return;
+        }
+
+        if (mode == ChargingMode::absorb && time_now > ChargingAbsorbTimer)
+        {
+            // Absorb has finished, switch to float
+            ChargingAbsorbTimer = 0;
+            ChargingFloatTimer = FutureTime(mysettings->floatvoltagetimer);
+            setChargingMode(ChargingMode::floating);
+            return;
+        }
+
+        if (mode == ChargingMode::floating && time_now > ChargingFloatTimer)
+        {
+            // Floating has finished, stop charging completely
+            //  Charge will not start again until state of charge drops
+            ChargingAbsorbTimer = 0;
+            ChargingFloatTimer = 0;
+            setChargingMode(ChargingMode::stopped);
+            return;
+        }
+    }
 }

@@ -485,8 +485,8 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     uint8_t temp;
 
-    //If a user updates the charge config, reset the charging mode as well 
-    rules.chargemode=ChargingMode::standard;
+    // If a user updates the charge config, reset the charging mode as well
+    rules.setChargingMode(ChargingMode::standard);
 
     if (GetKeyValue(httpbuf, "canbusprotocol", &temp, urlEncoded))
     {

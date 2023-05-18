@@ -61,12 +61,12 @@ enum InternalErrorCode : uint8_t
 
 enum class ChargingMode : uint8_t
 {
-  standard=0,
-  absorb=1,
-  floating=2,
-  dynamic=3
+    standard = 0,
+    absorb = 1,
+    floating = 2,
+    dynamic = 3,
+    stopped = 4
 };
-
 
 class Rules
 {
@@ -75,6 +75,18 @@ private:
     uint16_t dynamicChargeCurrent;
 
     bool SharedChargingDischargingRules(diybms_eeprom_settings *mysettings);
+
+    /// @brief Calculate future time (specified in minutes)
+    /// @param minutes number of minutes to delay for
+    /// @return microseconds "ticks" for esp_timer
+    int64_t FutureTime(uint16_t minutes) const
+    {
+        return esp_timer_get_time() + ((int64_t)minutes * (int64_t)60000000);
+    }
+    ChargingMode chargemode{ChargingMode::standard};
+
+    int64_t ChargingAbsorbTimer{0};
+    int64_t ChargingFloatTimer{0};
 
 public:
     bool rule_outcome[RELAY_RULES];
@@ -124,6 +136,16 @@ public:
     // True if at least 1 module has an external temp sensor fitted
     bool moduleHasExternalTempSensor;
 
+    ChargingMode getChargingMode() const
+    {
+        return chargemode;
+    }
+    void setChargingMode(ChargingMode newMode)
+    {
+        ESP_LOGI(TAG, "Charging mode changed %u", newMode);
+        chargemode = newMode;
+    }
+
     // Number of modules which have not yet reported back to the controller
     uint8_t invalidModuleCount;
 
@@ -131,12 +153,11 @@ public:
     int8_t numberOfActiveWarnings;
     int8_t numberOfBalancingModules;
 
-    ChargingMode chargemode{ChargingMode::standard};
-
     void ClearValues();
     void ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uint16_t cellmaxmv);
     void ProcessBank(uint8_t bank);
     void SetWarning(InternalWarningCode warncode);
+    void CalculateChargingMode(diybms_eeprom_settings *mysettings, currentmonitoring_struct *currentMonitor);
 
     void ClearWarnings()
     {
@@ -148,6 +169,15 @@ public:
     {
         memset(&ErrorCodes, 0, sizeof(ErrorCodes));
         numberOfActiveErrors = 0;
+    }
+
+    /// @brief Is the SoC a valid value?
+    /// @return Returns TRUE if the state of charge value can be relied upon (its real)
+    bool IsStateOfChargeValid(diybms_eeprom_settings *mysettings, currentmonitoring_struct *currentMonitor) const
+    {
+        return (mysettings->currentMonitoringEnabled &&
+                currentMonitor->validReadings &&
+                (mysettings->currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS || mysettings->currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL));
     }
 
     void SetError(InternalErrorCode err);
@@ -162,8 +192,8 @@ public:
     bool IsDischargeAllowed(diybms_eeprom_settings *mysettings);
     void CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
     void CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
-    uint16_t DynamicChargeVoltage();
-    int16_t DynamicChargeCurrent();
+    uint16_t DynamicChargeVoltage() const;
+    int16_t DynamicChargeCurrent() const;
     uint16_t StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC);
 };
 

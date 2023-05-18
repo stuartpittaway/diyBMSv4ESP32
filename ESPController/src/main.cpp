@@ -1240,6 +1240,7 @@ void ProcessRules()
     rules.ProcessBank(bank);
   }
 
+  rules.CalculateChargingMode(&mysettings, &currentMonitor);
   // Need to call these even if Dynamic is switch off, as it seeds the internal variables with the correct values
   rules.CalculateDynamicChargeVoltage(&mysettings, cmi);
   rules.CalculateDynamicChargeCurrent(&mysettings, cmi);
@@ -2691,7 +2692,7 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
       }*/
 
       // Remote inverter should send a 305 message every few seconds
-      // for now, keep track of last message. 
+      // for now, keep track of last message.
       // TODO: in future, add timeout/error condition to shut down
       if (message.identifier == 0x305)
       {
@@ -3659,6 +3660,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
     }
     hal.ReleaseVSPIMutex();
   }
+
+  rules.setChargingMode(ChargingMode::standard);
 
   // Serial pins IO2/IO32
   SERIAL_DATA.begin(mysettings.baudRate, SERIAL_8N1, 2, 32); // Serial for comms to modules

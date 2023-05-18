@@ -834,7 +834,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          canbus_messages_received,
                          canbus_messages_received_error,
                          prg.queueLength(),
-                         (unsigned int)rules.chargemode);
+                         (unsigned int)rules.getChargingMode());
 
   if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
   {
