@@ -412,12 +412,7 @@ bool Rules::SharedChargingDischargingRules(diybms_eeprom_settings *mysettings)
     if (numberOfActiveErrors > 0)
         return false;
 
-    // Battery high voltage alarm
-    if (rule_outcome[Rule::BankOverVoltage])
-        return false;
-    // Low voltage alarm
-    if (rule_outcome[Rule::BankUnderVoltage])
-        return false;
+        
     // Battery high temperature alarm
     if (rule_outcome[Rule::ModuleOverTemperatureExternal])
         return false;
@@ -430,6 +425,10 @@ bool Rules::SharedChargingDischargingRules(diybms_eeprom_settings *mysettings)
 bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
 {
     if (SharedChargingDischargingRules(mysettings) == false)
+        return false;
+
+    // Battery high voltage alarm - stop charging
+    if (rule_outcome[Rule::BankOverVoltage])
         return false;
 
     if (mysettings->preventcharging == true)
@@ -459,6 +458,10 @@ bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
 bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
 {
     if (SharedChargingDischargingRules(mysettings) == false)
+        return false;
+
+    // Low voltage alarm - stop discharge
+    if (rule_outcome[Rule::BankUnderVoltage])
         return false;
 
     if (mysettings->preventdischarge == true)
@@ -678,8 +681,8 @@ uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings
 }
 
 /// @brief Determine which charging mode the controller should be operating in
-/// @param mysettings 
-/// @param currentMonitor 
+/// @param mysettings
+/// @param currentMonitor
 void Rules::CalculateChargingMode(diybms_eeprom_settings *mysettings, currentmonitoring_struct *currentMonitor)
 {
     ChargingMode mode = getChargingMode();
