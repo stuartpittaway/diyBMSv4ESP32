@@ -192,7 +192,7 @@ public:
     }
 
     void SetError(InternalErrorCode err);
-    uint16_t VoltageRangeInBank(uint8_t bank);
+    uint16_t VoltageRangeInBank(uint8_t bank) const;
     void RunRules(
         const int32_t *value,
         const int32_t *hysteresisvalue,

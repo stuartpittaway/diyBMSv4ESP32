@@ -12,10 +12,11 @@
 
 void stopMqtt();
 void connectToMqtt();
-void mqtt2(PacketReceiveProcessor *receiveProc,PacketRequestGenerator *prg, uint16_t requestq_count,Rules *rules, RelayState *previousRelayState);
-void mqtt1(currentmonitoring_struct *currentMonitor,Rules *rules);
-void GeneralStatusPayload(const PacketRequestGenerator *prg, PacketReceiveProcessor *receiveProc, uint16_t requestq_count,const Rules *rules);
-void BankLevelInformation(Rules *rules);
+void mqtt2(const PacketReceiveProcessor *receiveProc,const PacketRequestGenerator *prg, uint16_t requestq_count,const Rules *rules,const RelayState *previousRelayState);
+void mqtt1(const currentmonitoring_struct *currentMonitor,const Rules *rules);
+void GeneralStatusPayload(const PacketRequestGenerator *prg, const PacketReceiveProcessor *receiveProc, uint16_t requestq_count,const Rules *rules);
+void BankLevelInformation(const Rules *rules);
+void RuleStatus(const Rules *rules);
 
 extern uint8_t TotalNumberOfCells();
 extern diybms_eeprom_settings mysettings;

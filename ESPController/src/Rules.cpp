@@ -122,7 +122,7 @@ void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, const CellModuleInfo *
     }
 }
 
-uint16_t Rules::VoltageRangeInBank(uint8_t bank)
+uint16_t Rules::VoltageRangeInBank(uint8_t bank) const
 {
     if (invalidModuleCount > 0)
         return 0;

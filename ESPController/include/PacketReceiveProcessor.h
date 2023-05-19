@@ -12,7 +12,7 @@ public:
   PacketReceiveProcessor() {}
   ~PacketReceiveProcessor() {}
   bool ProcessReply(PacketStruct *receivebuffer);
-  bool HasCommsTimedOut();
+  bool HasCommsTimedOut()  const;
 
   uint16_t totalCRCErrors = 0;
   uint16_t totalOutofSequenceErrors = 0;

@@ -138,7 +138,7 @@ void connectToMqtt()
     }
 }
 
-void GeneralStatusPayload(const PacketRequestGenerator *prg, PacketReceiveProcessor *receiveProc, uint16_t requestq_count, const Rules *rules)
+void GeneralStatusPayload(const PacketRequestGenerator *prg,const  PacketReceiveProcessor *receiveProc, uint16_t requestq_count, const Rules *rules)
 {
     ESP_LOGI(TAG, "General status payload");
     std::string status;
@@ -181,7 +181,7 @@ void GeneralStatusPayload(const PacketRequestGenerator *prg, PacketReceiveProces
     publish_message(topic, status);
 }
 
-void BankLevelInformation(Rules *rules)
+void BankLevelInformation(const Rules *rules)
 {
     // Output bank level information (just voltage for now)
     for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
@@ -200,7 +200,7 @@ void BankLevelInformation(Rules *rules)
     }
 }
 
-void RuleStatus(Rules *rules)
+void RuleStatus(const Rules *rules)
 {
     ESP_LOGI(TAG, "Rule status payload");
     std::string rule_status;
@@ -295,7 +295,7 @@ void MQTTCellData()
             status.reserve(128);
 
             uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
-            uint8_t module = i - (bank * mysettings.totalNumberOfSeriesModules);
+            uint8_t m = i - (bank * mysettings.totalNumberOfSeriesModules);
 
             status.append("{\"voltage\":").append(float_to_string(cmi[i].voltagemV / 1000.0f));
             status.append(",\"vMax\":").append(float_to_string(cmi[i].voltagemVMax / 1000.0f));
@@ -309,7 +309,7 @@ void MQTTCellData()
             status.append(",\"mAh\":").append(std::to_string(cmi[i].BalanceCurrentCount));
             status.append("}");
 
-            topic.append("/").append(std::to_string(bank)).append("/").append(std::to_string(module));
+            topic.append("/").append(std::to_string(bank)).append("/").append(std::to_string(m));
             publish_message(topic, status);
         }
 
@@ -323,7 +323,7 @@ void MQTTCellData()
     mqttStartModule = i;
 }
 
-void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
+void mqtt1(const currentmonitoring_struct *currentMonitor, const Rules *rules)
 {
     if (!mysettings.mqtt_enabled)
     {
@@ -354,11 +354,11 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
     }
 }
 
-void mqtt2(PacketReceiveProcessor *receiveProc,
-           PacketRequestGenerator *prg,
+void mqtt2(const PacketReceiveProcessor *receiveProc,
+           const PacketRequestGenerator *prg,
            uint16_t requestq_count,
-           Rules *rules,
-           RelayState *previousRelayState)
+           const Rules *rules,
+           const RelayState *previousRelayState)
 {
     if (!mysettings.mqtt_enabled)
     {

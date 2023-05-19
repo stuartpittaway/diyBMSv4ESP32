@@ -3,7 +3,7 @@ static constexpr const char * const TAG = "diybms-rx";
 
 #include "PacketReceiveProcessor.h"
 
-bool PacketReceiveProcessor::HasCommsTimedOut()
+bool PacketReceiveProcessor::HasCommsTimedOut() const
 {
   //We timeout the comms if we don't receive a packet within 3 times the normal
   //round trip time of the packets through the modules (minimum of 10 seconds to cater for low numbers of modules)
