@@ -580,7 +580,13 @@ function configureModule(button, cellid, attempts) {
 }
 
 function secondsToHms(seconds) {
+    
     seconds = Number(seconds);
+
+    if (seconds<0) {
+        return "";
+    }
+
     var d = Math.floor(seconds / (3600 * 24));
     var h = Math.floor(seconds % (3600 * 24) / 3600);
     var m = Math.floor(seconds % 3600 / 60);
@@ -754,11 +760,14 @@ function queryBMS() {
                 $("#dynccurr .v").html(parseFloat(jsondata.dyncc / 10).toFixed(2) + "A");
             } else { $("#dynccurr .v").html(""); }
 
+            
+
             switch (jsondata.cmode) {
                 case 0: $("#chgmode .v").html("Standard"); break;
-                case 1: $("#chgmode .v").html("Absorb"); break;
-                case 2: $("#chgmode .v").html("Float"); break;
+                case 1: $("#chgmode .v").html("Absorb "+secondsToHms(jsondata.ctime)); break;
+                case 2: $("#chgmode .v").html("Float "+secondsToHms(jsondata.ctime)); break;
                 case 3: $("#chgmode .v").html("Dynamic"); break;
+                case 4: $("#chgmode .v").html("Stopped"); break;
                 default: $("#chgmode .v").html("Unknown");
             }
         }

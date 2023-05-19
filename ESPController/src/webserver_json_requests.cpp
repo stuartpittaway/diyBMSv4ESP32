@@ -817,7 +817,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // Output the first batch of settings/parameters/values
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         R"({"banks":%u,"seriesmodules":%u,"sent":%u,"received":%u,"modulesfnd":%u,"badcrc":%u,"ignored":%u,"roundtrip":%u,"oos":%u,"activerules":%u,"uptime":%u,"can_fail":%u,"can_sent":%u,"can_rec":%u,"can_r_err":%u,"qlen":%u,"cmode":%u,)",
+                         R"({"banks":%u,"seriesmodules":%u,"sent":%u,"received":%u,"modulesfnd":%u,"badcrc":%u,"ignored":%u,"roundtrip":%u,"oos":%u,"activerules":%u,"uptime":%u,"can_fail":%u,"can_sent":%u,"can_rec":%u,"can_r_err":%u,"qlen":%u,"cmode":%u,"ctime":%i,)",
                          mysettings.totalNumberOfBanks,
                          mysettings.totalNumberOfSeriesModules,
                          prg.packetsGenerated,
@@ -834,7 +834,9 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          canbus_messages_received,
                          canbus_messages_received_error,
                          prg.queueLength(),
-                         (unsigned int)rules.getChargingMode());
+                         (unsigned int)rules.getChargingMode(),
+                         rules.getChargingTimerSecondsRemaining()
+                         );
 
   if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
   {

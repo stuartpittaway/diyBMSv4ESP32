@@ -135,13 +135,23 @@ public:
     // True if at least 1 module has an external temp sensor fitted
     bool moduleHasExternalTempSensor;
 
+    int32_t getChargingTimerSecondsRemaining() const
+    {
+        if (ChargingTimer == 0)
+        {
+            return -1;
+        }
+        // Calculate seconds from microseconds
+        return (int32_t)((ChargingTimer - esp_timer_get_time()) / (int64_t)1E6);
+    }
     ChargingMode getChargingMode() const
     {
         return chargemode;
     }
     void setChargingMode(ChargingMode newMode)
     {
-        if (chargemode == newMode) return;
+        if (chargemode == newMode)
+            return;
         ESP_LOGI(TAG, "Charging mode changed %u", newMode);
         chargemode = newMode;
     }
