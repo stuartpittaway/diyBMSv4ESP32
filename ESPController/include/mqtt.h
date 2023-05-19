@@ -14,7 +14,7 @@ void stopMqtt();
 void connectToMqtt();
 void mqtt2(PacketReceiveProcessor *receiveProc,PacketRequestGenerator *prg, uint16_t requestq_count,Rules *rules, RelayState *previousRelayState);
 void mqtt1(currentmonitoring_struct *currentMonitor,Rules *rules);
-void GeneralStatusPayload(const PacketRequestGenerator *prg, PacketReceiveProcessor *receiveProc, uint16_t requestq_count,Rules *rules);
+void GeneralStatusPayload(const PacketRequestGenerator *prg, PacketReceiveProcessor *receiveProc, uint16_t requestq_count,const Rules *rules);
 void BankLevelInformation(Rules *rules);
 
 extern uint8_t TotalNumberOfCells();
