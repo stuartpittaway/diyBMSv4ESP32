@@ -377,7 +377,7 @@ void Rules::RunRules(
     }
 }
 
-bool Rules::SharedChargingDischargingRules(diybms_eeprom_settings *mysettings)
+bool Rules::SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings)
 {
     if (mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
         return false;
@@ -415,7 +415,7 @@ bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
     if (mysettings->preventcharging == true)
         return false;
 
-    if (lowestExternalTemp<mysettings->chargetemplow | highestExternalTemp> mysettings->chargetemphigh)
+    if ((lowestExternalTemp < mysettings->chargetemplow) || (highestExternalTemp > mysettings->chargetemphigh))
     {
         // Stop charge - temperature out of range
         // ESP_LOGW(TAG, "Stop charge - temperature out of range");
@@ -453,7 +453,7 @@ bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
         return false;
 
     // Check battery temperature against charge/discharge parameters
-    if (lowestExternalTemp<mysettings->dischargetemplow | highestExternalTemp> mysettings->dischargetemphigh)
+    if ((lowestExternalTemp < mysettings->dischargetemplow) || (highestExternalTemp > mysettings->dischargetemphigh))
     {
         // ESP_LOGW(TAG, "Stop discharge - temperature out of range");
         return false;
