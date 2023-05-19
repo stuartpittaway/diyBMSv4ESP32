@@ -623,7 +623,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
     JsonObject rule = bankArray.createNestedObject();
     rule["value"] = mysettings.rulevalue[r];
     rule["hysteresis"] = mysettings.rulehysteresis[r];
-    rule["triggered"] = rules.rule_outcome[r];
+    rule["triggered"] = rules.rule_outcome.at(r);
     JsonArray data = rule.createNestedArray("relays");
 
     for (auto v : mysettings.rulerelaystate[r])
@@ -1116,7 +1116,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
     if (i)
       bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.bankvoltage[i]);
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.bankvoltage.at(i));
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 

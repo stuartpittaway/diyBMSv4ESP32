@@ -284,30 +284,30 @@ void victron_message_35a()
   {
     /*
     ESP_LOGI(TAG, "Rule BankOverVoltage=%u, BankUnderVoltage=%u, OverTemp=%u, UnderTemp=%u",
-             rules.rule_outcome[Rule::BankOverVoltage],
-             rules.rule_outcome[Rule::BankUnderVoltage],
-             rules.rule_outcome[Rule::IndividualcellovertemperatureExternal],
-             rules.rule_outcome[Rule::IndividualcellundertemperatureExternal]);
+             rules.rule_outcome.at(Rule::BankOverVoltage],
+             rules.rule_outcome.at(Rule::BankUnderVoltage],
+             rules.rule_outcome.at(Rule::IndividualcellovertemperatureExternal],
+             rules.rule_outcome.at(Rule::IndividualcellundertemperatureExternal]);
   */
 
     // BYTE 0
     //(bit 0+1) General alarm (not implemented)
     //(bit 2+3) Battery low voltage alarm
-    data.byte0 |= ((rules.rule_outcome[Rule::BankOverVoltage] | rules.rule_outcome[Rule::CurrentMonitorOverVoltage]) ? BIT23_ALARM : BIT23_OK);
+    data.byte0 |= ((rules.rule_outcome.at(Rule::BankOverVoltage) | rules.rule_outcome.at(Rule::CurrentMonitorOverVoltage)) ? BIT23_ALARM : BIT23_OK);
     //(bit 4+5) Battery high voltage alarm
-    data.byte0 |= ((rules.rule_outcome[Rule::BankUnderVoltage] | rules.rule_outcome[Rule::CurrentMonitorUnderVoltage]) ? BIT45_ALARM : BIT45_OK);
+    data.byte0 |= ((rules.rule_outcome.at(Rule::BankUnderVoltage) | rules.rule_outcome.at(Rule::CurrentMonitorUnderVoltage)) ? BIT45_ALARM : BIT45_OK);
 
     //(bit 6+7) Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      data.byte0 |= (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? BIT67_ALARM : BIT67_OK);
+      data.byte0 |= (rules.rule_outcome.at(Rule::ModuleOverTemperatureExternal) ? BIT67_ALARM : BIT67_OK);
     }
 
     // BYTE 1
     // 1 (bit 0+1) Battery low temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      data.byte1 |= (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? BIT01_ALARM : BIT01_OK);
+      data.byte1 |= (rules.rule_outcome.at(Rule::ModuleUnderTemperatureExternal) ? BIT01_ALARM : BIT01_OK);
     }
     // 1 (bit 2+3) Battery high temperature charge alarm
     // data.byte1 |= BIT23_NOTSUP;
@@ -324,10 +324,10 @@ void victron_message_35a()
   // 2 (bit 4+5) Short circuit Alarm (not implemented)
   // data.byte2 |= BIT45_NOTSUP;
 
-  // ESP_LOGI(TAG, "Rule BMSError=%u, EmergencyStop=%u", rules.rule_outcome[Rule::BMSError], rules.rule_outcome[Rule::EmergencyStop]);
+  // ESP_LOGI(TAG, "Rule BMSError=%u, EmergencyStop=%u", rules.rule_outcome.at(Rule::BMSError], rules.rule_outcome.at(Rule::EmergencyStop]);
 
   // 2 (bit 6+7) BMS internal alarm
-  data.byte2 |= ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? BIT67_ALARM : BIT67_OK);
+  data.byte2 |= ((rules.rule_outcome.at(Rule::BMSError) | rules.rule_outcome.at(Rule::EmergencyStop)) ? BIT67_ALARM : BIT67_OK);
 
   // 3 (bit 0+1) Cell imbalance alarm
   // data.byte3 |= BIT01_NOTSUP;

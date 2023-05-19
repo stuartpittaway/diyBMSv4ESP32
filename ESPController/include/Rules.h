@@ -88,14 +88,15 @@ private:
     int64_t ChargingTimer{0};
 
 public:
-    bool rule_outcome[RELAY_RULES];
+    std::array<bool, RELAY_RULES> rule_outcome;
+
     // Number of TRUE values in array rule_outcome
     uint8_t active_rule_count;
 
     // Actual bank voltage reported by the modules (sum of voltage reported by modules) (millivolts)
-    uint32_t bankvoltage[maximum_number_of_banks];
+    std::array<uint32_t, maximum_number_of_banks> bankvoltage;
     // As above, but each voltage reading limited to "cellmaxmv" setting (used for charge voltage calc)
-    uint32_t limitedbankvoltage[maximum_number_of_banks];
+    std::array<uint32_t, maximum_number_of_banks> limitedbankvoltage;
 
     std::array<uint16_t, maximum_number_of_banks> LowestCellVoltageInBank;
     std::array<uint16_t, maximum_number_of_banks> HighestCellVoltageInBank;

@@ -1156,7 +1156,7 @@ void ProcessRules()
   rules.ClearWarnings();
   rules.ClearErrors();
 
-  rules.rule_outcome[Rule::BMSError] = false;
+  rules.rule_outcome.at(Rule::BMSError) = false;
 
   auto totalConfiguredModules = TotalNumberOfCells();
   if (totalConfiguredModules > maximum_controller_cell_modules)
@@ -1175,10 +1175,10 @@ void ProcessRules()
   if (receiveProc.HasCommsTimedOut())
   {
     rules.SetError(InternalErrorCode::CommunicationsError);
-    rules.rule_outcome[Rule::BMSError] = true;
+    rules.rule_outcome.at(Rule::BMSError) = true;
   }
 
-  if (rules.rule_outcome[Rule::EmergencyStop])
+  if (rules.rule_outcome.at(Rule::EmergencyStop))
   {
     // Lowest 3 bits are RGB led GREEN/RED/BLUE
     rules.SetError(InternalErrorCode::ErrorEmergencyStop);
@@ -1191,7 +1191,7 @@ void ProcessRules()
     if (secondsSinceLastMessage > 45)
     {
       rules.SetError(InternalErrorCode::CommunicationsError);
-      rules.rule_outcome[Rule::BMSError] = true;
+      rules.rule_outcome.at(Rule::BMSError) = true;
     }
   }
 
@@ -1264,7 +1264,7 @@ void ProcessRules()
   if (_controller_state == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
   {
     rules.SetError(InternalErrorCode::ZeroVoltModule);
-    rules.rule_outcome[Rule::BMSError] = true;
+    rules.rule_outcome.at(Rule::BMSError) = true;
   }
 
   rules.RunRules(
@@ -1304,7 +1304,7 @@ void ProcessRules()
     }
   }
 
-  if (rules.rule_outcome[Rule::EmergencyStop])
+  if (rules.rule_outcome.at(Rule::EmergencyStop))
   {
     // Lowest 3 bits are RGB led GREEN/RED/BLUE
     LED(RGBLED::Red);
@@ -1352,7 +1352,7 @@ void pulse_relay_off(const TimerHandle_t)
 #if defined(RULES_LOGGING)
     for (int8_t r = 0; r < RELAY_RULES; r++)
     {
-      if (rules.rule_outcome[r])
+      if (rules.rule_outcome.at(r))
       {
         ESP_LOGD(TAG, "Rule outcome %i=TRUE", r);
       }
@@ -1370,7 +1370,7 @@ void pulse_relay_off(const TimerHandle_t)
     // Test the rules (in reverse order)
     for (int8_t n = RELAY_RULES - 1; n >= 0; n--)
     {
-      if (rules.rule_outcome[n] == true)
+      if (rules.rule_outcome.at(n) == true)
       {
         for (int8_t y = 0; y < RELAY_TOTAL; y++)
         {
@@ -3039,7 +3039,7 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
     {
       countdown_influx = mysettings.influxdb_loggingFreqSeconds;
 
-      if (mysettings.influxdb_enabled && wifi_isconnected && rules.invalidModuleCount == 0 && _controller_state == ControllerState::Running && rules.rule_outcome[Rule::BMSError] == false)
+      if (mysettings.influxdb_enabled && wifi_isconnected && rules.invalidModuleCount == 0 && _controller_state == ControllerState::Running && rules.rule_outcome.at(Rule::BMSError) == false)
       {
         ESP_LOGI(TAG, "Influx task");
         influx_task_action();
@@ -3174,10 +3174,7 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 void resetAllRules()
 {
   // Clear all rules
-  for (int8_t r = 0; r < RELAY_RULES; r++)
-  {
-    rules.rule_outcome[r] = false;
-  }
+  rules.rule_outcome.fill(false);
 }
 
 bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool ShowPasswordChar)

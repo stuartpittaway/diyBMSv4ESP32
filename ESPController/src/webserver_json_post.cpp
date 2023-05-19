@@ -938,10 +938,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
         }
 
         // Reset state of rules after updating the new values
-        for (int8_t r = 0; r < RELAY_RULES; r++)
-        {
-            rules.rule_outcome[r] = false;
-        }
+        rules.rule_outcome.fill(false);
     }
 
     saveConfiguration();

@@ -179,7 +179,7 @@ void BankLevelInformation(Rules *rules)
         std::string bank_status;
         bank_status.reserve(128);
         bank_status.append("{\"voltage\":")
-            .append(float_to_string(rules->bankvoltage[bank] / 1000.0f))
+            .append(float_to_string(rules->bankvoltage.at(bank) / 1000.0f))
             .append(",\"range\":")
             .append(std::to_string(rules->VoltageRangeInBank(bank)))
             .append("}");
@@ -197,7 +197,7 @@ void RuleStatus(Rules *rules)
     rule_status.append("{");
     for (uint8_t i = 0; i < RELAY_RULES; i++)
     {
-        rule_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string(rules->rule_outcome[i] ? 1 : 0));
+        rule_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string(rules->rule_outcome.at(i) ? 1 : 0));
         if (i < (RELAY_RULES - 1))
         {
             rule_status.append(",");
@@ -341,7 +341,7 @@ void mqtt1(currentmonitoring_struct *currentMonitor, Rules *rules)
     }
 
     // If the BMS is in error, stop sending MQTT packets for the data
-    if (!rules->rule_outcome[Rule::BMSError])
+    if (!rules->rule_outcome.at(Rule::BMSError))
     {
         MQTTCellData();
     }
