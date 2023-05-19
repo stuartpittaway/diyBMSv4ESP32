@@ -1310,7 +1310,7 @@ void ProcessRules()
     LED(RGBLED::Red);
   }
 
-  if (rules.numberOfActiveErrors > 0 || rules.WarningCodes[InternalWarningCode::AVRProgrammingMode] != InternalWarningCode::NoWarning)
+  if (rules.numberOfActiveErrors > 0 || rules.WarningCodes.at(InternalWarningCode::AVRProgrammingMode) != InternalWarningCode::NoWarning)
   {
     // We have active errors, or AVR programming mode is enabled
     ESP_LOGI(TAG, "Active errors=%u", rules.numberOfActiveErrors);

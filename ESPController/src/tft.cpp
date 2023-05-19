@@ -975,11 +975,10 @@ void DrawTFT_NoWiFi()
 void DrawTFT_Error()
 {
     tft.setTextColor(TFT_WHITE, TFT_RED);
-    // uint16_t y = 16 + 6;
 
-    for (size_t i = 0; i < sizeof(rules.ErrorCodes); i++)
+    for (size_t i = 0; i < rules.ErrorCodes.size(); i++)
     {
-        if (rules.ErrorCodes[i] != InternalErrorCode::NoError)
+        if (rules.ErrorCodes.at(i) != InternalErrorCode::NoError)
         {
             // Centre screen
             tft.setTextFont(2);
@@ -988,7 +987,7 @@ void DrawTFT_Error()
             // Centre/middle text
             tft.setTextDatum(TC_DATUM);
 
-            switch (rules.ErrorCodes[i])
+            switch (rules.ErrorCodes.at(i))
             {
             case InternalErrorCode::CommunicationsError:
             {

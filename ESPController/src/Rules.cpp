@@ -29,9 +29,10 @@ void Rules::ClearValues()
     {
         limitedbankvoltage[r] = 0;
         bankvoltage[r] = 0;
-        LowestCellVoltageInBank[r] = 0xFFFF;
-        HighestCellVoltageInBank[r] = 0;
     }
+
+    LowestCellVoltageInBank.fill(0xFFFF);
+    HighestCellVoltageInBank.fill(0);
 
     highestBankVoltage = 0;
     lowestBankVoltage = 0xFFFFFFFF;
@@ -74,13 +75,13 @@ void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uin
         zeroVoltageModuleCount++;
     }
 
-    if (c->voltagemV > HighestCellVoltageInBank[bank])
+    if (c->voltagemV > HighestCellVoltageInBank.at(bank))
     {
-        HighestCellVoltageInBank[bank] = c->voltagemV;
+        HighestCellVoltageInBank.at(bank) = c->voltagemV;
     }
-    if (c->voltagemV < LowestCellVoltageInBank[bank])
+    if (c->voltagemV < LowestCellVoltageInBank.at(bank))
     {
-        LowestCellVoltageInBank[bank] = c->voltagemV;
+        LowestCellVoltageInBank.at(bank) = c->voltagemV;
     }
 
     if (c->voltagemV > highestCellVoltage)
@@ -130,7 +131,7 @@ uint16_t Rules::VoltageRangeInBank(uint8_t bank)
     if (invalidModuleCount > 0)
         return 0;
 
-    return HighestCellVoltageInBank[bank] - LowestCellVoltageInBank[bank];
+    return HighestCellVoltageInBank.at(bank) - LowestCellVoltageInBank.at(bank);
 }
 
 void Rules::ProcessBank(uint8_t bank)
@@ -157,10 +158,10 @@ void Rules::SetWarning(InternalWarningCode warncode)
         return;
 
     // Only set the warning once
-    if (WarningCodes[warncode] != InternalWarningCode::NoWarning)
+    if (WarningCodes.at(warncode) != InternalWarningCode::NoWarning)
         return;
 
-    WarningCodes[warncode] = warncode;
+    WarningCodes.at(warncode) = warncode;
     numberOfActiveWarnings++;
     ESP_LOGI(TAG, "Set warning %i", warncode);
 }
@@ -171,10 +172,10 @@ void Rules::SetError(InternalErrorCode err)
         return;
 
     // Only set error once
-    if (ErrorCodes[err] != InternalErrorCode::NoError)
+    if (ErrorCodes.at(err) != InternalErrorCode::NoError)
         return;
 
-    ErrorCodes[err] = err;
+    ErrorCodes.at(err) = err;
     numberOfActiveErrors++;
     ESP_LOGI(TAG, "Set error %i", err);
 }

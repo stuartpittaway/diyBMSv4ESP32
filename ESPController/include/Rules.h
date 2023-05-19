@@ -97,8 +97,8 @@ public:
     // As above, but each voltage reading limited to "cellmaxmv" setting (used for charge voltage calc)
     uint32_t limitedbankvoltage[maximum_number_of_banks];
 
-    uint16_t LowestCellVoltageInBank[maximum_number_of_banks];
-    uint16_t HighestCellVoltageInBank[maximum_number_of_banks];
+    std::array<uint16_t, maximum_number_of_banks> LowestCellVoltageInBank;
+    std::array<uint16_t, maximum_number_of_banks> HighestCellVoltageInBank;
 
     // Number of modules who have reported zero volts (bad!)
     uint8_t zeroVoltageModuleCount;
@@ -129,8 +129,8 @@ public:
     int8_t highestInternalTemp;
     int8_t lowestInternalTemp;
 
-    InternalErrorCode ErrorCodes[1 + MAXIMUM_InternalErrorCode];
-    InternalWarningCode WarningCodes[1 + MAXIMUM_InternalWarningCode];
+    std::array<InternalErrorCode, 1 + MAXIMUM_InternalErrorCode> ErrorCodes;
+    std::array<InternalWarningCode, 1 + MAXIMUM_InternalWarningCode> WarningCodes;
 
     // True if at least 1 module has an external temp sensor fitted
     bool moduleHasExternalTempSensor;
@@ -171,13 +171,13 @@ public:
 
     void ClearWarnings()
     {
-        memset(&WarningCodes, 0, sizeof(WarningCodes));
+        WarningCodes.fill(InternalWarningCode::NoWarning);
         numberOfActiveWarnings = 0;
     }
 
     void ClearErrors()
     {
-        memset(&ErrorCodes, 0, sizeof(ErrorCodes));
+        ErrorCodes.fill(InternalErrorCode::NoError);
         numberOfActiveErrors = 0;
     }
 
