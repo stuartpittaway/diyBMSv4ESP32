@@ -48,30 +48,27 @@ static inline void publish_message(std::string &topic, std::string &payload, boo
 /// @return The uptime of the ESP32 in seconds.
 static inline uint32_t uptime_in_seconds()
 {
-    uint64_t uptime_time_msec = esp_timer_get_time();
-    uint64_t uptime_time_millis = uptime_time_msec / 1000;
-    uint32_t uptime_time_seconds = uptime_time_millis / 1000;
-    return uptime_time_seconds;
+    return (uint32_t)(esp_timer_get_time() / (uint64_t)1000 / (uint64_t)1000);
 }
 
-static void mqtt_connected_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+static void mqtt_connected_handler(void *, esp_event_base_t , int32_t , void *)
 {
     ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
     mqttClient_connected = true;
 }
 
-static void mqtt_disconnected_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+static void mqtt_disconnected_handler(void *, esp_event_base_t , int32_t , void *)
 {
     ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
     mqttClient_connected = false;
 }
 
-static void mqtt_error_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+static void mqtt_error_handler(void *, esp_event_base_t , int32_t , void *event_data)
 {
     // ESP_LOGD(TAG, "Event base=%s, event_id=%d", base, event_id);
-    esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
-    esp_mqtt_client_handle_t client = event->client;
-    int msg_id;
+    auto event = (esp_mqtt_event_handle_t)event_data;
+    //auto client = event->client;
+    //int msg_id;
 
     ESP_LOGE(TAG, "MQTT_EVENT_ERROR");
     if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
@@ -114,17 +111,17 @@ void connectToMqtt()
 
         // Need to preset variables in esp_mqtt_client_config_t otherwise LoadProhibited errors
         esp_mqtt_client_config_t mqtt_cfg{
-            .event_handle = NULL, .host = "", .uri = mysettings.mqtt_uri, .disable_auto_reconnect = false};
+            .event_handle = nullptr, .host = "", .uri = mysettings.mqtt_uri, .disable_auto_reconnect = false};
 
         mqtt_cfg.username = mysettings.mqtt_username;
         mqtt_cfg.password = mysettings.mqtt_password;
 
         mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
-        if (mqtt_client != NULL)
+        if (mqtt_client != nullptr)
         {
-            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_CONNECTED, mqtt_connected_handler, NULL));
-            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_DISCONNECTED, mqtt_disconnected_handler, NULL));
-            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_ERROR, mqtt_error_handler, NULL));
+            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_CONNECTED, mqtt_connected_handler, nullptr));
+            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_DISCONNECTED, mqtt_disconnected_handler, nullptr));
+            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_ERROR, mqtt_error_handler, nullptr));
             if (ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_start(mqtt_client)) != ESP_OK)
             {
                 ESP_LOGE(TAG, "esp_mqtt_client_start failed");
@@ -141,7 +138,7 @@ void connectToMqtt()
     }
 }
 
-void GeneralStatusPayload(PacketRequestGenerator *prg, PacketReceiveProcessor *receiveProc, uint16_t requestq_count, Rules *rules)
+void GeneralStatusPayload(const PacketRequestGenerator *prg, PacketReceiveProcessor *receiveProc, uint16_t requestq_count, const Rules *rules)
 {
     ESP_LOGI(TAG, "General status payload");
     std::string status;
@@ -159,8 +156,8 @@ void GeneralStatusPayload(PacketRequestGenerator *prg, PacketReceiveProcessor *r
     status.append(",\"roundtrip\":").append(std::to_string(receiveProc->packetTimerMillisecond));
     if (mysettings.dynamiccharge)
     {
-        status.append(",\"dynchargev\":").append(float_to_string(((float)rules->DynamicChargeVoltage()) / 10.0));
-        status.append(",\"dynchargec\":").append(float_to_string(((float)rules->DynamicChargeCurrent()) / 10.0));
+        status.append(",\"dynchargev\":").append(float_to_string(((float)rules->DynamicChargeVoltage()) / 10.0F));
+        status.append(",\"dynchargec\":").append(float_to_string(((float)rules->DynamicChargeCurrent()) / 10.0F));
     }
     status.append("}");
 
@@ -209,7 +206,7 @@ void RuleStatus(Rules *rules)
     publish_message(topic, rule_status);
 }
 
-void OutputStatus(RelayState *previousRelayState)
+void OutputStatus(const RelayState *previousRelayState)
 {
     ESP_LOGI(TAG, "Outputs status payload");
     std::string relay_status;
@@ -230,7 +227,7 @@ void OutputStatus(RelayState *previousRelayState)
     publish_message(topic, relay_status);
 }
 
-void MQTTCurrentMonitoring(currentmonitoring_struct *currentMonitor)
+void MQTTCurrentMonitoring(const currentmonitoring_struct *currentMonitor)
 {
     static int64_t lastcurrentMonitortimestamp = 0;
 

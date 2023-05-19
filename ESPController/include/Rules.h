@@ -165,10 +165,10 @@ public:
     int8_t numberOfBalancingModules;
 
     void ClearValues();
-    void ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uint16_t cellmaxmv);
+    void ProcessCell(uint8_t bank, uint8_t cellNumber, const CellModuleInfo *c, uint16_t cellmaxmv);
     void ProcessBank(uint8_t bank);
     void SetWarning(InternalWarningCode warncode);
-    void CalculateChargingMode(diybms_eeprom_settings *mysettings, currentmonitoring_struct *currentMonitor);
+    void CalculateChargingMode(const diybms_eeprom_settings *mysettings, const currentmonitoring_struct *currentMonitor);
 
     void ClearWarnings()
     {
@@ -184,7 +184,7 @@ public:
 
     /// @brief Is the SoC a valid value?
     /// @return Returns TRUE if the state of charge value can be relied upon (its real)
-    bool IsStateOfChargeValid(diybms_eeprom_settings *mysettings, currentmonitoring_struct *currentMonitor) const
+    bool IsStateOfChargeValid(const diybms_eeprom_settings *mysettings, const currentmonitoring_struct *currentMonitor) const
     {
         return (mysettings->currentMonitoringEnabled &&
                 currentMonitor->validReadings &&
@@ -194,18 +194,18 @@ public:
     void SetError(InternalErrorCode err);
     uint16_t VoltageRangeInBank(uint8_t bank);
     void RunRules(
-        int32_t *value,
-        int32_t *hysteresisvalue,
+        const int32_t *value,
+        const int32_t *hysteresisvalue,
         bool emergencyStop,
-        uint16_t mins, currentmonitoring_struct *currentMonitor);
+        uint16_t mins, const currentmonitoring_struct *currentMonitor);
 
-    bool IsChargeAllowed(diybms_eeprom_settings *mysettings);
-    bool IsDischargeAllowed(diybms_eeprom_settings *mysettings);
-    void CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
-    void CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
+    bool IsChargeAllowed(const diybms_eeprom_settings *mysettings);
+    bool IsDischargeAllowed(const diybms_eeprom_settings *mysettings);
+    void CalculateDynamicChargeVoltage(const diybms_eeprom_settings *mysettings, const CellModuleInfo *cellarray);
+    void CalculateDynamicChargeCurrent(const diybms_eeprom_settings *mysettings);
     uint16_t DynamicChargeVoltage() const;
     int16_t DynamicChargeCurrent() const;
-    uint16_t StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC) const;
+    uint16_t StateOfChargeWithRulesApplied(const diybms_eeprom_settings *mysettings, float realSOC) const;
 };
 
 #endif

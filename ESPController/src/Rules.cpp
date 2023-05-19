@@ -53,7 +53,7 @@ void Rules::ClearValues()
 }
 
 // Looking at individual voltages and temperatures and sum up Bank voltages.
-void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uint16_t cellmaxmv)
+void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, const CellModuleInfo *c, uint16_t cellmaxmv)
 {
     if (c->valid == false)
     {
@@ -176,12 +176,18 @@ void Rules::SetError(InternalErrorCode err)
     ESP_LOGI(TAG, "Set error %i", err);
 }
 
+/// @brief Run rules against cell/bank data
+/// @param value
+/// @param hysteresisvalue
+/// @param emergencyStop TRUE is ESTOP is triggered
+/// @param mins
+/// @param currentMonitor
 void Rules::RunRules(
-    int32_t *value,
-    int32_t *hysteresisvalue,
+    const int32_t *value,
+    const int32_t *hysteresisvalue,
     bool emergencyStop,
     uint16_t mins,
-    currentmonitoring_struct *currentMonitor)
+    const currentmonitoring_struct *currentMonitor)
 {
     // Emergency stop signal...
     rule_outcome.at(Rule::EmergencyStop) = emergencyStop;
@@ -399,7 +405,7 @@ bool Rules::SharedChargingDischargingRules(const diybms_eeprom_settings *mysetti
 
     return true;
 }
-bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
+bool Rules::IsChargeAllowed(const diybms_eeprom_settings *mysettings)
 {
     if (SharedChargingDischargingRules(mysettings) == false)
         return false;
@@ -436,7 +442,7 @@ bool Rules::IsChargeAllowed(diybms_eeprom_settings *mysettings)
 
     return true;
 }
-bool Rules::IsDischargeAllowed(diybms_eeprom_settings *mysettings)
+bool Rules::IsDischargeAllowed(const diybms_eeprom_settings *mysettings)
 {
     if (SharedChargingDischargingRules(mysettings) == false)
         return false;
@@ -483,7 +489,7 @@ int16_t Rules::DynamicChargeCurrent() const
 }
 
 // Apply "dynamic" charge current rules
-void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray)
+void Rules::CalculateDynamicChargeCurrent(const diybms_eeprom_settings *mysettings)
 {
     // Remember dynamicChargeCurrent scale is 0.1
     dynamicChargeCurrent = mysettings->chargecurrent;
@@ -538,7 +544,7 @@ void Rules::CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, Ce
 // This will always return a charge voltage - its the calling functions responsibility  to check "IsChargeAllowed" function and take necessary action.
 // Thanks to Matthias U (Smurfix) for the ideas and pseudo code https://community.openenergymonitor.org/u/smurfix/
 // Output is cached in variable dynamicChargeVoltage as its used in multiple places
-void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray)
+void Rules::CalculateDynamicChargeVoltage(const diybms_eeprom_settings *mysettings, const CellModuleInfo *cellarray)
 {
     if (!mysettings->dynamiccharge || mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
     {
@@ -629,7 +635,7 @@ void Rules::CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, Ce
 /// @param mysettings
 /// @param realSOC True value of SoC
 /// @return SoC is rounded down to nearest integer and limits output range between 0 and 100.
-uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC) const
+uint16_t Rules::StateOfChargeWithRulesApplied(const diybms_eeprom_settings *mysettings, float realSOC) const
 {
     uint16_t value = floor(realSOC);
 
@@ -668,7 +674,7 @@ uint16_t Rules::StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings
 /// @brief Determine which charging mode the controller should be operating in
 /// @param mysettings
 /// @param currentMonitor
-void Rules::CalculateChargingMode(diybms_eeprom_settings *mysettings, currentmonitoring_struct *currentMonitor)
+void Rules::CalculateChargingMode(const diybms_eeprom_settings *mysettings, const currentmonitoring_struct *currentMonitor)
 {
     // If we are not using CANBUS - ignore the charge mode, it doesn't mean anything
     if (mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)

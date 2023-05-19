@@ -118,10 +118,10 @@ void pylon_message_359()
   {
     // bit 0 = unused
     //(bit 1) Battery high voltage alarm
-    data.byte0 |= ((rules.rule_outcome.at(Rule::BankOverVoltage) | rules.rule_outcome.at(Rule::CurrentMonitorOverVoltage)) ? B00000010 : 0);
+    data.byte0 |= ((rules.rule_outcome.at(Rule::BankOverVoltage) || rules.rule_outcome.at(Rule::CurrentMonitorOverVoltage)) ? B00000010 : 0);
 
     //(bit 2) Battery low voltage alarm
-    data.byte0 |= ((rules.rule_outcome.at(Rule::BankUnderVoltage) | rules.rule_outcome.at(Rule::CurrentMonitorUnderVoltage)) ? B00000100 : 0);
+    data.byte0 |= ((rules.rule_outcome.at(Rule::BankUnderVoltage) || rules.rule_outcome.at(Rule::CurrentMonitorUnderVoltage)) ? B00000100 : 0);
 
     //(bit 3) Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
@@ -167,7 +167,7 @@ void pylon_message_359()
   }
 
   // byte3,table4, Bit 3 = Internal communication failure
-  data.byte3 |= ((rules.rule_outcome.at(Rule::BMSError) | rules.rule_outcome.at(Rule::EmergencyStop)) ? B00001000 : 0);
+  data.byte3 |= ((rules.rule_outcome.at(Rule::BMSError) || rules.rule_outcome.at(Rule::EmergencyStop)) ? B00001000 : 0);
   data.byte3 |= ((_controller_state != ControllerState::Running) ? B00001000 : 0);
 
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
@@ -195,7 +195,6 @@ void pylon_message_35c()
   struct data35c
   {
     uint8_t byte0;
-    // uint8_t byte1;
   };
 
   data35c data;
@@ -206,7 +205,6 @@ void pylon_message_35c()
   // bit 6 Discharge enable
   // bit 7 Charge enable
   data.byte0 = 0;
-  // data.byte1 = 0;
 
   if (rules.IsChargeAllowed(&mysettings))
   {

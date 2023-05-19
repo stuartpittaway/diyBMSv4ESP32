@@ -1241,9 +1241,9 @@ void ProcessRules()
   }
 
   rules.CalculateChargingMode(&mysettings, &currentMonitor);
-  // Need to call these even if Dynamic is switch off, as it seeds the internal variables with the correct values
+  // Need to call these even if Dynamic is switched off, as it seeds the internal variables with the correct values
   rules.CalculateDynamicChargeVoltage(&mysettings, cmi);
-  rules.CalculateDynamicChargeCurrent(&mysettings, cmi);
+  rules.CalculateDynamicChargeCurrent(&mysettings);
 
   if (mysettings.loggingEnabled && !_sd_card_installed && !_avrsettings.programmingModeEnabled)
   {
