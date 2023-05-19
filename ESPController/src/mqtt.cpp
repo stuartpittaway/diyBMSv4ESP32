@@ -51,24 +51,24 @@ static inline uint32_t uptime_in_seconds()
     return (uint32_t)(esp_timer_get_time() / (uint64_t)1000 / (uint64_t)1000);
 }
 
-static void mqtt_connected_handler(void *, esp_event_base_t , int32_t , void *)
+static void mqtt_connected_handler(void *, esp_event_base_t, int32_t, void *)
 {
     ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
     mqttClient_connected = true;
 }
 
-static void mqtt_disconnected_handler(void *, esp_event_base_t , int32_t , void *)
+static void mqtt_disconnected_handler(void *, esp_event_base_t, int32_t, void *)
 {
     ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
     mqttClient_connected = false;
 }
 
-static void mqtt_error_handler(void *, esp_event_base_t , int32_t , void *event_data)
+static void mqtt_error_handler(void *, esp_event_base_t, int32_t, void *event_data)
 {
     // ESP_LOGD(TAG, "Event base=%s, event_id=%d", base, event_id);
     auto event = (esp_mqtt_event_handle_t)event_data;
-    //auto client = event->client;
-    //int msg_id;
+    // auto client = event->client;
+    // int msg_id;
 
     ESP_LOGE(TAG, "MQTT_EVENT_ERROR");
     if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
@@ -143,21 +143,35 @@ void GeneralStatusPayload(const PacketRequestGenerator *prg, PacketReceiveProces
     ESP_LOGI(TAG, "General status payload");
     std::string status;
     status.reserve(400);
-    status.append("{\"banks\":").append(std::to_string(mysettings.totalNumberOfBanks));
-    status.append(",\"cells\":").append(std::to_string(mysettings.totalNumberOfSeriesModules));
-    status.append(",\"uptime\":").append(std::to_string(uptime_in_seconds()));
-    status.append(",\"commserr\":").append(std::to_string(receiveProc->HasCommsTimedOut() ? 1 : 0));
-    status.append(",\"sent\":").append(std::to_string(prg->packetsGenerated));
-    status.append(",\"received\":").append(std::to_string(receiveProc->packetsReceived));
-    status.append(",\"badcrc\":").append(std::to_string(receiveProc->totalCRCErrors));
-    status.append(",\"ignored\":").append(std::to_string(receiveProc->totalNotProcessedErrors));
-    status.append(",\"oos\":").append(std::to_string(receiveProc->totalOutofSequenceErrors));
-    status.append(",\"sendqlvl\":").append(std::to_string(requestq_count));
-    status.append(",\"roundtrip\":").append(std::to_string(receiveProc->packetTimerMillisecond));
+    status.append("{\"banks\":")
+        .append(std::to_string(mysettings.totalNumberOfBanks))
+        .append(",\"cells\":")
+        .append(std::to_string(mysettings.totalNumberOfSeriesModules))
+        .append(",\"uptime\":")
+        .append(std::to_string(uptime_in_seconds()))
+        .append(",\"commserr\":")
+        .append(std::to_string(receiveProc->HasCommsTimedOut() ? 1 : 0))
+        .append(",\"sent\":")
+        .append(std::to_string(prg->packetsGenerated))
+        .append(",\"received\":")
+        .append(std::to_string(receiveProc->packetsReceived))
+        .append(",\"badcrc\":")
+        .append(std::to_string(receiveProc->totalCRCErrors))
+        .append(",\"ignored\":")
+        .append(std::to_string(receiveProc->totalNotProcessedErrors))
+        .append(",\"oos\":")
+        .append(std::to_string(receiveProc->totalOutofSequenceErrors))
+        .append(",\"sendqlvl\":")
+        .append(std::to_string(requestq_count))
+        .append(",\"roundtrip\":")
+        .append(std::to_string(receiveProc->packetTimerMillisecond));
+
     if (mysettings.dynamiccharge)
     {
-        status.append(",\"dynchargev\":").append(float_to_string(((float)rules->DynamicChargeVoltage()) / 10.0F));
-        status.append(",\"dynchargec\":").append(float_to_string(((float)rules->DynamicChargeCurrent()) / 10.0F));
+        status.append(",\"dynchargev\":")
+            .append(float_to_string(((float)rules->DynamicChargeVoltage()) / 10.0F))
+            .append(",\"dynchargec\":")
+            .append(float_to_string(((float)rules->DynamicChargeCurrent()) / 10.0F));
     }
     status.append("}");
 
@@ -214,8 +228,7 @@ void OutputStatus(const RelayState *previousRelayState)
     relay_status.append("{");
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
-        relay_status.append("\"").append(std::to_string(i)).append("\":");
-        relay_status.append(std::to_string((previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0));
+        relay_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string((previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0));
         if (i < (RELAY_TOTAL - 1))
         {
             relay_status.append(",");
@@ -239,19 +252,11 @@ void MQTTCurrentMonitoring(const currentmonitoring_struct *currentMonitor)
     if (currentMonitor->validReadings && currentMonitor->timestamp != lastcurrentMonitortimestamp)
     {
         // Send current monitor data if its valid and not sent before
-        status.append(",\"voltage\":").append(float_to_string(currentMonitor->modbus.voltage));
-        status.append(",\"current\":").append(float_to_string(currentMonitor->modbus.current));
-        status.append(",\"power\":").append(float_to_string(currentMonitor->modbus.power));
+        status.append(",\"voltage\":").append(float_to_string(currentMonitor->modbus.voltage)).append(",\"current\":").append(float_to_string(currentMonitor->modbus.current)).append(",\"power\":").append(float_to_string(currentMonitor->modbus.power));
 
         if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS || mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
         {
-            status.append(",\"mAhIn\":").append(std::to_string(currentMonitor->modbus.milliamphour_in));
-            status.append(",\"mAhOut\":").append(std::to_string(currentMonitor->modbus.milliamphour_out));
-            status.append(",\"DailymAhIn\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_in));
-            status.append(",\"DailymAhOut\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_out));
-            status.append(",\"temperature\":").append(std::to_string(currentMonitor->modbus.temperature));
-            status.append(",\"relayState\":").append(std::to_string(currentMonitor->RelayState ? 1 : 0));
-            status.append(",\"soc\":").append(float_to_string(currentMonitor->stateofcharge));
+            status.append(",\"mAhIn\":").append(std::to_string(currentMonitor->modbus.milliamphour_in)).append(",\"mAhOut\":").append(std::to_string(currentMonitor->modbus.milliamphour_out)).append(",\"DailymAhIn\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_in)).append(",\"DailymAhOut\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_out)).append(",\"temperature\":").append(std::to_string(currentMonitor->modbus.temperature)).append(",\"relayState\":").append(std::to_string(currentMonitor->RelayState ? 1 : 0)).append(",\"soc\":").append(float_to_string(currentMonitor->stateofcharge));
         }
     }
     status.append("}");
