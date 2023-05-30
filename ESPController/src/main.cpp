@@ -2545,8 +2545,6 @@ void ProcessDIYBMSCurrentMonitorInternal()
   currentMonitor.modbus.overcurrentlimit = currentmon_internal.calc_overcurrentlimit();
   currentMonitor.modbus.undercurrentlimit = currentmon_internal.calc_undercurrentlimit();
 
-  // uint16_t flags;
-
   currentMonitor.validReadings = true;
   TimeToSoCCalculation();
 
@@ -2565,6 +2563,14 @@ void ProcessDIYBMSCurrentMonitorInternal()
   ESP_LOGD(TAG, "Date = %u", currentMonitor.modbus.firmwaredatetime);
 */
 }
+/// ESP32 CAN bus status strings, used for periodic status reporting
+static const char *ESP32_TWAI_STATUS_STRINGS[] = {
+    "STOPPED",               // CAN_STATE_STOPPED
+    "RUNNING",               // CAN_STATE_RUNNING
+    "OFF / RECOVERY NEEDED", // CAN_STATE_BUS_OFF
+    "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
+};
+
 void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 {
   twai_message_t message;
@@ -2576,17 +2582,40 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 
   esp_err_t result = twai_transmit(&message, pdMS_TO_TICKS(250));
 
-  // Queue message for transmission
-  if (result != ESP_OK)
+  if (result == ESP_OK)
   {
-    ESP_LOGE(TAG, "Fail to queue CANBUS message (0x%x)", result);
-    canbus_messages_failed_sent++;
-  }
-  else
-  {
+    // Everything normal/good
     ESP_LOGD(TAG, "Sent CAN message 0x%x", identifier);
     // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
     canbus_messages_sent++;
+    return;
+  }
+
+  // Something failed....
+
+  ESP_LOGE(TAG, "Fail to queue CANBUS message (0x%x)", result);
+  canbus_messages_failed_sent++;
+
+  twai_status_info_t status;
+  twai_get_status_info(&status);
+
+  ESP_LOGI(TAG, "CAN STATUS: rx-q:%d, tx-q:%d, rx-err:%d, tx-err:%d, arb-lost:%d, bus-err:%d, state: %s",
+           status.msgs_to_rx, status.msgs_to_tx,
+           status.rx_error_counter, status.tx_error_counter,
+           status.arb_lost_count,
+           status.bus_error_count,
+           ESP32_TWAI_STATUS_STRINGS[status.state]);
+
+  if (status.state == twai_state_t::TWAI_STATE_BUS_OFF)
+  {
+    // When the bus is OFF we need to initiate recovery, transmit is not possible when in this state.
+    ESP_LOGW(TAG, "Initiating recovery");
+    twai_initiate_recovery();
+  }
+  else if (status.state == twai_state_t::TWAI_STATE_RECOVERING)
+  {
+    // when the bus is in recovery mode transmit is not possible, so wait...
+    vTaskDelay(pdMS_TO_TICKS(250));
   }
 }
 
