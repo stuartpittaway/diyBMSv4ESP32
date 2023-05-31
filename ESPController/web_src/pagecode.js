@@ -566,12 +566,14 @@ function configureModule(button, cellid, attempts) {
                     $('#ActualVoltage').attr('disabled','disabled'); 
                     $('#Calib').attr('disabled','disabled'); 
                     $('#BypassThresholdmV').attr('disabled','disabled'); 
-                    $('#BypassOverTempShutdown').attr('disabled','disabled'); 
+                    $('#BypassOverTempShutdown').attr('disabled','disabled');
+                    $('#CalculateCalibration').hide();
                 } else {
                     $('#ActualVoltage').removeAttr('disabled');
                     $('#Calib').removeAttr('disabled');
                     $('#BypassThresholdmV').removeAttr('disabled');
                     $('#BypassOverTempShutdown').removeAttr('disabled');
+                    $('#CalculateCalibration').show();
                 }
 
                 $("#settingConfig").show();
@@ -1251,7 +1253,7 @@ $(function () {
     $("#avrprogconfirm").hide();
     $(".stat").hide();
 
-    if (Graph3DAvailable == true) {
+    if (window.Graph3DAvailable === true) {
         //Re-show this as pagecode would have hidden it
         $("#graphOptions").show();
     }
@@ -1332,6 +1334,11 @@ $(function () {
         switchPage("#homePage");
         g1.resize();
         refreshVisibleTiles();
+
+        if (window.Graph3DAvailable === true) {
+            $('#graphOptions').show();
+        }
+
         return true;
     });
 

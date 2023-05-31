@@ -106,3 +106,8 @@ form input:read-only{background-color:transparent;color:#fff;border:solid 1px gr
 
 #historyTable {width:100%;border-collapse:collapse;}
 #historyTable th, #historyTable td {border: 1px solid #888888;}
+
+#graphOptions{border:solid 2px #404040;padding:2px;margin:2px;max-width:175px}
+#graphOptions .x{display:block;width:100%;text-align:right}
+#graphOptions .t{font-size:10pt;color:#c1bdbd}
+#graphOptions .v{font-size:22pt;font-family:'Share Tech Mono',monospace;font-weight:700;color:#55a1ea}
