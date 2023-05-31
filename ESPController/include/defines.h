@@ -317,6 +317,8 @@ struct CellModuleInfo
 
   uint16_t BalanceCurrentCount;
   uint16_t PacketReceivedCount;
+  // Introduced for v490 all-in-one cells, prevents changes to module configuration
+  bool ChangesProhibited;
 };
 
 // This enum holds the states the controller goes through whilst

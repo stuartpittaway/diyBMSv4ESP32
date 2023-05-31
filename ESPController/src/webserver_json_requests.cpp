@@ -476,6 +476,7 @@ esp_err_t content_handler_modules(httpd_req_t *req)
       settings["mVPerADC"] = cmi[c].mVPerADC;
       settings["IntBCoef"] = cmi[c].Internal_BCoefficient;
       settings["ExtBCoef"] = cmi[c].External_BCoefficient;
+      settings["Prohibited"] = cmi[c].ChangesProhibited;      
     }
 
     int bufferused = 0;

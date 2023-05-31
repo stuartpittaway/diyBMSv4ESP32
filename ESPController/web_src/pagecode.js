@@ -562,6 +562,18 @@ function configureModule(button, cellid, attempts) {
                 $('#LoadRes').val(data.settings.LoadRes.toFixed(2));
                 $('#mVPerADC').val(data.settings.mVPerADC.toFixed(2));
 
+                if (data.settings.Prohibited) {
+                    $('#ActualVoltage').attr('disabled','disabled'); 
+                    $('#Calib').attr('disabled','disabled'); 
+                    $('#BypassThresholdmV').attr('disabled','disabled'); 
+                    $('#BypassOverTempShutdown').attr('disabled','disabled'); 
+                } else {
+                    $('#ActualVoltage').removeAttr('disabled');
+                    $('#Calib').removeAttr('disabled');
+                    $('#BypassThresholdmV').removeAttr('disabled');
+                    $('#BypassOverTempShutdown').removeAttr('disabled');
+                }
+
                 $("#settingConfig").show();
                 $('#loading').hide();
             } else {

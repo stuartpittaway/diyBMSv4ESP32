@@ -400,7 +400,7 @@
                   step="5"
                   name="BypassThresholdmV"
                   id="BypassThresholdmV"
-                  value="4100"
+                  value=""
                   required="" />
               </div>
               <div>
@@ -424,7 +424,7 @@
               </div>
               <div>
                 <label for="mVPerADC">mV per ADC reading</label>
-                <input id="mVPerADC" name="mVPerADC" type="number" value="" readonly="" />
+                <input id="mVPerADC" name="mVPerADC" type="number" min="0" max="10" step="0.001" value="" readonly="" />
               </div>
 
               <button type="submit">Save settings</button>
