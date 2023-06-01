@@ -2580,6 +2580,8 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 
   memcpy(&message.data, buffer, length);
 
+  //If there is a bus error, we attempt to recover it later, transmitted messages are lost, but this
+  //isn't a problem, as they are repeated every few seconds.
   esp_err_t result = twai_transmit(&message, pdMS_TO_TICKS(250));
 
   if (result == ESP_OK)
@@ -2592,7 +2594,6 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
   }
 
   // Something failed....
-
   ESP_LOGE(TAG, "Fail to queue CANBUS message (0x%x)", result);
   canbus_messages_failed_sent++;
 
@@ -2609,8 +2610,15 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
   if (status.state == twai_state_t::TWAI_STATE_BUS_OFF)
   {
     // When the bus is OFF we need to initiate recovery, transmit is not possible when in this state.
+    // Recovery appears to force it into STOPPED state
     ESP_LOGW(TAG, "Initiating recovery");
     twai_initiate_recovery();
+  }
+  else if (status.state == twai_state_t::TWAI_STATE_STOPPED)
+  {
+    // bus has stopped - restart it
+    esp_err_t startresult = twai_start();
+    ESP_LOGI(TAG, "Starting CANBUS %s", esp_err_to_name(startresult));
   }
   else if (status.state == twai_state_t::TWAI_STATE_RECOVERING)
   {
