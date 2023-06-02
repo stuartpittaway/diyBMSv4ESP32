@@ -553,6 +553,7 @@ void clearModuleValues(uint8_t m)
   cmi[m].FanSwitchOnTemperature = 0;
   cmi[m].RelayMinmV = 0;
   cmi[m].RelayRangemV = 0;
+  cmi[m].ParasiteVoltagemV = 0;
   resetModuleMinMaxVoltage(m);
 }
 
