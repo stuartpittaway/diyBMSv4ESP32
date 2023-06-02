@@ -210,7 +210,6 @@ struct diybms_eeprom_settings
   bool preventcharging;
   bool preventdischarge;
 
-
   // Below makes reference to "float" this doesn't really exist in Lithium world
   // Once state of charge exceeds 99%, wait this many minutes until switching to float mode
   uint16_t absorptiontimer;
@@ -261,7 +260,9 @@ enum COMMAND : uint8_t
   Timing = 8,
   ReadBalanceCurrentCounter = 9,
   ReadPacketReceivedCounter = 10,
-  ResetBalanceCurrentCounter = 11
+  ResetBalanceCurrentCounter = 11,
+  ReadAdditionalSettings = 12,
+  WriteAdditionalSettings = 13
 };
 
 // NOTE THIS MUST BE EVEN IN SIZE (BYTES) ESP8266 IS 32 BIT AND WILL ALIGN AS SUCH!
@@ -278,47 +279,57 @@ struct PacketStruct
 
 struct CellModuleInfo
 {
-  // Used as part of the enquiry functions
+  /// @brief  Used as part of the enquiry functions
   bool settingsCached : 1;
-  // Set to true once the module has replied with data
+  /// @brief Set to true once the module has replied with data
   bool valid : 1;
-  // Bypass is active
+  /// @brief  Bypass is active
   bool inBypass : 1;
-  // Bypass active and temperature over set point
+  /// @brief  Bypass active and temperature over set point
   bool bypassOverTemp : 1;
+  // Introduced for v490 all-in-one cells, prevents changes to module configuration
+  bool ChangesProhibited:1;
 
+  /// @brief actual cell voltage (millivolts)
   uint16_t voltagemV;
+  /// @brief keeps track of minimum voltage this cell reached
   uint16_t voltagemVMin;
+  /// @brief keeps track of maximum voltage this cell reached
   uint16_t voltagemVMax;
   // Signed integer byte (negative temperatures)
+  /// @brief Internal (on-board) temperature sensor in degrees C
   int8_t internalTemp;
+  /// @brief External temperature sensor in degrees C
   int8_t externalTemp;
 
   uint8_t BypassOverTempShutdown;
   uint16_t BypassThresholdmV;
   uint16_t badPacketCount;
 
-  // Resistance of bypass load
+  /// @brief Resistance of bypass load
   float LoadResistance;
-  // Voltage Calibration
+  /// @brief Voltage Calibration
   float Calibration;
-  // Reference voltage (millivolt) normally 2.00mV
+  /// @brief Reference voltage (millivolt) normally 2.00mV
   float mVPerADC;
-  // Internal Thermistor settings
+  /// @brief Internal Thermistor B-Coefficient
   uint16_t Internal_BCoefficient;
-  // External Thermistor settings
+  /// @brief External Thermistor B-Coefficient
   uint16_t External_BCoefficient;
-  // Version number returned by code of module
+  /// @brief Version number returned by code of module
   uint16_t BoardVersionNumber;
-  // Last 4 bytes of GITHUB version
+  /// @brief Last 4 bytes of GITHUB version
   uint32_t CodeVersionNumber;
-  // Value of PWM timer for load shedding
+  /// @brief Value of PWM timer for load shedding
   uint16_t PWMValue;
 
   uint16_t BalanceCurrentCount;
   uint16_t PacketReceivedCount;
-  // Introduced for v490 all-in-one cells, prevents changes to module configuration
-  bool ChangesProhibited;
+
+  int16_t FanSwitchOnTemperature;
+  uint16_t RelayMinmV;
+  uint16_t RelayRangemV;
+  uint16_t ParasiteVoltagemV;
 };
 
 // This enum holds the states the controller goes through whilst

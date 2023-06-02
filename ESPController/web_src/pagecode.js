@@ -563,10 +563,10 @@ function configureModule(button, cellid, attempts) {
                 $('#mVPerADC').val(data.settings.mVPerADC.toFixed(2));
 
                 if (data.settings.Prohibited) {
-                    $('#ActualVoltage').attr('disabled','disabled'); 
-                    $('#Calib').attr('disabled','disabled'); 
-                    $('#BypassThresholdmV').attr('disabled','disabled'); 
-                    $('#BypassOverTempShutdown').attr('disabled','disabled');
+                    $('#ActualVoltage').attr('disabled', 'disabled');
+                    $('#Calib').attr('disabled', 'disabled');
+                    $('#BypassThresholdmV').attr('disabled', 'disabled');
+                    $('#BypassOverTempShutdown').attr('disabled', 'disabled');
                     $('#CalculateCalibration').hide();
                 } else {
                     $('#ActualVoltage').removeAttr('disabled');
@@ -574,6 +574,34 @@ function configureModule(button, cellid, attempts) {
                     $('#BypassThresholdmV').removeAttr('disabled');
                     $('#BypassOverTempShutdown').removeAttr('disabled');
                     $('#CalculateCalibration').show();
+                }
+
+                if (data.settings.ver === 490) {
+                    $('#ParasiteVoltage').val(data.settings.Parasite);
+                    $('#FanSwitchOnT').val(data.settings.FanSwitchOnT);
+                    $('#RelayMinV').val(data.settings.RelayMinV);
+                    $('#RelayRange').val(data.settings.RelayRange);
+
+                    $('#v490_1').show();
+                    $('#v490_2').show();
+                    $('#v490_3').show();
+                    $('#v490_4').show();
+
+                    if (data.settings.Prohibited) {
+                        $('#FanSwitchOnT').attr('disabled', 'disabled');
+                        $('#RelayMinV').attr('disabled', 'disabled');
+                        $('#RelayRange').attr('disabled', 'disabled');                        
+                    } else {
+                        $('#FanSwitchOnT').removeAttr('disabled');
+                        $('#RelayMinV').removeAttr('disabled');
+                        $('#RelayRange').removeAttr('disabled');
+                    }
+
+                } else {
+                    $('#v490_1').hide();
+                    $('#v490_2').hide();
+                    $('#v490_3').hide();
+                    $('#v490_4').hide();
                 }
 
                 $("#settingConfig").show();
@@ -594,10 +622,10 @@ function configureModule(button, cellid, attempts) {
 }
 
 function secondsToHms(seconds) {
-    
+
     seconds = Number(seconds);
 
-    if (seconds<0) {
+    if (seconds < 0) {
         return "";
     }
 
@@ -774,12 +802,12 @@ function queryBMS() {
                 $("#dynccurr .v").html(parseFloat(jsondata.dyncc / 10).toFixed(2) + "A");
             } else { $("#dynccurr .v").html(""); }
 
-            
+
 
             switch (jsondata.cmode) {
                 case 0: $("#chgmode .v").html("Standard"); break;
-                case 1: $("#chgmode .v").html("Absorb "+secondsToHms(jsondata.ctime)); break;
-                case 2: $("#chgmode .v").html("Float "+secondsToHms(jsondata.ctime)); break;
+                case 1: $("#chgmode .v").html("Absorb " + secondsToHms(jsondata.ctime)); break;
+                case 2: $("#chgmode .v").html("Float " + secondsToHms(jsondata.ctime)); break;
                 case 3: $("#chgmode .v").html("Dynamic"); break;
                 case 4: $("#chgmode .v").html("Stopped"); break;
                 default: $("#chgmode .v").html("Unknown");
@@ -1225,7 +1253,7 @@ function queryBMS() {
         loadVisibleTileData();
 
     }).fail(function (jqXHR, textStatus, errorThrown) {
-        
+
         if (jqXHR.status == 400 && jqXHR.responseJSON.error === "Invalid cookie") {
             if ($("#warningXSS").data("notify") == undefined) {
                 $("#warningXSS").data("notify", 1);

@@ -93,7 +93,10 @@ bool PacketRequestGenerator::sendTimingRequest()
   // Ask all modules to simple pass on a NULL request/packet for timing purposes
   return BuildAndSendRequest(COMMAND::Timing);
 }
-
+bool PacketRequestGenerator::sendGetAdditionalSettingsRequest(uint8_t cellid)
+{
+  return BuildAndSendRequest(COMMAND::ReadAdditionalSettings, cellid, cellid);
+}
 bool PacketRequestGenerator::sendGetSettingsRequest(uint8_t cellid)
 {
   return BuildAndSendRequest(COMMAND::ReadSettings, cellid, cellid);

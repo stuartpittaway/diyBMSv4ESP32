@@ -446,8 +446,10 @@ esp_err_t content_handler_modules(httpd_req_t *req)
     }
   }
 
-  if (valid)
+  if (!valid)
   {
+    return httpd_resp_send_500(req);
+  }
 
     if (cmi[c].settingsCached == false)
     {
@@ -476,18 +478,17 @@ esp_err_t content_handler_modules(httpd_req_t *req)
       settings["mVPerADC"] = cmi[c].mVPerADC;
       settings["IntBCoef"] = cmi[c].Internal_BCoefficient;
       settings["ExtBCoef"] = cmi[c].External_BCoefficient;
-      settings["Prohibited"] = cmi[c].ChangesProhibited;      
+      settings["Prohibited"] = cmi[c].ChangesProhibited;
+      settings["FanSwitchOnT"] = cmi[c].FanSwitchOnTemperature;
+      settings["RelayMinV"] = cmi[c].RelayMinmV;
+      settings["RelayRange"] = cmi[c].RelayRangemV;
+      settings["Parasite"] = cmi[c].ParasiteVoltagemV;
     }
 
     int bufferused = 0;
     bufferused += serializeJson(doc, httpbuf, BUFSIZE);
     return httpd_resp_send(req, httpbuf, bufferused);
-  }
-  else
-  {
-    // It failed!
-    return httpd_resp_send_500(req);
-  }
+
 }
 
 esp_err_t content_handler_avrstatus(httpd_req_t *req)
@@ -836,8 +837,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          canbus_messages_received_error,
                          prg.queueLength(),
                          (unsigned int)rules.getChargingMode(),
-                         rules.getChargingTimerSecondsRemaining()
-                         );
+                         rules.getChargingTimerSecondsRemaining());
 
   if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
   {

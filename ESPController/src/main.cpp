@@ -961,6 +961,15 @@ const char *packetType(uint8_t cmd)
   case COMMAND::ReadPacketReceivedCounter:
     return "PktRvd";
     break;
+  case COMMAND::ResetBalanceCurrentCounter:
+    return "ResBal";
+    break;
+  case COMMAND::ReadAdditionalSettings:
+    return "RdAddt";
+    break;
+  case COMMAND::WriteAdditionalSettings:
+    return "WrAddt";
+    break;
   default:
     return " ??????   ";
   }
@@ -2580,8 +2589,8 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 
   memcpy(&message.data, buffer, length);
 
-  //If there is a bus error, we attempt to recover it later, transmitted messages are lost, but this
-  //isn't a problem, as they are repeated every few seconds.
+  // If there is a bus error, we attempt to recover it later, transmitted messages are lost, but this
+  // isn't a problem, as they are repeated every few seconds.
   esp_err_t result = twai_transmit(&message, pdMS_TO_TICKS(250));
 
   if (result == ESP_OK)
@@ -3161,14 +3170,24 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 
     // Task 2
     ESP_LOGI(TAG, "Task 2");
-    // uint8_t counter = 0;
     //  Find modules that don't have settings cached and request them
     for (uint8_t m = 0; m < TotalNumberOfCells(); m++)
     {
-      if (cmi[m].valid && !cmi[m].settingsCached)
+      if (cmi[m].valid)
       {
-        // This will block if the queue length is reached
-        prg.sendGetSettingsRequest(m);
+        if (cmi[m].settingsCached == false)
+        {
+          // This will block if the queue length is reached
+          prg.sendGetSettingsRequest(m);
+        }
+        else
+        {
+          if (cmi[m].BoardVersionNumber == 490)
+          {
+            // 490=All in one 16S board, which has additional configuration options
+            prg.sendGetAdditionalSettingsRequest(m);
+          }
+        }
       }
     }
 
@@ -3742,7 +3761,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, 1, &canbus_tx_task_handle);
   xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
   xTaskCreate(transmit_task, "Tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 2000, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 2400, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 0, &lazy_task_handle);
 
   // Set relay defaults

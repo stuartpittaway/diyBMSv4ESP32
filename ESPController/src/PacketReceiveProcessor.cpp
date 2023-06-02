@@ -11,7 +11,7 @@ bool PacketReceiveProcessor::HasCommsTimedOut() const
   return ((millisecondSinceLastPacket > 5 * packetTimerMillisecond) && (millisecondSinceLastPacket > 10000));
 }
 
-bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
+bool PacketReceiveProcessor::ProcessReply(const PacketStruct *receivebuffer)
 {
   packetsReceived++;
 
@@ -26,18 +26,14 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
   if (validateCRC == _packetbuffer.crc)
   {
     // Its a valid packet...
-    packetLastReceivedMillisecond = millis();
+    packetLastReceivedMillisecond = (uint32_t)millis();
 
     totalModulesFound = _packetbuffer.hops;
 
     // Careful of overflowing the uint16_t in sequence
     if (packetLastReceivedSequence > 0 && _packetbuffer.sequence > 0 && _packetbuffer.sequence != packetLastReceivedSequence + 1)
     {
-      SERIAL_DEBUG.println();
-      SERIAL_DEBUG.print(F("OOS Error, expected="));
-      SERIAL_DEBUG.print(packetLastReceivedSequence + 1, HEX);
-      SERIAL_DEBUG.print(", got=");
-      SERIAL_DEBUG.println(_packetbuffer.sequence, HEX);
+      ESP_LOGE(TAG, "OOS Error, expected=%u, got=%u", packetLastReceivedSequence + 1, _packetbuffer.sequence);
       totalOutofSequenceErrors++;
     }
 
@@ -54,7 +50,6 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
       case COMMAND::Timing:
       {
-        // uint32_t tnow = millis();
         uint32_t tnow = (_packetbuffer.moduledata[2] << 16) + _packetbuffer.moduledata[3];
         uint32_t tprevious = (_packetbuffer.moduledata[0] << 16) + _packetbuffer.moduledata[1];
 
@@ -111,6 +106,16 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
       case COMMAND::ReadPacketReceivedCounter:
         ProcessReplyReadPacketReceivedCounter();
         break;
+
+      case COMMAND::ResetBalanceCurrentCounter:
+        break;
+      case COMMAND::ReadAdditionalSettings:
+        ProcessReplyAdditionalSettings();
+        break;
+      case COMMAND::WriteAdditionalSettings:
+        break;
+      default:
+        ESP_LOGE(TAG, "Don't know how to process cmd reply %u", ReplyForCommand());
       }
 
 #if defined(PACKET_LOGGING_RECEIVE)
@@ -231,12 +236,21 @@ void PacketReceiveProcessor::ProcessReplyVoltage()
   }
 }
 
-void PacketReceiveProcessor::ProcessReplySettings()
+void PacketReceiveProcessor::ProcessReplyAdditionalSettings()
 {
-
   uint8_t m = _packetbuffer.start_address;
 
-  // TODO Validate b and m here to prevent array overflow
+  cmi[m].FanSwitchOnTemperature = (int16_t)_packetbuffer.moduledata[0];
+  cmi[m].RelayMinmV = _packetbuffer.moduledata[1];
+  cmi[m].RelayRangemV = _packetbuffer.moduledata[2];
+  cmi[m].ParasiteVoltagemV = _packetbuffer.moduledata[3];
+}
+
+void PacketReceiveProcessor::ProcessReplySettings()
+{
+  uint8_t m = _packetbuffer.start_address;
+
+  // TODO: Validate m here to prevent array overflow
   cmi[m].settingsCached = true;
 
   FLOATUNION_t myFloat;

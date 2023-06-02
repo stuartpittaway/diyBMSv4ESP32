@@ -380,7 +380,7 @@
                 <span name="Version" id="Version"></span>
               </div>
               <div>
-                <label for="BypassOverTempShutdown">Bypass over temperature</label>
+                <label for="BypassOverTempShutdown">Bypass over temperature (&deg;C)</label>
                 <input
                   type="number"
                   min="20"
@@ -392,7 +392,7 @@
                   required="" />
               </div>
               <div>
-                <label for="BypassThresholdmV">Bypass threshold mV</label>
+                <label for="BypassThresholdmV">Bypass threshold voltage (mV)</label>
                 <input
                   type="number"
                   min="1800"
@@ -425,6 +425,24 @@
               <div>
                 <label for="mVPerADC">mV per ADC reading</label>
                 <input id="mVPerADC" name="mVPerADC" type="number" min="0" max="10" step="0.001" value="" readonly="" />
+              </div>
+
+              <!-- Support for v490 modules -->
+              <div id="v490_1">
+                <label for="ParasiteVoltage">Sensor parasite voltage (mV)</label>
+                <input id="ParasiteVoltage" name="ParasiteVoltage" type="number" min="0" max="9999" step="1" value="" readonly="" />
+              </div>
+              <div id="v490_2">
+                <label for="FanSwitchOnT">Fan switch on temperature (&deg;C)</label>
+                <input id="FanSwitchOnT" name="FanSwitchOnT" type="number" min="20" max="100" step="1" value=""/>
+              </div>
+              <div id="v490_3">
+                <label for="RelayMinV">Balance relay minimum voltage (mV)</label>
+                <input id="RelayMinV" name="RelayMinV" type="number" min="0" max="9999" step="1" value=""  />
+              </div>
+              <div id="v490_4">
+                <label for="RelayRange">Balance relay minimum range (mV)</label>
+                <input id="RelayRange" name="RelayRange" type="number" min="0" max="9999" step="1" value="" />
               </div>
 
               <button type="submit">Save settings</button>
