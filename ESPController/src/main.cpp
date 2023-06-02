@@ -1141,6 +1141,10 @@ void onPacketReceived()
       // before sending another packet
       uint16_t delay_ms = 900;
 
+      if (mysettings.baudRate == 10000)
+      {
+        delay_ms = 350;
+      }else
       if (mysettings.baudRate == 9600)
       {
         delay_ms = 450;
@@ -3182,7 +3186,7 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
         }
         else
         {
-          if (cmi[m].BoardVersionNumber == 490)
+          if (cmi[m].BoardVersionNumber == 490 && cmi[m].FanSwitchOnTemperature==0)
           {
             // 490=All in one 16S board, which has additional configuration options
             prg.sendGetAdditionalSettingsRequest(m);

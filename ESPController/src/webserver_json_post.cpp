@@ -306,9 +306,7 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded)
 
                                 prg.sendSaveAdditionalSetting(m, FanSwitchOnT, RelayMinV, RelayRangemV);
 
-                                cmi[m].FanSwitchOnTemperature = FanSwitchOnT;
-                                cmi[m].RelayMinmV = RelayMinV;
-                                cmi[m].RelayRangemV = RelayRangemV;
+                               
                             }
 
                             clearModuleValues(m);

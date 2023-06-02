@@ -519,7 +519,7 @@ return_failure:
   resumeTasksAfterFirmwareUpdateFailure();
 
   httpd_resp_set_status(req, HTTPD_500); // Assume failure
-  httpd_resp_send(req, NULL, 0);
+  httpd_resp_send(req, nullptr, 0);
   return ESP_FAIL;
 }
 
@@ -534,22 +534,26 @@ static const httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GE
 static const httpd_uri_t uri_ota_post = {.uri = "/ota", .method = HTTP_POST, .handler = ota_post_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_uploadfile_post = {.uri = "/uploadfile", .method = HTTP_POST, .handler = uploadfile_post_handler, .user_ctx = NULL};
 
-void resetModuleMinMaxVoltage(uint8_t module)
+void resetModuleMinMaxVoltage(uint8_t m)
 {
-  cmi[module].voltagemVMin = 6000;
-  cmi[module].voltagemVMax = 0;
+  cmi[m].voltagemVMin = 9999;
+  cmi[m].voltagemVMax = 0;
 }
 
-void clearModuleValues(uint8_t module)
+void clearModuleValues(uint8_t m)
 {
-  cmi[module].valid = false;
-  cmi[module].voltagemV = 0;
-  cmi[module].badPacketCount = 0;
-  cmi[module].inBypass = false;
-  cmi[module].bypassOverTemp = false;
-  cmi[module].internalTemp = -40;
-  cmi[module].externalTemp = -40;
-  resetModuleMinMaxVoltage(module);
+  cmi[m].valid = false;
+  cmi[m].voltagemV = 0;
+  cmi[m].badPacketCount = 0;
+  cmi[m].inBypass = false;
+  cmi[m].bypassOverTemp = false;
+  cmi[m].internalTemp = -40;
+  cmi[m].externalTemp = -40;
+
+  cmi[m].FanSwitchOnTemperature = 0;
+  cmi[m].RelayMinmV = 0;
+  cmi[m].RelayRangemV = 0;
+  resetModuleMinMaxVoltage(m);
 }
 
 #ifdef USE_WEBSOCKET_DEBUG_LOG
