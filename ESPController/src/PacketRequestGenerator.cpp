@@ -36,6 +36,27 @@ bool PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, u
   return false;
 }
 
+bool PacketRequestGenerator::sendSaveAdditionalSetting(uint8_t m, int16_t FanSwitchOnT, uint16_t RelayMinV, uint16_t RelayRange)
+{
+  PacketStruct _packetbuffer;
+  clearPacket(&_packetbuffer);
+  setPacketAddressModuleRange(&_packetbuffer, m, m);
+  // Command - WriteSettings
+  _packetbuffer.command = COMMAND::WriteAdditionalSettings;
+
+  // Fill packet with 0xFFFF values - module ignores settings with this value
+  setmoduledataFFFF(&_packetbuffer);
+
+  // Force refresh of settings
+  cmi[m].settingsCached = false;
+
+  _packetbuffer.moduledata[0] = (uint16_t)FanSwitchOnT;
+  _packetbuffer.moduledata[1] = RelayMinV;
+  _packetbuffer.moduledata[2] = RelayRange;
+  _packetbuffer.moduledata[3] = 0; //[3] = Parasite voltage (not editable)
+
+  return pushPacketToQueue(&_packetbuffer);
+}
 bool PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration)
 {
   PacketStruct _packetbuffer;

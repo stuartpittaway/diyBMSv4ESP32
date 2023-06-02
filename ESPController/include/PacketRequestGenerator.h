@@ -36,7 +36,8 @@ public:
   bool sendTimingRequest();
   bool sendResetBalanceCurrentCounter();
   bool sendGetAdditionalSettingsRequest(uint8_t cellid);
-  
+  bool sendSaveAdditionalSetting(uint8_t m, int16_t FanSwitchOnT, uint16_t RelayMinV, uint16_t RelayRange);
+
   uint16_t queueLength()
   {
     return (uint16_t)uxQueueMessagesWaiting(_requestq);

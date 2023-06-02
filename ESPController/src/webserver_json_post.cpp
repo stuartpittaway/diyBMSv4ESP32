@@ -276,19 +276,14 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded)
         else
         {
 
+            if (cmi[m].ChangesProhibited)
+            {
+                return SendFailure(req);
+            }
+
             uint8_t BypassOverTempShutdown = 0xFF;
             uint16_t BypassThresholdmV = 0xFFFF;
-
-            // Resistance of bypass load
-            // float LoadResistance = 0xFFFF;
-            // Voltage Calibration
             float Calibration = 0xFFFF;
-            // Reference voltage (millivolt) normally 2.00mV
-            // float mVPerADC = 0xFFFF;
-            // Internal Thermistor settings
-            // uint16_t Internal_BCoefficient = 0xFFFF;
-            // External Thermistor settings
-            // uint16_t External_BCoefficient = 0xFFFF;
 
             if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &BypassOverTempShutdown, urlEncoded))
             {
@@ -298,8 +293,25 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded)
                     {
                         if (prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration))
                         {
-                            clearModuleValues(m);
 
+                            if (cmi[m].BoardVersionNumber == 490)
+                            {
+                                int16_t FanSwitchOnT = 30;
+                                uint16_t RelayMinV = 1000;
+                                uint16_t RelayRangemV = 5;
+
+                                GetKeyValue(httpbuf, "FanSwitchOnT", &FanSwitchOnT, urlEncoded);
+                                GetKeyValue(httpbuf, "RelayMinV", &RelayMinV, urlEncoded);
+                                GetKeyValue(httpbuf, "RelayRange", &RelayRangemV, urlEncoded);
+
+                                prg.sendSaveAdditionalSetting(m, FanSwitchOnT, RelayMinV, RelayRangemV);
+
+                                cmi[m].FanSwitchOnTemperature = FanSwitchOnT;
+                                cmi[m].RelayMinmV = RelayMinV;
+                                cmi[m].RelayRangemV = RelayRangemV;
+                            }
+
+                            clearModuleValues(m);
                             return SendSuccess(req);
                         }
                     }
@@ -569,7 +581,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 
     if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
     {
-        //Reset CAN counters if its disabled.
+        // Reset CAN counters if its disabled.
         canbus_messages_received = 0;
         canbus_messages_received_error = 0;
         canbus_messages_sent = 0;
