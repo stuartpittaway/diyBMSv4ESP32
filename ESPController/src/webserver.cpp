@@ -619,7 +619,7 @@ httpd_handle_t start_webserver(void)
   config.max_uri_handlers = 10;
   config.max_open_sockets = 7;
   config.max_resp_headers = 16;
-  config.stack_size = 5000;
+  config.stack_size = 6000;
   config.uri_match_fn = httpd_uri_match_wildcard;
   config.lru_purge_enable = true;
 
