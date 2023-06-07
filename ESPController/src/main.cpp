@@ -2607,7 +2607,7 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
   }
 
   // Something failed....
-  ESP_LOGE(TAG, "Fail to queue CANBUS message (0x%x)", result);
+  ESP_LOGE(TAG, "Failed to queue CANBUS message (0x%x)", result);
   canbus_messages_failed_sent++;
 
   twai_status_info_t status;
