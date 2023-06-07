@@ -95,7 +95,8 @@ bool PacketReceiveProcessor::ProcessReply(const PacketStruct *receivebuffer)
       case COMMAND::ReadSettings:
         ProcessReplySettings();
         break;
-
+      case COMMAND::WriteSettings:
+        break;
       case COMMAND::ReadBalancePowerPWM:
         ProcessReplyBalancePower();
         break;
@@ -106,7 +107,6 @@ bool PacketReceiveProcessor::ProcessReply(const PacketStruct *receivebuffer)
       case COMMAND::ReadPacketReceivedCounter:
         ProcessReplyReadPacketReceivedCounter();
         break;
-
       case COMMAND::ResetBalanceCurrentCounter:
         break;
       case COMMAND::ReadAdditionalSettings:
