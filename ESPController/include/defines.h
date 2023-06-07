@@ -288,7 +288,7 @@ struct CellModuleInfo
   /// @brief  Bypass active and temperature over set point
   bool bypassOverTemp : 1;
   // Introduced for v490 all-in-one cells, prevents changes to module configuration
-  bool ChangesProhibited:1;
+  bool ChangesProhibited : 1;
 
   /// @brief actual cell voltage (millivolts)
   uint16_t voltagemV;
@@ -330,6 +330,8 @@ struct CellModuleInfo
   uint16_t RelayMinmV;
   uint16_t RelayRangemV;
   uint16_t ParasiteVoltagemV;
+  uint16_t RunAwayCellMinimumVoltagemV;
+  uint16_t RunAwayCellDifferentialmV;
 };
 
 // This enum holds the states the controller goes through whilst

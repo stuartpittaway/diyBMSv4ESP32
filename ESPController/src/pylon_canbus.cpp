@@ -118,20 +118,20 @@ void pylon_message_359()
   {
     // bit 0 = unused
     //(bit 1) Battery high voltage alarm
-    data.byte0 |= ((rules.rule_outcome.at(Rule::BankOverVoltage) || rules.rule_outcome.at(Rule::CurrentMonitorOverVoltage)) ? B00000010 : 0);
+    data.byte0 |= ((rules.ruleOutcome(Rule::BankOverVoltage) || rules.ruleOutcome(Rule::CurrentMonitorOverVoltage)) ? B00000010 : 0);
 
     //(bit 2) Battery low voltage alarm
-    data.byte0 |= ((rules.rule_outcome.at(Rule::BankUnderVoltage) || rules.rule_outcome.at(Rule::CurrentMonitorUnderVoltage)) ? B00000100 : 0);
+    data.byte0 |= ((rules.ruleOutcome(Rule::BankUnderVoltage) || rules.ruleOutcome(Rule::CurrentMonitorUnderVoltage)) ? B00000100 : 0);
 
     //(bit 3) Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      data.byte0 |= (rules.rule_outcome.at(Rule::ModuleOverTemperatureExternal) ? B00001000 : 0);
+      data.byte0 |= (rules.ruleOutcome(Rule::ModuleOverTemperatureExternal) ? B00001000 : 0);
     }
     // (bit 4) Battery low temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      data.byte0 |= (rules.rule_outcome.at(Rule::ModuleUnderTemperatureExternal) ? B00010000 : 0);
+      data.byte0 |= (rules.ruleOutcome(Rule::ModuleUnderTemperatureExternal) ? B00010000 : 0);
     }
     // bit 5 = unused
     // bit 6 = unused
@@ -167,7 +167,7 @@ void pylon_message_359()
   }
 
   // byte3,table4, Bit 3 = Internal communication failure
-  data.byte3 |= ((rules.rule_outcome.at(Rule::BMSError) || rules.rule_outcome.at(Rule::EmergencyStop)) ? B00001000 : 0);
+  data.byte3 |= ((rules.ruleOutcome(Rule::BMSError) || rules.ruleOutcome(Rule::EmergencyStop)) ? B00001000 : 0);
   data.byte3 |= ((_controller_state != ControllerState::Running) ? B00001000 : 0);
 
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)

@@ -36,7 +36,6 @@ extern void CurrentMonitorSetRelaySettingsExternal(currentmonitoring_struct newv
 extern void setCacheControl(httpd_req_t *req);
 extern wifi_eeprom_settings _wificonfig;
 extern void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char *server1);
-extern const char *RuleTextDescription[];
 extern void DefaultConfiguration(diybms_eeprom_settings *_myset);
 
 esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded);

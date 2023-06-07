@@ -233,7 +233,7 @@ bool getSetting(nvs_handle_t handle, const char *key, int8_t *out_value)
 bool getSettingBlob(nvs_handle_t handle, const char *key, void *out_value, size_t size)
 {
     size_t stored_size = 0;
-    esp_err_t err = nvs_get_blob(handle, key, NULL, &stored_size);
+    esp_err_t err = nvs_get_blob(handle, key, nullptr, &stored_size);
     if (err == ESP_ERR_NVS_NOT_FOUND)
     {
         ESP_LOGW(TAG, "Key not initialized (%s)", key);
@@ -1002,11 +1002,11 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
         // This is a default "catch all"
         String elementName = String("rule") + String(rr);
 
-        if (rr >= 0 && rr <= MAXIMUM_RuleNumber)
+        if (rr <= MAXIMUM_RuleNumber)
         {
             // Map enum to string so when this file is re-imported we are not locked to specific index offsets
             // which may no longer map to the correct rule
-            elementName = String(RuleTextDescription[rr]);
+            elementName = String(Rules::RuleTextDescription.at(rr).c_str());
         }
         else
         {
@@ -1202,26 +1202,21 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     {
         for (JsonPair kv : rules)
         {
-            char key[64];
-            strncpy(key, kv.key().c_str(), sizeof(key));
-            ESP_LOGI(TAG, "rule %s", key);
-
             for (size_t rulenumber = 0; rulenumber <= MAXIMUM_RuleNumber; rulenumber++)
             {
-                if (strcmp(RuleTextDescription[rulenumber], key) == 0)
+                if (Rules::RuleTextDescription.at(rulenumber).compare(kv.key().c_str()) == 0)
                 {
-                    ESP_LOGI(TAG, "Matched to rule %u", rulenumber);
                     JsonVariant v = kv.value();
-                    settings->rulevalue[rulenumber] = v["value"].as<uint32_t>();
-                    // ESP_LOGI(TAG, "value=%i", myset.rulevalue[rulenumber]);
-                    settings->rulehysteresis[rulenumber] = v["hysteresis"].as<uint32_t>();
-                    // ESP_LOGI(TAG, "hysteresis=%i", myset.rulehysteresis[rulenumber]);
+                    settings->rulevalue[rulenumber] = v["value"].as<int32_t>();
+                    settings->rulehysteresis[rulenumber] = v["hysteresis"].as<int32_t>();
                     JsonArray states = v["state"].as<JsonArray>();
 
+                    ESP_LOGI(TAG, "Matched to rule %u:%s, value=%i,hysteresis=%i", rulenumber,Rules::RuleTextDescription.at(rulenumber).c_str(),settings->rulevalue[rulenumber],settings->rulehysteresis[rulenumber]);
+
                     uint8_t i = 0;
-                    for (JsonVariant v : states)
+                    for (JsonVariant x : states)
                     {
-                        settings->rulerelaystate[rulenumber][i] = (RelayState)v.as<uint8_t>();
+                        settings->rulerelaystate[rulenumber][i] = (RelayState)x.as<uint8_t>();
                         // ESP_LOGI(TAG, "rulerelaystate %u", myset.rulerelaystate[rulenumber][i]);
                         i++;
                         if (i > RELAY_TOTAL)

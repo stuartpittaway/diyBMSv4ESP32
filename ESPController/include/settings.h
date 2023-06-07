@@ -41,5 +41,4 @@ void writeSetting(nvs_handle_t handle, const char *key, int8_t value);
 void writeSetting(nvs_handle_t handle, const char *key, const char *value);
 void writeSettingBlob(nvs_handle_t handle, const char *key, const void *value, size_t length);
 
-extern const char *RuleTextDescription[];
 #endif

@@ -36,7 +36,7 @@ bool PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, u
   return false;
 }
 
-bool PacketRequestGenerator::sendSaveAdditionalSetting(uint8_t m, int16_t FanSwitchOnT, uint16_t RelayMinV, uint16_t RelayRange)
+bool PacketRequestGenerator::sendSaveAdditionalSetting(uint8_t m, int16_t FanSwitchOnT, uint16_t RelayMinV, uint16_t RelayRange, uint16_t RunAwayCellMinimumVoltagemV, uint16_t RunAwayCellDifferentialmV)
 {
   PacketStruct _packetbuffer;
   clearPacket(&_packetbuffer);
@@ -54,6 +54,8 @@ bool PacketRequestGenerator::sendSaveAdditionalSetting(uint8_t m, int16_t FanSwi
   _packetbuffer.moduledata[1] = RelayMinV;
   _packetbuffer.moduledata[2] = RelayRange;
   _packetbuffer.moduledata[3] = 0; //[3] = Parasite voltage (not editable)
+  _packetbuffer.moduledata[4] = RunAwayCellMinimumVoltagemV;
+  _packetbuffer.moduledata[5] = RunAwayCellDifferentialmV;
 
   return pushPacketToQueue(&_packetbuffer);
 }

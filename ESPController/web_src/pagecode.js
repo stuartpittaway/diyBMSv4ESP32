@@ -582,6 +582,9 @@ function configureModule(button, cellid, attempts) {
                     $('#RelayMinV').val(data.settings.RelayMinV);
                     $('#RelayRange').val(data.settings.RelayRange);
 
+                    $('#RunAwayMinmV').val(data.settings.RunAwayMinmV);
+                    $('#RunAwayDiffmV').val(data.settings.RunAwayDiffmV);
+
                     $('#v490_1').show();
                     $('#v490_2').show();
                     $('#v490_3').show();
@@ -590,11 +593,15 @@ function configureModule(button, cellid, attempts) {
                     if (data.settings.Prohibited) {
                         $('#FanSwitchOnT').attr('disabled', 'disabled');
                         $('#RelayMinV').attr('disabled', 'disabled');
-                        $('#RelayRange').attr('disabled', 'disabled');                        
+                        $('#RelayRange').attr('disabled', 'disabled');
+                        $('#RunAwayMinmV').attr('disabled', 'disabled');
+                        $('#RunAwayDiffmV').attr('disabled', 'disabled');
                     } else {
                         $('#FanSwitchOnT').removeAttr('disabled');
                         $('#RelayMinV').removeAttr('disabled');
                         $('#RelayRange').removeAttr('disabled');
+                        $('#RunAwayMinmV').removeAttr('disabled');
+                        $('#RunAwayDiffmV').removeAttr('disabled');
                     }
 
                 } else {
@@ -602,6 +609,8 @@ function configureModule(button, cellid, attempts) {
                     $('#v490_2').hide();
                     $('#v490_3').hide();
                     $('#v490_4').hide();
+                    $('#v490_5').hide();
+                    $('#v490_6').hide();
                 }
 
                 $("#settingConfig").show();

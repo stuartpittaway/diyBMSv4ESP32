@@ -299,14 +299,17 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded)
                                 int16_t FanSwitchOnT = 30;
                                 uint16_t RelayMinV = 1000;
                                 uint16_t RelayRangemV = 5;
+                                uint16_t RunAwayMinmV = 4000;
+                                uint16_t RunAwayDiffmV = 100;
 
                                 GetKeyValue(httpbuf, "FanSwitchOnT", &FanSwitchOnT, urlEncoded);
                                 GetKeyValue(httpbuf, "RelayMinV", &RelayMinV, urlEncoded);
                                 GetKeyValue(httpbuf, "RelayRange", &RelayRangemV, urlEncoded);
 
-                                prg.sendSaveAdditionalSetting(m, FanSwitchOnT, RelayMinV, RelayRangemV);
+                                GetKeyValue(httpbuf, "RunAwayMinmV", &RunAwayMinmV, urlEncoded);
+                                GetKeyValue(httpbuf, "RunAwayDiffmV", &RunAwayDiffmV, urlEncoded);
 
-                               
+                                prg.sendSaveAdditionalSetting(m, FanSwitchOnT, RelayMinV, RelayRangemV, RunAwayMinmV, RunAwayDiffmV);
                             }
 
                             clearModuleValues(m);
@@ -948,7 +951,8 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
         }
 
         // Reset state of rules after updating the new values
-        rules.rule_outcome.fill(false);
+        rules.resetAllRules();
+        
     }
 
     saveConfiguration();

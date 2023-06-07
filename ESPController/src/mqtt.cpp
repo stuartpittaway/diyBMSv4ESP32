@@ -138,7 +138,7 @@ void connectToMqtt()
     }
 }
 
-void GeneralStatusPayload(const PacketRequestGenerator *prg,const  PacketReceiveProcessor *receiveProc, uint16_t requestq_count, const Rules *rules)
+void GeneralStatusPayload(const PacketRequestGenerator *prg, const PacketReceiveProcessor *receiveProc, uint16_t requestq_count, const Rules *rules)
 {
     ESP_LOGI(TAG, "General status payload");
     std::string status;
@@ -208,7 +208,7 @@ void RuleStatus(const Rules *rules)
     rule_status.append("{");
     for (uint8_t i = 0; i < RELAY_RULES; i++)
     {
-        rule_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string(rules->rule_outcome.at(i) ? 1 : 0));
+        rule_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string(rules->ruleOutcome((Rule)i) ? 1 : 0));
         if (i < (RELAY_RULES - 1))
         {
             rule_status.append(",");
@@ -343,7 +343,7 @@ void mqtt1(const currentmonitoring_struct *currentMonitor, const Rules *rules)
     }
 
     // If the BMS is in error, stop sending MQTT packets for the data
-    if (!rules->rule_outcome.at(Rule::BMSError))
+    if (!rules->ruleOutcome(Rule::BMSError))
     {
         MQTTCellData();
     }

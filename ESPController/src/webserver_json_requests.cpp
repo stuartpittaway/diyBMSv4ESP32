@@ -451,44 +451,45 @@ esp_err_t content_handler_modules(httpd_req_t *req)
     return httpd_resp_send_500(req);
   }
 
-    if (cmi[c].settingsCached == false)
-    {
-      prg.sendGetSettingsRequest(c);
-    }
+  if (cmi[c].settingsCached == false)
+  {
+    prg.sendGetSettingsRequest(c);
+  }
 
-    DynamicJsonDocument doc(2048);
-    JsonObject root = doc.to<JsonObject>();
-    JsonObject settings = root.createNestedObject("settings");
+  DynamicJsonDocument doc(2048);
+  JsonObject root = doc.to<JsonObject>();
+  JsonObject settings = root.createNestedObject("settings");
 
-    uint8_t b = c / mysettings.totalNumberOfSeriesModules;
-    uint8_t m = c - (b * mysettings.totalNumberOfSeriesModules);
-    settings["bank"] = b;
-    settings["module"] = m;
-    settings["id"] = c;
-    settings["ver"] = cmi[c].BoardVersionNumber;
-    settings["code"] = cmi[c].CodeVersionNumber;
-    settings["Cached"] = cmi[c].settingsCached;
+  uint8_t b = c / mysettings.totalNumberOfSeriesModules;
+  uint8_t m = c - (b * mysettings.totalNumberOfSeriesModules);
+  settings["bank"] = b;
+  settings["module"] = m;
+  settings["id"] = c;
+  settings["ver"] = cmi[c].BoardVersionNumber;
+  settings["code"] = cmi[c].CodeVersionNumber;
+  settings["Cached"] = cmi[c].settingsCached;
 
-    if (cmi[c].settingsCached)
-    {
-      settings["BypassOverTempShutdown"] = cmi[c].BypassOverTempShutdown;
-      settings["BypassThresholdmV"] = cmi[c].BypassThresholdmV;
-      settings["LoadRes"] = cmi[c].LoadResistance;
-      settings["Calib"] = cmi[c].Calibration;
-      settings["mVPerADC"] = cmi[c].mVPerADC;
-      settings["IntBCoef"] = cmi[c].Internal_BCoefficient;
-      settings["ExtBCoef"] = cmi[c].External_BCoefficient;
-      settings["Prohibited"] = cmi[c].ChangesProhibited;
-      settings["FanSwitchOnT"] = cmi[c].FanSwitchOnTemperature;
-      settings["RelayMinV"] = cmi[c].RelayMinmV;
-      settings["RelayRange"] = cmi[c].RelayRangemV;
-      settings["Parasite"] = cmi[c].ParasiteVoltagemV;
-    }
+  if (cmi[c].settingsCached)
+  {
+    settings["BypassOverTempShutdown"] = cmi[c].BypassOverTempShutdown;
+    settings["BypassThresholdmV"] = cmi[c].BypassThresholdmV;
+    settings["LoadRes"] = cmi[c].LoadResistance;
+    settings["Calib"] = cmi[c].Calibration;
+    settings["mVPerADC"] = cmi[c].mVPerADC;
+    settings["IntBCoef"] = cmi[c].Internal_BCoefficient;
+    settings["ExtBCoef"] = cmi[c].External_BCoefficient;
+    settings["Prohibited"] = cmi[c].ChangesProhibited;
+    settings["FanSwitchOnT"] = cmi[c].FanSwitchOnTemperature;
+    settings["RelayMinV"] = cmi[c].RelayMinmV;
+    settings["RelayRange"] = cmi[c].RelayRangemV;
+    settings["Parasite"] = cmi[c].ParasiteVoltagemV;
+    settings["RunAwayMinmV"] = cmi[c].RunAwayCellMinimumVoltagemV;
+    settings["RunAwayDiffmV"] = cmi[c].RunAwayCellDifferentialmV;
+  }
 
-    int bufferused = 0;
-    bufferused += serializeJson(doc, httpbuf, BUFSIZE);
-    return httpd_resp_send(req, httpbuf, bufferused);
-
+  int bufferused = 0;
+  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+  return httpd_resp_send(req, httpbuf, bufferused);
 }
 
 esp_err_t content_handler_avrstatus(httpd_req_t *req)
@@ -625,7 +626,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
     JsonObject rule = bankArray.createNestedObject();
     rule["value"] = mysettings.rulevalue[r];
     rule["hysteresis"] = mysettings.rulehysteresis[r];
-    rule["triggered"] = rules.rule_outcome.at(r);
+    rule["triggered"] = rules.ruleOutcome((Rule)r);
     JsonArray data = rule.createNestedArray("relays");
 
     for (auto v : mysettings.rulerelaystate[r])

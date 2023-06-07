@@ -1169,7 +1169,7 @@ void ProcessRules()
   rules.ClearWarnings();
   rules.ClearErrors();
 
-  rules.rule_outcome.at(Rule::BMSError) = false;
+  rules.setRuleStatus(Rule::BMSError,false);
 
   auto totalConfiguredModules = TotalNumberOfCells();
   if (totalConfiguredModules > maximum_controller_cell_modules)
@@ -1188,10 +1188,10 @@ void ProcessRules()
   if (receiveProc.HasCommsTimedOut())
   {
     rules.SetError(InternalErrorCode::CommunicationsError);
-    rules.rule_outcome.at(Rule::BMSError) = true;
+    rules.setRuleStatus(Rule::BMSError,true);
   }
 
-  if (rules.rule_outcome.at(Rule::EmergencyStop))
+  if (rules.ruleOutcome(Rule::EmergencyStop))
   {
     // Lowest 3 bits are RGB led GREEN/RED/BLUE
     rules.SetError(InternalErrorCode::ErrorEmergencyStop);
@@ -1203,8 +1203,8 @@ void ProcessRules()
     auto secondsSinceLastMessage = (int64_t)((esp_timer_get_time() - currentMonitor.timestamp) / 1000000);
     if (secondsSinceLastMessage > 45)
     {
-      rules.SetError(InternalErrorCode::CommunicationsError);
-      rules.rule_outcome.at(Rule::BMSError) = true;
+      rules.SetError(InternalErrorCode::CommunicationsError);      
+      rules.setRuleStatus(Rule::BMSError,true);
     }
   }
 
@@ -1277,7 +1277,7 @@ void ProcessRules()
   if (_controller_state == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
   {
     rules.SetError(InternalErrorCode::ZeroVoltModule);
-    rules.rule_outcome.at(Rule::BMSError) = true;
+    rules.setRuleStatus(Rule::BMSError,true);
   }
 
   rules.RunRules(
@@ -1317,7 +1317,7 @@ void ProcessRules()
     }
   }
 
-  if (rules.rule_outcome.at(Rule::EmergencyStop))
+  if (rules.ruleOutcome(Rule::EmergencyStop))
   {
     // Lowest 3 bits are RGB led GREEN/RED/BLUE
     LED(RGBLED::Red);
@@ -1365,7 +1365,7 @@ void pulse_relay_off(const TimerHandle_t)
 #if defined(RULES_LOGGING)
     for (int8_t r = 0; r < RELAY_RULES; r++)
     {
-      if (rules.rule_outcome.at(r))
+      if (rules.ruleOutcome(r))
       {
         ESP_LOGD(TAG, "Rule outcome %i=TRUE", r);
       }
@@ -1383,7 +1383,7 @@ void pulse_relay_off(const TimerHandle_t)
     // Test the rules (in reverse order)
     for (int8_t n = RELAY_RULES - 1; n >= 0; n--)
     {
-      if (rules.rule_outcome.at(n) == true)
+      if (rules.ruleOutcome((Rule)n) == true)
       {
         for (int8_t y = 0; y < RELAY_TOTAL; y++)
         {
@@ -2917,7 +2917,7 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
               // current in 0.01A
               currentMonitor.modbus.current = (float)((uint32_t)frame[5] << 8 | (uint32_t)frame[6]) / (float)100.0;
               // power in 0.1W
-              currentMonitor.modbus.power = ((uint32_t)frame[7] << 8 | (uint32_t)frame[8] | (uint32_t)frame[9] << 24 | (uint32_t)frame[10] << 16) / 10.0;
+              currentMonitor.modbus.power = ((uint32_t)frame[7] << 8 | (uint32_t)frame[8] | (uint32_t)frame[9] << 24 | (uint32_t)frame[10] << 16) / 10.0F;
             }
             else
             {
@@ -3089,7 +3089,7 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
     {
       countdown_influx = mysettings.influxdb_loggingFreqSeconds;
 
-      if (mysettings.influxdb_enabled && wifi_isconnected && rules.invalidModuleCount == 0 && _controller_state == ControllerState::Running && rules.rule_outcome.at(Rule::BMSError) == false)
+      if (mysettings.influxdb_enabled && wifi_isconnected && rules.invalidModuleCount == 0 && _controller_state == ControllerState::Running && rules.ruleOutcome(Rule::BMSError) == false)
       {
         ESP_LOGI(TAG, "Influx task");
         influx_task_action();
@@ -3231,11 +3231,6 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
   } // end for
 }
 
-void resetAllRules()
-{
-  // Clear all rules
-  rules.rule_outcome.fill(false);
-}
 
 bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool ShowPasswordChar)
 {
@@ -3521,7 +3516,7 @@ const std::array<log_level_t, 21> log_levels =
         {.tag = "diybms-rules", .level = ESP_LOG_INFO},
         {.tag = "diybms-softap", .level = ESP_LOG_INFO},
         {.tag = "diybms-tft", .level = ESP_LOG_INFO},
-        {.tag = "diybms-victron", .level = ESP_LOG_INFO},
+        {.tag = "diybms-victron", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-webfuncs", .level = ESP_LOG_INFO},
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
@@ -3676,7 +3671,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   history.Clear();
 
-  resetAllRules();
+  rules.resetAllRules();
 
   LoadConfiguration(&mysettings);
   ValidateConfiguration(&mysettings);

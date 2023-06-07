@@ -86,9 +86,12 @@ private:
     ChargingMode chargemode{ChargingMode::standard};
 
     int64_t ChargingTimer{0};
+    std::array<bool, RELAY_RULES> rule_outcome;
 
 public:
-    std::array<bool, RELAY_RULES> rule_outcome;
+    static const std::array<std::string, 1 + MAXIMUM_RuleNumber> RuleTextDescription;
+    static const std::array<std::string, 1 + MAXIMUM_InternalWarningCode> InternalWarningCodeDescription;
+    static const std::array<std::string, 1 + MAXIMUM_InternalErrorCode> InternalErrorCodeDescription;
 
     // Number of TRUE values in array rule_outcome
     uint8_t active_rule_count;
@@ -133,6 +136,26 @@ public:
     std::array<InternalErrorCode, 1 + MAXIMUM_InternalErrorCode> ErrorCodes;
     std::array<InternalWarningCode, 1 + MAXIMUM_InternalWarningCode> WarningCodes;
 
+    /// @brief Get value of a rule
+    /// @param r Rule to query
+    /// @return True = rule is active
+    bool ruleOutcome(Rule r) const
+    {
+        return rule_outcome.at(r);
+    }
+
+    /// @brief Set a rule status
+    /// @param r Rule to change
+    /// @param value True = rule is active
+    void setRuleStatus(Rule r, bool value)
+    {
+        if (ruleOutcome(r) != value)
+        {
+            rule_outcome.at(r) = value;
+            ESP_LOGI(TAG, "Rule %s state=%u", RuleTextDescription.at(r).c_str(), (uint8_t)value);
+        }
+    }
+
     // True if at least 1 module has an external temp sensor fitted
     bool moduleHasExternalTempSensor;
 
@@ -163,6 +186,15 @@ public:
     int8_t numberOfActiveErrors;
     int8_t numberOfActiveWarnings;
     int8_t numberOfBalancingModules;
+
+    /// @brief Clear all rules (off)
+    void resetAllRules()
+    {
+        for (size_t i = 0; i < MAXIMUM_RuleNumber; i++)
+        {
+            setRuleStatus((Rule)i, false);
+        }
+    }
 
     void ClearValues();
     void ProcessCell(uint8_t bank, uint8_t cellNumber, const CellModuleInfo *c, uint16_t cellmaxmv);

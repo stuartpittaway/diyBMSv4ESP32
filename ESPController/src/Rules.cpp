@@ -4,7 +4,7 @@ static constexpr const char *const TAG = "diybms-rules";
 #include "Rules.h"
 
 // Its critical these are in the same order as "enum Rule", and occupy the same index position
-const char *RuleTextDescription[] = {
+const std::array<std::string, 1 + MAXIMUM_RuleNumber> Rules::RuleTextDescription = {
     "EmergencyStop",
     "BMSError",
     "CurrentMonitorOverCurrentAmps",
@@ -21,6 +21,30 @@ const char *RuleTextDescription[] = {
     "BankRange",
     "Timer2",
     "Timer1"};
+
+const std::array<std::string, 1 + MAXIMUM_InternalWarningCode> Rules::InternalWarningCodeDescription =
+    {
+        "NoWarning",
+        "ModuleInconsistantBypassVoltage",
+        "ModuleInconsistantBypassTemperature",
+        "ModuleInconsistantCodeVersion",
+        "ModuleInconsistantBoardRevision",
+        "LoggingEnabledNoSDCard",
+        "AVRProgrammingMode",
+        "ChargePrevented",
+        "DischargePrevented",
+        "NoExternalTempSensor"};
+
+const std::array<std::string, 1 + MAXIMUM_InternalErrorCode> Rules::InternalErrorCodeDescription =
+    {
+        "NoError",
+        "CommunicationsError",
+        "ModuleCountMismatch",
+        "TooManyModules",
+        "WaitingForModulesToReply",
+        "ZeroVoltModule",
+        "ControllerMemoryError",
+        "ErrorEmergencyStop"};
 
 void Rules::ClearValues()
 {
@@ -159,13 +183,15 @@ void Rules::SetWarning(InternalWarningCode warncode)
 
     WarningCodes.at(warncode) = warncode;
     numberOfActiveWarnings++;
-    ESP_LOGI(TAG, "Set warning %i", warncode);
+    ESP_LOGI(TAG, "Set warning %i:%s", warncode, InternalWarningCodeDescription.at(warncode).c_str());
 }
 
 void Rules::SetError(InternalErrorCode err)
 {
-    if (err > MAXIMUM_InternalErrorCode)
+    if (err > MAXIMUM_InternalErrorCode) {
+        ESP_LOGE(TAG, "Error code doesn't exist %i",err);
         return;
+    }
 
     // Only set error once
     if (ErrorCodes.at(err) != InternalErrorCode::NoError)
@@ -173,7 +199,7 @@ void Rules::SetError(InternalErrorCode err)
 
     ErrorCodes.at(err) = err;
     numberOfActiveErrors++;
-    ESP_LOGI(TAG, "Set error %i", err);
+    ESP_LOGI(TAG, "Set error %i:%s", err, InternalErrorCodeDescription.at(err).c_str());
 }
 
 /// @brief Run rules against cell/bank data
@@ -190,187 +216,187 @@ void Rules::RunRules(
     const currentmonitoring_struct *currentMonitor)
 {
     // Emergency stop signal...
-    rule_outcome.at(Rule::EmergencyStop) = emergencyStop;
+    setRuleStatus(Rule::EmergencyStop, emergencyStop);
 
     // Timer 1 and Timer 2
-    rule_outcome.at(Rule::Timer1) = (mins >= value[Rule::Timer1] && mins <= hysteresisvalue[Rule::Timer1]);
-    rule_outcome.at(Rule::Timer2) = (mins >= value[Rule::Timer2] && mins <= hysteresisvalue[Rule::Timer2]);
+    setRuleStatus(Rule::Timer1, (mins >= value[Rule::Timer1] && mins <= hysteresisvalue[Rule::Timer1]));
+    setRuleStatus(Rule::Timer2, (mins >= value[Rule::Timer2] && mins <= hysteresisvalue[Rule::Timer2]));
 
     if (currentMonitor->validReadings)
     {
         // Currents can be both positive and negative (depending on current flow, we ABS that to get an always POSITIVE number)
         auto integercurrent = (uint32_t)(abs(currentMonitor->modbus.current) + (float)0.5);
 
-        if (integercurrent > value[Rule::CurrentMonitorOverCurrentAmps] && rule_outcome.at(Rule::CurrentMonitorOverCurrentAmps) == false)
+        if (integercurrent > value[Rule::CurrentMonitorOverCurrentAmps] && ruleOutcome(Rule::CurrentMonitorOverCurrentAmps) == false)
         {
             // CurrentMonitorOverCurrentAmps - TRIGGERED
-            rule_outcome.at(Rule::CurrentMonitorOverCurrentAmps) = true;
+            setRuleStatus(Rule::CurrentMonitorOverCurrentAmps, true);
         }
-        else if (integercurrent < hysteresisvalue[Rule::CurrentMonitorOverCurrentAmps] && rule_outcome.at(Rule::CurrentMonitorOverCurrentAmps) == true)
+        else if (integercurrent < hysteresisvalue[Rule::CurrentMonitorOverCurrentAmps] && ruleOutcome(Rule::CurrentMonitorOverCurrentAmps) == true)
         {
             // CurrentMonitorOverCurrentAmps - HYSTERESIS RESET
-            rule_outcome.at(Rule::CurrentMonitorOverCurrentAmps) = false;
+            setRuleStatus(Rule::CurrentMonitorOverCurrentAmps, false);
         }
 
         auto integervoltagemV = (uint32_t)((currentMonitor->modbus.voltage * 1000.0) + (float)0.5);
 
-        if (integervoltagemV > value[Rule::CurrentMonitorOverVoltage] && rule_outcome.at(Rule::CurrentMonitorOverVoltage) == false)
+        if (integervoltagemV > value[Rule::CurrentMonitorOverVoltage] && ruleOutcome(Rule::CurrentMonitorOverVoltage) == false)
         {
             // Rule - CURRENT MONITOR Bank over voltage (mV)
-            rule_outcome.at(Rule::CurrentMonitorOverVoltage) = true;
+            setRuleStatus(Rule::CurrentMonitorOverVoltage, true);
         }
-        else if (integervoltagemV < hysteresisvalue[Rule::CurrentMonitorOverVoltage] && rule_outcome.at(Rule::CurrentMonitorOverVoltage) == true)
+        else if (integervoltagemV < hysteresisvalue[Rule::CurrentMonitorOverVoltage] && ruleOutcome(Rule::CurrentMonitorOverVoltage) == true)
         {
             // Rule - CURRENT MONITOR Bank over voltage (mV) - HYSTERESIS RESET
-            rule_outcome.at(Rule::CurrentMonitorOverVoltage) = false;
+            setRuleStatus(Rule::CurrentMonitorOverVoltage, false);
         }
 
-        if (integervoltagemV < value[Rule::CurrentMonitorUnderVoltage] && rule_outcome.at(Rule::CurrentMonitorUnderVoltage) == false)
+        if (integervoltagemV < value[Rule::CurrentMonitorUnderVoltage] && ruleOutcome(Rule::CurrentMonitorUnderVoltage) == false)
         {
             // Rule - CURRENT MONITOR Bank under voltage (mV)
-            rule_outcome.at(Rule::CurrentMonitorUnderVoltage) = true;
+            setRuleStatus(Rule::CurrentMonitorUnderVoltage, true);
         }
-        else if (integervoltagemV > hysteresisvalue[Rule::CurrentMonitorUnderVoltage] && rule_outcome.at(Rule::CurrentMonitorUnderVoltage) == true)
+        else if (integervoltagemV > hysteresisvalue[Rule::CurrentMonitorUnderVoltage] && ruleOutcome(Rule::CurrentMonitorUnderVoltage) == true)
         {
             // Rule - CURRENT MONITOR Bank under voltage (mV) - HYSTERESIS RESET
-            rule_outcome.at(Rule::CurrentMonitorUnderVoltage) = false;
+            setRuleStatus(Rule::CurrentMonitorUnderVoltage, false);
         }
     }
     else
     {
         // We don't have valid current monitor readings, so the rule is ALWAYS false
-        rule_outcome.at(Rule::CurrentMonitorOverCurrentAmps) = false;
-        rule_outcome.at(Rule::CurrentMonitorOverVoltage) = false;
-        rule_outcome.at(Rule::CurrentMonitorUnderVoltage) = false;
+        setRuleStatus(Rule::CurrentMonitorOverCurrentAmps, false);
+        setRuleStatus(Rule::CurrentMonitorOverVoltage, false);
+        setRuleStatus(Rule::CurrentMonitorUnderVoltage, false);
     }
 
     // At least 1 module is zero volt - not a problem whilst we are in stabilizing start up mode
     if (zeroVoltageModuleCount > 0 || invalidModuleCount > 0)
     {
-        rule_outcome.at(Rule::ModuleOverVoltage) = false;
-        rule_outcome.at(Rule::ModuleUnderVoltage) = false;
-        rule_outcome.at(Rule::ModuleOverTemperatureInternal) = false;
-        rule_outcome.at(Rule::ModuleUnderTemperatureInternal) = false;
-        rule_outcome.at(Rule::ModuleOverTemperatureExternal) = false;
-        rule_outcome.at(Rule::ModuleUnderTemperatureExternal) = false;
+        setRuleStatus(Rule::ModuleOverVoltage, false);
+        setRuleStatus(Rule::ModuleUnderVoltage, false);
+        setRuleStatus(Rule::ModuleOverTemperatureInternal, false);
+        setRuleStatus(Rule::ModuleUnderTemperatureInternal, false);
+        setRuleStatus(Rule::ModuleOverTemperatureExternal, false);
+        setRuleStatus(Rule::ModuleUnderTemperatureExternal, false);
 
         // Abort processing any more rules until controller is stable/running state
         return;
     }
 
     // Only rules which are based on temperature or voltage should go below this point....
-    if (highestCellVoltage > value[Rule::ModuleOverVoltage] && rule_outcome.at(Rule::ModuleOverVoltage) == false)
+    if (highestCellVoltage > value[Rule::ModuleOverVoltage] && ruleOutcome(Rule::ModuleOverVoltage) == false)
     {
         // Rule Individual cell over voltage - TRIGGERED
-        rule_outcome.at(Rule::ModuleOverVoltage) = true;
+        setRuleStatus(Rule::ModuleOverVoltage, true);
     }
-    else if (highestCellVoltage < hysteresisvalue[Rule::ModuleOverVoltage] && rule_outcome.at(Rule::ModuleOverVoltage) == true)
+    else if (highestCellVoltage < hysteresisvalue[Rule::ModuleOverVoltage] && ruleOutcome(Rule::ModuleOverVoltage) == true)
     {
         // Rule Individual cell over voltage - HYSTERESIS RESET
-        rule_outcome.at(Rule::ModuleOverVoltage) = false;
+        setRuleStatus(Rule::ModuleOverVoltage, false);
     }
 
-    if (lowestCellVoltage < value[Rule::ModuleUnderVoltage] && rule_outcome.at(Rule::ModuleUnderVoltage) == false)
+    if (lowestCellVoltage < value[Rule::ModuleUnderVoltage] && ruleOutcome(Rule::ModuleUnderVoltage) == false)
     {
         // Rule Individual cell under voltage (mV) - TRIGGERED
-        rule_outcome.at(Rule::ModuleUnderVoltage) = true;
+        setRuleStatus(Rule::ModuleUnderVoltage, true);
     }
-    else if (lowestCellVoltage > hysteresisvalue[Rule::ModuleUnderVoltage] && rule_outcome.at(Rule::ModuleUnderVoltage) == true)
+    else if (lowestCellVoltage > hysteresisvalue[Rule::ModuleUnderVoltage] && ruleOutcome(Rule::ModuleUnderVoltage) == true)
     {
         // Rule Individual cell under voltage (mV) - HYSTERESIS RESET
-        rule_outcome.at(Rule::ModuleUnderVoltage) = false;
+        setRuleStatus(Rule::ModuleUnderVoltage, false);
     }
 
     // These rules only fire if external temp sensor actually exists
     if (moduleHasExternalTempSensor)
     {
         // Doesn't cater for negative temperatures on rule (int8 vs uint32)
-        if ((highestExternalTemp > value[Rule::ModuleOverTemperatureExternal]) && rule_outcome.at(Rule::ModuleOverTemperatureExternal) == false)
+        if ((highestExternalTemp > value[Rule::ModuleOverTemperatureExternal]) && ruleOutcome(Rule::ModuleOverTemperatureExternal) == false)
         {
             // Rule Individual cell over temperature (external probe)
-            rule_outcome.at(Rule::ModuleOverTemperatureExternal) = true;
+            setRuleStatus(Rule::ModuleOverTemperatureExternal, true);
         }
-        else if ((highestExternalTemp < hysteresisvalue[Rule::ModuleOverTemperatureExternal]) && rule_outcome.at(Rule::ModuleOverTemperatureExternal) == true)
+        else if ((highestExternalTemp < hysteresisvalue[Rule::ModuleOverTemperatureExternal]) && ruleOutcome(Rule::ModuleOverTemperatureExternal) == true)
         {
             // Rule Individual cell over temperature (external probe) - HYSTERESIS RESET
-            rule_outcome.at(Rule::ModuleOverTemperatureExternal) = false;
+            setRuleStatus(Rule::ModuleOverTemperatureExternal, false);
         }
         // Doesn't cater for negative temperatures on rule (int8 vs uint32)
-        if ((lowestExternalTemp < value[Rule::ModuleUnderTemperatureExternal]) && rule_outcome.at(Rule::ModuleUnderTemperatureExternal) == false)
+        if ((lowestExternalTemp < value[Rule::ModuleUnderTemperatureExternal]) && ruleOutcome(Rule::ModuleUnderTemperatureExternal) == false)
         {
             // Rule Individual cell UNDER temperature (external probe)
-            rule_outcome.at(Rule::ModuleUnderTemperatureExternal) = true;
+            setRuleStatus(Rule::ModuleUnderTemperatureExternal, true);
         }
-        else if ((lowestExternalTemp > hysteresisvalue[Rule::ModuleUnderTemperatureExternal]) && rule_outcome.at(Rule::ModuleUnderTemperatureExternal) == true)
+        else if ((lowestExternalTemp > hysteresisvalue[Rule::ModuleUnderTemperatureExternal]) && ruleOutcome(Rule::ModuleUnderTemperatureExternal) == true)
         {
             // Rule Individual cell UNDER temperature (external probe) - HYSTERESIS RESET
-            rule_outcome.at(Rule::ModuleUnderTemperatureExternal) = false;
+            setRuleStatus(Rule::ModuleUnderTemperatureExternal, false);
         }
     }
     else
     {
-        rule_outcome.at(Rule::ModuleOverTemperatureExternal) = false;
-        rule_outcome.at(Rule::ModuleUnderTemperatureExternal) = false;
+        setRuleStatus(Rule::ModuleOverTemperatureExternal, false);
+        setRuleStatus(Rule::ModuleUnderTemperatureExternal, false);
     }
 
     // Internal temperature monitoring and rules
     // Does not cope with negative temperatures on rule (int8 vs uint32)
-    if ((highestInternalTemp > value[Rule::ModuleOverTemperatureInternal]) && rule_outcome.at(Rule::ModuleOverTemperatureInternal) == false)
+    if ((highestInternalTemp > value[Rule::ModuleOverTemperatureInternal]) && ruleOutcome(Rule::ModuleOverTemperatureInternal) == false)
     {
         // Rule Individual cell over temperature (Internal probe)
-        rule_outcome.at(Rule::ModuleOverTemperatureInternal) = true;
+        setRuleStatus(Rule::ModuleOverTemperatureInternal, true);
     }
-    else if ((highestInternalTemp < hysteresisvalue[Rule::ModuleOverTemperatureInternal]) && rule_outcome.at(Rule::ModuleOverTemperatureInternal) == true)
+    else if ((highestInternalTemp < hysteresisvalue[Rule::ModuleOverTemperatureInternal]) && ruleOutcome(Rule::ModuleOverTemperatureInternal) == true)
     {
         // Rule Individual cell over temperature (Internal probe) - HYSTERESIS RESET
-        rule_outcome.at(Rule::ModuleOverTemperatureInternal) = false;
+        setRuleStatus(Rule::ModuleOverTemperatureInternal, false);
     }
 
     // Doesn't cater for negative temperatures on rule (int8 vs uint32)
-    if ((lowestInternalTemp < value[Rule::ModuleUnderTemperatureInternal]) && rule_outcome.at(Rule::ModuleUnderTemperatureInternal) == false)
+    if ((lowestInternalTemp < value[Rule::ModuleUnderTemperatureInternal]) && ruleOutcome(Rule::ModuleUnderTemperatureInternal) == false)
     {
         // Rule Individual cell UNDER temperature (Internal probe)
-        rule_outcome.at(Rule::ModuleUnderTemperatureInternal) = true;
+        setRuleStatus(Rule::ModuleUnderTemperatureInternal, true);
     }
-    else if ((lowestInternalTemp > hysteresisvalue[Rule::ModuleUnderTemperatureInternal]) && rule_outcome.at(Rule::ModuleUnderTemperatureInternal) == true)
+    else if ((lowestInternalTemp > hysteresisvalue[Rule::ModuleUnderTemperatureInternal]) && ruleOutcome(Rule::ModuleUnderTemperatureInternal) == true)
     {
         // Rule Individual cell UNDER temperature (Internal probe) - HYSTERESIS RESET
-        rule_outcome.at(Rule::ModuleUnderTemperatureInternal) = false;
+        setRuleStatus(Rule::ModuleUnderTemperatureInternal, false);
     }
 
     // Whole Bank voltages
-    if (highestBankVoltage > value[Rule::BankOverVoltage] && rule_outcome.at(Rule::BankOverVoltage) == false)
+    if (highestBankVoltage > value[Rule::BankOverVoltage] && ruleOutcome(Rule::BankOverVoltage) == false)
     {
         // Rule - Bank over voltage (mV)
-        rule_outcome.at(Rule::BankOverVoltage) = true;
+        setRuleStatus(Rule::BankOverVoltage, true);
     }
-    else if (highestBankVoltage < hysteresisvalue[Rule::BankOverVoltage] && rule_outcome.at(Rule::BankOverVoltage) == true)
+    else if (highestBankVoltage < hysteresisvalue[Rule::BankOverVoltage] && ruleOutcome(Rule::BankOverVoltage) == true)
     {
         // Rule - Bank over voltage (mV) - HYSTERESIS RESET
-        rule_outcome.at(Rule::BankOverVoltage) = false;
+        setRuleStatus(Rule::BankOverVoltage, false);
     }
 
-    if (lowestBankVoltage < value[Rule::BankUnderVoltage] && rule_outcome.at(Rule::BankUnderVoltage) == false)
+    if (lowestBankVoltage < value[Rule::BankUnderVoltage] && ruleOutcome(Rule::BankUnderVoltage) == false)
     {
         // Rule - Bank under voltage (mV)
-        rule_outcome.at(Rule::BankUnderVoltage) = true;
+        setRuleStatus(Rule::BankUnderVoltage, true);
     }
-    else if (lowestBankVoltage > hysteresisvalue[Rule::BankUnderVoltage] && rule_outcome.at(Rule::BankUnderVoltage) == true)
+    else if (lowestBankVoltage > hysteresisvalue[Rule::BankUnderVoltage] && ruleOutcome(Rule::BankUnderVoltage) == true)
     {
         // Rule - Bank under voltage (mV) - HYSTERESIS RESET
-        rule_outcome.at(Rule::BankUnderVoltage) = false;
+        setRuleStatus(Rule::BankUnderVoltage, false);
     }
 
     // While Bank voltages
-    if (highestBankRange > value[Rule::BankRange] && rule_outcome.at(Rule::BankRange) == false)
+    if (highestBankRange > value[Rule::BankRange] && ruleOutcome(Rule::BankRange) == false)
     {
         // Rule - Bank Range
-        rule_outcome.at(Rule::BankRange) = true;
+        setRuleStatus(Rule::BankRange, true);
     }
-    else if (highestBankRange < hysteresisvalue[Rule::BankRange] && rule_outcome.at(Rule::BankRange) == true)
+    else if (highestBankRange < hysteresisvalue[Rule::BankRange] && ruleOutcome(Rule::BankRange) == true)
     {
         // Rule - Bank Range - HYSTERESIS RESET
-        rule_outcome.at(Rule::BankRange) = false;
+        setRuleStatus(Rule::BankRange, false);
     }
 
     // Total up the active rules
@@ -397,10 +423,10 @@ bool Rules::SharedChargingDischargingRules(const diybms_eeprom_settings *mysetti
         return false;
 
     // Battery high temperature alarm
-    if (rule_outcome.at(Rule::ModuleOverTemperatureExternal))
+    if (ruleOutcome(Rule::ModuleOverTemperatureExternal))
         return false;
     // Battery low temperature alarm
-    if (rule_outcome.at(Rule::ModuleUnderTemperatureExternal))
+    if (ruleOutcome(Rule::ModuleUnderTemperatureExternal))
         return false;
 
     return true;
@@ -411,11 +437,11 @@ bool Rules::IsChargeAllowed(const diybms_eeprom_settings *mysettings)
         return false;
 
     // Battery high voltage alarm - stop charging
-    if (rule_outcome.at(Rule::BankOverVoltage))
+    if (ruleOutcome(Rule::BankOverVoltage))
         return false;
 
     // Battery high voltage alarm - stop charging
-    if (rule_outcome.at(Rule::CurrentMonitorOverVoltage))
+    if (ruleOutcome(Rule::CurrentMonitorOverVoltage))
         return false;
 
     if (mysettings->preventcharging == true)
@@ -448,11 +474,11 @@ bool Rules::IsDischargeAllowed(const diybms_eeprom_settings *mysettings)
         return false;
 
     // Low voltage alarm - stop discharge
-    if (rule_outcome.at(Rule::BankUnderVoltage))
+    if (ruleOutcome(Rule::BankUnderVoltage))
         return false;
 
     // Low voltage alarm - stop charging
-    if (rule_outcome.at(Rule::CurrentMonitorUnderVoltage))
+    if (ruleOutcome(Rule::CurrentMonitorUnderVoltage))
         return false;
 
     if (mysettings->preventdischarge == true)

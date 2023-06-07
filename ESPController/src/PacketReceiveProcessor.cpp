@@ -244,6 +244,8 @@ void PacketReceiveProcessor::ProcessReplyAdditionalSettings()
   cmi[m].RelayMinmV = _packetbuffer.moduledata[1];
   cmi[m].RelayRangemV = _packetbuffer.moduledata[2];
   cmi[m].ParasiteVoltagemV = _packetbuffer.moduledata[3];
+  cmi[m].RunAwayCellMinimumVoltagemV = _packetbuffer.moduledata[4];
+  cmi[m].RunAwayCellDifferentialmV = _packetbuffer.moduledata[5];
 }
 
 void PacketReceiveProcessor::ProcessReplySettings()
