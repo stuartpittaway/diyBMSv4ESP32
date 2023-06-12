@@ -1643,7 +1643,7 @@ static void event_handler(void *, esp_event_base_t event_base,
   {
     wifi_isconnected = true;
     auto event = (ip_event_got_ip_t *)event_data;
-    //ESP_LOGI(TAG, "Got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+    // ESP_LOGI(TAG, "Got ip:" IPSTR, IP2STR(&event->ip_info.ip));
     s_retry_num = 0;
     // xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
@@ -3467,8 +3467,33 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
           ssid.toCharArray(_new_config.wifi_ssid, sizeof(_new_config.wifi_ssid));
           password.toCharArray(_new_config.wifi_passphrase, sizeof(_new_config.wifi_passphrase));
 
+          IPAddress ip;
+
+          if (ip.fromString(wifi["ip"].as<String>()))
+          {
+            _new_config.wifi_ip = ip;
+          }
+          if (ip.fromString(wifi["gateway"].as<String>()))
+          {
+            _new_config.wifi_gateway = ip;
+          }
+          if (ip.fromString(wifi["netmask"].as<String>()))
+          {
+            _new_config.wifi_netmask = ip;
+          }
+          if (ip.fromString(wifi["dns1"].as<String>()))
+          {
+            _new_config.wifi_dns1 = ip;
+          }
+          if (ip.fromString(wifi["dns2"].as<String>()))
+          {
+            _new_config.wifi_dns2 = ip;
+          }
+
+          _wificonfig.useDHCP = wifi["usedhcp"].as<bool>();
+
           // Our configuration is different, so store the details in EEPROM and flash the LED a few times
-          if (existingConfigValid == false || strcmp(_wificonfig.wifi_ssid, _new_config.wifi_ssid) != 0 || strcmp(_wificonfig.wifi_passphrase, _new_config.wifi_passphrase) != 0)
+          if (existingConfigValid == false || (memcmp(&_wificonfig, &_new_config, sizeof(_new_config)) != 0))
           {
             memcpy(&_wificonfig, &_new_config, sizeof(_new_config));
             ESP_LOGI(TAG, "Wifi config is different, saving");
@@ -3477,7 +3502,7 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
           }
           else
           {
-            ESP_LOGI(TAG, "Wifi JSON config is identical, ignoring");
+            ESP_LOGI(TAG, "Wifi JSON config is identical - ignoring");
           }
         }
       }
@@ -3867,7 +3892,6 @@ void loop()
      free_blocks;             Number of (variable size) free blocks in the heap.
      total_blocks;            Total number of (variable size) blocks in the heap.
     */
-
 
     multi_heap_info_t heap;
     heap_caps_get_info(&heap, MALLOC_CAP_INTERNAL);

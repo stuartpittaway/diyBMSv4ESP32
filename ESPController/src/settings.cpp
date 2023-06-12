@@ -219,12 +219,12 @@ bool getSetting(nvs_handle_t handle, const char *key, int32_t *out_value)
 {
     return ValidateGetSetting(nvs_get_i32(handle, key, out_value), key);
 }
-/*
+
 bool getSetting(nvs_handle_t handle, const char *key, uint32_t *out_value)
 {
     return ValidateGetSetting(nvs_get_u32(handle, key, out_value), key);
 }
-*/
+
 bool getSetting(nvs_handle_t handle, const char *key, int8_t *out_value)
 {
     return ValidateGetSetting(nvs_get_i8(handle, key, out_value), key);
@@ -746,6 +746,13 @@ void SaveWIFI(wifi_eeprom_settings *wifi)
         // Write values
         ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "SSID", &wifi->wifi_ssid[0]));
         ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "PASS", &wifi->wifi_passphrase[0]));
+
+        ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "IP", wifi->wifi_ip));
+        ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "GATEWAY", wifi->wifi_gateway));
+        ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "NETMASK", wifi->wifi_netmask));
+        ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "DNS1", wifi->wifi_dns1));
+        ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "DNS2", wifi->wifi_dns2));
+        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "DHCP", (uint8_t)wifi->useDHCP));
         nvs_close(nvs_handle);
     }
 }
@@ -762,21 +769,26 @@ bool LoadWIFI(wifi_eeprom_settings *wifi)
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "Error (%s) opening NVS handle", esp_err_to_name(err));
+        return false;
     }
-    else
+    
+    if (
+        getString(nvs_handle, "SSID", &x.wifi_ssid[0], sizeof(x.wifi_ssid)) &&
+        getString(nvs_handle, "PASS", &x.wifi_passphrase[0], sizeof(x.wifi_passphrase)) &&
+        getSetting(nvs_handle, "IP", &x.wifi_ip) &&
+        getSetting(nvs_handle, "GATEWAY", &x.wifi_gateway) &&
+        getSetting(nvs_handle, "NETMASK", &x.wifi_netmask) &&
+        getSetting(nvs_handle, "DNS1", &x.wifi_dns1) &&
+        getSetting(nvs_handle, "DNS2", &x.wifi_dns2) &&
+        getSetting(nvs_handle, "DHCP", &x.useDHCP))
     {
-        if (getString(nvs_handle, "SSID", &x.wifi_ssid[0], sizeof(x.wifi_ssid)))
-        {
-            if (getString(nvs_handle, "PASS", &x.wifi_passphrase[0], sizeof(x.wifi_passphrase)))
-            {
-                // Only return success if both values are retrieved, don't corrupt
-                // external copy of wifi settings otherwise.
-                memcpy(wifi, &x, sizeof(x));
-                result = true;
-            }
-        }
-        nvs_close(nvs_handle);
+        // Only return success if all values are retrieved, don't corrupt
+        // external copy of wifi settings otherwise.
+        memcpy(wifi, &x, sizeof(x));
+        result = true;
     }
+
+    nvs_close(nvs_handle);
 
     return result;
 }
@@ -1211,7 +1223,7 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
                     settings->rulehysteresis[rulenumber] = v["hysteresis"].as<int32_t>();
                     JsonArray states = v["state"].as<JsonArray>();
 
-                    ESP_LOGI(TAG, "Matched to rule %u:%s, value=%i,hysteresis=%i", rulenumber,Rules::RuleTextDescription.at(rulenumber).c_str(),settings->rulevalue[rulenumber],settings->rulehysteresis[rulenumber]);
+                    ESP_LOGI(TAG, "Matched to rule %u:%s, value=%i,hysteresis=%i", rulenumber, Rules::RuleTextDescription.at(rulenumber).c_str(), settings->rulevalue[rulenumber], settings->rulehysteresis[rulenumber]);
 
                     uint8_t i = 0;
                     for (JsonVariant x : states)

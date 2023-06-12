@@ -4,6 +4,7 @@ static constexpr const char *const TAG = "diybms-webpost";
 #include "webserver.h"
 #include "webserver_json_post.h"
 #include "webserver_helper_funcs.h"
+#include <esp_netif.h>
 
 esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
@@ -242,6 +243,13 @@ esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool)
         JsonObject wifi = doc.createNestedObject("wifi");
         wifi["ssid"] = _wificonfig.wifi_ssid;
         wifi["password"] = _wificonfig.wifi_passphrase;
+
+        wifi["ip"] = IPAddress(_wificonfig.wifi_ip).toString();
+        wifi["gateway"] = IPAddress(_wificonfig.wifi_gateway).toString();
+        wifi["netmask"] = IPAddress(_wificonfig.wifi_netmask).toString();
+        wifi["dns1"] = IPAddress(_wificonfig.wifi_dns1).toString();
+        wifi["dns2"] = IPAddress(_wificonfig.wifi_dns2).toString();
+        wifi["usedhcp"] = IPAddress(_wificonfig.useDHCP).toString();
 
         if (SD.exists(wificonfigfilename))
         {
@@ -653,6 +661,80 @@ esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendSuccess(req);
 }
 
+esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    char buffer[32];
+
+    IPAddress ip;
+
+    uint32_t new_ip = 0;
+    uint32_t new_netmask = 0;
+    uint32_t new_gw = 0;
+    uint32_t new_dns1 = 0;
+    uint32_t new_dns2 = 0;
+
+    if (GetTextFromKeyValue(httpbuf, "new_ip", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (ip.fromString(buffer))
+        {
+            new_ip = ip;
+        }
+    }
+    if (GetTextFromKeyValue(httpbuf, "new_netmask", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (ip.fromString(buffer))
+        {
+            new_netmask = ip;
+        }
+    }
+    if (GetTextFromKeyValue(httpbuf, "new_gw", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (ip.fromString(buffer))
+        {
+            new_gw = ip;
+        }
+    }
+    if (GetTextFromKeyValue(httpbuf, "new_dns1", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (ip.fromString(buffer))
+        {
+            new_dns1 = ip;
+        }
+    }
+    if (GetTextFromKeyValue(httpbuf, "new_dns2", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (ip.fromString(buffer))
+        {
+            new_dns2 = ip;
+        }
+    }
+
+    if (new_ip == 0)
+    {
+        // Default back to DHCP
+        _wificonfig.useDHCP = true;
+        _wificonfig.wifi_ip = 0;
+        _wificonfig.wifi_netmask = 0;
+        _wificonfig.wifi_gateway = 0;
+        _wificonfig.wifi_dns1 = 0;
+        _wificonfig.wifi_dns2 = 0;
+    }
+    else
+    {
+        _wificonfig.wifi_ip = new_ip;
+        _wificonfig.wifi_netmask = new_netmask;
+        _wificonfig.wifi_gateway = new_gw;
+        _wificonfig.wifi_dns1 = new_dns1;
+        _wificonfig.wifi_dns2 = new_dns2;
+        _wificonfig.useDHCP = false;
+    }
+
+    // Save WIFI config
+    SaveWIFI(&_wificonfig);
+
+    return SendSuccess(req);
+}
+
 esp_err_t post_setsoc_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     float new_soc = 0;
@@ -952,7 +1034,6 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
 
         // Reset state of rules after updating the new values
         rules.resetAllRules();
-        
     }
 
     saveConfiguration();
@@ -1105,7 +1186,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    std::array<std::string, 28> uri_array = {
+    std::array<std::string, 29> uri_array = {
         "savebankconfig", "saventp", "saveglobalsetting",
         "savemqtt", "saveinfluxdb",
         "saveconfigtofile", "wificonfigtofile",
@@ -1115,9 +1196,10 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "disableavrprog", "avrprog", "savers485settings",
         "savecurrentmon", "savecmbasic", "savecmadvanced",
         "savecmrelay", "restoreconfig", "savechargeconfig",
-        "visibletiles", "dailyahreset", "setsoc"};
+        "visibletiles", "dailyahreset", "setsoc",
+        "savenetconfig"};
 
-    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 28> func_ptr = {
+    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 29> func_ptr = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
         post_savemqtt_json_handler, post_saveinfluxdbsetting_json_handler,
         post_saveconfigurationtoflash_json_handler, post_savewificonfigtosdcard_json_handler,
@@ -1127,7 +1209,8 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_disableavrprog_json_handler, post_avrprog_json_handler, post_savers485settings_json_handler,
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
         post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler,
-        post_visibletiles_json_handler, post_resetdailyahcount_json_handler, post_setsoc_json_handler};
+        post_visibletiles_json_handler, post_resetdailyahcount_json_handler, post_setsoc_json_handler,
+        post_savenetconfig_json_handler};
 
     auto name = std::string(req->uri);
 

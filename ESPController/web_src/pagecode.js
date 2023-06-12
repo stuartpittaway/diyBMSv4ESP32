@@ -1516,21 +1516,25 @@ $(function () {
                
                 if (data.settings.hasOwnProperty("run_ip")) {
                     $("#run_ip").val(data.settings.run_ip);
+                    $("#new_ip").val(data.settings.run_ip);
                     $("#run_netmask").val(data.settings.run_netmask);
+                    $("#new_netmask").val(data.settings.run_netmask);
                     $("#run_gw").val(data.settings.run_gw);
+                    $("#new_gw").val(data.settings.run_gw);
                 }
 
                 if (data.settings.hasOwnProperty("run_dns1")) {
                     $("#run_dns1").val(data.settings.run_dns1);
+                    $("#new_dns1").val(data.settings.run_dns1);
                 }
                 if (data.settings.hasOwnProperty("run_dns2")) {
                     $("#run_dns2").val(data.settings.run_dns2);
+                    $("#new_dns2").val(data.settings.run_dns2);
                 }
                 if (data.settings.hasOwnProperty("HostName")) {
                     $("#run_hostname").val(data.settings.HostName);
                 }
                 
-
                 $("#networkForm").show();
 
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
@@ -2181,6 +2185,15 @@ $(function () {
     $("#progress").hide();
 
     $("#homePage").show();
+
+    $("#usedhcp").click(function () { 
+        $("#new_ip").val("");
+        $("#new_netmask").val("");
+        $("#new_gw").val("");
+        $("#new_dns1").val("");
+        $("#new_dns2").val("");
+        $("#usedhcpsubmit").click(); 
+    });
 
 
     //Redraw graph if one of the values changes (and focus lost)

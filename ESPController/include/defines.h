@@ -464,6 +464,12 @@ struct wifi_eeprom_settings
 {
   char wifi_ssid[32 + 1];
   char wifi_passphrase[63 + 1];
+  uint32_t wifi_ip;
+  uint32_t wifi_netmask;
+  uint32_t wifi_gateway;
+  uint32_t wifi_dns1;
+  uint32_t wifi_dns2;
+  bool useDHCP;
 };
 
 #endif

@@ -115,7 +115,7 @@
     </div>
     <div id="info" class="info">
       <div id="soc" class="stat">
-        <span class="x t"  title="State of charge">S.o.C:</span>
+        <span class="x t" title="State of charge">S.o.C:</span>
         <span class="x v"></span>
       </div>
       <div id="current" class="stat">
@@ -165,7 +165,7 @@
       <div id="canrecerr" class="stat">
         <span class="x t" title="CAN receive error">CAN rec. error:</span>
         <span class="x v"></span>
-      </div>      
+      </div>
       <div id="celltemp" class="stat">
         <span class="x t">Cell temps:</span>
         <span class="x v"></span>
@@ -430,15 +430,23 @@
               <!-- Support for v490 modules -->
               <div id="v490_1">
                 <label for="ParasiteVoltage">Sensor parasite voltage (mV)</label>
-                <input id="ParasiteVoltage" name="ParasiteVoltage" type="number" min="0" max="9999" step="1" value="" readonly="" />
+                <input
+                  id="ParasiteVoltage"
+                  name="ParasiteVoltage"
+                  type="number"
+                  min="0"
+                  max="9999"
+                  step="1"
+                  value=""
+                  readonly="" />
               </div>
               <div id="v490_2">
                 <label for="FanSwitchOnT">Fan switch on temperature (&deg;C)</label>
-                <input id="FanSwitchOnT" name="FanSwitchOnT" type="number" min="20" max="100" step="1" value=""/>
+                <input id="FanSwitchOnT" name="FanSwitchOnT" type="number" min="20" max="100" step="1" value="" />
               </div>
               <div id="v490_3">
                 <label for="RelayMinV">Balance relay minimum voltage (mV)</label>
-                <input id="RelayMinV" name="RelayMinV" type="number" min="1000" max="9999" step="1" value=""  />
+                <input id="RelayMinV" name="RelayMinV" type="number" min="1000" max="9999" step="1" value="" />
               </div>
               <div id="v490_4">
                 <label for="RelayRange">Balance relay minimum range (mV)</label>
@@ -452,7 +460,7 @@
                 <label for="RunAwayDiffmV">Run away balance min. difference (mV)</label>
                 <input id="RunAwayDiffmV" name="RunAwayDiffmV" type="number" min="0" max="9999" step="1" value="" />
               </div>
-            
+
               <button type="submit">Save settings</button>
             </div>
           </form>
@@ -535,7 +543,7 @@
                 autocomplete="username"
                 name="mqttUsername"
                 id="mqttUsername"
-                value=""                
+                value=""
                 maxlength="32" />
             </div>
             <div>
@@ -545,7 +553,7 @@
                 autocomplete="current-password"
                 name="mqttPassword"
                 id="mqttPassword"
-                value=""                
+                value=""
                 maxlength="32" />
             </div>
             <button type="submit">Save MQTT settings</button>
@@ -1803,17 +1811,16 @@
 
       <div class="region">
         <h2 id="mb1">Network - Running Settings</h2>
-        <p id="mb5">
-        </p>
-        <form id="networkForm" method="POST" action="/post/savenetconfig" autocomplete="off">
+        <p id="mb5">Wi-Fi "Station" network interface details:</p>
+        <form>
           <div class="settings">
             <div>
               <label for="run_hostname">Hostname</label>
-              <input type="input" name="run_hostname" id="run_hostname" value="" readonly=""/>
+              <input type="input" name="run_hostname" id="run_hostname" value="" readonly="" />
             </div>
             <div>
               <label for="run_ip">IP address</label>
-              <input type="input" name="run_ip" id="run_ip" value="" readonly=""/>
+              <input type="input" name="run_ip" id="run_ip" value="" readonly="" />
             </div>
             <div>
               <label for="run_netmask">IP netmask</label>
@@ -1821,17 +1828,46 @@
             </div>
             <div>
               <label for="run_gw">Gateway address</label>
-              <input type="input" name="run_gw" id="run_gw" value="" readonly=""/>
+              <input type="input" name="run_gw" id="run_gw" value="" readonly="" />
             </div>
-
             <div>
               <label for="run_dns1">Primary DNS</label>
               <input type="input" name="run_dns1" id="run_dns1" value="" readonly="" />
             </div>
             <div>
               <label for="run_dns2">Secondary DNS</label>
-              <input type="input" name="run_dns2" id="run_dns2" value="" readonly=""/>
-            </div>            
+              <input type="input" name="run_dns2" id="run_dns2" value="" readonly="" />
+            </div>
+          </div>
+        </form>
+        <h2 id="mb1">Network - New Settings</h2>
+        <p id="mb6">If you wish to change the WIFI Access Point/SSID reboot the controller and use a USB serial cable and console to configure.</p>
+        <p id="mb7">You can specify a manual IP address for the Wi-Fi "Station" network interface.</p>
+        <p id="mb8">Select 'Use DHCP' button to revert to automatic configuration.</p>
+        <form id="networkForm" method="POST" action="/post/savenetconfig" autocomplete="off">
+          <div class="settings">
+            <div>
+              <label for="new_ip">IP address</label>
+              <input type="input" name="new_ip" id="new_ip" value="" maxlength="16" />
+            </div>
+            <div>
+              <label for="new_netmask">IP netmask</label>
+              <input type="input" name="new_netmask" id="new_netmask" value="" maxlength="16" />
+            </div>
+            <div>
+              <label for="new_gw">Gateway address</label>
+              <input type="input" name="new_gw" id="new_gw" value="" maxlength="16" />
+            </div>
+            <div>
+              <label for="new_dns1">Primary DNS</label>
+              <input type="input" name="new_dns1" id="new_dns1" value="" maxlength="16" />
+            </div>
+            <div>
+              <label for="new_dns2">Secondary DNS</label>
+              <input type="input" name="new_dns2" id="new_dns2" value="" maxlength="16" />
+            </div>
+            <button type="submit" id="usedhcpsubmit">Save network settings</button>
+            <button type="button" id="usedhcp">Use DHCP</button>
           </div>
         </form>
       </div>
