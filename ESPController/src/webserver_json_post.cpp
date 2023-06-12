@@ -249,7 +249,7 @@ esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool)
         wifi["netmask"] = IPAddress(_wificonfig.wifi_netmask).toString();
         wifi["dns1"] = IPAddress(_wificonfig.wifi_dns1).toString();
         wifi["dns2"] = IPAddress(_wificonfig.wifi_dns2).toString();
-        wifi["usedhcp"] = IPAddress(_wificonfig.useDHCP).toString();
+        wifi["manualconfig"] = IPAddress(_wificonfig.manualConfig).toString();
 
         if (SD.exists(wificonfigfilename))
         {
@@ -712,7 +712,7 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     if (new_ip == 0)
     {
         // Default back to DHCP
-        _wificonfig.useDHCP = true;
+        _wificonfig.manualConfig = false;
         _wificonfig.wifi_ip = 0;
         _wificonfig.wifi_netmask = 0;
         _wificonfig.wifi_gateway = 0;
@@ -726,7 +726,7 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         _wificonfig.wifi_gateway = new_gw;
         _wificonfig.wifi_dns1 = new_dns1;
         _wificonfig.wifi_dns2 = new_dns2;
-        _wificonfig.useDHCP = false;
+        _wificonfig.manualConfig = true;
     }
 
     // Save WIFI config

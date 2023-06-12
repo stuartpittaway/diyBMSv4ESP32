@@ -3490,7 +3490,7 @@ bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
             _new_config.wifi_dns2 = ip;
           }
 
-          _wificonfig.useDHCP = wifi["usedhcp"].as<bool>();
+          _wificonfig.manualConfig = wifi["manualconfig"].as<bool>();
 
           // Our configuration is different, so store the details in EEPROM and flash the LED a few times
           if (existingConfigValid == false || (memcmp(&_wificonfig, &_new_config, sizeof(_new_config)) != 0))
@@ -3705,7 +3705,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
     TerminalBasedWifiSetup();
   }
 
-  ESP_LOGI(TAG,"Wifi Config: SSID:%s, UseDHCP:%u",_wificonfig.wifi_ssid,_wificonfig.useDHCP);
+  ESP_LOGI(TAG,"Wifi Config: SSID:%s, Manual Config:%u",_wificonfig.wifi_ssid,_wificonfig.manualConfig);
 
   // Check and configure internal current monitor (if it exists)
   if (hal.GetVSPIMutex())

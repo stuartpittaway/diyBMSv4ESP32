@@ -752,7 +752,7 @@ void SaveWIFI(wifi_eeprom_settings *wifi)
         ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "NETMASK", wifi->wifi_netmask));
         ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "DNS1", wifi->wifi_dns1));
         ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "DNS2", wifi->wifi_dns2));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "DHCP", (uint8_t)wifi->useDHCP));
+        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "MANUALCONFIG", (uint8_t)wifi->manualConfig));
         nvs_close(nvs_handle);
     }
 }
@@ -771,7 +771,7 @@ bool LoadWIFI(wifi_eeprom_settings *wifi)
         ESP_LOGE(TAG, "Error (%s) opening NVS handle", esp_err_to_name(err));
         return false;
     }
-    
+
     if (
         getString(nvs_handle, "SSID", &x.wifi_ssid[0], sizeof(x.wifi_ssid)) &&
         getString(nvs_handle, "PASS", &x.wifi_passphrase[0], sizeof(x.wifi_passphrase)) &&
@@ -780,7 +780,7 @@ bool LoadWIFI(wifi_eeprom_settings *wifi)
         getSetting(nvs_handle, "NETMASK", &x.wifi_netmask) &&
         getSetting(nvs_handle, "DNS1", &x.wifi_dns1) &&
         getSetting(nvs_handle, "DNS2", &x.wifi_dns2) &&
-        getSetting(nvs_handle, "DHCP", &x.useDHCP))
+        getSetting(nvs_handle, "MANUALCONFIG", &x.manualConfig))
     {
         // Only return success if all values are retrieved, don't corrupt
         // external copy of wifi settings otherwise.
