@@ -1144,8 +1144,8 @@ void onPacketReceived()
       if (mysettings.baudRate == 10000)
       {
         delay_ms = 350;
-      }else
-      if (mysettings.baudRate == 9600)
+      }
+      else if (mysettings.baudRate == 9600)
       {
         delay_ms = 450;
       }
@@ -1169,7 +1169,7 @@ void ProcessRules()
   rules.ClearWarnings();
   rules.ClearErrors();
 
-  rules.setRuleStatus(Rule::BMSError,false);
+  rules.setRuleStatus(Rule::BMSError, false);
 
   auto totalConfiguredModules = TotalNumberOfCells();
   if (totalConfiguredModules > maximum_controller_cell_modules)
@@ -1188,7 +1188,7 @@ void ProcessRules()
   if (receiveProc.HasCommsTimedOut())
   {
     rules.SetError(InternalErrorCode::CommunicationsError);
-    rules.setRuleStatus(Rule::BMSError,true);
+    rules.setRuleStatus(Rule::BMSError, true);
   }
 
   if (rules.ruleOutcome(Rule::EmergencyStop))
@@ -1203,8 +1203,8 @@ void ProcessRules()
     auto secondsSinceLastMessage = (int64_t)((esp_timer_get_time() - currentMonitor.timestamp) / 1000000);
     if (secondsSinceLastMessage > 45)
     {
-      rules.SetError(InternalErrorCode::CommunicationsError);      
-      rules.setRuleStatus(Rule::BMSError,true);
+      rules.SetError(InternalErrorCode::CommunicationsError);
+      rules.setRuleStatus(Rule::BMSError, true);
     }
   }
 
@@ -1277,7 +1277,7 @@ void ProcessRules()
   if (_controller_state == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
   {
     rules.SetError(InternalErrorCode::ZeroVoltModule);
-    rules.setRuleStatus(Rule::BMSError,true);
+    rules.setRuleStatus(Rule::BMSError, true);
   }
 
   rules.RunRules(
@@ -3186,7 +3186,7 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
         }
         else
         {
-          if (cmi[m].BoardVersionNumber == 490 && cmi[m].FanSwitchOnTemperature==0)
+          if (cmi[m].BoardVersionNumber == 490 && cmi[m].FanSwitchOnTemperature == 0)
           {
             // 490=All in one 16S board, which has additional configuration options
             prg.sendGetAdditionalSettingsRequest(m);
@@ -3230,7 +3230,6 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
 
   } // end for
 }
-
 
 bool CaptureSerialInput(char *buffer, int buffersize, bool OnlyDigits, bool ShowPasswordChar)
 {
@@ -3804,6 +3803,16 @@ unsigned long wifitimer = 0;
 unsigned long heaptimer = 0;
 unsigned long taskinfotimer = 0;
 
+void logActualTime()
+{
+  if (sntp_enabled())
+  {
+    char strftime_buf[64];
+    formatCurrentDateTime(strftime_buf, sizeof(strftime_buf));
+    ESP_LOGI(TAG, "Time now: %s", strftime_buf);
+  }
+}
+
 void loop()
 {
 
@@ -3849,15 +3858,18 @@ void loop()
 
   if (currentMillis > heaptimer)
   {
+    logActualTime();
     /*
-    size_t total_free_bytes;        Total free bytes in the heap. Equivalent to multi_free_heap_size().
-    size_t total_allocated_bytes;   Total bytes allocated to data in the heap.
-    size_t largest_free_block;      Size of largest free block in the heap. This is the largest malloc-able size.
-    size_t minimum_free_bytes;      Lifetime minimum free heap size. Equivalent to multi_minimum_free_heap_size().
-    size_t allocated_blocks;        Number of (variable size) blocks allocated in the heap.
-    size_t free_blocks;             Number of (variable size) free blocks in the heap.
-    size_t total_blocks;            Total number of (variable size) blocks in the heap.
+     total_free_bytes;        Total free bytes in the heap. Equivalent to multi_free_heap_size().
+     total_allocated_bytes;   Total bytes allocated to data in the heap.
+     largest_free_block;      Size of largest free block in the heap. This is the largest malloc-able size.
+     minimum_free_bytes;      Lifetime minimum free heap size. Equivalent to multi_minimum_free_heap_size().
+     allocated_blocks;        Number of (variable size) blocks allocated in the heap.
+     free_blocks;             Number of (variable size) free blocks in the heap.
+     total_blocks;            Total number of (variable size) blocks in the heap.
     */
+
+
     multi_heap_info_t heap;
     heap_caps_get_info(&heap, MALLOC_CAP_INTERNAL);
 
