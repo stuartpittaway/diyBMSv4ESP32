@@ -3705,6 +3705,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
     TerminalBasedWifiSetup();
   }
 
+  ESP_LOGI(TAG,"Wifi Config: SSID:%s, UseDHCP:%u",_wificonfig.wifi_ssid,_wificonfig.useDHCP);
+
   // Check and configure internal current monitor (if it exists)
   if (hal.GetVSPIMutex())
   {
