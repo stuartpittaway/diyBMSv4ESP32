@@ -4,6 +4,7 @@ static constexpr const char *const TAG = "diybms-webreq";
 #include "webserver.h"
 #include "webserver_helper_funcs.h"
 #include "webserver_json_requests.h"
+#include <esp_netif.h>
 
 esp_err_t content_handler_avrstorage(httpd_req_t *req)
 {
@@ -690,6 +691,42 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   char strftime_buf[64];
   formatCurrentDateTime(strftime_buf, sizeof(strftime_buf));
   settings["datetime"] = String(strftime_buf);
+
+  //Return running network settings
+  if (tcpip_adapter_is_netif_up(TCPIP_ADAPTER_IF_STA))
+  {
+    tcpip_adapter_ip_info_t ipInfo;
+    // Get actual/running IP networking for STA adapter...
+    if (tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ipInfo) == ESP_OK)
+    {
+      auto address = IPAddress(ipInfo.ip.addr);
+      settings["run_ip"] = address.toString();
+      address = IPAddress(ipInfo.netmask.addr);
+      settings["run_netmask"] = address.toString();
+      address = IPAddress(ipInfo.gw.addr);
+      settings["run_gw"] = address.toString();
+    }
+
+    tcpip_adapter_dns_info_t dnsInfo = {0};
+    // Primary DNS
+    if (tcpip_adapter_get_dns_info(TCPIP_ADAPTER_IF_STA, tcpip_adapter_dns_type_t::ESP_NETIF_DNS_MAIN, &dnsInfo) == ESP_OK)
+    {
+      if (dnsInfo.ip.type == IPADDR_TYPE_V4)
+      {
+        auto dns1 = IPAddress(dnsInfo.ip.u_addr.ip4.addr);
+        settings["run_dns1"] = dns1.toString();
+      }
+    }
+    // Secondary DNS
+    if (tcpip_adapter_get_dns_info(TCPIP_ADAPTER_IF_STA, tcpip_adapter_dns_type_t::ESP_NETIF_DNS_BACKUP, &dnsInfo) == ESP_OK)
+    {
+      if (dnsInfo.ip.type == IPADDR_TYPE_V4)
+      {
+        auto dns1 = IPAddress(dnsInfo.ip.u_addr.ip4.addr);
+        settings["run_dns2"] = dns1.toString();
+      }
+    }
+  }
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 

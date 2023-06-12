@@ -1510,8 +1510,29 @@ $(function () {
                 }
 
                 $("#interpacketgap").val(data.settings.interpacketgap);
-
                 $("#banksForm").show();
+
+
+               
+                if (data.settings.hasOwnProperty("run_ip")) {
+                    $("#run_ip").val(data.settings.run_ip);
+                    $("#run_netmask").val(data.settings.run_netmask);
+                    $("#run_gw").val(data.settings.run_gw);
+                }
+
+                if (data.settings.hasOwnProperty("run_dns1")) {
+                    $("#run_dns1").val(data.settings.run_dns1);
+                }
+                if (data.settings.hasOwnProperty("run_dns2")) {
+                    $("#run_dns2").val(data.settings.run_dns2);
+                }
+                if (data.settings.hasOwnProperty("HostName")) {
+                    $("#run_hostname").val(data.settings.HostName);
+                }
+                
+
+                $("#networkForm").show();
+
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 

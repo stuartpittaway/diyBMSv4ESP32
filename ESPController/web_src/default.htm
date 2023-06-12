@@ -1802,6 +1802,41 @@
       </div>
 
       <div class="region">
+        <h2 id="mb1">Network - Running Settings</h2>
+        <p id="mb5">
+        </p>
+        <form id="networkForm" method="POST" action="/post/savenetconfig" autocomplete="off">
+          <div class="settings">
+            <div>
+              <label for="run_hostname">Hostname</label>
+              <input type="input" name="run_hostname" id="run_hostname" value="" readonly=""/>
+            </div>
+            <div>
+              <label for="run_ip">IP address</label>
+              <input type="input" name="run_ip" id="run_ip" value="" readonly=""/>
+            </div>
+            <div>
+              <label for="run_netmask">IP netmask</label>
+              <input type="input" name="run_netmask" id="run_netmask" value="" readonly="" />
+            </div>
+            <div>
+              <label for="run_gw">Gateway address</label>
+              <input type="input" name="run_gw" id="run_gw" value="" readonly=""/>
+            </div>
+
+            <div>
+              <label for="run_dns1">Primary DNS</label>
+              <input type="input" name="run_dns1" id="run_dns1" value="" readonly="" />
+            </div>
+            <div>
+              <label for="run_dns2">Secondary DNS</label>
+              <input type="input" name="run_dns2" id="run_dns2" value="" readonly=""/>
+            </div>            
+          </div>
+        </form>
+      </div>
+
+      <div class="region">
         <h2>Network Time Protocol</h2>
         <p id="b9">
           Time is set via NTP, if your controller is not connected to the Internet. Time based rules will be incorrect.
