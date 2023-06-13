@@ -123,7 +123,7 @@ public:
             return false;
 
         // Wait 50ms max
-        bool reply = (xSemaphoreTake(xDisplayMutex, pdMS_TO_TICKS(50)) == pdTRUE);
+        bool reply = (xSemaphoreTake(xDisplayMutex, pdMS_TO_TICKS(100)) == pdTRUE);
         if (!reply)
         {
             ESP_LOGE(TAG, "Unable to get Display mutex");
@@ -144,7 +144,7 @@ public:
             return false;
 
         // Wait 25ms max
-        bool reply = (xSemaphoreTake(xVSPIMutex, pdMS_TO_TICKS(25)) == pdTRUE);
+        bool reply = (xSemaphoreTake(xVSPIMutex, pdMS_TO_TICKS(100)) == pdTRUE);
         if (!reply)
         {
             ESP_LOGE(TAG, "Unable to get VSPI mutex");

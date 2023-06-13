@@ -239,7 +239,7 @@ function switchPage(newPage) {
 }
 
 function identifyModule(button, cellid) {
-    $.getJSON("/api/identifyModule", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
+    $.getJSON("/api/identifyModule", { c: cellid }, function (data) { showActionSuccess(); }).fail(function () { $("#iperror").show(); });
 }
 
 function restoreconfig(location, filename) {
@@ -457,6 +457,10 @@ function showFailure() {
 function showSuccess() {
     $.notify($("#savesuccess").text(), { className: 'success' });
 }
+function showActionSuccess() {
+    $.notify($("#actionsuccess").text(), { className: 'success' });
+}
+
 
 function currentmonitorSubmitForm(form) {
     $.ajax({

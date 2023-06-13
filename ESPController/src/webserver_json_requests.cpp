@@ -389,14 +389,11 @@ esp_err_t content_handler_identifymodule(httpd_req_t *req)
     // Only allow up to our pre-defined buffer length (100 bytes)
     if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK)
     {
-      ESP_LOGD(TAG, "Found URL query => %s", buf);
       char param[8];
       /* Get value of expected key from query string */
       if (httpd_query_key_value(buf, "c", param, sizeof(param)) == ESP_OK)
       {
-        c = atoi(param);
-
-        ESP_LOGD(TAG, "Found URL query parameter => query1=%s (%u)", param, c);
+        c = (uint8_t)atoi(param);
 
         if (c <= mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules)
         {
@@ -408,14 +405,15 @@ esp_err_t content_handler_identifymodule(httpd_req_t *req)
 
   if (valid)
   {
-    prg.sendIdentifyModuleRequest(c);
-    return SendSuccess(req);
+    ESP_LOGI(TAG, "Identify module %u", c);
+    if (prg.sendIdentifyModuleRequest(c))
+    {
+      return SendSuccess(req);
+    }
   }
-  else
-  {
-    // It failed!
-    return httpd_resp_send_500(req);
-  }
+
+  // It failed!
+  return httpd_resp_send_500(req);
 }
 
 esp_err_t content_handler_modules(httpd_req_t *req)
