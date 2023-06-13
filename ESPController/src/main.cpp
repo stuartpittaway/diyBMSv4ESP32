@@ -1670,7 +1670,12 @@ static void event_handler(void *, esp_event_base_t event_base,
 
 bool LoadWiFiConfig()
 {
-  return LoadWIFI(&_wificonfig);
+  auto reply = LoadWIFI(&_wificonfig);
+
+  ESP_LOGI(TAG, "Wifi Config: SSID:%s, Manual Config:%u", _wificonfig.wifi_ssid, _wificonfig.manualConfig);
+  ESP_LOGI(TAG, "Manual IP:%s, Netmask:%s, GW:%s, DNS1:%s, DNS2:%s", IPAddress(_wificonfig.wifi_ip).toString().c_str(), IPAddress(_wificonfig.wifi_netmask).toString().c_str(), IPAddress(_wificonfig.wifi_gateway).toString().c_str(), IPAddress(_wificonfig.wifi_dns1).toString().c_str(), IPAddress(_wificonfig.wifi_dns2).toString().c_str());
+
+  return reply;
 }
 
 void BuildHostname()
@@ -3426,91 +3431,116 @@ bool DeleteWiFiConfigFromSDCard()
   esp_restart();
 }
 
-// CHECK HERE FOR THE PRESENCE OF A /wifi.json CONFIG FILE ON THE SD CARD TO AUTOMATICALLY CONFIGURE WIFI
-bool LoadWiFiConfigFromSDCard(bool existingConfigValid)
+/// @brief Compare two sets of wifi_eeprom_settings structures 
+/// @param a Set 1
+/// @param b Set 2
+/// @return TRUE if they are equal
+bool AreWifiConfigurationsTheSame(const wifi_eeprom_settings *a, const wifi_eeprom_settings *b)
 {
-  bool ret = false;
-  if (_sd_card_installed)
+
+  if (a->wifi_ip != b->wifi_ip)
+    return false;
+  if (a->wifi_gateway != b->wifi_gateway)
+    return false;
+  if (a->wifi_netmask != b->wifi_netmask)
+    return false;
+  if (a->wifi_dns1 != b->wifi_dns1)
+    return false;
+  if (a->wifi_dns2 != b->wifi_dns2)
+    return false;
+  if (strncmp(a->wifi_ssid, b->wifi_ssid, sizeof(a->wifi_ssid)) != 0)
+    return false;
+  if (strncmp(a->wifi_passphrase, b->wifi_passphrase, sizeof(a->wifi_passphrase)) != 0)
+    return false;
+
+  if (a->manualConfig != b->manualConfig)
+    return false;
+
+  return true;
+}
+/// @brief CHECK FOR THE PRESENCE OF A wifi.json CONFIG FILE ON THE SD CARD AND AUTOMATICALLY CONFIGURE WIFI
+bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
+{
+  StaticJsonDocument<2048> json;
+  DeserializationError error;
+
+  if (!_sd_card_installed)
+    return false;
+
+  ESP_LOGI(TAG, "Checking for %s", wificonfigfilename);
+
+  if (hal.GetVSPIMutex())
   {
-
-    ESP_LOGI(TAG, "Checking for %s", wificonfigfilename);
-
-    if (hal.GetVSPIMutex())
+    if (SD.exists(wificonfigfilename))
     {
-      if (SD.exists(wificonfigfilename))
-      {
-        ESP_LOGD(TAG, "Found file %s", wificonfigfilename);
+      ESP_LOGD(TAG, "Found file %s", wificonfigfilename);
 
-        StaticJsonDocument<3000> json;
-        File file = SD.open(wificonfigfilename);
-        DeserializationError error = deserializeJson(json, file);
-        file.close();
-        // Release Mutex as quickly as possible
-        hal.ReleaseVSPIMutex();
-        if (error != DeserializationError::Ok)
-        {
-          ESP_LOGE(TAG, "Error deserialize JSON");
-        }
-        else
-        {
-          ESP_LOGD(TAG, "Deserialized %s", wificonfigfilename);
-
-          JsonObject wifi = json["wifi"];
-
-          wifi_eeprom_settings _new_config;
-
-          // Clear config
-          memset(&_new_config, 0, sizeof(_new_config));
-
-          String ssid = wifi["ssid"].as<String>();
-          String password = wifi["password"].as<String>();
-          ssid.toCharArray(_new_config.wifi_ssid, sizeof(_new_config.wifi_ssid));
-          password.toCharArray(_new_config.wifi_passphrase, sizeof(_new_config.wifi_passphrase));
-
-          IPAddress ip;
-
-          if (ip.fromString(wifi["ip"].as<String>()))
-          {
-            _new_config.wifi_ip = ip;
-          }
-          if (ip.fromString(wifi["gateway"].as<String>()))
-          {
-            _new_config.wifi_gateway = ip;
-          }
-          if (ip.fromString(wifi["netmask"].as<String>()))
-          {
-            _new_config.wifi_netmask = ip;
-          }
-          if (ip.fromString(wifi["dns1"].as<String>()))
-          {
-            _new_config.wifi_dns1 = ip;
-          }
-          if (ip.fromString(wifi["dns2"].as<String>()))
-          {
-            _new_config.wifi_dns2 = ip;
-          }
-
-          _wificonfig.manualConfig = wifi["manualconfig"].as<bool>();
-
-          // Our configuration is different, so store the details in EEPROM and flash the LED a few times
-          if (existingConfigValid == false || (memcmp(&_wificonfig, &_new_config, sizeof(_new_config)) != 0))
-          {
-            memcpy(&_wificonfig, &_new_config, sizeof(_new_config));
-            ESP_LOGI(TAG, "Wifi config is different, saving");
-            SaveWIFI(&_new_config);
-            ret = true;
-          }
-          else
-          {
-            ESP_LOGI(TAG, "Wifi JSON config is identical - ignoring");
-          }
-        }
-      }
-
-      hal.ReleaseVSPIMutex();
+      File file = SD.open(wificonfigfilename);
+      error = deserializeJson(json, file);
+      file.close();
     }
+    hal.ReleaseVSPIMutex();
   }
-  return ret;
+
+  if (error != DeserializationError::Ok)
+  {
+    ESP_LOGE(TAG, "Error deserialize JSON");
+    return false;
+  }
+
+  ESP_LOGD(TAG, "Deserialized %s", wificonfigfilename);
+
+  char buffer[2000];
+  serializeJsonPretty(json, buffer);
+  ESP_LOGI(TAG, "JSON %s", buffer);
+
+  JsonObject wifi = json["wifi"];
+
+  wifi_eeprom_settings _new_config;
+
+  // Clear config
+  memset(&_new_config, 0, sizeof(_new_config));
+
+  wifi["ssid"].as<String>().toCharArray(_new_config.wifi_ssid, sizeof(_new_config.wifi_ssid));
+  wifi["password"].as<String>().toCharArray(_new_config.wifi_passphrase, sizeof(_new_config.wifi_passphrase));
+
+  IPAddress ip;
+
+  if (ip.fromString(wifi["ip"].as<String>()))
+  {
+    _new_config.wifi_ip = ip;
+  }
+  if (ip.fromString(wifi["gateway"].as<String>()))
+  {
+    _new_config.wifi_gateway = ip;
+  }
+  if (ip.fromString(wifi["netmask"].as<String>()))
+  {
+    _new_config.wifi_netmask = ip;
+  }
+  if (ip.fromString(wifi["dns1"].as<String>()))
+  {
+    _new_config.wifi_dns1 = ip;
+  }
+  if (ip.fromString(wifi["dns2"].as<String>()))
+  {
+    _new_config.wifi_dns2 = ip;
+  }
+
+  _new_config.manualConfig = wifi["manualconfig"].as<uint8_t>();
+
+  // Our configuration is different, so store the details in EEPROM and flash the LED a few times
+  if (existingConfigValid == false || AreWifiConfigurationsTheSame(&_wificonfig, &_new_config) == false)
+  {
+    memcpy(&_wificonfig, &_new_config, sizeof(_new_config));
+    ESP_LOGI(TAG, "Wifi config is different, saving");
+    SaveWIFI(&_new_config);
+    return true;
+  }
+
+  ESP_LOGI(TAG, "Wifi JSON config is identical - ignoring");
+
+  return false;
 }
 
 static void tft_interrupt_attach(void *)
@@ -3679,6 +3709,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   // Retrieve the EEPROM WIFI settings
   bool EepromConfigValid = LoadWiFiConfig();
 
+  // Now compare the WIFI settings with any potential JSON files on the SDCARD (those override)
   if (LoadWiFiConfigFromSDCard(EepromConfigValid))
   {
     // We need to reload the configuration, as it was updated...
@@ -3704,8 +3735,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
     // We don't have a valid WIFI configuration, so force terminal based setup
     TerminalBasedWifiSetup();
   }
-
-  ESP_LOGI(TAG,"Wifi Config: SSID:%s, Manual Config:%u",_wificonfig.wifi_ssid,_wificonfig.manualConfig);
 
   // Check and configure internal current monitor (if it exists)
   if (hal.GetVSPIMutex())

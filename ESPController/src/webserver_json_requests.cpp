@@ -692,7 +692,7 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   formatCurrentDateTime(strftime_buf, sizeof(strftime_buf));
   settings["datetime"] = String(strftime_buf);
 
-  //Return running network settings
+  // Return running network settings
   if (tcpip_adapter_is_netif_up(TCPIP_ADAPTER_IF_STA))
   {
     tcpip_adapter_ip_info_t ipInfo;
@@ -726,6 +726,17 @@ esp_err_t content_handler_settings(httpd_req_t *req)
         settings["run_dns2"] = dns1.toString();
       }
     }
+
+    auto address = IPAddress(_wificonfig.wifi_ip);
+    settings["man_ip"] = address.toString();
+    address = IPAddress(_wificonfig.wifi_netmask);
+    settings["man_netmask"] = address.toString();
+    address = IPAddress(_wificonfig.wifi_gateway);
+    settings["man_gw"] = address.toString();
+    address = IPAddress(_wificonfig.wifi_dns1);
+    settings["man_dns1"] = address.toString();
+    address = IPAddress(_wificonfig.wifi_dns2);
+    settings["man_dns2"] = address.toString();
   }
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);

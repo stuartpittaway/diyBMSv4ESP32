@@ -469,7 +469,7 @@ struct wifi_eeprom_settings
   uint32_t wifi_gateway;
   uint32_t wifi_dns1;
   uint32_t wifi_dns2;
-  bool manualConfig;
+  uint8_t manualConfig;
 };
 
 #endif

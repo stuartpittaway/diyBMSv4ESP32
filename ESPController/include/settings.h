@@ -27,7 +27,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings);
 void ValidateConfiguration(diybms_eeprom_settings *settings);
 void DefaultConfiguration(diybms_eeprom_settings *settings);
 
-void SaveWIFI(wifi_eeprom_settings *wifi);
+void SaveWIFI(const wifi_eeprom_settings *wifi);
 bool LoadWIFI(wifi_eeprom_settings *wifi);
 
 void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settings *settings);

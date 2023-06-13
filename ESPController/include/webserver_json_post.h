@@ -67,5 +67,6 @@ esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req, bool urlEncoded);
 esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded);
 esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded);
 esp_err_t save_data_handler(httpd_req_t *req);
+bool SaveWIFIJson();
 
 #endif

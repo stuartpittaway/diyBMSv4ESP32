@@ -729,12 +729,11 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->stateofchargeresumevalue = 96;
 }
 
-void SaveWIFI(wifi_eeprom_settings *wifi)
+void SaveWIFI(const wifi_eeprom_settings *wifi)
 {
     const char *partname = "diybms-wifi";
     ESP_LOGI(TAG, "Save WIFI config");
 
-    wifi_eeprom_settings x;
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(partname, NVS_READWRITE, &nvs_handle);
     if (err != ESP_OK)
@@ -752,7 +751,7 @@ void SaveWIFI(wifi_eeprom_settings *wifi)
         ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "NETMASK", wifi->wifi_netmask));
         ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "DNS1", wifi->wifi_dns1));
         ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "DNS2", wifi->wifi_dns2));
-        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "MANUALCONFIG", (uint8_t)wifi->manualConfig));
+        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "MANUALCONFIG", wifi->manualConfig));
         nvs_close(nvs_handle);
     }
 }
@@ -760,7 +759,6 @@ void SaveWIFI(wifi_eeprom_settings *wifi)
 bool LoadWIFI(wifi_eeprom_settings *wifi)
 {
     const char *partname = "diybms-wifi";
-    ESP_LOGI(TAG, "Load WIFI config");
 
     bool result = false;
     wifi_eeprom_settings x;
@@ -789,6 +787,10 @@ bool LoadWIFI(wifi_eeprom_settings *wifi)
     }
 
     nvs_close(nvs_handle);
+
+    ESP_LOGI(TAG, "Load WIFI config from FLASH - return %u",result);
+
+    ESP_LOGI(TAG,"IP=%u,GW=%u",x.wifi_ip,x.wifi_gateway);
 
     return result;
 }

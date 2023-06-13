@@ -217,16 +217,16 @@ esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlE
     return SendSuccess(req);
 }
 
-esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool)
+bool SaveWIFIJson()
 {
     if (!_sd_card_installed)
     {
-        return SendFailure(req);
+        return false;
     }
 
     if (_avrsettings.programmingModeEnabled)
     {
-        return SendFailure(req);
+        return false;
     }
 
     if (hal.GetVSPIMutex())
@@ -249,7 +249,7 @@ esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool)
         wifi["netmask"] = IPAddress(_wificonfig.wifi_netmask).toString();
         wifi["dns1"] = IPAddress(_wificonfig.wifi_dns1).toString();
         wifi["dns2"] = IPAddress(_wificonfig.wifi_dns2).toString();
-        wifi["manualconfig"] = IPAddress(_wificonfig.manualConfig).toString();
+        wifi["manualconfig"] = _wificonfig.manualConfig;
 
         if (SD.exists(wificonfigfilename))
         {
@@ -262,9 +262,20 @@ esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool)
         file.close();
 
         hal.ReleaseVSPIMutex();
+        return true;
     }
 
-    return SendSuccess(req);
+    return false;
+}
+
+esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool)
+{
+    if (SaveWIFIJson())
+    {
+        return SendSuccess(req);
+    }
+
+    return SendFailure(req);
 }
 
 esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded)
@@ -712,7 +723,7 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     if (new_ip == 0)
     {
         // Default back to DHCP
-        _wificonfig.manualConfig = false;
+        _wificonfig.manualConfig = 0;
         _wificonfig.wifi_ip = 0;
         _wificonfig.wifi_netmask = 0;
         _wificonfig.wifi_gateway = 0;
@@ -721,16 +732,19 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
     else
     {
+        _wificonfig.manualConfig = 1;
         _wificonfig.wifi_ip = new_ip;
         _wificonfig.wifi_netmask = new_netmask;
         _wificonfig.wifi_gateway = new_gw;
         _wificonfig.wifi_dns1 = new_dns1;
         _wificonfig.wifi_dns2 = new_dns2;
-        _wificonfig.manualConfig = true;
     }
 
     // Save WIFI config
     SaveWIFI(&_wificonfig);
+
+    //Attempt to save to SD card - but this may not be installed
+    SaveWIFIJson();
 
     return SendSuccess(req);
 }
