@@ -722,7 +722,7 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 
     if (new_ip == 0)
     {
-        // Default back to DHCP
+        // Default back to DHCP, clear all the manual settings
         _wificonfig.manualConfig = 0;
         _wificonfig.wifi_ip = 0;
         _wificonfig.wifi_netmask = 0;
@@ -732,6 +732,14 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
     else
     {
+
+        //Basic validation for invalid address details
+        if ((new_netmask == 0) || (new_gw == 0) || (new_dns1 == 0))
+        {
+            ESP_LOGE(TAG, "Invalid manual network values - rejected");
+            return SendFailure(req);
+        }
+
         _wificonfig.manualConfig = 1;
         _wificonfig.wifi_ip = new_ip;
         _wificonfig.wifi_netmask = new_netmask;
@@ -743,7 +751,7 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     // Save WIFI config
     SaveWIFI(&_wificonfig);
 
-    //Attempt to save to SD card - but this may not be installed
+    // Attempt to save to SD card - but this may not be installed
     SaveWIFIJson();
 
     return SendSuccess(req);

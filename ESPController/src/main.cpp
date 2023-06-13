@@ -3490,10 +3490,6 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
 
   ESP_LOGD(TAG, "Deserialized %s", wificonfigfilename);
 
-  char buffer[2000];
-  serializeJsonPretty(json, buffer);
-  ESP_LOGI(TAG, "JSON %s", buffer);
-
   JsonObject wifi = json["wifi"];
 
   wifi_eeprom_settings _new_config;
@@ -3574,7 +3570,7 @@ const std::array<log_level_t, 21> log_levels =
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
-        {.tag = "diybms-set", .level = ESP_LOG_INFO},
+        {.tag = "diybms-set", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
         {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
         {.tag = "curmon", .level = ESP_LOG_INFO}};

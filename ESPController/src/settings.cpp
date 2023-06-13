@@ -189,7 +189,7 @@ bool ValidateGetSetting(esp_err_t err, const char *key)
     switch (err)
     {
     case ESP_OK:
-        ESP_LOGI(TAG, "Read key (%s)", key);
+        ESP_LOGD(TAG, "Read key (%s)", key);
         return true;
         break;
     case ESP_ERR_NVS_NOT_FOUND:
