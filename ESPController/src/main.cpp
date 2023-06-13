@@ -1588,7 +1588,11 @@ static void startMDNS()
   }
 }
 
-// WIFI Event Handler
+/// @brief WIFI Event Handler
+/// @param
+/// @param event_base
+/// @param event_id
+/// @param event_data
 static void event_handler(void *, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
@@ -1701,11 +1705,36 @@ void wifi_init_sta(void)
   // Create ESP IDF default event loop to service WIFI events
   ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-  // s_wifi_event_group = xEventGroupCreate();
   ESP_ERROR_CHECK(esp_netif_init());
 
   esp_netif_t *netif = esp_netif_create_default_wifi_sta();
   assert(netif);
+
+  if (_wificonfig.manualConfig == 1)
+  {
+    // Use static ipaddress
+    ESP_ERROR_CHECK(esp_netif_dhcpc_stop(netif));
+
+    esp_netif_ip_info_t ip_info;
+    ip4_addr_set_u32(&ip_info.ip, _wificonfig.wifi_ip);
+    ip4_addr_set_u32(&ip_info.gw, _wificonfig.wifi_gateway);
+    ip4_addr_set_u32(&ip_info.netmask, _wificonfig.wifi_netmask);
+    ESP_ERROR_CHECK(esp_netif_set_ip_info(netif, &ip_info));
+
+    if (_wificonfig.wifi_dns1 != 0)
+    {
+      esp_netif_dns_info_t dns1;
+      ip4_addr_set_u32(&dns1.ip.u_addr.ip4, _wificonfig.wifi_dns1);
+      ESP_ERROR_CHECK(esp_netif_set_dns_info(netif, esp_netif_dns_type_t::ESP_NETIF_DNS_MAIN, &dns1));
+    }
+
+    if (_wificonfig.wifi_dns2 != 0)
+    {
+      esp_netif_dns_info_t dns2;
+      ip4_addr_set_u32(&dns2.ip.u_addr.ip4, _wificonfig.wifi_dns2);
+      ESP_ERROR_CHECK(esp_netif_set_dns_info(netif, esp_netif_dns_type_t::ESP_NETIF_DNS_BACKUP, &dns2));
+    }
+  }
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 
@@ -1718,8 +1747,6 @@ void wifi_init_sta(void)
 
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-  // esp_event_handler_instance_t instance_any_id;
-  // esp_event_handler_instance_t instance_got_ip;
   ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
                                                       ESP_EVENT_ANY_ID,
                                                       &event_handler,
@@ -1754,35 +1781,6 @@ void wifi_init_sta(void)
   ESP_LOGI(TAG, "Hostname: %s", hostname);
 
   ESP_LOGD(TAG, "wifi_init_sta finished");
-
-  /*
-  // Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
-  // number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above)
-  EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
-                                         WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-                                         pdFALSE,
-                                         pdFALSE,
-                                         portMAX_DELAY);
-
-  // xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually happened.
-  if (bits & WIFI_CONNECTED_BIT)
-  {
-    ESP_LOGI(TAG, "connected to access point");
-  }
-  else if (bits & WIFI_FAIL_BIT)
-  {
-    ESP_LOGI(TAG, "Failed to connect to access point");
-  }
-  else
-  {
-    ESP_LOGE(TAG, "UNEXPECTED EVENT");
-  }
-
-  // The event will not be processed after unregister
-  ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
-  ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
-  vEventGroupDelete(s_wifi_event_group);
-  */
 }
 
 uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
@@ -3407,6 +3405,7 @@ bool DeleteWiFiConfigFromSDCard()
     if (result)
     {
       wifi_eeprom_settings config;
+      // This wipes out any manual settings/config
       memset(&config, 0, sizeof(config));
       strncpy(config.wifi_ssid, (char *)ap_info[index].ssid, sizeof(config.wifi_ssid));
       strncpy(config.wifi_passphrase, buffer, sizeof(config.wifi_passphrase));
@@ -3431,7 +3430,7 @@ bool DeleteWiFiConfigFromSDCard()
   esp_restart();
 }
 
-/// @brief Compare two sets of wifi_eeprom_settings structures 
+/// @brief Compare two sets of wifi_eeprom_settings structures
 /// @param a Set 1
 /// @param b Set 2
 /// @return TRUE if they are equal
