@@ -732,7 +732,6 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
     else
     {
-
         //Basic validation for invalid address details
         if ((new_netmask == 0) || (new_gw == 0) || (new_dns1 == 0))
         {
