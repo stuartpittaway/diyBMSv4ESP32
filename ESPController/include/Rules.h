@@ -196,6 +196,20 @@ public:
         }
     }
 
+    /// @brief Check if any rule has been triggered (value of true)
+    /// @return true if any rule is true
+    bool anyRuleTriggered()
+    {
+        for (size_t i = 0; i < MAXIMUM_RuleNumber; i++)
+        {
+            if (ruleOutcome((Rule)i))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void ClearValues();
     void ProcessCell(uint8_t bank, uint8_t cellNumber, const CellModuleInfo *c, uint16_t cellmaxmv);
     void ProcessBank(uint8_t bank);

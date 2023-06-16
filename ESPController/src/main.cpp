@@ -138,6 +138,7 @@ TimerHandle_t pulse_relay_off_timer;
 TaskHandle_t i2c_task_handle = nullptr;
 TaskHandle_t sdcardlog_task_handle = nullptr;
 TaskHandle_t sdcardlog_outputs_task_handle = nullptr;
+TaskHandle_t rule_state_change_task_handle = nullptr;
 TaskHandle_t avrprog_task_handle = nullptr;
 TaskHandle_t enqueue_task_handle = nullptr;
 TaskHandle_t transmit_task_handle = nullptr;
@@ -656,6 +657,18 @@ void wake_up_tft(bool force)
       }
     }
   } // end for loop
+}
+
+// Triggered when
+[[noreturn]] void rule_state_change_task(void *)
+{
+  for (;;)
+  {
+    // Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    mqtt3(&rules, previousRelayState);
+  }
 }
 
 // Writes a status log of the OUTPUT STATUES to the SD Card in CSV format
@@ -1361,16 +1374,6 @@ void pulse_relay_off(const TimerHandle_t)
     // Run the rules
     ProcessRules();
 
-#if defined(RULES_LOGGING)
-    for (int8_t r = 0; r < RELAY_RULES; r++)
-    {
-      if (rules.ruleOutcome(r))
-      {
-        ESP_LOGD(TAG, "Rule outcome %i=TRUE", r);
-      }
-    }
-#endif
-
     RelayState relay[RELAY_TOTAL];
 
     // Set defaults based on configuration
@@ -1411,12 +1414,10 @@ void pulse_relay_off(const TimerHandle_t)
         ESP_LOGI(TAG, "Set relay %i=%i", n, relay[n] == RelayState::RELAY_ON ? 1 : 0);
         changes++;
 
-        // This would be better if we worked out the bit pattern first and then
-        // just submitted that as a single i2c read/write transaction
+        // This would be better if we worked out the bit pattern first and then just submitted that as a single i2c read/write transaction
         hal.SetOutputState(n, relay[n]);
 
-        // Record the previous state of the relay, to use on the next loop
-        // to prevent chatter
+        // Record the previous state of the relay, to use on the next loop to prevent chatter
         previousRelayState[n] = relay[n];
 
         if (mysettings.relaytype[n] == RELAY_PULSE)
@@ -1430,7 +1431,7 @@ void pulse_relay_off(const TimerHandle_t)
 
     if (firePulse)
     {
-      // Fire timer to switch off LED in a few ms
+      // Fire timer to switch off relay in a few ms
       if (xTimerStart(pulse_relay_off_timer, 10) != pdPASS)
       {
         ESP_LOGE(TAG, "Pulse timer start error");
@@ -1441,6 +1442,12 @@ void pulse_relay_off(const TimerHandle_t)
     {
       // Fire task to record state of outputs to SD Card
       xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
+    }
+
+    if (changes || rules.anyRuleTriggered())
+    {
+      // A rule is TRUE or relay state has changed, so MQTT report it...
+      xTaskNotify(rule_state_change_task_handle, 0x00, eNotifyAction::eNoAction);
     }
   }
 }
@@ -3082,7 +3089,11 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
     // 25 seconds
     if (countdown_mqtt2 == 0)
     {
-      mqtt2(&receiveProc, &prg, prg.queueLength(), &rules, previousRelayState);
+      mqtt2(&receiveProc, &prg, prg.queueLength(), &rules);
+
+      //Trigger mqtt3 as well (on a periodic schedule)
+      xTaskNotify(rule_state_change_task_handle, 0x00, eNotifyAction::eNoAction);
+
       countdown_mqtt2 = 25;
     }
 
@@ -3302,13 +3313,13 @@ bool DeleteWiFiConfigFromSDCard()
   bool ret = false;
   if (_sd_card_installed)
   {
-    ESP_LOGI(TAG, "Delete check for %s", wificonfigfilename);
+    ESP_LOGI(TAG, "Delete file check %s", wificonfigfilename);
 
     if (hal.GetVSPIMutex())
     {
       if (SD.exists(wificonfigfilename))
       {
-        ESP_LOGI(TAG, "Deleted file %s", wificonfigfilename);
+        ESP_LOGI(TAG, "Deleted %s", wificonfigfilename);
         ret = SD.remove(wificonfigfilename);
       }
 
@@ -3803,6 +3814,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(interrupt_task, "int", 2000, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 4096, nullptr, 0, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 0, &sdcardlog_outputs_task_handle);
+  xTaskCreate(rule_state_change_task, "r_stat", 3000, nullptr, 0, &rule_state_change_task_handle);
+
   xTaskCreate(rs485_tx, "485_TX", 2950, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2950, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);

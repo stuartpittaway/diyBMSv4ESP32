@@ -342,7 +342,7 @@ void mqtt1(const currentmonitoring_struct *currentMonitor, const Rules *rules)
         return;
     }
 
-    // If the BMS is in error, stop sending MQTT packets for the data
+    // If the BMS is in error, stop sending MQTT packets for the cell data
     if (!rules->ruleOutcome(Rule::BMSError))
     {
         MQTTCellData();
@@ -357,8 +357,7 @@ void mqtt1(const currentmonitoring_struct *currentMonitor, const Rules *rules)
 void mqtt2(const PacketReceiveProcessor *receiveProc,
            const PacketRequestGenerator *prg,
            uint16_t requestq_count,
-           const Rules *rules,
-           const RelayState *previousRelayState)
+           const Rules *rules)
 {
     if (!mysettings.mqtt_enabled)
     {
@@ -378,6 +377,25 @@ void mqtt2(const PacketReceiveProcessor *receiveProc,
 
     GeneralStatusPayload(prg, receiveProc, requestq_count, rules);
     BankLevelInformation(rules);
+}
+
+
+void mqtt3(const Rules *rules,const RelayState *previousRelayState)
+{
+    if (!mysettings.mqtt_enabled)
+    {
+        return;
+    }
+    if (!wifi_isconnected)
+    {
+        ESP_LOGE(TAG, "MQTT enabled, but WIFI not connected");
+        return;
+    }
+    if (mqttClient_connected == false)
+    {
+        ESP_LOGE(TAG, "MQTT enabled, but not connected");
+        return;
+    }
     RuleStatus(rules);
     OutputStatus(previousRelayState);
 }

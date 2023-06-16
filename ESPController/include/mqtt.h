@@ -12,7 +12,11 @@
 
 void stopMqtt();
 void connectToMqtt();
-void mqtt2(const PacketReceiveProcessor *receiveProc,const PacketRequestGenerator *prg, uint16_t requestq_count,const Rules *rules,const RelayState *previousRelayState);
+void mqtt3(const Rules *rules,const RelayState *previousRelayState);
+void mqtt2(const PacketReceiveProcessor *receiveProc,
+           const PacketRequestGenerator *prg,
+           uint16_t requestq_count,
+           const Rules *rules);
 void mqtt1(const currentmonitoring_struct *currentMonitor,const Rules *rules);
 void GeneralStatusPayload(const PacketRequestGenerator *prg, const PacketReceiveProcessor *receiveProc, uint16_t requestq_count,const Rules *rules);
 void BankLevelInformation(const Rules *rules);
