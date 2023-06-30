@@ -102,7 +102,7 @@ void PylonRS485::handle_rx() {
       ESP_ERROR_CHECK(uart_get_buffered_data_len(uart_num, (size_t*)&rx_avail));
       if (rx_avail > sizeof(hdr)) {
          // at least size of header, read it out
-         rx_read = uart_read_bytes(uart_num, (uint8_t*)&hdr, sizeof(hdr), 100);
+         rx_read = uart_read_bytes(uart_num, (uint8_t*)&hdr, sizeof(hdr), pdMS_TO_TICKS(500));
          if (rx_read != sizeof(hdr)) {
             //wrong size, bail out
             uart_flush_input(uart_num);
@@ -127,7 +127,7 @@ void PylonRS485::handle_rx() {
             hal.ReleaseRS485Mutex();
             return;
          }
-         if (uart_read_bytes(uart_num, tmp_buf, body_len, 100) != body_len) {
+         if (uart_read_bytes(uart_num, tmp_buf, body_len, pdMS_TO_TICKS(500)) != body_len) {
             //wrong size, bail out
             uart_flush_input(uart_num);
             hal.ReleaseRS485Mutex();
@@ -269,8 +269,15 @@ void PylonRS485::handle_rx() {
             //send through UART
             uart_write_bytes(uart_num, tmp_buf, response_len);
          }
+
+         hal.ReleaseRS485Mutex();
       }
-      hal.ReleaseRS485Mutex();
+      else {
+         // Got nothing or buffer too small, suspend the task
+         hal.ReleaseRS485Mutex();
+         vTaskDelay(pdMS_TO_TICKS(200));
+      }
+      
    }
 }
 
