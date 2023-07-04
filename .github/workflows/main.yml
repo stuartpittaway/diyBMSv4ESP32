@@ -50,8 +50,7 @@ jobs:
           pwd
           ls
 
-
-      - name: Build code for modules
+      - name: Build code for ATTINY modules
         run: pio run --project-dir=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ATTINYCellModule --project-conf=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ATTINYCellModule/platformio.ini
 
       - name: Copy output
@@ -59,6 +58,13 @@ jobs:
           cp ./ATTINYCellModule/.pio/build/V*/*.hex ~/OUTPUT/Modules/HEX/
           cp ./ATTINYCellModule/.pio/build/V*/*.bin ~/OUTPUT/Modules/BIN/
 
+      - name: Build code for STM32 modules
+        run: pio run --project-dir=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/STM32All-In-One --project-conf=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/STM32All-In-One/platformio.ini
+  
+      - name: Copy STM32 binary firmware output files
+        run: |
+            cp ./ATTINYCellModule/.pio/build/V*/*.bin ~/OUTPUT/Modules/BIN/
+  
       - name: Get latest esptool
         run: |
           git clone https://github.com/espressif/esptool.git
@@ -126,6 +132,7 @@ jobs:
           zip release.zip ./ControllerBoardTest/diybms_boardtest_espressif32_esp32-devkitc.bin        
           zip release.zip ./Modules/manifest.json
           zip release.zip ./Modules/HEX/*.*
+          zip release.zip ./Modules/BIN/module_fw_V490*.*
 
       - name: Get current date
         id: date
