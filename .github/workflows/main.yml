@@ -63,7 +63,7 @@ jobs:
   
       - name: Copy STM32 binary firmware output files
         run: |
-            cp ./ATTINYCellModule/.pio/build/V*/*.bin ~/OUTPUT/Modules/BIN/
+            cp ./STM32All-In-One/.pio/build/V*/*.bin ~/OUTPUT/Modules/BIN/
   
       - name: Get latest esptool
         run: |
