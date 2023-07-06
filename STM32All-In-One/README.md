@@ -68,3 +68,19 @@ Repeat above, but using ST-LINK connector on the PCB.  There is no need to chang
 Observe warnings about disconnecting the battery connector before programming, or connecting to your computer.
 
 Use the STM32 Cube software to program the firmware using ST-LINK protocol.
+
+## Error LED flash sequences
+
+On power up (after successful programming of the STM32 chip with code) the LED may flash a light sequence in the event of an error.
+
+* 0 = Successful power on
+* 1 = Not used
+* 2 = MAX14921 thermal shutdown
+* 3 = Less than 4 cells detected (check wiring and soldering to MAX chip)
+* 4 = MAX14921 VA pin (Analog Supply Voltage) below UV_VAVTH (4.7V)
+* 5 = MAX14921 VP is below UV_VPVTH (6V)
+* 6 = MAX14921 device reports not ready (after 5 seconds waiting)
+* 7 = Unable to communicate with MAX14921 over SPI pins/interface
+
+Most of these reasons are caused by poor soldering to the MAX14921 chip.  Check for solder bridges and loose pins (not soldered).
+
