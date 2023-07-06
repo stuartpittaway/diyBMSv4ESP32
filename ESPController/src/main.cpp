@@ -31,6 +31,7 @@ static constexpr const char *const TAG = "diybms";
 #include "esp_partition.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include <esp_core_dump.h>
 
 #include <Arduino.h>
 
@@ -3091,7 +3092,7 @@ void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
     {
       mqtt2(&receiveProc, &prg, prg.queueLength(), &rules);
 
-      //Trigger mqtt3 as well (on a periodic schedule)
+      // Trigger mqtt3 as well (on a periodic schedule)
       xTaskNotify(rule_state_change_task_handle, 0x00, eNotifyAction::eNoAction);
 
       countdown_mqtt2 = 25;
@@ -3674,7 +3675,25 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
            GIT_VERSION, COMPILE_DATE_TIME,
            chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
-  // ESP_ERROR_CHECK_WITHOUT_ABORT(esp_bt_controller_disable());
+  esp_core_dump_init();
+
+  if (esp_core_dump_image_check() == ESP_OK)
+  {
+    // A valid core dump is in FLASH storage
+    ESP_LOGW(TAG, "Core dump is present");
+
+    esp_core_dump_summary_t *summary = (esp_core_dump_summary_t*)malloc(sizeof(esp_core_dump_summary_t));
+    if (summary)
+    {
+      if (esp_core_dump_get_summary(summary) == ESP_OK)
+      {
+        // Do stuff
+        ESP_LOGE(TAG,"Core dump in task '%s'",summary->exc_task);
+      }
+    }
+    free(summary);
+  }
+
   BuildHostname();
   hal.ConfigurePins();
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
