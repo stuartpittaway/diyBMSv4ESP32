@@ -105,7 +105,7 @@ void stopMqtt()
 {
     if (mqtt_client != nullptr && mqttClient_connected)
     {
-        //ESP_LOGI(TAG, "Stopping MQTT client");
+        // ESP_LOGI(TAG, "Stopping MQTT client");
         mqttClient_connected = false;
 
         ESP_LOGI(TAG, "esp_mqtt_client_disconnect");
@@ -198,6 +198,12 @@ void GeneralStatusPayload(const PacketRequestGenerator *prg, const PacketReceive
             .append(",\"dynchargec\":")
             .append(float_to_string(((float)rules->DynamicChargeCurrent()) / 10.0F));
     }
+
+    status.append(",\"chgmode\":")
+        .append(std::to_string((unsigned int)rules->getChargingMode()))
+        .append(",\"chgtimer\":")
+        .append(std::to_string(rules->getChargingTimerSecondsRemaining()));
+
     status.append("}");
 
     std::string topic = mysettings.mqtt_topic;
