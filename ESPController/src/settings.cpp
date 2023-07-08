@@ -729,6 +729,8 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->stateofchargeresumevalue = 96;
 }
 
+/// @brief Save WIFI settings into FLASH NVS
+/// @param wifi 
 void SaveWIFI(const wifi_eeprom_settings *wifi)
 {
     const char *partname = "diybms-wifi";
