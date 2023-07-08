@@ -386,6 +386,207 @@ void wake_up_tft(bool force)
   } // end for
 }
 
+bool check_sdcard_freespace()
+{
+  // Create a new file
+  uint64_t freeSpace = SD.totalBytes() - SD.usedBytes();
+
+  // Ensure there is more than 25MB of free space on SD card before creating a file
+  if (freeSpace < (uint64_t)(25 * 1024 * 1024))
+  {
+    ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
+    // We had an error, so switch off logging (this is only in memory so not written perm.)
+    mysettings.loggingEnabled = false;
+    return false;
+  }
+
+  return true;
+}
+
+/// @brief Log cell monitoring data to SDCARD
+/// @param filename
+/// @param timeinfo
+void log_cell_monitoring_data_to_sdcard(std::string filename, const tm timeinfo)
+{
+  if (!check_sdcard_freespace())
+  {
+    return;
+  }
+
+  File file;
+  auto exists = SD.exists(filename.c_str());
+
+  // Open/create file
+  ESP_LOGD(TAG, "%s log %s", exists ? "Append" : "Create", filename.c_str());
+  file = SD.open(filename.c_str(), exists ? FILE_APPEND : FILE_WRITE);
+
+  if (!exists)
+  {
+    file.print("DateTime,");
+
+    std::string header;
+    header.reserve(150);
+
+    for (auto i = 0; i < TotalNumberOfCells(); i++)
+    {
+      std::string n;
+      n = std::to_string(i);
+
+      header.clear();
+
+      header.append("VoltagemV_")
+          .append(n)
+          .append(",InternalTemp_")
+          .append(n)
+          .append(",ExternalTemp_")
+          .append(n)
+          .append(",Bypass_")
+          .append(n)
+          .append(",PWM_")
+          .append(n)
+          .append(",BypassOverTemp_")
+          .append(n)
+          .append(",BadPackets_")
+          .append(n)
+          .append(",BalancemAh_")
+          .append(n);
+
+      if (i < TotalNumberOfCells() - 1)
+      {
+        header.append(",");
+      }
+      else
+      {
+        header.append("\r\n");
+      }
+
+      file.write((const uint8_t *)header.c_str(), header.length());
+    }
+  }
+
+  std::string dataMessage;
+  dataMessage.reserve(150);
+
+  dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
+      .append("-")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
+      .append("-")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
+      .append(" ")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
+      .append(":")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
+      .append(":")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
+      .append(",");
+
+  for (auto i = 0; i < TotalNumberOfCells(); i++)
+  {
+    // This may output invalid data when controller is first powered up
+    dataMessage.append(std::to_string(cmi[i].voltagemV))
+        .append(",")
+        .append(std::to_string(cmi[i].internalTemp))
+        .append(",")
+        .append(std::to_string(cmi[i].externalTemp))
+        .append(",")
+        .append(cmi[i].inBypass ? "Y" : "N")
+        .append(",")
+        .append(std::to_string((int)((float)cmi[i].PWMValue / (float)255.0 * 100)))
+        .append(",")
+        .append(cmi[i].bypassOverTemp ? "Y" : "N")
+        .append(",")
+        .append(std::to_string(cmi[i].badPacketCount))
+        .append(",")
+        .append(std::to_string(cmi[i].BalanceCurrentCount));
+
+    if (i < TotalNumberOfCells() - 1)
+    {
+      dataMessage.append(",");
+    }
+    else
+    {
+      dataMessage.append("\r\n");
+    }
+
+    // Write the string out to file on each cell to avoid generating a huge string
+    file.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
+
+    // Start another string
+    dataMessage.clear();
+  }
+  file.flush();
+  file.close();
+
+  ESP_LOGI(TAG, "Cell monitor log file");
+}
+
+/// @brief Log current monitoring data to SD CARD
+/// @param cmon_filename
+/// @param timeinfo
+void log_current_data_to_sdcard(std::string cmon_filename, const tm timeinfo)
+{
+  if (!check_sdcard_freespace())
+  {
+    return;
+  }
+
+  auto exists = SD.exists(cmon_filename.c_str());
+
+  File file2;
+
+  // Open existing file (assumes there is enough SD card space to log)
+  file2 = SD.open(cmon_filename.c_str(), exists ? FILE_APPEND : FILE_WRITE);
+  ESP_LOGD(TAG, "%s file %s", exists ? "Append" : "Create", cmon_filename.c_str());
+
+  if (!exists)
+  {
+    file2.println("DateTime,valid,voltage,current,mAhIn,mAhOut,DailymAhIn,DailymAhOut,power,temperature,relayState");
+  }
+
+  std::string dataMessage;
+  dataMessage.reserve(128);
+
+  dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
+      .append("-")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
+      .append("-")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
+      .append(" ")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
+      .append(":")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
+      .append(":")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
+      .append(",");
+
+  dataMessage.append(currentMonitor.validReadings ? "1" : "0")
+      .append(",")
+      .append(float_to_string(currentMonitor.modbus.voltage))
+      .append(",")
+      .append(float_to_string(currentMonitor.modbus.current))
+      .append(",")
+      .append(std::to_string(currentMonitor.modbus.milliamphour_in))
+      .append(",")
+      .append(std::to_string(currentMonitor.modbus.milliamphour_out))
+      .append(",")
+      .append(std::to_string(currentMonitor.modbus.daily_milliamphour_in))
+      .append(",")
+      .append(std::to_string(currentMonitor.modbus.daily_milliamphour_out))
+      .append(",")
+      .append(float_to_string(currentMonitor.modbus.power))
+      .append(",")
+      .append(std::to_string(currentMonitor.modbus.temperature))
+      .append(",")
+      .append(currentMonitor.RelayState ? "1" : "0")
+      .append("\r\n");
+
+  file2.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
+  file2.flush();
+  file2.close();
+
+  ESP_LOGI(TAG, "Current monitor log file");
+}
+
 // Output a status log to the SD Card in CSV format
 [[noreturn]] void sdcardlog_task(void *)
 {
@@ -401,8 +602,7 @@ void wake_up_tft(bool force)
     if (_sd_card_installed &&
         !_avrsettings.programmingModeEnabled &&
         mysettings.loggingEnabled &&
-        _controller_state == ControllerState::Running &&
-        hal.IsVSPIMutexAvailable())
+        _controller_state == ControllerState::Running)
     {
 
       struct tm timeinfo;
@@ -417,141 +617,10 @@ void wake_up_tft(bool force)
         filename.reserve(32);
         filename.append("/data_").append(std::to_string(timeinfo.tm_year)).append(pad_zero(2, (uint16_t)timeinfo.tm_mon)).append(pad_zero(2, (uint16_t)timeinfo.tm_mday)).append(".csv");
 
-        File file;
-
         // Prevent other devices using the VSPI bus
         if (hal.GetVSPIMutex())
         {
-          if (SD.exists(filename.c_str()))
-          {
-            // Open existing file (assumes there is enough SD card space to log)
-            file = SD.open(filename.c_str(), FILE_APPEND);
-            ESP_LOGD(TAG, "Open log %s", filename.c_str());
-          }
-          else
-          {
-            // Create a new file
-            uint64_t freeSpace = SD.totalBytes() - SD.usedBytes();
-
-            // Ensure there is more than 25MB of free space on SD card before creating a file
-            if (freeSpace > (uint64_t)(25 * 1024 * 1024))
-            {
-              // Create the file
-              file = SD.open(filename.c_str(), FILE_WRITE);
-              if (file)
-              {
-                ESP_LOGI(TAG, "Create log %s", filename.c_str());
-
-                file.print("DateTime,");
-
-                std::string header;
-                header.reserve(150);
-
-                for (auto i = 0; i < TotalNumberOfCells(); i++)
-                {
-                  std::string n;
-                  n = std::to_string(i);
-
-                  header.clear();
-
-                  header.append("VoltagemV_")
-                      .append(n)
-                      .append(",InternalTemp_")
-                      .append(n)
-                      .append(",ExternalTemp_")
-                      .append(n)
-                      .append(",Bypass_")
-                      .append(n)
-                      .append(",PWM_")
-                      .append(n)
-                      .append(",BypassOverTemp_")
-                      .append(n)
-                      .append(",BadPackets_")
-                      .append(n)
-                      .append(",BalancemAh_")
-                      .append(n);
-
-                  if (i < TotalNumberOfCells() - 1)
-                  {
-                    header.append(",");
-                  }
-                  else
-                  {
-                    header.append("\r\n");
-                  }
-
-                  file.write((const uint8_t *)header.c_str(), header.length());
-                }
-              }
-            }
-            else
-            {
-              ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
-              // We had an error, so switch off logging (this is only in memory so not written perm.)
-              mysettings.loggingEnabled = false;
-            }
-          }
-
-          if (file && mysettings.loggingEnabled)
-          {
-            std::string dataMessage;
-            dataMessage.reserve(150);
-
-            dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
-                .append("-")
-                .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
-                .append("-")
-                .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
-                .append(" ")
-                .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
-                .append(":")
-                .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
-                .append(":")
-                .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
-                .append(",");
-
-            for (auto i = 0; i < TotalNumberOfCells(); i++)
-            {
-              // This may output invalid data when controller is first powered up
-              dataMessage.append(std::to_string(cmi[i].voltagemV))
-                  .append(",")
-                  .append(std::to_string(cmi[i].internalTemp))
-                  .append(",")
-                  .append(std::to_string(cmi[i].externalTemp))
-                  .append(",")
-                  .append(cmi[i].inBypass ? "Y" : "N")
-                  .append(",")
-                  .append(std::to_string((int)((float)cmi[i].PWMValue / (float)255.0 * 100)))
-                  .append(",")
-                  .append(cmi[i].bypassOverTemp ? "Y" : "N")
-                  .append(",")
-                  .append(std::to_string(cmi[i].badPacketCount))
-                  .append(",")
-                  .append(std::to_string(cmi[i].BalanceCurrentCount));
-
-              if (i < TotalNumberOfCells() - 1)
-              {
-                dataMessage.append(",");
-              }
-              else
-              {
-                dataMessage.append("\r\n");
-              }
-
-              // Write the string out to file on each cell to avoid generating a huge string
-              file.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
-
-              // Start another string
-              dataMessage.clear();
-            }
-            file.close();
-
-            ESP_LOGD(TAG, "Wrote to SD log");
-          }
-          else
-          {
-            ESP_LOGE(TAG, "Failed to create/append SD logging file");
-          }
+          log_cell_monitoring_data_to_sdcard(filename, timeinfo);
 
           // Now log the current monitor
           if (mysettings.currentMonitoringEnabled)
@@ -566,95 +635,17 @@ void wake_up_tft(bool force)
                 .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
                 .append(".csv");
 
-            File file2;
+            log_current_data_to_sdcard(cmon_filename, timeinfo);
 
-            if (SD.exists(cmon_filename.c_str()))
-            {
-              // Open existing file (assumes there is enough SD card space to log)
-              file2 = SD.open(cmon_filename.c_str(), FILE_APPEND);
-            }
-            else
-            {
-              // Create a new file
-              uint64_t freeSpace = SD.totalBytes() - SD.usedBytes();
-
-              // Ensure there is more than 25MB of free space on SD card before creating a file
-              if (freeSpace > (uint64_t)(25 * 1024 * 1024))
-              {
-                // Create the file
-                file2 = SD.open(cmon_filename.c_str(), FILE_WRITE);
-                if (file)
-                {
-                  ESP_LOGI(TAG, "Create log %s", cmon_filename.c_str());
-                  file.println("DateTime,valid,voltage,current,mAhIn,mAhOut,DailymAhIn,DailymAhOut,power,temperature,relayState");
-                }
-              }
-              else
-              {
-                ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
-                // We had an error, so switch off logging (this is only in memory so not written perm.)
-                mysettings.loggingEnabled = false;
-              }
-            }
-
-            if (file2 && mysettings.loggingEnabled)
-            {
-
-              std::string dataMessage;
-              dataMessage.reserve(128);
-
-              dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
-                  .append("-")
-                  .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
-                  .append("-")
-                  .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
-                  .append(" ")
-                  .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
-                  .append(":")
-                  .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
-                  .append(":")
-                  .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
-                  .append(",");
-
-              dataMessage.append(currentMonitor.validReadings ? "1" : "0")
-                  .append(",")
-                  .append(float_to_string(currentMonitor.modbus.voltage))
-                  .append(",")
-                  .append(float_to_string(currentMonitor.modbus.current))
-                  .append(",")
-                  .append(std::to_string(currentMonitor.modbus.milliamphour_in))
-                  .append(",")
-                  .append(std::to_string(currentMonitor.modbus.milliamphour_out))
-                  .append(",")
-                  .append(std::to_string(currentMonitor.modbus.daily_milliamphour_in))
-                  .append(",")
-                  .append(std::to_string(currentMonitor.modbus.daily_milliamphour_out))
-                  .append(",")
-                  .append(float_to_string(currentMonitor.modbus.power))
-                  .append(",")
-                  .append(std::to_string(currentMonitor.modbus.temperature))
-                  .append(",")
-                  .append(currentMonitor.RelayState ? "1" : "0")
-                  .append("\r\n");
-
-              file2.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
-              file2.close();
-
-              ESP_LOGD(TAG, "Wrote current monitor data to SD log");
-            }
-            else
-            {
-              ESP_LOGE(TAG, "Failed to create/append SD logging file");
-            }
           } // end of logging for current monitor
-        }
-        else
-        {
-          ESP_LOGE(TAG, "Invalid datetime");
         }
 
         // Must be the last thing...
         hal.ReleaseVSPIMutex();
+      }
+      else
+      {
+        ESP_LOGE(TAG, "Invalid datetime");
       }
     }
   } // end for loop
@@ -672,6 +663,76 @@ void wake_up_tft(bool force)
   }
 }
 
+void sdcardlog_output(std::string filename, const tm timeinfo)
+{
+  if (!check_sdcard_freespace())
+  {
+    return;
+  }
+
+  File file;
+
+  auto exists = SD.exists(filename.c_str());
+  file = SD.open(filename.c_str(), exists ? FILE_APPEND : FILE_WRITE);
+  if (!exists)
+  {
+    // Create the file
+    ESP_LOGD(TAG, "Create log %s", filename.c_str());
+
+    std::string header;
+    header.reserve(128);
+
+    header.append("DateTime,TCA6408,TCA9534,");
+
+    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+    {
+      header.append("Output_").append(std::to_string(i));
+      if (i < RELAY_TOTAL - 1)
+      {
+        header.append(",");
+      }
+    }
+    header.append("\r\n");
+    file.write((const uint8_t *)header.c_str(), header.length());
+  }
+
+  std::string dataMessage;
+  dataMessage.reserve(128);
+
+  dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
+      .append("-")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
+      .append("-")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
+      .append(" ")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
+      .append(":")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
+      .append(":")
+      .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
+      .append(",")
+      .append(uint8_to_binary_string(hal.LastTCA6408Value()))
+      .append(",")
+      .append(uint8_to_binary_string(hal.LastTCA9534APWRValue()))
+      .append(",");
+
+  for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+  {
+    // This may output invalid data when controller is first powered up
+    dataMessage.append(previousRelayState[i] == RelayState::RELAY_ON ? "Y" : "N");
+    if (i < RELAY_TOTAL - 1)
+    {
+      dataMessage.append(",");
+    }
+  }
+  dataMessage.append("\r\n");
+  file.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
+  file.flush();
+  file.close();
+
+  ESP_LOGI(TAG, "Output State logging");
+}
+
 // Writes a status log of the OUTPUT STATUES to the SD Card in CSV format
 [[noreturn]] void sdcardlog_outputs_task(void *)
 {
@@ -683,8 +744,7 @@ void wake_up_tft(bool force)
     if (_sd_card_installed &&
         !_avrsettings.programmingModeEnabled &&
         mysettings.loggingEnabled &&
-        _controller_state == ControllerState::Running &&
-        hal.IsVSPIMutexAvailable())
+        _controller_state == ControllerState::Running)
     {
       ESP_LOGD(TAG, "sdcardlog_outputs_task");
 
@@ -700,106 +760,20 @@ void wake_up_tft(bool force)
         filename.reserve(32);
         filename.append("/output_status_").append(std::to_string(timeinfo.tm_year)).append(pad_zero(2, (uint16_t)timeinfo.tm_mon)).append(pad_zero(2, (uint16_t)timeinfo.tm_mday)).append(".csv");
 
-        File file;
-
         // Prevent other devices using the VSPI bus
         if (hal.GetVSPIMutex())
         {
-          if (SD.exists(filename.c_str()))
-          {
-            // Open existing file (assumes there is enough SD card space to log)
-            file = SD.open(filename.c_str(), FILE_APPEND);
-          }
-          else
-          {
-            // Create a new file
-            uint64_t freeSpace = SD.totalBytes() - SD.usedBytes();
-
-            // Ensure there is more than 25MB of free space on SD card before creating a file
-            if (freeSpace > (uint64_t)(25 * 1024 * 1024))
-            {
-              // Create the file
-              file = SD.open(filename.c_str(), FILE_WRITE);
-              if (file)
-              {
-                ESP_LOGD(TAG, "Create log %s", filename.c_str());
-
-                std::string header;
-                header.reserve(128);
-
-                header.append("DateTime,TCA6408,TCA9534,");
-
-                for (uint8_t i = 0; i < RELAY_TOTAL; i++)
-                {
-                  header.append("Output_").append(std::to_string(i));
-                  if (i < RELAY_TOTAL - 1)
-                  {
-                    header.append(",");
-                  }
-                }
-                header.append("\r\n");
-                file.write((const uint8_t *)header.c_str(), header.length());
-              }
-            }
-            else
-            {
-              ESP_LOGE(TAG, "SD card has less than 25MiB remaining, logging stopped");
-            }
-          }
-
-          if (file && mysettings.loggingEnabled)
-          {
-
-            std::string dataMessage;
-            dataMessage.reserve(128);
-
-            dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
-                .append("-")
-                .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
-                .append("-")
-                .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
-                .append(" ")
-                .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
-                .append(":")
-                .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
-                .append(":")
-                .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
-                .append(",")
-                .append(uint8_to_binary_string(hal.LastTCA6408Value()))
-                .append(",")
-                .append(uint8_to_binary_string(hal.LastTCA9534APWRValue()))
-                .append(",");
-
-            for (uint8_t i = 0; i < RELAY_TOTAL; i++)
-            {
-              // This may output invalid data when controller is first powered up
-              dataMessage.append(previousRelayState[i] == RelayState::RELAY_ON ? "Y" : "N");
-              if (i < RELAY_TOTAL - 1)
-              {
-                dataMessage.append(",");
-              }
-            }
-            dataMessage.append("\r\n");
-            file.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
-            file.close();
-
-            ESP_LOGD(TAG, "Wrote to SD log");
-          }
-          else
-          {
-            ESP_LOGE(TAG, "Failed to create/append SD logging file");
-          }
+          sdcardlog_output(filename, timeinfo);
+          // Must be the last thing...
+          hal.ReleaseVSPIMutex();
         }
-        else
-        {
-          ESP_LOGE(TAG, "Invalid datetime");
-        }
-
-        // Must be the last thing...
-        hal.ReleaseVSPIMutex();
-      } // end if
-    }   // end if
-  }     // end for loop
+      }
+      else
+      {
+        ESP_LOGE(TAG, "Invalid datetime");
+      }
+    } // end if
+  }   // end for loop
 }
 
 // Switch the LED off (triggered by timer on 100ms delay)
@@ -3448,7 +3422,6 @@ bool DeleteWiFiConfigFromSDCard()
 /// @return TRUE if they are equal
 bool AreWifiConfigurationsTheSame(const wifi_eeprom_settings *a, const wifi_eeprom_settings *b)
 {
-
   if (a->wifi_ip != b->wifi_ip)
     return false;
   if (a->wifi_gateway != b->wifi_gateway)
@@ -3511,30 +3484,47 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
   wifi["ssid"].as<String>().toCharArray(_new_config.wifi_ssid, sizeof(_new_config.wifi_ssid));
   wifi["password"].as<String>().toCharArray(_new_config.wifi_passphrase, sizeof(_new_config.wifi_passphrase));
 
-  IPAddress ip;
+  if (wifi.containsKey("ip"))
+  {
+    // If the "ip" key exists, then it must be the newer format WIFI JSON document
+    IPAddress ip;
 
-  if (ip.fromString(wifi["ip"].as<String>()))
-  {
-    _new_config.wifi_ip = ip;
-  }
-  if (ip.fromString(wifi["gateway"].as<String>()))
-  {
-    _new_config.wifi_gateway = ip;
-  }
-  if (ip.fromString(wifi["netmask"].as<String>()))
-  {
-    _new_config.wifi_netmask = ip;
-  }
-  if (ip.fromString(wifi["dns1"].as<String>()))
-  {
-    _new_config.wifi_dns1 = ip;
-  }
-  if (ip.fromString(wifi["dns2"].as<String>()))
-  {
-    _new_config.wifi_dns2 = ip;
-  }
+    if (ip.fromString(wifi["ip"].as<String>()))
+    {
+      _new_config.wifi_ip = ip;
+    }
+    if (ip.fromString(wifi["gateway"].as<String>()))
+    {
+      _new_config.wifi_gateway = ip;
+    }
+    if (ip.fromString(wifi["netmask"].as<String>()))
+    {
+      _new_config.wifi_netmask = ip;
+    }
+    if (ip.fromString(wifi["dns1"].as<String>()))
+    {
+      _new_config.wifi_dns1 = ip;
+    }
+    if (ip.fromString(wifi["dns2"].as<String>()))
+    {
+      _new_config.wifi_dns2 = ip;
+    }
 
-  _new_config.manualConfig = wifi["manualconfig"].as<uint8_t>();
+    _new_config.manualConfig = wifi["manualconfig"].as<uint8_t>();
+  }
+  else
+  {
+    ESP_LOGI(TAG, "Older style WIFI format");
+    // Its an original style WIFI JSON document - before manual IP was available
+    // Copy over the existing parameters (probably all empty values)
+    // this makes sure the AreWifiConfigurationsTheSame passes on the "old" JSON document style
+    _new_config.wifi_ip = _wificonfig.wifi_ip;
+    _new_config.wifi_gateway = _wificonfig.wifi_gateway;
+    _new_config.wifi_netmask = _wificonfig.wifi_netmask;
+    _new_config.wifi_dns1 = _wificonfig.wifi_dns1;
+    _new_config.wifi_dns2 = _wificonfig.wifi_dns2;
+    _new_config.manualConfig = _wificonfig.manualConfig;
+  }
 
   // Our configuration is different, so store the details in EEPROM and flash the LED a few times
   if (existingConfigValid == false || AreWifiConfigurationsTheSame(&_wificonfig, &_new_config) == false)
@@ -3567,9 +3557,9 @@ const std::array<log_level_t, 21> log_levels =
         log_level_t{.tag = "*", .level = ESP_LOG_DEBUG},
         {.tag = "wifi", .level = ESP_LOG_WARN},
         {.tag = "dhcpc", .level = ESP_LOG_WARN},
-        {.tag = "diybms", .level = ESP_LOG_DEBUG},
+        {.tag = "diybms", .level = ESP_LOG_VERBOSE},
         {.tag = "diybms-avrisp", .level = ESP_LOG_INFO},
-        {.tag = "diybms-hal", .level = ESP_LOG_DEBUG},
+        {.tag = "diybms-hal", .level = ESP_LOG_INFO},
         {.tag = "diybms-influxdb", .level = ESP_LOG_INFO},
         {.tag = "diybms-rx", .level = ESP_LOG_INFO},
         {.tag = "diybms-tx", .level = ESP_LOG_INFO},
@@ -3581,7 +3571,7 @@ const std::array<log_level_t, 21> log_levels =
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
-        {.tag = "diybms-set", .level = ESP_LOG_DEBUG},
+        {.tag = "diybms-set", .level = ESP_LOG_INFO},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
         {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
         {.tag = "curmon", .level = ESP_LOG_INFO}};
@@ -3682,13 +3672,13 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
     // A valid core dump is in FLASH storage
     ESP_LOGW(TAG, "Core dump is present");
 
-    esp_core_dump_summary_t *summary = (esp_core_dump_summary_t*)malloc(sizeof(esp_core_dump_summary_t));
+    esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
     if (summary)
     {
       if (esp_core_dump_get_summary(summary) == ESP_OK)
       {
         // Do stuff
-        ESP_LOGE(TAG,"Core dump in task '%s'",summary->exc_task);
+        ESP_LOGE(TAG, "Core dump in task '%s'", summary->exc_task);
       }
     }
     free(summary);
@@ -3831,7 +3821,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   // High priority task
   xTaskCreate(interrupt_task, "int", 2000, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
-  xTaskCreate(sdcardlog_task, "sdlog", 4096, nullptr, 0, &sdcardlog_task_handle);
+  xTaskCreate(sdcardlog_task, "sdlog", 3800, nullptr, 0, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 0, &sdcardlog_outputs_task_handle);
   xTaskCreate(rule_state_change_task, "r_stat", 3000, nullptr, 0, &rule_state_change_task_handle);
 
@@ -3858,9 +3848,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   SetControllerState(ControllerState::Stabilizing);
 
   // Only run these after we have wifi...
-  xTaskCreate(enqueue_task, "enqueue", 1900, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-  xTaskCreate(rules_task, "rules", 3500, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-  xTaskCreate(periodic_task, "period", 3500, nullptr, 0, &periodic_task_handle);
+  xTaskCreate(enqueue_task, "enqueue", 1600, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
+  xTaskCreate(rules_task, "rules", 3400, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+  xTaskCreate(periodic_task, "period", 2900, nullptr, 0, &periodic_task_handle);
 
   // Start the wifi and connect to access point
   wifi_init_sta();
@@ -3965,6 +3955,7 @@ void loop()
 
     // uxTaskGetStackHighWaterMark returns bytes not words on ESP32
     /*
+        ESP_LOGD(TAG, "lazy_task_handle high water=%i", uxTaskGetStackHighWaterMark(lazy_task_handle));
         ESP_LOGD(TAG, "periodic_task_handle high water=%i", uxTaskGetStackHighWaterMark(periodic_task_handle));
         ESP_LOGD(TAG, "rule_task_handle high water=%i", uxTaskGetStackHighWaterMark(rule_task_handle));
         ESP_LOGD(TAG, "enqueue_task_handle high water=%i", uxTaskGetStackHighWaterMark(enqueue_task_handle));
