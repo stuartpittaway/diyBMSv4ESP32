@@ -1450,6 +1450,11 @@ $(function () {
                     $("#tasks").append("<tr><td>" + index + "</td><td>" + value.name + "</td><td>" + value.hwm + "</td></tr>");
                 });
 
+                if (data.diagnostic.core) {                    
+                    $("#coredumptask").html(data.diagnostic.core.task+ ", cause:"+data.diagnostic.core.exccause);
+                    
+                }
+
                 $("#diagnostics").show();
 
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }

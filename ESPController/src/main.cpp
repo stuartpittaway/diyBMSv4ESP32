@@ -3925,6 +3925,29 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
   diag["HeapSize"] = ESP.getHeapSize();
   diag["SdkVersion"] = ESP.getSdkVersion();
 
+  if (esp_core_dump_image_check() == ESP_OK)
+  {
+    JsonObject core = diag.createNestedObject("core");
+    // A valid core dump is in FLASH storage
+
+    esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
+    if (summary)
+    {
+      if (esp_core_dump_get_summary(summary) == ESP_OK)
+      {
+        core["task"]=summary->exc_task;
+        
+        core["dumpver"]=summary->core_dump_version;
+        core["corrupted"]=summary->exc_bt_info.corrupted;
+        core["depth"]=summary->exc_bt_info.depth;
+
+        core["exccause"]=summary->ex_info.exc_cause;
+      }
+    }
+    free(summary);
+  }
+
+
   int bufferused = 0;
   bufferused += serializeJson(doc, buffer, bufferLenMax);
   return httpd_resp_send(req, buffer, bufferused);
