@@ -617,9 +617,9 @@ httpd_handle_t start_webserver(void)
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
   config.max_uri_handlers = 10;
-  config.max_open_sockets = 7;
+  config.max_open_sockets = 8;
   config.max_resp_headers = 16;
-  config.stack_size = 6250;
+  config.stack_size = 6300;
   config.uri_match_fn = httpd_uri_match_wildcard;
   config.lru_purge_enable = true;
 

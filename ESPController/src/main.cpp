@@ -3814,7 +3814,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(2), pdFALSE, (void *)3, &tftwakeup);
   assert(tftwake_timer);
 
-  xTaskCreate(voltageandstatussnapshot_task, "snap", 1940, nullptr, 1, &voltageandstatussnapshot_task_handle);
+  xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 0, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 3, &avrprog_task_handle);
 
@@ -3822,15 +3822,15 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(interrupt_task, "int", 2050, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 3800, nullptr, 0, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 0, &sdcardlog_outputs_task_handle);
-  xTaskCreate(rule_state_change_task, "r_stat", 2950, nullptr, 0, &rule_state_change_task_handle);
+  xTaskCreate(rule_state_change_task, "r_stat", 3000, nullptr, 0, &rule_state_change_task_handle);
 
   xTaskCreate(rs485_tx, "485_TX", 2940, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2940, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
-  xTaskCreate(canbus_tx, "CAN_Tx", 2900, nullptr, 1, &canbus_tx_task_handle);
-  xTaskCreate(canbus_rx, "CAN_Rx", 2900, nullptr, 1, &canbus_rx_task_handle);
-  xTaskCreate(transmit_task, "Tx", 1850, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 2250, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, 1, &canbus_tx_task_handle);
+  xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
+  xTaskCreate(transmit_task, "Tx", 1950, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 2350, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 0, &lazy_task_handle);
 
   // Set relay defaults
@@ -3847,9 +3847,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   SetControllerState(ControllerState::Stabilizing);
 
   // Only run these after we have wifi...
-  xTaskCreate(enqueue_task, "enqueue", 1500, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-  xTaskCreate(rules_task, "rules", 3200, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-  xTaskCreate(periodic_task, "period", 2700, nullptr, 0, &periodic_task_handle);
+  xTaskCreate(enqueue_task, "enqueue", 1580, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
+  xTaskCreate(rules_task, "rules", 3400, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+  xTaskCreate(periodic_task, "period", 2850, nullptr, 0, &periodic_task_handle);
 
   // Start the wifi and connect to access point
   wifi_init_sta();
