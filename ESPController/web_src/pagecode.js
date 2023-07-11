@@ -1432,18 +1432,41 @@ $(function () {
     });
 
 
+    $("#diagbutton").click(function () {
+        $.getJSON("/api/diagnostic",
+            function (data) {
+
+                data.diagnostic.tasks.sort((a, b) => a.hwm - b.hwm);
+
+                $("#MinFreeHeap").html(data.diagnostic.MinFreeHeap);
+                $("#FreeHeap").html(data.diagnostic.FreeHeap);
+                $("#HeapSize").html(data.diagnostic.HeapSize);
+                $("#SdkVersion").html(data.diagnostic.SdkVersion);
+                $("#NumberRunningTasks").html(data.diagnostic.numtasks);
+                $("#tasks").empty();
+                $("#tasks").append("<thead><tr><th>Number</th><th>Name</th><th>Stack High Watermark</th></tr></thead>");
+
+                $.each(data.diagnostic.tasks, function (index, value) {
+                    $("#tasks").append("<tr><td>" + index + "</td><td>" + value.name + "</td><td>" + value.hwm + "</td></tr>");
+                });
+
+                $("#diagnostics").show();
+
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            );
+
+        return true;
+    });
 
     $("#about").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
         switchPage("#aboutPage");
 
+        $("#diagnostics").hide();
+
         $.getJSON("/api/settings",
             function (data) {
-                $("#MinFreeHeap").html(data.settings.MinFreeHeap);
-                $("#FreeHeap").html(data.settings.FreeHeap);
-                $("#HeapSize").html(data.settings.HeapSize);
-                $("#SdkVersion").html(data.settings.SdkVersion);
                 $("#HostName").html("<a href='http://" + data.settings.HostName + "'>" + data.settings.HostName + "</a>");
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );

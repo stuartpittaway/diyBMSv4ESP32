@@ -136,7 +136,6 @@ currentmonitoring_struct currentMonitor;
 TimerHandle_t led_off_timer;
 TimerHandle_t pulse_relay_off_timer;
 
-TaskHandle_t i2c_task_handle = nullptr;
 TaskHandle_t sdcardlog_task_handle = nullptr;
 TaskHandle_t sdcardlog_outputs_task_handle = nullptr;
 TaskHandle_t rule_state_change_task_handle = nullptr;
@@ -3815,27 +3814,27 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(2), pdFALSE, (void *)3, &tftwakeup);
   assert(tftwake_timer);
 
-  xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
+  xTaskCreate(voltageandstatussnapshot_task, "snap", 1940, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 0, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 3, &avrprog_task_handle);
 
   // High priority task
-  xTaskCreate(interrupt_task, "int", 2000, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
+  xTaskCreate(interrupt_task, "int", 2050, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 3800, nullptr, 0, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 0, &sdcardlog_outputs_task_handle);
-  xTaskCreate(rule_state_change_task, "r_stat", 3000, nullptr, 0, &rule_state_change_task_handle);
+  xTaskCreate(rule_state_change_task, "r_stat", 2950, nullptr, 0, &rule_state_change_task_handle);
 
-  xTaskCreate(rs485_tx, "485_TX", 2950, nullptr, 1, &rs485_tx_task_handle);
-  xTaskCreate(rs485_rx, "485_RX", 2950, nullptr, 1, &rs485_rx_task_handle);
+  xTaskCreate(rs485_tx, "485_TX", 2940, nullptr, 1, &rs485_tx_task_handle);
+  xTaskCreate(rs485_rx, "485_RX", 2940, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
-  xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, 1, &canbus_tx_task_handle);
-  xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
-  xTaskCreate(transmit_task, "Tx", 2000, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 2400, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(canbus_tx, "CAN_Tx", 2900, nullptr, 1, &canbus_tx_task_handle);
+  xTaskCreate(canbus_rx, "CAN_Rx", 2900, nullptr, 1, &canbus_rx_task_handle);
+  xTaskCreate(transmit_task, "Tx", 1850, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 2250, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 0, &lazy_task_handle);
 
   // Set relay defaults
-  for (int8_t y = 0; y < RELAY_TOTAL; y++)
+  for (auto y = 0; y < RELAY_TOTAL; y++)
   {
     previousRelayState[y] = mysettings.rulerelaydefault[y];
     // Set relay defaults
@@ -3848,9 +3847,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   SetControllerState(ControllerState::Stabilizing);
 
   // Only run these after we have wifi...
-  xTaskCreate(enqueue_task, "enqueue", 1600, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-  xTaskCreate(rules_task, "rules", 3400, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-  xTaskCreate(periodic_task, "period", 2900, nullptr, 0, &periodic_task_handle);
+  xTaskCreate(enqueue_task, "enqueue", 1500, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
+  xTaskCreate(rules_task, "rules", 3200, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+  xTaskCreate(periodic_task, "period", 2700, nullptr, 0, &periodic_task_handle);
 
   // Start the wifi and connect to access point
   wifi_init_sta();
@@ -3869,6 +3868,66 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   // Force Refresh the TFT display
   wake_up_tft(true);
+}
+
+/// @brief Generates a JSON document with diagnostic information about the running system
+/// @param req
+/// @param buffer
+/// @param bufferLenMax
+/// @return
+esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
+{
+  DynamicJsonDocument doc(2048);
+  JsonObject root = doc.to<JsonObject>();
+  JsonObject diag = root.createNestedObject("diagnostic");
+
+  diag["numtasks"] = uxTaskGetNumberOfTasks();
+  auto tasks = diag.createNestedArray("tasks");
+
+  // Array of pointers to the task handles we are going to examine
+  const std::array<TaskHandle_t *, 18> task_handle_ptrs =
+      {&sdcardlog_task_handle, &sdcardlog_outputs_task_handle, &rule_state_change_task_handle,
+       &avrprog_task_handle, &enqueue_task_handle, &transmit_task_handle, &replyqueue_task_handle,
+       &lazy_task_handle, &rule_task_handle, &voltageandstatussnapshot_task_handle, &updatetftdisplay_task_handle,
+       &periodic_task_handle, &interrupt_task_handle, &rs485_tx_task_handle,
+       &rs485_rx_task_handle, &service_rs485_transmit_q_task_handle,
+       &canbus_tx_task_handle, &canbus_rx_task_handle};
+
+  // Remember these are pointers to the handle
+  for (auto h : task_handle_ptrs)
+  {
+    if (*h != nullptr)
+    {
+      JsonObject nested = tasks.createNestedObject();
+      nested["name"] = pcTaskGetName(*h);
+      nested["hwm"] = uxTaskGetStackHighWaterMark(*h);
+    }
+  };
+
+  // Similar but for tasks we don't own - get handle by name (this is SLOW function call)
+  // this is the actual handle value, not a pointer to it
+  std::array<TaskHandle_t, 2> task_handles = {
+      xTaskGetHandle("loopTask"),
+      xTaskGetHandle("httpd")};
+
+  for (auto h : task_handles)
+  {
+    if (h != nullptr)
+    {
+      JsonObject nested = tasks.createNestedObject();
+      nested["name"] = pcTaskGetName(h);
+      nested["hwm"] = uxTaskGetStackHighWaterMark(h);
+    }
+  };
+
+  diag["FreeHeap"] = ESP.getFreeHeap();
+  diag["MinFreeHeap"] = ESP.getMinFreeHeap();
+  diag["HeapSize"] = ESP.getHeapSize();
+  diag["SdkVersion"] = ESP.getSdkVersion();
+
+  int bufferused = 0;
+  bufferused += serializeJson(doc, buffer, bufferLenMax);
+  return httpd_resp_send(req, buffer, bufferused);
 }
 
 unsigned long wifitimer = 0;
@@ -3953,16 +4012,7 @@ void loop()
              heap.free_blocks,
              heap.total_blocks);
 
-    // uxTaskGetStackHighWaterMark returns bytes not words on ESP32
-    /*
-        ESP_LOGD(TAG, "lazy_task_handle high water=%i", uxTaskGetStackHighWaterMark(lazy_task_handle));
-        ESP_LOGD(TAG, "periodic_task_handle high water=%i", uxTaskGetStackHighWaterMark(periodic_task_handle));
-        ESP_LOGD(TAG, "rule_task_handle high water=%i", uxTaskGetStackHighWaterMark(rule_task_handle));
-        ESP_LOGD(TAG, "enqueue_task_handle high water=%i", uxTaskGetStackHighWaterMark(enqueue_task_handle));
-        ESP_LOGD(TAG, "sdcardlog_task_handle high water=%i", uxTaskGetStackHighWaterMark(sdcardlog_task_handle));
-        ESP_LOGD(TAG, "sdcardlog_outputs_task_handle high water=%i", uxTaskGetStackHighWaterMark(sdcardlog_outputs_task_handle));
-    */
-    // Report again in 15 seconds
-    heaptimer = currentMillis + 15000;
+    // Report again in 30 seconds
+    heaptimer = currentMillis + 30000;
   }
 }

@@ -54,4 +54,5 @@ extern CurrentMonitorINA229 currentmon_internal;
 
 extern History history;
 extern wifi_eeprom_settings _wificonfig;
+extern esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax);
 #endif
