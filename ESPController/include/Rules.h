@@ -165,8 +165,13 @@ public:
         {
             return -1;
         }
-        // Calculate seconds from microseconds
-        return (int32_t)((ChargingTimer - esp_timer_get_time()) / (int64_t)1E6);
+        if (chargemode == ChargingMode::absorb || chargemode == ChargingMode::floating)
+        {
+            // Calculate seconds from microseconds
+            return (int32_t)((ChargingTimer - esp_timer_get_time()) / (int64_t)1E6);
+        }
+        // All other charge modes return zero
+        return 0;
     }
     ChargingMode getChargingMode() const
     {

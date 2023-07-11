@@ -169,6 +169,12 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
   return bufferused;
 }
 
+
+esp_err_t content_handler_diagnostic(httpd_req_t *req)
+{
+  return diagnosticJSON(req, httpbuf, BUFSIZE);
+}
+
 esp_err_t content_handler_history(httpd_req_t *req)
 {
   return history.GenerateJSON(req, httpbuf, BUFSIZE);
@@ -672,11 +678,6 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   settings["TimeZone"] = mysettings.timeZone;
   settings["MinutesTimeZone"] = mysettings.minutesTimeZone;
   settings["DST"] = mysettings.daylight;
-
-  settings["FreeHeap"] = ESP.getFreeHeap();
-  settings["MinFreeHeap"] = ESP.getMinFreeHeap();
-  settings["HeapSize"] = ESP.getHeapSize();
-  settings["SdkVersion"] = ESP.getSdkVersion();
 
   settings["HostName"] = hostname;
 
@@ -1201,19 +1202,24 @@ esp_err_t api_handler(httpd_req_t *req)
     return ESP_FAIL;
   }
 
-  const std::array<std::string, 15> uri_array = {
+  const std::array<std::string, 16> uri_array = {
       "monitor2", "monitor3", "integration",
       "settings", "rules", "rs485settings",
       "currentmonitor", "avrstatus", "modules",
       "identifyModule", "storage", "avrstorage",
-      "chargeconfig", "tileconfig", "history"};
+      "chargeconfig", "tileconfig", "history", 
+      "diagnostic"};
 
-  const std::array<std::function<esp_err_t(httpd_req_t * req)>, 15> func_ptr = {
+  const std::array<std::function<esp_err_t(httpd_req_t * req)>, 16> func_ptr = {
       content_handler_monitor2, content_handler_monitor3, content_handler_integration,
       content_handler_settings, content_handler_rules, content_handler_rs485settings,
       content_handler_currentmonitor, content_handler_avrstatus, content_handler_modules,
       content_handler_identifymodule, content_handler_storage, content_handler_avrstorage,
-      content_handler_chargeconfig, content_handler_tileconfig, content_handler_history};
+      content_handler_chargeconfig, content_handler_tileconfig, content_handler_history,
+      content_handler_diagnostic};
+
+  //Ensure arrays are equal length
+  assert(uri_array.size() == func_ptr.size() );
 
   auto name = std::string(req->uri);
   if (name.rfind("/api/", 0) == 0)

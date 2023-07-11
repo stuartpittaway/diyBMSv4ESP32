@@ -17,6 +17,26 @@ static constexpr const char *const TAG = "diybms-mqtt";
 bool mqttClient_connected = false;
 esp_mqtt_client_handle_t mqtt_client = nullptr;
 
+bool checkMQTTReady()
+{
+    if (!mysettings.mqtt_enabled)
+    {
+        return false;
+    }
+    if (!wifi_isconnected)
+    {
+        ESP_LOGE(TAG, "MQTT enabled. WIFI not connected");
+        return false;
+    }
+    if (mqttClient_connected == false)
+    {
+        ESP_LOGE(TAG, "MQTT enabled. But not connected");
+        return false;
+    }
+
+    return true;
+}
+
 /// Utility function for publishing an MQTT message.
 ///
 /// @param topic Topic to publish the message to.
@@ -32,6 +52,7 @@ static inline void publish_message(std::string &topic, std::string &payload, boo
         int id = esp_mqtt_client_publish(
             mqtt_client, topic.c_str(), payload.c_str(), payload.length(),
             MQTT_QUALITY_OF_SERVICE, MQTT_RETAIN_MESSAGE);
+
         ESP_LOGD(TAG, "Topic:%s, ID:%d, Length:%i", topic.c_str(), id, payload.length());
         ESP_LOGV(TAG, "Payload:%s", payload.c_str());
     }
@@ -82,15 +103,19 @@ static void mqtt_error_handler(void *, esp_event_base_t, int32_t, void *event_da
 
 void stopMqtt()
 {
-    if (mqtt_client != nullptr)
+    if (mqtt_client != nullptr && mqttClient_connected)
     {
-        ESP_LOGI(TAG, "Stopping MQTT client");
+        // ESP_LOGI(TAG, "Stopping MQTT client");
         mqttClient_connected = false;
 
+        ESP_LOGI(TAG, "esp_mqtt_client_disconnect");
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_disconnect(mqtt_client));
+        /*
+        Comment out to see if this helps with https://github.com/stuartpittaway/diyBMSv4ESP32/issues/225
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_stop(mqtt_client));
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_destroy(mqtt_client));
         mqtt_client = nullptr;
+        */
     }
 }
 
@@ -105,7 +130,7 @@ void connectToMqtt()
 
     if (mysettings.mqtt_enabled)
     {
-        stopMqtt();
+        // stopMqtt();
 
         ESP_LOGI(TAG, "Connect MQTT");
 
@@ -132,10 +157,10 @@ void connectToMqtt()
             ESP_LOGE(TAG, "mqtt_client returned NULL");
         }
     }
-    else
+    /*else
     {
         stopMqtt();
-    }
+    }*/
 }
 
 void GeneralStatusPayload(const PacketRequestGenerator *prg, const PacketReceiveProcessor *receiveProc, uint16_t requestq_count, const Rules *rules)
@@ -173,6 +198,12 @@ void GeneralStatusPayload(const PacketRequestGenerator *prg, const PacketReceive
             .append(",\"dynchargec\":")
             .append(float_to_string(((float)rules->DynamicChargeCurrent()) / 10.0F));
     }
+
+    status.append(",\"chgmode\":")
+        .append(std::to_string((unsigned int)rules->getChargingMode()))
+        .append(",\"chgtimer\":")
+        .append(std::to_string(rules->getChargingTimerSecondsRemaining()));
+
     status.append("}");
 
     std::string topic = mysettings.mqtt_topic;
@@ -325,20 +356,8 @@ void MQTTCellData()
 
 void mqtt1(const currentmonitoring_struct *currentMonitor, const Rules *rules)
 {
-    if (!mysettings.mqtt_enabled)
+    if (!checkMQTTReady())
     {
-        return;
-    }
-
-    if (!wifi_isconnected)
-    {
-        ESP_LOGE(TAG, "MQTT enabled, but WIFI not connected");
-        return;
-    }
-
-    if (mqttClient_connected == false)
-    {
-        ESP_LOGE(TAG, "MQTT enabled, but not connected to broker");
         return;
     }
 
@@ -359,19 +378,8 @@ void mqtt2(const PacketReceiveProcessor *receiveProc,
            uint16_t requestq_count,
            const Rules *rules)
 {
-    if (!mysettings.mqtt_enabled)
+    if (!checkMQTTReady())
     {
-        return;
-    }
-    if (!wifi_isconnected)
-    {
-        ESP_LOGE(TAG, "MQTT enabled, but WIFI not connected");
-        return;
-    }
-
-    if (mqttClient_connected == false)
-    {
-        ESP_LOGE(TAG, "MQTT enabled, but not connected");
         return;
     }
 
@@ -379,23 +387,13 @@ void mqtt2(const PacketReceiveProcessor *receiveProc,
     BankLevelInformation(rules);
 }
 
-
-void mqtt3(const Rules *rules,const RelayState *previousRelayState)
+void mqtt3(const Rules *rules, const RelayState *previousRelayState)
 {
-    if (!mysettings.mqtt_enabled)
+    if (!checkMQTTReady())
     {
         return;
     }
-    if (!wifi_isconnected)
-    {
-        ESP_LOGE(TAG, "MQTT enabled, but WIFI not connected");
-        return;
-    }
-    if (mqttClient_connected == false)
-    {
-        ESP_LOGE(TAG, "MQTT enabled, but not connected");
-        return;
-    }
+
     RuleStatus(rules);
     OutputStatus(previousRelayState);
 }

@@ -15,11 +15,10 @@ SPIClass *HAL_ESP32::VSPI_Ptr() { return &vspi; }
 bool HAL_ESP32::MountSDCard()
 {
     bool result = false;
-    ESP_LOGI(TAG, "Mounting SD card");
     if (GetVSPIMutex())
     {
-        // Initialize SD card
-        if (SD.begin(SDCARD_CHIPSELECT, vspi))
+        // Initialize SD card at 16Mhz SPI
+        if (SD.begin(SDCARD_CHIPSELECT, vspi, 16000000U))
         {
             uint8_t cardType = SD.cardType();
             if (cardType == CARD_NONE)
@@ -28,7 +27,7 @@ bool HAL_ESP32::MountSDCard()
             }
             else
             {
-                ESP_LOGI(TAG, "SD card available");
+                ESP_LOGI(TAG, "SD card mounted, type %i",(int)cardType);
                 result = true;
             }
         }
@@ -37,7 +36,7 @@ bool HAL_ESP32::MountSDCard()
             ESP_LOGE(TAG, "Card mount failed");
         }
         ReleaseVSPIMutex();
-    }
+    } 
     return result;
 }
 
@@ -375,7 +374,7 @@ void HAL_ESP32::ConfigurePins()
     digitalWrite(SDCARD_CHIPSELECT, HIGH);
 
     // Onboard INA229 current monitoring chip
-    pinMode(INA229_INTERRUPT_PIN,INPUT);
+    pinMode(INA229_INTERRUPT_PIN, INPUT);
     pinMode(INA229_CHIPSELECT, OUTPUT);
     digitalWrite(INA229_CHIPSELECT, HIGH);
 

@@ -219,6 +219,8 @@ esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlE
 
 bool SaveWIFIJson()
 {
+    const char *wificonfigfilename = "/diybms/wifi.json";
+
     if (!_sd_card_installed)
     {
         return false;
@@ -229,31 +231,31 @@ bool SaveWIFIJson()
         return false;
     }
 
+    StaticJsonDocument<512> doc;
+
+    JsonObject wifi = doc.createNestedObject("wifi");
+    wifi["ssid"] = _wificonfig.wifi_ssid;
+    wifi["password"] = _wificonfig.wifi_passphrase;
+
+    // Manual IP settings
+    wifi["ip"] = IPAddress(_wificonfig.wifi_ip).toString();
+    wifi["gateway"] = IPAddress(_wificonfig.wifi_gateway).toString();
+    wifi["netmask"] = IPAddress(_wificonfig.wifi_netmask).toString();
+    wifi["dns1"] = IPAddress(_wificonfig.wifi_dns1).toString();
+    wifi["dns2"] = IPAddress(_wificonfig.wifi_dns2).toString();
+    wifi["manualconfig"] = _wificonfig.manualConfig;
+
     if (hal.GetVSPIMutex())
     {
-        const char *wificonfigfilename = "/diybms/wifi.json";
-
         ESP_LOGI(TAG, "Creating folder");
         SD.mkdir("/diybms");
 
         // Get the file
-        ESP_LOGI(TAG, "Generating SD file %s", wificonfigfilename);
-        StaticJsonDocument<512> doc;
-
-        JsonObject wifi = doc.createNestedObject("wifi");
-        wifi["ssid"] = _wificonfig.wifi_ssid;
-        wifi["password"] = _wificonfig.wifi_passphrase;
-
-        wifi["ip"] = IPAddress(_wificonfig.wifi_ip).toString();
-        wifi["gateway"] = IPAddress(_wificonfig.wifi_gateway).toString();
-        wifi["netmask"] = IPAddress(_wificonfig.wifi_netmask).toString();
-        wifi["dns1"] = IPAddress(_wificonfig.wifi_dns1).toString();
-        wifi["dns2"] = IPAddress(_wificonfig.wifi_dns2).toString();
-        wifi["manualconfig"] = _wificonfig.manualConfig;
+        ESP_LOGI(TAG, "Write SD file %s", wificonfigfilename);
 
         if (SD.exists(wificonfigfilename))
         {
-            ESP_LOGI(TAG, "Delete existing file %s", wificonfigfilename);
+            ESP_LOGI(TAG, "Delete existing %s", wificonfigfilename);
             SD.remove(wificonfigfilename);
         }
 
@@ -732,7 +734,7 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
     else
     {
-        //Basic validation for invalid address details
+        // Basic validation for invalid address details
         if ((new_netmask == 0) || (new_gw == 0) || (new_dns1 == 0))
         {
             ESP_LOGE(TAG, "Invalid manual network values - rejected");

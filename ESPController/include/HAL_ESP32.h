@@ -74,9 +74,7 @@ struct TouchScreenValues
     uint16_t Y;
 };
 
-//extern SPIClass vspi;
-
-
+// extern SPIClass vspi;
 
 // Derived classes
 class HAL_ESP32
@@ -122,13 +120,13 @@ public:
         if (xDisplayMutex == NULL)
             return false;
 
-        // Wait 50ms max
-        bool reply = (xSemaphoreTake(xDisplayMutex, pdMS_TO_TICKS(100)) == pdTRUE);
-        if (!reply)
+        // Wait 100ms max
+        if (xSemaphoreTake(xDisplayMutex, pdMS_TO_TICKS(100)) == pdFALSE)
         {
             ESP_LOGE(TAG, "Unable to get Display mutex");
+            return false;
         }
-        return reply;
+        return true;
     }
     bool ReleaseDisplayMutex()
     {
@@ -143,25 +141,25 @@ public:
         if (xVSPIMutex == NULL)
             return false;
 
-        // Wait 25ms max
-        bool reply = (xSemaphoreTake(xVSPIMutex, pdMS_TO_TICKS(100)) == pdTRUE);
-        if (!reply)
+        // Wait 100ms max
+        if (xSemaphoreTake(xVSPIMutex, pdMS_TO_TICKS(100)) == pdFALSE)
         {
             ESP_LOGE(TAG, "Unable to get VSPI mutex");
+            return false;
         }
-        return reply;
+        return true;
     }
     bool ReleaseVSPIMutex()
     {
         if (xVSPIMutex == NULL)
             return false;
 
-        bool reply = (xSemaphoreGive(xVSPIMutex) == pdTRUE);
-        if (!reply)
+        if (xSemaphoreGive(xVSPIMutex) == pdFALSE)
         {
             ESP_LOGE(TAG, "Unable to release VSPI mutex");
+            return false;
         }
-        return reply;
+        return true;
     }
 
     bool Geti2cMutex()
@@ -170,24 +168,24 @@ public:
             return false;
 
         // Wait 100ms max
-        bool reply = (xSemaphoreTake(xi2cMutex, pdMS_TO_TICKS(100)) == pdTRUE);
-        if (!reply)
+        if (xSemaphoreTake(xi2cMutex, pdMS_TO_TICKS(100)) == pdFALSE)
         {
             ESP_LOGE(TAG, "Unable to get I2C mutex");
+            return false;
         }
-        return reply;
+        return true;
     }
     bool Releasei2cMutex()
     {
         if (xi2cMutex == NULL)
             return false;
 
-        bool reply = (xSemaphoreGive(xi2cMutex) == pdTRUE);
-        if (!reply)
+        if (xSemaphoreGive(xi2cMutex) == pdFALSE)
         {
             ESP_LOGE(TAG, "Unable to release I2C mutex");
+            return false;
         }
-        return reply;
+        return true;
     }
 
     bool GetRS485Mutex()
@@ -196,19 +194,24 @@ public:
             return false;
 
         // Wait 100ms max
-        bool reply = (xSemaphoreTake(RS485Mutex, pdMS_TO_TICKS(100)) == pdTRUE);
-        if (!reply)
+        if (xSemaphoreTake(RS485Mutex, pdMS_TO_TICKS(100)) == pdFALSE)
         {
             ESP_LOGE(TAG, "Unable to get RS485 mutex");
+            return false;
         }
-        return reply;
+        return true;
     }
     bool ReleaseRS485Mutex()
     {
         if (RS485Mutex == NULL)
             return false;
 
-        return (xSemaphoreGive(RS485Mutex) == pdTRUE);
+        if (xSemaphoreGive(RS485Mutex) == pdFALSE)
+        {
+            ESP_LOGE(TAG, "Unable to release RS485 mutex");
+            return false;
+        }
+        return true;
     }
 
     // Infinite loop flashing the LED RED/WHITE
