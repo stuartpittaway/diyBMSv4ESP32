@@ -5,6 +5,10 @@ static constexpr const char *const TAG = "diybms-webreq";
 #include "webserver_helper_funcs.h"
 #include "webserver_json_requests.h"
 #include <esp_netif.h>
+extern "C"
+{
+#include "esp_core_dump.h"
+}
 
 esp_err_t content_handler_avrstorage(httpd_req_t *req)
 {
@@ -169,7 +173,6 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
   return bufferused;
 }
 
-
 esp_err_t content_handler_diagnostic(httpd_req_t *req)
 {
   return diagnosticJSON(req, httpbuf, BUFSIZE);
@@ -294,6 +297,56 @@ esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filenam
     ESP_LOGE(TAG, "File not found");
     return ESP_ERR_NOT_FOUND;
   }
+}
+
+esp_err_t content_handler_coredumpdownloadfile(httpd_req_t *req)
+{
+  if (!validateXSS(req))
+  {
+    return ESP_FAIL;
+  }
+
+  ESP_LOGI(TAG, "Download coredump");
+
+  size_t size = 0;
+  size_t address = 0;
+  if (esp_core_dump_image_get(&address, &size) == ESP_OK)
+  {
+    const esp_partition_t *pt = NULL;
+    pt = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_COREDUMP, "coredump");
+
+    if (pt != NULL)
+    {
+
+      httpd_resp_set_type(req, "application/octet-stream");
+      httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"diybms_coredump.esp32\"");
+
+      // Stream it out...
+
+      int16_t toRead;
+      for (int16_t i = 0; i < (size / 256) + 1; i++)
+      {
+        toRead = (size - i * 256) > 256 ? 256 : (size - i * 256);
+
+        esp_err_t er = esp_partition_read(pt, i * 256, httpbuf, toRead);
+        if (er != ESP_OK)
+        {
+          ESP_LOGE(TAG, "Coredump download Fail [%x]\n", er);
+          break;
+        }
+
+        ESP_ERROR_CHECK_WITHOUT_ABORT(httpd_resp_send_chunk(req, httpbuf, 256));
+      }
+
+      //After download, erase the core dump from flash
+      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_core_dump_image_erase());
+
+      // Indicate last chunk (zero byte length)
+      return httpd_resp_send_chunk(req, httpbuf, 0);
+    }
+  }
+
+  return httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Bad request");
 }
 
 esp_err_t content_handler_downloadfile(httpd_req_t *req)
@@ -1207,7 +1260,7 @@ esp_err_t api_handler(httpd_req_t *req)
       "settings", "rules", "rs485settings",
       "currentmonitor", "avrstatus", "modules",
       "identifyModule", "storage", "avrstorage",
-      "chargeconfig", "tileconfig", "history", 
+      "chargeconfig", "tileconfig", "history",
       "diagnostic"};
 
   const std::array<std::function<esp_err_t(httpd_req_t * req)>, 16> func_ptr = {
@@ -1218,8 +1271,8 @@ esp_err_t api_handler(httpd_req_t *req)
       content_handler_chargeconfig, content_handler_tileconfig, content_handler_history,
       content_handler_diagnostic};
 
-  //Ensure arrays are equal length
-  assert(uri_array.size() == func_ptr.size() );
+  // Ensure arrays are equal length
+  assert(uri_array.size() == func_ptr.size());
 
   auto name = std::string(req->uri);
   if (name.rfind("/api/", 0) == 0)

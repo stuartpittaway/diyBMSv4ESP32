@@ -31,7 +31,10 @@ static constexpr const char *const TAG = "diybms";
 #include "esp_partition.h"
 #include "nvs_flash.h"
 #include "nvs.h"
-#include <esp_core_dump.h>
+extern "C"
+{
+#include "esp_core_dump.h"
+}
 
 #include <Arduino.h>
 
@@ -3666,23 +3669,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   esp_core_dump_init();
 
-  if (esp_core_dump_image_check() == ESP_OK)
-  {
-    // A valid core dump is in FLASH storage
-    ESP_LOGW(TAG, "Core dump is present");
-
-    esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
-    if (summary)
-    {
-      if (esp_core_dump_get_summary(summary) == ESP_OK)
-      {
-        // Do stuff
-        ESP_LOGE(TAG, "Core dump in task '%s'", summary->exc_task);
-      }
-    }
-    free(summary);
-  }
-
   BuildHostname();
   hal.ConfigurePins();
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
@@ -3870,6 +3856,66 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   wake_up_tft(true);
 }
 
+/// @brief Convert an ESP32 core dump stored in FLASH to a JSON object fragment
+/// @param doc 
+void ESPCoreDumpToJSON(JsonObject &doc)
+{
+  if (esp_core_dump_image_check() == ESP_OK)
+  {
+    JsonObject core = doc.createNestedObject("coredump");
+    // A valid core dump is in FLASH storage
+
+    esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
+    if (summary)
+    {
+      if (esp_core_dump_get_summary(summary) == ESP_OK)
+      {
+        char outputString[16];
+
+        core["exc_task"] = summary->exc_task;
+        core["app_elf_sha256"] = (char *)summary->app_elf_sha256;
+        core["dumpver"] = summary->core_dump_version;
+
+        ultoa(summary->exc_pc, outputString, 16);
+        core["exc_pc"] = outputString;
+
+        ultoa(summary->exc_tcb, outputString, 16);
+        core["exc_tcb"] = outputString;
+
+        core["bt_corrupted"] = summary->exc_bt_info.corrupted;
+        core["bt_depth"] = summary->exc_bt_info.depth;
+        auto backtrace = core.createNestedArray("backtrace");
+        for (auto value : summary->exc_bt_info.bt)
+        {
+          ultoa(value, outputString, 16);
+          backtrace.add(outputString);
+        }
+
+        ltoa(summary->ex_info.epcx_reg_bits, outputString, 2);
+        core["epcx_reg_bits"] = outputString;
+        ltoa(summary->ex_info.exc_cause, outputString, 16);
+        core["exc_cause"] = outputString;
+        ultoa(summary->ex_info.exc_vaddr, outputString, 16);
+        core["exc_vaddr"] = outputString;
+
+        auto exc_a = core.createNestedArray("exc_a");
+        for (auto value : summary->ex_info.exc_a)
+        {
+          ultoa(value, outputString, 16);
+          exc_a.add(outputString);
+        }
+        auto epcx = core.createNestedArray("epcx");
+        for (auto value : summary->ex_info.epcx)
+        {
+          ultoa(value, outputString, 16);
+          epcx.add(outputString);
+        }
+      }
+    }
+    free(summary);
+  }
+}
+
 /// @brief Generates a JSON document with diagnostic information about the running system
 /// @param req
 /// @param buffer
@@ -3925,28 +3971,7 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
   diag["HeapSize"] = ESP.getHeapSize();
   diag["SdkVersion"] = ESP.getSdkVersion();
 
-  if (esp_core_dump_image_check() == ESP_OK)
-  {
-    JsonObject core = diag.createNestedObject("core");
-    // A valid core dump is in FLASH storage
-
-    esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
-    if (summary)
-    {
-      if (esp_core_dump_get_summary(summary) == ESP_OK)
-      {
-        core["task"]=summary->exc_task;
-        
-        core["dumpver"]=summary->core_dump_version;
-        core["corrupted"]=summary->exc_bt_info.corrupted;
-        core["depth"]=summary->exc_bt_info.depth;
-
-        core["exccause"]=summary->ex_info.exc_cause;
-      }
-    }
-    free(summary);
-  }
-
+  ESPCoreDumpToJSON(diag);
 
   int bufferused = 0;
   bufferused += serializeJson(doc, buffer, bufferLenMax);

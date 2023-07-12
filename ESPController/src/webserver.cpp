@@ -528,6 +528,8 @@ static const httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handle
 static const httpd_uri_t uri_defaulthtm_get = {.uri = "/default.htm", .method = HTTP_GET, .handler = default_htm_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_api_get = {.uri = "/api/*", .method = HTTP_GET, .handler = api_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler = content_handler_downloadfile, .user_ctx = NULL};
+static const httpd_uri_t uri_coredump_get = {.uri = "/coredump", .method = HTTP_GET, .handler = content_handler_coredumpdownloadfile, .user_ctx = NULL};
+
 static const httpd_uri_t uri_save_data_post = {.uri = "/post/*", .method = HTTP_POST, .handler = save_data_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = NULL};
 
@@ -636,6 +638,7 @@ httpd_handle_t start_webserver(void)
     // Web services/API
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_api_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_download_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_coredump_get));
 
     // Post services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_save_data_post));
