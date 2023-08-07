@@ -597,7 +597,7 @@ uint16_t DecimateValue(uint64_t val)
 {
   // decimate result by right shifting 2 places (raw ADC is 14 bits)
   val = val >> 2;
-  // 4096 voltage reference
+  // 4096 or 4500 voltage reference
   val = val * ((uint64_t)DIYBMSREFMILLIVOLT);
   // 4194304 = 2^22 effective resolution bits
   val = val / 4194304UL;
