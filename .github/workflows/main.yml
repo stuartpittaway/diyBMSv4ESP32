@@ -115,7 +115,7 @@ jobs:
     needs: [job_build_modulecode]
     steps:
       - name: Download artifact DIYBMS-Compiled
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: DIYBMS-Compiled
 
