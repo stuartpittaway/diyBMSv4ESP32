@@ -837,7 +837,7 @@ uint16_t DoCellBalancing(const int16_t highestTemp)
   // Setup a timer, to enable this output for a minimum of 1 minute over-run after balance condition is no longer met
   if (range > Cell::getRelayRange() && highestmV > Cell::getRelayMinmV())
   {
-    digitalWrite(HIGH, HIGH);
+    digitalWrite(RELAY, HIGH);
     // This might run into problems if the HAL_GetTick wraps around - approx. every 50 days
     relay_timer = HAL_GetTick() + 60000;
   }
