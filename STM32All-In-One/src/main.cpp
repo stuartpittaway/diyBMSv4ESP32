@@ -31,6 +31,8 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 #include <Arduino.h>
 
+extern "C"{  void SystemClock_Config(void); }
+
 extern "C"
 {
 #include "stm32_flash.h"
@@ -186,40 +188,43 @@ constexpr std::array<uint8_t, 16> CellTable =
         AFE_ECS | ANALOG_CELL15,
         AFE_ECS | ANALOG_CELL16};
 
-extern "C" void SystemClock_Config(void)
+extern "C"
 {
-  RCC_OscInitTypeDef RCC_OscInitStruct = {};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {};
-  RCC_PeriphCLKInitTypeDef PeriphClkInit = {};
-
-  /* Initializes the RCC Oscillators according to the specified parameters in the RCC_OscInitTypeDef structure.  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  void SystemClock_Config(void)
   {
-    Error_Handler();
-  }
+    RCC_OscInitTypeDef RCC_OscInitStruct = {};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {};
+    RCC_PeriphCLKInitTypeDef PeriphClkInit = {};
 
-  /* Initializes the CPU, AHB and APB buses clocks  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSE;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+    /* Initializes the RCC Oscillators according to the specified parameters in the RCC_OscInitTypeDef structure.  */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+      Error_Handler();
+    }
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1;
-  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
-  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
-  {
-    Error_Handler();
-  }
+    /* Initializes the CPU, AHB and APB buses clocks  */
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1;
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSE;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
 
-  /* Enables the Clock Security System */
-  HAL_RCC_EnableCSS();
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+    {
+      Error_Handler();
+    }
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1;
+    PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    /* Enables the Clock Security System */
+    HAL_RCC_EnableCSS();
+  }
 }
 
 uint32_t SPITransfer24(uint8_t byte1, uint8_t byte2, uint8_t byte3)
@@ -324,7 +329,7 @@ uint8_t queryAFE()
 void ADCSampleCellVoltages(uint8_t cellCount, std::array<uint32_t, 16> &rawADC)
 {
   // Scan active cell voltages (starting at highest)
-  for (int8_t cellid = (cellCount-1); cellid >= 0; cellid--)
+  for (int8_t cellid = (cellCount - 1); cellid >= 0; cellid--)
   {
     MAX14921Command(0, CellTable.at(cellid));
     // Delay required for AOUT to settle
@@ -471,11 +476,8 @@ void onPacketReceived()
     PP.clearSettingsHaveChanged();
   }
 }
-
-void setup()
+void configurePins()
 {
-  SystemClock_Config();
-
   // LED
   pinMode(PB7, OUTPUT);
   NotificationLedOn();
@@ -502,12 +504,18 @@ void setup()
   // Track cell voltages (LOW=HOLD SAMPLE)
   digitalWrite(SAMPLE_AFE, HIGH);
 
-  DisableThermistorPower();
-
   // STM32 use 12 bit ADC resolution
   analogReadResolution(12);
   // STM32 default voltage reference (3.3v)
   analogReference(AR_DEFAULT);
+}
+
+void setup()
+{
+  SystemClock_Config();
+
+  configurePins();
+  DisableThermistorPower();
 
   // Check if balance board is fitted? (pin pulled up to 3.3v by daughter board)
   pinMode(BALANCE_DETECT, INPUT_PULLDOWN);
