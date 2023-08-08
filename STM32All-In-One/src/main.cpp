@@ -85,10 +85,7 @@ uint32_t MAX14921Command(uint16_t b1_2, uint8_t b3);
 uint16_t CalculateCellBalanceRequirement(CellData &cd, uint8_t number_of_active_cells);
 
 uint32_t fan_timer = 0;
-
 uint32_t relay_timer = 0;
-
-
 
 /// @brief Global variable to delay balance function on first power up
 uint8_t waitbeforebalance = 20;
@@ -327,7 +324,7 @@ uint8_t queryAFE()
 void ADCSampleCellVoltages(uint8_t cellCount, std::array<uint32_t, 16> &rawADC)
 {
   // Scan active cell voltages (starting at highest)
-  for (int8_t cellid = cellCount; cellid >= 0; cellid--)
+  for (int8_t cellid = (cellCount-1); cellid >= 0; cellid--)
   {
     MAX14921Command(0, CellTable.at(cellid));
     // Delay required for AOUT to settle
@@ -546,7 +543,6 @@ void setup()
   }
 
   ParasiticCapacitanceChargeInjectionErrorCalibration(number_of_active_cells, celldata);
-
   BufferAmplifierOffsetCalibration();
 
   configureModules();
@@ -795,7 +791,7 @@ void CalculateCellVoltageMinMaxAvg(CellData &cd,
   total = 0;
 
   // Determine highest/lowest cell and average voltage
-  for (auto i = 0; i < num_cells; i++)
+  for (uint8_t i = 0; i < num_cells; i++)
   {
     // Get reference to cell object
     const Cell &cell = cd.at(i);
@@ -817,6 +813,8 @@ void CalculateCellVoltageMinMaxAvg(CellData &cd,
 }
 
 /// @brief Determine what (if any) cells need balancing, also controls relay output
+/// @param highestTemp Highest temperature of on-board sensors (balance temperature)
+/// @return bit pattern for which MOSFETs need enabling
 uint16_t DoCellBalancing(const int16_t highestTemp)
 {
 
