@@ -530,7 +530,16 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     {
         // Field not found/invalid, so disable
         mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+        mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
     }
+
+    // Default value
+    mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
+    if (GetKeyValue(httpbuf, "canbusinverter", &temp, urlEncoded))
+    {
+        mysettings.canbusinverter = (CanBusInverter)temp;
+    }
+
     GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded);
     GetKeyValue(httpbuf, "cellminmv", &mysettings.cellminmv, urlEncoded);
     GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded);
@@ -608,6 +617,12 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         canbus_messages_received_error = 0;
         canbus_messages_sent = 0;
         canbus_messages_failed_sent = 0;
+    }
+
+    // Default GENERIC inverter for VICTRON integration
+    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
+    {
+        mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
     }
 
     saveConfiguration();

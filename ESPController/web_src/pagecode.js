@@ -1974,6 +1974,7 @@ $(function () {
             function (data) {
 
                 $("#canbusprotocol").val(data.chargeconfig.canbusprotocol);
+                $("#canbusinverter").val(data.chargeconfig.canbusinverter);                
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
 
                 $("#chargevolt").val((data.chargeconfig.chargevolt / 10.0).toFixed(1));

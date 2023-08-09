@@ -590,6 +590,7 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   JsonObject settings = root.createNestedObject("chargeconfig");
 
   settings["canbusprotocol"] = mysettings.canbusprotocol;
+  settings["canbusinverter"] = mysettings.canbusinverter;
   settings["nominalbatcap"] = mysettings.nominalbatcap;
   settings["chargevolt"] = mysettings.chargevolt;
   settings["chargecurrent"] = mysettings.chargecurrent;

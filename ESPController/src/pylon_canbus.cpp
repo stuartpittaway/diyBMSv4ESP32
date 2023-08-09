@@ -32,24 +32,35 @@ void pylon_message_351()
 
   // If we pass ZERO's to SOFAR inverter it appears to ignore them
   // so send 0.1V and 0.1Amps instead to indicate "stop"
-
-  //  Defaults (do nothing)
-  data.battery_charge_voltage = 1;
-  data.battery_charge_current_limit = 1;
-  data.battery_discharge_current_limit = 1;
   data.battery_discharge_voltage = mysettings.dischargevolt;
+
+  uint16_t default_charge_voltage = 1;         // 0.1V
+  int16_t default_charge_current_limit = 1;    // 0.1A
+  int16_t default_discharge_current_limit = 1; // 0.1A
+
+  if (mysettings.canbusinverter == CanBusInverter::INVERTER_DEYE)
+  {
+    // FOR DEYE INVERTERS APPLY DIFFERENT LOGIC TO PREVENT "W31" ERRORS
+    // ISSUE #216
+    default_charge_voltage = rules.lowestBankVoltage / 100;
+    default_charge_current_limit = 0;
+    default_discharge_current_limit = 0;
+  }
+
+  //  Defaults (tell inverter to do nothing/stop charge/discharge)
+  data.battery_charge_voltage = default_charge_voltage;
+  data.battery_charge_current_limit = default_charge_current_limit;
+  data.battery_discharge_current_limit = default_discharge_current_limit;
 
   if (rules.IsChargeAllowed(&mysettings))
   {
     if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
     {
-      // Balancing is active, so stop charging
-      data.battery_charge_voltage = 1;
-      data.battery_charge_current_limit = 1;
+      // Balancing is active, so stop charging (do nothing here)
     }
     else
     {
-      // Default - normal behaviour
+      // Default - normal behaviour (apply charging voltage and current)
       data.battery_charge_voltage = rules.DynamicChargeVoltage();
       data.battery_charge_current_limit = rules.DynamicChargeCurrent();
     }
@@ -57,6 +68,7 @@ void pylon_message_351()
 
   if (rules.IsDischargeAllowed(&mysettings))
   {
+    // Set discharge current limits in normal operation
     data.battery_discharge_current_limit = mysettings.dischargecurrent;
   }
 
@@ -223,8 +235,8 @@ void pylon_message_35c()
 void pylon_message_35e()
 {
   // Send 8 byte "magic string" PYLON (with 3 trailing spaces)
-  //const char pylon[] = "\x50\x59\x4c\x4f\x4e\x20\x20\x20";
-  uint8_t pylon[]={0x50,0x59,0x4c,0x4f,0x4e,0x20,0x20,0x20};
+  // const char pylon[] = "\x50\x59\x4c\x4f\x4e\x20\x20\x20";
+  uint8_t pylon[] = {0x50, 0x59, 0x4c, 0x4f, 0x4e, 0x20, 0x20, 0x20};
   send_canbus_message(0x35e, (uint8_t *)&pylon, sizeof(pylon) - 1);
 }
 
