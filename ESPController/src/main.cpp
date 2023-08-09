@@ -31,7 +31,10 @@ static constexpr const char *const TAG = "diybms";
 #include "esp_partition.h"
 #include "nvs_flash.h"
 #include "nvs.h"
-#include <esp_core_dump.h>
+extern "C"
+{
+#include "esp_core_dump.h"
+}
 
 #include <Arduino.h>
 
@@ -3666,23 +3669,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   esp_core_dump_init();
 
-  if (esp_core_dump_image_check() == ESP_OK)
-  {
-    // A valid core dump is in FLASH storage
-    ESP_LOGW(TAG, "Core dump is present");
-
-    esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
-    if (summary)
-    {
-      if (esp_core_dump_get_summary(summary) == ESP_OK)
-      {
-        // Do stuff
-        ESP_LOGE(TAG, "Core dump in task '%s'", summary->exc_task);
-      }
-    }
-    free(summary);
-  }
-
   BuildHostname();
   hal.ConfigurePins();
   hal.ConfigureI2C(TCA6408Interrupt, TCA9534AInterrupt, TCA6416AInterrupt);
@@ -3814,7 +3800,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(2), pdFALSE, (void *)3, &tftwakeup);
   assert(tftwake_timer);
 
-  xTaskCreate(voltageandstatussnapshot_task, "snap", 1940, nullptr, 1, &voltageandstatussnapshot_task_handle);
+  xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 0, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 3, &avrprog_task_handle);
 
@@ -3822,15 +3808,15 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(interrupt_task, "int", 2050, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 3800, nullptr, 0, &sdcardlog_task_handle);
   xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 0, &sdcardlog_outputs_task_handle);
-  xTaskCreate(rule_state_change_task, "r_stat", 2950, nullptr, 0, &rule_state_change_task_handle);
+  xTaskCreate(rule_state_change_task, "r_stat", 3000, nullptr, 0, &rule_state_change_task_handle);
 
   xTaskCreate(rs485_tx, "485_TX", 2940, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2940, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
-  xTaskCreate(canbus_tx, "CAN_Tx", 2900, nullptr, 1, &canbus_tx_task_handle);
-  xTaskCreate(canbus_rx, "CAN_Rx", 2900, nullptr, 1, &canbus_rx_task_handle);
-  xTaskCreate(transmit_task, "Tx", 1850, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 2250, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, 1, &canbus_tx_task_handle);
+  xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
+  xTaskCreate(transmit_task, "Tx", 1950, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 2350, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 0, &lazy_task_handle);
 
   // Set relay defaults
@@ -3847,9 +3833,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   SetControllerState(ControllerState::Stabilizing);
 
   // Only run these after we have wifi...
-  xTaskCreate(enqueue_task, "enqueue", 1500, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
-  xTaskCreate(rules_task, "rules", 3200, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
-  xTaskCreate(periodic_task, "period", 2700, nullptr, 0, &periodic_task_handle);
+  xTaskCreate(enqueue_task, "enqueue", 1580, nullptr, configMAX_PRIORITIES / 2, &enqueue_task_handle);
+  xTaskCreate(rules_task, "rules", 3400, nullptr, configMAX_PRIORITIES - 5, &rule_task_handle);
+  xTaskCreate(periodic_task, "period", 2850, nullptr, 0, &periodic_task_handle);
 
   // Start the wifi and connect to access point
   wifi_init_sta();
@@ -3868,6 +3854,66 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   // Force Refresh the TFT display
   wake_up_tft(true);
+}
+
+/// @brief Convert an ESP32 core dump stored in FLASH to a JSON object fragment
+/// @param doc 
+void ESPCoreDumpToJSON(JsonObject &doc)
+{
+  if (esp_core_dump_image_check() == ESP_OK)
+  {
+    JsonObject core = doc.createNestedObject("coredump");
+    // A valid core dump is in FLASH storage
+
+    esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
+    if (summary)
+    {
+      if (esp_core_dump_get_summary(summary) == ESP_OK)
+      {
+        char outputString[16];
+
+        core["exc_task"] = summary->exc_task;
+        core["app_elf_sha256"] = (char *)summary->app_elf_sha256;
+        core["dumpver"] = summary->core_dump_version;
+
+        ultoa(summary->exc_pc, outputString, 16);
+        core["exc_pc"] = outputString;
+
+        ultoa(summary->exc_tcb, outputString, 16);
+        core["exc_tcb"] = outputString;
+
+        core["bt_corrupted"] = summary->exc_bt_info.corrupted;
+        core["bt_depth"] = summary->exc_bt_info.depth;
+        auto backtrace = core.createNestedArray("backtrace");
+        for (auto value : summary->exc_bt_info.bt)
+        {
+          ultoa(value, outputString, 16);
+          backtrace.add(outputString);
+        }
+
+        ltoa(summary->ex_info.epcx_reg_bits, outputString, 2);
+        core["epcx_reg_bits"] = outputString;
+        ltoa(summary->ex_info.exc_cause, outputString, 16);
+        core["exc_cause"] = outputString;
+        ultoa(summary->ex_info.exc_vaddr, outputString, 16);
+        core["exc_vaddr"] = outputString;
+
+        auto exc_a = core.createNestedArray("exc_a");
+        for (auto value : summary->ex_info.exc_a)
+        {
+          ultoa(value, outputString, 16);
+          exc_a.add(outputString);
+        }
+        auto epcx = core.createNestedArray("epcx");
+        for (auto value : summary->ex_info.epcx)
+        {
+          ultoa(value, outputString, 16);
+          epcx.add(outputString);
+        }
+      }
+    }
+    free(summary);
+  }
 }
 
 /// @brief Generates a JSON document with diagnostic information about the running system
@@ -3924,6 +3970,8 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
   diag["MinFreeHeap"] = ESP.getMinFreeHeap();
   diag["HeapSize"] = ESP.getHeapSize();
   diag["SdkVersion"] = ESP.getSdkVersion();
+
+  ESPCoreDumpToJSON(diag);
 
   int bufferused = 0;
   bufferused += serializeJson(doc, buffer, bufferLenMax);

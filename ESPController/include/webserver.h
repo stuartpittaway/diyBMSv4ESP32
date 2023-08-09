@@ -48,5 +48,5 @@ extern currentmonitoring_struct currentMonitor;
 extern void suspendTasksDuringFirmwareUpdate();
 extern void resumeTasksAfterFirmwareUpdateFailure();
 extern void SaveConfiguration(diybms_eeprom_settings *settings);
-
+extern esp_err_t content_handler_coredumpdownloadfile(httpd_req_t *req);
 #endif

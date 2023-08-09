@@ -26,11 +26,9 @@
   <div id="loading">
     <img src="wait.png" width="64" height="64" alt="Please wait" />
   </div>
-
   <div id="myNav" class="overlay">
     <!-- Button to close the overlay navigation -->
     <a id="closebtn" href="#" class="closebtn">&times;</a>
-
     <!-- Overlay content -->
     <div class="overlay-content">
       <a id="settings" href="#settings">Settings</a>
@@ -338,12 +336,23 @@
         Heap size:
         <span id="HeapSize"></span>
       </p>
+      <p id="coredump">
+        Core dump task:
+        <span id="coredumptask"></span>
+        <a href="/coredump" target="_blank">Download</a>
+      </p>
+
+      <p>
+        <pre id="backtrace"></pre>
+      </p>
       <p id="runt">
         Running tasks:
         <span id="NumberRunningTasks"></span>
       </p>
-      
-      <p><table style="width: 100%%;" id="tasks"></table></p>
+
+      <p>
+      <table style="width: 100%%;" id="tasks"></table>
+      </p>
     </div>
 
   </div>

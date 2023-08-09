@@ -1450,6 +1450,43 @@ $(function () {
                     $("#tasks").append("<tr><td>" + index + "</td><td>" + value.name + "</td><td>" + value.hwm + "</td></tr>");
                 });
 
+                if (data.diagnostic.coredump) {
+                    let cd = data.diagnostic.coredump;
+                    $("#coredumptask").html(cd.exc_task + ", cause:0x" + cd.exc_cause);
+                    $("#backtrace").empty();
+                    var text = "Guru Meditation Error:" + cd.exc_task + "\n";
+                    text += "PC: 0x" + cd.exc_pc + "\n";
+
+                    text += "EXC_A: ";
+                    for (let index = 0; index < cd.exc_a.length; index++) {
+                        text += "0x" + cd.exc_a[index] + " ";
+                    }
+                    text += "\n";
+
+                    if (cd.epcx) {
+                        text += "EPCX: ";
+                        for (let index = 0; index < cd.epcx.length; index++) {
+                            text += "0x" + cd.epcx[index] + " ";
+                        }
+                        text += "\n";
+                    }
+
+                    text += "EXCCAUSE: 0x" + cd.exc_cause + "\n";
+                    text += "EXCVADDR: 0x" + cd.exc_vaddr + "\n";
+                    text += "EXCTCB: 0x" + cd.exc_tcb + "\n";
+                    text += "EPCX_REG_BITS: 0x" + cd.epcx_reg_bits + "\n";
+                    text += "DUMPVER: " + cd.dumpver + "\n";
+                    text += "CORRUPTED: " + cd.bt_corrupted + "\n";
+
+                    text += "ELF file SHA256: " + cd.app_elf_sha256 + "\n\nBacktrace: ";
+
+                    for (let index = 0; index < cd.bt_depth; index++) {
+                        text += "0x" + cd.backtrace[index] + ":0x0 ";
+                    }
+
+                    $("#backtrace").text(text);
+                }
+
                 $("#diagnostics").show();
 
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
