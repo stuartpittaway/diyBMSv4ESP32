@@ -338,7 +338,7 @@ esp_err_t content_handler_coredumpdownloadfile(httpd_req_t *req)
         ESP_ERROR_CHECK_WITHOUT_ABORT(httpd_resp_send_chunk(req, httpbuf, 256));
       }
 
-      //After download, erase the core dump from flash
+      // After download, erase the core dump from flash
       ESP_ERROR_CHECK_WITHOUT_ABORT(esp_core_dump_image_erase());
 
       // Indicate last chunk (zero byte length)
@@ -1247,6 +1247,73 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // Indicate last chunk (zero byte length)
   return httpd_resp_send_chunk(req, httpbuf, 0);
+}
+
+/// @brief
+/// @param req Incoming HTTPD request handle
+/// @return Error/success status
+esp_err_t ha_handler(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setNoStoreCacheControl(req);
+
+  ESP_LOGI(TAG, "ha_handler");
+
+  char buffer[128];
+  esp_err_t result = httpd_req_get_hdr_value_str(req, "ApiKey", buffer, sizeof(buffer));
+
+  if (result != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Missing header ApiKey");
+    return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, NULL);
+  }
+   
+  if (strncmp(mysettings.homeassist_apikey, buffer, strlen(mysettings.homeassist_apikey)) != 0)
+  {
+    ESP_LOGE(TAG, "Unauthorized ApiKey=%s", buffer);
+    return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, NULL);
+  }
+
+  int bufferused = 0;
+  const char *nullstring = "null";
+
+  // Output the first batch of settings/parameters/values
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                         R"({"activerules":%u,"chgmode":%u,"lowbankv":%u,"highbankv":%u,"lowcellv":%u,"highcellv":%u,"highextt":%i,"highintt":%i)",
+                         rules.active_rule_count,
+                         (unsigned int)rules.getChargingMode(),
+                         rules.lowestBankVoltage,
+                         rules.highestBankVoltage,
+                         rules.lowestCellVoltage,
+                         rules.highestCellVoltage,
+                         rules.highestExternalTemp,
+                         rules.highestInternalTemp);
+
+  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
+  {
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                           R"(,"c":%.4f,"v":%.4f,"pwr":%.2f,"soc":%.2f)",
+                           currentMonitor.modbus.current,
+                           currentMonitor.modbus.voltage,
+                           currentMonitor.modbus.power,
+                           currentMonitor.stateofcharge);
+  }
+
+  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
+  {
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                           R"(,"dyncv":%u,"dyncc":%u)",
+                           rules.DynamicChargeVoltage(),
+                           rules.DynamicChargeCurrent());
+  }
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                         R"(,"chgallow":%u,"dischgallow":%u)",
+                         rules.IsChargeAllowed(&mysettings) ? 1 : 0,
+                         rules.IsDischargeAllowed(&mysettings) ? 1 : 0);
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "}");
+  return httpd_resp_send(req, httpbuf, bufferused);
 }
 
 esp_err_t api_handler(httpd_req_t *req)

@@ -82,7 +82,7 @@ extern "C"
 #include "history.h"
 
 CurrentMonitorINA229 currentmon_internal = CurrentMonitorINA229();
-
+extern void randomCharacters(char *value, int length);
 const uart_port_t rs485_uart_num = UART_NUM_1;
 
 const char *wificonfigfilename = "/diybms/wifi.json";
@@ -3730,6 +3730,15 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   LoadConfiguration(&mysettings);
   ValidateConfiguration(&mysettings);
 
+  if (strlen(mysettings.homeassist_apikey) == 0)
+  {
+    // Generate new key
+    memset(&mysettings.homeassist_apikey, 0, sizeof(mysettings.homeassist_apikey));
+    randomCharacters(mysettings.homeassist_apikey, sizeof(mysettings.homeassist_apikey) - 1);    
+    saveConfiguration();
+  }
+  ESP_LOGI(TAG, "homeassist_apikey=%s", mysettings.homeassist_apikey);
+
   if (!EepromConfigValid)
   {
     // We don't have a valid WIFI configuration, so force terminal based setup
@@ -3857,7 +3866,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 }
 
 /// @brief Convert an ESP32 core dump stored in FLASH to a JSON object fragment
-/// @param doc 
+/// @param doc
 void ESPCoreDumpToJSON(JsonObject &doc)
 {
   if (esp_core_dump_image_check() == ESP_OK)

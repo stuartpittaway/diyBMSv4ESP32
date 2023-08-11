@@ -245,6 +245,8 @@ struct diybms_eeprom_settings
 
   // Holds a bit pattern indicating which "tiles" are visible on the web gui
   uint16_t tileconfig[5];
+
+  char homeassist_apikey[24+1];
 };
 
 typedef union
