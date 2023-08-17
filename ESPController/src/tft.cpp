@@ -98,7 +98,7 @@ void TFTDrawWifiDetails()
     tft.setTextDatum(TL_DATUM);
 
     int16_t y = tft.height() - fontHeight_2;
-    ;
+
     tft.fillRect(0, y, tft.width(), tft.height() - y, TFT_DARKGREY);
     tft.setTextFont(2);
     tft.setTextColor(TFT_BLACK, TFT_DARKGREY);
@@ -138,19 +138,22 @@ void DrawClock()
 
         // Draw the time in bottom right corner of screen
         int16_t y = tft.height() - fontHeight_2;
-        ;
         int16_t x = tft.width() - 38;
+
+        std::string clock;
+
         if (timeinfo.tm_hour < 10)
         {
-            x += tft.drawString("0", x, y);
+            clock.append("0");
         }
-        x += tft.drawNumber(timeinfo.tm_hour, x, y);
-        x += tft.drawString(":", x, y);
+        clock.append(std::to_string(timeinfo.tm_hour)).append(":");
         if (timeinfo.tm_min < 10)
         {
-            x += tft.drawString("0", x, y);
+            clock.append("0");
         }
-        x += tft.drawNumber(timeinfo.tm_min, x, y);
+        clock.append(std::to_string(timeinfo.tm_min));
+
+        x += tft.drawString(clock.c_str(), x, y);
     }
 }
 
