@@ -34,7 +34,8 @@ enum ScreenTemplateToDisplay : uint8_t
   State = 5,
   AVRProgrammer=6,
   CurrentMonitor=7,
-  SystemInformation=8
+  SoCBarGraph=8,
+  SystemInformation=9
 };
 
 
