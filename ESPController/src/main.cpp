@@ -85,7 +85,7 @@ CurrentMonitorINA229 currentmon_internal = CurrentMonitorINA229();
 
 const uart_port_t rs485_uart_num = UART_NUM_1;
 
-const char *wificonfigfilename = "/diybms/wifi.json";
+const std::string wificonfigfilename("/diybms/wifi.json");
 
 HAL_ESP32 hal;
 
@@ -215,6 +215,17 @@ void LED(uint8_t bits)
     }
 
   } // end for
+}
+
+std::string ip4_to_string(const uint32_t ipaddr)
+{
+  return std::to_string((uint8_t)(ipaddr))
+      .append(".")
+      .append(std::to_string((uint8_t)(ipaddr >> 8)))
+      .append(".")
+      .append(std::to_string((uint8_t)(ipaddr >> 16)))
+      .append(".")
+      .append(std::to_string((uint8_t)(ipaddr >> 24)));
 }
 
 // Sets the RS485 serial parameters after they have been changed
@@ -1648,10 +1659,7 @@ static void event_handler(void *, esp_event_base_t event_base,
 
     startMDNS();
 
-    char buffer[20];
-    snprintf(buffer, sizeof(buffer), IPSTR, IP2STR(&event->ip_info.ip));
-    ip_string.clear();
-    ip_string.append(buffer);
+    ip_string = ip4_to_string(event->ip_info.ip.addr);
 
     wake_up_tft(true);
 
@@ -1664,61 +1672,66 @@ bool LoadWiFiConfig()
   auto reply = LoadWIFI(&_wificonfig);
 
   ESP_LOGI(TAG, "Wifi Config: SSID:%s, Manual Config:%u", _wificonfig.wifi_ssid, _wificonfig.manualConfig);
-  ESP_LOGI(TAG, "Manual IP:%s, Netmask:%s, GW:%s, DNS1:%s, DNS2:%s", IPAddress(_wificonfig.wifi_ip).toString().c_str(), IPAddress(_wificonfig.wifi_netmask).toString().c_str(), IPAddress(_wificonfig.wifi_gateway).toString().c_str(), IPAddress(_wificonfig.wifi_dns1).toString().c_str(), IPAddress(_wificonfig.wifi_dns2).toString().c_str());
+  ESP_LOGI(TAG, "Manual IP:%s, Netmask:%s, GW:%s, DNS1:%s, DNS2:%s",
+           ip4_to_string(_wificonfig.wifi_ip).c_str(),
+           ip4_to_string(_wificonfig.wifi_netmask).c_str(),
+           ip4_to_string(_wificonfig.wifi_gateway).c_str(),
+           ip4_to_string(_wificonfig.wifi_dns1).c_str(),
+           ip4_to_string(_wificonfig.wifi_dns2).c_str());
 
   return reply;
 }
 
-bool SaveWIFIJson(const wifi_eeprom_settings* setting)
+bool SaveWIFIJson(const wifi_eeprom_settings *setting)
 {
-    if (!_sd_card_installed)
-    {
-        return false;
-    }
-
-    if (_avrsettings.programmingModeEnabled)
-    {
-        return false;
-    }
-
-    StaticJsonDocument<512> doc;
-
-    JsonObject wifi = doc.createNestedObject("wifi");
-    wifi["ssid"] = setting->wifi_ssid;
-    wifi["password"] = setting->wifi_passphrase;
-
-    // Manual IP settings
-    wifi["ip"] = IPAddress(setting->wifi_ip).toString();
-    wifi["gateway"] = IPAddress(setting->wifi_gateway).toString();
-    wifi["netmask"] = IPAddress(setting->wifi_netmask).toString();
-    wifi["dns1"] = IPAddress(setting->wifi_dns1).toString();
-    wifi["dns2"] = IPAddress(setting->wifi_dns2).toString();
-    wifi["manualconfig"] = setting->manualConfig;
-
-    if (hal.GetVSPIMutex())
-    {
-        ESP_LOGI(TAG, "Creating folder");
-        SD.mkdir("/diybms");
-
-        // Get the file
-        ESP_LOGI(TAG, "Write SD file %s", wificonfigfilename);
-
-        if (SD.exists(wificonfigfilename))
-        {
-            ESP_LOGI(TAG, "Delete existing %s", wificonfigfilename);
-            SD.remove(wificonfigfilename);
-        }
-
-        File file = SD.open(wificonfigfilename, "w");
-        serializeJson(doc, file);
-        file.close();
-
-        hal.ReleaseVSPIMutex();
-        return true;
-    }
-
+  if (!_sd_card_installed)
+  {
     return false;
-}   
+  }
+
+  if (_avrsettings.programmingModeEnabled)
+  {
+    return false;
+  }
+
+  StaticJsonDocument<512> doc;
+
+  JsonObject wifi = doc.createNestedObject("wifi");
+  wifi["ssid"] = setting->wifi_ssid;
+  wifi["password"] = setting->wifi_passphrase;
+
+  // Manual IP settings
+  wifi["ip"] = ip4_to_string(setting->wifi_ip);
+  wifi["gateway"] = ip4_to_string(setting->wifi_gateway);
+  wifi["netmask"] = ip4_to_string(setting->wifi_netmask);
+  wifi["dns1"] = ip4_to_string(setting->wifi_dns1);
+  wifi["dns2"] = ip4_to_string(setting->wifi_dns2);
+  wifi["manualconfig"] = setting->manualConfig;
+
+  if (hal.GetVSPIMutex())
+  {
+    ESP_LOGI(TAG, "Creating folder");
+    SD.mkdir("/diybms");
+
+    // Get the file
+    ESP_LOGI(TAG, "Write SD file %s", wificonfigfilename.c_str());
+
+    if (SD.exists(wificonfigfilename.c_str()))
+    {
+      ESP_LOGI(TAG, "Delete existing %s", wificonfigfilename.c_str());
+      SD.remove(wificonfigfilename.c_str());
+    }
+
+    File file = SD.open(wificonfigfilename.c_str(), "w");
+    serializeJson(doc, file);
+    file.close();
+
+    hal.ReleaseVSPIMutex();
+    return true;
+  }
+
+  return false;
+}
 
 void BuildHostname()
 {
@@ -3347,14 +3360,14 @@ bool DeleteWiFiConfigFromSDCard()
   bool ret = false;
   if (_sd_card_installed)
   {
-    ESP_LOGI(TAG, "Delete file check %s", wificonfigfilename);
+    ESP_LOGI(TAG, "Delete file check %s", wificonfigfilename.c_str());
 
     if (hal.GetVSPIMutex())
     {
-      if (SD.exists(wificonfigfilename))
+      if (SD.exists(wificonfigfilename.c_str()))
       {
-        ESP_LOGI(TAG, "Deleted %s", wificonfigfilename);
-        ret = SD.remove(wificonfigfilename);
+        ESP_LOGI(TAG, "Deleted %s", wificonfigfilename.c_str());
+        ret = SD.remove(wificonfigfilename.c_str());
       }
 
       hal.ReleaseVSPIMutex();
@@ -3513,15 +3526,15 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
   if (!_sd_card_installed)
     return false;
 
-  ESP_LOGI(TAG, "Checking for %s", wificonfigfilename);
+  ESP_LOGI(TAG, "Checking for %s", wificonfigfilename.c_str());
 
   if (hal.GetVSPIMutex())
   {
-    if (SD.exists(wificonfigfilename))
+    if (SD.exists(wificonfigfilename.c_str()))
     {
-      ESP_LOGD(TAG, "Found file %s", wificonfigfilename);
+      ESP_LOGD(TAG, "Found file %s", wificonfigfilename.c_str());
 
-      File file = SD.open(wificonfigfilename);
+      File file = SD.open(wificonfigfilename.c_str());
       error = deserializeJson(json, file);
       file.close();
     }
@@ -3534,7 +3547,7 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
     return false;
   }
 
-  ESP_LOGD(TAG, "Deserialized %s", wificonfigfilename);
+  ESP_LOGD(TAG, "Deserialized %s", wificonfigfilename.c_str());
 
   JsonObject wifi = json["wifi"];
 
@@ -3549,27 +3562,27 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
   if (wifi.containsKey("ip"))
   {
     // If the "ip" key exists, then it must be the newer format WIFI JSON document
-    IPAddress ip;
+    ip4_addr_t ipadd;
 
-    if (ip.fromString(wifi["ip"].as<String>()))
+    if (ip4addr_aton(wifi["ip"].as<String>().c_str(), &ipadd))
     {
-      _new_config.wifi_ip = ip;
+      _new_config.wifi_ip = ipadd.addr;
     }
-    if (ip.fromString(wifi["gateway"].as<String>()))
+    if (ip4addr_aton(wifi["gateway"].as<String>().c_str(), &ipadd))
     {
-      _new_config.wifi_gateway = ip;
+      _new_config.wifi_gateway = ipadd.addr;
     }
-    if (ip.fromString(wifi["netmask"].as<String>()))
+    if (ip4addr_aton(wifi["netmask"].as<String>().c_str(), &ipadd))
     {
-      _new_config.wifi_netmask = ip;
+      _new_config.wifi_netmask = ipadd.addr;
     }
-    if (ip.fromString(wifi["dns1"].as<String>()))
+    if (ip4addr_aton(wifi["dns1"].as<String>().c_str(), &ipadd))
     {
-      _new_config.wifi_dns1 = ip;
+      _new_config.wifi_dns1 = ipadd.addr;
     }
-    if (ip.fromString(wifi["dns2"].as<String>()))
+    if (ip4addr_aton(wifi["dns2"].as<String>().c_str(), &ipadd))
     {
-      _new_config.wifi_dns2 = ip;
+      _new_config.wifi_dns2 = ipadd.addr;
     }
 
     _new_config.manualConfig = wifi["manualconfig"].as<uint8_t>();
@@ -3917,7 +3930,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 }
 
 /// @brief Convert an ESP32 core dump stored in FLASH to a JSON object fragment
-/// @param doc 
+/// @param doc
 void ESPCoreDumpToJSON(JsonObject &doc)
 {
   if (esp_core_dump_image_check() == ESP_OK)

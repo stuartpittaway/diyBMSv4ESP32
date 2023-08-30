@@ -338,7 +338,7 @@ esp_err_t content_handler_coredumpdownloadfile(httpd_req_t *req)
         ESP_ERROR_CHECK_WITHOUT_ABORT(httpd_resp_send_chunk(req, httpbuf, 256));
       }
 
-      //After download, erase the core dump from flash
+      // After download, erase the core dump from flash
       ESP_ERROR_CHECK_WITHOUT_ABORT(esp_core_dump_image_erase());
 
       // Indicate last chunk (zero byte length)
@@ -743,7 +743,7 @@ esp_err_t content_handler_settings(httpd_req_t *req)
 
   char strftime_buf[64];
   formatCurrentDateTime(strftime_buf, sizeof(strftime_buf));
-  settings["datetime"] = String(strftime_buf);
+  settings["datetime"] = std::string(strftime_buf);
 
   // Return running network settings
   if (tcpip_adapter_is_netif_up(TCPIP_ADAPTER_IF_STA))
@@ -752,12 +752,9 @@ esp_err_t content_handler_settings(httpd_req_t *req)
     // Get actual/running IP networking for STA adapter...
     if (tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ipInfo) == ESP_OK)
     {
-      auto address = IPAddress(ipInfo.ip.addr);
-      settings["run_ip"] = address.toString();
-      address = IPAddress(ipInfo.netmask.addr);
-      settings["run_netmask"] = address.toString();
-      address = IPAddress(ipInfo.gw.addr);
-      settings["run_gw"] = address.toString();
+      settings["run_ip"] = ip4_to_string(ipInfo.ip.addr);
+      settings["run_netmask"] = ip4_to_string(ipInfo.netmask.addr);
+      settings["run_gw"] = ip4_to_string(ipInfo.gw.addr);
     }
 
     tcpip_adapter_dns_info_t dnsInfo = {0};
@@ -766,8 +763,7 @@ esp_err_t content_handler_settings(httpd_req_t *req)
     {
       if (dnsInfo.ip.type == IPADDR_TYPE_V4)
       {
-        auto dns1 = IPAddress(dnsInfo.ip.u_addr.ip4.addr);
-        settings["run_dns1"] = dns1.toString();
+        settings["run_dns1"] = ip4_to_string(dnsInfo.ip.u_addr.ip4.addr);
       }
     }
     // Secondary DNS
@@ -775,21 +771,15 @@ esp_err_t content_handler_settings(httpd_req_t *req)
     {
       if (dnsInfo.ip.type == IPADDR_TYPE_V4)
       {
-        auto dns1 = IPAddress(dnsInfo.ip.u_addr.ip4.addr);
-        settings["run_dns2"] = dns1.toString();
+        settings["run_dns2"] = ip4_to_string(dnsInfo.ip.u_addr.ip4.addr);
       }
     }
 
-    auto address = IPAddress(_wificonfig.wifi_ip);
-    settings["man_ip"] = address.toString();
-    address = IPAddress(_wificonfig.wifi_netmask);
-    settings["man_netmask"] = address.toString();
-    address = IPAddress(_wificonfig.wifi_gateway);
-    settings["man_gw"] = address.toString();
-    address = IPAddress(_wificonfig.wifi_dns1);
-    settings["man_dns1"] = address.toString();
-    address = IPAddress(_wificonfig.wifi_dns2);
-    settings["man_dns2"] = address.toString();
+    settings["man_ip"] = ip4_to_string(_wificonfig.wifi_ip);
+    settings["man_netmask"] = ip4_to_string(_wificonfig.wifi_netmask);
+    settings["man_gw"] = ip4_to_string(_wificonfig.wifi_gateway);
+    settings["man_dns1"] = ip4_to_string(_wificonfig.wifi_dns1);
+    settings["man_dns2"] = ip4_to_string(_wificonfig.wifi_dns2);
   }
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);

@@ -46,6 +46,7 @@ extern void formatCurrentDateTime(char* buf, size_t buf_size);
 extern void setNoStoreCacheControl(httpd_req_t *req);
 extern char CookieValue[20 + 1];
 extern std::string hostname;
+extern std::string ip4_to_string(const uint32_t ipaddr);
 
 extern uint32_t time100;
 extern uint32_t time20;

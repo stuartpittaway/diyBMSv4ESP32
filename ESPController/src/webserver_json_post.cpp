@@ -217,8 +217,6 @@ esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlE
     return SendSuccess(req);
 }
 
-
-
 esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool)
 {
     if (SaveWIFIJson(&_wificonfig))
@@ -642,47 +640,47 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     char buffer[32];
 
-    IPAddress ip;
-
     uint32_t new_ip = 0;
     uint32_t new_netmask = 0;
     uint32_t new_gw = 0;
     uint32_t new_dns1 = 0;
     uint32_t new_dns2 = 0;
 
+    ip4_addr_t ipadd;
+
     if (GetTextFromKeyValue(httpbuf, "new_ip", buffer, sizeof(buffer), urlEncoded))
     {
-        if (ip.fromString(buffer))
+        if (ip4addr_aton(buffer, &ipadd))
         {
-            new_ip = ip;
+            new_ip = ipadd.addr;
         }
     }
     if (GetTextFromKeyValue(httpbuf, "new_netmask", buffer, sizeof(buffer), urlEncoded))
     {
-        if (ip.fromString(buffer))
+        if (ip4addr_aton(buffer, &ipadd))
         {
-            new_netmask = ip;
+            new_netmask = ipadd.addr;
         }
     }
     if (GetTextFromKeyValue(httpbuf, "new_gw", buffer, sizeof(buffer), urlEncoded))
     {
-        if (ip.fromString(buffer))
+        if (ip4addr_aton(buffer, &ipadd))
         {
-            new_gw = ip;
+            new_gw = ipadd.addr;
         }
     }
     if (GetTextFromKeyValue(httpbuf, "new_dns1", buffer, sizeof(buffer), urlEncoded))
     {
-        if (ip.fromString(buffer))
+        if (ip4addr_aton(buffer, &ipadd))
         {
-            new_dns1 = ip;
+            new_dns1 = ipadd.addr;
         }
     }
     if (GetTextFromKeyValue(httpbuf, "new_dns2", buffer, sizeof(buffer), urlEncoded))
     {
-        if (ip.fromString(buffer))
+        if (ip4addr_aton(buffer, &ipadd))
         {
-            new_dns2 = ip;
+            new_dns2 = ipadd.addr;
         }
     }
 
