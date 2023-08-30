@@ -19,13 +19,16 @@ static constexpr const char *const TAG = "diybms-victron";
 // Transmit the DIYBMS hostname via two CAN Messages
 void victron_message_370_371()
 {
-  send_canbus_message(0x370, (uint8_t *)&hostname, 8);
-  send_canbus_message(0x371, (uint8_t *)&hostname[8], 8);
+  char buffer[16+1];
+  strncpy(buffer,hostname.c_str(),sizeof(buffer));
+
+  send_canbus_message(0x370, (const uint8_t *)&buffer[0], 8);
+  send_canbus_message(0x371, (const uint8_t *)&buffer[8], 8);
 }
 
 void victron_message_35e()
 {
-  send_canbus_message(0x35e, (uint8_t *)&hostname, 6);
+  send_canbus_message(0x35e, (const uint8_t*)hostname.c_str(), 6);
 }
 
 void victron_message_35f()

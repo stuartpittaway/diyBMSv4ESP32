@@ -93,8 +93,8 @@ volatile bool emergencyStop = false;
 bool _sd_card_installed = false;
 
 // Used for WIFI hostname and also sent to Victron over CANBUS
-char hostname[16];
-char ip_string[16]; // xxx.xxx.xxx.xxx
+std::string hostname;
+std::string ip_string; // xxx.xxx.xxx.xxx
 
 bool wifi_isconnected = false;
 
@@ -1566,7 +1566,7 @@ static void startMDNS()
   }
   else
   {
-    mdns_hostname_set(hostname);
+    mdns_hostname_set(hostname.c_str());
     mdns_instance_name_set("diybms");
     mdns_service_add(nullptr, "_http", "_tcp", 80, nullptr, 0);
   }
@@ -1648,11 +1648,14 @@ static void event_handler(void *, esp_event_base_t event_base,
 
     startMDNS();
 
-    snprintf(ip_string, sizeof(ip_string), IPSTR, IP2STR(&event->ip_info.ip));
+    char buffer[20];
+    snprintf(buffer, sizeof(buffer), IPSTR, IP2STR(&event->ip_info.ip));
+    ip_string.clear();
+    ip_string.append(buffer);
 
     wake_up_tft(true);
 
-    ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, ip_string);
+    ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname.c_str(), ip_string.c_str());
   }
 }
 
@@ -1666,6 +1669,57 @@ bool LoadWiFiConfig()
   return reply;
 }
 
+bool SaveWIFIJson(const wifi_eeprom_settings* setting)
+{
+    if (!_sd_card_installed)
+    {
+        return false;
+    }
+
+    if (_avrsettings.programmingModeEnabled)
+    {
+        return false;
+    }
+
+    StaticJsonDocument<512> doc;
+
+    JsonObject wifi = doc.createNestedObject("wifi");
+    wifi["ssid"] = setting->wifi_ssid;
+    wifi["password"] = setting->wifi_passphrase;
+
+    // Manual IP settings
+    wifi["ip"] = IPAddress(setting->wifi_ip).toString();
+    wifi["gateway"] = IPAddress(setting->wifi_gateway).toString();
+    wifi["netmask"] = IPAddress(setting->wifi_netmask).toString();
+    wifi["dns1"] = IPAddress(setting->wifi_dns1).toString();
+    wifi["dns2"] = IPAddress(setting->wifi_dns2).toString();
+    wifi["manualconfig"] = setting->manualConfig;
+
+    if (hal.GetVSPIMutex())
+    {
+        ESP_LOGI(TAG, "Creating folder");
+        SD.mkdir("/diybms");
+
+        // Get the file
+        ESP_LOGI(TAG, "Write SD file %s", wificonfigfilename);
+
+        if (SD.exists(wificonfigfilename))
+        {
+            ESP_LOGI(TAG, "Delete existing %s", wificonfigfilename);
+            SD.remove(wificonfigfilename);
+        }
+
+        File file = SD.open(wificonfigfilename, "w");
+        serializeJson(doc, file);
+        file.close();
+
+        hal.ReleaseVSPIMutex();
+        return true;
+    }
+
+    return false;
+}   
+
 void BuildHostname()
 {
   uint32_t chipId = 0;
@@ -1674,8 +1728,11 @@ void BuildHostname()
     chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
   }
   // DIYBMS-00000000
-  memset(&hostname, 0, sizeof(hostname));
-  snprintf(hostname, sizeof(hostname), "DIYBMS-%08X", chipId);
+  char buffer[10];
+  snprintf(buffer, sizeof(buffer), "%08X", chipId);
+
+  hostname.clear();
+  hostname.append("DIYBMS-").append(buffer);
 }
 
 void wifi_init_sta(void)
@@ -1759,10 +1816,10 @@ void wifi_init_sta(void)
   ESP_ERROR_CHECK(esp_wifi_set_rssi_threshold(-80));
   ESP_ERROR_CHECK(esp_wifi_start());
 
-  ESP_ERROR_CHECK_WITHOUT_ABORT(tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname));
-  ESP_ERROR_CHECK_WITHOUT_ABORT(esp_netif_set_hostname(netif, hostname));
+  ESP_ERROR_CHECK_WITHOUT_ABORT(tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname.c_str()));
+  ESP_ERROR_CHECK_WITHOUT_ABORT(esp_netif_set_hostname(netif, hostname.c_str()));
 
-  ESP_LOGI(TAG, "Hostname: %s", hostname);
+  ESP_LOGI(TAG, "Hostname: %s", hostname.c_str());
 
   ESP_LOGD(TAG, "wifi_init_sta finished");
 }
@@ -2570,7 +2627,7 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
 
-void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length)
+void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8_t length)
 {
   twai_message_t message;
   message.identifier = identifier;
@@ -3444,7 +3501,10 @@ bool AreWifiConfigurationsTheSame(const wifi_eeprom_settings *a, const wifi_eepr
 
   return true;
 }
+
 /// @brief CHECK FOR THE PRESENCE OF A wifi.json CONFIG FILE ON THE SD CARD AND AUTOMATICALLY CONFIGURE WIFI
+/// @param existingConfigValid true if the wifi settings in FLASH are valid/correctly stored
+/// @return TRUE if the WIFI config on the card is different, false if identical
 bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
 {
   StaticJsonDocument<2048> json;
@@ -3559,7 +3619,7 @@ const std::array<log_level_t, 21> log_levels =
         log_level_t{.tag = "*", .level = ESP_LOG_DEBUG},
         {.tag = "wifi", .level = ESP_LOG_WARN},
         {.tag = "dhcpc", .level = ESP_LOG_WARN},
-        {.tag = "diybms", .level = ESP_LOG_VERBOSE},
+        {.tag = "diybms", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-avrisp", .level = ESP_LOG_INFO},
         {.tag = "diybms-hal", .level = ESP_LOG_INFO},
         {.tag = "diybms-influxdb", .level = ESP_LOG_INFO},

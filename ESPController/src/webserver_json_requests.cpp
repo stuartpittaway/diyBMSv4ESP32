@@ -733,7 +733,7 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   settings["MinutesTimeZone"] = mysettings.minutesTimeZone;
   settings["DST"] = mysettings.daylight;
 
-  settings["HostName"] = hostname;
+  settings["HostName"] = hostname.c_str();
 
   time_t now;
   if (time(&now))

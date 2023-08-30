@@ -106,9 +106,9 @@ void TFTDrawWifiDetails()
 
     if (wifi_isconnected)
     {
-        x += tft.drawString(hostname, x, y);
+        x += tft.drawString(hostname.c_str(), x, y);
         x += 10;
-        x += tft.drawString(ip_string, x, y);
+        x += tft.drawString(ip_string.c_str(), x, y);
 
         // Draw RSSI on bottom right corner
         // Received Signal Strength in dBm
