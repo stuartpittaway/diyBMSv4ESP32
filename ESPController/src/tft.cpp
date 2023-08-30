@@ -392,6 +392,9 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
         // System Information
         reply = ScreenTemplateToDisplay::SystemInformation;
         break;
+    default:
+        reply = ScreenTemplateToDisplay::None;
+        break;
     }
 
     if (reply != _lastScreenToDisplay)
