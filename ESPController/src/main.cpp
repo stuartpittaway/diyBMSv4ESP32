@@ -3867,7 +3867,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   // High priority task
   xTaskCreate(interrupt_task, "int", 2050, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 3800, nullptr, 0, &sdcardlog_task_handle);
-  xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 0, &sdcardlog_outputs_task_handle);
+  xTaskCreate(sdcardlog_outputs_task, "sdout", 3200, nullptr, 0, &sdcardlog_outputs_task_handle);
   xTaskCreate(rule_state_change_task, "r_stat", 3000, nullptr, 0, &rule_state_change_task_handle);
 
   xTaskCreate(rs485_tx, "485_TX", 2940, nullptr, 1, &rs485_tx_task_handle);
