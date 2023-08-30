@@ -136,7 +136,7 @@ esp_err_t content_handler_rs485settings(httpd_req_t *req)
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
-int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t)
+int fileSystemListDirectory(httpd_req_t *r, char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t)
 {
   // This needs to check for buffer overrun as too many files are likely to exceed the buffer capacity
   int bufferused = 0;
@@ -152,6 +152,7 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
     return 0;
   }
 
+  uint32_t filecounter = 0;
   File file = root.openNextFile();
   while (file)
   {
@@ -162,9 +163,17 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
     else
     {
       bufferused += snprintf(&buffer[bufferused], bufferLen - bufferused, "\"%s\",", file.name());
+      filecounter++;
     }
 
     file = root.openNextFile();
+
+    if (filecounter > 50)
+    {
+      // Flush http buffer every X files to prevent overflows
+      httpd_resp_send_chunk(r, buffer, bufferused);
+      bufferused=0;
+    }
   }
 
   // Trailing null to cope with trailing ','
@@ -234,7 +243,7 @@ esp_err_t content_handler_storage(httpd_req_t *req)
   {
     if (hal.GetVSPIMutex())
     {
-      bufferused += fileSystemListDirectory(&httpbuf[bufferused], BUFSIZE - bufferused, SD, "/", 2);
+      bufferused += fileSystemListDirectory(req, &httpbuf[bufferused], BUFSIZE - bufferused, SD, "/", 2);
       hal.ReleaseVSPIMutex();
     }
   }
@@ -246,7 +255,7 @@ esp_err_t content_handler_storage(httpd_req_t *req)
 
   bufferused = 0;
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"("total":%u,"used":%u,"files":[)", flash_totalkilobytes, flash_usedkilobytes);
-  bufferused += fileSystemListDirectory(&httpbuf[bufferused], BUFSIZE - bufferused, LittleFS, "/", 0);
+  bufferused += fileSystemListDirectory(req, &httpbuf[bufferused], BUFSIZE - bufferused, LittleFS, "/", 0);
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]}}}");
 
   //  Send it...
