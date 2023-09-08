@@ -89,6 +89,13 @@ enum RelayType : uint8_t
   RELAY_PULSE = 0x01
 };
 
+enum CanBusInverter : uint8_t
+{
+  INVERTER_GENERIC = 0x00,
+  INVERTER_DEYE = 0x01
+};
+
+
 enum CanBusProtocolEmulation : uint8_t
 {
   CANBUS_DISABLED = 0x00,
@@ -175,6 +182,7 @@ struct diybms_eeprom_settings
   char language[2 + 1];
 
   CanBusProtocolEmulation canbusprotocol;
+  CanBusInverter canbusinverter;
   uint16_t nominalbatcap;
   // Maximum charge voltage - scale 0.1
   uint16_t chargevolt;
@@ -199,7 +207,7 @@ struct diybms_eeprom_settings
   int8_t chargetemphigh;
   int8_t dischargetemplow;
   int8_t dischargetemphigh;
-  // Stop charging is a module is balancing
+  // Stop charging if any module is in balance mode
   bool stopchargebalance;
   // Override SoC values reported over CANBUS - limited between 20% and 99%
   bool socoverride;

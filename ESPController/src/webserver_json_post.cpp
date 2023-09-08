@@ -217,62 +217,9 @@ esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlE
     return SendSuccess(req);
 }
 
-bool SaveWIFIJson()
-{
-    const char *wificonfigfilename = "/diybms/wifi.json";
-
-    if (!_sd_card_installed)
-    {
-        return false;
-    }
-
-    if (_avrsettings.programmingModeEnabled)
-    {
-        return false;
-    }
-
-    StaticJsonDocument<512> doc;
-
-    JsonObject wifi = doc.createNestedObject("wifi");
-    wifi["ssid"] = _wificonfig.wifi_ssid;
-    wifi["password"] = _wificonfig.wifi_passphrase;
-
-    // Manual IP settings
-    wifi["ip"] = IPAddress(_wificonfig.wifi_ip).toString();
-    wifi["gateway"] = IPAddress(_wificonfig.wifi_gateway).toString();
-    wifi["netmask"] = IPAddress(_wificonfig.wifi_netmask).toString();
-    wifi["dns1"] = IPAddress(_wificonfig.wifi_dns1).toString();
-    wifi["dns2"] = IPAddress(_wificonfig.wifi_dns2).toString();
-    wifi["manualconfig"] = _wificonfig.manualConfig;
-
-    if (hal.GetVSPIMutex())
-    {
-        ESP_LOGI(TAG, "Creating folder");
-        SD.mkdir("/diybms");
-
-        // Get the file
-        ESP_LOGI(TAG, "Write SD file %s", wificonfigfilename);
-
-        if (SD.exists(wificonfigfilename))
-        {
-            ESP_LOGI(TAG, "Delete existing %s", wificonfigfilename);
-            SD.remove(wificonfigfilename);
-        }
-
-        File file = SD.open(wificonfigfilename, "w");
-        serializeJson(doc, file);
-        file.close();
-
-        hal.ReleaseVSPIMutex();
-        return true;
-    }
-
-    return false;
-}
-
 esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool)
 {
-    if (SaveWIFIJson())
+    if (SaveWIFIJson(&_wificonfig))
     {
         return SendSuccess(req);
     }
@@ -530,7 +477,16 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     {
         // Field not found/invalid, so disable
         mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+        mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
     }
+
+    // Default value
+    mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
+    if (GetKeyValue(httpbuf, "canbusinverter", &temp, urlEncoded))
+    {
+        mysettings.canbusinverter = (CanBusInverter)temp;
+    }
+
     GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded);
     GetKeyValue(httpbuf, "cellminmv", &mysettings.cellminmv, urlEncoded);
     GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded);
@@ -610,6 +566,12 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         canbus_messages_failed_sent = 0;
     }
 
+    // Default GENERIC inverter for VICTRON integration
+    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
+    {
+        mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
+    }
+
     saveConfiguration();
 
     return SendSuccess(req);
@@ -678,47 +640,47 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     char buffer[32];
 
-    IPAddress ip;
-
     uint32_t new_ip = 0;
     uint32_t new_netmask = 0;
     uint32_t new_gw = 0;
     uint32_t new_dns1 = 0;
     uint32_t new_dns2 = 0;
 
+    ip4_addr_t ipadd;
+
     if (GetTextFromKeyValue(httpbuf, "new_ip", buffer, sizeof(buffer), urlEncoded))
     {
-        if (ip.fromString(buffer))
+        if (ip4addr_aton(buffer, &ipadd))
         {
-            new_ip = ip;
+            new_ip = ipadd.addr;
         }
     }
     if (GetTextFromKeyValue(httpbuf, "new_netmask", buffer, sizeof(buffer), urlEncoded))
     {
-        if (ip.fromString(buffer))
+        if (ip4addr_aton(buffer, &ipadd))
         {
-            new_netmask = ip;
+            new_netmask = ipadd.addr;
         }
     }
     if (GetTextFromKeyValue(httpbuf, "new_gw", buffer, sizeof(buffer), urlEncoded))
     {
-        if (ip.fromString(buffer))
+        if (ip4addr_aton(buffer, &ipadd))
         {
-            new_gw = ip;
+            new_gw = ipadd.addr;
         }
     }
     if (GetTextFromKeyValue(httpbuf, "new_dns1", buffer, sizeof(buffer), urlEncoded))
     {
-        if (ip.fromString(buffer))
+        if (ip4addr_aton(buffer, &ipadd))
         {
-            new_dns1 = ip;
+            new_dns1 = ipadd.addr;
         }
     }
     if (GetTextFromKeyValue(httpbuf, "new_dns2", buffer, sizeof(buffer), urlEncoded))
     {
-        if (ip.fromString(buffer))
+        if (ip4addr_aton(buffer, &ipadd))
         {
-            new_dns2 = ip;
+            new_dns2 = ipadd.addr;
         }
     }
 
@@ -753,7 +715,7 @@ esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     SaveWIFI(&_wificonfig);
 
     // Attempt to save to SD card - but this may not be installed
-    SaveWIFIJson();
+    SaveWIFIJson(&_wificonfig);
 
     return SendSuccess(req);
 }

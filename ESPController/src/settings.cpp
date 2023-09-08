@@ -40,6 +40,7 @@ static const char influxdb_orgid_JSONKEY[] = "org";
 static const char influxdb_serverurl_JSONKEY[] = "url";
 static const char influxdb_loggingFreqSeconds_JSONKEY[] = "logfreq";
 static const char canbusprotocol_JSONKEY[] = "canbusprotocol";
+static const char canbusinverter_JSONKEY[] = "canbusinverter";
 static const char nominalbatcap_JSONKEY[] = "nominalbatcap";
 static const char chargevolt_JSONKEY[] = "chargevolt";
 static const char chargecurrent_JSONKEY[] = "chargecurrent";
@@ -115,6 +116,7 @@ static const char rs485databits_NVSKEY[] = "485databits";
 static const char rs485parity_NVSKEY[] = "485parity";
 static const char rs485stopbits_NVSKEY[] = "485stopbits";
 static const char canbusprotocol_NVSKEY[] = "canbusprotocol";
+static const char canbusinverter_NVSKEY[] = "canbusinverter";
 static const char nominalbatcap_NVSKEY[] = "nominalbatcap";
 static const char chargevolt_NVSKEY[] = "cha_volt";
 static const char chargecurrent_NVSKEY[] = "cha_current";
@@ -365,6 +367,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE_UINT8(rs485parity);
         MACRO_NVSWRITE_UINT8(rs485stopbits);
         MACRO_NVSWRITE_UINT8(canbusprotocol);
+        MACRO_NVSWRITE_UINT8(canbusinverter);
 
         MACRO_NVSWRITE(currentMonitoring_shuntmv);
         MACRO_NVSWRITE(currentMonitoring_shuntmaxcur);
@@ -504,6 +507,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD_UINT8(rs485parity);
         MACRO_NVSREAD_UINT8(rs485stopbits);
         MACRO_NVSREAD_UINT8(canbusprotocol);
+        MACRO_NVSREAD_UINT8(canbusinverter);
         MACRO_NVSREAD(nominalbatcap);
         MACRO_NVSREAD(chargevolt);
         MACRO_NVSREAD(chargecurrent);
@@ -580,6 +584,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->mqtt_enabled = false;
 
     _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+    _myset->canbusinverter = CanBusInverter::INVERTER_GENERIC;
     _myset->nominalbatcap = 280;    // Scale 1
     _myset->chargevolt = 565;       // Scale 0.1
     _myset->chargecurrent = 650;    // Scale 0.1
@@ -730,7 +735,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 }
 
 /// @brief Save WIFI settings into FLASH NVS
-/// @param wifi 
+/// @param wifi
 void SaveWIFI(const wifi_eeprom_settings *wifi)
 {
     const char *partname = "diybms-wifi";
@@ -1043,6 +1048,7 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     } // end for
 
     root[canbusprotocol_JSONKEY] = (uint8_t)settings->canbusprotocol;
+    root[canbusinverter_JSONKEY] = (uint8_t)settings->canbusinverter;
     root[nominalbatcap_JSONKEY] = settings->nominalbatcap;
 
     root[chargevolt_JSONKEY] = settings->chargevolt;
@@ -1138,6 +1144,7 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     strncpy(settings->language, root[language_JSONKEY].as<String>().c_str(), sizeof(settings->language));
 
     settings->canbusprotocol = (CanBusProtocolEmulation)root[canbusprotocol_JSONKEY];
+    settings->canbusinverter = (CanBusInverter)root[canbusinverter_JSONKEY];
     settings->nominalbatcap = root[nominalbatcap_JSONKEY];
     settings->chargevolt = root[chargevolt_JSONKEY];
     settings->chargecurrent = root[chargecurrent_JSONKEY];

@@ -357,7 +357,7 @@ private:
         }
 
         uint16_t v = -value;
-        ESP_LOGI(TAG, "uint16 v=%u", v);
+        //ESP_LOGI(TAG, "uint16 v=%u", v);
 
         v = v - 1;
         v = ~v;

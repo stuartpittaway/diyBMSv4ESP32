@@ -106,9 +106,9 @@ void TFTDrawWifiDetails()
 
     if (wifi_isconnected)
     {
-        x += tft.drawString(hostname, x, y);
+        x += tft.drawString(hostname.c_str(), x, y);
         x += 10;
-        x += tft.drawString(ip_string, x, y);
+        x += tft.drawString(ip_string.c_str(), x, y);
 
         // Draw RSSI on bottom right corner
         // Received Signal Strength in dBm
@@ -413,6 +413,9 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
         // System Information
         reply = ScreenTemplateToDisplay::SystemInformation;
         break;
+    default:
+        reply = ScreenTemplateToDisplay::None;
+        break;
     }
 
     if (reply != _lastScreenToDisplay)
@@ -609,16 +612,8 @@ void PrepareTFT_SocBarGraph()
 
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
 
-    // The bar graph
-
-    /*
-     int16_t w = tft.width();
-        // Take off the wifi banner height
-        int16_t h = tft.height() - fontHeight_2;
-        int16_t yhalfway = h / 2;
-        int16_t xhalfway = w / 2;
-    */
-    int16_t SoC = currentMonitor.stateofcharge;
+    // The bar graph  
+    int16_t SoC =(int16_t)currentMonitor.stateofcharge;
 
     if (SoC > 100)
     {
@@ -644,6 +639,8 @@ void PrepareTFT_SocBarGraph()
     tft.setTextDatum(TC_DATUM);
     tft.setTextFont(7);
     tft.drawFloat(currentMonitor.stateofcharge, 1, xhalfway, yhalfway + 55);
+
+    TFTDrawWifiDetails();
 }
 
 void DrawTFT_SoCBarGraph()
