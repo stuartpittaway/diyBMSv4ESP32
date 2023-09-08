@@ -54,7 +54,7 @@ const TILE_IDS = [
     ["voltage0", "range0", "voltage1", "range1", "voltage2", "range2", "voltage3", "range3", "voltage4", "range4", "voltage5", "range5", "voltage6", "range6", "voltage7", "range7"],
     ["voltage8", "range8", "voltage9", "range9", "voltage10", "range10", "voltage11", "range11", "voltage12", "range12", "voltage13", "range13", "voltage14", "range14", "voltage15", "range15"],
     ["soc", "current", "shuntv", "power", "amphout", "amphin", "damphout", "damphin", "oos", "badcrc", "ignored", "canfail", "sent", "received", "roundtrip", "uptime"],
-    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", "graphOptions", "time100", "time20", "time10", "celltemp", null, null, null, null, null, null]
+    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", "graphOptions", "time100", "time20", "time10", "celltemp", "canrecerr", "chgmode", null, null, null, null]
 ];
 Object.freeze(TILE_IDS);
 
@@ -239,7 +239,7 @@ function switchPage(newPage) {
 }
 
 function identifyModule(button, cellid) {
-    $.getJSON("/api/identifyModule", { c: cellid }, function (data) { }).fail(function () { $("#iperror").show(); });
+    $.getJSON("/api/identifyModule", { c: cellid }, function (data) { showActionSuccess(); }).fail(function () { $("#iperror").show(); });
 }
 
 function restoreconfig(location, filename) {
@@ -457,6 +457,10 @@ function showFailure() {
 function showSuccess() {
     $.notify($("#savesuccess").text(), { className: 'success' });
 }
+function showActionSuccess() {
+    $.notify($("#actionsuccess").text(), { className: 'success' });
+}
+
 
 function currentmonitorSubmitForm(form) {
     $.ajax({
@@ -562,6 +566,57 @@ function configureModule(button, cellid, attempts) {
                 $('#LoadRes').val(data.settings.LoadRes.toFixed(2));
                 $('#mVPerADC').val(data.settings.mVPerADC.toFixed(2));
 
+                if (data.settings.Prohibited) {
+                    $('#ActualVoltage').attr('disabled', 'disabled');
+                    $('#Calib').attr('disabled', 'disabled');
+                    $('#BypassThresholdmV').attr('disabled', 'disabled');
+                    $('#BypassOverTempShutdown').attr('disabled', 'disabled');
+                    $('#CalculateCalibration').hide();
+                } else {
+                    $('#ActualVoltage').removeAttr('disabled');
+                    $('#Calib').removeAttr('disabled');
+                    $('#BypassThresholdmV').removeAttr('disabled');
+                    $('#BypassOverTempShutdown').removeAttr('disabled');
+                    $('#CalculateCalibration').show();
+                }
+
+                if (data.settings.ver === 490) {
+                    $('#ParasiteVoltage').val(data.settings.Parasite);
+                    $('#FanSwitchOnT').val(data.settings.FanSwitchOnT);
+                    $('#RelayMinV').val(data.settings.RelayMinV);
+                    $('#RelayRange').val(data.settings.RelayRange);
+
+                    $('#RunAwayMinmV').val(data.settings.RunAwayMinmV);
+                    $('#RunAwayDiffmV').val(data.settings.RunAwayDiffmV);
+
+                    $('#v490_1').show();
+                    $('#v490_2').show();
+                    $('#v490_3').show();
+                    $('#v490_4').show();
+
+                    if (data.settings.Prohibited) {
+                        $('#FanSwitchOnT').attr('disabled', 'disabled');
+                        $('#RelayMinV').attr('disabled', 'disabled');
+                        $('#RelayRange').attr('disabled', 'disabled');
+                        $('#RunAwayMinmV').attr('disabled', 'disabled');
+                        $('#RunAwayDiffmV').attr('disabled', 'disabled');
+                    } else {
+                        $('#FanSwitchOnT').removeAttr('disabled');
+                        $('#RelayMinV').removeAttr('disabled');
+                        $('#RelayRange').removeAttr('disabled');
+                        $('#RunAwayMinmV').removeAttr('disabled');
+                        $('#RunAwayDiffmV').removeAttr('disabled');
+                    }
+
+                } else {
+                    $('#v490_1').hide();
+                    $('#v490_2').hide();
+                    $('#v490_3').hide();
+                    $('#v490_4').hide();
+                    $('#v490_5').hide();
+                    $('#v490_6').hide();
+                }
+
                 $("#settingConfig").show();
                 $('#loading').hide();
             } else {
@@ -580,7 +635,13 @@ function configureModule(button, cellid, attempts) {
 }
 
 function secondsToHms(seconds) {
+
     seconds = Number(seconds);
+
+    if (seconds < 0) {
+        return "";
+    }
+
     var d = Math.floor(seconds / (3600 * 24));
     var h = Math.floor(seconds % (3600 * 24) / 3600);
     var m = Math.floor(seconds % 3600 / 60);
@@ -721,19 +782,6 @@ function queryBMS() {
         if (minVoltage < 0) { minVoltage = 0; }
 
         if (jsondata) {
-            /*
-            if (jsondata.badcrc != 0) { $("#badcrc").show(); }
-            if (jsondata.ignored != 0) { $("#ignored").show(); }
-            if (jsondata.sent != 0) { $("#sent").show(); }
-            if (jsondata.received != 0) { $("#received").show(); }
-            if (jsondata.roundtrip != 0) { $("#roundtrip").show(); }
-            if (jsondata.oos != 0) { $("#oos").show(); }
-            if (jsondata.can_fail != 0) { $("#canfail").show(); }
-            if (jsondata.can_sent != 0) { $("#cansent").show(); }
-            if (jsondata.can_rec != 0) { $("#canrecd").show(); }
-            if (jsondata.qlen != 0) { $("#qlen").show(); }
-            */
-
             $("#badcrc .v").html(jsondata.badcrc);
             $("#ignored .v").html(jsondata.ignored);
             $("#sent .v").html(jsondata.sent);
@@ -741,6 +789,7 @@ function queryBMS() {
             $("#roundtrip .v").html(jsondata.roundtrip);
             $("#oos .v").html(jsondata.oos);
             $("#canfail .v").html(jsondata.can_fail);
+            $("#canrecerr .v").html(jsondata.can_r_err);
             $("#cansent .v").html(jsondata.can_sent);
             $("#canrecd .v").html(jsondata.can_rec);
             $("#qlen .v").html(jsondata.qlen);
@@ -761,10 +810,21 @@ function queryBMS() {
             if (jsondata.dyncv) {
                 $("#dyncvolt .v").html(parseFloat(jsondata.dyncv / 10).toFixed(2) + "V");
             } else { $("#dyncvolt .v").html(""); }
+
             if (jsondata.dyncc) {
                 $("#dynccurr .v").html(parseFloat(jsondata.dyncc / 10).toFixed(2) + "A");
             } else { $("#dynccurr .v").html(""); }
 
+
+
+            switch (jsondata.cmode) {
+                case 0: $("#chgmode .v").html("Standard"); break;
+                case 1: $("#chgmode .v").html("Absorb " + secondsToHms(jsondata.ctime)); break;
+                case 2: $("#chgmode .v").html("Float " + secondsToHms(jsondata.ctime)); break;
+                case 3: $("#chgmode .v").html("Dynamic"); break;
+                case 4: $("#chgmode .v").html("Stopped"); break;
+                default: $("#chgmode .v").html("Unknown");
+            }
         }
 
         if (jsondata.bankv) {
@@ -781,14 +841,6 @@ function queryBMS() {
             }
         }
 
-        if (jsondata.sec) {
-            if (!XSS_KEY.endsWith(jsondata.sec)) {
-                if ($("#warningXSS").data("notify") == undefined) {
-                    $("#warningXSS").data("notify", 1);
-                    $.notify($("#warningXSS").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
-                }
-            }
-        }
 
         if (jsondata.current) {
             if (jsondata.current[0] == null) {
@@ -1213,11 +1265,20 @@ function queryBMS() {
 
         loadVisibleTileData();
 
-    }).fail(function () {
-        $("#iperror").show();
-        //Try again in a few seconds (2 seconds if errored)
-        setTimeout(queryBMS, 2000);
-        $("#loading").hide();
+    }).fail(function (jqXHR, textStatus, errorThrown) {
+
+        if (jqXHR.status == 400 && jqXHR.responseJSON.error === "Invalid cookie") {
+            if ($("#warningXSS").data("notify") == undefined) {
+                $("#warningXSS").data("notify", 1);
+                $.notify($("#warningXSS").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
+            }
+        } else {
+            //Other type of error
+            $("#iperror").show();
+            //Try again in a few seconds (2 seconds if errored)
+            setTimeout(queryBMS, 2000);
+            $("#loading").hide();
+        }
         //Dim the main home page graph
         $("#homePage").css({ opacity: 0.1 });
     });
@@ -1233,7 +1294,7 @@ $(function () {
     $("#avrprogconfirm").hide();
     $(".stat").hide();
 
-    if (Graph3DAvailable == true) {
+    if (window.Graph3DAvailable === true) {
         //Re-show this as pagecode would have hidden it
         $("#graphOptions").show();
     }
@@ -1314,6 +1375,11 @@ $(function () {
         switchPage("#homePage");
         g1.resize();
         refreshVisibleTiles();
+
+        if (window.Graph3DAvailable === true) {
+            $('#graphOptions').show();
+        }
+
         return true;
     });
 
@@ -1349,7 +1415,9 @@ $(function () {
                         + "<td>" + data.milliamphour_in[index] + "</td>"
                         + "<td>" + data.milliamphour_out[index] + "</td>"
                         + "<td>" + data.highestBankRange[index] + "</td>"
+                        + "<td>" + data.address_LowCellV[index] + "</td>"
                         + "<td>" + data.lowestCellVoltage[index] + "</td>"
+                        + "<td>" + data.address_HighCellV[index] + "</td>"
                         + "<td>" + data.highestCellVoltage[index] + "</td>"
                         + "<td>" + data.lowestBankVoltage[index] + "</td>"
                         + "<td>" + data.highestBankVoltage[index] + "</td>"
@@ -1366,18 +1434,78 @@ $(function () {
     });
 
 
+    $("#diagbutton").click(function () {
+        $.getJSON("/api/diagnostic",
+            function (data) {
+
+                data.diagnostic.tasks.sort((a, b) => a.hwm - b.hwm);
+
+                $("#MinFreeHeap").html(data.diagnostic.MinFreeHeap);
+                $("#FreeHeap").html(data.diagnostic.FreeHeap);
+                $("#HeapSize").html(data.diagnostic.HeapSize);
+                $("#SdkVersion").html(data.diagnostic.SdkVersion);
+                $("#NumberRunningTasks").html(data.diagnostic.numtasks);
+                $("#tasks").empty();
+                $("#tasks").append("<thead><tr><th>Number</th><th>Name</th><th>Stack High Watermark</th></tr></thead>");
+
+                $.each(data.diagnostic.tasks, function (index, value) {
+                    $("#tasks").append("<tr><td>" + index + "</td><td>" + value.name + "</td><td>" + value.hwm + "</td></tr>");
+                });
+
+                if (data.diagnostic.coredump) {
+                    let cd = data.diagnostic.coredump;
+                    $("#coredumptask").html(cd.exc_task + ", cause:0x" + cd.exc_cause);
+                    $("#backtrace").empty();
+                    var text = "Guru Meditation Error:" + cd.exc_task + "\n";
+                    text += "PC: 0x" + cd.exc_pc + "\n";
+
+                    text += "EXC_A: ";
+                    for (let index = 0; index < cd.exc_a.length; index++) {
+                        text += "0x" + cd.exc_a[index] + " ";
+                    }
+                    text += "\n";
+
+                    if (cd.epcx) {
+                        text += "EPCX: ";
+                        for (let index = 0; index < cd.epcx.length; index++) {
+                            text += "0x" + cd.epcx[index] + " ";
+                        }
+                        text += "\n";
+                    }
+
+                    text += "EXCCAUSE: 0x" + cd.exc_cause + "\n";
+                    text += "EXCVADDR: 0x" + cd.exc_vaddr + "\n";
+                    text += "EXCTCB: 0x" + cd.exc_tcb + "\n";
+                    text += "EPCX_REG_BITS: 0x" + cd.epcx_reg_bits + "\n";
+                    text += "DUMPVER: " + cd.dumpver + "\n";
+                    text += "CORRUPTED: " + cd.bt_corrupted + "\n";
+
+                    text += "ELF file SHA256: " + cd.app_elf_sha256 + "\n\nBacktrace: ";
+
+                    for (let index = 0; index < cd.bt_depth; index++) {
+                        text += "0x" + cd.backtrace[index] + ":0x0 ";
+                    }
+
+                    $("#backtrace").text(text);
+                }
+
+                $("#diagnostics").show();
+
+            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            );
+
+        return true;
+    });
 
     $("#about").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
         switchPage("#aboutPage");
 
+        $("#diagnostics").hide();
+
         $.getJSON("/api/settings",
             function (data) {
-                $("#MinFreeHeap").html(data.settings.MinFreeHeap);
-                $("#FreeHeap").html(data.settings.FreeHeap);
-                $("#HeapSize").html(data.settings.HeapSize);
-                $("#SdkVersion").html(data.settings.SdkVersion);
                 $("#HostName").html("<a href='http://" + data.settings.HostName + "'>" + data.settings.HostName + "</a>");
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
@@ -1448,8 +1576,43 @@ $(function () {
                 }
 
                 $("#interpacketgap").val(data.settings.interpacketgap);
-
                 $("#banksForm").show();
+
+
+
+                if (data.settings.hasOwnProperty("run_ip")) {
+                    $("#run_ip").val(data.settings.run_ip);
+                    $("#run_netmask").val(data.settings.run_netmask);
+                    $("#run_gw").val(data.settings.run_gw);
+                }
+
+                if (data.settings.hasOwnProperty("run_dns1")) {
+                    $("#run_dns1").val(data.settings.run_dns1);
+                }
+                if (data.settings.hasOwnProperty("run_dns2")) {
+                    $("#run_dns2").val(data.settings.run_dns2);
+                }
+                if (data.settings.hasOwnProperty("HostName")) {
+                    $("#run_hostname").val(data.settings.HostName);
+                }
+
+                // Manual IP settings
+                if (data.settings.man_ip === "0.0.0.0") {
+                    $("#new_ip").val(data.settings.run_ip);
+                    $("#new_gw").val(data.settings.run_gw);
+                    $("#new_netmask").val(data.settings.run_netmask);
+                    $("#new_dns1").val(data.settings.run_dns1);
+                    $("#new_dns2").val(data.settings.run_dns2);
+                } else {
+                    $("#new_ip").val(data.settings.man_ip);
+                    $("#new_gw").val(data.settings.man_gw);
+                    $("#new_netmask").val(data.settings.man_netmask);
+                    $("#new_dns1").val(data.settings.man_dns1);
+                    $("#new_dns2").val(data.settings.man_dns2);
+                }
+
+                $("#networkForm").show();
+
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
@@ -1813,6 +1976,7 @@ $(function () {
             function (data) {
 
                 $("#canbusprotocol").val(data.chargeconfig.canbusprotocol);
+                $("#canbusinverter").val(data.chargeconfig.canbusinverter);                
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
 
                 $("#chargevolt").val((data.chargeconfig.chargevolt / 10.0).toFixed(1));
@@ -1834,6 +1998,11 @@ $(function () {
                 $("#chargetemphigh").val(data.chargeconfig.chargetemphigh);
                 $("#dischargetemplow").val(data.chargeconfig.dischargetemplow);
                 $("#dischargetemphigh").val(data.chargeconfig.dischargetemphigh);
+
+                $("#absorptimer").val(data.chargeconfig.absorptimer);
+                $("#floattimer").val(data.chargeconfig.floattimer);
+                $("#socresume").val(data.chargeconfig.socresume);
+                $("#floatvolt").val((data.chargeconfig.floatvolt / 10.0).toFixed(1));
 
 
                 $("#stopchargebalance").prop("checked", data.chargeconfig.stopchargebalance);
@@ -2093,6 +2262,15 @@ $(function () {
     $("#progress").hide();
 
     $("#homePage").show();
+
+    $("#usedhcp").click(function () {
+        $("#new_ip").val("");
+        $("#new_netmask").val("");
+        $("#new_gw").val("");
+        $("#new_dns1").val("");
+        $("#new_dns2").val("");
+        $("#usedhcpsubmit").click();
+    });
 
 
     //Redraw graph if one of the values changes (and focus lost)

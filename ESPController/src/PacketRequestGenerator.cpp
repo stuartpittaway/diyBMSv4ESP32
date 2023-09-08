@@ -36,6 +36,29 @@ bool PacketRequestGenerator::sendSaveGlobalSetting(uint16_t BypassThresholdmV, u
   return false;
 }
 
+bool PacketRequestGenerator::sendSaveAdditionalSetting(uint8_t m, int16_t FanSwitchOnT, uint16_t RelayMinV, uint16_t RelayRange, uint16_t RunAwayCellMinimumVoltagemV, uint16_t RunAwayCellDifferentialmV)
+{
+  PacketStruct _packetbuffer;
+  clearPacket(&_packetbuffer);
+  setPacketAddressModuleRange(&_packetbuffer, m, m);
+  // Command - WriteSettings
+  _packetbuffer.command = COMMAND::WriteAdditionalSettings;
+
+  // Fill packet with 0xFFFF values - module ignores settings with this value
+  setmoduledataFFFF(&_packetbuffer);
+
+  // Force refresh of settings
+  cmi[m].settingsCached = false;
+
+  _packetbuffer.moduledata[0] = (uint16_t)FanSwitchOnT;
+  _packetbuffer.moduledata[1] = RelayMinV;
+  _packetbuffer.moduledata[2] = RelayRange;
+  _packetbuffer.moduledata[3] = 0; //[3] = Parasite voltage (not editable)
+  _packetbuffer.moduledata[4] = RunAwayCellMinimumVoltagemV;
+  _packetbuffer.moduledata[5] = RunAwayCellDifferentialmV;
+
+  return pushPacketToQueue(&_packetbuffer);
+}
 bool PacketRequestGenerator::sendSaveSetting(uint8_t m, uint16_t BypassThresholdmV, uint8_t BypassOverTempShutdown, float Calibration)
 {
   PacketStruct _packetbuffer;
@@ -93,7 +116,10 @@ bool PacketRequestGenerator::sendTimingRequest()
   // Ask all modules to simple pass on a NULL request/packet for timing purposes
   return BuildAndSendRequest(COMMAND::Timing);
 }
-
+bool PacketRequestGenerator::sendGetAdditionalSettingsRequest(uint8_t cellid)
+{
+  return BuildAndSendRequest(COMMAND::ReadAdditionalSettings, cellid, cellid);
+}
 bool PacketRequestGenerator::sendGetSettingsRequest(uint8_t cellid)
 {
   return BuildAndSendRequest(COMMAND::ReadSettings, cellid, cellid);

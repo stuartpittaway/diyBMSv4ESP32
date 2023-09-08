@@ -19,13 +19,16 @@ static constexpr const char *const TAG = "diybms-victron";
 // Transmit the DIYBMS hostname via two CAN Messages
 void victron_message_370_371()
 {
-  send_canbus_message(0x370, (uint8_t *)&hostname, 8);
-  send_canbus_message(0x371, (uint8_t *)&hostname[8], 8);
+  char buffer[16+1];
+  strncpy(buffer,hostname.c_str(),sizeof(buffer));
+
+  send_canbus_message(0x370, (const uint8_t *)&buffer[0], 8);
+  send_canbus_message(0x371, (const uint8_t *)&buffer[8], 8);
 }
 
 void victron_message_35e()
 {
-  send_canbus_message(0x35e, (uint8_t *)&hostname, 6);
+  send_canbus_message(0x35e, (const uint8_t*)hostname.c_str(), 6);
 }
 
 void victron_message_35f()
@@ -282,32 +285,24 @@ void victron_message_35a()
 
   if (_controller_state == ControllerState::Running)
   {
-    /*
-    ESP_LOGI(TAG, "Rule BankOverVoltage=%u, BankUnderVoltage=%u, OverTemp=%u, UnderTemp=%u",
-             rules.rule_outcome[Rule::BankOverVoltage],
-             rules.rule_outcome[Rule::BankUnderVoltage],
-             rules.rule_outcome[Rule::IndividualcellovertemperatureExternal],
-             rules.rule_outcome[Rule::IndividualcellundertemperatureExternal]);
-  */
-
     // BYTE 0
     //(bit 0+1) General alarm (not implemented)
     //(bit 2+3) Battery low voltage alarm
-    data.byte0 |= ((rules.rule_outcome[Rule::BankOverVoltage] | rules.rule_outcome[Rule::CurrentMonitorOverVoltage]) ? BIT23_ALARM : BIT23_OK);
+    data.byte0 |= ((rules.ruleOutcome(Rule::BankOverVoltage) | rules.ruleOutcome(Rule::CurrentMonitorOverVoltage)) ? BIT23_ALARM : BIT23_OK);
     //(bit 4+5) Battery high voltage alarm
-    data.byte0 |= ((rules.rule_outcome[Rule::BankUnderVoltage] | rules.rule_outcome[Rule::CurrentMonitorUnderVoltage]) ? BIT45_ALARM : BIT45_OK);
+    data.byte0 |= ((rules.ruleOutcome(Rule::BankUnderVoltage) | rules.ruleOutcome(Rule::CurrentMonitorUnderVoltage)) ? BIT45_ALARM : BIT45_OK);
 
     //(bit 6+7) Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      data.byte0 |= (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? BIT67_ALARM : BIT67_OK);
+      data.byte0 |= (rules.ruleOutcome(Rule::ModuleOverTemperatureExternal) ? BIT67_ALARM : BIT67_OK);
     }
 
     // BYTE 1
     // 1 (bit 0+1) Battery low temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      data.byte1 |= (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? BIT01_ALARM : BIT01_OK);
+      data.byte1 |= (rules.ruleOutcome(Rule::ModuleUnderTemperatureExternal) ? BIT01_ALARM : BIT01_OK);
     }
     // 1 (bit 2+3) Battery high temperature charge alarm
     // data.byte1 |= BIT23_NOTSUP;
@@ -324,10 +319,8 @@ void victron_message_35a()
   // 2 (bit 4+5) Short circuit Alarm (not implemented)
   // data.byte2 |= BIT45_NOTSUP;
 
-  // ESP_LOGI(TAG, "Rule BMSError=%u, EmergencyStop=%u", rules.rule_outcome[Rule::BMSError], rules.rule_outcome[Rule::EmergencyStop]);
-
   // 2 (bit 6+7) BMS internal alarm
-  data.byte2 |= ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? BIT67_ALARM : BIT67_OK);
+  data.byte2 |= ((rules.ruleOutcome(Rule::BMSError) || rules.ruleOutcome(Rule::EmergencyStop)) ? BIT67_ALARM : BIT67_OK);
 
   // 3 (bit 0+1) Cell imbalance alarm
   // data.byte3 |= BIT01_NOTSUP;
@@ -370,6 +363,9 @@ void victron_message_35a()
   // 7 (bit 2+3) System status (online/offline) [1]
   data.byte7 |= ((_controller_state != ControllerState::Running) ? BIT23_ALARM : BIT23_OK);
   // 7 (rest) Reserved
+
+  // Log out the buffer for debugging
+  ESP_LOG_BUFFER_HEX_LEVEL(TAG, &data, sizeof(data35a), ESP_LOG_DEBUG);
 
   send_canbus_message(0x35a, (uint8_t *)&data, sizeof(data35a));
 }

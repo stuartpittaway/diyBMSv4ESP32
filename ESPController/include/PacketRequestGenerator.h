@@ -35,6 +35,8 @@ public:
   bool sendBadPacketCounterReset();
   bool sendTimingRequest();
   bool sendResetBalanceCurrentCounter();
+  bool sendGetAdditionalSettingsRequest(uint8_t cellid);
+  bool sendSaveAdditionalSetting(uint8_t cellid, int16_t FanSwitchOnT, uint16_t RelayMinV, uint16_t RelayRange, uint16_t RunAwayCellMinimumVoltagemV, uint16_t RunAwayCellDifferentialmV);
 
   uint16_t queueLength()
   {
@@ -54,7 +56,7 @@ public:
   uint32_t packetsGenerated = 0;
 
 private:
-  QueueHandle_t _requestq=nullptr;
+  QueueHandle_t _requestq = nullptr;
   bool pushPacketToQueue(PacketStruct *_packetbuffer, TickType_t ticksToWait);
   bool pushPacketToQueue(PacketStruct *_packetbuffer);
   void setPacketAddress(PacketStruct *_packetbuffer, uint8_t module);
