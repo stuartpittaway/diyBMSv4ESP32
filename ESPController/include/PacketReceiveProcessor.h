@@ -11,8 +11,8 @@ class PacketReceiveProcessor
 public:
   PacketReceiveProcessor() {}
   ~PacketReceiveProcessor() {}
-  bool ProcessReply(PacketStruct *receivebuffer);
-  bool HasCommsTimedOut();
+  bool ProcessReply(const PacketStruct *receivebuffer);
+  bool HasCommsTimedOut()  const;
 
   uint16_t totalCRCErrors = 0;
   uint16_t totalOutofSequenceErrors = 0;
@@ -48,6 +48,7 @@ private:
   void ProcessReplyBalancePower();
   void ProcessReplyReadBalanceCurrentCounter();
   void ProcessReplyReadPacketReceivedCounter();
+  void ProcessReplyAdditionalSettings();
 };
 
 extern TaskHandle_t voltageandstatussnapshot_task_handle;

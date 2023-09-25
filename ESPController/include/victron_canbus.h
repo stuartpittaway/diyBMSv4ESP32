@@ -16,13 +16,13 @@ void victron_message_373();
 void victron_message_35f();
 void victron_message_374_375_376_377();
 
-extern void send_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length);
+extern void send_canbus_message(uint32_t identifier, const uint8_t *buffer,const uint8_t length);
 
 extern uint8_t TotalNumberOfCells();
 extern Rules rules;
 extern currentmonitoring_struct currentMonitor;
 extern diybms_eeprom_settings mysettings;
-extern char hostname[16];
+extern std::string hostname;
 extern ControllerState _controller_state;
 extern uint32_t canbus_messages_failed_sent;
 extern uint32_t canbus_messages_sent;

@@ -15,11 +15,10 @@ SPIClass *HAL_ESP32::VSPI_Ptr() { return &vspi; }
 bool HAL_ESP32::MountSDCard()
 {
     bool result = false;
-    ESP_LOGI(TAG, "Mounting SD card");
     if (GetVSPIMutex())
     {
-        // Initialize SD card
-        if (SD.begin(SDCARD_CHIPSELECT, vspi))
+        // Initialize SD card at 16Mhz SPI
+        if (SD.begin(SDCARD_CHIPSELECT, vspi, 16000000U))
         {
             uint8_t cardType = SD.cardType();
             if (cardType == CARD_NONE)
@@ -28,7 +27,7 @@ bool HAL_ESP32::MountSDCard()
             }
             else
             {
-                ESP_LOGI(TAG, "SD card available");
+                ESP_LOGI(TAG, "SD card mounted, type %i",(int)cardType);
                 result = true;
             }
         }
@@ -54,7 +53,8 @@ void HAL_ESP32::UnmountSDCard()
 bool HAL_ESP32::IsVSPIMutexAvailable()
 {
     if (xVSPIMutex == NULL)
-       return false;
+        return false;
+
     return (uxSemaphoreGetCount(xVSPIMutex) == 1);
 }
 
@@ -63,15 +63,14 @@ bool HAL_ESP32::GetDisplayMutex()
     if (xDisplayMutex == NULL)
         return false;
 
-    // Wait 50ms max
-    bool reply = (xSemaphoreTake(xDisplayMutex, pdMS_TO_TICKS(50)) == pdTRUE);
-    if (!reply)
+    // Wait 100ms max
+    if (xSemaphoreTake(xDisplayMutex, pdMS_TO_TICKS(100)) == pdFALSE)
     {
         ESP_LOGE(TAG, "Unable to get Display mutex");
+        return false;
     }
-    return reply;
+    return true;
 }
-
 bool HAL_ESP32::ReleaseDisplayMutex()
 {
     if (xDisplayMutex == NULL)
@@ -85,26 +84,25 @@ bool HAL_ESP32::GetVSPIMutex()
     if (xVSPIMutex == NULL)
         return false;
 
-    // Wait 25ms max
-    bool reply = (xSemaphoreTake(xVSPIMutex, pdMS_TO_TICKS(25)) == pdTRUE);
-    if (!reply)
+    // Wait 100ms max
+    if (xSemaphoreTake(xVSPIMutex, pdMS_TO_TICKS(100)) == pdFALSE)
     {
         ESP_LOGE(TAG, "Unable to get VSPI mutex");
+        return false;
     }
-    return reply;
+    return true;
 }
-
 bool HAL_ESP32::ReleaseVSPIMutex()
 {
     if (xVSPIMutex == NULL)
         return false;
 
-    bool reply = (xSemaphoreGive(xVSPIMutex) == pdTRUE);
-    if (!reply)
+    if (xSemaphoreGive(xVSPIMutex) == pdFALSE)
     {
         ESP_LOGE(TAG, "Unable to release VSPI mutex");
+        return false;
     }
-    return reply;
+    return true;
 }
 
 bool HAL_ESP32::Geti2cMutex()
@@ -113,25 +111,24 @@ bool HAL_ESP32::Geti2cMutex()
         return false;
 
     // Wait 100ms max
-    bool reply = (xSemaphoreTake(xi2cMutex, pdMS_TO_TICKS(100)) == pdTRUE);
-    if (!reply)
+    if (xSemaphoreTake(xi2cMutex, pdMS_TO_TICKS(100)) == pdFALSE)
     {
         ESP_LOGE(TAG, "Unable to get I2C mutex");
+        return false;
     }
-    return reply;
+    return true;
 }
-
 bool HAL_ESP32::Releasei2cMutex()
 {
     if (xi2cMutex == NULL)
         return false;
 
-    bool reply = (xSemaphoreGive(xi2cMutex) == pdTRUE);
-    if (!reply)
+    if (xSemaphoreGive(xi2cMutex) == pdFALSE)
     {
         ESP_LOGE(TAG, "Unable to release I2C mutex");
+        return false;
     }
-    return reply;
+    return true;
 }
 
 bool HAL_ESP32::GetRS485Mutex()
@@ -140,20 +137,24 @@ bool HAL_ESP32::GetRS485Mutex()
         return false;
 
     // Wait 100ms max
-    bool reply = (xSemaphoreTake(RS485Mutex, pdMS_TO_TICKS(100)) == pdTRUE);
-    if (!reply)
+    if (xSemaphoreTake(RS485Mutex, pdMS_TO_TICKS(100)) == pdFALSE)
     {
         ESP_LOGE(TAG, "Unable to get RS485 mutex");
+        return false;
     }
-    return reply;
+    return true;
 }
-
 bool HAL_ESP32::ReleaseRS485Mutex()
 {
     if (RS485Mutex == NULL)
         return false;
 
-    return (xSemaphoreGive(RS485Mutex) == pdTRUE);
+    if (xSemaphoreGive(RS485Mutex) == pdFALSE)
+    {
+        ESP_LOGE(TAG, "Unable to release RS485 mutex");
+        return false;
+    }
+    return true;
 }
 
 // Infinite loop flashing the LED RED/WHITE
@@ -174,12 +175,10 @@ uint8_t HAL_ESP32::LastTCA6408Value()
 {
     return TCA6408_Input;
 }
-
 uint8_t HAL_ESP32::LastTCA9534APWRValue()
 {
     return TCA9534APWR_Input;
 }
-
 
 uint8_t HAL_ESP32::readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
 {
@@ -505,7 +504,7 @@ void HAL_ESP32::ConfigurePins()
     digitalWrite(SDCARD_CHIPSELECT, HIGH);
 
     // Onboard INA229 current monitoring chip
-    pinMode(INA229_INTERRUPT_PIN,INPUT);
+    pinMode(INA229_INTERRUPT_PIN, INPUT);
     pinMode(INA229_CHIPSELECT, OUTPUT);
     digitalWrite(INA229_CHIPSELECT, HIGH);
 

@@ -286,6 +286,8 @@ bool validateXSS(httpd_req_t *req)
 {
     char requestcookie[sizeof(CookieValue)];
 
+    const char *invalidcookie=R"({"error":"Invalid cookie"})";
+
     size_t cookielength = sizeof(CookieValue);
 
     esp_err_t result = httpd_req_get_cookie_val(req, "DIYBMS", requestcookie, &cookielength);
@@ -302,14 +304,15 @@ bool validateXSS(httpd_req_t *req)
         // Cookie found and returned correctly (not truncated etc)
         ESP_LOGW(TAG, "Incorrect cookie rec %s", requestcookie);
 
-        httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 1");
+
+        httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, invalidcookie);
         return false;
     }
 
     ESP_LOGE(TAG, "httpd_req_get_cookie_val (%s)", esp_err_to_name(result));
 
     // Fail - wrong cookie or not supplied etc.
-    httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Invalid cookie 2");
+    httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, invalidcookie);
     return false;
 }
 

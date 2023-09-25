@@ -59,26 +59,50 @@ enum InternalErrorCode : uint8_t
     ErrorEmergencyStop = 7
 };
 
+enum class ChargingMode : uint8_t
+{
+    standard = 0,
+    absorb = 1,
+    floating = 2,
+    dynamic = 3,
+    stopped = 4
+};
+
 class Rules
 {
 private:
     uint16_t dynamicChargeVoltage;
     uint16_t dynamicChargeCurrent;
 
-    bool SharedChargingDischargingRules(diybms_eeprom_settings *mysettings);
+    bool SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings);
+
+    /// @brief Calculate future time (specified in minutes)
+    /// @param minutes number of minutes to delay for
+    /// @return microseconds "ticks" for esp_timer
+    int64_t FutureTime(uint16_t minutes) const
+    {
+        return esp_timer_get_time() + ((int64_t)minutes * (int64_t)60000000);
+    }
+    ChargingMode chargemode{ChargingMode::standard};
+
+    int64_t ChargingTimer{0};
+    std::array<bool, RELAY_RULES> rule_outcome;
 
 public:
-    bool rule_outcome[RELAY_RULES];
+    static const std::array<std::string, 1 + MAXIMUM_RuleNumber> RuleTextDescription;
+    static const std::array<std::string, 1 + MAXIMUM_InternalWarningCode> InternalWarningCodeDescription;
+    static const std::array<std::string, 1 + MAXIMUM_InternalErrorCode> InternalErrorCodeDescription;
+
     // Number of TRUE values in array rule_outcome
     uint8_t active_rule_count;
 
     // Actual bank voltage reported by the modules (sum of voltage reported by modules) (millivolts)
-    uint32_t bankvoltage[maximum_number_of_banks];
+    std::array<uint32_t, maximum_number_of_banks> bankvoltage;
     // As above, but each voltage reading limited to "cellmaxmv" setting (used for charge voltage calc)
-    uint32_t limitedbankvoltage[maximum_number_of_banks];
+    std::array<uint32_t, maximum_number_of_banks> limitedbankvoltage;
 
-    uint16_t LowestCellVoltageInBank[maximum_number_of_banks];
-    uint16_t HighestCellVoltageInBank[maximum_number_of_banks];
+    std::array<uint16_t, maximum_number_of_banks> LowestCellVoltageInBank;
+    std::array<uint16_t, maximum_number_of_banks> HighestCellVoltageInBank;
 
     // Number of modules who have reported zero volts (bad!)
     uint8_t zeroVoltageModuleCount;
@@ -109,11 +133,57 @@ public:
     int8_t highestInternalTemp;
     int8_t lowestInternalTemp;
 
-    InternalErrorCode ErrorCodes[1 + MAXIMUM_InternalErrorCode];
-    InternalWarningCode WarningCodes[1 + MAXIMUM_InternalWarningCode];
+    std::array<InternalErrorCode, 1 + MAXIMUM_InternalErrorCode> ErrorCodes;
+    std::array<InternalWarningCode, 1 + MAXIMUM_InternalWarningCode> WarningCodes;
+
+    /// @brief Get value of a rule
+    /// @param r Rule to query
+    /// @return True = rule is active
+    bool ruleOutcome(Rule r) const
+    {
+        return rule_outcome.at(r);
+    }
+
+    /// @brief Set a rule status
+    /// @param r Rule to change
+    /// @param value True = rule is active
+    void setRuleStatus(Rule r, bool value)
+    {
+        if (ruleOutcome(r) != value)
+        {
+            rule_outcome.at(r) = value;
+            ESP_LOGI(TAG, "Rule %s state=%u", RuleTextDescription.at(r).c_str(), (uint8_t)value);
+        }
+    }
 
     // True if at least 1 module has an external temp sensor fitted
     bool moduleHasExternalTempSensor;
+
+    int32_t getChargingTimerSecondsRemaining() const
+    {
+        if (ChargingTimer == 0)
+        {
+            return -1;
+        }
+        if (chargemode == ChargingMode::absorb || chargemode == ChargingMode::floating)
+        {
+            // Calculate seconds from microseconds
+            return (int32_t)((ChargingTimer - esp_timer_get_time()) / (int64_t)1E6);
+        }
+        // All other charge modes return zero
+        return 0;
+    }
+    ChargingMode getChargingMode() const
+    {
+        return chargemode;
+    }
+    void setChargingMode(ChargingMode newMode)
+    {
+        if (chargemode == newMode)
+            return;
+        ESP_LOGI(TAG, "Charging mode changed %u", newMode);
+        chargemode = newMode;
+    }
 
     // Number of modules which have not yet reported back to the controller
     uint8_t invalidModuleCount;
@@ -122,38 +192,71 @@ public:
     int8_t numberOfActiveWarnings;
     int8_t numberOfBalancingModules;
 
+    /// @brief Clear all rules (off)
+    void resetAllRules()
+    {
+        for (size_t i = 0; i < MAXIMUM_RuleNumber; i++)
+        {
+            setRuleStatus((Rule)i, false);
+        }
+    }
+
+    /// @brief Check if any rule has been triggered (value of true)
+    /// @return true if any rule is true
+    bool anyRuleTriggered()
+    {
+        for (size_t i = 0; i < MAXIMUM_RuleNumber; i++)
+        {
+            if (ruleOutcome((Rule)i))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void ClearValues();
-    void ProcessCell(uint8_t bank, uint8_t cellNumber, CellModuleInfo *c, uint16_t cellmaxmv);
+    void ProcessCell(uint8_t bank, uint8_t cellNumber, const CellModuleInfo *c, uint16_t cellmaxmv);
     void ProcessBank(uint8_t bank);
     void SetWarning(InternalWarningCode warncode);
+    void CalculateChargingMode(const diybms_eeprom_settings *mysettings, const currentmonitoring_struct *currentMonitor);
 
     void ClearWarnings()
     {
-        memset(&WarningCodes, 0, sizeof(WarningCodes));
+        WarningCodes.fill(InternalWarningCode::NoWarning);
         numberOfActiveWarnings = 0;
     }
 
     void ClearErrors()
     {
-        memset(&ErrorCodes, 0, sizeof(ErrorCodes));
+        ErrorCodes.fill(InternalErrorCode::NoError);
         numberOfActiveErrors = 0;
     }
 
-    void SetError(InternalErrorCode err);
-    uint16_t VoltageRangeInBank(uint8_t bank);
-    void RunRules(
-        int32_t *value,
-        int32_t *hysteresisvalue,
-        bool emergencyStop,
-        uint16_t mins, currentmonitoring_struct *currentMonitor);
+    /// @brief Is the SoC a valid value?
+    /// @return Returns TRUE if the state of charge value can be relied upon (its real)
+    bool IsStateOfChargeValid(const diybms_eeprom_settings *mysettings, const currentmonitoring_struct *currentMonitor) const
+    {
+        return (mysettings->currentMonitoringEnabled &&
+                currentMonitor->validReadings &&
+                (mysettings->currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS || mysettings->currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL));
+    }
 
-    bool IsChargeAllowed(diybms_eeprom_settings *mysettings);
-    bool IsDischargeAllowed(diybms_eeprom_settings *mysettings);
-    void CalculateDynamicChargeVoltage(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
-    void CalculateDynamicChargeCurrent(diybms_eeprom_settings *mysettings, CellModuleInfo *cellarray);
-    uint16_t DynamicChargeVoltage();
-    int16_t DynamicChargeCurrent();
-    uint16_t StateOfChargeWithRulesApplied(diybms_eeprom_settings *mysettings, float realSOC);
+    void SetError(InternalErrorCode err);
+    uint16_t VoltageRangeInBank(uint8_t bank) const;
+    void RunRules(
+        const int32_t *value,
+        const int32_t *hysteresisvalue,
+        bool emergencyStop,
+        uint16_t mins, const currentmonitoring_struct *currentMonitor);
+
+    bool IsChargeAllowed(const diybms_eeprom_settings *mysettings);
+    bool IsDischargeAllowed(const diybms_eeprom_settings *mysettings);
+    void CalculateDynamicChargeVoltage(const diybms_eeprom_settings *mysettings, const CellModuleInfo *cellarray);
+    void CalculateDynamicChargeCurrent(const diybms_eeprom_settings *mysettings);
+    uint16_t DynamicChargeVoltage() const;
+    int16_t DynamicChargeCurrent() const;
+    uint16_t StateOfChargeWithRulesApplied(const diybms_eeprom_settings *mysettings, float realSOC) const;
 };
 
 #endif

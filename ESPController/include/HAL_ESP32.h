@@ -74,9 +74,7 @@ struct TouchScreenValues
     uint16_t Y;
 };
 
-//extern SPIClass vspi;
-
-
+// extern SPIClass vspi;
 
 // Derived classes
 class HAL_ESP32
@@ -109,17 +107,17 @@ public:
     void CANBUSEnable(bool value);
     void ConfigureCAN();
 
-    bool GetDisplayMutex();
-    bool ReleaseDisplayMutex();
-
     bool IsVSPIMutexAvailable();
     bool GetVSPIMutex();
     bool ReleaseVSPIMutex();
 
+    bool GetDisplayMutex();
+    bool ReleaseDisplayMutex();
+
     bool Geti2cMutex();
     bool Releasei2cMutex();
 
-    bool GetRS485Mutex();;
+    bool GetRS485Mutex();
     bool ReleaseRS485Mutex();
 
     // Infinite loop flashing the LED RED/WHITE

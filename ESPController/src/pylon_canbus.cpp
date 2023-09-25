@@ -32,24 +32,35 @@ void pylon_message_351()
 
   // If we pass ZERO's to SOFAR inverter it appears to ignore them
   // so send 0.1V and 0.1Amps instead to indicate "stop"
-
-  //  Defaults (do nothing)
-  data.battery_charge_voltage = 1;
-  data.battery_charge_current_limit = 1;
-  data.battery_discharge_current_limit = 1;
   data.battery_discharge_voltage = mysettings.dischargevolt;
+
+  uint16_t default_charge_voltage = 1;         // 0.1V
+  int16_t default_charge_current_limit = 1;    // 0.1A
+  int16_t default_discharge_current_limit = 1; // 0.1A
+
+  if (mysettings.canbusinverter == CanBusInverter::INVERTER_DEYE)
+  {
+    // FOR DEYE INVERTERS APPLY DIFFERENT LOGIC TO PREVENT "W31" ERRORS
+    // ISSUE #216
+    default_charge_voltage = rules.lowestBankVoltage / 100;
+    default_charge_current_limit = 0;
+    default_discharge_current_limit = 0;
+  }
+
+  //  Defaults (tell inverter to do nothing/stop charge/discharge)
+  data.battery_charge_voltage = default_charge_voltage;
+  data.battery_charge_current_limit = default_charge_current_limit;
+  data.battery_discharge_current_limit = default_discharge_current_limit;
 
   if (rules.IsChargeAllowed(&mysettings))
   {
     if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
     {
-      // Balancing is active, so stop charging
-      data.battery_charge_voltage = 1;
-      data.battery_charge_current_limit = 1;
+      // Balancing is active, so stop charging (do nothing here)
     }
     else
     {
-      // Default - normal behaviour
+      // Default - normal behaviour (apply charging voltage and current)
       data.battery_charge_voltage = rules.DynamicChargeVoltage();
       data.battery_charge_current_limit = rules.DynamicChargeCurrent();
     }
@@ -57,6 +68,7 @@ void pylon_message_351()
 
   if (rules.IsDischargeAllowed(&mysettings))
   {
+    // Set discharge current limits in normal operation
     data.battery_discharge_current_limit = mysettings.dischargecurrent;
   }
 
@@ -118,20 +130,20 @@ void pylon_message_359()
   {
     // bit 0 = unused
     //(bit 1) Battery high voltage alarm
-    data.byte0 |= ((rules.rule_outcome[Rule::BankOverVoltage] | rules.rule_outcome[Rule::CurrentMonitorOverVoltage]) ? B00000010 : 0);
+    data.byte0 |= ((rules.ruleOutcome(Rule::BankOverVoltage) || rules.ruleOutcome(Rule::CurrentMonitorOverVoltage)) ? B00000010 : 0);
 
     //(bit 2) Battery low voltage alarm
-    data.byte0 |= ((rules.rule_outcome[Rule::BankUnderVoltage] | rules.rule_outcome[Rule::CurrentMonitorUnderVoltage]) ? B00000100 : 0);
+    data.byte0 |= ((rules.ruleOutcome(Rule::BankUnderVoltage) || rules.ruleOutcome(Rule::CurrentMonitorUnderVoltage)) ? B00000100 : 0);
 
     //(bit 3) Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      data.byte0 |= (rules.rule_outcome[Rule::ModuleOverTemperatureExternal] ? B00001000 : 0);
+      data.byte0 |= (rules.ruleOutcome(Rule::ModuleOverTemperatureExternal) ? B00001000 : 0);
     }
     // (bit 4) Battery low temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      data.byte0 |= (rules.rule_outcome[Rule::ModuleUnderTemperatureExternal] ? B00010000 : 0);
+      data.byte0 |= (rules.ruleOutcome(Rule::ModuleUnderTemperatureExternal) ? B00010000 : 0);
     }
     // bit 5 = unused
     // bit 6 = unused
@@ -167,7 +179,7 @@ void pylon_message_359()
   }
 
   // byte3,table4, Bit 3 = Internal communication failure
-  data.byte3 |= ((rules.rule_outcome[Rule::BMSError] | rules.rule_outcome[Rule::EmergencyStop]) ? B00001000 : 0);
+  data.byte3 |= ((rules.ruleOutcome(Rule::BMSError) || rules.ruleOutcome(Rule::EmergencyStop)) ? B00001000 : 0);
   data.byte3 |= ((_controller_state != ControllerState::Running) ? B00001000 : 0);
 
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
@@ -195,7 +207,6 @@ void pylon_message_35c()
   struct data35c
   {
     uint8_t byte0;
-    // uint8_t byte1;
   };
 
   data35c data;
@@ -206,7 +217,6 @@ void pylon_message_35c()
   // bit 6 Discharge enable
   // bit 7 Charge enable
   data.byte0 = 0;
-  // data.byte1 = 0;
 
   if (rules.IsChargeAllowed(&mysettings))
   {
@@ -225,7 +235,8 @@ void pylon_message_35c()
 void pylon_message_35e()
 {
   // Send 8 byte "magic string" PYLON (with 3 trailing spaces)
-  const char pylon[] = "\x50\x59\x4c\x4f\x4e\x20\x20\x20";
+  // const char pylon[] = "\x50\x59\x4c\x4f\x4e\x20\x20\x20";
+  uint8_t pylon[] = {0x50, 0x59, 0x4c, 0x4f, 0x4e, 0x20, 0x20, 0x20};
   send_canbus_message(0x35e, (uint8_t *)&pylon, sizeof(pylon) - 1);
 }
 

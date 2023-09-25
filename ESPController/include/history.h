@@ -34,6 +34,9 @@ private:
         int8_t highestExternalTemp;
         int8_t lowestExternalTemp;
 
+        uint8_t address_LowCellVoltage;
+        uint8_t address_HighCellVoltage;
+
         float voltage;
         float current;
         float stateofcharge;
@@ -67,6 +70,8 @@ public:
         ptr->lowestBankVoltage = rules->lowestBankVoltage;
         ptr->highestExternalTemp = rules->highestExternalTemp;
         ptr->lowestExternalTemp = rules->lowestExternalTemp;
+        ptr->address_LowCellVoltage = rules->address_LowestCellVoltage;
+        ptr->address_HighCellVoltage = rules->address_HighestCellVoltage;
 
         if (currentMonitor->validReadings)
         {
@@ -225,6 +230,7 @@ public:
                 bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
             }
         }
+
         // HighestBankRange
         bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"highestBankRange\":[");
         for (uint16_t i = 0; i < size; i++)
@@ -240,6 +246,16 @@ public:
         for (uint16_t i = 0; i < size; i++)
         {
             bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%u", h[i].highestCellVoltage);
+            if (i != (size - 1))
+            {
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
+            }
+        }
+        // Address highestCellVoltage
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"address_HighCellV\":[");
+        for (uint16_t i = 0; i < size; i++)
+        {
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%u", h[i].address_HighCellVoltage);
             if (i != (size - 1))
             {
                 bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
@@ -262,6 +278,17 @@ public:
             }
         }
 
+        // Address highestCellVoltage
+        bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "],\"address_LowCellV\":[");
+        for (uint16_t i = 0; i < size; i++)
+        {
+            bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "%u", h[i].address_LowCellVoltage);
+            if (i != (size - 1))
+            {
+                bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, ",");
+            }
+        }
+
         // Closing tag
         bufferused += snprintf(&buffer[bufferused], bufferLenMax - bufferused, "]}");
 
@@ -269,7 +296,6 @@ public:
         httpd_resp_send_chunk(req, buffer, bufferused);
 
         free(h);
-
 
         // Indicate last chunk (zero byte length)
         return httpd_resp_send_chunk(req, buffer, 0);

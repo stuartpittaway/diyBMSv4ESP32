@@ -27,7 +27,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings);
 void ValidateConfiguration(diybms_eeprom_settings *settings);
 void DefaultConfiguration(diybms_eeprom_settings *settings);
 
-void SaveWIFI(wifi_eeprom_settings *wifi);
+void SaveWIFI(const wifi_eeprom_settings *wifi);
 bool LoadWIFI(wifi_eeprom_settings *wifi);
 
 void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settings *settings);
@@ -41,5 +41,4 @@ void writeSetting(nvs_handle_t handle, const char *key, int8_t value);
 void writeSetting(nvs_handle_t handle, const char *key, const char *value);
 void writeSettingBlob(nvs_handle_t handle, const char *key, const void *value, size_t length);
 
-extern const char *RuleTextDescription[];
 #endif
