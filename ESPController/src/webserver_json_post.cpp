@@ -476,7 +476,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     else
     {
         // Field not found/invalid, so disable
-        mysettings.protocol = ProtocolEmulation::CANBUS_DISABLED;
+        mysettings.protocol = ProtocolEmulation::EMULATION_DISABLED;
         mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
     }
 
@@ -557,7 +557,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     GetKeyValue(httpbuf, "floattimer", &mysettings.floatvoltagetimer, urlEncoded);
     GetKeyValue(httpbuf, "socresume", &mysettings.stateofchargeresumevalue, urlEncoded);
 
-    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    if (mysettings.protocol == ProtocolEmulation::EMULATION_DISABLED)
     {
         // Reset CAN counters if its disabled.
         canbus_messages_received = 0;
@@ -567,7 +567,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
 
     // Default GENERIC inverter for VICTRON integration
-    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
+    if (mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON)
     {
         mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
     }

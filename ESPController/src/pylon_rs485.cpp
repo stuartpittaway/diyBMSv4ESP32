@@ -226,10 +226,10 @@ void PylonRS485::handle_rx() {
                //  - Cell overvoltage (set on Charging page, stops charging)
 
                // Battery high voltage alarm from Current monitor -> stop charging
-               stop_charging |= rules.rule_outcome[Rule::CurrentMonitorOverVoltage];
+               stop_charging |= rules.ruleOutcome(Rule::CurrentMonitorOverVoltage);
 
                // Battery low voltage alarm from Current monitor -> stop discharging
-               stop_discharging |= rules.rule_outcome[Rule::CurrentMonitorUnderVoltage];
+               stop_discharging |= rules.ruleOutcome(Rule::CurrentMonitorUnderVoltage);
 
                // Place bolean flags into byte status field
                flags = 0;
@@ -277,7 +277,7 @@ void PylonRS485::handle_rx() {
          hal.ReleaseRS485Mutex();
          vTaskDelay(pdMS_TO_TICKS(200));
       }
-      
+
    }
 }
 

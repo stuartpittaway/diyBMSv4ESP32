@@ -2785,7 +2785,7 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
 {
   for (;;)
   {
-    while (mysettings.protocol == ProtocolEmulation::CANBUS_DISABLED || mysettings.protocol == ProtocolEmulation::RS485_PYLONTECH)
+    while (mysettings.protocol == ProtocolEmulation::EMULATION_DISABLED || mysettings.protocol == ProtocolEmulation::RS485_PYLONTECH)
     {
       // Canbus is disbled, sleep until this changes....
       vTaskDelay(pdMS_TO_TICKS(2000));
