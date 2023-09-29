@@ -31,7 +31,10 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 #include <Arduino.h>
 
-extern "C"{  void SystemClock_Config(void); }
+extern "C"
+{
+  void SystemClock_Config(void);
+}
 
 extern "C"
 {
@@ -665,10 +668,10 @@ int16_t ReadThermistor(uint32_t pin)
 /// @param cd Cell data array
 void TakeExternalTempMeasurements(CellData &cd)
 {
-  // Set cell 1 and 2 to have these external temperature sensors, cell 0 uses TH3 onboard
-  cd.at(1).setExternalTemperature(ReadThermistor(THERM_J11_T1));
-  cd.at(2).setExternalTemperature(ReadThermistor(THERM_J12_T2));
-  cd.at(3).setExternalTemperature(ReadThermistor(THERM_J13_T3));
+  // Set cell 0/1/2 to map to external temperature sensors (socket on pcb)
+  cd.at(0).setExternalTemperature(ReadThermistor(THERM_J11_T1));
+  cd.at(1).setExternalTemperature(ReadThermistor(THERM_J12_T2));
+  cd.at(2).setExternalTemperature(ReadThermistor(THERM_J13_T3));
 }
 
 void EnableThermistorPower()
@@ -680,7 +683,7 @@ void DisableThermistorPower()
 {
   digitalWrite(THERM_ENABLE, HIGH);
 }
-/// @brief Read onboard-TH1 sensor
+/// @brief Read onboard thermistor sensor connected to the MCP33151
 /// @return Celcius temperature reading
 int16_t ReadTH()
 {
@@ -694,25 +697,29 @@ int16_t ReadTH()
 /// @param cd Cell Data array
 void TakeOnboardInternalTempMeasurements(CellData &cd)
 {
-  // internal temperature sensors (on board)
-  // Read temperature sensors
-  MAX14921Command(cell_balancing, ANALOG_BUFFERED_T1);
-  auto t1 = ReadTH();
-  MAX14921Command(cell_balancing, ANALOG_BUFFERED_T2);
-  auto t2 = ReadTH();
+  // internal temperature sensors on balance board
+  if (PP.BalanceBoardInstalled)
+  {
+    // Read temperature sensors
+    MAX14921Command(cell_balancing, ANALOG_BUFFERED_T1);
+    auto t1 = ReadTH();
+    MAX14921Command(cell_balancing, ANALOG_BUFFERED_T2);
+    auto t2 = ReadTH();
+
+    // Spread the two internal temperature sensor values across all 16 cells (even though some may not be connected)
+    // Odd cells are on the left of the balance board, near TH1/T1, even on right side TH2/T2
+    for (size_t i = 0; i < 16; i += 2)
+    {
+      cd.at(i).setInternalTemperature(t1);
+      cd.at(i + 1).setInternalTemperature(t2);
+    }
+  }
+
   MAX14921Command(cell_balancing, ANALOG_BUFFERED_T3);
   auto t3 = ReadTH();
 
-  // Cell 0 external temperature is the on-board sensor (marked TH6)
-  cd.at(0).setExternalTemperature(t3);
-
-  // Spread the two internal temperature sensor values across all 16 cells (even though some may not be connected)
-  // Odd cells are on the left of the balance board, near TH1/T1, even on right side TH2/T2
-  for (size_t i = 0; i < 16; i += 2)
-  {
-    cd.at(i).setInternalTemperature(t1);
-    cd.at(i + 1).setInternalTemperature(t2);
-  }
+  // Cell 0 internal temperature is the on-board (PCB) sensor (marked TH6)
+  cd.at(0).setInternalTemperature(t3);
 }
 
 [[noreturn]] void ErrorFlashes(int number)
