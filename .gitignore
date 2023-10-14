@@ -55,3 +55,4 @@ dkms.conf
 *.log
 ESPController/compile_commands.json
 ATTINYCellModule/compile_commands.json
+STM32All-In-One/compile_commands.json
