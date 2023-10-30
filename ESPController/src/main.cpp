@@ -3860,7 +3860,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   assert(tftwake_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
-  xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 0, &updatetftdisplay_task_handle);
+  // Increased tftupd from 2000 to 2450 due to strange bug on rev3 ESP32 chips
+  xTaskCreate(updatetftdisplay_task, "tftupd", 2450, nullptr, 0, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 3, &avrprog_task_handle);
 
   // High priority task
