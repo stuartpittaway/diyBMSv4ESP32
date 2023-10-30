@@ -930,46 +930,32 @@ const char *packetType(uint8_t cmd)
   {
   case COMMAND::ResetBadPacketCounter:
     return "ResetC";
-    break;
   case COMMAND::ReadVoltageAndStatus:
     return "RdVolt";
-    break;
   case COMMAND::Identify:
     return "Ident";
-    break;
   case COMMAND::ReadTemperature:
     return "RdTemp";
-    break;
   case COMMAND::ReadBadPacketCounter:
     return "RdBadPkC";
-    break;
   case COMMAND::ReadSettings:
     return "RdSettin";
-    break;
   case COMMAND::WriteSettings:
     return "WriteSet";
-    break;
   case COMMAND::ReadBalancePowerPWM:
     return "RdBalanc";
-    break;
   case COMMAND::Timing:
     return "Timing";
-    break;
   case COMMAND::ReadBalanceCurrentCounter:
     return "Current";
-    break;
   case COMMAND::ReadPacketReceivedCounter:
     return "PktRvd";
-    break;
   case COMMAND::ResetBalanceCurrentCounter:
     return "ResBal";
-    break;
   case COMMAND::ReadAdditionalSettings:
     return "RdAddt";
-    break;
   case COMMAND::WriteAdditionalSettings:
     return "WrAddt";
-    break;
   default:
     return " ??????   ";
   }
@@ -1837,14 +1823,14 @@ void wifi_init_sta(void)
   ESP_LOGD(TAG, "wifi_init_sta finished");
 }
 
-uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
+uint16_t calculateCRC(const uint8_t *f, uint8_t bufferSize)
 {
   uint16_t flag;
   uint16_t temp;
   temp = 0xFFFF;
   for (unsigned char i = 0; i < bufferSize; i++)
   {
-    temp = temp ^ frame[i];
+    temp = temp ^ f[i];
     for (unsigned char j = 1; j <= 8; j++)
     {
       flag = temp & 0x0001;
