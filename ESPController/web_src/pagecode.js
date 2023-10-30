@@ -1740,6 +1740,12 @@ $(function () {
                 $("#mqttUsername").val(data.mqtt.username);
                 $("#mqttPassword").val("");
 
+                $("#mqttConnected").val(data.mqtt.connected);
+                $("#mqttErrConnCount").val(data.mqtt.err_conn_count);
+                $("#mqttErrTransCount").val(data.mqtt.err_trans_count);
+                $("#mqttConnCount").val(data.mqtt.conn_count);
+                $("#mqttDiscCount").val(data.mqtt.disc_count);
+
                 $("#influxEnabled").prop("checked", data.influxdb.enabled);
                 $("#influxUrl").val(data.influxdb.url);
                 $("#influxDatabase").val(data.influxdb.bucket);
@@ -1976,7 +1982,7 @@ $(function () {
             function (data) {
 
                 $("#canbusprotocol").val(data.chargeconfig.canbusprotocol);
-                $("#canbusinverter").val(data.chargeconfig.canbusinverter);                
+                $("#canbusinverter").val(data.chargeconfig.canbusinverter);
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
 
                 $("#chargevolt").val((data.chargeconfig.chargevolt / 10.0).toFixed(1));

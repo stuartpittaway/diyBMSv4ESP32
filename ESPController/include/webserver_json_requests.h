@@ -42,7 +42,7 @@ extern uint32_t canbus_messages_received_error;
 
 extern Rules rules;
 extern ControllerState _controller_state;
-extern void formatCurrentDateTime(char* buf, size_t buf_size);
+extern void formatCurrentDateTime(char *buf, size_t buf_size);
 extern void setNoStoreCacheControl(httpd_req_t *req);
 extern char CookieValue[20 + 1];
 extern std::string hostname;
@@ -56,4 +56,11 @@ extern CurrentMonitorINA229 currentmon_internal;
 extern History history;
 extern wifi_eeprom_settings _wificonfig;
 extern esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax);
+
+extern bool mqttClient_connected;
+extern uint16_t mqtt_error_connection_count;
+extern uint16_t mqtt_error_transport_count;
+extern uint16_t mqtt_connection_count;
+extern uint16_t mqtt_disconnection_count;
+
 #endif

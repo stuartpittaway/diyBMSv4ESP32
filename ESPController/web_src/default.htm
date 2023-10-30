@@ -343,7 +343,7 @@
       </p>
 
       <p>
-        <pre id="backtrace"></pre>
+      <pre id="backtrace"></pre>
       </p>
       <p id="runt">
         Running tasks:
@@ -517,6 +517,28 @@
               maxlength="32" />
           </div>
           <button type="submit">Save MQTT settings</button>
+
+
+          <div>
+            <label for="mqttConnected">Connected</label>
+            <input type="input" name="mqttConnected" id="mqttConnected" value="" readonly="" />
+          </div>
+          <div>
+            <label for="mqttErrConnCount">Connection errors (count)</label>
+            <input type="input" name="mqttErrConnCount" id="mqttErrConnCount" value="" readonly="" />
+          </div>
+          <div>
+            <label for="mqttErrTransCount">Transport errors (count)</label>
+            <input type="input" name="mqttErrTransCount" id="mqttErrTransCount" value="" readonly="" />
+          </div>
+          <div>
+            <label for="mqttConnCount">Count of connections</label>
+            <input type="input" name="mqttConnCount" id="mqttConnCount" value="" readonly="" />
+          </div>
+          <div>
+            <label for="mqttDiscCount">Count of disconnections</label>
+            <input type="input" name="mqttDiscCount" id="mqttDiscCount" value="" readonly="" />
+          </div>
         </div>
       </form>
     </div>

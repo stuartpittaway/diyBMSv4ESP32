@@ -1577,28 +1577,31 @@ static void startMDNS()
 static void event_handler(void *, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
+  ESP_LOGD(TAG, "WIFI: event=%i, id=%i", event_base, event_id);
+
   if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_BSS_RSSI_LOW)
   {
     ESP_LOGW(TAG, "WiFi signal strength low");
   }
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
   {
+    ESP_LOGI(TAG, "WIFI_EVENT_STA_START");
     wifi_isconnected = false;
-    esp_wifi_connect();
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
   }
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
   {
+    ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
     wifi_isconnected = false;
     if (s_retry_num < 200)
     {
-      esp_wifi_connect();
+      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
       s_retry_num++;
-      ESP_LOGI(TAG, "Retry %i, connect to Wifi AP", s_retry_num);
+      ESP_LOGI(TAG, "Retry %i, connect to WIFI AP", s_retry_num);
     }
     else
     {
-      //  xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-      ESP_LOGE(TAG, "Connect to the Wifi AP failed");
+      ESP_LOGE(TAG, "Connect to the WIFI AP failed");
     }
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
@@ -1616,9 +1619,7 @@ static void event_handler(void *, esp_event_base_t event_base,
     }
     stopMqtt();
     stopMDNS();
-
-    esp_wifi_disconnect();
-
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_disconnect());
     wake_up_tft(true);
 
     // Try and reconnect
@@ -1628,21 +1629,21 @@ static void event_handler(void *, esp_event_base_t event_base,
   {
     wifi_isconnected = true;
     auto event = (ip_event_got_ip_t *)event_data;
-    // ESP_LOGI(TAG, "Got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+    ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
     s_retry_num = 0;
-    // xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
     // Start up all the services after TCP/IP is established
     configureSNTP(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight ? 3600 : 0, mysettings.ntpServer);
 
     if (!server_running)
     {
+      // Start web server
       StartServer();
       server_running = true;
     }
 
-    connectToMqtt();
-
+    // This only exists in the loop()
+    // connectToMqtt();
     startMDNS();
 
     ip_string = ip4_to_string(event->ip_info.ip.addr);
@@ -4077,18 +4078,18 @@ void loop()
     // on first pass wifitimer is zero
     if (currentMillis - wifitimer > 30000)
     {
-      // Attempt to connect to WiFi every 30 seconds, this caters for when WiFi drops
-      // such as AP reboot
-
-      // wifi_init_sta();
-      if (!wifi_isconnected)
+      // Attempt to connect to WiFi every 30 seconds, this caters for when WiFi drops such as AP reboot
+      if (wifi_isconnected)
       {
+        // Attempt to connect to MQTT if enabled and not already connected
+        connectToMqtt();
+      }
+      else
+      {
+        ESP_LOGI(TAG, "Trying to connect WIFI");
         esp_wifi_connect();
       }
       wifitimer = currentMillis;
-
-      // Attempt to connect to MQTT if enabled and not already connected
-      connectToMqtt();
     }
   }
 
