@@ -48,7 +48,7 @@ void CurrentMonitorINA229::CalculateLSB()
 
     // Calculate CURRENT_LSB and R_SHUNT_CAL values
     // registers.full_scale_current = ((float)registers.shunt_max_current / (float)registers.shunt_millivolt) * full_scale_adc;
-    registers.RSHUNT = ((float)registers.shunt_millivolt / 1000.0) / (float)registers.shunt_max_current;
+    registers.RSHUNT = ((float)registers.shunt_millivolt / 1000.0F) / (float)registers.shunt_max_current;
     registers.CURRENT_LSB = registers.shunt_max_current / (float)0x80000;
     registers.R_SHUNT_CAL = 4L * (13107200000L * registers.CURRENT_LSB * registers.RSHUNT);
 
@@ -78,26 +78,26 @@ void CurrentMonitorINA229::SetSOC(uint16_t value)
     // Assume battery is fully charged
     milliamphour_in = 1000 * (uint32_t)registers.batterycapacity_amphour;
     // And we have consumed this much...
-    milliamphour_out = (1.0 - ((float)value / 10000.0)) * milliamphour_in;
+    milliamphour_out = (uint32_t)((1.0F - ((float)value / 10000.0F)) * milliamphour_in);
 
     // Zero out readings using the offsets
     milliamphour_out_offset = milliamphour_out;
     milliamphour_in_offset = milliamphour_in;
 }
 
-uint8_t CurrentMonitorINA229::readRegisterValue(INA_REGISTER r)
+uint8_t CurrentMonitorINA229::readRegisterValue(INA_REGISTER r) const
 {
     // These are not really registers, but shape the SPI frame to indicate read/write
     // page 19 of documentation, Table 7-2. First 8-MSB Bits of SPI Frame.
     // Read register
-    return (r << 2) | B00000001;
+    return (uint8_t)((r << 2U) | B00000001);
 }
-uint8_t CurrentMonitorINA229::writeRegisterValue(INA_REGISTER r)
+uint8_t CurrentMonitorINA229::writeRegisterValue(INA_REGISTER r) const
 {
     // These are not really registers, but shape the SPI frame to indicate read/write
     // page 19 of documentation, Table 7-2. First 8-MSB Bits of SPI Frame.
     // Write register
-    return (r << 2) | B00000000;
+    return (uint8_t)((r << 2U) | (uint8_t)B00000000);
 }
 
 uint16_t CurrentMonitorINA229::read16bits(INA_REGISTER r)
@@ -211,7 +211,7 @@ uint32_t CurrentMonitorINA229::readUInt24(INA_REGISTER r)
 float CurrentMonitorINA229::Energy()
 {
     uint64_t energy = spi_readUint40(INA_REGISTER::ENERGY);
-    return 16.0 * 3.2 * registers.CURRENT_LSB * energy;
+    return 16.0F * 3.2F * registers.CURRENT_LSB * energy;
 }
 
 // Charge in Coulombs.
@@ -275,19 +275,24 @@ void CurrentMonitorINA229::TakeReadings()
     voltage = BusVoltage();
     current = Current();
     power = Power();
+
+    // https://github.com/stuartpittaway/diyBMSv4ESP32/issues/240
+    // INA229 is reported to have poor calculation of power at low levels
+    // this workaround overrides the power value below 200W
+    auto pow_val = voltage * abs(current);
+    ESP_LOGD(TAG, "V=%.4f, I=%.4f, P=%.2f, Calc_P=%.2f", voltage, current, power, pow_val);
+    if (pow_val < 200) { power = pow_val; }
+
     temperature = DieTemperature();
     SOC = CalculateSOC();
-
     CalculateAmpHourCounts();
-
-    ESP_LOGD(TAG, "V=%.4f, I=%.4f, P=%.2f", voltage, current, power);
 }
 
-uint16_t CurrentMonitorINA229::CalculateSOC()
+uint16_t CurrentMonitorINA229::CalculateSOC() const
 {
-    float milliamphour_in_scaled = ((float)milliamphour_in / 100.0) * registers.charge_efficiency_factor;
-    float milliamphour_batterycapacity = 1000.0 * (uint32_t)registers.batterycapacity_amphour;
-    float difference = milliamphour_in_scaled - milliamphour_out;
+    float milliamphour_in_scaled = ((float)milliamphour_in / 100.0F) * registers.charge_efficiency_factor;
+    float milliamphour_batterycapacity = 1000.0F * (uint32_t)registers.batterycapacity_amphour;
+    float difference = milliamphour_in_scaled - (float)milliamphour_out;
 
     float answer = 100 * (difference / milliamphour_batterycapacity);
     if (answer < 0)
@@ -482,7 +487,7 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
     registers.R_TEMP_LIMIT = (int16_t)temperaturelimit / (float)0.0078125;
 
     // Default Power limit = 5kW
-    registers.R_PWR_LIMIT = (uint16_t)(overpowerlimit / 256.0F / 3.2F / registers.CURRENT_LSB);
+    registers.R_PWR_LIMIT = (uint16_t)((float)overpowerlimit / 256.0F / 3.2F / registers.CURRENT_LSB);
 
     // ESP_LOGI(TAG, "undercurrentlimit=%f, R_SUVL=%u", ((float)undercurrentlimit / 100.0F), registers.R_SUVL);
 
@@ -502,7 +507,7 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
 
     // Check MEMSTAT=1 which proves the INA chip is not corrupt
     diag_alrt_value = read16bits(INA_REGISTER::DIAG_ALRT);
-    if (diag_alrt_value & bit(DIAG_ALRT_FIELD::MEMSTAT) == 0)
+    if ((diag_alrt_value & bit(DIAG_ALRT_FIELD::MEMSTAT)) == 0)
     {
         // MEMSTAT error
         ESP_LOGE(TAG, "INA229 chip MEMSTAT error");
@@ -521,7 +526,7 @@ bool CurrentMonitorINA229::Initialise(SPIClass *SPI, uint8_t cs_pin)
 {
     SPI_Ptr = SPI;
     chipselectpin = cs_pin;
-    assert(SPI != NULL);
+    assert(SPI != nullptr);
 
     uint16_t value = read16bits(INA_REGISTER::DEVICE_ID);
     if ((value >> 4) == 0x229)
