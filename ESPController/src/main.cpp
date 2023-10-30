@@ -319,7 +319,7 @@ void wake_up_tft(bool force)
   if (tftwake_timer != nullptr)
   {
     force_tft_wake = force;
-    if (xTimerStart(tftwake_timer, pdMS_TO_TICKS(10)) != pdPASS)
+    if (xTimerStart(tftwake_timer, pdMS_TO_TICKS(50)) != pdPASS)
     {
       ESP_LOGE(TAG, "TFT wake timer error");
     }
@@ -1480,7 +1480,7 @@ void pulse_relay_off(const TimerHandle_t)
   }
 }
 
-static int s_retry_num = 0;
+static int wifi_ap_connect_retry_num = 0;
 
 void formatCurrentDateTime(char *buf, size_t buf_size)
 {
@@ -1569,6 +1569,19 @@ static void startMDNS()
   }
 }
 
+void ShutdownAllNetworkServices()
+{
+  // Shut down all TCP/IP reliant services
+  if (server_running)
+  {
+    stop_webserver(_myserver);
+    server_running = false;
+    _myserver = nullptr;
+  }
+  stopMqtt();
+  stopMDNS();
+}
+
 /// @brief WIFI Event Handler
 /// @param
 /// @param event_base
@@ -1577,7 +1590,7 @@ static void startMDNS()
 static void event_handler(void *, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
-  ESP_LOGD(TAG, "WIFI: event=%i, id=%i", event_base, event_id);
+  // ESP_LOGD(TAG, "WIFI: event=%i, id=%i", event_base, event_id);
 
   if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_BSS_RSSI_LOW)
   {
@@ -1589,48 +1602,53 @@ static void event_handler(void *, esp_event_base_t event_base,
     wifi_isconnected = false;
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
   }
+  else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED)
+  {
+    // We have joined the access point - now waiting for IP address IP_EVENT_STA_GOT_IP
+    wifi_ap_connect_retry_num = 0;
+  }
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
   {
     ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
-    wifi_isconnected = false;
-    if (s_retry_num < 200)
+    wifi_ap_connect_retry_num++;
+
+    if (wifi_isconnected)
     {
-      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
-      s_retry_num++;
-      ESP_LOGI(TAG, "Retry %i, connect to WIFI AP", s_retry_num);
+      ShutdownAllNetworkServices();
+      wifi_isconnected = false;
+    }
+
+    if (wifi_ap_connect_retry_num < 25)
+    {
+      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());      
+      ESP_LOGI(TAG, "WIFI connect quick retry %i", wifi_ap_connect_retry_num);
     }
     else
     {
-      ESP_LOGE(TAG, "Connect to the WIFI AP failed");
+      ESP_LOGE(TAG, "Connect to WIFI AP failed, tried %i times", wifi_ap_connect_retry_num);
     }
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
   {
     wifi_isconnected = false;
-
     ESP_LOGI(TAG, "IP_EVENT_STA_LOST_IP");
 
-    // Shut down all TCP/IP reliant services
-    if (server_running)
-    {
-      stop_webserver(_myserver);
-      server_running = false;
-      _myserver = nullptr;
-    }
-    stopMqtt();
-    stopMDNS();
-    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_disconnect());
+    ShutdownAllNetworkServices();
+    // ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_disconnect());
     wake_up_tft(true);
 
     // Try and reconnect
-    esp_wifi_connect();
+    // esp_wifi_connect();
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
   {
-    wifi_isconnected = true;
     auto event = (ip_event_got_ip_t *)event_data;
-    ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
-    s_retry_num = 0;
+
+    if (event->ip_changed)
+    {
+      ESP_LOGI(TAG, "IP ADDRESS HAS CHANGED");
+      ShutdownAllNetworkServices();
+    }
 
     // Start up all the services after TCP/IP is established
     configureSNTP(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight ? 3600 : 0, mysettings.ntpServer);
@@ -1648,9 +1666,10 @@ static void event_handler(void *, esp_event_base_t event_base,
 
     ip_string = ip4_to_string(event->ip_info.ip.addr);
 
-    wake_up_tft(true);
-
     ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname.c_str(), ip_string.c_str());
+
+    wifi_isconnected = true;
+    wake_up_tft(true);
   }
 }
 
@@ -1783,7 +1802,7 @@ void wifi_init_sta(void)
   cfg.dynamic_tx_buf_num = 32;
   cfg.tx_buf_type = 1;
   cfg.cache_tx_buf_num = 1;
-  cfg.static_rx_buf_num = 4;
+  cfg.static_rx_buf_num = 6;
   cfg.dynamic_rx_buf_num = 32;
 
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -1842,15 +1861,6 @@ uint16_t calculateCRC(const uint8_t *f, uint8_t bufferSize)
   }
 
   return temp;
-  /*
-  // Reverse byte order.
-  uint16_t temp2 = temp >> 8;
-  temp = (temp << 8) | temp2;
-  temp &= 0xFFFF;
-  // the returned value is already swapped
-  // crcLo byte is first & crcHi byte is last
-  return temp;
-  */
 }
 
 uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
@@ -3857,7 +3867,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   pulse_relay_off_timer = xTimerCreate("PULSE", pdMS_TO_TICKS(250), pdFALSE, (void *)2, &pulse_relay_off);
   assert(pulse_relay_off_timer);
 
-  tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(2), pdFALSE, (void *)3, &tftwakeup);
+  tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(50), pdFALSE, (void *)3, &tftwakeup);
   assert(tftwake_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
@@ -4041,7 +4051,7 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
 
 unsigned long wifitimer = 0;
 unsigned long heaptimer = 0;
-unsigned long taskinfotimer = 0;
+// unsigned long taskinfotimer = 0;
 
 void logActualTime()
 {
@@ -4055,6 +4065,9 @@ void logActualTime()
 
 void loop()
 {
+  delay(100);
+
+  unsigned long currentMillis = millis();
 
   if (card_action == CardAction::Mount)
   {
@@ -4071,12 +4084,11 @@ void loop()
     mountSDCard();
   }
 
-  unsigned long currentMillis = millis();
-
-  if (_controller_state != ControllerState::NoWifiConfiguration)
+  // on first pass wifitimer is zero
+  if (_controller_state != ControllerState::NoWifiConfiguration && currentMillis > wifitimer)
   {
-    // on first pass wifitimer is zero
-    if (currentMillis - wifitimer > 30000)
+    // Avoid triggering on the very first loop (causes ESP_ERR_WIFI_CONN warning)
+    if (wifitimer > 0)
     {
       // Attempt to connect to WiFi every 30 seconds, this caters for when WiFi drops such as AP reboot
       if (wifi_isconnected)
@@ -4087,10 +4099,11 @@ void loop()
       else
       {
         ESP_LOGI(TAG, "Trying to connect WIFI");
-        esp_wifi_connect();
+        ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
       }
-      wifitimer = currentMillis;
     }
+    // Wait another 30 seconds
+    wifitimer = currentMillis + 30000;
   }
 
   // Call update to receive, decode and process incoming packets
