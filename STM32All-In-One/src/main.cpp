@@ -78,7 +78,7 @@ const auto FAN = PB3;
 [[noreturn]] void ErrorFlashes(int number);
 uint32_t takeRawMCP33151ADCReading();
 uint32_t MAX14921Command(uint8_t b1, uint8_t b2, uint8_t b3);
-void DecimateRawADCParasiteVoltage(std::array<uint32_t, 16> &rawADC, CellData &cd, uint8_t numberCells);
+//void DecimateRawADCParasiteVoltage(std::array<uint32_t, 16> &rawADC, CellData &cd, uint8_t numberCells);
 void DecimateRawADCCellVoltage(std::array<uint32_t, 16> &rawADC, CellData &cd, uint8_t numberCells);
 void TakeExternalTempMeasurements(CellData &cd);
 uint16_t DecimateValue(uint64_t val);
@@ -359,7 +359,7 @@ void ParasiticCapacitanceChargeInjectionErrorCalibration(uint8_t cellCount, Cell
 
   ADCSampleCellVoltages(cellCount, rawADC);
 
-  DecimateRawADCParasiteVoltage(rawADC, cd, cellCount);
+  //DecimateRawADCParasiteVoltage(rawADC, cd, cellCount);
 
   digitalWrite(SAMPLE_AFE, HIGH); // Sample mode
 }
@@ -613,6 +613,7 @@ uint16_t DecimateValue(uint64_t val)
 }
 
 // Take the raw oversampled readings and decimate
+/*
 void DecimateRawADCParasiteVoltage(std::array<uint32_t, 16> &rawADC, CellData &cells, uint8_t numberCells)
 {
   for (int cellid = 0; cellid < numberCells; cellid++)
@@ -620,6 +621,7 @@ void DecimateRawADCParasiteVoltage(std::array<uint32_t, 16> &rawADC, CellData &c
     cells.at(cellid).setParasiteVoltage(DecimateValue(rawADC[cellid]));
   }
 }
+*/
 // Take the raw oversampled readings and decimate
 void DecimateRawADCCellVoltage(std::array<uint32_t, 16> &rawADC, CellData &cells, uint8_t numberCells)
 {

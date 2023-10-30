@@ -236,7 +236,7 @@ bool PacketProcessor::processPacket(PacketStruct *buffer, uint8_t mymoduleaddres
     buffer->moduledata[0] = Cell::getFanSwitchOnTemperature();
     buffer->moduledata[1] = Cell::getRelayMinmV();
     buffer->moduledata[2] = Cell::getRelayRange();
-    buffer->moduledata[3] = cell.getParasiteVoltage();
+    buffer->moduledata[3] = 0;  //cell.getParasiteVoltage();
     buffer->moduledata[4] = getRunAwayCellMinimumVoltage();
     buffer->moduledata[5] = getRunAwayCellDifferential();
     return true;
