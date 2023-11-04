@@ -341,7 +341,7 @@ void ADCSampleCellVoltages(uint8_t cellCount, std::array<uint32_t, 16> &rawADC)
     rawADC.at(cellid) = takeRawMCP33151ADCReading();
   }
 }
-
+/*
 /// @brief Measure internal parasitic sampling voltages to offset from future voltage measurements
 /// @param cellCount number of cells to sample
 /// @param cd Cell data array
@@ -362,7 +362,7 @@ void ParasiticCapacitanceChargeInjectionErrorCalibration(uint8_t cellCount, Cell
   //DecimateRawADCParasiteVoltage(rawADC, cd, cellCount);
 
   digitalWrite(SAMPLE_AFE, HIGH); // Sample mode
-}
+}*/
 
 /// @brief Calibrate internal op-amp buffer
 void BufferAmplifierOffsetCalibration()
@@ -553,7 +553,7 @@ void setup()
     ErrorFlashes(3);
   }
 
-  ParasiticCapacitanceChargeInjectionErrorCalibration(number_of_active_cells, celldata);
+  //ParasiticCapacitanceChargeInjectionErrorCalibration(number_of_active_cells, celldata);
   BufferAmplifierOffsetCalibration();
 
   configureModules();
@@ -924,8 +924,8 @@ void loop()
   {
     // Switch off any bypass balancing before taking voltage readings
     MAX14921Command(0, ANALOG_BUFFERED_T1);
-    // Allow voltages to bounce back
-    delay(20);
+    // Allow cell voltages to bounce back
+    delay(10);
   }
 
   digitalWrite(SAMPLE_AFE, HIGH);              // Sample cell voltages (all 16 cells at same time)
@@ -998,7 +998,7 @@ void loop()
   }
 
   // Every so often, we should call this to calibrate the op-amp as it changes in ambient temperature (takes 8ms to complete)
-  if (PP.getPacketReceivedCounter() % 4096 == 0)
+  if (PP.getPacketReceivedCounter() % 8192 == 0)
   {
     BufferAmplifierOffsetCalibration();
   }
