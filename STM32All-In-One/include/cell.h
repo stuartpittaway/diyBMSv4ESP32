@@ -15,7 +15,7 @@ public:
     /// @brief returns cell voltage with parasitic voltage removed
     uint16_t getCellVoltage() const
     {
-        return cellVoltage;// - getParasiteVoltage();
+        return cellVoltage;
     }
 
     uint16_t CombineTemperatures() const
@@ -36,20 +36,7 @@ public:
     {
         cellVoltage = v;
     }
-    /*
-    /// @brief Sets Parasite voltage (raw value)
-    /// @param v raw ADC value, which is internally divided by 128
-    void setParasiteVoltage(uint16_t v)
-    {
-        parasiteVoltage = v / 128;
-    }
-    /// @brief Gets Parasite voltage
-    /// @return value in millivolts
-    uint16_t getParasiteVoltage() const
-    {
-        return parasiteVoltage;
-    }
-    */
+
     /// @brief Set external temperature measurement
     /// @param t Temperature in degrees C
     void setExternalTemperature(int16_t t)
@@ -208,7 +195,6 @@ public:
 private:
     bool ChangesAllowed{true};
     uint16_t cellVoltage{0};
-    //uint16_t parasiteVoltage{0};
     int16_t externalTemperature{-999};
     int16_t internalTemperature{-999};
     bool CellIsInBypass{false};

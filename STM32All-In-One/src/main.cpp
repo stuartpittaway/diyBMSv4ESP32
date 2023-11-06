@@ -78,7 +78,6 @@ const auto FAN = PB3;
 [[noreturn]] void ErrorFlashes(int number);
 uint32_t takeRawMCP33151ADCReading();
 uint32_t MAX14921Command(uint8_t b1, uint8_t b2, uint8_t b3);
-//void DecimateRawADCParasiteVoltage(std::array<uint32_t, 16> &rawADC, CellData &cd, uint8_t numberCells);
 void DecimateRawADCCellVoltage(std::array<uint32_t, 16> &rawADC, CellData &cd, uint8_t numberCells);
 void TakeExternalTempMeasurements(CellData &cd);
 uint16_t DecimateValue(uint64_t val);
@@ -341,28 +340,6 @@ void ADCSampleCellVoltages(uint8_t cellCount, std::array<uint32_t, 16> &rawADC)
     rawADC.at(cellid) = takeRawMCP33151ADCReading();
   }
 }
-/*
-/// @brief Measure internal parasitic sampling voltages to offset from future voltage measurements
-/// @param cellCount number of cells to sample
-/// @param cd Cell data array
-void ParasiticCapacitanceChargeInjectionErrorCalibration(uint8_t cellCount, CellData &cd)
-{
-  // MAX14921
-  digitalWrite(SAMPLE_AFE, HIGH); // Sample mode
-  // Parasitic Capacitance Charge Injection Error Calibration
-  MAX14921Command(0, 0, 0);
-  delay(250);
-  digitalWrite(SAMPLE_AFE, LOW); // Hold mode
-
-  std::array<uint32_t, 16> rawADC;
-  rawADC.fill(0);
-
-  ADCSampleCellVoltages(cellCount, rawADC);
-
-  //DecimateRawADCParasiteVoltage(rawADC, cd, cellCount);
-
-  digitalWrite(SAMPLE_AFE, HIGH); // Sample mode
-}*/
 
 /// @brief Calibrate internal op-amp buffer
 void BufferAmplifierOffsetCalibration()
@@ -612,16 +589,6 @@ uint16_t DecimateValue(uint64_t val)
   return (uint16_t)val;
 }
 
-// Take the raw oversampled readings and decimate
-/*
-void DecimateRawADCParasiteVoltage(std::array<uint32_t, 16> &rawADC, CellData &cells, uint8_t numberCells)
-{
-  for (int cellid = 0; cellid < numberCells; cellid++)
-  {
-    cells.at(cellid).setParasiteVoltage(DecimateValue(rawADC[cellid]));
-  }
-}
-*/
 // Take the raw oversampled readings and decimate
 void DecimateRawADCCellVoltage(std::array<uint32_t, 16> &rawADC, CellData &cells, uint8_t numberCells)
 {
