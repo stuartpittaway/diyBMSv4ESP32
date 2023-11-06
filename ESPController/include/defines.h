@@ -22,6 +22,12 @@
 // Total number of cells a single controler can handle (memory limitation)
 #define maximum_controller_cell_modules 128
 
+// CAN 
+#define MAX_CAN_PARAMETERS 13  // max number of unique CAN message types
+#define MAX_NUM_CONTROLLERS 8   //max number of controllers that can be networked
+#define HEARTBEAT_PERIOD 1000 // max interval (ms) allowed between CAN refresh 
+#define TWAI_FRAME_MAX_DLC              8           /**< Max data bytes allowed in TWAI */
+
 typedef union
 {
   float value;
@@ -143,6 +149,14 @@ struct diybms_eeprom_settings
   int8_t minutesTimeZone; // = 0;
   bool daylight;          //=false;
   char ntpServer[64 + 1]; // = "time.google.com";
+
+	// This Controller's integer address. Value from 0 to (MAX_NUM_CONTROLLERS - 1)
+	int8_t controllerID;
+	//total number of controllers on the CANbus (value from 1 to 8)
+	uint8_t controllerNet;
+	// CAUTION: this should not be set to true unless a failsafe disconnect is properly configured for each controller. Setting this to true means that charge and discharge
+	// will not be curtailed in the event a controller loses communication
+	bool highAvailable;
 
   bool loggingEnabled;
   uint16_t loggingFrequencySeconds;
@@ -275,6 +289,13 @@ struct PacketStruct
   uint16_t sequence;
   uint16_t moduledata[maximum_cell_modules_per_packet];
   uint16_t crc;
+} __attribute__((packed));
+
+struct CANframe
+{
+	uint8_t dlc;
+	uint8_t data[TWAI_FRAME_MAX_DLC];
+	uint32_t identifier;
 } __attribute__((packed));
 
 struct CellModuleInfo

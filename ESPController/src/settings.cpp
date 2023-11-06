@@ -86,6 +86,10 @@ static const char floatvoltage_JSONKEY[] = "floatvoltage";
 static const char floatvoltagetimer_JSONKEY[] = "floatvoltagetimer";
 static const char stateofchargeresumevalue_JSONKEY[] = "stateofchargeresumevalue";
 
+static const char controllerNet_JSONKEY[] = "controllerNet";
+static const char controllerID_JSONKEY[] = "controllerID";
+static const char highAvailable_JSONKEY[] = "highAvailable";
+
 /* NVS KEYS
 THESE STRINGS ARE USED TO HOLD THE PARAMETER IN NVS FLASH, MAXIMUM LENGTH OF 16 CHARACTERS
 */
@@ -172,6 +176,10 @@ static const char absorptiontimer_NVSKEY[] = "absorptimer";
 static const char floatvoltage_NVSKEY[] = "floatV";
 static const char floatvoltagetimer_NVSKEY[] = "floatVtimer";
 static const char stateofchargeresumevalue_NVSKEY[] = "socresume";
+
+static const char controllerNet_NVSKEY[] = "controllerNet";
+static const char controllerID_NVSKEY[] = "controllerID";
+static const char highAvailable_NVSKEY[] = "highAvailable";
 
 #define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
 #define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
@@ -364,7 +372,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE_UINT8(rs485databits);
         MACRO_NVSWRITE_UINT8(rs485parity);
         MACRO_NVSWRITE_UINT8(rs485stopbits);
-        MACRO_NVSWRITE_UINT8(canbusprotocol);
+        MACRO_NVSWRITE_UINT8(canbusprotocol);     
 
         MACRO_NVSWRITE(currentMonitoring_shuntmv);
         MACRO_NVSWRITE(currentMonitoring_shuntmaxcur);
@@ -426,6 +434,10 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(floatvoltage);
         MACRO_NVSWRITE(floatvoltagetimer);
         MACRO_NVSWRITE(stateofchargeresumevalue);
+
+        MACRO_NVSWRITE_UINT8(controllerNet);
+        MACRO_NVSWRITE(controllerID);
+        MACRO_NVSWRITE(highAvailable);
 
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
@@ -550,6 +562,10 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(floatvoltagetimer);
         MACRO_NVSREAD_UINT8(stateofchargeresumevalue);
 
+        MACRO_NVSREAD_UINT8(controllerNet);
+        MACRO_NVSREAD(controllerID);
+        MACRO_NVSREAD(highAvailable);
+
         nvs_close(nvs_handle);
     }
 
@@ -575,6 +591,11 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->BypassThresholdmV = 4100;
     _myset->graph_voltagehigh = 4500;
     _myset->graph_voltagelow = 2750;
+
+    // Default to a single networked controller
+    _myset->controllerNet = 1;
+    _myset->controllerID = 0;
+    _myset->highAvailable = false;
 
     // EEPROM settings are invalid so default configuration
     _myset->mqtt_enabled = false;
@@ -784,12 +805,12 @@ bool LoadWIFI(wifi_eeprom_settings *wifi)
         getSetting(nvs_handle, "MANUALCONFIG", &x.manualConfig))
     {
         // Only return success if all values are retrieved, don't corrupt
-        // external copy of wifi settings otherwise.
-        memcpy(wifi, &x, sizeof(x));
-        result = true;
-    }
+                // external copy of wifi settings otherwise.
+                memcpy(wifi, &x, sizeof(x));
+                result = true;
+            }
 
-    nvs_close(nvs_handle);
+        nvs_close(nvs_handle);
 
     ESP_LOGI(TAG, "Load WIFI config from FLASH - return %u", result);
 
@@ -989,6 +1010,10 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[rs485stopbits_JSONKEY] = settings->rs485stopbits;
     root[language_JSONKEY] = settings->language;
 
+    root[controllerNet_JSONKEY] = settings->controllerNet;
+    root[controllerID_JSONKEY] = settings->controllerID;
+    root[highAvailable_JSONKEY] = settings->highAvailable;
+    
     JsonObject mqtt = root.createNestedObject("mqtt");
     mqtt[mqtt_enabled_JSONKEY] = settings->mqtt_enabled;
     mqtt[mqtt_uri_JSONKEY] = settings->mqtt_uri;
@@ -1106,6 +1131,10 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->minutesTimeZone = root[minutesTimeZone_JSONKEY];
     settings->daylight = root[daylight_JSONKEY];
     strncpy(settings->ntpServer, root[ntpServer_JSONKEY].as<String>().c_str(), sizeof(settings->ntpServer));
+
+    settings->controllerNet = root[controllerNet_JSONKEY];
+    settings->controllerID = root[controllerID_JSONKEY];
+    settings->highAvailable = root[highAvailable_JSONKEY];
 
     settings->loggingEnabled = root[loggingEnabled_JSONKEY];
     settings->loggingFrequencySeconds = root[loggingFrequencySeconds_JSONKEY];

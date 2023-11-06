@@ -1,409 +1,642 @@
 /*
- ____  ____  _  _  ____  __  __  ___
-(  _ \(_  _)( \/ )(  _ \(  \/  )/ __)
- )(_) )_)(_  \  /  ) _ < )    ( \__ \
-(____/(____) (__) (____/(_/\/\_)(___/
-
-(c) 2021-2023 Stuart Pittaway
-
 This code communicates with VICTRON CERBO GX style devices using CANBUS @ 500kbps and 11 bit addresses.
 
 The code supports the VICTRON CAN BUS BMS style messages.
 */
 
 #define USE_ESP_IDF_LOG 1
-static constexpr const char *const TAG = "diybms-victron";
+static constexpr const char* const TAG = "diybms-victron";
 
 #include "victron_canbus.h"
 
-// Transmit the DIYBMS hostname via two CAN Messages
-void victron_message_370_371()
+
+//just send the hostname of the master controller
+
+void victron_message_370_371_35e()
 {
-  send_canbus_message(0x370, (uint8_t *)&hostname, 8);
-  send_canbus_message(0x371, (uint8_t *)&hostname[8], 8);
+    CANframe candata;
+    candata.dlc = TWAI_FRAME_MAX_DLC;
+
+
+    // message 370
+    memset(&candata.data, 0, sizeof(candata.data));
+    memcpy(&candata.data[0], &hostname[0], TWAI_FRAME_MAX_DLC);
+    candata.identifier = 0x370;
+
+    // send to tx routine , block indefinitley 
+    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+    {
+        ESP_LOGE(TAG, "CAN tx queue full");
+    }
+
+
+    // message 371
+    memset(&candata.data, 0, sizeof(candata.data));
+    memcpy(&candata.data[0], &hostname[8], TWAI_FRAME_MAX_DLC);
+    candata.identifier = 0x371;
+
+    // send to tx routine , block indefinitley 
+    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+    {
+        ESP_LOGE(TAG, "CAN tx queue full");
+    }
+
+
+    // message 35eCANframe
+    memset(&candata.data, 0, sizeof(candata.data));
+    memcpy(&candata.data[0], &hostname[0], 6);
+    candata.identifier = 0x35e;
+
+    // send to tx routine , block indefinitley 
+    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+    {
+        ESP_LOGE(TAG, "CAN tx queue full");
+    }
+
 }
 
-void victron_message_35e()
-{
-  send_canbus_message(0x35e, (uint8_t *)&hostname, 6);
-}
-
+// Firmware & Ah capacity
 void victron_message_35f()
 {
-  struct data35f
-  {
-    // Not used
-    uint16_t BatteryModel;
-    uint16_t Firmwareversion;
-    uint16_t OnlinecapacityinAh;
-  };
+    CANframe candata;
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
-  data35f data;
+    candata.dlc = 6;
+    candata.identifier = 0x35f;
 
-  // Not used by Victron
-  data.BatteryModel = 0;
-  // Need to swap bytes for this to make sense.
-  data.Firmwareversion = ((uint16_t)COMPILE_WEEK_NUMBER_BYTE << 8) | COMPILE_YEAR_BYTE;
 
-  data.OnlinecapacityinAh = mysettings.nominalbatcap;
 
-  send_canbus_message(0x35f, (uint8_t *)&data, sizeof(data35f));
+
+    //if no networked controllers than just copy over the local data
+    if (mysettings.controllerNet == 1)
+    {
+        memcpy(&candata.data[0], &CAN.data[5][mysettings.controllerID][0], sizeof(uint16_t));           // fill in 1-8 data bytes
+        memcpy(&candata.data[2], &CAN.data[5][mysettings.controllerID][2], sizeof(uint16_t));           // fill in 1-8 data bytes
+        memcpy(&candata.data[4], &CAN.data[5][mysettings.controllerID][4], sizeof(uint16_t));           // fill in 1-8 data bytes
+    }
+
+
+    else
+    {
+        //uint16_t BatteryModel      // slice= 0
+        //uint16_t Firmwareversion     // slice= 2
+        //uint16_t OnlinecapacityinAh       // slice= 4
+
+        // check if firmware versions match and report
+        uint8_t mismatches = 0;
+        for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+        {
+            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            {
+            mismatches = mismatches + memcmp((uint16_t*)&CAN.data[5][i][2], (uint16_t*)&CAN.data[5][i + 1][2], sizeof(uint16_t));
+            }
+        }
+
+        if (mismatches != 0)
+        {
+            // should we raise an alarm here and add to BIT MSGS??
+            // firmware_version_mismatch = true;
+
+            // if firmware versions don't match just display zeros or something...
+            memset(&candata.data[2], 0, sizeof(uint16_t));
+        }
+
+        else
+        {
+            // firmware_version_mismatch = false;
+
+            memcpy(&candata.data[2], &CAN.data[5][mysettings.controllerID][2], sizeof(uint16_t));
+        }
+
+        // calculate total Ah based on #of controllers
+        uint16_t Total_Ah = 0;
+        for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+        {
+            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            {
+            Total_Ah = Total_Ah + *(uint16_t*)&CAN.data[5][i][4];
+            }
+        }
+
+        memcpy(&candata.data[4], &Total_Ah, sizeof(uint16_t));
+
+    }
+
+    // send to tx routine , block indefinitley 
+    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+    {
+        ESP_LOGE(TAG, "CAN tx queue full");
+    }
+
+
 }
 
-void SetBankAndModuleText(char *buffer, uint8_t cellid)
+// Min/Max Cell V & T I.D.'s
+void victron_message_373_374_375_376_377()
 {
-  uint8_t bank = cellid / mysettings.totalNumberOfSeriesModules;
-  uint8_t module = cellid - (bank * mysettings.totalNumberOfSeriesModules);
+    CANframe candata;
 
-  // Clear all 8 bytes
-  memset(buffer, 0, 8);
 
-  snprintf(buffer, 8, "b%d m%d", bank, module);
-}
+    if (mysettings.controllerNet == 1)
+    {
+        // message 373 //
 
-void victron_message_374_375_376_377()
-{
-  struct candata
-  {
-    char text[8];
-  };
+        candata.dlc = TWAI_FRAME_MAX_DLC;
+        candata.identifier = 0x373;
+        memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+        memcpy(&candata.data[0], &CAN.data[8][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
 
-  candata data;
+        // send to tx routine
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
 
-  if (rules.address_LowestCellVoltage < maximum_controller_cell_modules)
-  {
-    SetBankAndModuleText(data.text, rules.address_LowestCellVoltage);
-    // Min. cell voltage id string [1]
-    send_canbus_message(0x374, (uint8_t *)&data, sizeof(candata));
-  }
 
-  if (rules.address_HighestCellVoltage < maximum_controller_cell_modules)
-  {
-    SetBankAndModuleText(data.text, rules.address_HighestCellVoltage);
-    // Max. cell voltage id string [1]
-    send_canbus_message(0x375, (uint8_t *)&data, sizeof(candata));
-  }
+        // message 374 //
 
-  if (rules.address_lowestExternalTemp < maximum_controller_cell_modules)
-  {
-    SetBankAndModuleText(data.text, rules.address_lowestExternalTemp);
-    // Min. cell voltage id string [1]
-    send_canbus_message(0x376, (uint8_t *)&data, sizeof(candata));
-  }
+        candata.dlc = TWAI_FRAME_MAX_DLC;
+        candata.identifier = 0x374;
+        memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+        memcpy(&candata.data[0], &CAN.data[9][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
 
-  if (rules.address_highestExternalTemp < maximum_controller_cell_modules)
-  {
-    SetBankAndModuleText(data.text, rules.address_highestExternalTemp);
-    // Min. cell voltage id string [1]
-    send_canbus_message(0x377, (uint8_t *)&data, sizeof(candata));
-  }
+        // send to tx routine
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
+
+        // message 375 //
+
+        candata.dlc = TWAI_FRAME_MAX_DLC;
+        candata.identifier = 0x375;
+        memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+        memcpy(&candata.data[0], &CAN.data[10][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
+
+        // send to tx routine
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
+
+
+        // message 376  //
+
+        candata.dlc = TWAI_FRAME_MAX_DLC;
+        candata.identifier = 0x376;
+        memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+        memcpy(&candata.data[0], &CAN.data[11][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
+
+        // send to tx routine
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
+
+
+        // message 377 //
+
+        candata.dlc = TWAI_FRAME_MAX_DLC;
+        candata.identifier = 0x377;
+        memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+        memcpy(&candata.data[0], &CAN.data[12][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
+
+        // send to tx routine
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
+
+    }
+
+    // aggregate DVCC data from networked controllers 
+    else
+    {
+
+        uint16_t min_cell_v;  // corresponding slice 0_1 in CAN.data[8][i]
+        uint16_t max_cell_v;  // corresponding slice 2_3 in CAN.data[8][i]
+        uint16_t min_cell_t;   // corresponding slice 4_5 in CAN.data[8][i]
+        uint16_t max_cell_t;   // corresponding slice 6_7 in CAN.data[8][i]
+
+        uint8_t MinCellV_ID[TWAI_FRAME_MAX_DLC];
+        uint8_t MaxCellV_ID[TWAI_FRAME_MAX_DLC];
+        uint8_t MinCellT_ID[TWAI_FRAME_MAX_DLC];
+        uint8_t MaxCellT_ID[TWAI_FRAME_MAX_DLC];
+
+
+        min_cell_v = *(uint16_t*)&CAN.data[8][mysettings.controllerID][0];
+        min_cell_t = *(uint16_t*)&CAN.data[8][mysettings.controllerID][4];
+        max_cell_v = *(uint16_t*)&CAN.data[8][mysettings.controllerID][2];
+        max_cell_t = *(uint16_t*)&CAN.data[8][mysettings.controllerID][6];
+
+
+        for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+        {
+            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            {
+                // find minimums
+                if ((*(uint16_t*)&CAN.data[8][i][0] <= min_cell_v))  
+                {
+                    min_cell_v = *(uint16_t*)&CAN.data[8][i][0];
+                    memcpy(&MinCellV_ID, &CAN.data[9][i], sizeof(MinCellV_ID));
+                }
+                if ((*(uint16_t*)&CAN.data[8][i][4] <= min_cell_t))
+                {
+                    min_cell_t = *(uint16_t*)&CAN.data[8][i][4];
+                    memcpy(&MinCellT_ID, &CAN.data[11][i], sizeof(MinCellT_ID));
+                }
+
+                // find maximums
+                if ((*(uint16_t*)&CAN.data[8][i][2] >= max_cell_v))
+                {
+                    max_cell_v = *(uint16_t*)&CAN.data[8][i][2];
+                    memcpy(&MaxCellV_ID, &CAN.data[10][i], sizeof(MaxCellV_ID));
+                }
+                if ((*(uint16_t*)&CAN.data[8][i][6] >= max_cell_t))
+                {
+                    max_cell_t = *(uint16_t*)&CAN.data[8][i][6];
+                    memcpy(&MaxCellT_ID, &CAN.data[12][i], sizeof(MaxCellT_ID));
+                }
+            }
+        }
+
+
+        // message 373  (Min/Max Cell V & T)
+
+        memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+        candata.dlc = TWAI_FRAME_MAX_DLC;
+        candata.identifier = 0x373;
+        memcpy(&candata.data[0], &min_cell_v, sizeof(min_cell_v));
+        memcpy(&candata.data[2], &max_cell_v, sizeof(max_cell_v));
+        memcpy(&candata.data[4], &min_cell_t, sizeof(min_cell_t));
+        memcpy(&candata.data[6], &max_cell_t, sizeof(max_cell_t));
+
+
+        // send to tx routine , block indefinitley 
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
+
+        // message 374  (Min Cell V I.D.)
+        memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+        candata.dlc = TWAI_FRAME_MAX_DLC;
+        candata.identifier = 0x373;
+        memcpy(&candata.data, &MinCellV_ID, sizeof(MinCellV_ID));
+
+
+        // send to tx routine , block indefinitley 
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
+
+
+        // message 375  (Max Cell V I.D.)
+        memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+        candata.dlc = TWAI_FRAME_MAX_DLC;
+        memcpy(&candata.data, &MaxCellV_ID, sizeof(MaxCellV_ID));
+        candata.identifier = 0x375;
+
+        // send to tx routine , block indefinitley 
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
+
+        // message 376  (Min Cell T I.D.)
+        memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+        candata.dlc = TWAI_FRAME_MAX_DLC;
+        memcpy(&candata.data, &MinCellT_ID, sizeof(MinCellT_ID));
+        candata.identifier = 0x376;
+
+        // send to tx routine , block indefinitley 
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
+
+        // message 377  (Max Cell T I.D.)
+        memset(&candata.data, 0, sizeof(candata.data));
+        candata.dlc = TWAI_FRAME_MAX_DLC;
+        memcpy(&candata.data, &MaxCellT_ID, sizeof(MaxCellT_ID));
+        candata.identifier = 0x377;
+
+        // send to tx routine , block indefinitley 
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
+    }
 }
 
 // CVL & CCL implementation
 /*
-At a fundamental level, Victron's approach to interacting with BMSes is in the form of 3 setpoint parameters:
-* Charge Current Limit (CCL)
-* Charge Voltage Limit (CVL)
-* Discharge Current Limit (DCL)
-Once the BMS is communicating with the GX device over CAN-bus, these parameters are listed in the "Parameters" menu in the battery device on the Remote Console.
+See ControllerCAN section for detailed description of DVCC parameters for each controller
 
-All three parameter, but at least the CVL (Charge Voltage Limit) and CCL (Charge Current Limit), are sent by the BMS to the Victron system.
-These are the only parameters that control the charging behaviour.
+For aggregation:
 
-Victron's approach to BMSes and chargers is focused DC-Coupled solar systems where there can be multiple
-charging sources, usually a combination of MPPT solar charger and charger/inverters.
+For the maxchargevoltage reported to the inverter we will just use the minimum maxchargevoltage reported by any controller.
 
-AC-Coupled solar systems (non-Victron)
+For the maxchargecurrent reported to the inverter, we will use the minimum maxchargecurrent reported by any controller multiplied by the number of conrollers online.
 
-Typically, BMSes designed for the common AC-Coupled Energy Storage Type systems hardcode a
-CVL, which remains the same in all situations. And will reduce CCL to 0, or near-zero, once the battery
-is fully charged, and/or one of the cells is fully charged.
-That strategy does not work with a Victron system.
+
+
+
 */
-void victron_message_351()
+void  victron_message_351()
 {
-  uint8_t number_of_active_errors = 0;
+    CANframe candata;
+    candata.dlc = TWAI_FRAME_MAX_DLC;
+    candata.identifier = 0x351;
+    memset(&candata.data, 0, sizeof(candata.data));
 
-  struct data351
-  {
-    // CVL - 0.1V scale
-    uint16_t chargevoltagelimit;
-    // CCL - 0.1A scale
-    int16_t maxchargecurrent;
-    // DCL - 0.1A scale
-    int16_t maxdischargecurrent;
-    // Not currently used by Victron
-    // 0.1V scale
-    uint16_t dischargevoltage;
-  };
 
-  data351 data;
-
-  // Defaults (do nothing)
-  // Don't use zero for voltage - this indicates to Victron an over voltage situation, and Victron gear attempts to dump
-  // the whole battery contents!  (feedback from end users)
-  data.chargevoltagelimit = rules.lowestBankVoltage / 100;
-  data.maxchargecurrent = 0;
-
-  if (rules.IsChargeAllowed(&mysettings))
-  {
-    if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
+    // if no controllers are networked then just send the local values. It won't matter what controllerID is selected on the config page
+    if (mysettings.controllerNet == 1)
     {
-      // Balancing, stop charge
-      data.chargevoltagelimit = rules.lowestBankVoltage / 100;
-      data.maxchargecurrent = 0;
+        memcpy(&candata.data, &CAN.data[0][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
+
     }
+
+    // aggregate DVCC data from networked controllers and use the minimum for each parameter
     else
     {
-      // Default - normal behaviour
-      data.chargevoltagelimit = rules.DynamicChargeVoltage();
-      data.maxchargecurrent = rules.DynamicChargeCurrent();
+
+        uint16_t chargevoltagelimit;
+        uint16_t maxchargecurrent;
+        uint16_t maxdischargecurrent;
+        uint16_t dischargevoltage;
+
+        
+        chargevoltagelimit = *(uint16_t*)&CAN.data[0][0][0];
+        maxchargecurrent = *(uint16_t*)&CAN.data[0][0][2];
+        maxdischargecurrent = *(uint16_t*)&CAN.data[0][0][4];
+        dischargevoltage = *(uint16_t*)&CAN.data[0][0][6];
+
+        for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+        {
+            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            {
+                // use minimum
+                if ((*(uint16_t*)&CAN.data[0][i][0] < chargevoltagelimit))
+                {
+                    chargevoltagelimit = *(uint16_t*)&CAN.data[0][i][0];
+                }
+                // use lowest reported value from controllers multiplied by the number of controllers.
+                if ((*(uint16_t*)&CAN.data[0][i][2] < maxchargecurrent))
+                {
+                    maxchargecurrent = *(uint16_t*)&CAN.data[0][i][2];
+                }
+                // use lowest reported value from controllers multiplied by the number of controllers
+                if ((*(uint16_t*)&CAN.data[0][i][4] < maxdischargecurrent)) 
+                {
+                    maxdischargecurrent = *(uint16_t*)&CAN.data[0][i][4];
+                }
+                // use minimum
+                if ((*(uint16_t*)&CAN.data[0][i][6] < dischargevoltage))  
+                {
+                    dischargevoltage = *(uint16_t*)&CAN.data[0][i][6];
+                }
+            }
+        }
+        maxchargecurrent = maxchargecurrent * CAN.online_controller_count;
+        maxdischargecurrent = maxdischargecurrent * CAN.online_controller_count;
+
+
+
+        memcpy(&candata.data[0], &chargevoltagelimit, sizeof(chargevoltagelimit));                  // fill in 1-8 data bytes
+        memcpy(&candata.data[2], &maxchargecurrent, sizeof(maxchargecurrent));                  // fill in 1-8 data bytes
+        memcpy(&candata.data[4], &maxdischargecurrent, sizeof(maxdischargecurrent));                  // fill in 1-8 data bytes
+        memcpy(&candata.data[6], &dischargevoltage, sizeof(dischargevoltage));                  // fill in 1-8 data bytes
+
+
     }
-  }
-
-  // Discharge settings....
-  data.maxdischargecurrent = 0;
-  data.dischargevoltage = mysettings.dischargevolt;
-
-  if (rules.IsDischargeAllowed(&mysettings))
-  {
-    data.maxdischargecurrent = mysettings.dischargecurrent;
-  }
-
-  send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
+    // send to tx routine , block 50ms 
+    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+    {
+        ESP_LOGE(TAG, "CAN tx Q Full");
+    }
 }
 
-// S.o.C value
+// SOC 
 void victron_message_355()
 {
-  struct data355
-  {
-    uint16_t stateofchargevalue;
-    // uint16_t stateofhealthvalue;
-    // uint16_t highresolutionsoc;
-  };
+    CANframe candata;
+    candata.dlc = 2;
+    candata.identifier = 0x355;
+    memset(&candata.data, 0, sizeof(candata.data));
 
-  if (_controller_state == ControllerState::Running && mysettings.currentMonitoringEnabled && currentMonitor.validReadings && (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS || mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL))
-  {
-    data355 data;
-    // 0 SOC value un16 1 %
-    data.stateofchargevalue = rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
-    // 2 SOH value un16 1 %
-    // data.stateofhealthvalue = 100;
+    if (mysettings.controllerNet == 1)
+    {
+        memcpy(&candata.data, &CAN.data[4][mysettings.controllerID][0], candata.dlc);
+    }
 
-    send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
-  }
+    else
+    {     //SOC (weighted average based on nominal Ah of each controller)
+        uint16_t Total_Ah = 0;
+        uint16_t Total_Weighted_Ah = 0;
+        uint16_t Weighted_SOC = 0;
+
+        for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+        {
+            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            {
+            Total_Ah = Total_Ah + *(uint16_t*)&(CAN.data[5][i][4]);
+            Total_Weighted_Ah = Total_Weighted_Ah + *(uint16_t*)&CAN.data[4][i][0] * (*(uint16_t*)&CAN.data[5][i][4]);  //SOC x Online capacity
+            }
+
+        }
+
+        Weighted_SOC = Total_Weighted_Ah / Total_Ah;
+
+        memcpy(&candata.data[0], &Weighted_SOC, sizeof(Weighted_SOC));
+
+    }
+    // send to tx routine , block 50ms 
+    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
+    }
+
 }
 
-// Battery voltage
+// Battery V, I, T
 void victron_message_356()
 {
-  struct data356
-  {
-    int16_t voltage;
-    int16_t current;
-    int16_t temperature;
-  };
+    CANframe candata;
+    candata.dlc = 6;
+    candata.identifier = 0x356;
+    memset(&candata.data, 0, sizeof(candata.data));
 
-  data356 data;
-
-  // Use highest bank voltage calculated by controller and modules
-  // Scale 0.01V
-  data.voltage = rules.highestBankVoltage / 10;
-
-  // If current shunt is installed, use the voltage from that as it should be more accurate
-  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
-  {
-    data.voltage = currentMonitor.modbus.voltage * 100.0;
-  }
-
-  data.current = 0;
-  // If current shunt is installed, use it
-  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
-  {
-    // Scale 0.1A
-    data.current = currentMonitor.modbus.current * 10;
-  }
-
-  // Temperature 0.1C using external temperature sensor
-  if (rules.moduleHasExternalTempSensor)
-  {
-    data.temperature = (int16_t)rules.highestExternalTemp * (int16_t)10;
-  }
-  else
-  {
-    // No external temp sensors
-    data.temperature = 0;
-  }
-
-  send_canbus_message(0x356, (uint8_t *)&data, sizeof(data356));
-}
-
-// Send alarm details to Victron over CANBUS
-void victron_message_35a()
-{
-
-  struct data35a
-  {
-    uint8_t byte0;
-    uint8_t byte1;
-    uint8_t byte2;
-    uint8_t byte3;
-    uint8_t byte4;
-    uint8_t byte5;
-    uint8_t byte6;
-    uint8_t byte7;
-  };
-
-  data35a data;
-
-  memset(&data, 0, sizeof(data35a));
-
-  // B00 = Alarm not supported
-  // B10 = Alarm/warning active
-  // B01 = Alarm/warning inactive (status = OK)
-
-  // These constants are actually bit swapped compared to the notes above
-  // as the Victron kit uses little-endian ordering when transmitting on CANBUS
-  const uint8_t BIT01_ALARM = B00000001;
-  const uint8_t BIT23_ALARM = B00000100;
-  const uint8_t BIT45_ALARM = B00010000;
-  const uint8_t BIT67_ALARM = B01000000;
-
-  const uint8_t BIT01_OK = B00000010;
-  const uint8_t BIT23_OK = B00001000;
-  const uint8_t BIT45_OK = B00100000;
-  const uint8_t BIT67_OK = B10000000;
-
-  // const uint8_t BIT01_NOTSUP = B00000011;
-  // const uint8_t BIT23_NOTSUP = B00001100;
-  // const uint8_t BIT45_NOTSUP = B00110000;
-  // const uint8_t BIT67_NOTSUP = B11000000;
-
-  if (_controller_state == ControllerState::Running)
-  {
-    // BYTE 0
-    //(bit 0+1) General alarm (not implemented)
-    //(bit 2+3) Battery low voltage alarm
-    data.byte0 |= ((rules.ruleOutcome(Rule::BankOverVoltage) | rules.ruleOutcome(Rule::CurrentMonitorOverVoltage)) ? BIT23_ALARM : BIT23_OK);
-    //(bit 4+5) Battery high voltage alarm
-    data.byte0 |= ((rules.ruleOutcome(Rule::BankUnderVoltage) | rules.ruleOutcome(Rule::CurrentMonitorUnderVoltage)) ? BIT45_ALARM : BIT45_OK);
-
-    //(bit 6+7) Battery high temperature alarm
-    if (rules.moduleHasExternalTempSensor)
+    if (mysettings.controllerNet == 1)
     {
-      data.byte0 |= (rules.ruleOutcome(Rule::ModuleOverTemperatureExternal) ? BIT67_ALARM : BIT67_OK);
+        memcpy(&candata.data[0], &CAN.data[6][mysettings.controllerID][0], candata.dlc);
     }
 
-    // BYTE 1
-    // 1 (bit 0+1) Battery low temperature alarm
-    if (rules.moduleHasExternalTempSensor)
+    else
+    
     {
-      data.byte1 |= (rules.ruleOutcome(Rule::ModuleUnderTemperatureExternal) ? BIT01_ALARM : BIT01_OK);
+         int16_t voltage, current, temperature;
+        for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+        {
+            if (CAN.data[2][i][0] != 0)  // only use 0 values from online controllers
+            {
+                voltage = voltage + *(int16_t*)&CAN.data[6][i][0];
+                current = current + *(int16_t*)&CAN.data[6][i][2];
+                temperature = temperature + *(int16_t*)&CAN.data[6][i][4];
+            }
+        }
+
+        voltage = voltage / CAN.online_controller_count;
+        temperature = temperature / CAN.online_controller_count;
+
+
+    memcpy(&candata.data[0], &voltage, sizeof(voltage));
+    memcpy(&candata.data[2], &current, sizeof(current));
+    memcpy(&candata.data[4], &temperature, sizeof(temperature));
     }
-    // 1 (bit 2+3) Battery high temperature charge alarm
-    // data.byte1 |= BIT23_NOTSUP;
-    // 1 (bit 4+5) Battery low temperature charge alarm
-    // data.byte1 |= BIT45_NOTSUP;
-    // 1 (bit 6+7) Battery high current alarm
-    // data.byte1 |= BIT67_NOTSUP;
-  }
+    // send to tx routine , block 50ms 
+    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
+    }
 
-  // 2 (bit 0+1) Battery high charge current alarm
-  // data.byte2 |= BIT01_NOTSUP;
-  // 2 (bit 2+3) Contactor Alarm (not implemented)
-  // data.byte2 |= BIT23_NOTSUP;
-  // 2 (bit 4+5) Short circuit Alarm (not implemented)
-  // data.byte2 |= BIT45_NOTSUP;
-
-  // 2 (bit 6+7) BMS internal alarm
-  data.byte2 |= ((rules.ruleOutcome(Rule::BMSError) || rules.ruleOutcome(Rule::EmergencyStop)) ? BIT67_ALARM : BIT67_OK);
-
-  // 3 (bit 0+1) Cell imbalance alarm
-  // data.byte3 |= BIT01_NOTSUP;
-  // 3 (bit 2+3) Reserved
-  // 3 (bit 4+5) Reserved
-  // 3 (bit 6+7) Reserved
-
-  // 4 (bit 0+1) General warning (not implemented)
-  // data.byte4 |= BIT01_NOTSUP;
-  // 4 (bit 2+3) Battery low voltage warning
-  // data.byte4 |= BIT23_NOTSUP;
-  // 4 (bit 4+5) Battery high voltage warning
-  // data.byte4 |= BIT45_NOTSUP;
-  // 4 (bit 6+7) Battery high temperature warning
-  // data.byte4 |= BIT67_NOTSUP;
-
-  // 5 (bit 0+1) Battery low temperature warning
-  // data.byte5 |= BIT01_NOTSUP;
-  // 5 (bit 2+3) Battery high temperature charge warning
-  // data.byte5 |= BIT23_NOTSUP;
-  // 5 (bit 4+5) Battery low temperature charge warning
-  // data.byte5 |= BIT45_NOTSUP;
-  // 5 (bit 6+7) Battery high current warning
-  // data.byte5 |= BIT67_NOTSUP;
-
-  // 6 (bit 0+1) Battery high charge current warning
-  // data.byte6 |= BIT01_NOTSUP;
-  // 6 (bit 2+3) Contactor warning (not implemented)
-  // data.byte6 |= BIT23_NOTSUP;
-  // 6 (bit 4+5) Short circuit warning (not implemented)
-  // data.byte6 |= BIT45_NOTSUP;
-  // 6 (bit 6+7) BMS internal warning
-  // data.byte6 |= (rules.numberOfActiveWarnings > 0 ? BIT67_ALARM : BIT67_OK);
-
-  // ESP_LOGI(TAG, "numberOfBalancingModules=%u", rules.numberOfBalancingModules);
-
-  // 7 (bit 0+1) Cell imbalance warning
-  // data.byte7 |= (rules.numberOfBalancingModules > 0 ? BIT01_ALARM : BIT01_OK);
-
-  // 7 (bit 2+3) System status (online/offline) [1]
-  data.byte7 |= ((_controller_state != ControllerState::Running) ? BIT23_ALARM : BIT23_OK);
-  // 7 (rest) Reserved
-
-  // Log out the buffer for debugging
-  ESP_LOG_BUFFER_HEX_LEVEL(TAG, &data, sizeof(data35a), ESP_LOG_DEBUG);
-
-  send_canbus_message(0x35a, (uint8_t *)&data, sizeof(data35a));
 }
 
+// # modules OK
 void victron_message_372()
 {
-  struct data372
-  {
-    uint16_t numberofmodulesok;
-    // uint16_t numberofmodulesblockingcharge;
-    // uint16_t numberofmodulesblockingdischarge;
-    // uint16_t numberofmodulesoffline;
-  };
+    CANframe candata;
+    candata.dlc = 2;
+    candata.identifier = 0x372;
+    memset(&candata.data, 0, sizeof(candata.data));
 
-  data372 data;
+    if (mysettings.controllerNet = 1)
+    {
+        memcpy(&candata.data[0], &CAN.data[3][mysettings.controllerID][0], candata.dlc);
+    }
 
-  data.numberofmodulesok = TotalNumberOfCells() - rules.invalidModuleCount;
-  // data.numberofmodulesblockingcharge = 0;
-  // data.numberofmodulesblockingdischarge = 0;
-  // data.numberofmodulesoffline = rules.invalidModuleCount;
+    else
+    {
+        uint16_t online_count = 0;
+        // uint16_t numberofmodulesblockingcharge = 0;
+       // uint16_t numberofmodulesblockingdischarge = 0;  
+        //uint16_t offline_count = 0;
 
-  send_canbus_message(0x372, (uint8_t *)&data, sizeof(data372));
+
+        // # Online Modules
+
+        for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+        {
+            if (CAN.data[2][i][0] != 0)  // only use 0 values from online controllers
+            {
+            online_count = online_count + *(uint16_t*)&CAN.data[3][i][0];
+            }
+        }
+
+        memcpy(&candata.data[0], &online_count, sizeof(online_count));
+
+    }
+
+    // send to tx routine , block 50ms 
+    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+    {
+        ESP_LOGE(TAG, "CAN tx Q Full");
+    }
+
+
 }
 
-void victron_message_373()
+// Alarms
+void victron_message_35a()
 {
+    /*
+     Alarms will be reported in the following manner:
+     1) all connected controllers must report OK for an OK to be reported to the inverter
+     2) If all controllers report Not Supported than that will be reported to the inverter.
+     3) Any other combination will report an alarm to the inverter.
 
-  struct data373
-  {
-    uint16_t mincellvoltage;
-    uint16_t maxcellvoltage;
-    uint16_t lowestcelltemperature;
-    uint16_t highestcelltemperature;
-  };
+     Alarm = 01
+        OK = 10
+      NSUP = 11
 
-  data373 data;
 
-  data.lowestcelltemperature = 273 + rules.lowestExternalTemp;
-  data.highestcelltemperature = 273 + rules.highestExternalTemp;
-  data.maxcellvoltage = rules.highestCellVoltage;
-  data.mincellvoltage = rules.lowestCellVoltage;
 
-  send_canbus_message(0x373, (uint8_t *)&data, sizeof(data373));
+                    Truth table for reporting alarms
+
+Controller 1:     |  01  |  01  |  10  |  10  |  11  |
+                  |______|______|______|______|______|
+Controller 2:     |  10  |  11  |  11  |  10  |  11  |
+                  |______|______|______|______|______|
+   Report Out:    |  01  |  01  |  01  |  10  |  11  |
+
+
+
+
+    */
+
+    CANframe candata;
+    candata.dlc = TWAI_FRAME_MAX_DLC;
+    candata.identifier = 0x35a;
+
+    uint8_t bitmask, byte, OK_checksum;
+
+    memset(&candata.data, 0, sizeof(candata.data));
+
+
+    for (int8_t i = 0; i < TWAI_FRAME_MAX_DLC; i++)     // loop through all 8 bytes
+    {
+        for (int8_t j = 0; j < 8; j += 2)    // loop through each 'word'
+        {
+            bitmask = 128 >> j;    /*   set the bitmask so we can compare the same bit across every controller
+                                        e.g. for j=0 then bitmask = 1000 0000
+                                             for j=2 then bitmask = 0010 0000        */
+
+            OK_checksum = 0;
+            for (int8_t k = 0; k < MAX_NUM_CONTROLLERS; k++)    // loop through the controllers 
+            {
+                if (CAN.data[2][i][0] != 0)  // only use online controllers
+                {
+
+                    memcpy(&byte, &CAN.data[1][k][i], 1);         //set "byte" equal to the byte found in k controller
+
+                    if ((byte & bitmask) == 0)  // if we don't match a 1 in the even digit then we definitively know there is an alarm so...
+                    {
+                        candata.data[i] &= ~(bitmask);     // set to zero if it isn't already
+                        candata.data[i] |= bitmask >> 1;   // ...set the adjacent odd bit to 1 in bitarray and break from this 'word'
+                        break;
+                    }
+
+                    // otherwise the first digit must be a 1....
+
+                    else if ((byte & bitmask >> 1) != 0)  //  ....if the adjacent odd bit also matches a 1.... 
+                    {
+                        candata.data[i] |= bitmask;   // set the first bit to 1 if it isn't already
+                        candata.data[i] |= bitmask >> 1;   //..... then it's NSUP and we set the second bit to 1...  
+                    }
+                    else
+                    {
+                        candata.data[i] |= bitmask;  // set the first bit to 1 if it isn't already
+                        OK_checksum++;   // we leave the second bit as a 0 and it's an OK for now. Increase checksum 
+                    }
+                }
+            }
+
+            if (OK_checksum > 0 && OK_checksum < mysettings.controllerNet)  // only if all controllers show OK do we report as such to the inverter. Any mix of OK and NSUP will default to Alarm
+            {
+                candata.data[i] &= ~(bitmask);
+                candata.data[i] |= bitmask >> 1;
+            }
+
+
+        }
+    }
+
+
+    // send to tx routine , block 50ms 
+    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+    {
+        ESP_LOGE(TAG, "CAN tx Q Full");
+    }
 }

@@ -22,6 +22,8 @@
 #include "CurrentMonitorINA229.h"
 #include "history.h"
 
+#include "ControllerCAN.h"
+
 esp_err_t api_handler(httpd_req_t *req);
 esp_err_t content_handler_downloadfile(httpd_req_t *req);
 
@@ -55,4 +57,7 @@ extern CurrentMonitorINA229 currentmon_internal;
 extern History history;
 extern wifi_eeprom_settings _wificonfig;
 extern esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax);
+
+extern ControllerCAN CAN;
+
 #endif

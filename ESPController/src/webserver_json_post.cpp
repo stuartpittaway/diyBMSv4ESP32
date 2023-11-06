@@ -48,6 +48,25 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendFailure(req);
 }
 
+esp_err_t post_saveCAN_json_handler(httpd_req_t* req, bool urlEncoded)
+{
+    mysettings.highAvailable = false;  
+
+    if (GetKeyValue(httpbuf, "controllerNet", &mysettings.controllerNet, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "controllerID", &mysettings.controllerID, urlEncoded))
+    {
+    }
+    if (GetKeyValue(httpbuf, "highAvailable", &mysettings.highAvailable, urlEncoded))
+    {
+    }
+    
+    saveConfiguration();
+    return SendSuccess(req);
+
+}
+
 esp_err_t post_saventp_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     // uint32_t tempVariable;
@@ -274,8 +293,8 @@ esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool)
 {
     if (SaveWIFIJson())
     {
-        return SendSuccess(req);
-    }
+    return SendSuccess(req);
+}
 
     return SendFailure(req);
 }
@@ -1209,7 +1228,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    std::array<std::string, 29> uri_array = {
+    std::array<std::string, 30> uri_array = {
         "savebankconfig", "saventp", "saveglobalsetting",
         "savemqtt", "saveinfluxdb",
         "saveconfigtofile", "wificonfigtofile",
@@ -1220,9 +1239,9 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "savecurrentmon", "savecmbasic", "savecmadvanced",
         "savecmrelay", "restoreconfig", "savechargeconfig",
         "visibletiles", "dailyahreset", "setsoc",
-        "savenetconfig"};
+        "savenetconfig", "saveCAN"};
 
-    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 29> func_ptr = {
+    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 30> func_ptr = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
         post_savemqtt_json_handler, post_saveinfluxdbsetting_json_handler,
         post_saveconfigurationtoflash_json_handler, post_savewificonfigtosdcard_json_handler,
@@ -1233,7 +1252,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
         post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler,
         post_visibletiles_json_handler, post_resetdailyahcount_json_handler, post_setsoc_json_handler,
-        post_savenetconfig_json_handler};
+        post_savenetconfig_json_handler, post_saveCAN_json_handler};
 
     auto name = std::string(req->uri);
 

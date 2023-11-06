@@ -39,7 +39,8 @@
 			"limits": "cpp",
 			"xlocale": "cpp",
 			"xutility": "cpp",
-			"istream": "cpp"
+			"istream": "cpp",
+			"system_error": "cpp"
 		}
 	}
 }

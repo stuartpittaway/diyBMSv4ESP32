@@ -1627,6 +1627,51 @@
     </div>
 
     <div class="region">
+      <h2>Intra Controller CAN Settings</h2>
+      <p id="b16">
+        DIYBMS can communicate with up to 8 total controllers for the purpose of communicating aggregated data to an inverter.
+      </p>
+      
+      <form id="ControllersForm" method="POST" action="/post/saveCAN" autocomplete="off">
+        <div class="settings">
+          <div>
+            <label for="controllerNet">Number of controllers networked via CAN</label>
+            <select name="controllerNet" id="controllerNet">
+              <option>1</option>
+              <option>2</option>
+              <option>3</option>
+              <option>4</option>
+              <option>5</option>
+              <option>6</option>
+              <option>7</option>
+              <option>8</option>
+            </select>
+          </div>
+          <div>
+            <label for="controllerID">Controller ID </label>
+            <select name="controllerID" id="controllerID">
+              <option>0</option>
+              <option>1</option>
+              <option>2</option>
+              <option>3</option>
+              <option>4</option>
+              <option>5</option>
+              <option>6</option>
+              <option>7</option>
+            </select>
+          </div>
+          <div>
+            <label for="highAvailable">High Availability Mode</label>
+            <input type="checkbox" name="highAvailable" id="highAvailable" />
+          </div>
+
+
+          <button type="submit">Save Controller CAN Settings</button>
+        </div>
+      </form>
+    </div>
+    
+    <div class="region">
       <h2>Display Settings</h2>
       <form id="displaySettingForm" method="POST" action="/post/savedisplaysetting" autocomplete="off">
         <div class="settings">

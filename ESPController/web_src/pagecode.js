@@ -1560,6 +1560,10 @@ $(function () {
                 $("#totalSeriesModules").val(data.settings.totalseriesmodules);
                 $("#totalBanks").val(data.settings.totalnumberofbanks);
 
+                $("#controllerNet").val(data.settings.controllerNet);
+                $("#controllerID").val(data.settings.controllerID);
+                $("#highAvailable").prop("checked", data.settings.highAvailable);
+
                 $("#baudrate").empty();
                 $("#baudrate").append('<option value="2400">Standard</option>')
                 $("#baudrate").append('<option value="5000">5K</option>')

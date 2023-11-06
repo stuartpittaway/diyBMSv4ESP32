@@ -285,6 +285,9 @@ void HAL_ESP32::ConfigureCAN()
     // Initialize configuration structures using macro initializers
     twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, TWAI_MODE_NORMAL);
     twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
+    g_config.tx_queue_len=10;
+    g_config.alerts_enabled=TWAI_ALERT_ALL;
+    g_config.mode=TWAI_MODE_NO_ACK;
 
     // Filter out all messages except 0x305 and 0x307
     // https://docs.espressif.com/projects/esp-idf/en/v3.3.5/api-reference/peripherals/can.html
