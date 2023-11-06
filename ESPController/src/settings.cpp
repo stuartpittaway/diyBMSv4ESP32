@@ -370,7 +370,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE_UINT8(rs485stopbits);
         MACRO_NVSWRITE_UINT8(canbusprotocol);
         MACRO_NVSWRITE(canbusinverter);
-        MACRO_NVSWRITE_UINT8(canbusbaud);
+        MACRO_NVSWRITE(canbusbaud);
 
         MACRO_NVSWRITE(currentMonitoring_shuntmv);
         MACRO_NVSWRITE(currentMonitoring_shuntmaxcur);
