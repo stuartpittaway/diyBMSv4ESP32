@@ -965,14 +965,13 @@
       </p>
       <p id="v2">
         These settings require an external inverter/charger to be able to integrate using CANBUS to control
-        charge/discharge parameters.
+        charge/discharge parameters.  Pylontech normally operates at 500k baud. Victron can use other speeds depending on the device.
       </p>
       <p id="v3">
         Temperature control utilises the external temperature sensors on the diyBMS modules. This is very useful for
         LIFEPO4 cells which cannot be charged when below 0&deg;C.
       </p>
       <p id="v7">Current shunt/monitor is required for reliable integration with external inverter/chargers.</p>
-
       <form id="chargingForm" method="POST" action="/post/savechargeconfig" autocomplete="off">
         <div class="settings">
           <div>
@@ -989,6 +988,14 @@
             <select name="canbusinverter" id="canbusinverter">
               <option value="0">Generic</option>
               <option value="1">DEYE</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="canbusbaud">CANBUS baud rate</label>
+            <select name="canbusbaud" id="canbusbaud">
+              <option value="500">500k</option>
+              <option value="250">250k</option>
             </select>
           </div>
 
@@ -1115,10 +1122,6 @@
       <p id="v5">
         <img src="warning.png" width="48" height="41" alt="Warning" />
         Incorrect use of these settings could destroy your battery and cause harm!
-      </p>
-      <p id="v6">
-        <img src="warning.png" width="48" height="41" alt="Warning" />
-        CANBUS BMS integration is currently at an EXPERIMENTAL stage, please report issues.
       </p>
       <p id="v4">
         Remember to install terminator resistors at both ends of CAN connection. On the controller, jumper JP1 can be

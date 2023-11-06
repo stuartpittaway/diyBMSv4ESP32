@@ -478,6 +478,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         // Field not found/invalid, so disable
         mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
         mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
+        mysettings.canbusbaud = 500;
     }
 
     // Default value
@@ -487,6 +488,8 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         mysettings.canbusinverter = (CanBusInverter)temp;
     }
 
+    GetKeyValue(httpbuf, "canbusbaud", &mysettings.canbusbaud, urlEncoded);
+    
     GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded);
     GetKeyValue(httpbuf, "cellminmv", &mysettings.cellminmv, urlEncoded);
     GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded);

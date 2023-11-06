@@ -27,7 +27,7 @@ bool HAL_ESP32::MountSDCard()
             }
             else
             {
-                ESP_LOGI(TAG, "SD card mounted, type %i",(int)cardType);
+                ESP_LOGI(TAG, "SD card mounted, type %i", (int)cardType);
                 result = true;
             }
         }
@@ -36,7 +36,7 @@ bool HAL_ESP32::MountSDCard()
             ESP_LOGE(TAG, "Card mount failed");
         }
         ReleaseVSPIMutex();
-    } 
+    }
     return result;
 }
 
@@ -280,11 +280,21 @@ void HAL_ESP32::Led(uint8_t bits)
     WriteTCA9534APWROutputState();
 }
 
-void HAL_ESP32::ConfigureCAN()
+void HAL_ESP32::ConfigureCAN(uint16_t canbusbaudrate) const
 {
     // Initialize configuration structures using macro initializers
     twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, TWAI_MODE_NORMAL);
-    twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
+
+    twai_timing_config_t t_config;
+    if (canbusbaudrate == 250)
+    {
+        t_config = TWAI_TIMING_CONFIG_250KBITS();
+    }
+    else
+    {
+        //Default 500K rate
+        t_config = TWAI_TIMING_CONFIG_500KBITS();
+    }
 
     // Filter out all messages except 0x305 and 0x307
     // https://docs.espressif.com/projects/esp-idf/en/v3.3.5/api-reference/peripherals/can.html

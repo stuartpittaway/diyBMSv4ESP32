@@ -600,6 +600,7 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
 
   settings["canbusprotocol"] = mysettings.canbusprotocol;
   settings["canbusinverter"] = mysettings.canbusinverter;
+  settings["canbusbaud"] = mysettings.canbusbaud;
   settings["nominalbatcap"] = mysettings.nominalbatcap;
   settings["chargevolt"] = mysettings.chargevolt;
   settings["chargecurrent"] = mysettings.chargecurrent;

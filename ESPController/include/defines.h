@@ -183,6 +183,9 @@ struct diybms_eeprom_settings
 
   CanBusProtocolEmulation canbusprotocol;
   CanBusInverter canbusinverter;
+  //CANBUS baud rate, 250=250k, 500=500k
+  uint16_t canbusbaud;
+  //Nominal battery capacity (amp hours) 
   uint16_t nominalbatcap;
   // Maximum charge voltage - scale 0.1
   uint16_t chargevolt;

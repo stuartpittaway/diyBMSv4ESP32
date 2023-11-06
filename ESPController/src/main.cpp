@@ -3759,9 +3759,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   InitializeNVS();
 
-  // Switch CAN chip TJA1051T/3 ON
-  hal.CANBUSEnable(true);
-  hal.ConfigureCAN();
 
   if (!LittleFS.begin(false))
   {
@@ -3842,6 +3839,10 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   }
 
   rules.setChargingMode(ChargingMode::standard);
+
+  // Switch CAN chip TJA1051T/3 ON
+  hal.CANBUSEnable(true);
+  hal.ConfigureCAN(mysettings.canbusbaud);
 
   // Serial pins IO2/IO32
   SERIAL_DATA.begin(mysettings.baudRate, SERIAL_8N1, 2, 32); // Serial for comms to modules
