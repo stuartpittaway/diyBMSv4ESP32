@@ -7,7 +7,6 @@
 #error You need to specify the DIYBMSMODULEVERSION define
 #endif
 
-#include "Steinhart.h"
 #include "defines.h"
 #include "crc16.h"
 #include "cell.h"

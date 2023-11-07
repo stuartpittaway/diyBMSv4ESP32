@@ -530,7 +530,6 @@ void setup()
     ErrorFlashes(3);
   }
 
-  //ParasiticCapacitanceChargeInjectionErrorCalibration(number_of_active_cells, celldata);
   BufferAmplifierOffsetCalibration();
 
   configureModules();
@@ -626,11 +625,39 @@ uint32_t MAX14921Command(uint8_t b1, uint8_t b2, uint8_t b3)
   return reply;
 }
 
-/// @brief Read external temperature sensors, connected to STM32
+// NTC THERMISTOR CMFB103F3950FANT
+// ADC MAPPING TO TEMPERATURE (DEGREES C)
+constexpr std::array<int8_t, 256> thermistorTable =
+    {
+        -40, -40, -40, -40, -40, -40, -40, -40, -40, -39, -37, -36, -34, -33, -31, -30, -29,
+        -28, -27, -26, -25, -24, -23, -22, -21, -20, -19, -19, -18, -17, -16, -16, -15, -14,
+        -14, -13, -13, -12, -11, -11, -10, -10, -9, -9, -8, -8, -7, -6, -6, -5, -5, -4, -4,
+        -4, -3, -3, -2, -2, -1, -1, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7,
+        7, 8, 8, 8, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 12, 13, 13, 14, 14, 14, 15, 15, 15,
+        16, 16, 16, 17, 17, 17, 18, 18, 19, 19, 19, 20, 20, 20, 21, 21, 21, 22, 22, 22, 23, 23,
+        24, 24, 24, 24, 25, 25, 26, 26, 26, 27, 27, 27, 28, 28, 28, 29, 29, 30, 30, 30, 31, 31,
+        31, 32, 32, 33, 33, 33, 34, 34, 35, 35, 35, 36, 36, 37, 37, 37, 38, 38, 39, 39, 39, 40,
+        40, 41, 41, 42, 42, 42, 43, 43, 44, 44, 45, 45, 46, 46, 47, 47, 48, 48, 49, 49, 50, 50,
+        51, 51, 52, 52, 53, 54, 54, 55, 55, 56, 57, 57, 58, 59, 59, 60, 61, 61, 62, 63, 63, 64,
+        65, 66, 67, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 80, 81, 82, 83, 85, 86, 88,
+        89, 91, 93, 95, 97, 99, 101, 104, 107, 110, 113, 117, 120, 120, 120, 120, 120, 120, 120,
+        120, 120, 120};
+
+/// @brief Read external temperature sensors, connected to STM32 (12 bit ADC)
 /// @return Temperature in celcius. A value of -999 means not-connected (shorted to ground)
 int16_t ReadThermistor(uint32_t pin)
 {
-  return Steinhart::ThermistorToCelcius(EXT_BCOEFFICIENT, (uint16_t)analogRead(pin), 4095);
+  auto value = (uint16_t)analogRead(pin);
+
+  // Ignore extreme ranges - assume not connected
+  if (value < 15 || value > 4000)
+  {
+    return (int16_t)-999;
+  }
+
+  // Scale 12 bit to 8 bit (TODO: we can probably just change the resolution of analogRead instead)
+  auto byte_value = (uint8_t)map(value, 0, 4096, 0, 255);
+  return thermistorTable.at(byte_value);
 }
 
 /// @brief Read external temperature sensors (connected to board J11/J12/J13 sockets)
@@ -656,10 +683,20 @@ void DisableThermistorPower()
 /// @return Celcius temperature reading
 int16_t ReadTH()
 {
+  //14 bit reply...
   auto value = DecimateValue(takeRawMCP33151ADCReading());
   // THx is connected to 3.3V max via 10K resistors - scale 3.3V to 4.096V reference
   // 3.600 is used as temperature appears to be over read by 2 celcius
-  return Steinhart::ThermistorToCelcius(INT_BCOEFFICIENT, value, (3.600F / ((float)DIYBMSREFMILLIVOLT / 1000.0F)) * 4095.0F);
+
+  // Ignore extreme ranges - assume not connected
+  if (value == 0)
+  {
+    return (int16_t)-999;
+  }
+
+  // Scale to 8 bit
+  auto byte_value = (uint8_t)map(value, 0,long((3600.0F / ((float)DIYBMSREFMILLIVOLT)) * 4095.0F), 0, 255);
+  return thermistorTable.at(byte_value);
 }
 
 /// @brief internal temperature sensors (on board)
@@ -689,6 +726,16 @@ void TakeOnboardInternalTempMeasurements(CellData &cd)
 
   // Cell 0 internal temperature is the on-board (PCB) sensor (marked TH6)
   cd.at(0).setInternalTemperature(t3);
+
+  if (!PP.BalanceBoardInstalled)
+  {
+    // Populate all cells with an internal temperature to prevent controller error messages
+    for (size_t i = 0; i < 16; i += 2)
+    {
+      cd.at(i).setInternalTemperature(t3);
+      cd.at(i + 1).setInternalTemperature(t3);
+    }
+  }
 }
 
 [[noreturn]] void ErrorFlashes(int number)
