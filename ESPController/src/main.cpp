@@ -2654,7 +2654,7 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
   if (result == ESP_OK)
   {
     // Everything normal/good
-    ESP_LOGD(TAG, "Sent CAN message 0x%x", identifier);
+    // ESP_LOGD(TAG, "Sent CAN message 0x%x", identifier);
     // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
     canbus_messages_sent++;
     return;
@@ -3639,7 +3639,7 @@ const std::array<log_level_t, 21> log_levels =
         {.tag = "diybms-rules", .level = ESP_LOG_INFO},
         {.tag = "diybms-softap", .level = ESP_LOG_INFO},
         {.tag = "diybms-tft", .level = ESP_LOG_INFO},
-        {.tag = "diybms-victron", .level = ESP_LOG_DEBUG},
+        {.tag = "diybms-victron", .level = ESP_LOG_INFO},
         {.tag = "diybms-webfuncs", .level = ESP_LOG_INFO},
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
