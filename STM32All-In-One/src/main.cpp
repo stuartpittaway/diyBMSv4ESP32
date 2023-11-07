@@ -51,10 +51,6 @@ extern "C"
 #include <SerialEncoder.h>
 #include "packet_processor.h"
 
-#if !defined(DIYBMSBAUD)
-#error Expected DIYBMSBAUD define
-#endif
-
 #if !defined(HAL_UART_MODULE_ENABLED)
 #error Expected HAL_UART_MODULE_ENABLED
 #endif
@@ -109,6 +105,16 @@ PacketProcessor PP;
 
 /// @brief  Bitmap of which cells are balancing (maps into MAX chip register)
 uint16_t cell_balancing = 0;
+
+/// @brief   Is serial baud rate scanning active?
+bool serialBaudScanning = true;
+/// @brief  Index to current SerialBaudRates array
+int8_t serialBaudIndex = 0;
+/// @brief  Wait X iterations of loop() before swapping baud rates
+int8_t serialBaudCountDown = 15;
+
+// Baud rates that we can use
+constexpr std::array<uint16_t, 4> SerialBaudRates = {10000, 9600, 5000, 2400};
 
 const uint32_t LEVEL_SHIFTING_DELAY_MAX = 50; // μs
 const uint32_t T_SETTLING_TIME_MAX = 10;      // μs
@@ -506,7 +512,8 @@ void setup()
   // Set up data handler
   Serial1.setTx(PA_9);
   Serial1.setRx(PA_10);
-  Serial1.begin(DIYBMSBAUD, SERIAL_8N1);
+  // Start using the first serial baud rate (10k)
+  Serial1.begin(SerialBaudRates.at(serialBaudIndex), SERIAL_8N1);
   myPacketSerial.begin(&Serial1, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
   SPI.begin();
@@ -683,7 +690,7 @@ void DisableThermistorPower()
 /// @return Celcius temperature reading
 int16_t ReadTH()
 {
-  //14 bit reply...
+  // 14 bit reply...
   auto value = DecimateValue(takeRawMCP33151ADCReading());
   // THx is connected to 3.3V max via 10K resistors - scale 3.3V to 4.096V reference
   // 3.600 is used as temperature appears to be over read by 2 celcius
@@ -695,7 +702,7 @@ int16_t ReadTH()
   }
 
   // Scale to 8 bit
-  auto byte_value = (uint8_t)map(value, 0,long((3600.0F / ((float)DIYBMSREFMILLIVOLT)) * 4095.0F), 0, 255);
+  auto byte_value = (uint8_t)map(value, 0, long((3600.0F / ((float)DIYBMSREFMILLIVOLT)) * 4095.0F), 0, 255);
   return thermistorTable.at(byte_value);
 }
 
@@ -1001,6 +1008,11 @@ void loop()
     waitbeforebalance--;
   }
 
+  if (serialBaudScanning)
+  {
+    NotificationLedOn();
+  }
+
   // Service the serial port/queue
   for (size_t i = 0; i < 300; i++)
   {
@@ -1009,6 +1021,32 @@ void loop()
 
     // Allow data to be received in buffer (delay must be AFTER) checkInputStream
     delay(1);
+  }
+
+  if (serialBaudScanning)
+  {
+    NotificationLedOff();
+    serialBaudCountDown--;
+
+    if (PP.getPacketReceivedCounter() > 0)
+    {
+      // We have found our baud rate - and processed at least 1 packet successfully, so stop scanning
+      serialBaudScanning = false;
+    }
+    else if (serialBaudCountDown <= 0)
+    {
+      // If we got this far, we have not yet found/received a valid packet of serial data, so try another baud rate
+      serialBaudCountDown = 15;
+      serialBaudIndex++;
+
+      if (serialBaudIndex >= SerialBaudRates.size())
+      {
+        serialBaudIndex = 0;
+      }
+
+      Serial1.end();
+      Serial1.begin(SerialBaudRates.at(serialBaudIndex), SERIAL_8N1);
+    }
   }
 
   // Every so often, we should call this to calibrate the op-amp as it changes in ambient temperature (takes 8ms to complete)
