@@ -79,12 +79,15 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     // Default to off
     mysettings.mqtt_enabled = false;
+    mysettings.mqtt_basic_cell_reporting=false;
 
     // Username and password are optional and may not be HTTP posted from web browser
     memset(mysettings.mqtt_username, 0, sizeof(mysettings.mqtt_username));
     memset(mysettings.mqtt_password, 0, sizeof(mysettings.mqtt_password));
 
     GetKeyValue(httpbuf, "mqttEnabled", &mysettings.mqtt_enabled, urlEncoded);
+
+    GetKeyValue(httpbuf, "mqttBasicReporting", &mysettings.mqtt_basic_cell_reporting, urlEncoded);
 
     GetTextFromKeyValue(httpbuf, "mqttTopic", mysettings.mqtt_topic, sizeof(mysettings.mqtt_topic), urlEncoded);
 

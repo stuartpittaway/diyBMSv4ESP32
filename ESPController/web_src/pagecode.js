@@ -1735,6 +1735,7 @@ $(function () {
             function (data) {
 
                 $("#mqttEnabled").prop("checked", data.mqtt.enabled);
+                $("#mqttBasicReporting").prop("checked", data.mqtt.basiccellreporting);
                 $("#mqttTopic").val(data.mqtt.topic);
                 $("#mqttUri").val(data.mqtt.uri);
                 $("#mqttUsername").val(data.mqtt.username);

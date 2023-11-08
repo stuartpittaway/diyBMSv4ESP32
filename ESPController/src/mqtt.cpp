@@ -161,10 +161,12 @@ void connectToMqtt()
             .password = mysettings.mqtt_password,
             // Reconnect if there server has a problem (or wrong IP/password etc.)
             .disable_auto_reconnect = false,
+            .buffer_size = 512,
             // 30 seconds
             .reconnect_timeout_ms = 30000,
-            // 3 seconds
-            .network_timeout_ms = 3000};
+            .out_buffer_size = 2048,
+            // 4 seconds
+            .network_timeout_ms = 4000};
 
         mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
 
@@ -237,14 +239,15 @@ void GeneralStatusPayload(const PacketRequestGenerator *prg, const PacketReceive
 
 void BankLevelInformation(const Rules *rules)
 {
+    std::string bank_status;
+    bank_status.reserve(64);
     // Output bank level information (just voltage for now)
     for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
     {
-        ESP_LOGI(TAG, "Bank(%d) status payload", bank);
-        std::string bank_status;
-        bank_status.reserve(128);
+        ESP_LOGI(TAG, "Bank %d status payload", bank);
+        bank_status.clear();
         bank_status.append("{\"voltage\":")
-            .append(float_to_string(rules->bankvoltage.at(bank) / 1000.0f))
+            .append(float_to_string((float)(rules->bankvoltage.at(bank)) / 1000.0f))
             .append(",\"range\":")
             .append(std::to_string(rules->VoltageRangeInBank(bank)))
             .append("}");
@@ -262,7 +265,10 @@ void RuleStatus(const Rules *rules)
     rule_status.append("{");
     for (uint8_t i = 0; i < RELAY_RULES; i++)
     {
-        rule_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string(rules->ruleOutcome((Rule)i) ? 1 : 0));
+        rule_status.append("\"")
+            .append(std::to_string(i))
+            .append("\":")
+            .append(std::to_string(rules->ruleOutcome((Rule)i) ? 1 : 0));
         if (i < (RELAY_RULES - 1))
         {
             rule_status.append(",");
@@ -282,7 +288,11 @@ void OutputStatus(const RelayState *previousRelayState)
     relay_status.append("{");
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
-        relay_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string((previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0));
+        relay_status.append("\"")
+            .append(std::to_string(i))
+            .append("\":")
+            .append(std::to_string((previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0));
+
         if (i < (RELAY_TOTAL - 1))
         {
             relay_status.append(",");
@@ -338,31 +348,29 @@ void MQTTCellData()
 
     ESP_LOGI(TAG, "MQTT Payload for cell data");
 
+    std::string status;
+    status.reserve(128);
+
     while (i < TotalNumberOfCells() && counter < MAX_MODULES_PER_ITERATION)
     {
         // Only send valid module data
         if (cmi[i].valid)
         {
 
-            std::string status;
-            std::string topic = mysettings.mqtt_topic;
-            status.reserve(128);
-
             uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
             uint8_t m = i - (bank * mysettings.totalNumberOfSeriesModules);
 
-            status.append("{\"voltage\":").append(float_to_string(cmi[i].voltagemV / 1000.0f));
-            status.append(",\"vMax\":").append(float_to_string(cmi[i].voltagemVMax / 1000.0f));
-            status.append(",\"vMin\":").append(float_to_string(cmi[i].voltagemVMin / 1000.0f));
-            status.append(",\"inttemp\":").append(std::to_string(cmi[i].internalTemp));
-            status.append(",\"exttemp\":").append(std::to_string(cmi[i].externalTemp));
-            status.append(",\"bypass\":").append(std::to_string(cmi[i].inBypass ? 1 : 0));
-            status.append(",\"PWM\":").append(std::to_string((int)((float)cmi[i].PWMValue / (float)255.0 * 100)));
-            status.append(",\"bypassT\":").append(std::to_string(cmi[i].bypassOverTemp ? 1 : 0));
-            status.append(",\"bpc\":").append(std::to_string(cmi[i].badPacketCount));
-            status.append(",\"mAh\":").append(std::to_string(cmi[i].BalanceCurrentCount));
+            status.clear();
+            status.append("{\"voltage\":").append(float_to_string(cmi[i].voltagemV / 1000.0f)).append(",\"exttemp\":").append(std::to_string(cmi[i].externalTemp));
+
+            if (mysettings.mqtt_basic_cell_reporting == false)
+            {
+                status.append(",\"vMax\":").append(float_to_string(cmi[i].voltagemVMax / 1000.0f)).append(",\"vMin\":").append(float_to_string(cmi[i].voltagemVMin / 1000.0f)).append(",\"inttemp\":").append(std::to_string(cmi[i].internalTemp)).append(",\"bypass\":").append(std::to_string(cmi[i].inBypass ? 1 : 0)).append(",\"PWM\":").append(std::to_string((int)((float)cmi[i].PWMValue / (float)255.0 * 100))).append(",\"bypassT\":").append(std::to_string(cmi[i].bypassOverTemp ? 1 : 0)).append(",\"bpc\":").append(std::to_string(cmi[i].badPacketCount)).append(",\"mAh\":").append(std::to_string(cmi[i].BalanceCurrentCount));
+            }
+
             status.append("}");
 
+            std::string topic = mysettings.mqtt_topic;
             topic.append("/").append(std::to_string(bank)).append("/").append(std::to_string(m));
             publish_message(topic, status);
         }

@@ -172,7 +172,7 @@ int fileSystemListDirectory(httpd_req_t *r, char *buffer, size_t bufferLen, fs::
     {
       // Flush http buffer every X files to prevent overflows
       httpd_resp_send_chunk(r, buffer, bufferused);
-      bufferused=0;
+      bufferused = 0;
     }
   }
 
@@ -806,16 +806,16 @@ esp_err_t content_handler_integration(httpd_req_t *req)
 
   JsonObject mqtt = root.createNestedObject("mqtt");
   mqtt["enabled"] = mysettings.mqtt_enabled;
+  mqtt["basiccellreporting"] = mysettings.mqtt_basic_cell_reporting;
   mqtt["topic"] = mysettings.mqtt_topic;
   mqtt["uri"] = mysettings.mqtt_uri;
   mqtt["username"] = mysettings.mqtt_username;
-  
-  mqtt["connected"]= mqttClient_connected;
-  mqtt["err_conn_count"]=mqtt_error_connection_count;
-  mqtt["err_trans_count"]=mqtt_error_transport_count;
-  mqtt["conn_count"]=mqtt_connection_count;
-  mqtt["disc_count"]=mqtt_disconnection_count;
 
+  mqtt["connected"] = mqttClient_connected;
+  mqtt["err_conn_count"] = mqtt_error_connection_count;
+  mqtt["err_trans_count"] = mqtt_error_transport_count;
+  mqtt["conn_count"] = mqtt_connection_count;
+  mqtt["disc_count"] = mqtt_disconnection_count;
 
   // We don't output the password in the json file as this could breach security
   // mqtt["password"] =mysettings.mqtt_password;

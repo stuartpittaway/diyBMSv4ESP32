@@ -29,6 +29,7 @@ static const char rs485parity_JSONKEY[] = "rs485parity";
 static const char rs485stopbits_JSONKEY[] = "rs485stopbits";
 static const char language_JSONKEY[] = "language";
 static const char mqtt_enabled_JSONKEY[] = "enabled";
+static const char mqtt_basic_cell_reporting_JSONKEY[] = "basiccellrpt";
 static const char mqtt_uri_JSONKEY[] = "uri";
 static const char mqtt_topic_JSONKEY[] = "topic";
 static const char mqtt_username_JSONKEY[] = "username";
@@ -142,6 +143,7 @@ static const char dynamiccharge_NVSKEY[] = "dynamiccharge";
 static const char preventcharging_NVSKEY[] = "preventchar";
 static const char preventdischarge_NVSKEY[] = "preventdis";
 static const char mqtt_enabled_NVSKEY[] = "mqttenable";
+static const char mqtt_basic_cell_reporting_NVSKEY[] = "basiccellrpt";
 static const char influxdb_enabled_NVSKEY[] = "infenabled";
 static const char influxdb_loggingFreqSeconds_NVSKEY[] = "inflogFreq";
 static const char tileconfig_NVSKEY[] = "tileconfig";
@@ -412,6 +414,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(preventcharging);
         MACRO_NVSWRITE(preventdischarge);
         MACRO_NVSWRITE(mqtt_enabled);
+        MACRO_NVSWRITE(mqtt_basic_cell_reporting);
         MACRO_NVSWRITE(influxdb_enabled);
         MACRO_NVSWRITE(influxdb_loggingFreqSeconds);
 
@@ -537,6 +540,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(preventdischarge);
 
         MACRO_NVSREAD(mqtt_enabled);
+        MACRO_NVSREAD(mqtt_basic_cell_reporting);
         MACRO_NVSREAD(influxdb_enabled);
         MACRO_NVSREAD(influxdb_loggingFreqSeconds);
 
@@ -586,6 +590,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
     // EEPROM settings are invalid so default configuration
     _myset->mqtt_enabled = false;
+    _myset->mqtt_basic_cell_reporting = false;
 
     _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
     _myset->canbusinverter = CanBusInverter::INVERTER_GENERIC;
@@ -1001,6 +1006,7 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
 
     JsonObject mqtt = root.createNestedObject("mqtt");
     mqtt[mqtt_enabled_JSONKEY] = settings->mqtt_enabled;
+    mqtt[mqtt_basic_cell_reporting_JSONKEY] = settings->mqtt_basic_cell_reporting;
     mqtt[mqtt_uri_JSONKEY] = settings->mqtt_uri;
     mqtt[mqtt_topic_JSONKEY] = settings->mqtt_topic;
     mqtt[mqtt_username_JSONKEY] = settings->mqtt_username;
@@ -1179,6 +1185,7 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     if (!mqtt.isNull())
     {
         settings->mqtt_enabled = mqtt[mqtt_enabled_JSONKEY];
+        settings->mqtt_basic_cell_reporting=mqtt[mqtt_basic_cell_reporting_JSONKEY];
         strncpy(settings->mqtt_uri, mqtt[mqtt_uri_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_uri));
         strncpy(settings->mqtt_topic, mqtt[mqtt_topic_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_topic));
         strncpy(settings->mqtt_username, mqtt[mqtt_username_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_username));

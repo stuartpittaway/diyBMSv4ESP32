@@ -482,18 +482,21 @@
 
   <div class="page" id="integrationPage">
     <h1 id="ip1">Integration</h1>
-    <p id="ip2">
-      For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you
-      save.
-    </p>
+    
     <div class="region">
       <h2>MQTT</h2>
+      <p id="ip2">For security, you will need to re-enter the password for the MQTT service if you want to enable or modify, before you save.</p>
       <p id="ip4">URI should be similar to mqtt://192.168.0.26:1833</p>
+      <p id="ip5">Basic cell data option reduces the amount of MQTT data being sent over the network.</p>
       <form id="mqttForm" method="POST" action="/post/savemqtt" autocomplete="off">
         <div class="settings">
           <div>
             <label for="mqttEnabled">Enabled</label>
             <input type="checkbox" name="mqttEnabled" id="mqttEnabled" />
+          </div>
+          <div>
+            <label for="mqttBasicReporting">Basic cell data reporting only</label>
+            <input type="checkbox" name="mqttBasicReporting" id="mqttBasicReporting" />
           </div>
           <div>
             <label for="mqttTopic">Topic</label>
