@@ -52,19 +52,24 @@ bool checkMQTTReady()
 /// @param topic Topic to publish the message to.
 /// @param payload Message payload to be published.
 /// @param clear_payload When true @param payload will be cleared upon sending.
-static inline void publish_message(std::string &topic, std::string &payload, bool clear_payload = true)
+static inline void publish_message(std::string const &topic, std::string &payload, bool clear_payload = true)
 {
-    static constexpr int MQTT_QUALITY_OF_SERVICE = 1;
+    static constexpr int MQTT_QUALITY_OF_SERVICE = 0;
     static constexpr int MQTT_RETAIN_MESSAGE = 0;
 
     if (mqtt_client != nullptr && mqttClient_connected)
     {
-        int id = esp_mqtt_client_publish(
-            mqtt_client, topic.c_str(), payload.c_str(), payload.length(),
-            MQTT_QUALITY_OF_SERVICE, MQTT_RETAIN_MESSAGE);
+        int id = esp_mqtt_client_enqueue(mqtt_client, topic.c_str(),
+                                         payload.c_str(), payload.length(),
+                                         MQTT_QUALITY_OF_SERVICE, MQTT_RETAIN_MESSAGE, true);
+
+        if (id < 0)
+        {
+            ESP_LOGE(TAG, "Topic:%s, failed publish", topic.c_str());
+        }
 
         ESP_LOGD(TAG, "Topic:%s, ID:%d, Length:%i", topic.c_str(), id, payload.length());
-        ESP_LOGV(TAG, "Payload:%s", payload.c_str());
+        // ESP_LOGV(TAG, "Payload:%s", payload.c_str());
     }
 
     if (clear_payload)
@@ -129,7 +134,7 @@ void stopMqtt()
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_destroy(mqtt_client));
         mqtt_client = nullptr;
 
-        //Reset stats
+        // Reset stats
         mqtt_error_connection_count = 0;
         mqtt_error_transport_count = 0;
         mqtt_connection_count = 0;
@@ -154,11 +159,11 @@ void connectToMqtt()
             .uri = mysettings.mqtt_uri,
             .username = mysettings.mqtt_username,
             .password = mysettings.mqtt_password,
-            //Reconnect if there server has a problem (or wrong IP/password etc.)
+            // Reconnect if there server has a problem (or wrong IP/password etc.)
             .disable_auto_reconnect = false,
-            //30 seconds
+            // 30 seconds
             .reconnect_timeout_ms = 30000,
-            //3 seconds
+            // 3 seconds
             .network_timeout_ms = 3000};
 
         mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
