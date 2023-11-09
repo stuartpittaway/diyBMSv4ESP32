@@ -2781,97 +2781,70 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
     }
 }
 
-/*[[noreturn]] void canbus_rx(void* param)
-{
-    bool match_found;
-    for (;;)
-    {
-          match_found = false;
-        if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
-        {
-
-            // Wait for message to be received
-            twai_message_t message;
-            esp_err_t res = twai_receive(&message, pdMS_TO_TICKS(10000));
-            if (res == ESP_OK)
-            {
-              canbus_messages_received++;
-              ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
-                  message.identifier, message.data_length_code, message.flags);
-              if (!(message.flags && TWAI_MSG_FLAG_RTR))
-                {
-                    ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
-
-                    //find the identifier in our id table - could we instead employ a hash table???
-                    for (size_t i = 0; i < MAX_CAN_PARAMETERS; i++)          //traverse rows of id[]
-                    {
-                        for (size_t j = 0; j < MAX_NUM_CONTROLLERS; j++)      //traverse columns of id[]
-                        {
-                            if (CAN.id[i][j] == message.identifier)
-                            {
-                                memcpy(&CAN.data[i][j], &message.data, message.data_length_code);
-
-                                // We will timestamp any BITMSGS frames for use as a heartbeat 
-                                if (i == 2)
-                                {
-                                    CAN.BITMSGS_TIMESTAMP[j] = esp_timer_get_time();
-                                }
-                                match_found = true;
-                                break;
-                            }
-                        }
-                        if (match_found = true)
-                        {
-                          break;
-                        }
-                    }
-                    continue;
-                  // we could add something here to alert that a message has been received that was not found in the id table??
-                }
-            }
-            else if (res == ESP_ERR_TIMEOUT)
-            {
-            // ignore the timeout or do something
-            ESP_LOGE(TAG, "CANBUS timeout");
-            }
-
-            // check the health of the bus
-            twai_status_info_t status;
-            twai_get_status_info(&status);
-            SERIAL_DEBUG.printf("  rx-q:%d, tx-q:%d, rx-err:%d, tx-err:%d, arb-lost:%d, bus-err:%d, state: %s",
-                                status.msgs_to_rx, status.msgs_to_tx, status.rx_error_counter, status.tx_error_counter, status.arb_lost_count,
-                                status.bus_error_count, ESP32_TWAI_STATUS_STRINGS[status.state]);
-            if (status.state == twai_state_t::TWAI_STATE_BUS_OFF)
-            {
-              // When the bus is OFF we need to initiate recovery, transmit is
-              // not possible when in this state.
-              SERIAL_DEBUG.printf("ESP32-CAN: initiating recovery");
-              twai_initiate_recovery();
-            }
-            else if (status.state == twai_state_t::TWAI_STATE_RECOVERING)
-            {
-              // when the bus is in recovery mode transmit is not possible.
-              //delay(200);
-            }
-            
-
-            else
-            {
-            // Canbus is disbled, sleep....
-            vTaskDelay(pdMS_TO_TICKS(2000));
-            }
-        }
-    }
-}
-*/
-
 [[noreturn]] void canbus_rx(void* param)
+{
+  bool match_found;
+  for (;;)
+  {
+        match_found = false;
+        while (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+        {
+          // Canbus is disbled, sleep until this changes....
+          vTaskDelay(pdMS_TO_TICKS(2000));
+        }
+          // Wait for message to be received
+          twai_message_t message;
+          esp_err_t res = twai_receive(&message, pdMS_TO_TICKS(20000));
+          if (res == ESP_OK)
+          {
+            canbus_messages_received++;
+            ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
+                message.identifier, message.data_length_code, message.flags);
+
+                  //find the identifier in our id table 
+                  for (size_t i = 0; i < MAX_CAN_PARAMETERS; i++)          //traverse rows of id[]
+                  {
+                      for (size_t j = 0; j < MAX_NUM_CONTROLLERS; j++)      //traverse columns of id[]
+                      {
+                          if (CAN.id[i][j] == message.identifier)
+                          {
+                              memcpy(&CAN.data[i][j], &message.data, message.data_length_code);
+
+                              // We will timestamp any BITMSGS frames for use as a heartbeat 
+                              if (i == 2)
+                              {
+                                  CAN.BITMSGS_TIMESTAMP[j] = esp_timer_get_time();
+                              }
+                              match_found = true;
+                              break;
+                          }
+                      }
+                      if (match_found = true)
+                      {
+                        break;
+                      }
+                  }
+                  continue;
+
+          }
+          else
+          {
+            /// ignore the timeout or do something
+            ESP_LOGE(TAG, "CANBUS error %s", esp_err_to_name(res));
+            canbus_messages_received_error++;
+            ESP_LOGI(TAG, "CANBUS error count %u", canbus_messages_received_error);
+          }
+  }
+}
+
+
+/*[[noreturn]] void canbus_rx(void* param)
 {
   for (;;)
   {
     vTaskDelay(pdMS_TO_TICKS(50));
   }
-}
+}*/
 
 
 [[noreturn]] void service_rs485_transmit_q(void *)
