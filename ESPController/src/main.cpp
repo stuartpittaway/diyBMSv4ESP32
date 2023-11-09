@@ -2575,63 +2575,24 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
 
-void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8_t length)
-{
-  twai_message_t message;
-  message.identifier = identifier;
-  message.flags = TWAI_MSG_FLAG_NONE;
-  message.data_length_code = length;
-
-  memcpy(&message.data, buffer, length);
-
-
-  esp_err_t result = twai_transmit(&message, pdMS_TO_TICKS(250));
-  if (result == ESP_OK)
-                {
-                // Everything normal/good
-                ESP_LOGD(TAG, "Sent CAN message 0x%x", message.identifier);
-                }
-}
-
-
-[[noreturn]] void canbus_populate_outbox(void* param)
-{
-  for (;;)
-  {
-    if(CANtx_q_handle != NULL)
-    {
-      CANframe tx;
-      if (xQueueReceive(CANtx_q_handle, &tx, pdMS_TO_TICKS(10)) == pdPASS)
-      {        
-        send_canbus_message(tx.identifier, (uint8_t *)&tx.data, tx.dlc);
-      }
-    }
-  }
-}
-
-
-/*[[noreturn]] void canbus_populate_outbox(void* param) // populate the CAN TX mailbox from the Queue'd messages. Mailbox holds 5 messages by default
+[[noreturn]] void canbus_populate_outbox(void* param) // populate the CAN TX mailbox from the Queue'd messages. Mailbox holds 5 messages by default
 {
     for (;;)
     {
         if (CANtx_q_handle != NULL)
         {
             CANframe tx;
-
-            
+   
             if (xQueueReceive(CANtx_q_handle, &tx, pdMS_TO_TICKS(10)) == pdPASS)
             {
-
                 twai_message_t message;
-                //message.data_length_code = tx.dlc;
+                message.data_length_code = tx.dlc;
                 message.identifier = tx.identifier;
-                message.data_length_code = 8;
-                memset(&message.data[0],1,8);  //just transmit 1's as a test
 
-                //for (uint8_t i=0; i<message.data_length_code; i++)  //is parsing this bytewise necessary to copy a member from {packed_struct} to struct??
-                //{
-                //message.data[i]=tx.data[i];
-                //}
+                for (uint8_t i=0; i<message.data_length_code; i++)  //is parsing this bytewise necessary to copy a member from {packed_struct} to struct??
+                {
+                message.data[i]=tx.data[i];
+                }
 
                 // Send to CAN TX mailbox for transmission
                 // If there is a bus error, we attempt to recover it later, transmitted messages are lost, but this
@@ -2644,33 +2605,16 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
                 ESP_LOGD(TAG, "Sent CAN message 0x%x", message.identifier);
                     // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
                     canbus_messages_sent++;
-                        //      Average TWAI TX Frame Time
-                        // * 1 bit ~ 2us @ 500khz
-                        // * minimum frame length for CAN 2.0A is 47 bits
-                        // * Assume a full 64bit payload
-                        // * Estimate additional ~20bits for bit stuffing, occasional error frames,etc
-                        // * Average Frame Length = 47bits + 64bits + 20bits = 131bits
-                        // * ThoereticalFrameRate = 1/(262us) = 3816/s
-                        // * Adding messages to the TX mailbox at a timing interval < ~270us will fill up the TX mailbox
-                        // * use a conservative delay here so that we can maintain control of traffic with our CANtx queue (this will allow us to use xsendtofront, etc)
-                        // *
-
-  // Inserting some LOGs here on succesful transmission for debug purposes only -  to be removed later
-    twai_status_info_t status;
-    twai_get_status_info(&status);
-    ESP_LOGI(TAG, "CAN STATUS: rx-q:%d, tx-q:%d, rx-err:%d, tx-err:%d, arb-lost:%d, bus-err:%d, state: %s",
-    status.msgs_to_rx, status.msgs_to_tx,
-    status.rx_error_counter, status.tx_error_counter,
-    status.arb_lost_count,
-    status.bus_error_count,
-    ESP32_TWAI_STATUS_STRINGS[status.state]);
-    uint32_t active_alerts;
-    twai_read_alerts(&active_alerts, pdMS_TO_TICKS(1));
-    ESP_LOGE(TAG, "active_alerts bitfield currently raised=0x%x",active_alerts);
-
-    
-  // end of debugging log
-
+                        //  -Average TWAI TX Frame Time
+                        //  -1 bit ~ 2us @ 500khz
+                        //  -minimum frame length for CAN 2.0A is 47 bits
+                        //  -Assume a full 64bit payload
+                        //  -Estimate additional ~20bits for bit stuffing, occasional error frames,etc
+                        //  -Average Frame Length = 47bits + 64bits + 20bits = 131bits
+                        //  -ThoereticalFrameRate = 1/(262us) = 3816/s
+                        //  -Adding messages to the TX mailbox at a timing interval < ~270us will fill up the TX mailbox
+                        //  -use a conservative delay here so that we can maintain control of traffic with our CANtx queue (this will allow us to use xsendtofront, etc)
+                        // 
                       vTaskDelay(pdMS_TO_TICKS(.4));      // conservative 400us delay
                     continue;
                 }
@@ -2694,10 +2638,10 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
 
                 uint32_t active_alerts;
                 twai_read_alerts(&active_alerts,pdMS_TO_TICKS(1));
+                if (active_alerts & TWAI_ALERT_ARB_LOST)
+                ESP_LOGE(TAG, "TWAI_ALERT_ARB_LOST");
                 if (active_alerts & TWAI_ALERT_TX_FAILED)
                 ESP_LOGE(TAG, "TWAI_ALERT_TX_FAILED");
-                if (active_alerts & TWAI_ALERT_TX_SUCCESS)
-                ESP_LOGE(TAG, "TWAI_ALERT_TX_SUCCESS");
                 if (active_alerts & TWAI_ALERT_ERR_ACTIVE)
                 ESP_LOGE(TAG, "TWAI_ALERT_ERR_ACTIVE");
                 if (active_alerts & TWAI_ALERT_BUS_ERROR)
@@ -2737,7 +2681,7 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
          }
     }
 } 
-*/
+
 
 
 [[noreturn]] void canbus_tx_900ms(void* param)
@@ -2761,7 +2705,6 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
 
 
         // Reporting via VICTRON protocol
-        //  minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
         if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON) //&& (CAN.master == mysettings.controllerID))
         {
           uint8_t statusreturn = CAN.controllerNetwork_status();
@@ -2783,7 +2726,6 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
             {
                 pylon_message_351();      
             }
-          pylon_message_351();
           pylon_message_359();
           pylon_message_35c();
           pylon_message_35e();
@@ -2831,11 +2773,9 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
         {
             if (_controller_state == ControllerState::Running)
             {
-              // None at this interval right now
+              pylon_message_355();
+              pylon_message_356();
             }
-
-
-
         }
       }
     }
@@ -2843,7 +2783,7 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
 
 /*[[noreturn]] void canbus_rx(void* param)
 {
-      bool match_found;
+    bool match_found;
     for (;;)
     {
           match_found = false;
@@ -2869,43 +2809,46 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
                         {
                             if (CAN.id[i][j] == message.identifier)
                             {
-                                memcpy(&CAN.data[i][j], &message.data, TWAI_FRAME_MAX_DLC);
+                                memcpy(&CAN.data[i][j], &message.data, message.data_length_code);
 
                                 // We will timestamp any BITMSGS frames for use as a heartbeat 
                                 if (i == 2)
                                 {
                                     CAN.BITMSGS_TIMESTAMP[j] = esp_timer_get_time();
-
                                 }
                                 match_found = true;
                                 break;
                             }
                         }
+                        if (match_found = true)
+                        {
+                          break;
+                        }
                     }
-
+                    continue;
+                  // we could add something here to alert that a message has been received that was not found in the id table??
                 }
             }
             else if (res == ESP_ERR_TIMEOUT)
             {
-            /// ignore the timeout or do something
+            // ignore the timeout or do something
             ESP_LOGE(TAG, "CANBUS timeout");
             }
 
-              /*
             // check the health of the bus
-            can_status_info_t status;
-            can_get_status_info(&status);
+            twai_status_info_t status;
+            twai_get_status_info(&status);
             SERIAL_DEBUG.printf("  rx-q:%d, tx-q:%d, rx-err:%d, tx-err:%d, arb-lost:%d, bus-err:%d, state: %s",
                                 status.msgs_to_rx, status.msgs_to_tx, status.rx_error_counter, status.tx_error_counter, status.arb_lost_count,
-                                status.bus_error_count, ESP32_CAN_STATUS_STRINGS[status.state]);
-            if (status.state == can_state_t::CAN_STATE_BUS_OFF)
+                                status.bus_error_count, ESP32_TWAI_STATUS_STRINGS[status.state]);
+            if (status.state == twai_state_t::TWAI_STATE_BUS_OFF)
             {
               // When the bus is OFF we need to initiate recovery, transmit is
               // not possible when in this state.
               SERIAL_DEBUG.printf("ESP32-CAN: initiating recovery");
-              can_initiate_recovery();
+              twai_initiate_recovery();
             }
-            else if (status.state == can_state_t::CAN_STATE_RECOVERING)
+            else if (status.state == twai_state_t::TWAI_STATE_RECOVERING)
             {
               // when the bus is in recovery mode transmit is not possible.
               //delay(200);
@@ -2924,11 +2867,12 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
 
 [[noreturn]] void canbus_rx(void* param)
 {
-  for(;;)
+  for (;;)
   {
-    vTaskDelay(pdMS_TO_TICKS(20));
+    vTaskDelay(pdMS_TO_TICKS(50));
   }
 }
+
 
 [[noreturn]] void service_rs485_transmit_q(void *)
 {

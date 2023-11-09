@@ -54,7 +54,7 @@ void ControllerCAN::clearvalues()
 uint8_t ControllerCAN::controllerNetwork_status()
 {
   uint8_t returnvalue = 0;
-  uint8_t controller_count = 1; // start at one because this controller counts as one... "i think therfore i am"
+  uint8_t controller_count = 0; 
 
   for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
   {
@@ -93,7 +93,6 @@ uint8_t ControllerCAN::controllerNetwork_status()
   return returnvalue;
 
  }
-
 
 void ControllerCAN::who_is_master()  // Decide which controller is master ( == the lowest integer-addressed controller number with a valid heartbeat)
 {   
@@ -196,20 +195,9 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
 
 }
 
-void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
+// diyBMS will use Victron CAN alarm structure to report alarms. These will need reorganized durring aggregation for other inverters  as necessary
+void ControllerCAN::c2c_ALARMS()      //Inverter Alarms 
 {
-    /*
-        **** NOTE!! diyBMS uses little endian ordering for all bit level messages. This affords direct portability with Victron devices ****
-    
-    // Individual messages are in bit pairs 
-
-    // B11 = Alarm not supported
-    // B01 = Alarm/warning active
-    // B10 = Alarm/warning inactive (status = OK)
-    
-     
-    */
-
 
     CANframe candata;
     memset(&candata.data, 0, sizeof(candata.data));
@@ -222,10 +210,6 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
     uint8_t byte5;
     uint8_t byte6;
     uint8_t byte7;
-
-
-
-  
 
   const uint8_t BIT01_ALARM = B00000001;
   const uint8_t BIT23_ALARM = B00000100;
@@ -244,24 +228,12 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
 
   if (_controller_state == ControllerState::Running)
   {
-    /*
-    ESP_LOGI(TAG, "Rule BankOverVoltage=%u, BankUnderVoltage=%u, OverTemp=%u, UnderTemp=%u",
-             rules.ruleOutcome[Rule::BankOverVoltage],
-             rules.ruleOutcome[Rule::BankUnderVoltage],
-             rules.ruleOutcome[Rule::IndividualcellovertemperatureExternal],
-             rules.ruleOutcome[Rule::IndividualcellundertemperatureExternal]);
-  */
-
-
-
-
-
     // BYTE 0
     //(bit 0+1) General alarm (not implemented)
-    //(bit 2+3) Battery low voltage alarm
+    //(bit 2+3) Battery high voltage alarm
     byte0 |= ((rules.ruleOutcome(Rule::BankOverVoltage) | rules.ruleOutcome(Rule::CurrentMonitorOverVoltage)) ? BIT23_ALARM : BIT23_OK);
     
-    //(bit 4+5) Battery high voltage alarm
+    //(bit 4+5) Battery low voltage alarm
     byte0 |= ((rules.ruleOutcome(Rule::BankUnderVoltage) | rules.ruleOutcome(Rule::CurrentMonitorUnderVoltage)) ? BIT45_ALARM : BIT45_OK);
 
     //(bit 6+7) Battery high temperature alarm
@@ -309,15 +281,29 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
   // 4 (bit 0+1) General warning (not implemented)
   // byte4 |= BIT01_NOTSUP;
   // 4 (bit 2+3) Battery low voltage warning
-  // byte4 |= BIT23_NOTSUP;
+    // dischargevolt=490, lowestbankvoltage=48992 (scale down 100)
+    if (rules.lowestBankVoltage / 100 < mysettings.dischargevolt)
+    {
+      byte4 |= BIT23_ALARM;
+    }
   // 4 (bit 4+5) Battery high voltage warning
-  // byte4 |= BIT45_NOTSUP;
+      if (rules.highestBankVoltage / 100 > mysettings.chargevolt)
+    {
+      byte4 |= BIT45_ALARM;
+    }
+
   // 4 (bit 6+7) Battery high temperature warning
-  // byte4 |= BIT67_NOTSUP;
+    if (rules.moduleHasExternalTempSensor && rules.highestExternalTemp > mysettings.chargetemphigh)
+    {
+      byte4 |= BIT67_ALARM;
+    }
   // memset(&q_message[5], byte4, 1);
 
   // 5 (bit 0+1) Battery low temperature warning
-  // byte5 |= BIT01_NOTSUP;
+    if (rules.moduleHasExternalTempSensor && rules.lowestExternalTemp < mysettings.chargetemplow)
+    {
+      byte5 |= BIT01_ALARM;
+    }
   // 5 (bit 2+3) Battery high temperature charge warning
   // byte5 |= BIT23_NOTSUP;
   // 5 (bit 4+5) Battery low temperature charge warning
@@ -333,8 +319,8 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
   // 6 (bit 4+5) Short circuit warning (not implemented)
   // byte6 |= BIT45_NOTSUP;
   // 6 (bit 6+7) BMS internal warning
-  // byte6 |= (rules.numberOfActiveWarnings > 0 ? BIT67_ALARM : BIT67_OK);
-  //    memset(&q_message[7], byte6, 1);
+   byte6 |= ((rules.ruleOutcome(Rule::BMSError) || rules.ruleOutcome(Rule::EmergencyStop)) ? BIT67_ALARM : 0);
+   byte6 |= ((_controller_state != ControllerState::Running) ? BIT67_ALARM : 0);
 
 
   // ESP_LOGI(TAG, "numberOfBalancingModules=%u", rules.numberOfBalancingModules);
