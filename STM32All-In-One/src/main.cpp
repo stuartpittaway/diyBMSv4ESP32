@@ -529,7 +529,18 @@ void setup()
     takeRawMCP33151ADCReading();
   }
 
-  number_of_active_cells = queryAFE();
+  // Sometimes on power up, the chip returns 1 cell more than actually connected, so take a few
+  // samples and return the lowest cell count
+  number_of_active_cells = 255;
+  for (size_t i = 0; i < 4; i++)
+  {
+    auto x = queryAFE();
+
+    if (x < number_of_active_cells)
+    {
+      number_of_active_cells = x;
+    }
+  }
 
   // We need at least 4 cells with correct voltages for this to work
   if (number_of_active_cells < 4)
@@ -787,7 +798,7 @@ uint16_t CalculateCellBalanceRequirement(CellData &cd, uint8_t num_cells)
       // Our cell voltage is OVER the voltage setpoint limit, start draining cell using bypass resistor
       if (!cell.IsBypassActive())
       {
-        // We have just entered the bypass code
+        // We have just entered the bypass
         cell.StartBypass();
       }
 
@@ -850,12 +861,13 @@ void CalculateCellVoltageMinMaxAvg(CellData &cd,
   range = highestmV - lowestmV;
 }
 
+int16_t lastRunAwayCellIndex = -1;
+
 /// @brief Determine what (if any) cells need balancing, also controls relay output
 /// @param highestTemp Highest temperature of on-board sensors (balance temperature)
 /// @return bit pattern for which MOSFETs need enabling
 uint16_t DoCellBalancing(const int16_t highestTemp)
 {
-
   uint16_t lowestmV;
   uint16_t highestmV;
   uint8_t highest_index;
@@ -922,15 +934,74 @@ uint16_t DoCellBalancing(const int16_t highestTemp)
   // Should any cells require balancing - check if they have gone over the threshold
   cb = CalculateCellBalanceRequirement(celldata, number_of_active_cells);
 
-  // Now determine if we should balance the highest "run away" cell
+  // Now determine if we should balance the highest "run away" cell - only if "normal" balancing is not active
   // If the highest cell is above average cell voltage by X millivolts, then begin balancing until it no longer is.
   // Also ensure the cell voltage is above a minimum - LIFEPO4 cells need to be over 3400mV for this function to be useful.
-  if (highestmV > PP.getRunAwayCellMinimumVoltage() && highest_average_diff > PP.getRunAwayCellDifferential())
+  if (cb == 0 && highestmV > PP.getRunAwayCellMinimumVoltage() && highest_average_diff > PP.getRunAwayCellDifferential())
   {
     cb = cb | (uint16_t)(1U << (15 - highest_index));
+
+    if (celldata.at(highest_index).IsBypassActive() == false)
+    {
+      celldata.at(highest_index).StartBypass();
+      lastRunAwayCellIndex = highest_index;
+    }
+  }
+  else
+  {
+    // Stop run away cell balancing, if it was active.
+    if (lastRunAwayCellIndex >= 0)
+    {
+      if (celldata.at(lastRunAwayCellIndex).IsBypassActive())
+      {
+        celldata.at(lastRunAwayCellIndex).StopBypass();
+      }
+      lastRunAwayCellIndex = -1;
+    }
   }
 
   return cb;
+}
+
+// Checks the serial port for about 60ms and processes any requests
+// auto checks for serial baud rate scanning
+void ServiceSerialPort()
+{
+  // Service the serial port/queue
+  for (size_t i = 0; i < 60; i++)
+  {
+    // Call update to receive, decode and process incoming packets.
+    myPacketSerial.checkInputStream();
+
+    // Allow data to be received in buffer (delay must be AFTER) checkInputStream
+    delay(1);
+  }
+
+  if (serialBaudScanning)
+  {
+    NotificationLedOff();
+    serialBaudCountDown--;
+
+    if (PP.getPacketReceivedCounter() > 0)
+    {
+      // We have found our baud rate - and processed at least 1 packet successfully, so stop scanning
+      serialBaudScanning = false;
+    }
+    else if (serialBaudCountDown <= 0)
+    {
+      // If we got this far, we have not yet found/received a valid packet of serial data, so try another baud rate
+      serialBaudCountDown = 15;
+      serialBaudIndex++;
+
+      if (serialBaudIndex >= SerialBaudRates.size())
+      {
+        serialBaudIndex = 0;
+      }
+
+      Serial1.end();
+      Serial1.begin(SerialBaudRates.at(serialBaudIndex), SERIAL_8N1);
+    }
+  }
 }
 
 void loop()
@@ -949,8 +1020,22 @@ void loop()
     delay(10);
   }
 
-  digitalWrite(SAMPLE_AFE, HIGH);              // Sample cell voltages (all 16 cells at same time)
-  delay(60);                                   // Wait 60ms for capacitors to fill and equalize against cell voltages (1uF caps)
+  digitalWrite(SAMPLE_AFE, HIGH); // Sample cell voltages (all 16 cells at same time)
+
+  if (waitbeforebalance == 0)
+  {
+    // This also takes about 60ms, but allows request packets to be processed quicker than waiting
+    ServiceSerialPort();
+  }
+  else
+  {
+    // Delay until we have been through this loop a few times (received a good packet)
+    // so we don't return zero voltage readings to controller
+    delay(60); // Wait 60ms for capacitors to fill and equalize against cell voltages (1uF caps)
+  }
+
+  // delay(60); // Wait 60ms for capacitors to fill and equalize against cell voltages (1uF caps)
+
   digitalWrite(SAMPLE_AFE, LOW);               // Disable sampling - HOLD mode
   delayMicroseconds(LEVEL_SHIFTING_DELAY_MAX); // Wait to settle
 
@@ -1008,50 +1093,26 @@ void loop()
     waitbeforebalance--;
   }
 
-  if (serialBaudScanning)
-  {
-    NotificationLedOn();
-  }
-
-  // Service the serial port/queue
-  for (size_t i = 0; i < 300; i++)
-  {
-    // Call update to receive, decode and process incoming packets.
-    myPacketSerial.checkInputStream();
-
-    // Allow data to be received in buffer (delay must be AFTER) checkInputStream
-    delay(1);
-  }
-
-  if (serialBaudScanning)
-  {
-    NotificationLedOff();
-    serialBaudCountDown--;
-
-    if (PP.getPacketReceivedCounter() > 0)
-    {
-      // We have found our baud rate - and processed at least 1 packet successfully, so stop scanning
-      serialBaudScanning = false;
-    }
-    else if (serialBaudCountDown <= 0)
-    {
-      // If we got this far, we have not yet found/received a valid packet of serial data, so try another baud rate
-      serialBaudCountDown = 15;
-      serialBaudIndex++;
-
-      if (serialBaudIndex >= SerialBaudRates.size())
-      {
-        serialBaudIndex = 0;
-      }
-
-      Serial1.end();
-      Serial1.begin(SerialBaudRates.at(serialBaudIndex), SERIAL_8N1);
-    }
-  }
+  // This needs to be below all other cell checking code
+  ServiceSerialPort();
 
   // Every so often, we should call this to calibrate the op-amp as it changes in ambient temperature (takes 8ms to complete)
   if (PP.getPacketReceivedCounter() % 8192 == 0)
   {
     BufferAmplifierOffsetCalibration();
+  }
+
+  if (serialBaudScanning)
+  {
+    NotificationLedOn();
+  }
+
+  // Sleep for 800ms
+  // TODO:ideally, this would be a true CPU sleep with RTC + UART wake up
+  uint16_t countdown = 400;
+  while (Serial1.available() == 0 && countdown > 0)
+  {
+    delay(2);
+    countdown--;
   }
 }
