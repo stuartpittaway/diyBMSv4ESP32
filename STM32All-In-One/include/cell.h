@@ -140,10 +140,10 @@ public:
         }
         if (v > 20)
         {
-            BypassTemperatureSetPoint = v;
+            BypassTemperatureSetPoint = (uint8_t)v;
 
             // Set back hysteresis is set point minus 5 degrees C
-            BypassTemperatureHysteresis = v - 5;
+            BypassTemperatureHysteresis = (uint8_t)v - 5;
         }
 
         // Revalidate fan temperature after bypass temperature change
