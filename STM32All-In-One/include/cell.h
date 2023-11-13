@@ -91,25 +91,20 @@ public:
 
     void StartBypass()
     {
-        // Record when the bypass started
-        bypassStartTime = millis();
-        bypassStartVoltage = getCellVoltage();
-        CellIsInBypass = true;
+        if (!IsBypassActive())
+        {
+            // Record when the bypass started
+            CellIsInBypass = true;
+        }
     }
     void StopBypass()
     {
-        //"guess" how much energy we have burnt during the balance
-        // this IGNORES any over temperature situation we may had had!
+        if (!IsBypassActive())
+            return;
 
-        // bypassStartVoltage is in millivolts, so we get milli-amp current output
-        // For example 4000mV / 18R = 222.22mA
-        float CurrentmA = ((float)bypassStartVoltage / (float)LOAD_RESISTANCE);
-
-        float seconds = (millis() - bypassStartTime) / 1000;
-
-        float milliAmpHours = (CurrentmA * seconds) * (1.0 / 3600.0);
-
-        MilliAmpHourBalanceCounter += milliAmpHours;
+        // We don't have an accurate way to calculate energy burnt, so just increment
+        // the counter to show we have actually balanced something on this cell
+        MilliAmpHourBalanceCounter += 1;
         CellIsInBypass = false;
     }
 
@@ -198,8 +193,6 @@ private:
     int16_t externalTemperature{-999};
     int16_t internalTemperature{-999};
     bool CellIsInBypass{false};
-    uint32_t bypassStartTime{0};
-    uint16_t bypassStartVoltage{0};
 
     float MilliAmpHourBalanceCounter{0};
 

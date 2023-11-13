@@ -33,12 +33,9 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 extern "C"
 {
-  void SystemClock_Config(void);
-}
-
-extern "C"
-{
 #include "stm32_flash.h"
+  void SystemClock_Config(void);
+#include <rtc.h>
 }
 
 #include "SPI.h"
@@ -775,10 +772,11 @@ void TakeOnboardInternalTempMeasurements(CellData &cd)
 }
 
 /// @brief Calculate bit pattern for cell passive balancing (MOSFET switches)
-/// @param cd
-/// @param num_cells
+/// @param cd Cell data array
+/// @param num_cells total number of cells
+/// @param runawaycell_index index of cell identified as run away (or -1 if none)
 /// @return bit pattern
-uint16_t CalculateCellBalanceRequirement(CellData &cd, uint8_t num_cells)
+uint16_t CalculateCellBalanceRequirement(CellData &cd, uint8_t num_cells, int runawaycell_index)
 {
   // if balance daughter board is not installed, always return zero - no balance
   if (PP.BalanceBoardInstalled == false)
@@ -793,25 +791,19 @@ uint16_t CalculateCellBalanceRequirement(CellData &cd, uint8_t num_cells)
     // Get reference to cell object
     Cell &cell = cd.at(i);
 
-    if (cell.BypassCheck() == true)
+    // Check if bypass is needed, or if runawaycell is identified
+    if (cell.BypassCheck() == true || runawaycell_index == i)
     {
       // Our cell voltage is OVER the voltage setpoint limit, start draining cell using bypass resistor
-      if (!cell.IsBypassActive())
-      {
-        // We have just entered the bypass
-        cell.StartBypass();
-      }
+      cell.StartBypass();
 
       // Enable balancing bit pattern - this enables the MOSFET and balance resistor
       reply = reply | (uint16_t)(1U << (15 - i));
     }
     else
     {
-      if (cell.IsBypassActive())
-      {
-        // We've just ended bypass....
-        cell.StopBypass();
-      }
+      // We've just ended bypass....
+      cell.StopBypass();
     }
   }
   return reply;
@@ -860,8 +852,6 @@ void CalculateCellVoltageMinMaxAvg(CellData &cd,
   // Determine voltage differential/range (highest - lowest)
   range = highestmV - lowestmV;
 }
-
-int16_t lastRunAwayCellIndex = -1;
 
 /// @brief Determine what (if any) cells need balancing, also controls relay output
 /// @param highestTemp Highest temperature of on-board sensors (balance temperature)
@@ -922,45 +912,19 @@ uint16_t DoCellBalancing(const int16_t highestTemp)
     }
   }
 
-  // Start with everything switched off
-  uint16_t cb = 0;
-
   // Calculate the average of all the cells
   auto averagemv = (uint16_t)(total / number_of_active_cells);
 
   // Calculate the differential between highest cell voltage and the average
   uint16_t highest_average_diff = highestmV - averagemv;
 
-  // Should any cells require balancing - check if they have gone over the threshold
-  cb = CalculateCellBalanceRequirement(celldata, number_of_active_cells);
-
-  // Now determine if we should balance the highest "run away" cell - only if "normal" balancing is not active
+  // Now determine if we should balance the highest "run away" cell.
   // If the highest cell is above average cell voltage by X millivolts, then begin balancing until it no longer is.
-  // Also ensure the cell voltage is above a minimum - LIFEPO4 cells need to be over 3400mV for this function to be useful.
-  if (cb == 0 && highestmV > PP.getRunAwayCellMinimumVoltage() && highest_average_diff > PP.getRunAwayCellDifferential())
-  {
-    cb = cb | (uint16_t)(1U << (15 - highest_index));
+  // Ensure the cell voltage is above a minimum - LIFEPO4 cells need to be over 3400mV for this function to be useful.
+  auto runawaycellindex = (highestmV > PP.getRunAwayCellMinimumVoltage() && highest_average_diff > PP.getRunAwayCellDifferential()) ? highest_index : -1;
 
-    if (celldata.at(highest_index).IsBypassActive() == false)
-    {
-      celldata.at(highest_index).StartBypass();
-      lastRunAwayCellIndex = highest_index;
-    }
-  }
-  else
-  {
-    // Stop run away cell balancing, if it was active.
-    if (lastRunAwayCellIndex >= 0)
-    {
-      if (celldata.at(lastRunAwayCellIndex).IsBypassActive())
-      {
-        celldata.at(lastRunAwayCellIndex).StopBypass();
-      }
-      lastRunAwayCellIndex = -1;
-    }
-  }
-
-  return cb;
+  // Should any cells require balancing - check if they have gone over the threshold
+  return CalculateCellBalanceRequirement(celldata, number_of_active_cells, runawaycellindex);
 }
 
 // Checks the serial port for about 60ms and processes any requests
@@ -1004,6 +968,7 @@ void ServiceSerialPort()
   }
 }
 
+
 void loop()
 {
 
@@ -1024,7 +989,7 @@ void loop()
 
   if (waitbeforebalance == 0)
   {
-    // This also takes about 60ms, but allows request packets to be processed quicker than waiting
+    // This also takes about 60ms, but allows request packets to be processed quicker than waiting in a blocking delay call
     ServiceSerialPort();
   }
   else
@@ -1108,11 +1073,12 @@ void loop()
   }
 
   // Sleep for 800ms
-  // TODO:ideally, this would be a true CPU sleep with RTC + UART wake up
+  // TODO:ideally, this would be a true CPU sleep with RTC + UART wake up, but running out of FLASH code space
   uint16_t countdown = 400;
   while (Serial1.available() == 0 && countdown > 0)
   {
     delay(2);
     countdown--;
   }
+
 }
