@@ -100,7 +100,8 @@ enum CanBusProtocolEmulation : uint8_t
 {
   CANBUS_DISABLED = 0x00,
   CANBUS_VICTRON = 0x01,
-  CANBUS_PYLONTECH = 0x02
+  CANBUS_PYLONTECH = 0x02,
+  CANBUS_PYLONFORCEH2 = 0x03
 };
 
 enum CurrentMonitorDevice : uint8_t
@@ -250,6 +251,8 @@ struct diybms_eeprom_settings
 
   // Holds a bit pattern indicating which "tiles" are visible on the web gui
   uint16_t tileconfig[5];
+
+  uint8_t canbus_equipment_addr;  // battery index on the same canbus for PYLONFORCE, 0 - 15, default 0
 };
 
 typedef union

@@ -74,6 +74,7 @@ extern "C"
 #include "mqtt.h"
 #include "victron_canbus.h"
 #include "pylon_canbus.h"
+#include "pylonforce_canbus.h"
 #include "string_utils.h"
 
 #include <SPI.h>
@@ -2638,11 +2639,11 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
 
-void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8_t length)
+void _send_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length, const uint32_t flags)
 {
   twai_message_t message;
   message.identifier = identifier;
-  message.flags = TWAI_MSG_FLAG_NONE;
+  message.flags = flags;
   message.data_length_code = length;
 
   memcpy(&message.data, buffer, length);
@@ -2694,6 +2695,15 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
   }
 }
 
+void send_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
+{
+  _send_canbus_message(identifier, buffer, length, TWAI_MSG_FLAG_NONE);
+}
+void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
+{
+  _send_canbus_message(identifier, buffer, length, TWAI_MSG_FLAG_EXTD);
+}
+
 [[noreturn]] void canbus_tx(void *)
 {
   for (;;)
@@ -2740,8 +2750,11 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
       // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
       // vTaskDelay(pdMS_TO_TICKS(100));
     }
-
-    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
+    else if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2 )
+    {
+      pylonforce_handle_tx();
+    }
+    else if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
     {
       // minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
 
@@ -2793,18 +2806,23 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
       canbus_messages_received++;
       ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
                message.identifier, message.data_length_code, message.flags);
-      /*
-      if (!(message.flags & TWAI_MSG_FLAG_RTR))
+      if (!(message.flags & TWAI_MSG_FLAG_RTR))   // we do not answer to Remote-Transmission-Requests
       {
-        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
-      }*/
-
-      // Remote inverter should send a 305 message every few seconds
-      // for now, keep track of last message.
-      // TODO: in future, add timeout/error condition to shut down
-      if (message.identifier == 0x305)
-      {
-        canbus_last_305_message_time = esp_timer_get_time();
+//        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
+        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2 )
+        {
+          pylonforce_handle_rx(&message);
+        }
+        else
+        {
+          // Remote inverter should send a 305 message every few seconds
+          // for now, keep track of last message.
+          // TODO: in future, add timeout/error condition to shut down
+          if (message.identifier == 0x305)
+          {
+            canbus_last_305_message_time = esp_timer_get_time();
+          }
+        }
       }
     }
     else
@@ -3885,10 +3903,10 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(rs485_tx, "485_TX", 2940, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2940, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
-  xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, 1, &canbus_tx_task_handle);
+  xTaskCreate(canbus_tx, "CAN_Tx", 4096, nullptr, 1, &canbus_tx_task_handle);
   xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
   xTaskCreate(transmit_task, "Tx", 1950, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 2350, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 4096, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 0, &lazy_task_handle);
 
   // Set relay defaults

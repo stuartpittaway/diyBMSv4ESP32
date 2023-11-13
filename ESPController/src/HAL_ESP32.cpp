@@ -296,13 +296,18 @@ void HAL_ESP32::ConfigureCAN(uint16_t canbusbaudrate) const
         t_config = TWAI_TIMING_CONFIG_500KBITS();
     }
 
-    // Filter out all messages except 0x305 and 0x307
-    // https://docs.espressif.com/projects/esp-idf/en/v3.3.5/api-reference/peripherals/can.html
-    // 01100000101 00000 00000000 00000000 = 0x60A00000  (0x305)
-    // 01100000111 00000 00000000 00000000 = 0x60E00000  (0x307)
-    // 00000000010 11111 11111111 11111111 = 0x005FFFFF
-    //          ^ THIS BIT IS IGNORED USING THE MASK SO 0x305 and 0x307 are permitted
-    twai_filter_config_t f_config = {.acceptance_code = 0x60A00000, .acceptance_mask = 0x005FFFFF, .single_filter = true};
+
+    // We need the CAN ids:
+    // * Pylontech LV battery: 0x305, 0x307
+    // * Pylontech Force HV battery: 0x4200, 0x8200, 0x8210
+    // from these ids we _can not_ derive a filter that makes sense, i.e.
+    // twai_filter_config_t f_config = {
+    //    .acceptance_code = 0x305<<21 & 0x307<<21 & 0x4200<<3 & 0x8200<<3 & 0x8210<<3, // 0
+    //    .acceptance_mask = 0x305<<21 | 0x307<<21 | 0x4200<<3 | 0x8200<<3 | 0x8210<<3, // 0x60E61080
+    //    .single_filter = true
+    // };
+    // ----> acceptance_code == 0, so we can only set ALL
+    twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
     // Install CAN driver
     if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK)

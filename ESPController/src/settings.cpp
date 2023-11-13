@@ -594,6 +594,8 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
     _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
     _myset->canbusinverter = CanBusInverter::INVERTER_GENERIC;
+
+    _myset->canbus_equipment_addr = 0;
     _myset->canbusbaud=500;
     _myset->nominalbatcap = 280;    // Scale 1
     _myset->chargevolt = 565;       // Scale 0.1
