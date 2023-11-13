@@ -184,6 +184,9 @@ struct diybms_eeprom_settings
 
   CanBusProtocolEmulation canbusprotocol;
   CanBusInverter canbusinverter;
+  //CANBUS baud rate, 250=250k, 500=500k
+  uint16_t canbusbaud;
+  //Nominal battery capacity (amp hours) 
   uint16_t nominalbatcap;
   // Maximum charge voltage - scale 0.1
   uint16_t chargevolt;
@@ -231,6 +234,8 @@ struct diybms_eeprom_settings
 
   // NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
+  // Only report basic cell data (voltage and temperture) over MQTT
+  bool mqtt_basic_cell_reporting;
   char mqtt_uri[128 + 1];
   char mqtt_topic[32 + 1];
   char mqtt_username[32 + 1];
