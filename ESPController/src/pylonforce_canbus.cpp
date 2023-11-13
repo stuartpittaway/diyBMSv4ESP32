@@ -15,7 +15,7 @@ and Deye 2_CAN-Bus-Protocol-high-voltag-V1.17.pdf
 */
 
 #define USE_ESP_IDF_LOG 1
-static constexpr const char *const TAG = "diybms-pylonforce";
+static constexpr const char *const TAG = "diybms-pyforce";
 
 #include "pylonforce_canbus.h"
 #include "mqtt.h"
