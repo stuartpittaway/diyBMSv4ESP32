@@ -35,7 +35,6 @@ extern "C"
 {
 #include "stm32_flash.h"
   void SystemClock_Config(void);
-#include <rtc.h>
 }
 
 #include "SPI.h"
