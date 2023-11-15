@@ -45,7 +45,7 @@ void  pylon_message_351()
         memcpy(&dischargevoltage, &CAN.data[0][mysettings.controllerID][6], sizeof(dischargevoltage));
     }
 
-    // aggregate DVCC data from networked controllers and use the minimum for each parameter
+    // aggregate DVCC data from networked controllers
     else
     {
         chargevoltagelimit = *(uint16_t*)&CAN.data[0][mysettings.controllerID][0];
@@ -55,7 +55,7 @@ void  pylon_message_351()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            if (CAN.controller_heartbeat(i))  //check bitmsgs timestamp so we only include online controllers
             {
                 if ((*(uint16_t*)&CAN.data[0][i][0] <= chargevoltagelimit))  // find minimum
                 {
@@ -123,15 +123,17 @@ void pylon_message_355()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            if (CAN.controller_heartbeat(i))
             {
             Total_Ah = Total_Ah + *(uint16_t*)&(CAN.data[5][i][4]);     //online capacity
             Total_Weighted_Ah = Total_Weighted_Ah + *(uint16_t*)&CAN.data[4][i][0] * (*(uint16_t*)&CAN.data[5][i][4]);  //SOC x Online capacity
             }
 
         }
-
-        Weighted_SOC = Total_Weighted_Ah / Total_Ah;
+        if (Total_Ah != 0)  //avoid divide by zero (we won't have useable values during CAN initialization)
+        {
+            Weighted_SOC = Total_Weighted_Ah / Total_Ah;
+        }
 
         memcpy(&candata.data[0], &Weighted_SOC, sizeof(Weighted_SOC));
 
@@ -302,7 +304,7 @@ void pylon_message_356()
          int16_t voltage, current, temperature;
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.data[2][i][0] != 0)  // only use 0 values from online controllers
+            if (CAN.controller_heartbeat(i))  // only use 0 values from online controllers
             {
                 voltage = voltage + *(int16_t*)&CAN.data[6][i][0];
                 current = current + *(int16_t*)&CAN.data[6][i][2];

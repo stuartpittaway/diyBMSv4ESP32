@@ -31,9 +31,19 @@ const uint32_t ControllerCAN::id[MAX_CAN_PARAMETERS][MAX_NUM_CONTROLLERS] = {
 
 };
 
+//return whether a controller has a valid heartbeat by checking the bitmssgs timestamp array
+bool ControllerCAN::controller_heartbeat(uint8_t ControllerID)
+{
+ if ((esp_timer_get_time() - BITMSGS_TIMESTAMP[ControllerID]) < (HEARTBEAT_PERIOD*1000))
+ {
+  return true;
+ } 
+  return false;
+}
+
 void ControllerCAN::clearvalues()
 {
-   online_controller_count = 0;
+   online_controller_count = 1; // "i think, therefore i am"
    master = 0;
       // Zero Array (traversing out of normal order ( data[q][r][s] ) to include BITMSGS_TIMESTAMP array)
     for (uint8_t r = 0; r < MAX_NUM_CONTROLLERS; r++)
@@ -58,7 +68,7 @@ uint8_t ControllerCAN::controllerNetwork_status()
 
   for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
   {
-      if (data[2][i][0] != 0)
+      if (controller_heartbeat(i))
       {
         controller_count++;
       }
@@ -75,20 +85,24 @@ uint8_t ControllerCAN::controllerNetwork_status()
   {
       ESP_LOGE(TAG, "Controller network count discrepancy");
       returnvalue = 2;
+      online_controller_count = controller_count;
   }
-  if (controller_count < mysettings.controllerNet && returnvalue !=2)  // don't change a higher level alert to a lower level
+  else if (controller_count == 0) // for debug only, this should never happen
+  {
+      ESP_LOGE(TAG, "!ERROR! Online_controller_count = 0");
+      returnvalue = 2;
+      online_controller_count = 1; //force it to one to avoid divide by zero later
+  }
+  else if (controller_count < mysettings.controllerNet && returnvalue !=2)  // don't change a higher level alert to a lower level
   {
       ESP_LOGE(TAG, "A controller is offline");
       returnvalue = 1;
+      online_controller_count = controller_count;
   }
-
-
-  online_controller_count = controller_count;
-  for (int8_t i=0; i< MAX_NUM_CONTROLLERS; i++)
+  else  //normal operation
   {
-    memset(&data[2][i][0], 0, 1);     // clear the controller id bitfield so we know we have updated information next call
+      online_controller_count = controller_count;
   }
-
 
   return returnvalue;
 
@@ -99,7 +113,7 @@ void ControllerCAN::who_is_master()  // Decide which controller is master ( == t
 
       for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
       {
-        if ((esp_timer_get_time() - BITMSGS_TIMESTAMP[i]) < (HEARTBEAT_PERIOD*1000))
+        if (controller_heartbeat(i))
         {
             master=i;
             
@@ -368,28 +382,26 @@ void ControllerCAN::c2c_BIT_MSGS()      // diyBMS messaging/alarms
 // byte 0 - Controller Identification
 // 
 // Bit position determines which controller number is set within configuration
+   
 
-
-  //CNTRL0 = B10000000    
-  //CNTRL1 = B01000000
-  //CNTRL2 = B00100000
-  //CNTRL3 = B00010000
-
-  //CNTRL4 = B00001000
-  //CNTRL5 = B00000100
-  //CNTRL6 = B00000010
-  //CNTRL7 = B00000001
-  
+  //CNTRL0 = B00000001  
+  //CNTRL1 = B00000010   
+  //CNTRL2 = B00000100
+  //CNTRL3 = B00001000
+  //CNTRL4 = B00010000
+  //CNTRL5 = B00100000
+  //CNTRL6 = B01000000
+  //CNTRL7 = B10000000    
 
 
 
   if (data[2][mysettings.controllerID][0] == 0)   // this byte should be empty. if not then another controller is trying to broadcast under this same controller #
   {
-    byte0 = 0x80 >> mysettings.controllerID;   
+    byte0 = 0x1 << mysettings.controllerID;   
   }
   else
   {
-     byte0 = ~(0x80 >> mysettings.controllerID);       // error byte to signal to other controllers that there is a configuration conflict with this controller #
+     byte0 = ~(0x1 << mysettings.controllerID);       // error byte to signal to other controllers that there is a configuration conflict with this controller #
   }
     memset(&candata.data[0], byte0, 1);
 
@@ -412,14 +424,14 @@ void ControllerCAN::c2c_BIT_MSGS()      // diyBMS messaging/alarms
 
 
 // byte 2 - **Coming soon**  High Availability Enabled Battery
-/*
+
 byte2 = 0;
-if (highAvailable)
+if (mysettings.highAvailable)
 {
-  byte2 = B10000000;
+  byte2 = B00000001;
 }
 
-*/
+
 // byte 3 - reserved for future use
 // byte 4 - reserved for future use 
 // byte 5 - reserved for future use 

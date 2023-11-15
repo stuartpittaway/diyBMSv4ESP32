@@ -16,5 +16,6 @@ void victron_message_372();
 void victron_message_35a();
 
 extern ControllerCAN CAN;
+extern bool controller_heartbeat(uint8_t ControllerID);
 
 #endif

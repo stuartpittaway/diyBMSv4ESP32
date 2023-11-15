@@ -86,7 +86,7 @@ void victron_message_35f()
         uint8_t mismatches = 0;
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            if (CAN.controller_heartbeat(i))  //check bitmsgs timestamp so we only include online controllers
             {
             mismatches = mismatches + memcmp((uint16_t*)&CAN.data[5][i][2], (uint16_t*)&CAN.data[5][i + 1][2], sizeof(uint16_t));
             }
@@ -97,8 +97,8 @@ void victron_message_35f()
             // should we raise an alarm here and add to BIT MSGS??
             // firmware_version_mismatch = true;
 
-            // if firmware versions don't match just display zeros or something...
-            memset(&candata.data[2], 0, sizeof(uint16_t));
+            // if firmware versions don't match just display 1's or something...
+            memset(&candata.data[2], 1, sizeof(uint16_t));
         }
 
         else
@@ -112,7 +112,7 @@ void victron_message_35f()
         uint16_t Total_Ah = 0;
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            if (CAN.controller_heartbeat(i))  //check bitmsgs timestamp so we only include online controllers
             {
             Total_Ah = Total_Ah + *(uint16_t*)&CAN.data[5][i][4];
             }
@@ -232,7 +232,7 @@ void victron_message_373_374_375_376_377()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            if (CAN.controller_heartbeat(i))  //check bitmsgs timestamp so we only include online controllers
             {
                 // find minimums
                 if ((*(uint16_t*)&CAN.data[8][i][0] <= min_cell_v))  
@@ -350,25 +350,24 @@ void  victron_message_351()
     candata.dlc = TWAI_FRAME_MAX_DLC;
     candata.identifier = 0x351;
     memset(&candata.data, 0, sizeof(candata.data));
-
-
+    uint16_t chargevoltagelimit;
+    uint16_t maxchargecurrent;
+    uint16_t maxdischargecurrent;
+    uint16_t dischargevoltage;
+    
     // if no controllers are networked then just send the local values. It won't matter what controllerID is selected on the config page
     if (mysettings.controllerNet == 1)
     {
         memcpy(&candata.data, &CAN.data[0][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
-
+        memcpy(&chargevoltagelimit, &CAN.data[0][mysettings.controllerID][0], sizeof(chargevoltagelimit));
+        memcpy(&maxchargecurrent, &CAN.data[0][mysettings.controllerID][2], sizeof(maxchargecurrent));
+        memcpy(&maxdischargecurrent, &CAN.data[0][mysettings.controllerID][4], sizeof(maxdischargecurrent));
+        memcpy(&dischargevoltage, &CAN.data[0][mysettings.controllerID][6], sizeof(dischargevoltage));
     }
 
     // aggregate DVCC data from networked controllers and use the minimum for each parameter
     else
-    {
-
-        uint16_t chargevoltagelimit;
-        uint16_t maxchargecurrent;
-        uint16_t maxdischargecurrent;
-        uint16_t dischargevoltage;
-
-        
+    {       
         chargevoltagelimit = *(uint16_t*)&CAN.data[0][0][0];
         maxchargecurrent = *(uint16_t*)&CAN.data[0][0][2];
         maxdischargecurrent = *(uint16_t*)&CAN.data[0][0][4];
@@ -376,7 +375,7 @@ void  victron_message_351()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            if (CAN.controller_heartbeat(i))  //check bitmsgs timestamp so we only include online controllers
             {
                 // use minimum
                 if ((*(uint16_t*)&CAN.data[0][i][0] < chargevoltagelimit))
@@ -402,16 +401,17 @@ void  victron_message_351()
         }
         maxchargecurrent = maxchargecurrent * CAN.online_controller_count;
         maxdischargecurrent = maxdischargecurrent * CAN.online_controller_count;
-
-
-
+    }
         memcpy(&candata.data[0], &chargevoltagelimit, sizeof(chargevoltagelimit));                  // fill in 1-8 data bytes
         memcpy(&candata.data[2], &maxchargecurrent, sizeof(maxchargecurrent));                  // fill in 1-8 data bytes
         memcpy(&candata.data[4], &maxdischargecurrent, sizeof(maxdischargecurrent));                  // fill in 1-8 data bytes
         memcpy(&candata.data[6], &dischargevoltage, sizeof(dischargevoltage));                  // fill in 1-8 data bytes
+        ESP_LOGI(TAG, "Charge Voltage Limit = %d",chargevoltagelimit);
+        ESP_LOGI(TAG, "Max Charge Current = %d",maxchargecurrent);
+        ESP_LOGI(TAG, "Max Discharge Current = %d",maxdischargecurrent);
+        ESP_LOGI(TAG, "Discharge Voltage Limit = %d",dischargevoltage);     
 
-
-    }
+    
     // send to tx routine , block 50ms 
     if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
     {
@@ -440,7 +440,7 @@ void victron_message_355()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.data[2][i][0] != 0)  //check bitmsgs timestamp so we only include online controllers
+            if (CAN.controller_heartbeat(i))
             {
             Total_Ah = Total_Ah + *(uint16_t*)&(CAN.data[5][i][4]);
             Total_Weighted_Ah = Total_Weighted_Ah + *(uint16_t*)&CAN.data[4][i][0] * (*(uint16_t*)&CAN.data[5][i][4]);  //SOC x Online capacity
@@ -448,7 +448,10 @@ void victron_message_355()
 
         }
 
-        Weighted_SOC = Total_Weighted_Ah / Total_Ah;
+        if (Total_Ah != 0)  //avoid divide by zero (we won't have useable values during CAN initialization)
+        {
+            Weighted_SOC = Total_Weighted_Ah / Total_Ah;
+        }
 
         memcpy(&candata.data[0], &Weighted_SOC, sizeof(Weighted_SOC));
 
@@ -480,7 +483,7 @@ void victron_message_356()
          int16_t voltage, current, temperature;
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.data[2][i][0] != 0)  // only use 0 values from online controllers
+            if (CAN.controller_heartbeat(i))  // only use 0 values from online controllers
             {
                 voltage = voltage + *(int16_t*)&CAN.data[6][i][0];
                 current = current + *(int16_t*)&CAN.data[6][i][2];
@@ -529,7 +532,7 @@ void victron_message_372()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.data[2][i][0] != 0)  // only use 0 values from online controllers
+            if (CAN.controller_heartbeat(i))  // only use 0 values from online controllers
             {
             online_count = online_count + *(uint16_t*)&CAN.data[3][i][0];
             }

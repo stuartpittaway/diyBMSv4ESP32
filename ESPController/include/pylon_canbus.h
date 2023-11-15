@@ -14,5 +14,6 @@ void pylon_message_35c();
 void pylon_message_35e();
 
 extern ControllerCAN CAN;
+extern bool controller_heartbeat(uint8_t ControllerID);
 
 #endif

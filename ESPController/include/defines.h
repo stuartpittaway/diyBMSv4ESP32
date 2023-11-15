@@ -26,7 +26,7 @@
 #define MAX_CAN_PARAMETERS 13  // max number of unique CAN message types
 #define MAX_NUM_CONTROLLERS 8   //max number of controllers that can be networked
 #define HEARTBEAT_PERIOD 1000 // max interval (ms) allowed between CAN refresh 
-#define TWAI_FRAME_MAX_DLC              8           /**< Max data bytes allowed in TWAI */
+#define TWAI_FRAME_MAX_DLC 8   // Max data bytes allowed in TWAI 
 
 typedef union
 {

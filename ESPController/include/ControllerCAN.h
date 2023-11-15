@@ -43,10 +43,11 @@ public:
 	// # of controllers currently online
 	uint8_t online_controller_count;
 
+	// returns the heartbeat status of a networked controller
+	bool controller_heartbeat(uint8_t ControllerID);
 
 private:
 	void SetBankAndModuleText(char* buffer, uint8_t cellid);
-
 };
 
 

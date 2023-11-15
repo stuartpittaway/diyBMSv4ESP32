@@ -2705,7 +2705,7 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
 
 
         // Reporting via VICTRON protocol
-        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON) //&& (CAN.master == mysettings.controllerID))
+        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON) 
         {
           uint8_t statusreturn = CAN.controllerNetwork_status();
 
@@ -2718,7 +2718,7 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
         }
 
         // Reporting via PYLONTECH protocol
-        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) // && (CAN.master == mysettings.controllerID))
+        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) 
         {
           uint8_t statusreturn = CAN.controllerNetwork_status();
 
@@ -2740,6 +2740,13 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
 {
     for (;;)
     {
+        // timestamp here so we can sync error logs for debugging purposes
+        struct tm timeinfo;
+        if (getLocalTime(&timeinfo),1)
+        {
+        ESP_LOGI(TAG,"Current Time is:%d:%d:%d",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+        }
+        
 
         // Delay 3 second
         vTaskDelay(pdMS_TO_TICKS(3000));

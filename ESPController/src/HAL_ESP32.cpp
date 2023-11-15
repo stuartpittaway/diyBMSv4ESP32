@@ -295,7 +295,7 @@ void HAL_ESP32::ConfigureCAN()
     // 01100000111 00000 00000000 00000000 = 0x60E00000  (0x307)
     // 00000000010 11111 11111111 11111111 = 0x005FFFFF
     //          ^ THIS BIT IS IGNORED USING THE MASK SO 0x305 and 0x307 are permitted
-    twai_filter_config_t f_config = {.acceptance_code = 0x60A00000, .acceptance_mask = 0x005FFFFF, .single_filter = true};
+    twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
     // Install CAN driver
     if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK)
