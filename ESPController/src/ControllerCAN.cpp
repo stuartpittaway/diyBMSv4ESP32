@@ -145,8 +145,6 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
 {
     CANframe candata;
     memset(&candata.data, 0, sizeof(candata.data));
-  
-    uint8_t number_of_active_errors = 0;
 
     // CVL - 0.1V scale
     uint16_t chargevoltagelimit;
@@ -156,19 +154,47 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
     int16_t maxdischargecurrent;
     // Not currently used by Victron
     // 0.1V scale
-    uint16_t dischargevoltage;
+    uint16_t dischargevoltage = mysettings.dischargevolt;
 
 
-  chargevoltagelimit = rules.lowestBankVoltage / 100;
-  maxchargecurrent = 0;
+    // THESE DEFAULTS (do nothing) are dependant on the particular inverter 
+      uint16_t default_charge_voltage;         
+      int16_t default_charge_current_limit;   
+      int16_t default_discharge_current_limit; 
 
+      if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
+      {
+        // Don't use zero for voltage - this indicates to Victron an over voltage situation, and Victron gear attempts to dump
+        // the whole battery contents!  (feedback from end users)
+        default_charge_voltage = rules.lowestBankVoltage / 100;   
+        default_charge_current_limit = 0;    
+        default_discharge_current_limit = 0; 
+      }
+      else if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH && mysettings.canbusinverter == CanBusInverter::INVERTER_DEYE)
+      {
+        // FOR DEYE INVERTERS APPLY DIFFERENT LOGIC TO PREVENT "W31" ERRORS
+        // ISSUE #216
+        default_charge_voltage = rules.lowestBankVoltage / 100;
+        default_charge_current_limit = 0;
+        default_discharge_current_limit = 0;
+      }
+      else if (mysettings.canbusinverter == CanBusProtocolEmulation::CANBUS_PYLONTECH && CanBusInverter::INVERTER_GENERIC)
+      { // If we pass ZERO's to SOFAR inverter it appears to ignore them
+        // so send 0.1V and 0.1Amps instead to indicate "stop"
+        default_charge_voltage = 1;         // 0.1V
+        default_charge_current_limit = 1;    // 0.1A
+        default_discharge_current_limit = 1; // 0.1A
+      }
+
+
+  // Charge settings...
   if (rules.IsChargeAllowed(&mysettings))
   {
     if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
     {
       // Balancing, stop charge
-      chargevoltagelimit = rules.lowestBankVoltage / 100;
-      maxchargecurrent = 0;
+    chargevoltagelimit = default_charge_voltage;
+    maxchargecurrent = default_charge_current_limit;
     }
     else
     {
@@ -177,14 +203,20 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
       maxchargecurrent = rules.DynamicChargeCurrent();
     }
   }
+  else
+  {
+    chargevoltagelimit = default_charge_voltage;
+    maxchargecurrent = default_charge_current_limit;
+  }
 
   // Discharge settings....
-  maxdischargecurrent = 0;
-  dischargevoltage = mysettings.dischargevolt;
-
   if (rules.IsDischargeAllowed(&mysettings))
   {
     maxdischargecurrent = mysettings.dischargecurrent;
+  }
+  else
+  {
+    maxdischargecurrent = default_discharge_current_limit;
   }
      
       candata.dlc = 8; 
