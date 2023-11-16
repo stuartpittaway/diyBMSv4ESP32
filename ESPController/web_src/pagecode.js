@@ -1415,7 +1415,9 @@ $(function () {
                         + "<td>" + data.milliamphour_in[index] + "</td>"
                         + "<td>" + data.milliamphour_out[index] + "</td>"
                         + "<td>" + data.highestBankRange[index] + "</td>"
+                        + "<td>" + data.address_LowCellV[index] + "</td>"
                         + "<td>" + data.lowestCellVoltage[index] + "</td>"
+                        + "<td>" + data.address_HighCellV[index] + "</td>"
                         + "<td>" + data.highestCellVoltage[index] + "</td>"
                         + "<td>" + data.lowestBankVoltage[index] + "</td>"
                         + "<td>" + data.highestBankVoltage[index] + "</td>"
@@ -1978,6 +1980,7 @@ $(function () {
             function (data) {
 
                 $("#canbusprotocol").val(data.chargeconfig.canbusprotocol);
+                $("#canbusinverter").val(data.chargeconfig.canbusinverter);                
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
 
                 $("#chargevolt").val((data.chargeconfig.chargevolt / 10.0).toFixed(1));

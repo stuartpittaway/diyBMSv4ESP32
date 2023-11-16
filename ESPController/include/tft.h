@@ -34,7 +34,8 @@ enum ScreenTemplateToDisplay : uint8_t
   State = 5,
   AVRProgrammer=6,
   CurrentMonitor=7,
-  SystemInformation=8
+  SoCBarGraph=8,
+  SystemInformation=9
 };
 
 
@@ -70,8 +71,8 @@ extern TaskHandle_t updatetftdisplay_task_handle;
 extern avrprogramsettings _avrsettings;
 extern currentmonitoring_struct currentMonitor;
 extern bool wifi_isconnected;
-extern char hostname[16];
-extern char ip_string[16];
+extern std::string hostname;
+extern std::string ip_string;
 extern PacketRequestGenerator prg;
 extern PacketReceiveProcessor receiveProc;
 extern uint32_t canbus_messages_received;

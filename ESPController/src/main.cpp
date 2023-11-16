@@ -86,7 +86,7 @@ CurrentMonitorINA229 currentmon_internal = CurrentMonitorINA229();
 
 const uart_port_t rs485_uart_num = UART_NUM_1;
 
-const char *wificonfigfilename = "/diybms/wifi.json";
+const std::string wificonfigfilename("/diybms/wifi.json");
 
 HAL_ESP32 hal;
 ControllerCAN CAN;
@@ -95,8 +95,8 @@ volatile bool emergencyStop = false;
 bool _sd_card_installed = false;
 
 // Used for WIFI hostname and also sent to Victron over CANBUS
-char hostname[16];
-char ip_string[16]; // xxx.xxx.xxx.xxx
+std::string hostname;
+std::string ip_string; // xxx.xxx.xxx.xxx
 
 bool wifi_isconnected = false;
 
@@ -220,6 +220,17 @@ void LED(uint8_t bits)
     }
 
   } // end for
+}
+
+std::string ip4_to_string(const uint32_t ipaddr)
+{
+  return std::to_string((uint8_t)(ipaddr))
+      .append(".")
+      .append(std::to_string((uint8_t)(ipaddr >> 8)))
+      .append(".")
+      .append(std::to_string((uint8_t)(ipaddr >> 16)))
+      .append(".")
+      .append(std::to_string((uint8_t)(ipaddr >> 24)));
 }
 
 // Sets the RS485 serial parameters after they have been changed
@@ -924,46 +935,32 @@ const char *packetType(uint8_t cmd)
   {
   case COMMAND::ResetBadPacketCounter:
     return "ResetC";
-    break;
   case COMMAND::ReadVoltageAndStatus:
     return "RdVolt";
-    break;
   case COMMAND::Identify:
     return "Ident";
-    break;
   case COMMAND::ReadTemperature:
     return "RdTemp";
-    break;
   case COMMAND::ReadBadPacketCounter:
     return "RdBadPkC";
-    break;
   case COMMAND::ReadSettings:
     return "RdSettin";
-    break;
   case COMMAND::WriteSettings:
     return "WriteSet";
-    break;
   case COMMAND::ReadBalancePowerPWM:
     return "RdBalanc";
-    break;
   case COMMAND::Timing:
     return "Timing";
-    break;
   case COMMAND::ReadBalanceCurrentCounter:
     return "Current";
-    break;
   case COMMAND::ReadPacketReceivedCounter:
     return "PktRvd";
-    break;
   case COMMAND::ResetBalanceCurrentCounter:
     return "ResBal";
-    break;
   case COMMAND::ReadAdditionalSettings:
     return "RdAddt";
-    break;
   case COMMAND::WriteAdditionalSettings:
     return "WrAddt";
-    break;
   default:
     return " ??????   ";
   }
@@ -1571,7 +1568,7 @@ static void startMDNS()
   }
   else
   {
-    mdns_hostname_set(hostname);
+    mdns_hostname_set(hostname.c_str());
     mdns_instance_name_set("diybms");
     mdns_service_add(nullptr, "_http", "_tcp", 80, nullptr, 0);
   }
@@ -1653,11 +1650,11 @@ static void event_handler(void *, esp_event_base_t event_base,
 
     startMDNS();
 
-    snprintf(ip_string, sizeof(ip_string), IPSTR, IP2STR(&event->ip_info.ip));
+    ip_string = ip4_to_string(event->ip_info.ip.addr);
 
     wake_up_tft(true);
 
-    ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname, ip_string);
+    ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname.c_str(), ip_string.c_str());
   }
 }
 
@@ -1666,9 +1663,65 @@ bool LoadWiFiConfig()
   auto reply = LoadWIFI(&_wificonfig);
 
   ESP_LOGI(TAG, "Wifi Config: SSID:%s, Manual Config:%u", _wificonfig.wifi_ssid, _wificonfig.manualConfig);
-  ESP_LOGI(TAG, "Manual IP:%s, Netmask:%s, GW:%s, DNS1:%s, DNS2:%s", IPAddress(_wificonfig.wifi_ip).toString().c_str(), IPAddress(_wificonfig.wifi_netmask).toString().c_str(), IPAddress(_wificonfig.wifi_gateway).toString().c_str(), IPAddress(_wificonfig.wifi_dns1).toString().c_str(), IPAddress(_wificonfig.wifi_dns2).toString().c_str());
+  ESP_LOGI(TAG, "Manual IP:%s, Netmask:%s, GW:%s, DNS1:%s, DNS2:%s",
+           ip4_to_string(_wificonfig.wifi_ip).c_str(),
+           ip4_to_string(_wificonfig.wifi_netmask).c_str(),
+           ip4_to_string(_wificonfig.wifi_gateway).c_str(),
+           ip4_to_string(_wificonfig.wifi_dns1).c_str(),
+           ip4_to_string(_wificonfig.wifi_dns2).c_str());
 
   return reply;
+}
+
+bool SaveWIFIJson(const wifi_eeprom_settings *setting)
+{
+  if (!_sd_card_installed)
+  {
+    return false;
+  }
+
+  if (_avrsettings.programmingModeEnabled)
+  {
+    return false;
+  }
+
+  StaticJsonDocument<512> doc;
+
+  JsonObject wifi = doc.createNestedObject("wifi");
+  wifi["ssid"] = setting->wifi_ssid;
+  wifi["password"] = setting->wifi_passphrase;
+
+  // Manual IP settings
+  wifi["ip"] = ip4_to_string(setting->wifi_ip);
+  wifi["gateway"] = ip4_to_string(setting->wifi_gateway);
+  wifi["netmask"] = ip4_to_string(setting->wifi_netmask);
+  wifi["dns1"] = ip4_to_string(setting->wifi_dns1);
+  wifi["dns2"] = ip4_to_string(setting->wifi_dns2);
+  wifi["manualconfig"] = setting->manualConfig;
+
+  if (hal.GetVSPIMutex())
+  {
+    ESP_LOGI(TAG, "Creating folder");
+    SD.mkdir("/diybms");
+
+    // Get the file
+    ESP_LOGI(TAG, "Write SD file %s", wificonfigfilename.c_str());
+
+    if (SD.exists(wificonfigfilename.c_str()))
+    {
+      ESP_LOGI(TAG, "Delete existing %s", wificonfigfilename.c_str());
+      SD.remove(wificonfigfilename.c_str());
+    }
+
+    File file = SD.open(wificonfigfilename.c_str(), "w");
+    serializeJson(doc, file);
+    file.close();
+
+    hal.ReleaseVSPIMutex();
+    return true;
+  }
+
+  return false;
 }
 
 void BuildHostname()
@@ -1679,8 +1732,11 @@ void BuildHostname()
     chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
   }
   // DIYBMS-00000000
-  memset(&hostname, 0, sizeof(hostname));
-  snprintf(hostname, sizeof(hostname), "DIYBMS-%08X", chipId);
+  char buffer[10];
+  snprintf(buffer, sizeof(buffer), "%08X", chipId);
+
+  hostname.clear();
+  hostname.append("DIYBMS-").append(buffer);
 }
 
 void wifi_init_sta(void)
@@ -1764,22 +1820,22 @@ void wifi_init_sta(void)
   ESP_ERROR_CHECK(esp_wifi_set_rssi_threshold(-80));
   ESP_ERROR_CHECK(esp_wifi_start());
 
-  ESP_ERROR_CHECK_WITHOUT_ABORT(tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname));
-  ESP_ERROR_CHECK_WITHOUT_ABORT(esp_netif_set_hostname(netif, hostname));
+  ESP_ERROR_CHECK_WITHOUT_ABORT(tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname.c_str()));
+  ESP_ERROR_CHECK_WITHOUT_ABORT(esp_netif_set_hostname(netif, hostname.c_str()));
 
-  ESP_LOGI(TAG, "Hostname: %s", hostname);
+  ESP_LOGI(TAG, "Hostname: %s", hostname.c_str());
 
   ESP_LOGD(TAG, "wifi_init_sta finished");
 }
 
-uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
+uint16_t calculateCRC(const uint8_t *f, uint8_t bufferSize)
 {
   uint16_t flag;
   uint16_t temp;
   temp = 0xFFFF;
   for (unsigned char i = 0; i < bufferSize; i++)
   {
-    temp = temp ^ frame[i];
+    temp = temp ^ f[i];
     for (unsigned char j = 1; j <= 8; j++)
     {
       flag = temp & 0x0001;
@@ -3395,14 +3451,14 @@ bool DeleteWiFiConfigFromSDCard()
   bool ret = false;
   if (_sd_card_installed)
   {
-    ESP_LOGI(TAG, "Delete file check %s", wificonfigfilename);
+    ESP_LOGI(TAG, "Delete file check %s", wificonfigfilename.c_str());
 
     if (hal.GetVSPIMutex())
     {
-      if (SD.exists(wificonfigfilename))
+      if (SD.exists(wificonfigfilename.c_str()))
       {
-        ESP_LOGI(TAG, "Deleted %s", wificonfigfilename);
-        ret = SD.remove(wificonfigfilename);
+        ESP_LOGI(TAG, "Deleted %s", wificonfigfilename.c_str());
+        ret = SD.remove(wificonfigfilename.c_str());
       }
 
       hal.ReleaseVSPIMutex();
@@ -3549,7 +3605,10 @@ bool AreWifiConfigurationsTheSame(const wifi_eeprom_settings *a, const wifi_eepr
 
   return true;
 }
+
 /// @brief CHECK FOR THE PRESENCE OF A wifi.json CONFIG FILE ON THE SD CARD AND AUTOMATICALLY CONFIGURE WIFI
+/// @param existingConfigValid true if the wifi settings in FLASH are valid/correctly stored
+/// @return TRUE if the WIFI config on the card is different, false if identical
 bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
   {
   StaticJsonDocument<2048> json;
@@ -3558,15 +3617,15 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
   if (!_sd_card_installed)
     return false;
 
-    ESP_LOGI(TAG, "Checking for %s", wificonfigfilename);
+  ESP_LOGI(TAG, "Checking for %s", wificonfigfilename.c_str());
 
-    if (hal.GetVSPIMutex())
+  if (hal.GetVSPIMutex())
+  {
+    if (SD.exists(wificonfigfilename.c_str()))
     {
-      if (SD.exists(wificonfigfilename))
-      {
-        ESP_LOGD(TAG, "Found file %s", wificonfigfilename);
+      ESP_LOGD(TAG, "Found file %s", wificonfigfilename.c_str());
 
-        File file = SD.open(wificonfigfilename);
+      File file = SD.open(wificonfigfilename.c_str());
       error = deserializeJson(json, file);
         file.close();
     }
@@ -3579,7 +3638,7 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
     return false;
         }
 
-          ESP_LOGD(TAG, "Deserialized %s", wificonfigfilename);
+  ESP_LOGD(TAG, "Deserialized %s", wificonfigfilename.c_str());
 
           JsonObject wifi = json["wifi"];
 
@@ -3594,28 +3653,28 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
   if (wifi.containsKey("ip"))
   {
     // If the "ip" key exists, then it must be the newer format WIFI JSON document
-    IPAddress ip;
+    ip4_addr_t ipadd;
 
-    if (ip.fromString(wifi["ip"].as<String>()))
-          {
-      _new_config.wifi_ip = ip;
-          }
-    if (ip.fromString(wifi["gateway"].as<String>()))
-          {
-      _new_config.wifi_gateway = ip;
-          }
-    if (ip.fromString(wifi["netmask"].as<String>()))
+    if (ip4addr_aton(wifi["ip"].as<String>().c_str(), &ipadd))
     {
-      _new_config.wifi_netmask = ip;
-        }
-    if (ip.fromString(wifi["dns1"].as<String>()))
-    {
-      _new_config.wifi_dns1 = ip;
+      _new_config.wifi_ip = ipadd.addr;
     }
-    if (ip.fromString(wifi["dns2"].as<String>()))
+    if (ip4addr_aton(wifi["gateway"].as<String>().c_str(), &ipadd))
     {
-      _new_config.wifi_dns2 = ip;
-      }
+      _new_config.wifi_gateway = ipadd.addr;
+    }
+    if (ip4addr_aton(wifi["netmask"].as<String>().c_str(), &ipadd))
+    {
+      _new_config.wifi_netmask = ipadd.addr;
+    }
+    if (ip4addr_aton(wifi["dns1"].as<String>().c_str(), &ipadd))
+    {
+      _new_config.wifi_dns1 = ipadd.addr;
+    }
+    if (ip4addr_aton(wifi["dns2"].as<String>().c_str(), &ipadd))
+    {
+      _new_config.wifi_dns2 = ipadd.addr;
+    }
 
     _new_config.manualConfig = wifi["manualconfig"].as<uint8_t>();
     }
@@ -3664,7 +3723,7 @@ const std::array<log_level_t, 22> log_levels =
         log_level_t{.tag = "*", .level = ESP_LOG_DEBUG},
         {.tag = "wifi", .level = ESP_LOG_WARN},
         {.tag = "dhcpc", .level = ESP_LOG_WARN},
-        {.tag = "diybms", .level = ESP_LOG_VERBOSE},
+        {.tag = "diybms", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-avrisp", .level = ESP_LOG_INFO},
         {.tag = "diybms-hal", .level = ESP_LOG_INFO},
         {.tag = "diybms-influxdb", .level = ESP_LOG_INFO},
@@ -3916,13 +3975,14 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   assert(tftwake_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
-  xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 0, &updatetftdisplay_task_handle);
+  // Increased tftupd from 2000 to 2450 due to strange bug on rev3 ESP32 chips
+  xTaskCreate(updatetftdisplay_task, "tftupd", 2450, nullptr, 0, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 3, &avrprog_task_handle);
 
   // High priority task
   xTaskCreate(interrupt_task, "int", 2050, nullptr, configMAX_PRIORITIES - 1, &interrupt_task_handle);
   xTaskCreate(sdcardlog_task, "sdlog", 3800, nullptr, 0, &sdcardlog_task_handle);
-  xTaskCreate(sdcardlog_outputs_task, "sdout", 3000, nullptr, 0, &sdcardlog_outputs_task_handle);
+  xTaskCreate(sdcardlog_outputs_task, "sdout", 3200, nullptr, 0, &sdcardlog_outputs_task_handle);
   xTaskCreate(rule_state_change_task, "r_stat", 3000, nullptr, 0, &rule_state_change_task_handle);
 
   xTaskCreate(rs485_tx, "485_TX", 2940, nullptr, 1, &rs485_tx_task_handle);
@@ -3974,7 +4034,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 }
 
 /// @brief Convert an ESP32 core dump stored in FLASH to a JSON object fragment
-/// @param doc 
+/// @param doc
 void ESPCoreDumpToJSON(JsonObject &doc)
 {
   if (esp_core_dump_image_check() == ESP_OK)

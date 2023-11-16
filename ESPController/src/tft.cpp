@@ -98,7 +98,7 @@ void TFTDrawWifiDetails()
     tft.setTextDatum(TL_DATUM);
 
     int16_t y = tft.height() - fontHeight_2;
-    ;
+
     tft.fillRect(0, y, tft.width(), tft.height() - y, TFT_DARKGREY);
     tft.setTextFont(2);
     tft.setTextColor(TFT_BLACK, TFT_DARKGREY);
@@ -106,9 +106,9 @@ void TFTDrawWifiDetails()
 
     if (wifi_isconnected)
     {
-        x += tft.drawString(hostname, x, y);
+        x += tft.drawString(hostname.c_str(), x, y);
         x += 10;
-        x += tft.drawString(ip_string, x, y);
+        x += tft.drawString(ip_string.c_str(), x, y);
 
         // Draw RSSI on bottom right corner
         // Received Signal Strength in dBm
@@ -138,19 +138,22 @@ void DrawClock()
 
         // Draw the time in bottom right corner of screen
         int16_t y = tft.height() - fontHeight_2;
-        ;
         int16_t x = tft.width() - 38;
+
+        std::string clock;
+
         if (timeinfo.tm_hour < 10)
         {
-            x += tft.drawString("0", x, y);
+            clock.append("0");
         }
-        x += tft.drawNumber(timeinfo.tm_hour, x, y);
-        x += tft.drawString(":", x, y);
+        clock.append(std::to_string(timeinfo.tm_hour)).append(":");
         if (timeinfo.tm_min < 10)
         {
-            x += tft.drawString("0", x, y);
+            clock.append("0");
         }
-        x += tft.drawNumber(timeinfo.tm_min, x, y);
+        clock.append(std::to_string(timeinfo.tm_min));
+
+        x += tft.drawString(clock.c_str(), x, y);
     }
 }
 
@@ -295,7 +298,14 @@ void PageForward()
         _ScreenPageCounter++;
     }
 
-    if (_ScreenPageCounter > 2)
+    if (_ScreenPageCounter == 2 && mysettings.currentMonitoringEnabled == false)
+    {
+        // Don't show current if its not fitted/installed
+        // Skip to next page
+        _ScreenPageCounter++;
+    }
+
+    if (_ScreenPageCounter > 3)
     {
         // Loop back to first page
         _ScreenPageCounter = 0;
@@ -313,6 +323,13 @@ void PageBackward()
     //"Left" touch or delay counter has expired
     _ScreenPageCounter--;
 
+    if (_ScreenPageCounter == 2 && mysettings.currentMonitoringEnabled == false)
+    {
+        // Don't show current if its not fitted/installed
+        // Skip to next page
+        _ScreenPageCounter--;
+    }
+
     if (_ScreenPageCounter == 1 && mysettings.currentMonitoringEnabled == false)
     {
         // Don't show current if its not fitted/installed
@@ -323,7 +340,7 @@ void PageBackward()
     if (_ScreenPageCounter < 0)
     {
         // Loop back to last page
-        _ScreenPageCounter = 2;
+        _ScreenPageCounter = 3;
     }
 
     // Trigger a refresh of the screen
@@ -389,8 +406,15 @@ ScreenTemplateToDisplay WhatScreenToDisplay()
         reply = ScreenTemplateToDisplay::CurrentMonitor;
         break;
     case 2:
+        // Show the current monitor SoC
+        reply = ScreenTemplateToDisplay::SoCBarGraph;
+        break;
+    case 3:
         // System Information
         reply = ScreenTemplateToDisplay::SystemInformation;
+        break;
+    default:
+        reply = ScreenTemplateToDisplay::None;
         break;
     }
 
@@ -569,6 +593,59 @@ void PrepareTFT_CurrentMonitor()
     tft.drawString("Amp/hour Out", 0, y_row2);
     tft.drawString("Amp/hour In", 2 + (w / 2), y_row2);
     TFTDrawWifiDetails();
+}
+
+void PrepareTFT_SocBarGraph()
+{
+    tft.fillScreen(TFT_BLACK);
+
+    int16_t w = tft.width();
+    // Take off the wifi banner height
+    int16_t h = tft.height() - fontHeight_2;
+    int16_t yhalfway = h / 2;
+    int16_t xhalfway = w / 2;
+
+    tft.drawCentreString("State of Charge %", xhalfway, 10, 4);
+
+    tft.drawRoundRect(xhalfway - 102, yhalfway - 26, 204, 52, 4, TFT_GREEN);
+    tft.drawRoundRect(xhalfway - 103, yhalfway - 27, 2 + 204, 2 + 52, 4, TFT_GREEN);
+
+    tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+
+    // The bar graph  
+    int16_t SoC =(int16_t)currentMonitor.stateofcharge;
+
+    if (SoC > 100)
+    {
+        SoC = 100;
+    }
+
+    tft.fillRectHGradient(xhalfway - 100, yhalfway - 22, 200, 44, TFT_RED, TFT_GREEN);
+
+    if (SoC != 100)
+    {
+        //Clear between SoC and 100%
+        tft.fillRect((xhalfway - 100) + (2 * SoC), yhalfway - 22, 200-(2 * SoC), 44, TFT_BLACK);
+    }
+
+    // Stripe lines
+    for (int16_t i = (xhalfway - 94); i < (xhalfway + 94); i += 6)
+    {
+        tft.fillRect(i, yhalfway - 22, 2, 44, TFT_BLACK);
+    }
+
+    // Single bank, large font
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.setTextDatum(TC_DATUM);
+    tft.setTextFont(7);
+    tft.drawFloat(currentMonitor.stateofcharge, 1, xhalfway, yhalfway + 55);
+
+    TFTDrawWifiDetails();
+}
+
+void DrawTFT_SoCBarGraph()
+{
+    // Do nothing here - screen refreshes on page change
 }
 
 void DrawTFT_CurrentMonitor()
@@ -1145,11 +1222,14 @@ void updatetftdisplay_task(void *param)
                     case ScreenTemplateToDisplay::VoltageFourBank:
                         PrepareTFT_VoltageFourBank();
                         break;
+                    case ScreenTemplateToDisplay::State:
+                        PrepareTFT_ControlState();
+                        break;
                     case ScreenTemplateToDisplay::CurrentMonitor:
                         PrepareTFT_CurrentMonitor();
                         break;
-                    case ScreenTemplateToDisplay::State:
-                        PrepareTFT_ControlState();
+                    case ScreenTemplateToDisplay::SoCBarGraph:
+                        PrepareTFT_SocBarGraph();
                         break;
                     case ScreenTemplateToDisplay::SystemInformation:
                         PrepareTFT_SystemInfo();
@@ -1186,6 +1266,9 @@ void updatetftdisplay_task(void *param)
                     break;
                 case ScreenTemplateToDisplay::CurrentMonitor:
                     DrawTFT_CurrentMonitor();
+                    break;
+                case ScreenTemplateToDisplay::SoCBarGraph:
+                    DrawTFT_SoCBarGraph();
                     break;
                 case ScreenTemplateToDisplay::SystemInformation:
                     DrawTFT_SystemInfo();

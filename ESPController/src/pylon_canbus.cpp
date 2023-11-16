@@ -271,7 +271,7 @@ void pylon_message_35e()
     memset(&candata.data, 0, sizeof(candata.data));
 
           // Send 8 byte "magic string" PYLON (with 3 trailing spaces)
-          const char pylon[] = "\x50\x59\x4c\x4f\x4e\x20\x20\x20";
+          uint8_t pylon[] = {0x50, 0x59, 0x4c, 0x4f, 0x4e, 0x20, 0x20, 0x20};;
           memcpy(&candata.data[0], &pylon[0], TWAI_FRAME_MAX_DLC);
 
         if (mysettings.controllerID==CAN.master)

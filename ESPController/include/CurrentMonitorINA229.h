@@ -148,22 +148,6 @@ class CurrentMonitorINA229
 public:
     CurrentMonitorINA229()
     {
-        INA229Installed = false;
-        SPI_Ptr = NULL;
-        chipselectpin = 0;
-
-        milliamphour_out_lifetime = 0;
-        milliamphour_in_lifetime = 0;
-
-        daily_milliamphour_out = 0;
-        daily_milliamphour_in = 0;
-
-        milliamphour_out = 0;
-        milliamphour_in = 0;
-
-        milliamphour_out_offset = 0;
-        milliamphour_in_offset = 0;
-
         // Clear structure
         memset(&registers, 0, sizeof(eeprom_regs));
 
@@ -181,9 +165,9 @@ public:
 
         // Defaults for battery capacity/voltages
         registers.batterycapacity_amphour = 280;
-        registers.fully_charged_voltage = 3.50 * 16;
-        registers.tail_current_amps = 20;
-        registers.charge_efficiency_factor = 99.5;
+        registers.fully_charged_voltage = 3.50F * 16.0F;
+        registers.tail_current_amps = 20.0F;
+        registers.charge_efficiency_factor = 99.5F;
 
         // Default 150A shunt @ 50mV scale
         registers.shunt_max_current = 150;
@@ -207,10 +191,10 @@ public:
         CalculateLSB();
 
         // Default Power limit = 5kW
-        registers.R_PWR_LIMIT = (uint16_t)((5000.0 / registers.CURRENT_LSB / 3.2) / 256.0); // 5kW
+        registers.R_PWR_LIMIT = (uint16_t)((5000.0F / registers.CURRENT_LSB / 3.2F) / 256.0F); // 5kW
     }
 
-    bool Available()
+    bool Available()  const
     {
         return INA229Installed;
     }
@@ -236,43 +220,43 @@ public:
     void GuessSOC();
     void TakeReadings();
 
-    uint32_t calc_milliamphour_out() { return milliamphour_out - milliamphour_out_offset; }
-    uint32_t calc_milliamphour_in() { return milliamphour_in - milliamphour_in_offset; }
-    uint32_t calc_daily_milliamphour_out() { return daily_milliamphour_out; }
-    uint32_t calc_daily_milliamphour_in() { return daily_milliamphour_in; }
+    uint32_t calc_milliamphour_out()  const{ return milliamphour_out - milliamphour_out_offset; }
+    uint32_t calc_milliamphour_in()  const{ return milliamphour_in - milliamphour_in_offset; }
+    uint32_t calc_daily_milliamphour_out()  const{ return daily_milliamphour_out; }
+    uint32_t calc_daily_milliamphour_in()  const{ return daily_milliamphour_in; }
 
-    float calc_charge_efficiency_factor() { return registers.charge_efficiency_factor; }
-    float calc_state_of_charge() { return SOC / 100.0; }
+    float calc_charge_efficiency_factor()  const{ return registers.charge_efficiency_factor; }
+    float calc_state_of_charge()  const{ return SOC / 100.0F; }
 
-    float calc_voltage() { return voltage; }
-    float calc_current() { return current; }
-    float calc_power() { return power; }
-    uint16_t calc_shuntcalibration() { return registers.R_SHUNT_CAL; }
-    int16_t calc_temperature() { return (int16_t)temperature; }
-    uint16_t calc_shunttempcoefficient() { return registers.R_SHUNT_TEMPCO; }
-    float calc_tailcurrentamps() { return registers.tail_current_amps; }
-    float calc_fullychargedvoltage() { return registers.fully_charged_voltage; }
-    float calc_shuntresistance() { return 1000 * registers.RSHUNT; }
+    float calc_voltage()  const{ return voltage; }
+    float calc_current()  const{ return current; }
+    float calc_power()  const{ return power; }
+    uint16_t calc_shuntcalibration()  const{ return registers.R_SHUNT_CAL; }
+    int16_t calc_temperature()  const{ return (int16_t)temperature; }
+    uint16_t calc_shunttempcoefficient()  const{ return registers.R_SHUNT_TEMPCO; }
+    float calc_tailcurrentamps()  const{ return registers.tail_current_amps; }
+    float calc_fullychargedvoltage()  const{ return registers.fully_charged_voltage; }
+    float calc_shuntresistance()  const{ return 1000 * registers.RSHUNT; }
 
-    uint16_t calc_shuntmillivolt() { return registers.shunt_millivolt; }
-    uint16_t calc_shuntmaxcurrent() { return registers.shunt_max_current; }
-    uint16_t calc_batterycapacityAh() { return registers.batterycapacity_amphour; }
+    uint16_t calc_shuntmillivolt()  const{ return registers.shunt_millivolt; }
+    uint16_t calc_shuntmaxcurrent()  const{ return registers.shunt_max_current; }
+    uint16_t calc_batterycapacityAh()  const{ return registers.batterycapacity_amphour; }
 
-    int16_t calc_temperaturelimit()
+    int16_t calc_temperaturelimit() const
     {
         // Case unsigned to int16 to cope with negative temperatures
-        return ConvertFrom2sComp(registers.R_TEMP_LIMIT) * (float)0.0078125;
+        return (int16_t)(ConvertFrom2sComp(registers.R_TEMP_LIMIT) * 0.0078125F);
     }
-    float calc_overpowerlimit()
+    float calc_overpowerlimit() const
     {
         return ConvertFrom2sComp(registers.R_PWR_LIMIT) * 256.0F * 3.2F * registers.CURRENT_LSB;
     }
-    float calc_overvoltagelimit() { return (float)ConvertFrom2sComp(registers.R_BOVL) * 0.003125F; }
-    float calc_undervoltagelimit() { return (float)ConvertFrom2sComp(registers.R_BUVL) * 0.003125F; }
-    float calc_overcurrentlimit() { return ((float)ConvertFrom2sComp(registers.R_SOVL) / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current; }
-    float calc_undercurrentlimit() { return ((float)ConvertFrom2sComp(registers.R_SUVL) / 1000 * 1.25) / full_scale_adc * registers.shunt_max_current; }
+    float calc_overvoltagelimit()  const{ return (float)ConvertFrom2sComp(registers.R_BOVL) * 0.003125F; }
+    float calc_undervoltagelimit()  const{ return (float)ConvertFrom2sComp(registers.R_BUVL) * 0.003125F; }
+    float calc_overcurrentlimit()  const{ return ((float)ConvertFrom2sComp(registers.R_SOVL) / 1000.0F * 1.25F) / full_scale_adc * registers.shunt_max_current; }
+    float calc_undercurrentlimit()  const{ return ((float)ConvertFrom2sComp(registers.R_SUVL) / 1000.0F * 1.25F) / full_scale_adc * registers.shunt_max_current; }
 
-    bool calc_tempcompenabled() { return (registers.R_CONFIG & bit(5)) != 0; }
+    bool calc_tempcompenabled() const { return (registers.R_CONFIG & bit(5)) != 0; }
 
     uint16_t calc_alerts()
     {
@@ -293,41 +277,41 @@ private:
     float power = 0;
     float temperature = 0;
 
-    const float full_scale_adc = 40.96;
-    // const float CoulombsToAmpHours = 1.0 / 3600.0;
-    const float CoulombsToMilliAmpHours = 1.0 / 3.6;
+    const float full_scale_adc = 40.96F;
+    // const float CoulombsToAmpHours = 1.0F / 3600.0F;
+    const float CoulombsToMilliAmpHours = 1.0F / 3.6F;
 
     uint8_t max_soc_reset_counter = 0;
     int64_t soc_reset_time;
     int32_t last_charge_coulombs = 0;
 
     // Pointer to SPI object class  NOTE: MUTEX OVER SPI PORT MUST BE HANDLED EXTERNALLY TO THIS CLASS
-    SPIClass *SPI_Ptr;
+    SPIClass *SPI_Ptr = nullptr;
     // True is chip is installed
-    bool INA229Installed;
+    bool INA229Installed = false;
     // Chip select pin
-    uint8_t chipselectpin;
+    uint8_t chipselectpin = 0;
     // Settings used for SPI comms (10Mhz, MSB, Mode 1)
     SPISettings _spisettings = SPISettings(10000000, MSBFIRST, SPI_MODE1);
 
     eeprom_regs registers;
 
-    uint32_t milliamphour_out_lifetime;
-    uint32_t milliamphour_in_lifetime;
+    uint32_t milliamphour_out_lifetime=0;
+    uint32_t milliamphour_in_lifetime=0;
 
-    uint32_t daily_milliamphour_out;
-    uint32_t daily_milliamphour_in;
+    uint32_t daily_milliamphour_out=0;
+    uint32_t daily_milliamphour_in=0;
 
-    uint32_t milliamphour_out;
-    uint32_t milliamphour_in;
+    uint32_t milliamphour_out=0;
+    uint32_t milliamphour_in=0;
 
-    uint32_t milliamphour_out_offset;
-    uint32_t milliamphour_in_offset;
+    uint32_t milliamphour_out_offset=0;
+    uint32_t milliamphour_in_offset=0;
 
     volatile uint16_t diag_alrt_value = 0;
 
-    uint8_t readRegisterValue(INA_REGISTER r);
-    uint8_t writeRegisterValue(INA_REGISTER r);
+    uint8_t readRegisterValue(INA_REGISTER r) const;
+    uint8_t writeRegisterValue(INA_REGISTER r) const;
     void CalculateLSB();
     
     uint16_t read16bits(INA_REGISTER r);
@@ -346,10 +330,10 @@ private:
     int64_t spi_readInt40(INA_REGISTER r);
 
     void CalculateAmpHourCounts();
-    uint16_t CalculateSOC();
+    uint16_t CalculateSOC() const;
 
     // Convert an int16 to a uint16 2 compliment value
-    uint16_t ConvertTo2sComp(int16_t value)
+    uint16_t ConvertTo2sComp(int16_t value) const
     {
         if (value >= 0)
         {
@@ -357,7 +341,6 @@ private:
         }
 
         uint16_t v = -value;
-        ESP_LOGI(TAG, "uint16 v=%u", v);
 
         v = v - 1;
         v = ~v;
@@ -366,11 +349,11 @@ private:
     }
 
     // Convert a 2 compliemnt uint16 to a signed int16 value
-    int16_t ConvertFrom2sComp(uint16_t value)
+    int16_t ConvertFrom2sComp(uint16_t value) const
     {
-        int16_t v = (int16_t)value;
+        auto v = (int16_t)value;
 
-        if (value & 0x8000U == 0)
+        if ((value & 0x8000U) == 0)
         {
             // Positive number, just return it
             return v;
