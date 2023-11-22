@@ -55,7 +55,7 @@ extern uint8_t TotalNumberOfCells();
 extern Rules rules;
 extern currentmonitoring_struct currentMonitor;
 extern diybms_eeprom_settings mysettings;
-extern char hostname[16];
+extern std::string hostname;
 extern ControllerState _controller_state;
 extern QueueHandle_t CANtx_q_handle;
 

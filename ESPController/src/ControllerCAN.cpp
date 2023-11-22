@@ -65,20 +65,40 @@ uint8_t ControllerCAN::controllerNetwork_status()
 {
   uint8_t returnvalue = 0;
   uint8_t controller_count = 0; 
+  uint8_t addressbitmask = 0;
+  uint8_t high_availability = mysettings.highAvailable;
+  uint8_t networked_controllers = 0;
 
   for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
   {
       if (controller_heartbeat(i))
       {
         controller_count++;
+
+        // checksum for controller address overlap
+        addressbitmask &= data[2][i][0]; // this should should never be raised above 0 or there is an overlap
+        
+        // check that local high_availability setting matches the network
+        if (mysettings.highAvailable != data[2][i][4])
+        {
+        ESP_LOGE(TAG, "'High Availability' settings do not match");
+        returnvalue = 2;
+        } 
+        // check that # networked controllers setting matches the network
+        if (mysettings.controllerNet != data[2][i][3])
+        {
+        ESP_LOGE(TAG, "'# of Networked Controllers' settings do not match");
+        returnvalue = 2;
+        } 
       }
-      // check for controller address overlap
-      if (data[2][i][0] == ~(0x80 >> i))
+  }
+      if (addressbitmask != 0)
       {
         ESP_LOGE(TAG, "Controller address conflict");
         returnvalue = 2;
       }
-  }
+
+
 
    // checksum for connected controllers 
   if (controller_count > mysettings.controllerNet)
@@ -170,7 +190,7 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
         default_charge_current_limit = 0;    
         default_discharge_current_limit = 0; 
       }
-      else if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH && mysettings.canbusinverter == CanBusInverter::INVERTER_DEYE)
+      else if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.canbusinverter == CanBusInverter::INVERTER_DEYE))
       {
         // FOR DEYE INVERTERS APPLY DIFFERENT LOGIC TO PREVENT "W31" ERRORS
         // ISSUE #216
@@ -178,7 +198,7 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
         default_charge_current_limit = 0;
         default_discharge_current_limit = 0;
       }
-      else if (mysettings.canbusinverter == CanBusProtocolEmulation::CANBUS_PYLONTECH && CanBusInverter::INVERTER_GENERIC)
+      else if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.canbusinverter == CanBusInverter::INVERTER_GENERIC))
       { // If we pass ZERO's to SOFAR inverter it appears to ignore them
         // so send 0.1V and 0.1Amps instead to indicate "stop"
         default_charge_voltage = 1;         // 0.1V
@@ -411,11 +431,9 @@ void ControllerCAN::c2c_BIT_MSGS()      // diyBMS messaging/alarms
     uint8_t byte7;
 
 
-// byte 0 - Controller Identification
+// byte 0 - Broadcast the Controller ID
 // 
 // Bit position determines which controller number is set within configuration
-   
-
   //CNTRL0 = B00000001  
   //CNTRL1 = B00000010   
   //CNTRL2 = B00000100
@@ -424,21 +442,8 @@ void ControllerCAN::c2c_BIT_MSGS()      // diyBMS messaging/alarms
   //CNTRL5 = B00100000
   //CNTRL6 = B01000000
   //CNTRL7 = B10000000    
-
-
-
-  if (data[2][mysettings.controllerID][0] == 0)   // this byte should be empty. if not then another controller is trying to broadcast under this same controller #
-  {
-    byte0 = 0x1 << mysettings.controllerID;   
-  }
-  else
-  {
-     byte0 = ~(0x1 << mysettings.controllerID);       // error byte to signal to other controllers that there is a configuration conflict with this controller #
-  }
-    memset(&candata.data[0], byte0, 1);
-
-
-
+  byte0 = 0x1 << mysettings.controllerID;   
+ 
 // byte 1 - Is Charge/Discharge Allowed?
   byte1 = 0;
   if (rules.IsChargeAllowed(&mysettings))
@@ -455,22 +460,17 @@ void ControllerCAN::c2c_BIT_MSGS()      // diyBMS messaging/alarms
 
 
 
-// byte 2 - **Coming soon**  High Availability Enabled Battery
+// byte 2 - reserved for future use
 
-byte2 = 0;
-if (mysettings.highAvailable)
-{
-  byte2 = B00000001;
-}
-
-
-// byte 3 - reserved for future use
-// byte 4 - reserved for future use 
+// byte 3 - # Networked Controllers
+  byte3 = mysettings.controllerNet;
+// byte 4 - HighAvailability setting
+  byte4 = mysettings.highAvailable;
 // byte 5 - reserved for future use 
 // byte 6 - reserved for future use
 // byte 7 - reserved for future use 
 
-  candata.dlc = 2;     // this will be increased as more alarms are added.......
+  candata.dlc = 5;     // this will be increased as more alarms are added.......
   candata.identifier = id[2][mysettings.controllerID];
 
   memcpy(&data[2][mysettings.controllerID][0],&candata.data,candata.dlc);                        //copy calculated values to array

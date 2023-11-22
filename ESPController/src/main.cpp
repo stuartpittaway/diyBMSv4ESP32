@@ -2668,7 +2668,7 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
                         //  -Estimate additional ~20bits for bit stuffing, occasional error frames,etc
                         //  -Average Frame Length = 47bits + 64bits + 20bits = 131bits
                         //  -ThoereticalFrameRate = 1/(262us) = 3816/s
-                        //  -Adding messages to the TX mailbox at a timing interval < ~270us will fill up the TX mailbox
+                        //  -Adding messages to the TX mailbox at a timing interval < ~270us could fill up the TX mailbox
                         //  -use a conservative delay here so that we can maintain control of traffic with our CANtx queue (this will allow us to use xsendtofront, etc)
                         // 
                       vTaskDelay(pdMS_TO_TICKS(.4));      // conservative 400us delay

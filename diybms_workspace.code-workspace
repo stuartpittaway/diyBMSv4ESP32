@@ -40,7 +40,8 @@
 			"xlocale": "cpp",
 			"xutility": "cpp",
 			"istream": "cpp",
-			"system_error": "cpp"
+			"system_error": "cpp",
+			"string_view": "cpp"
 		}
 	}
 }
