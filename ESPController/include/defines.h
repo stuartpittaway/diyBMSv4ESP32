@@ -253,6 +253,7 @@ struct diybms_eeprom_settings
   uint16_t tileconfig[5];
 
   uint8_t canbus_equipment_addr;  // battery index on the same canbus for PYLONFORCE, 0 - 15, default 0
+  char homeassist_apikey[24+1];
 };
 
 typedef union

@@ -24,6 +24,7 @@
 
 esp_err_t api_handler(httpd_req_t *req);
 esp_err_t content_handler_downloadfile(httpd_req_t *req);
+esp_err_t ha_handler(httpd_req_t *req);
 
 esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filename);
 int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t levels);

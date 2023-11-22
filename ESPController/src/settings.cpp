@@ -89,6 +89,7 @@ static const char absorptiontimer_JSONKEY[] = "absorptiontimer";
 static const char floatvoltage_JSONKEY[] = "floatvoltage";
 static const char floatvoltagetimer_JSONKEY[] = "floatvoltagetimer";
 static const char stateofchargeresumevalue_JSONKEY[] = "stateofchargeresumevalue";
+static const char homeassist_apikey_JSONKEY[] = "homeassistapikey";
 
 /* NVS KEYS
 THESE STRINGS ARE USED TO HOLD THE PARAMETER IN NVS FLASH, MAXIMUM LENGTH OF 16 CHARACTERS
@@ -180,6 +181,7 @@ static const char absorptiontimer_NVSKEY[] = "absorptimer";
 static const char floatvoltage_NVSKEY[] = "floatV";
 static const char floatvoltagetimer_NVSKEY[] = "floatVtimer";
 static const char stateofchargeresumevalue_NVSKEY[] = "socresume";
+static const char homeassist_apikey_NVSKEY[] = "haapikey";
 
 #define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
 #define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
@@ -342,7 +344,6 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
     }
     else
     {
-
         // Save settings
         MACRO_NVSWRITE(totalNumberOfBanks)
         MACRO_NVSWRITE(totalNumberOfSeriesModules)
@@ -438,6 +439,8 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(floatvoltage);
         MACRO_NVSWRITE(floatvoltagetimer);
         MACRO_NVSWRITE(stateofchargeresumevalue);
+
+        MACRO_NVSWRITESTRING(homeassist_apikey);
 
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
@@ -565,6 +568,8 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(floatvoltage);
         MACRO_NVSREAD(floatvoltagetimer);
         MACRO_NVSREAD_UINT8(stateofchargeresumevalue);
+
+        MACRO_NVSREADSTRING(homeassist_apikey);
 
         nvs_close(nvs_handle);
     }
@@ -1010,6 +1015,8 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[rs485stopbits_JSONKEY] = settings->rs485stopbits;
     root[language_JSONKEY] = settings->language;
 
+    root[homeassist_apikey_JSONKEY]=settings->homeassist_apikey;
+
     JsonObject mqtt = root.createNestedObject("mqtt");
     mqtt[mqtt_enabled_JSONKEY] = settings->mqtt_enabled;
     mqtt[mqtt_basic_cell_reporting_JSONKEY] = settings->mqtt_basic_cell_reporting;
@@ -1188,6 +1195,8 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->sensitivity = root[sensitivity_JSONKEY];
     settings->current_value1 = root[current_value1_JSONKEY];
     settings->current_value2 = root[current_value2_JSONKEY];
+
+    strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
 
     JsonObject mqtt = root["mqtt"];
     if (!mqtt.isNull())
