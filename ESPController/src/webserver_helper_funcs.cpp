@@ -15,15 +15,14 @@ void setCookie(httpd_req_t *req)
 void randomCharacters(char* value, int length) {
     // Pick random characters from this string (we could just use ASCII offset instead of this)
     // but this also avoids javascript escape characters like backslash and cookie escape chars like ; and %
-    char alphabet[] = "!$*#@ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyz";
 
+    auto alphabet=std::string("!$*#@ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyz");
     // Leave NULL terminator on char array
     for (uint8_t x = 0; x < length; x++)
-    {
+    {        
         // Random number between 0 and array length (minus null char)
-        value[x] = alphabet[random(0, sizeof(alphabet) - 2)];
+        value[x] = alphabet.at(random(0, alphabet.length()));
     }
-
 }
 
 void setCookieValue()

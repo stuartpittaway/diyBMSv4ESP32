@@ -1613,6 +1613,18 @@ $(function () {
 
                 $("#networkForm").show();
 
+                
+                $("#rssi_now").val(data.wifi.rssi);
+                $("#bssid").val(data.wifi.bssid);
+                $("#ssid").val(data.wifi.ssid);
+                
+                $("#rssi_low").val(data.wifi.rssi_low);
+                $("#sta_start").val(data.wifi.sta_start);
+                $("#sta_connected").val(data.wifi.sta_connected);
+                $("#sta_disconnected").val(data.wifi.sta_disconnected);
+                $("#sta_lost_ip").val(data.wifi.sta_lost_ip);
+                $("#sta_got_ip").val(data.wifi.sta_got_ip);             
+
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
@@ -1754,6 +1766,10 @@ $(function () {
                 $("#influxOrgId").val(data.influxdb.orgid);
                 $("#influxFreq").val(data.influxdb.frequency);
 
+                $("#haUrl").val(window.location.origin+"/ha");
+                $("#haAPI").val(data.ha.api);                
+
+                $("#haForm").show();
                 $("#mqttForm").show();
                 $("#influxForm").show();
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
@@ -2113,6 +2129,24 @@ $(function () {
             },
         });
     });
+    
+    $("#haForm").unbind('submit').submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+            type: $(this).attr('method'),
+            url: $(this).attr('action'),
+            data: $("#haAPI").serialize(),
+            success: function (data) {
+                showSuccess();
+                $("#integration").click();
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+    });
+    
 
     $("#rulesForm").unbind('submit').submit(function (e) {
         e.preventDefault();

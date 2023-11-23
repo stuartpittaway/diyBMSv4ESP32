@@ -1583,6 +1583,16 @@ void ShutdownAllNetworkServices()
   stopMDNS();
 }
 
+/// @brief Count of events of RSSI low
+uint16_t wifi_count_rssi_low=0;
+uint16_t wifi_count_sta_start=0;
+/// @brief Count of events for WIFI connect
+uint16_t wifi_count_sta_connected=0;
+/// @brief Count of events for WIFI disconnect
+uint16_t wifi_count_sta_disconnected=0;
+uint16_t wifi_count_sta_lost_ip=0;
+uint16_t wifi_count_sta_got_ip=0;
+
 /// @brief WIFI Event Handler
 /// @param
 /// @param event_base
@@ -1596,9 +1606,11 @@ static void event_handler(void *, esp_event_base_t event_base,
   if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_BSS_RSSI_LOW)
   {
     ESP_LOGW(TAG, "WiFi signal strength low");
+    wifi_count_rssi_low++;
   }
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
   {
+    wifi_count_sta_start++;
     ESP_LOGI(TAG, "WIFI_EVENT_STA_START");
     wifi_isconnected = false;
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
@@ -1607,6 +1619,7 @@ static void event_handler(void *, esp_event_base_t event_base,
   {
     // We have joined the access point - now waiting for IP address IP_EVENT_STA_GOT_IP
     wifi_ap_connect_retry_num = 0;
+    wifi_count_sta_connected++;
 
     wifi_ap_record_t ap;
     esp_wifi_sta_get_ap_info(&ap);
@@ -1617,6 +1630,7 @@ static void event_handler(void *, esp_event_base_t event_base,
   {
     ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
     wifi_ap_connect_retry_num++;
+    wifi_count_sta_disconnected++;
 
     if (wifi_isconnected)
     {
@@ -1638,12 +1652,15 @@ static void event_handler(void *, esp_event_base_t event_base,
   {
     wifi_isconnected = false;
     ESP_LOGI(TAG, "IP_EVENT_STA_LOST_IP");
+    wifi_count_sta_lost_ip++;
 
     ShutdownAllNetworkServices();
     wake_up_tft(true);
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
   {
+    wifi_count_sta_got_ip++;
+
     auto event = (ip_event_got_ip_t *)event_data;
 
     if (event->ip_changed)

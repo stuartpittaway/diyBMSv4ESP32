@@ -64,4 +64,12 @@ extern uint16_t mqtt_error_transport_count;
 extern uint16_t mqtt_connection_count;
 extern uint16_t mqtt_disconnection_count;
 
+extern uint16_t wifi_count_rssi_low;
+extern uint16_t wifi_count_sta_start;
+extern uint16_t wifi_count_sta_connected;
+extern uint16_t wifi_count_sta_disconnected;
+extern uint16_t wifi_count_sta_lost_ip;
+extern uint16_t wifi_count_sta_got_ip;
+
+extern bool wifi_isconnected;
 #endif

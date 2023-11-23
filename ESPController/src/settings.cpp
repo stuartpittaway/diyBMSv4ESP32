@@ -1101,6 +1101,11 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[current_value1_JSONKEY] = settings->current_value1;
     root[current_value2_JSONKEY] = settings->current_value2;
 
+    root[absorptiontimer_JSONKEY] = settings->absorptiontimer;
+    root[floatvoltage_JSONKEY] = settings->floatvoltage;
+    root[floatvoltagetimer_JSONKEY] = settings->floatvoltagetimer;
+    root[stateofchargeresumevalue_JSONKEY] = settings->stateofchargeresumevalue;
+
     JsonArray tv = root.createNestedArray("tilevisibility");
     for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
     {
@@ -1195,6 +1200,11 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->sensitivity = root[sensitivity_JSONKEY];
     settings->current_value1 = root[current_value1_JSONKEY];
     settings->current_value2 = root[current_value2_JSONKEY];
+
+    settings->absorptiontimer=root[absorptiontimer_JSONKEY];
+    settings->floatvoltage=root[floatvoltage_JSONKEY];
+    settings->floatvoltagetimer=root[floatvoltagetimer_JSONKEY];
+    settings->stateofchargeresumevalue=root[stateofchargeresumevalue_JSONKEY];
 
     strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
 

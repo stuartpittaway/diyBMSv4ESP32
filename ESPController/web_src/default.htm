@@ -482,10 +482,11 @@
 
   <div class="page" id="integrationPage">
     <h1 id="ip1">Integration</h1>
-    
+
     <div class="region">
       <h2>MQTT</h2>
-      <p id="ip2">For security, you will need to re-enter the password for the MQTT service if you want to enable or modify, before you save.</p>
+      <p id="ip2">For security, you will need to re-enter the password for the MQTT service if you want to enable or
+        modify, before you save.</p>
       <p id="ip4">URI should be similar to mqtt://192.168.0.26:1833</p>
       <p id="ip5">Basic cell data option reduces the amount of MQTT data being sent over the network.</p>
       <form id="mqttForm" method="POST" action="/post/savemqtt" autocomplete="off">
@@ -613,6 +614,31 @@
             <input type="input" name="influxDatabase" id="influxDatabase" value="database" required="" maxlength="64" />
           </div>
           <button type="submit">Save Influx settings</button>
+        </div>
+      </form>
+    </div>
+
+
+    <div class="region">
+      <h2 id="ha1">Home Assistant Web API</h2>
+      <p id="ha2">
+        <a href="https://www.home-assistant.io/" target="_blank">Home Assistant</a> integration can be configured using
+        its <a href="https://www.home-assistant.io/integrations/rest/" target="_blank">RESTful API</a>. Example
+        configuration is available in <a href="https://github.com/stuartpittaway/diyBMSv4ESP32" target="_blank">DIYBMS
+          GitHub</a> repository.
+      </p>
+
+      <form id="haForm" method="POST" action="/post/newhaapikey" autocomplete="off">
+        <div class="settings">
+          <div>
+            <label for="haUrl">Endpoint API URL</label>
+            <input type="input" name="haUrl" id="haUrl" value="" readonly="" />
+          </div>
+          <div>
+            <label for="haAPI">API authentication token</label>
+            <input type="input" name="haAPI" id="haAPI" value="" readonly="" />
+          </div>
+          <button type="submit">Generate new API key</button>
         </div>
       </form>
     </div>
@@ -968,7 +994,8 @@
       </p>
       <p id="v2">
         These settings require an external inverter/charger to be able to integrate using CANBUS to control
-        charge/discharge parameters.  Pylontech normally operates at 500k baud. Victron can use other speeds depending on the device.
+        charge/discharge parameters. Pylontech normally operates at 500k baud. Victron can use other speeds depending on
+        the device.
       </p>
       <p id="v3">
         Temperature control utilises the external temperature sensors on the diyBMS modules. This is very useful for
@@ -1569,6 +1596,8 @@
       </form>
     </div>
 
+
+
     <div class="region">
       <h2 id="mb1">Network - Running Settings</h2>
       <p id="mb5">Wi-Fi "Station" network interface details:</p>
@@ -1634,6 +1663,59 @@
         </div>
       </form>
     </div>
+
+    
+    <div class="region">
+      <h2 id="wifi1">WIFI Statistics</h2>
+      <p id="wifi2">
+        To help diagnose WIFI network issues, the values below are counters of WIFI events processed by the ESP32
+      </p>
+
+      <form id="wifistatsForm" method="POST" action="" autocomplete="off">
+        <div class="settings">
+          <div>
+            <label for="ssid">SSID</label>
+            <input type="input" name="ssid" id="ssid" value="" readonly="" />
+          </div>
+          <div>
+            <label for="bssid">BSSID</label>
+            <input type="input" name="bssid" id="bssid" value="" readonly="" />
+          </div>
+
+          <div>
+            <label for="rssi_now">Actual RSSI (dBm)</label>
+            <input type="input" name="rssi_now" id="rssi_now" value="" readonly="" />
+          </div>
+
+          <div>
+            <label for="rssi_low">RSSI low event</label>
+            <input type="input" name="rssi_low" id="rssi_low" value="" readonly="" />
+          </div>
+          <div>
+            <label for="sta_start">sta start</label>
+            <input type="input" name="sta_start" id="sta_start" value="" readonly="" />
+          </div>
+          <div>
+            <label for="sta_connected">sta connected</label>
+            <input type="input" name="sta_connected" id="sta_connected" value="" readonly="" />
+          </div>
+          <div>
+            <label for="sta_disconnected">sta disconnected</label>
+            <input type="input" name="sta_disconnected" id="sta_disconnected" value="" readonly="" />
+          </div>
+          <div>
+            <label for="sta_lost_ip">sta lost ip</label>
+            <input type="input" name="sta_lost_ip" id="sta_lost_ip" value="" readonly="" />
+          </div>
+          <div>
+            <label for="sta_got_ip">sta got ip</label>
+            <input type="input" name="sta_got_ip" id="sta_got_ip" value="" readonly="" />
+          </div>
+        </div>
+      </form>
+    </div>
+
+ 
 
     <div class="region">
       <h2>Network Time Protocol</h2>

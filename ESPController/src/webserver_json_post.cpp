@@ -79,7 +79,7 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     // Default to off
     mysettings.mqtt_enabled = false;
-    mysettings.mqtt_basic_cell_reporting=false;
+    mysettings.mqtt_basic_cell_reporting = false;
 
     // Username and password are optional and may not be HTTP posted from web browser
     memset(mysettings.mqtt_username, 0, sizeof(mysettings.mqtt_username));
@@ -492,7 +492,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
 
     GetKeyValue(httpbuf, "canbusbaud", &mysettings.canbusbaud, urlEncoded);
-    
+
     GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded);
     GetKeyValue(httpbuf, "cellminmv", &mysettings.cellminmv, urlEncoded);
     GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded);
@@ -640,6 +640,35 @@ esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
     }
 
     return SendSuccess(req);
+}
+
+/// @brief Generates new home assistant API key and stored into flash
+/// @param req 
+/// @param urlEncoded 
+/// @return 
+esp_err_t post_homeassistant_apikey_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    char buffer[32];
+
+    // Compare existing key to stored value, if they match allow generation of new key
+    if (GetTextFromKeyValue(httpbuf, "haAPI", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (strncmp(mysettings.homeassist_apikey, buffer, strlen(mysettings.homeassist_apikey)) != 0)
+        {
+            ESP_LOGE(TAG, "Incorrect ApiKey in form variable %s", buffer);
+            return SendFailure(req);
+        }
+
+        memset(&mysettings.homeassist_apikey, 0, sizeof(mysettings.homeassist_apikey));
+        randomCharacters(mysettings.homeassist_apikey, sizeof(mysettings.homeassist_apikey) - 1);
+        saveConfiguration();
+
+        ESP_LOGI(TAG, "new ha apikey=%s", mysettings.homeassist_apikey);
+
+        return SendSuccess(req);
+    }
+
+    return SendFailure(req);
 }
 
 esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
@@ -1177,7 +1206,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    std::array<std::string, 29> uri_array = {
+    std::array<std::string, 30> uri_array = {
         "savebankconfig", "saventp", "saveglobalsetting",
         "savemqtt", "saveinfluxdb",
         "saveconfigtofile", "wificonfigtofile",
@@ -1188,9 +1217,9 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "savecurrentmon", "savecmbasic", "savecmadvanced",
         "savecmrelay", "restoreconfig", "savechargeconfig",
         "visibletiles", "dailyahreset", "setsoc",
-        "savenetconfig"};
+        "savenetconfig", "newhaapikey"};
 
-    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 29> func_ptr = {
+    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 30> func_ptr = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
         post_savemqtt_json_handler, post_saveinfluxdbsetting_json_handler,
         post_saveconfigurationtoflash_json_handler, post_savewificonfigtosdcard_json_handler,
@@ -1201,7 +1230,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
         post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler,
         post_visibletiles_json_handler, post_resetdailyahcount_json_handler, post_setsoc_json_handler,
-        post_savenetconfig_json_handler};
+        post_savenetconfig_json_handler, post_homeassistant_apikey_json_handler};
 
     auto name = std::string(req->uri);
 
