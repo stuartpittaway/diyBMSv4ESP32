@@ -16,6 +16,10 @@ static constexpr const char *const TAG = "diybms-mqtt";
 
 bool mqttClient_connected = false;
 esp_mqtt_client_handle_t mqtt_client = nullptr;
+uint16_t mqtt_error_connection_count = 0;
+uint16_t mqtt_error_transport_count = 0;
+uint16_t mqtt_connection_count = 0;
+uint16_t mqtt_disconnection_count = 0;
 
 bool checkMQTTReady()
 {
@@ -23,14 +27,20 @@ bool checkMQTTReady()
     {
         return false;
     }
+
+    if (mqtt_client == nullptr)
+    {
+        ESP_LOGW(TAG, "MQTT enabled, but not yet init");
+        return false;
+    }
     if (!wifi_isconnected)
     {
-        ESP_LOGE(TAG, "MQTT enabled. WIFI not connected");
+        ESP_LOGW(TAG, "MQTT enabled, WIFI not connected");
         return false;
     }
     if (mqttClient_connected == false)
     {
-        ESP_LOGE(TAG, "MQTT enabled. But not connected");
+        ESP_LOGW(TAG, "MQTT enabled, but not connected");
         return false;
     }
 
@@ -42,19 +52,24 @@ bool checkMQTTReady()
 /// @param topic Topic to publish the message to.
 /// @param payload Message payload to be published.
 /// @param clear_payload When true @param payload will be cleared upon sending.
-static inline void publish_message(std::string &topic, std::string &payload, bool clear_payload = true)
+static inline void publish_message(std::string const &topic, std::string &payload, bool clear_payload = true)
 {
-    static constexpr int MQTT_QUALITY_OF_SERVICE = 1;
+    static constexpr int MQTT_QUALITY_OF_SERVICE = 0;
     static constexpr int MQTT_RETAIN_MESSAGE = 0;
 
-    if (mqtt_client && mqttClient_connected)
+    if (mqtt_client != nullptr && mqttClient_connected)
     {
-        int id = esp_mqtt_client_publish(
-            mqtt_client, topic.c_str(), payload.c_str(), payload.length(),
-            MQTT_QUALITY_OF_SERVICE, MQTT_RETAIN_MESSAGE);
+        int id = esp_mqtt_client_enqueue(mqtt_client, topic.c_str(),
+                                         payload.c_str(), payload.length(),
+                                         MQTT_QUALITY_OF_SERVICE, MQTT_RETAIN_MESSAGE, true);
+
+        if (id < 0)
+        {
+            ESP_LOGE(TAG, "Topic:%s, failed publish", topic.c_str());
+        }
 
         ESP_LOGD(TAG, "Topic:%s, ID:%d, Length:%i", topic.c_str(), id, payload.length());
-        ESP_LOGV(TAG, "Payload:%s", payload.c_str());
+        // ESP_LOGV(TAG, "Payload:%s", payload.c_str());
     }
 
     if (clear_payload)
@@ -76,77 +91,91 @@ static void mqtt_connected_handler(void *, esp_event_base_t, int32_t, void *)
 {
     ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
     mqttClient_connected = true;
+    mqtt_connection_count++;
 }
 
 static void mqtt_disconnected_handler(void *, esp_event_base_t, int32_t, void *)
 {
     ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
     mqttClient_connected = false;
+    mqtt_disconnection_count++;
 }
 
 static void mqtt_error_handler(void *, esp_event_base_t, int32_t, void *event_data)
 {
-    // ESP_LOGD(TAG, "Event base=%s, event_id=%d", base, event_id);
     auto event = (esp_mqtt_event_handle_t)event_data;
-    // auto client = event->client;
-    // int msg_id;
 
-    ESP_LOGE(TAG, "MQTT_EVENT_ERROR");
+    // ESP_LOGE(TAG, "MQTT_EVENT_ERROR type=%i",event->error_handle->error_type);
+    if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED)
+    {
+        mqtt_error_connection_count++;
+        // esp_mqtt_connect_return_code_t reason for failure
+        ESP_LOGE(TAG, "MQTT_ERROR_TYPE_CONNECTION_REFUSED code=%i", event->error_handle->connect_return_code);
+    }
+
     if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
     {
+        mqtt_error_transport_count++;
         // log_error_if_nonzero("reported from esp-tls", event->error_handle->esp_tls_last_esp_err);
         // log_error_if_nonzero("reported from tls stack", event->error_handle->esp_tls_stack_err);
         // log_error_if_nonzero("captured as transport's socket errno", event->error_handle->esp_transport_sock_errno);
-        ESP_LOGE(TAG, "Last err no string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
+        ESP_LOGE(TAG, "ERROR_TYPE_TCP (%s)", strerror(event->error_handle->esp_transport_sock_errno));
     }
 }
 
 void stopMqtt()
 {
-    if (mqtt_client != nullptr && mqttClient_connected)
+    if (mqtt_client != nullptr)
     {
-        // ESP_LOGI(TAG, "Stopping MQTT client");
+        ESP_LOGI(TAG, "Stopping MQTT client");
         mqttClient_connected = false;
 
-        ESP_LOGI(TAG, "esp_mqtt_client_disconnect");
-        ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_disconnect(mqtt_client));
-        /*
-        Comment out to see if this helps with https://github.com/stuartpittaway/diyBMSv4ESP32/issues/225
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_stop(mqtt_client));
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_destroy(mqtt_client));
         mqtt_client = nullptr;
-        */
+
+        // Reset stats
+        mqtt_error_connection_count = 0;
+        mqtt_error_transport_count = 0;
+        mqtt_connection_count = 0;
+        mqtt_disconnection_count = 0;
     }
 }
 
 // Connects to MQTT if required
 void connectToMqtt()
 {
-    if (mysettings.mqtt_enabled && mqttClient_connected)
-    {
-        // Already connected and enabled
-        return;
-    }
+    ESP_LOGI(TAG, "MQTT counters: Err_Con=%u,Err_Trans=%u,Conn=%u,Disc=%u", mqtt_error_connection_count,
+             mqtt_error_transport_count, mqtt_connection_count, mqtt_disconnection_count);
 
-    if (mysettings.mqtt_enabled)
+    if (mysettings.mqtt_enabled && mqtt_client == nullptr)
     {
-        // stopMqtt();
-
-        ESP_LOGI(TAG, "Connect MQTT");
+        ESP_LOGI(TAG, "esp_mqtt_client_init");
 
         // Need to preset variables in esp_mqtt_client_config_t otherwise LoadProhibited errors
         esp_mqtt_client_config_t mqtt_cfg{
-            .event_handle = nullptr, .host = "", .uri = mysettings.mqtt_uri, .disable_auto_reconnect = false};
-
-        mqtt_cfg.username = mysettings.mqtt_username;
-        mqtt_cfg.password = mysettings.mqtt_password;
+            .event_handle = nullptr,
+            .host = "",
+            .uri = mysettings.mqtt_uri,
+            .username = mysettings.mqtt_username,
+            .password = mysettings.mqtt_password,
+            // Reconnect if there server has a problem (or wrong IP/password etc.)
+            .disable_auto_reconnect = false,
+            .buffer_size = 512,
+            // 30 seconds
+            .reconnect_timeout_ms = 30000,
+            .out_buffer_size = 2048,
+            // 4 seconds
+            .network_timeout_ms = 4000};
 
         mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
+
         if (mqtt_client != nullptr)
         {
             ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_CONNECTED, mqtt_connected_handler, nullptr));
             ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_DISCONNECTED, mqtt_disconnected_handler, nullptr));
             ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_register_event(mqtt_client, esp_mqtt_event_id_t::MQTT_EVENT_ERROR, mqtt_error_handler, nullptr));
+            ESP_LOGI(TAG, "esp_mqtt_client_start");
             if (ESP_ERROR_CHECK_WITHOUT_ABORT(esp_mqtt_client_start(mqtt_client)) != ESP_OK)
             {
                 ESP_LOGE(TAG, "esp_mqtt_client_start failed");
@@ -154,13 +183,9 @@ void connectToMqtt()
         }
         else
         {
-            ESP_LOGE(TAG, "mqtt_client returned NULL");
+            ESP_LOGE(TAG, "esp_mqtt_client_init returned NULL");
         }
     }
-    /*else
-    {
-        stopMqtt();
-    }*/
 }
 
 void GeneralStatusPayload(const PacketRequestGenerator *prg, const PacketReceiveProcessor *receiveProc, uint16_t requestq_count, const Rules *rules)
@@ -214,14 +239,15 @@ void GeneralStatusPayload(const PacketRequestGenerator *prg, const PacketReceive
 
 void BankLevelInformation(const Rules *rules)
 {
+    std::string bank_status;
+    bank_status.reserve(64);
     // Output bank level information (just voltage for now)
     for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
     {
-        ESP_LOGI(TAG, "Bank(%d) status payload", bank);
-        std::string bank_status;
-        bank_status.reserve(128);
+        ESP_LOGI(TAG, "Bank %d status payload", bank);
+        bank_status.clear();
         bank_status.append("{\"voltage\":")
-            .append(float_to_string(rules->bankvoltage.at(bank) / 1000.0f))
+            .append(float_to_string((float)(rules->bankvoltage.at(bank)) / 1000.0f))
             .append(",\"range\":")
             .append(std::to_string(rules->VoltageRangeInBank(bank)))
             .append("}");
@@ -239,7 +265,10 @@ void RuleStatus(const Rules *rules)
     rule_status.append("{");
     for (uint8_t i = 0; i < RELAY_RULES; i++)
     {
-        rule_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string(rules->ruleOutcome((Rule)i) ? 1 : 0));
+        rule_status.append("\"")
+            .append(std::to_string(i))
+            .append("\":")
+            .append(std::to_string(rules->ruleOutcome((Rule)i) ? 1 : 0));
         if (i < (RELAY_RULES - 1))
         {
             rule_status.append(",");
@@ -259,7 +288,11 @@ void OutputStatus(const RelayState *previousRelayState)
     relay_status.append("{");
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
-        relay_status.append("\"").append(std::to_string(i)).append("\":").append(std::to_string((previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0));
+        relay_status.append("\"")
+            .append(std::to_string(i))
+            .append("\":")
+            .append(std::to_string((previousRelayState[i] == RelayState::RELAY_ON) ? 1 : 0));
+
         if (i < (RELAY_TOTAL - 1))
         {
             relay_status.append(",");
@@ -315,31 +348,29 @@ void MQTTCellData()
 
     ESP_LOGI(TAG, "MQTT Payload for cell data");
 
+    std::string status;
+    status.reserve(128);
+
     while (i < TotalNumberOfCells() && counter < MAX_MODULES_PER_ITERATION)
     {
         // Only send valid module data
         if (cmi[i].valid)
         {
 
-            std::string status;
-            std::string topic = mysettings.mqtt_topic;
-            status.reserve(128);
-
             uint8_t bank = i / mysettings.totalNumberOfSeriesModules;
             uint8_t m = i - (bank * mysettings.totalNumberOfSeriesModules);
 
-            status.append("{\"voltage\":").append(float_to_string(cmi[i].voltagemV / 1000.0f));
-            status.append(",\"vMax\":").append(float_to_string(cmi[i].voltagemVMax / 1000.0f));
-            status.append(",\"vMin\":").append(float_to_string(cmi[i].voltagemVMin / 1000.0f));
-            status.append(",\"inttemp\":").append(std::to_string(cmi[i].internalTemp));
-            status.append(",\"exttemp\":").append(std::to_string(cmi[i].externalTemp));
-            status.append(",\"bypass\":").append(std::to_string(cmi[i].inBypass ? 1 : 0));
-            status.append(",\"PWM\":").append(std::to_string((int)((float)cmi[i].PWMValue / (float)255.0 * 100)));
-            status.append(",\"bypassT\":").append(std::to_string(cmi[i].bypassOverTemp ? 1 : 0));
-            status.append(",\"bpc\":").append(std::to_string(cmi[i].badPacketCount));
-            status.append(",\"mAh\":").append(std::to_string(cmi[i].BalanceCurrentCount));
+            status.clear();
+            status.append("{\"voltage\":").append(float_to_string(cmi[i].voltagemV / 1000.0f)).append(",\"exttemp\":").append(std::to_string(cmi[i].externalTemp));
+
+            if (mysettings.mqtt_basic_cell_reporting == false)
+            {
+                status.append(",\"vMax\":").append(float_to_string(cmi[i].voltagemVMax / 1000.0f)).append(",\"vMin\":").append(float_to_string(cmi[i].voltagemVMin / 1000.0f)).append(",\"inttemp\":").append(std::to_string(cmi[i].internalTemp)).append(",\"bypass\":").append(std::to_string(cmi[i].inBypass ? 1 : 0)).append(",\"PWM\":").append(std::to_string((int)((float)cmi[i].PWMValue / (float)255.0 * 100))).append(",\"bypassT\":").append(std::to_string(cmi[i].bypassOverTemp ? 1 : 0)).append(",\"bpc\":").append(std::to_string(cmi[i].badPacketCount)).append(",\"mAh\":").append(std::to_string(cmi[i].BalanceCurrentCount));
+            }
+
             status.append("}");
 
+            std::string topic = mysettings.mqtt_topic;
             topic.append("/").append(std::to_string(bank)).append("/").append(std::to_string(m));
             publish_message(topic, status);
         }

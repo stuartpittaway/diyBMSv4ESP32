@@ -536,6 +536,8 @@ static const httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GE
 static const httpd_uri_t uri_ota_post = {.uri = "/ota", .method = HTTP_POST, .handler = ota_post_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_uploadfile_post = {.uri = "/uploadfile", .method = HTTP_POST, .handler = uploadfile_post_handler, .user_ctx = NULL};
 
+static const httpd_uri_t uri_homeassist_get = {.uri = "/ha", .method = HTTP_GET, .handler = ha_handler, .user_ctx = NULL};
+
 void resetModuleMinMaxVoltage(uint8_t m)
 {
   cmi[m].voltagemVMin = 9999;
@@ -618,10 +620,10 @@ httpd_handle_t start_webserver(void)
   /* Generate default configuration */
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-  config.max_uri_handlers = 10;
+  config.max_uri_handlers = 11;
   config.max_open_sockets = 8;
   config.max_resp_headers = 16;
-  config.stack_size = 6300;
+  config.stack_size = 6250;
   config.uri_match_fn = httpd_uri_match_wildcard;
   config.lru_purge_enable = true;
 
@@ -646,6 +648,9 @@ httpd_handle_t start_webserver(void)
     // OTA services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_ota_post));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_uploadfile_post));
+
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_homeassist_get));
+
 
 #ifdef USE_WEBSOCKET_DEBUG_LOG
     // Websocket

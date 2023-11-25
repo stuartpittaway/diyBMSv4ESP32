@@ -20,6 +20,7 @@ static constexpr const char *const TAG = "diybms-victron";
 void victron_message_370_371()
 {
   char buffer[16+1];
+  memset( buffer, 0, sizeof(buffer) );
   strncpy(buffer,hostname.c_str(),sizeof(buffer));
 
   send_canbus_message(0x370, (const uint8_t *)&buffer[0], 8);

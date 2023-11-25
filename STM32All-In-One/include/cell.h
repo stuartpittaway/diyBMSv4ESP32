@@ -15,7 +15,7 @@ public:
     /// @brief returns cell voltage with parasitic voltage removed
     uint16_t getCellVoltage() const
     {
-        return cellVoltage;// - getParasiteVoltage();
+        return cellVoltage;
     }
 
     uint16_t CombineTemperatures() const
@@ -36,20 +36,7 @@ public:
     {
         cellVoltage = v;
     }
-    /*
-    /// @brief Sets Parasite voltage (raw value)
-    /// @param v raw ADC value, which is internally divided by 128
-    void setParasiteVoltage(uint16_t v)
-    {
-        parasiteVoltage = v / 128;
-    }
-    /// @brief Gets Parasite voltage
-    /// @return value in millivolts
-    uint16_t getParasiteVoltage() const
-    {
-        return parasiteVoltage;
-    }
-    */
+
     /// @brief Set external temperature measurement
     /// @param t Temperature in degrees C
     void setExternalTemperature(int16_t t)
@@ -104,25 +91,20 @@ public:
 
     void StartBypass()
     {
-        // Record when the bypass started
-        bypassStartTime = millis();
-        bypassStartVoltage = getCellVoltage();
-        CellIsInBypass = true;
+        if (!IsBypassActive())
+        {
+            // Record when the bypass started
+            CellIsInBypass = true;
+        }
     }
     void StopBypass()
     {
-        //"guess" how much energy we have burnt during the balance
-        // this IGNORES any over temperature situation we may had had!
+        if (!IsBypassActive())
+            return;
 
-        // bypassStartVoltage is in millivolts, so we get milli-amp current output
-        // For example 4000mV / 18R = 222.22mA
-        float CurrentmA = ((float)bypassStartVoltage / (float)LOAD_RESISTANCE);
-
-        float seconds = (millis() - bypassStartTime) / 1000;
-
-        float milliAmpHours = (CurrentmA * seconds) * (1.0 / 3600.0);
-
-        MilliAmpHourBalanceCounter += milliAmpHours;
+        // We don't have an accurate way to calculate energy burnt, so just increment
+        // the counter to show we have actually balanced something on this cell
+        MilliAmpHourBalanceCounter += 1;
         CellIsInBypass = false;
     }
 
@@ -153,10 +135,10 @@ public:
         }
         if (v > 20)
         {
-            BypassTemperatureSetPoint = v;
+            BypassTemperatureSetPoint = (uint8_t)v;
 
             // Set back hysteresis is set point minus 5 degrees C
-            BypassTemperatureHysteresis = v - 5;
+            BypassTemperatureHysteresis = (uint8_t)v - 5;
         }
 
         // Revalidate fan temperature after bypass temperature change
@@ -208,12 +190,9 @@ public:
 private:
     bool ChangesAllowed{true};
     uint16_t cellVoltage{0};
-    //uint16_t parasiteVoltage{0};
     int16_t externalTemperature{-999};
     int16_t internalTemperature{-999};
     bool CellIsInBypass{false};
-    uint32_t bypassStartTime{0};
-    uint16_t bypassStartVoltage{0};
 
     float MilliAmpHourBalanceCounter{0};
 
