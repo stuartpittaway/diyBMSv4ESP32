@@ -374,7 +374,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE_UINT8(rs485parity);
         MACRO_NVSWRITE_UINT8(rs485stopbits);
         MACRO_NVSWRITE_UINT8(canbusprotocol);
-        MACRO_NVSWRITE(canbusinverter);
+        MACRO_NVSWRITE_UINT8(canbusinverter);
         MACRO_NVSWRITE(canbusbaud);
         MACRO_NVSWRITE_UINT8(canbus_equipment_addr);
 
