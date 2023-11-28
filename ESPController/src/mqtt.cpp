@@ -55,14 +55,17 @@ bool checkMQTTReady()
 static inline void publish_message(std::string const &topic, std::string &payload, bool clear_payload = true)
 {
     static constexpr int MQTT_QUALITY_OF_SERVICE = 0;
-    static constexpr int MQTT_RETAIN_MESSAGE = 0;
+    static constexpr int MQTT_RETAIN_MESSAGE = 1;
 
     if (mqtt_client != nullptr && mqttClient_connected)
     {
-        int id = esp_mqtt_client_enqueue(mqtt_client, topic.c_str(),
+        int id=esp_mqtt_client_publish(mqtt_client, topic.c_str(),
+                                         payload.c_str(), payload.length(),MQTT_QUALITY_OF_SERVICE, MQTT_RETAIN_MESSAGE);
+
+        /*int id = esp_mqtt_client_enqueue(mqtt_client, topic.c_str(),
                                          payload.c_str(), payload.length(),
                                          MQTT_QUALITY_OF_SERVICE, MQTT_RETAIN_MESSAGE, true);
-
+*/
         if (id < 0)
         {
             ESP_LOGE(TAG, "Topic:%s, failed publish", topic.c_str());
