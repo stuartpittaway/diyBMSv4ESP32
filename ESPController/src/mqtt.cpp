@@ -59,8 +59,8 @@ static inline void publish_message(std::string const &topic, std::string &payloa
 
     if (mqtt_client != nullptr && mqttClient_connected)
     {
-        int id=esp_mqtt_client_publish(mqtt_client, topic.c_str(),
-                                         payload.c_str(), payload.length(),MQTT_QUALITY_OF_SERVICE, MQTT_RETAIN_MESSAGE);
+        int id = esp_mqtt_client_publish(mqtt_client, topic.c_str(),
+                                         payload.c_str(), payload.length(), MQTT_QUALITY_OF_SERVICE, MQTT_RETAIN_MESSAGE);
 
         /*int id = esp_mqtt_client_enqueue(mqtt_client, topic.c_str(),
                                          payload.c_str(), payload.length(),
@@ -145,6 +145,8 @@ void stopMqtt()
     }
 }
 
+
+
 // Connects to MQTT if required
 void connectToMqtt()
 {
@@ -155,6 +157,9 @@ void connectToMqtt()
     {
         ESP_LOGI(TAG, "esp_mqtt_client_init");
 
+        auto lwt = std::string(mysettings.mqtt_topic).append("/status");
+        auto lwt_msg= std::string("{\"alive\":0}");
+
         // Need to preset variables in esp_mqtt_client_config_t otherwise LoadProhibited errors
         esp_mqtt_client_config_t mqtt_cfg{
             .event_handle = nullptr,
@@ -162,14 +167,22 @@ void connectToMqtt()
             .uri = mysettings.mqtt_uri,
             .username = mysettings.mqtt_username,
             .password = mysettings.mqtt_password,
+            .lwt_topic = lwt.c_str(),
+            .lwt_msg = lwt_msg.c_str(), /* LWT message */
+            .lwt_qos = 1,         /* LWT message qos */
+            .lwt_retain = 1,      /* LWT retained message flag */
+            .lwt_msg_len = (int)lwt_msg.length(),     /* LWT message length */
+
             // Reconnect if there server has a problem (or wrong IP/password etc.)
             .disable_auto_reconnect = false,
             .buffer_size = 512,
             // 30 seconds
             .reconnect_timeout_ms = 30000,
-            .out_buffer_size = 2048,
+            .out_buffer_size = 1024,
             // 4 seconds
-            .network_timeout_ms = 4000};
+            .network_timeout_ms = 4000
+
+        };
 
         mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
 
@@ -217,7 +230,8 @@ void GeneralStatusPayload(const PacketRequestGenerator *prg, const PacketReceive
         .append(",\"sendqlvl\":")
         .append(std::to_string(requestq_count))
         .append(",\"roundtrip\":")
-        .append(std::to_string(receiveProc->packetTimerMillisecond));
+        .append(std::to_string(receiveProc->packetTimerMillisecond))
+        .append(",\"alive\":1");
 
     if (mysettings.dynamiccharge)
     {
