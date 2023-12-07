@@ -2821,11 +2821,11 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
     if (res == ESP_OK)
     {
       canbus_messages_received++;
-      ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
-               message.identifier, message.data_length_code, message.flags);
+      // ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",message.identifier, message.data_length_code, message.flags);
+
       if (!(message.flags & TWAI_MSG_FLAG_RTR)) // we do not answer to Remote-Transmission-Requests
       {
-        //        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
+        // ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
         if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2)
         {
           pylonforce_handle_rx(&message);
@@ -3195,8 +3195,23 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
       // Screen off
       tftsleep();
     }
-
   }
+}
+
+void CalculateStateOfHealth(diybms_eeprom_settings *settings)
+{
+  // Value indicating what a typical discharge cycle looks like in amp-hours (normally 80% of cell for LFP)
+  float depth = 1000.0F * ((float)settings->currentMonitoring_batterycapacity/100.0F * (float)settings->soh_discharge_depth);
+  float in = (float)settings->soh_total_milliamphour_in / depth;
+  float out = (float)settings->soh_total_milliamphour_out / depth;
+  //Take worst case
+  float cycles = max(in, out);
+
+  settings->soh_percent =100-((cycles / (float)settings->soh_lifetime_battery_cycles) * 100.0F);
+
+  settings->soh_estimated_battery_cycles=(uint16_t)round(cycles);
+
+  ESP_LOGI(TAG, "State of health calc %f %, estimated cycles=%f", settings->soh_percent, cycles);
 }
 
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
@@ -3239,6 +3254,8 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
           mysettings.soh_total_milliamphour_in += currentMonitor.modbus.daily_milliamphour_in;
 
           SaveConfiguration(&mysettings);
+
+          CalculateStateOfHealth(&mysettings);
 
           // Reset the current monitor at midnight (ish)
           CurrentMonitorResetDailyAmpHourCounters();
@@ -3840,7 +3857,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   LoadConfiguration(&mysettings);
   ValidateConfiguration(&mysettings);
 
-
   if (strlen(mysettings.homeassist_apikey) == 0)
   {
     // Generate new key
@@ -3883,6 +3899,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
       currentmon_internal.GuessSOC();
 
       currentmon_internal.TakeReadings();
+
+      CalculateStateOfHealth(&mysettings);
     }
     else
     {

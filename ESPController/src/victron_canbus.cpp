@@ -183,7 +183,7 @@ void victron_message_355()
   struct data355
   {
     uint16_t stateofchargevalue;
-    // uint16_t stateofhealthvalue;
+    uint16_t stateofhealthvalue;
     // uint16_t highresolutionsoc;
   };
 
@@ -193,7 +193,7 @@ void victron_message_355()
     // 0 SOC value un16 1 %
     data.stateofchargevalue = rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
     // 2 SOH value un16 1 %
-    // data.stateofhealthvalue = 100;
+    data.stateofhealthvalue = (uint16_t)(trunc(mysettings.soh_percent));
 
     send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
   }
