@@ -20,7 +20,7 @@
 #define SERIAL_RS485 Serial1
 
 // Total number of cells a single controler can handle (memory limitation)
-#define maximum_controller_cell_modules 128
+#define maximum_controller_cell_modules 192
 
 typedef union
 {
@@ -254,6 +254,10 @@ struct diybms_eeprom_settings
 
   uint8_t canbus_equipment_addr;  // battery index on the same canbus for PYLONFORCE, 0 - 15, default 0
   char homeassist_apikey[24+1];
+
+  // State of health variables
+  uint32_t soh_total_milliamphour_out;
+  uint32_t soh_total_milliamphour_in;
 };
 
 typedef union

@@ -91,6 +91,9 @@ static const char floatvoltagetimer_JSONKEY[] = "floatvoltagetimer";
 static const char stateofchargeresumevalue_JSONKEY[] = "stateofchargeresumevalue";
 static const char homeassist_apikey_JSONKEY[] = "homeassistapikey";
 
+static const char soh_total_milliamphour_out_JSONKEY[] = "soh_mah_out";
+static const char soh_total_milliamphour_in_JSONKEY[] = "soh_mah_in";
+
 /* NVS KEYS
 THESE STRINGS ARE USED TO HOLD THE PARAMETER IN NVS FLASH, MAXIMUM LENGTH OF 16 CHARACTERS
 */
@@ -122,7 +125,7 @@ static const char rs485stopbits_NVSKEY[] = "485stopbits";
 static const char canbusprotocol_NVSKEY[] = "canbusprotocol";
 static const char canbusinverter_NVSKEY[] = "canbusinverter";
 static const char canbusbaud_NVSKEY[] = "canbusbaud";
-static const char canbus_equipment_addr_NVSKEY[]="canbusequip";
+static const char canbus_equipment_addr_NVSKEY[] = "canbusequip";
 static const char nominalbatcap_NVSKEY[] = "nominalbatcap";
 static const char chargevolt_NVSKEY[] = "cha_volt";
 static const char chargecurrent_NVSKEY[] = "cha_current";
@@ -183,6 +186,10 @@ static const char floatvoltagetimer_NVSKEY[] = "floatVtimer";
 static const char stateofchargeresumevalue_NVSKEY[] = "socresume";
 static const char homeassist_apikey_NVSKEY[] = "haapikey";
 
+static const char soh_total_milliamphour_out_NVSKEY[] = "soh_mah_out";
+static const char soh_total_milliamphour_in_NVSKEY[] = "soh_mah_in";
+
+
 #define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
 #define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
 #define MACRO_NVSWRITESTRING(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, &settings->VARNAME[0]);
@@ -201,7 +208,6 @@ bool ValidateGetSetting(esp_err_t err, const char *key)
     case ESP_OK:
         ESP_LOGD(TAG, "Read key (%s)", key);
         return true;
-        break;
     case ESP_ERR_NVS_NOT_FOUND:
         ESP_LOGW(TAG, "Key not initialized (%s)", key);
         break;
@@ -310,6 +316,11 @@ void writeSetting(nvs_handle_t handle, const char *key, int16_t value)
     ESP_LOGD(TAG, "Writing (%s)=%i", key, value);
     ESP_ERROR_CHECK(nvs_set_i16(handle, key, value));
 }
+void writeSetting(nvs_handle_t handle, const char *key, uint32_t value)
+{
+    ESP_LOGD(TAG, "Writing (%s)=%i", key, value);
+    ESP_ERROR_CHECK(nvs_set_u32(handle, key, value));
+}
 void writeSetting(nvs_handle_t handle, const char *key, int32_t value)
 {
     ESP_LOGD(TAG, "Writing (%s)=%i", key, value);
@@ -331,7 +342,7 @@ void writeSettingBlob(nvs_handle_t handle, const char *key, const void *value, s
     ESP_ERROR_CHECK(nvs_set_blob(handle, key, value, length));
 }
 
-void SaveConfiguration(diybms_eeprom_settings *settings)
+void SaveConfiguration(const diybms_eeprom_settings *settings)
 {
     const char *partname = "diybms-ctrl";
     ESP_LOGI(TAG, "Write config");
@@ -441,6 +452,9 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(stateofchargeresumevalue);
 
         MACRO_NVSWRITESTRING(homeassist_apikey);
+
+        MACRO_NVSWRITE(soh_total_milliamphour_out)
+        MACRO_NVSWRITE(soh_total_milliamphour_in)
 
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
@@ -571,6 +585,9 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
 
         MACRO_NVSREADSTRING(homeassist_apikey);
 
+        MACRO_NVSREAD(soh_total_milliamphour_out);
+        MACRO_NVSREAD(soh_total_milliamphour_in);
+
         nvs_close(nvs_handle);
     }
 
@@ -605,7 +622,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->canbusinverter = CanBusInverter::INVERTER_GENERIC;
 
     _myset->canbus_equipment_addr = 0;
-    _myset->canbusbaud=500;
+    _myset->canbusbaud = 500;
     _myset->nominalbatcap = 280;    // Scale 1
     _myset->chargevolt = 565;       // Scale 0.1
     _myset->chargecurrent = 650;    // Scale 0.1
@@ -753,6 +770,10 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->floatvoltagetimer = 6 * 60;
     // Once battery SoC drops below this value, resume normal charging operation
     _myset->stateofchargeresumevalue = 96;
+
+    // State of health
+    _myset->soh_total_milliamphour_out = 0;
+    _myset->soh_total_milliamphour_in = 0;
 }
 
 /// @brief Save WIFI settings into FLASH NVS
@@ -1015,7 +1036,7 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[rs485stopbits_JSONKEY] = settings->rs485stopbits;
     root[language_JSONKEY] = settings->language;
 
-    root[homeassist_apikey_JSONKEY]=settings->homeassist_apikey;
+    root[homeassist_apikey_JSONKEY] = settings->homeassist_apikey;
 
     JsonObject mqtt = root.createNestedObject("mqtt");
     mqtt[mqtt_enabled_JSONKEY] = settings->mqtt_enabled;
@@ -1074,7 +1095,7 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[canbusprotocol_JSONKEY] = (uint8_t)settings->canbusprotocol;
     root[canbusinverter_JSONKEY] = (uint8_t)settings->canbusinverter;
     root[canbusbaud_JSONKEY] = settings->canbusbaud;
-    root[canbus_equipment_addr_JSONKEY]=settings->canbus_equipment_addr;
+    root[canbus_equipment_addr_JSONKEY] = settings->canbus_equipment_addr;
     root[nominalbatcap_JSONKEY] = settings->nominalbatcap;
 
     root[chargevolt_JSONKEY] = settings->chargevolt;
@@ -1113,6 +1134,9 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     }
 
     // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
+
+    root[soh_total_milliamphour_out_JSONKEY] = settings->soh_total_milliamphour_out;
+    root[soh_total_milliamphour_in_JSONKEY] = settings->soh_total_milliamphour_in;
 }
 
 void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
@@ -1177,7 +1201,7 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->canbusprotocol = (CanBusProtocolEmulation)root[canbusprotocol_JSONKEY];
     settings->canbusinverter = (CanBusInverter)root[canbusinverter_JSONKEY];
     settings->canbusbaud = root[canbusbaud_JSONKEY];
-    settings->canbus_equipment_addr=root[canbus_equipment_addr_JSONKEY];
+    settings->canbus_equipment_addr = root[canbus_equipment_addr_JSONKEY];
     settings->nominalbatcap = root[nominalbatcap_JSONKEY];
     settings->chargevolt = root[chargevolt_JSONKEY];
     settings->chargecurrent = root[chargecurrent_JSONKEY];
@@ -1201,10 +1225,13 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->current_value1 = root[current_value1_JSONKEY];
     settings->current_value2 = root[current_value2_JSONKEY];
 
-    settings->absorptiontimer=root[absorptiontimer_JSONKEY];
-    settings->floatvoltage=root[floatvoltage_JSONKEY];
-    settings->floatvoltagetimer=root[floatvoltagetimer_JSONKEY];
-    settings->stateofchargeresumevalue=root[stateofchargeresumevalue_JSONKEY];
+    settings->absorptiontimer = root[absorptiontimer_JSONKEY];
+    settings->floatvoltage = root[floatvoltage_JSONKEY];
+    settings->floatvoltagetimer = root[floatvoltagetimer_JSONKEY];
+    settings->stateofchargeresumevalue = root[stateofchargeresumevalue_JSONKEY];
+
+    settings->soh_total_milliamphour_out = root[soh_total_milliamphour_out_JSONKEY];
+    settings->soh_total_milliamphour_in = root[soh_total_milliamphour_in_JSONKEY];
 
     strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
 
@@ -1212,7 +1239,7 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     if (!mqtt.isNull())
     {
         settings->mqtt_enabled = mqtt[mqtt_enabled_JSONKEY];
-        settings->mqtt_basic_cell_reporting=mqtt[mqtt_basic_cell_reporting_JSONKEY];
+        settings->mqtt_basic_cell_reporting = mqtt[mqtt_basic_cell_reporting_JSONKEY];
         strncpy(settings->mqtt_uri, mqtt[mqtt_uri_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_uri));
         strncpy(settings->mqtt_topic, mqtt[mqtt_topic_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_topic));
         strncpy(settings->mqtt_username, mqtt[mqtt_username_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_username));

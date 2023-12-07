@@ -1584,14 +1584,14 @@ void ShutdownAllNetworkServices()
 }
 
 /// @brief Count of events of RSSI low
-uint16_t wifi_count_rssi_low=0;
-uint16_t wifi_count_sta_start=0;
+uint16_t wifi_count_rssi_low = 0;
+uint16_t wifi_count_sta_start = 0;
 /// @brief Count of events for WIFI connect
-uint16_t wifi_count_sta_connected=0;
+uint16_t wifi_count_sta_connected = 0;
 /// @brief Count of events for WIFI disconnect
-uint16_t wifi_count_sta_disconnected=0;
-uint16_t wifi_count_sta_lost_ip=0;
-uint16_t wifi_count_sta_got_ip=0;
+uint16_t wifi_count_sta_disconnected = 0;
+uint16_t wifi_count_sta_lost_ip = 0;
+uint16_t wifi_count_sta_got_ip = 0;
 
 /// @brief WIFI Event Handler
 /// @param
@@ -2767,7 +2767,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
       // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
       // vTaskDelay(pdMS_TO_TICKS(100));
     }
-    else if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2 )
+    else if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2)
     {
       pylonforce_handle_tx();
     }
@@ -2823,10 +2823,10 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
       canbus_messages_received++;
       ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
                message.identifier, message.data_length_code, message.flags);
-      if (!(message.flags & TWAI_MSG_FLAG_RTR))   // we do not answer to Remote-Transmission-Requests
+      if (!(message.flags & TWAI_MSG_FLAG_RTR)) // we do not answer to Remote-Transmission-Requests
       {
-//        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
-        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2 )
+        //        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
+        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2)
         {
           pylonforce_handle_rx(&message);
         }
@@ -3195,6 +3195,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
       // Screen off
       tftsleep();
     }
+
   }
 }
 
@@ -3233,6 +3234,12 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
         // Has day rolled over?
         if (year_day != timeinfo.tm_yday)
         {
+
+          mysettings.soh_total_milliamphour_out += currentMonitor.modbus.daily_milliamphour_out;
+          mysettings.soh_total_milliamphour_in += currentMonitor.modbus.daily_milliamphour_in;
+
+          SaveConfiguration(&mysettings);
+
           // Reset the current monitor at midnight (ish)
           CurrentMonitorResetDailyAmpHourCounters();
 
@@ -3833,11 +3840,12 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   LoadConfiguration(&mysettings);
   ValidateConfiguration(&mysettings);
 
+
   if (strlen(mysettings.homeassist_apikey) == 0)
   {
     // Generate new key
     memset(&mysettings.homeassist_apikey, 0, sizeof(mysettings.homeassist_apikey));
-    randomCharacters(mysettings.homeassist_apikey, sizeof(mysettings.homeassist_apikey) - 1);    
+    randomCharacters(mysettings.homeassist_apikey, sizeof(mysettings.homeassist_apikey) - 1);
     saveConfiguration();
   }
   ESP_LOGI(TAG, "homeassist_apikey=%s", mysettings.homeassist_apikey);
