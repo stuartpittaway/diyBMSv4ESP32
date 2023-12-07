@@ -365,11 +365,11 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(baudRate)
         MACRO_NVSWRITE(interpacketgap)
 
-        MACRO_NVSWRITEBLOB(rulevalue);
-        MACRO_NVSWRITEBLOB(rulehysteresis);
-        MACRO_NVSWRITEBLOB(rulerelaystate);
-        MACRO_NVSWRITEBLOB(rulerelaydefault);
-        MACRO_NVSWRITEBLOB(relaytype);
+        MACRO_NVSWRITEBLOB(rulevalue)
+        MACRO_NVSWRITEBLOB(rulehysteresis)
+        MACRO_NVSWRITEBLOB(rulerelaystate)
+        MACRO_NVSWRITEBLOB(rulerelaydefault)
+        MACRO_NVSWRITEBLOB(relaytype)
 
         MACRO_NVSWRITE(graph_voltagehigh)
         MACRO_NVSWRITE(graph_voltagelow)
@@ -383,33 +383,33 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
 
         MACRO_NVSWRITE(currentMonitoringEnabled)
         MACRO_NVSWRITE(currentMonitoringModBusAddress)
-        MACRO_NVSWRITE_UINT8(currentMonitoringDevice);
+        MACRO_NVSWRITE_UINT8(currentMonitoringDevice)
         MACRO_NVSWRITE(rs485baudrate)
-        MACRO_NVSWRITE_UINT8(rs485databits);
-        MACRO_NVSWRITE_UINT8(rs485parity);
-        MACRO_NVSWRITE_UINT8(rs485stopbits);
-        MACRO_NVSWRITE_UINT8(canbusprotocol);
-        MACRO_NVSWRITE_UINT8(canbusinverter);
-        MACRO_NVSWRITE(canbusbaud);
-        MACRO_NVSWRITE_UINT8(canbus_equipment_addr);
+        MACRO_NVSWRITE_UINT8(rs485databits)
+        MACRO_NVSWRITE_UINT8(rs485parity)
+        MACRO_NVSWRITE_UINT8(rs485stopbits)
+        MACRO_NVSWRITE_UINT8(canbusprotocol)
+        MACRO_NVSWRITE_UINT8(canbusinverter)
+        MACRO_NVSWRITE(canbusbaud)
+        MACRO_NVSWRITE_UINT8(canbus_equipment_addr)
 
-        MACRO_NVSWRITE(currentMonitoring_shuntmv);
-        MACRO_NVSWRITE(currentMonitoring_shuntmaxcur);
-        MACRO_NVSWRITE(currentMonitoring_batterycapacity);
-        MACRO_NVSWRITE(currentMonitoring_fullchargevolt);
-        MACRO_NVSWRITE(currentMonitoring_tailcurrent);
-        MACRO_NVSWRITE(currentMonitoring_chargeefficiency);
-        MACRO_NVSWRITE(currentMonitoring_shuntcal);
-        MACRO_NVSWRITE(currentMonitoring_temperaturelimit);
-        MACRO_NVSWRITE(currentMonitoring_overvoltagelimit);
-        MACRO_NVSWRITE(currentMonitoring_undervoltagelimit);
-        MACRO_NVSWRITE(currentMonitoring_overcurrentlimit);
-        MACRO_NVSWRITE(currentMonitoring_undercurrentlimit);
-        MACRO_NVSWRITE(currentMonitoring_overpowerlimit);
-        MACRO_NVSWRITE(currentMonitoring_shunttempcoefficient);
-        MACRO_NVSWRITE(currentMonitoring_tempcompenabled);
+        MACRO_NVSWRITE(currentMonitoring_shuntmv)
+        MACRO_NVSWRITE(currentMonitoring_shuntmaxcur)
+        MACRO_NVSWRITE(currentMonitoring_batterycapacity)
+        MACRO_NVSWRITE(currentMonitoring_fullchargevolt)
+        MACRO_NVSWRITE(currentMonitoring_tailcurrent)
+        MACRO_NVSWRITE(currentMonitoring_chargeefficiency)
+        MACRO_NVSWRITE(currentMonitoring_shuntcal)
+        MACRO_NVSWRITE(currentMonitoring_temperaturelimit)
+        MACRO_NVSWRITE(currentMonitoring_overvoltagelimit)
+        MACRO_NVSWRITE(currentMonitoring_undervoltagelimit)
+        MACRO_NVSWRITE(currentMonitoring_overcurrentlimit)
+        MACRO_NVSWRITE(currentMonitoring_undercurrentlimit)
+        MACRO_NVSWRITE(currentMonitoring_overpowerlimit)
+        MACRO_NVSWRITE(currentMonitoring_shunttempcoefficient)
+        MACRO_NVSWRITE(currentMonitoring_tempcompenabled)
 
-        MACRO_NVSWRITE(nominalbatcap);
+        MACRO_NVSWRITE(nominalbatcap)
         MACRO_NVSWRITE(chargevolt)
         MACRO_NVSWRITE(chargecurrent)
         MACRO_NVSWRITE(dischargecurrent)
@@ -417,45 +417,45 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(cellminmv)
         MACRO_NVSWRITE(cellmaxmv)
         MACRO_NVSWRITE(kneemv)
-        MACRO_NVSWRITE(sensitivity);
-        MACRO_NVSWRITE(current_value1);
-        MACRO_NVSWRITE(current_value2);
-        MACRO_NVSWRITE(cellmaxspikemv);
-        MACRO_NVSWRITE(chargetemplow);
-        MACRO_NVSWRITE(chargetemphigh);
-        MACRO_NVSWRITE(dischargetemplow);
-        MACRO_NVSWRITE(dischargetemphigh);
-        MACRO_NVSWRITE(stopchargebalance);
-        MACRO_NVSWRITE(socoverride);
-        MACRO_NVSWRITE(socforcelow);
+        MACRO_NVSWRITE(sensitivity)
+        MACRO_NVSWRITE(current_value1)
+        MACRO_NVSWRITE(current_value2)
+        MACRO_NVSWRITE(cellmaxspikemv)
+        MACRO_NVSWRITE(chargetemplow)
+        MACRO_NVSWRITE(chargetemphigh)
+        MACRO_NVSWRITE(dischargetemplow)
+        MACRO_NVSWRITE(dischargetemphigh)
+        MACRO_NVSWRITE(stopchargebalance)
+        MACRO_NVSWRITE(socoverride)
+        MACRO_NVSWRITE(socforcelow)
 
-        MACRO_NVSWRITE(dynamiccharge);
-        MACRO_NVSWRITE(preventcharging);
-        MACRO_NVSWRITE(preventdischarge);
-        MACRO_NVSWRITE(mqtt_enabled);
-        MACRO_NVSWRITE(mqtt_basic_cell_reporting);
-        MACRO_NVSWRITE(influxdb_enabled);
-        MACRO_NVSWRITE(influxdb_loggingFreqSeconds);
+        MACRO_NVSWRITE(dynamiccharge)
+        MACRO_NVSWRITE(preventcharging)
+        MACRO_NVSWRITE(preventdischarge)
+        MACRO_NVSWRITE(mqtt_enabled)
+        MACRO_NVSWRITE(mqtt_basic_cell_reporting)
+        MACRO_NVSWRITE(influxdb_enabled)
+        MACRO_NVSWRITE(influxdb_loggingFreqSeconds)
 
-        MACRO_NVSWRITEBLOB(tileconfig);
+        MACRO_NVSWRITEBLOB(tileconfig)
 
-        MACRO_NVSWRITESTRING(ntpServer);
-        MACRO_NVSWRITESTRING(language);
-        MACRO_NVSWRITESTRING(mqtt_uri);
-        MACRO_NVSWRITESTRING(mqtt_topic);
-        MACRO_NVSWRITESTRING(mqtt_username);
-        MACRO_NVSWRITESTRING(mqtt_password);
-        MACRO_NVSWRITESTRING(influxdb_serverurl);
-        MACRO_NVSWRITESTRING(influxdb_databasebucket);
-        MACRO_NVSWRITESTRING(influxdb_apitoken);
-        MACRO_NVSWRITESTRING(influxdb_orgid);
+        MACRO_NVSWRITESTRING(ntpServer)
+        MACRO_NVSWRITESTRING(language)
+        MACRO_NVSWRITESTRING(mqtt_uri)
+        MACRO_NVSWRITESTRING(mqtt_topic)
+        MACRO_NVSWRITESTRING(mqtt_username)
+        MACRO_NVSWRITESTRING(mqtt_password)
+        MACRO_NVSWRITESTRING(influxdb_serverurl)
+        MACRO_NVSWRITESTRING(influxdb_databasebucket)
+        MACRO_NVSWRITESTRING(influxdb_apitoken)
+        MACRO_NVSWRITESTRING(influxdb_orgid)
 
-        MACRO_NVSWRITE(absorptiontimer);
-        MACRO_NVSWRITE(floatvoltage);
-        MACRO_NVSWRITE(floatvoltagetimer);
-        MACRO_NVSWRITE(stateofchargeresumevalue);
+        MACRO_NVSWRITE(absorptiontimer)
+        MACRO_NVSWRITE(floatvoltage)
+        MACRO_NVSWRITE(floatvoltagetimer)
+        MACRO_NVSWRITE(stateofchargeresumevalue)
 
-        MACRO_NVSWRITESTRING(homeassist_apikey);
+        MACRO_NVSWRITESTRING(homeassist_apikey)
 
         MACRO_NVSWRITE(soh_total_milliamphour_out)
         MACRO_NVSWRITE(soh_total_milliamphour_in)
@@ -493,103 +493,103 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
     else
     {
         // Open
-        MACRO_NVSREAD(totalNumberOfBanks);
-        MACRO_NVSREAD(totalNumberOfSeriesModules);
-        MACRO_NVSREAD(baudRate);
-        MACRO_NVSREAD(interpacketgap);
+        MACRO_NVSREAD(totalNumberOfBanks)
+        MACRO_NVSREAD(totalNumberOfSeriesModules)
+        MACRO_NVSREAD(baudRate)
+        MACRO_NVSREAD(interpacketgap)
 
-        MACRO_NVSREADBLOB(rulevalue);
-        MACRO_NVSREADBLOB(rulehysteresis);
-        MACRO_NVSREADBLOB(rulerelaystate);
-        MACRO_NVSREADBLOB(rulerelaydefault);
-        MACRO_NVSREADBLOB(relaytype);
+        MACRO_NVSREADBLOB(rulevalue)
+        MACRO_NVSREADBLOB(rulehysteresis)
+        MACRO_NVSREADBLOB(rulerelaystate)
+        MACRO_NVSREADBLOB(rulerelaydefault)
+        MACRO_NVSREADBLOB(relaytype)
 
-        MACRO_NVSREAD(graph_voltagehigh);
-        MACRO_NVSREAD(graph_voltagelow);
-        MACRO_NVSREAD(BypassOverTempShutdown);
-        MACRO_NVSREAD(BypassThresholdmV);
-        MACRO_NVSREAD(timeZone);
-        MACRO_NVSREAD(minutesTimeZone);
-        MACRO_NVSREAD(daylight);
-        MACRO_NVSREAD(loggingEnabled);
-        MACRO_NVSREAD(loggingFrequencySeconds);
+        MACRO_NVSREAD(graph_voltagehigh)
+        MACRO_NVSREAD(graph_voltagelow)
+        MACRO_NVSREAD(BypassOverTempShutdown)
+        MACRO_NVSREAD(BypassThresholdmV)
+        MACRO_NVSREAD(timeZone)
+        MACRO_NVSREAD(minutesTimeZone)
+        MACRO_NVSREAD(daylight)
+        MACRO_NVSREAD(loggingEnabled)
+        MACRO_NVSREAD(loggingFrequencySeconds)
 
-        MACRO_NVSREAD(currentMonitoringEnabled);
-        MACRO_NVSREAD(currentMonitoringModBusAddress);
-        MACRO_NVSREAD_UINT8(currentMonitoringDevice);
+        MACRO_NVSREAD(currentMonitoringEnabled)
+        MACRO_NVSREAD(currentMonitoringModBusAddress)
+        MACRO_NVSREAD_UINT8(currentMonitoringDevice)
 
-        MACRO_NVSREAD(currentMonitoring_shuntmv);
-        MACRO_NVSREAD(currentMonitoring_shuntmaxcur);
-        MACRO_NVSREAD(currentMonitoring_batterycapacity);
-        MACRO_NVSREAD(currentMonitoring_fullchargevolt);
-        MACRO_NVSREAD(currentMonitoring_tailcurrent);
-        MACRO_NVSREAD(currentMonitoring_chargeefficiency);
-        MACRO_NVSREAD(currentMonitoring_shuntcal);
-        MACRO_NVSREAD(currentMonitoring_temperaturelimit);
-        MACRO_NVSREAD(currentMonitoring_overvoltagelimit);
-        MACRO_NVSREAD(currentMonitoring_undervoltagelimit);
-        MACRO_NVSREAD(currentMonitoring_overcurrentlimit);
-        MACRO_NVSREAD(currentMonitoring_undercurrentlimit);
-        MACRO_NVSREAD(currentMonitoring_overpowerlimit);
-        MACRO_NVSREAD(currentMonitoring_shunttempcoefficient);
-        MACRO_NVSREAD(currentMonitoring_tempcompenabled);
+        MACRO_NVSREAD(currentMonitoring_shuntmv)
+        MACRO_NVSREAD(currentMonitoring_shuntmaxcur)
+        MACRO_NVSREAD(currentMonitoring_batterycapacity)
+        MACRO_NVSREAD(currentMonitoring_fullchargevolt)
+        MACRO_NVSREAD(currentMonitoring_tailcurrent)
+        MACRO_NVSREAD(currentMonitoring_chargeefficiency)
+        MACRO_NVSREAD(currentMonitoring_shuntcal)
+        MACRO_NVSREAD(currentMonitoring_temperaturelimit)
+        MACRO_NVSREAD(currentMonitoring_overvoltagelimit)
+        MACRO_NVSREAD(currentMonitoring_undervoltagelimit)
+        MACRO_NVSREAD(currentMonitoring_overcurrentlimit)
+        MACRO_NVSREAD(currentMonitoring_undercurrentlimit)
+        MACRO_NVSREAD(currentMonitoring_overpowerlimit)
+        MACRO_NVSREAD(currentMonitoring_shunttempcoefficient)
+        MACRO_NVSREAD(currentMonitoring_tempcompenabled)
 
-        MACRO_NVSREAD(rs485baudrate);
-        MACRO_NVSREAD_UINT8(rs485databits);
-        MACRO_NVSREAD_UINT8(rs485parity);
-        MACRO_NVSREAD_UINT8(rs485stopbits);
-        MACRO_NVSREAD_UINT8(canbusprotocol);
-        MACRO_NVSREAD_UINT8(canbusinverter);
-        MACRO_NVSREAD(canbusbaud);
+        MACRO_NVSREAD(rs485baudrate)
+        MACRO_NVSREAD_UINT8(rs485databits)
+        MACRO_NVSREAD_UINT8(rs485parity)
+        MACRO_NVSREAD_UINT8(rs485stopbits)
+        MACRO_NVSREAD_UINT8(canbusprotocol)
+        MACRO_NVSREAD_UINT8(canbusinverter)
+        MACRO_NVSREAD(canbusbaud)
         MACRO_NVSREAD_UINT8(canbus_equipment_addr)
-        MACRO_NVSREAD(nominalbatcap);
-        MACRO_NVSREAD(chargevolt);
-        MACRO_NVSREAD(chargecurrent);
-        MACRO_NVSREAD(dischargecurrent);
-        MACRO_NVSREAD(dischargevolt);
-        MACRO_NVSREAD(cellminmv);
-        MACRO_NVSREAD(cellmaxmv);
-        MACRO_NVSREAD(kneemv);
-        MACRO_NVSREAD(sensitivity);
-        MACRO_NVSREAD(current_value1);
-        MACRO_NVSREAD(current_value2);
-        MACRO_NVSREAD(cellmaxspikemv);
-        MACRO_NVSREAD(chargetemplow);
-        MACRO_NVSREAD(chargetemphigh);
-        MACRO_NVSREAD(dischargetemplow);
-        MACRO_NVSREAD(dischargetemphigh);
-        MACRO_NVSREAD(stopchargebalance);
-        MACRO_NVSREAD(socoverride);
-        MACRO_NVSREAD(socforcelow);
+        MACRO_NVSREAD(nominalbatcap)
+        MACRO_NVSREAD(chargevolt)
+        MACRO_NVSREAD(chargecurrent)
+        MACRO_NVSREAD(dischargecurrent)
+        MACRO_NVSREAD(dischargevolt)
+        MACRO_NVSREAD(cellminmv)
+        MACRO_NVSREAD(cellmaxmv)
+        MACRO_NVSREAD(kneemv)
+        MACRO_NVSREAD(sensitivity)
+        MACRO_NVSREAD(current_value1)
+        MACRO_NVSREAD(current_value2)
+        MACRO_NVSREAD(cellmaxspikemv)
+        MACRO_NVSREAD(chargetemplow)
+        MACRO_NVSREAD(chargetemphigh)
+        MACRO_NVSREAD(dischargetemplow)
+        MACRO_NVSREAD(dischargetemphigh)
+        MACRO_NVSREAD(stopchargebalance)
+        MACRO_NVSREAD(socoverride)
+        MACRO_NVSREAD(socforcelow)
 
-        MACRO_NVSREAD(dynamiccharge);
-        MACRO_NVSREAD(preventcharging);
-        MACRO_NVSREAD(preventdischarge);
+        MACRO_NVSREAD(dynamiccharge)
+        MACRO_NVSREAD(preventcharging)
+        MACRO_NVSREAD(preventdischarge)
 
-        MACRO_NVSREAD(mqtt_enabled);
-        MACRO_NVSREAD(mqtt_basic_cell_reporting);
-        MACRO_NVSREAD(influxdb_enabled);
-        MACRO_NVSREAD(influxdb_loggingFreqSeconds);
+        MACRO_NVSREAD(mqtt_enabled)
+        MACRO_NVSREAD(mqtt_basic_cell_reporting)
+        MACRO_NVSREAD(influxdb_enabled)
+        MACRO_NVSREAD(influxdb_loggingFreqSeconds)
 
-        MACRO_NVSREADBLOB(tileconfig);
+        MACRO_NVSREADBLOB(tileconfig)
 
-        MACRO_NVSREADSTRING(ntpServer);
-        MACRO_NVSREADSTRING(language);
-        MACRO_NVSREADSTRING(mqtt_uri);
-        MACRO_NVSREADSTRING(mqtt_topic);
-        MACRO_NVSREADSTRING(mqtt_username);
-        MACRO_NVSREADSTRING(mqtt_password);
-        MACRO_NVSREADSTRING(influxdb_serverurl);
-        MACRO_NVSREADSTRING(influxdb_databasebucket);
-        MACRO_NVSREADSTRING(influxdb_apitoken);
-        MACRO_NVSREADSTRING(influxdb_orgid);
+        MACRO_NVSREADSTRING(ntpServer)
+        MACRO_NVSREADSTRING(language)
+        MACRO_NVSREADSTRING(mqtt_uri)
+        MACRO_NVSREADSTRING(mqtt_topic)
+        MACRO_NVSREADSTRING(mqtt_username)
+        MACRO_NVSREADSTRING(mqtt_password)
+        MACRO_NVSREADSTRING(influxdb_serverurl)
+        MACRO_NVSREADSTRING(influxdb_databasebucket)
+        MACRO_NVSREADSTRING(influxdb_apitoken)
+        MACRO_NVSREADSTRING(influxdb_orgid)
 
-        MACRO_NVSREAD(absorptiontimer);
-        MACRO_NVSREAD(floatvoltage);
-        MACRO_NVSREAD(floatvoltagetimer);
-        MACRO_NVSREAD_UINT8(stateofchargeresumevalue);
+        MACRO_NVSREAD(absorptiontimer)
+        MACRO_NVSREAD(floatvoltage)
+        MACRO_NVSREAD(floatvoltagetimer)
+        MACRO_NVSREAD_UINT8(stateofchargeresumevalue)
 
-        MACRO_NVSREADSTRING(homeassist_apikey);
+        MACRO_NVSREADSTRING(homeassist_apikey)
 
         MACRO_NVSREAD(soh_total_milliamphour_out)
         MACRO_NVSREAD(soh_total_milliamphour_in)
@@ -878,12 +878,12 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
         settings->baudRate = defaults.baudRate;
     }
 
-    if (settings->graph_voltagehigh > 5000 || settings->graph_voltagehigh < 2000 || settings->graph_voltagehigh < 0)
+    if (settings->graph_voltagehigh > 5000 || settings->graph_voltagehigh < 2000)
     {
         settings->graph_voltagehigh = defaults.graph_voltagehigh;
     }
 
-    if (settings->graph_voltagelow > settings->graph_voltagehigh || settings->graph_voltagelow < 0)
+    if (settings->graph_voltagelow > settings->graph_voltagehigh)
     {
         settings->graph_voltagelow = 0;
     }
