@@ -604,6 +604,14 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   settings["canbusbaud"] = mysettings.canbusbaud;
   settings["equip_addr"] = mysettings.canbus_equipment_addr;
   settings["nominalbatcap"] = mysettings.nominalbatcap;
+
+  settings["depthofdischarge"] = mysettings.soh_discharge_depth;
+  settings["expectedlifetime_cycles"] = mysettings.soh_lifetime_battery_cycles;
+  settings["total_mah_charge"] = mysettings.soh_total_milliamphour_in;
+  settings["total_mah_discharge"] = mysettings.soh_total_milliamphour_out;
+  settings["estimatebatterycycle"] = mysettings.soh_estimated_battery_cycles;
+  settings["stateofhealth"] = mysettings.soh_percent;
+
   settings["chargevolt"] = mysettings.chargevolt;
   settings["chargecurrent"] = mysettings.chargecurrent;
   settings["dischargecurrent"] = mysettings.dischargecurrent;

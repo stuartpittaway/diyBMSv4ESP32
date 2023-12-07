@@ -3201,7 +3201,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
 void CalculateStateOfHealth(diybms_eeprom_settings *settings)
 {
   // Value indicating what a typical discharge cycle looks like in amp-hours (normally 80% of cell for LFP)
-  float depth = 1000.0F * ((float)settings->currentMonitoring_batterycapacity/100.0F * (float)settings->soh_discharge_depth);
+  float depth = 1000.0F * ((float)settings->nominalbatcap/100.0F * (float)settings->soh_discharge_depth);
   float in = (float)settings->soh_total_milliamphour_in / depth;
   float out = (float)settings->soh_total_milliamphour_out / depth;
   //Take worst case

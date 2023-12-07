@@ -654,7 +654,7 @@
             <th id="ht1">Date/time</th>
             <th id="ht2">Voltage</th>
             <th id="ht3">Current</th>
-            <th id="ht4">SoC%</th>
+            <th id="ht4">SoC%%</th>
             <th id="ht5">mA In</th>
             <th id="ht6">mA Out</th>
             <th id="ht7">Highest Range</th>
@@ -1033,6 +1033,26 @@
           <div>
             <label for="nominalbatcap">Nominal Battery Capacity (Amp-hours)</label>
             <input id="nominalbatcap" name="nominalbatcap" value="" type="number" min="1" max="9999" step="1" />
+          </div>
+          <div>
+            <label for="expected_cycles">Expected battery lifetime/cycles (at 80%% DOD)</label>
+            <input id="expected_cycles" name="expected_cycles" value="" type="number" min="100" max="99999" step="1" />
+          </div>
+          <div>
+            <label for="total_ah_charge">Lifetime amp-hours charge (in)</label>
+            <input id="total_ah_charge" name="total_ah_charge" value="" type="number" min="0" step="1" />
+          </div>
+          <div>
+            <label for="total_ah_discharge">Lifetime amp-hours discharge (out)</label>
+            <input id="total_ah_discharge" name="total_ah_discharge" value="" type="number" min="0" step="1" />
+          </div>
+          <div>
+            <label for="estimate_bat_cycle">Estimated battery cycles consumed</label>
+            <input id="estimate_bat_cycle" name="estimate_bat_cycle" value="" type="number" readonly="" />
+          </div>
+          <div>
+            <label for="stateofhealth">State of health (%%)</label>
+            <input id="stateofhealth" name="stateofhealth" value="" type="number" readonly="" />
           </div>
 
           <p>Charging</p>

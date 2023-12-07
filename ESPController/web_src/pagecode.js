@@ -2003,6 +2003,12 @@ $(function () {
                 $("#canbusbaud").val(data.chargeconfig.canbusbaud);
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
 
+                $("#expected_cycles").val(data.chargeconfig.expectedlifetime_cycles);
+                $("#total_ah_charge").val(Math.trunc(data.chargeconfig.total_mah_charge/1000));
+                $("#total_ah_discharge").val(Math.trunc(data.chargeconfig.total_mah_discharge/1000));
+                $("#estimate_bat_cycle").val(data.chargeconfig.estimatebatterycycle);
+                $("#stateofhealth").val((data.chargeconfig.stateofhealth).toFixed(2));
+
                 $("#chargevolt").val((data.chargeconfig.chargevolt / 10.0).toFixed(1));
                 $("#chargecurrent").val((data.chargeconfig.chargecurrent / 10.0).toFixed(1));
                 $("#dischargecurrent").val((data.chargeconfig.dischargecurrent / 10.0).toFixed(1));
