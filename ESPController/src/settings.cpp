@@ -999,6 +999,10 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
     {
         settings->stateofchargeresumevalue = settings->stateofchargeresumevalue;
     }
+
+    if (settings->soh_discharge_depth==0 || settings->soh_discharge_depth>100) {
+        settings->soh_discharge_depth=80;
+    }
 }
 
 // Builds up a JSON document which mirrors the parameters inside "diybms_eeprom_settings"

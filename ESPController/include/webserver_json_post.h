@@ -39,6 +39,7 @@ extern void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char
 extern void DefaultConfiguration(diybms_eeprom_settings *_myset);
 extern bool SaveWIFIJson(const wifi_eeprom_settings* setting);
 extern void randomCharacters(char *value, int length);
+extern void CalculateStateOfHealth(diybms_eeprom_settings *settings);
 
 esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded);
 esp_err_t post_saventp_json_handler(httpd_req_t *req, bool urlEncoded);

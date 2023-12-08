@@ -1613,17 +1613,17 @@ $(function () {
 
                 $("#networkForm").show();
 
-                
+
                 $("#rssi_now").val(data.wifi.rssi);
                 $("#bssid").val(data.wifi.bssid);
                 $("#ssid").val(data.wifi.ssid);
-                
+
                 $("#rssi_low").val(data.wifi.rssi_low);
                 $("#sta_start").val(data.wifi.sta_start);
                 $("#sta_connected").val(data.wifi.sta_connected);
                 $("#sta_disconnected").val(data.wifi.sta_disconnected);
                 $("#sta_lost_ip").val(data.wifi.sta_lost_ip);
-                $("#sta_got_ip").val(data.wifi.sta_got_ip);             
+                $("#sta_got_ip").val(data.wifi.sta_got_ip);
 
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
@@ -1766,8 +1766,8 @@ $(function () {
                 $("#influxOrgId").val(data.influxdb.orgid);
                 $("#influxFreq").val(data.influxdb.frequency);
 
-                $("#haUrl").val(window.location.origin+"/ha");
-                $("#haAPI").val(data.ha.api);                
+                $("#haUrl").val(window.location.origin + "/ha");
+                $("#haAPI").val(data.ha.api);
 
                 $("#haForm").show();
                 $("#mqttForm").show();
@@ -2004,8 +2004,9 @@ $(function () {
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
 
                 $("#expected_cycles").val(data.chargeconfig.expectedlifetime_cycles);
-                $("#total_ah_charge").val(Math.trunc(data.chargeconfig.total_mah_charge/1000));
-                $("#total_ah_discharge").val(Math.trunc(data.chargeconfig.total_mah_discharge/1000));
+                $("#dischargedepth").val(data.chargeconfig.dischargedepth);
+                $("#total_ah_charge").val(Math.trunc(data.chargeconfig.total_mah_charge / 1000));
+                $("#total_ah_discharge").val(Math.trunc(data.chargeconfig.total_mah_discharge / 1000));
                 $("#estimate_bat_cycle").val(data.chargeconfig.estimatebatterycycle);
                 $("#stateofhealth").val((data.chargeconfig.stateofhealth).toFixed(2));
 
@@ -2135,7 +2136,7 @@ $(function () {
             },
         });
     });
-    
+
     $("#haForm").unbind('submit').submit(function (e) {
         e.preventDefault();
 
@@ -2152,7 +2153,7 @@ $(function () {
             },
         });
     });
-    
+
 
     $("#rulesForm").unbind('submit').submit(function (e) {
         e.preventDefault();
