@@ -1,16 +1,13 @@
-#ifndef DIYBMS_PYLON_CANBUS_H_
-#define DIYBMS_PYLON_CANBUS_H_
+#ifndef DIYBMS_PYLONFORCE_CANBUS_H_
+#define DIYBMS_PYLONFORCE_CANBUS_H_
 
 #include "defines.h"
 #include "Rules.h"
 #include <driver/twai.h>
 
-void pylon_message_356();
-void pylon_message_35e();
-void pylon_message_351();
-void pylon_message_355();
-void pylon_message_359();
-void pylon_message_35c();
+
+void pylonforce_handle_rx(twai_message_t *);
+void pylonforce_handle_tx();
 
 
 extern uint8_t TotalNumberOfCells();
@@ -22,7 +19,8 @@ extern ControllerState _controller_state;
 extern uint32_t canbus_messages_failed_sent;
 extern uint32_t canbus_messages_sent;
 extern uint32_t canbus_messages_received;
+extern bool wifi_isconnected;
 
-extern void send_canbus_message(uint32_t identifier, const uint8_t *buffer,const uint8_t length);
+extern void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length);
 
 #endif

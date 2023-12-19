@@ -1,0 +1,36 @@
+{
+    "build": {
+      "cpu": "cortex-m0",
+      "extra_flags": "-DSTM32F030x6",
+      "f_cpu": "48000000L",
+      "mcu": "stm32f030k6t6",
+      "product_line": "STM32F030x6",
+      "variant": "STM32F0xx/F030K6T"
+    },
+    "debug": {
+      "jlink_device": "STM32F030K6",
+      "openocd_target": "stm32f0x",
+      "svd_path": "STM32F0x0.svd"
+    },
+    "frameworks": [
+      "arduino",
+      "cmsis",
+      "stm32cube",
+      "libopencm3"
+    ],
+    "name": "GENERIC STM32F030K6T6",
+    "upload": {
+      "maximum_ram_size": 4096,
+      "maximum_size": 31744,
+      "protocol": "stlink",
+      "protocols": [
+        "dfu",
+        "jlink",
+        "stlink",
+        "blackmagic",
+        "serial"
+      ]
+    },
+    "url": "",
+    "vendor": ""
+  }

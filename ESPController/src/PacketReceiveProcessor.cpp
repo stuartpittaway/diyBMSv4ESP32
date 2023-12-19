@@ -1,21 +1,21 @@
 #define USE_ESP_IDF_LOG 1
-static constexpr const char * const TAG = "diybms-rx";
+static constexpr const char *const TAG = "diybms-rx";
 
 #include "PacketReceiveProcessor.h"
 
-bool PacketReceiveProcessor::HasCommsTimedOut()
+bool PacketReceiveProcessor::HasCommsTimedOut() const
 {
-  //We timeout the comms if we don't receive a packet within 3 times the normal
-  //round trip time of the packets through the modules (minimum of 10 seconds to cater for low numbers of modules)
+  // We timeout the comms if we don't receive a packet within 3 times the normal
+  // round trip time of the packets through the modules (minimum of 10 seconds to cater for low numbers of modules)
   uint32_t millisecondSinceLastPacket = millis() - packetLastReceivedMillisecond;
   return ((millisecondSinceLastPacket > 5 * packetTimerMillisecond) && (millisecondSinceLastPacket > 10000));
 }
 
-bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
+bool PacketReceiveProcessor::ProcessReply(const PacketStruct *receivebuffer)
 {
   packetsReceived++;
 
-  //TODO: VALIDATE REPLY START/END RANGES ARE VALID TO AVOID MEMORY BUFFER OVERRUNS
+  // TODO: VALIDATE REPLY START/END RANGES ARE VALID TO AVOID MEMORY BUFFER OVERRUNS
 
   // Copy to our buffer (probably don't need to do this), just use pointer instead
   memcpy(&_packetbuffer, receivebuffer, sizeof(_packetbuffer));
@@ -25,19 +25,15 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
   if (validateCRC == _packetbuffer.crc)
   {
-    //Its a valid packet...
-    packetLastReceivedMillisecond = millis();
+    // Its a valid packet...
+    packetLastReceivedMillisecond = (uint32_t)millis();
 
     totalModulesFound = _packetbuffer.hops;
 
-    //Careful of overflowing the uint16_t in sequence
+    // Careful of overflowing the uint16_t in sequence
     if (packetLastReceivedSequence > 0 && _packetbuffer.sequence > 0 && _packetbuffer.sequence != packetLastReceivedSequence + 1)
     {
-      SERIAL_DEBUG.println();
-      SERIAL_DEBUG.print(F("OOS Error, expected="));
-      SERIAL_DEBUG.print(packetLastReceivedSequence + 1, HEX);
-      SERIAL_DEBUG.print(", got=");
-      SERIAL_DEBUG.println(_packetbuffer.sequence, HEX);
+      ESP_LOGE(TAG, "OOS Error, expected=%u, got=%u", packetLastReceivedSequence + 1, _packetbuffer.sequence);
       totalOutofSequenceErrors++;
     }
 
@@ -45,7 +41,7 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
     if (ReplyWasProcessedByAModule())
     {
-      //ESP_LOGD(TAG, "Hops %u, start %u end %u, command=%u", _packetbuffer.hops, _packetbuffer.start_address, _packetbuffer.end_address,ReplyForCommand());
+      // ESP_LOGD(TAG, "Hops %u, start %u end %u, command=%u", _packetbuffer.hops, _packetbuffer.start_address, _packetbuffer.end_address,ReplyForCommand());
 
       switch (ReplyForCommand())
       {
@@ -54,11 +50,10 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
 
       case COMMAND::Timing:
       {
-        //uint32_t tnow = millis();
         uint32_t tnow = (_packetbuffer.moduledata[2] << 16) + _packetbuffer.moduledata[3];
         uint32_t tprevious = (_packetbuffer.moduledata[0] << 16) + _packetbuffer.moduledata[1];
 
-        //Check millis time hasn't rolled over
+        // Check millis time hasn't rolled over
         if (tnow > tprevious)
         {
           packetTimerMillisecond = tnow - tprevious;
@@ -69,15 +64,14 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
       case COMMAND::ReadVoltageAndStatus:
         ProcessReplyVoltage();
 
-        //ESP_LOGD(TAG, "Updated volt status cells %u to %u", _packetbuffer.start_address, _packetbuffer.end_address);
+        // ESP_LOGD(TAG, "Updated volt status cells %u to %u", _packetbuffer.start_address, _packetbuffer.end_address);
 
-
-        //TODO: REVIEW THIS LOGIC
+        // TODO: REVIEW THIS LOGIC
         if (_packetbuffer.end_address == _packetbuffer.hops - 1)
         {
-          //We have just processed a voltage reading for the entire chain of modules (all banks)
-          //at this point we should update any display or rules logic
-          //as we have a clean snapshot of voltages and statues
+          // We have just processed a voltage reading for the entire chain of modules (all banks)
+          // at this point we should update any display or rules logic
+          // as we have a clean snapshot of voltages and statues
 
           ESP_LOGD(TAG, "Finished all reads");
           if (voltageandstatussnapshot_task_handle != NULL)
@@ -101,7 +95,8 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
       case COMMAND::ReadSettings:
         ProcessReplySettings();
         break;
-
+      case COMMAND::WriteSettings:
+        break;
       case COMMAND::ReadBalancePowerPWM:
         ProcessReplyBalancePower();
         break;
@@ -112,6 +107,15 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
       case COMMAND::ReadPacketReceivedCounter:
         ProcessReplyReadPacketReceivedCounter();
         break;
+      case COMMAND::ResetBalanceCurrentCounter:
+        break;
+      case COMMAND::ReadAdditionalSettings:
+        ProcessReplyAdditionalSettings();
+        break;
+      case COMMAND::WriteAdditionalSettings:
+        break;
+      default:
+        ESP_LOGE(TAG, "Don't know how to process cmd reply %u", ReplyForCommand());
       }
 
 #if defined(PACKET_LOGGING_RECEIVE)
@@ -122,14 +126,14 @@ bool PacketReceiveProcessor::ProcessReply(PacketStruct *receivebuffer)
     }
     else
     {
-      //Error count for a request that was not processed by any module in the string
+      // Error count for a request that was not processed by any module in the string
       totalNotProcessedErrors++;
       ESP_LOGD(TAG, "Modules ignored request");
     }
   }
   else
   {
-    //crc error
+    // crc error
     totalCRCErrors++;
 #if defined(PACKET_LOGGING_RECEIVE)
     SERIAL_DEBUG.println(F("*CRC Error*"));
@@ -232,12 +236,23 @@ void PacketReceiveProcessor::ProcessReplyVoltage()
   }
 }
 
-void PacketReceiveProcessor::ProcessReplySettings()
+void PacketReceiveProcessor::ProcessReplyAdditionalSettings()
 {
-
   uint8_t m = _packetbuffer.start_address;
 
-  // TODO Validate b and m here to prevent array overflow
+  cmi[m].FanSwitchOnTemperature = (int16_t)_packetbuffer.moduledata[0];
+  cmi[m].RelayMinmV = _packetbuffer.moduledata[1];
+  cmi[m].RelayRangemV = _packetbuffer.moduledata[2];
+  cmi[m].ParasiteVoltagemV = _packetbuffer.moduledata[3];
+  cmi[m].RunAwayCellMinimumVoltagemV = _packetbuffer.moduledata[4];
+  cmi[m].RunAwayCellDifferentialmV = _packetbuffer.moduledata[5];
+}
+
+void PacketReceiveProcessor::ProcessReplySettings()
+{
+  uint8_t m = _packetbuffer.start_address;
+
+  // TODO: Validate m here to prevent array overflow
   cmi[m].settingsCached = true;
 
   FLOATUNION_t myFloat;
@@ -258,6 +273,7 @@ void PacketReceiveProcessor::ProcessReplySettings()
   cmi[m].mVPerADC = myFloat.number;
   // uint8_t
   cmi[m].BypassOverTempShutdown = _packetbuffer.moduledata[6] & 0x00FF;
+  cmi[m].ChangesProhibited = (_packetbuffer.moduledata[6] & 0x8000) > 0;
   // uint16_t
   cmi[m].BypassThresholdmV = _packetbuffer.moduledata[7];
   // uint16_t

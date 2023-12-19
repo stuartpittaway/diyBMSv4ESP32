@@ -4,6 +4,12 @@ static constexpr const char *const TAG = "diybms-webreq";
 #include "webserver.h"
 #include "webserver_helper_funcs.h"
 #include "webserver_json_requests.h"
+#include <esp_netif.h>
+#include <esp_wifi.h>
+extern "C"
+{
+#include "esp_core_dump.h"
+}
 
 esp_err_t content_handler_avrstorage(httpd_req_t *req)
 {
@@ -131,7 +137,7 @@ esp_err_t content_handler_rs485settings(httpd_req_t *req)
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
-int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t)
+int fileSystemListDirectory(httpd_req_t *r, char *buffer, size_t bufferLen, fs::FS &fs, const char *dirname, uint8_t)
 {
   // This needs to check for buffer overrun as too many files are likely to exceed the buffer capacity
   int bufferused = 0;
@@ -147,6 +153,7 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
     return 0;
   }
 
+  uint32_t filecounter = 0;
   File file = root.openNextFile();
   while (file)
   {
@@ -157,15 +164,28 @@ int fileSystemListDirectory(char *buffer, size_t bufferLen, fs::FS &fs, const ch
     else
     {
       bufferused += snprintf(&buffer[bufferused], bufferLen - bufferused, "\"%s\",", file.name());
+      filecounter++;
     }
 
     file = root.openNextFile();
+
+    if (filecounter > 50)
+    {
+      // Flush http buffer every X files to prevent overflows
+      httpd_resp_send_chunk(r, buffer, bufferused);
+      bufferused = 0;
+    }
   }
 
   // Trailing null to cope with trailing ','
   bufferused += snprintf(&buffer[bufferused], bufferLen - bufferused, "null");
 
   return bufferused;
+}
+
+esp_err_t content_handler_diagnostic(httpd_req_t *req)
+{
+  return diagnosticJSON(req, httpbuf, BUFSIZE);
 }
 
 esp_err_t content_handler_history(httpd_req_t *req)
@@ -224,7 +244,7 @@ esp_err_t content_handler_storage(httpd_req_t *req)
   {
     if (hal.GetVSPIMutex())
     {
-      bufferused += fileSystemListDirectory(&httpbuf[bufferused], BUFSIZE - bufferused, SD, "/", 2);
+      bufferused += fileSystemListDirectory(req, &httpbuf[bufferused], BUFSIZE - bufferused, SD, "/", 2);
       hal.ReleaseVSPIMutex();
     }
   }
@@ -236,7 +256,7 @@ esp_err_t content_handler_storage(httpd_req_t *req)
 
   bufferused = 0;
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"("total":%u,"used":%u,"files":[)", flash_totalkilobytes, flash_usedkilobytes);
-  bufferused += fileSystemListDirectory(&httpbuf[bufferused], BUFSIZE - bufferused, LittleFS, "/", 0);
+  bufferused += fileSystemListDirectory(req, &httpbuf[bufferused], BUFSIZE - bufferused, LittleFS, "/", 0);
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "]}}}");
 
   //  Send it...
@@ -287,6 +307,56 @@ esp_err_t SendFileInChunks(httpd_req_t *req, FS &filesystem, const char *filenam
     ESP_LOGE(TAG, "File not found");
     return ESP_ERR_NOT_FOUND;
   }
+}
+
+esp_err_t content_handler_coredumpdownloadfile(httpd_req_t *req)
+{
+  if (!validateXSS(req))
+  {
+    return ESP_FAIL;
+  }
+
+  ESP_LOGI(TAG, "Download coredump");
+
+  size_t size = 0;
+  size_t address = 0;
+  if (esp_core_dump_image_get(&address, &size) == ESP_OK)
+  {
+    const esp_partition_t *pt = NULL;
+    pt = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_COREDUMP, "coredump");
+
+    if (pt != NULL)
+    {
+
+      httpd_resp_set_type(req, "application/octet-stream");
+      httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"diybms_coredump.esp32\"");
+
+      // Stream it out...
+
+      int16_t toRead;
+      for (int16_t i = 0; i < (size / 256) + 1; i++)
+      {
+        toRead = (size - i * 256) > 256 ? 256 : (size - i * 256);
+
+        esp_err_t er = esp_partition_read(pt, i * 256, httpbuf, toRead);
+        if (er != ESP_OK)
+        {
+          ESP_LOGE(TAG, "Coredump download Fail [%x]\n", er);
+          break;
+        }
+
+        ESP_ERROR_CHECK_WITHOUT_ABORT(httpd_resp_send_chunk(req, httpbuf, 256));
+      }
+
+      // After download, erase the core dump from flash
+      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_core_dump_image_erase());
+
+      // Indicate last chunk (zero byte length)
+      return httpd_resp_send_chunk(req, httpbuf, 0);
+    }
+  }
+
+  return httpd_resp_send_err(req, httpd_err_code_t::HTTPD_400_BAD_REQUEST, "Bad request");
 }
 
 esp_err_t content_handler_downloadfile(httpd_req_t *req)
@@ -388,14 +458,11 @@ esp_err_t content_handler_identifymodule(httpd_req_t *req)
     // Only allow up to our pre-defined buffer length (100 bytes)
     if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK)
     {
-      ESP_LOGD(TAG, "Found URL query => %s", buf);
       char param[8];
       /* Get value of expected key from query string */
       if (httpd_query_key_value(buf, "c", param, sizeof(param)) == ESP_OK)
       {
-        c = atoi(param);
-
-        ESP_LOGD(TAG, "Found URL query parameter => query1=%s (%u)", param, c);
+        c = (uint8_t)atoi(param);
 
         if (c <= mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules)
         {
@@ -407,14 +474,15 @@ esp_err_t content_handler_identifymodule(httpd_req_t *req)
 
   if (valid)
   {
-    prg.sendIdentifyModuleRequest(c);
-    return SendSuccess(req);
+    ESP_LOGI(TAG, "Identify module %u", c);
+    if (prg.sendIdentifyModuleRequest(c))
+    {
+      return SendSuccess(req);
+    }
   }
-  else
-  {
-    // It failed!
-    return httpd_resp_send_500(req);
-  }
+
+  // It failed!
+  return httpd_resp_send_500(req);
 }
 
 esp_err_t content_handler_modules(httpd_req_t *req)
@@ -446,47 +514,50 @@ esp_err_t content_handler_modules(httpd_req_t *req)
     }
   }
 
-  if (valid)
+  if (!valid)
   {
-
-    if (cmi[c].settingsCached == false)
-    {
-      prg.sendGetSettingsRequest(c);
-    }
-
-    DynamicJsonDocument doc(2048);
-    JsonObject root = doc.to<JsonObject>();
-    JsonObject settings = root.createNestedObject("settings");
-
-    uint8_t b = c / mysettings.totalNumberOfSeriesModules;
-    uint8_t m = c - (b * mysettings.totalNumberOfSeriesModules);
-    settings["bank"] = b;
-    settings["module"] = m;
-    settings["id"] = c;
-    settings["ver"] = cmi[c].BoardVersionNumber;
-    settings["code"] = cmi[c].CodeVersionNumber;
-    settings["Cached"] = cmi[c].settingsCached;
-
-    if (cmi[c].settingsCached)
-    {
-      settings["BypassOverTempShutdown"] = cmi[c].BypassOverTempShutdown;
-      settings["BypassThresholdmV"] = cmi[c].BypassThresholdmV;
-      settings["LoadRes"] = cmi[c].LoadResistance;
-      settings["Calib"] = cmi[c].Calibration;
-      settings["mVPerADC"] = cmi[c].mVPerADC;
-      settings["IntBCoef"] = cmi[c].Internal_BCoefficient;
-      settings["ExtBCoef"] = cmi[c].External_BCoefficient;
-    }
-
-    int bufferused = 0;
-    bufferused += serializeJson(doc, httpbuf, BUFSIZE);
-    return httpd_resp_send(req, httpbuf, bufferused);
-  }
-  else
-  {
-    // It failed!
     return httpd_resp_send_500(req);
   }
+
+  if (cmi[c].settingsCached == false)
+  {
+    prg.sendGetSettingsRequest(c);
+  }
+
+  DynamicJsonDocument doc(2048);
+  JsonObject root = doc.to<JsonObject>();
+  JsonObject settings = root.createNestedObject("settings");
+
+  uint8_t b = c / mysettings.totalNumberOfSeriesModules;
+  uint8_t m = c - (b * mysettings.totalNumberOfSeriesModules);
+  settings["bank"] = b;
+  settings["module"] = m;
+  settings["id"] = c;
+  settings["ver"] = cmi[c].BoardVersionNumber;
+  settings["code"] = cmi[c].CodeVersionNumber;
+  settings["Cached"] = cmi[c].settingsCached;
+
+  if (cmi[c].settingsCached)
+  {
+    settings["BypassOverTempShutdown"] = cmi[c].BypassOverTempShutdown;
+    settings["BypassThresholdmV"] = cmi[c].BypassThresholdmV;
+    settings["LoadRes"] = cmi[c].LoadResistance;
+    settings["Calib"] = cmi[c].Calibration;
+    settings["mVPerADC"] = cmi[c].mVPerADC;
+    settings["IntBCoef"] = cmi[c].Internal_BCoefficient;
+    settings["ExtBCoef"] = cmi[c].External_BCoefficient;
+    settings["Prohibited"] = cmi[c].ChangesProhibited;
+    settings["FanSwitchOnT"] = cmi[c].FanSwitchOnTemperature;
+    settings["RelayMinV"] = cmi[c].RelayMinmV;
+    settings["RelayRange"] = cmi[c].RelayRangemV;
+    settings["Parasite"] = cmi[c].ParasiteVoltagemV;
+    settings["RunAwayMinmV"] = cmi[c].RunAwayCellMinimumVoltagemV;
+    settings["RunAwayDiffmV"] = cmi[c].RunAwayCellDifferentialmV;
+  }
+
+  int bufferused = 0;
+  bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+  return httpd_resp_send(req, httpbuf, bufferused);
 }
 
 esp_err_t content_handler_avrstatus(httpd_req_t *req)
@@ -529,6 +600,9 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   JsonObject settings = root.createNestedObject("chargeconfig");
 
   settings["canbusprotocol"] = mysettings.canbusprotocol;
+  settings["canbusinverter"] = mysettings.canbusinverter;
+  settings["canbusbaud"] = mysettings.canbusbaud;
+  settings["equip_addr"] = mysettings.canbus_equipment_addr;
   settings["nominalbatcap"] = mysettings.nominalbatcap;
   settings["chargevolt"] = mysettings.chargevolt;
   settings["chargecurrent"] = mysettings.chargecurrent;
@@ -553,16 +627,10 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   settings["cur_val1"] = mysettings.current_value1;
   settings["cur_val2"] = mysettings.current_value2;
 
-  /*settings["enabled"] = mysettings.VictronEnabled;
-  JsonArray cvl = settings.createNestedArray("cvl");
-  JsonArray ccl = settings.createNestedArray("ccl");
-  JsonArray dcl = settings.createNestedArray("dcl");
-  for (uint8_t i = 0; i < 3; i++)
-  {
-    cvl.add(mysettings.cvl[i]);
-    ccl.add(mysettings.ccl[i]);
-    dcl.add(mysettings.dcl[i]);
-  }*/
+  settings["absorptimer"] = mysettings.absorptiontimer;
+  settings["floattimer"] = mysettings.floatvoltagetimer;
+  settings["socresume"] = mysettings.stateofchargeresumevalue;
+  settings["floatvolt"] = mysettings.floatvoltage;
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
@@ -629,7 +697,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
     JsonObject rule = bankArray.createNestedObject();
     rule["value"] = mysettings.rulevalue[r];
     rule["hysteresis"] = mysettings.rulehysteresis[r];
-    rule["triggered"] = rules.rule_outcome[r];
+    rule["triggered"] = rules.ruleOutcome((Rule)r);
     JsonArray data = rule.createNestedArray("relays");
 
     for (auto v : mysettings.rulerelaystate[r])
@@ -677,12 +745,7 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   settings["MinutesTimeZone"] = mysettings.minutesTimeZone;
   settings["DST"] = mysettings.daylight;
 
-  settings["FreeHeap"] = ESP.getFreeHeap();
-  settings["MinFreeHeap"] = ESP.getMinFreeHeap();
-  settings["HeapSize"] = ESP.getHeapSize();
-  settings["SdkVersion"] = ESP.getSdkVersion();
-
-  settings["HostName"] = hostname;
+  settings["HostName"] = hostname.c_str();
 
   time_t now;
   if (time(&now))
@@ -692,7 +755,72 @@ esp_err_t content_handler_settings(httpd_req_t *req)
 
   char strftime_buf[64];
   formatCurrentDateTime(strftime_buf, sizeof(strftime_buf));
-  settings["datetime"] = String(strftime_buf);
+  settings["datetime"] = std::string(strftime_buf);
+
+  // Return running network settings
+  if (tcpip_adapter_is_netif_up(TCPIP_ADAPTER_IF_STA))
+  {
+    tcpip_adapter_ip_info_t ipInfo;
+    // Get actual/running IP networking for STA adapter...
+    if (tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ipInfo) == ESP_OK)
+    {
+      settings["run_ip"] = ip4_to_string(ipInfo.ip.addr);
+      settings["run_netmask"] = ip4_to_string(ipInfo.netmask.addr);
+      settings["run_gw"] = ip4_to_string(ipInfo.gw.addr);
+    }
+
+    tcpip_adapter_dns_info_t dnsInfo = {0};
+    // Primary DNS
+    if (tcpip_adapter_get_dns_info(TCPIP_ADAPTER_IF_STA, tcpip_adapter_dns_type_t::ESP_NETIF_DNS_MAIN, &dnsInfo) == ESP_OK)
+    {
+      if (dnsInfo.ip.type == IPADDR_TYPE_V4)
+      {
+        settings["run_dns1"] = ip4_to_string(dnsInfo.ip.u_addr.ip4.addr);
+      }
+    }
+    // Secondary DNS
+    if (tcpip_adapter_get_dns_info(TCPIP_ADAPTER_IF_STA, tcpip_adapter_dns_type_t::ESP_NETIF_DNS_BACKUP, &dnsInfo) == ESP_OK)
+    {
+      if (dnsInfo.ip.type == IPADDR_TYPE_V4)
+      {
+        settings["run_dns2"] = ip4_to_string(dnsInfo.ip.u_addr.ip4.addr);
+      }
+    }
+
+    settings["man_ip"] = ip4_to_string(_wificonfig.wifi_ip);
+    settings["man_netmask"] = ip4_to_string(_wificonfig.wifi_netmask);
+    settings["man_gw"] = ip4_to_string(_wificonfig.wifi_gateway);
+    settings["man_dns1"] = ip4_to_string(_wificonfig.wifi_dns1);
+    settings["man_dns2"] = ip4_to_string(_wificonfig.wifi_dns2);
+  }
+
+  JsonObject wifi = root.createNestedObject("wifi");
+
+  if (wifi_isconnected)
+  {
+    wifi_ap_record_t ap;
+    esp_wifi_sta_get_ap_info(&ap);
+    wifi["rssi"] = ap.rssi;
+    wifi["ssid"] = ap.ssid;
+
+    char macStr[18];
+    snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+             ap.bssid[0], ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5]);
+    wifi["bssid"] = macStr;
+  }
+  else
+  {
+    wifi["rssi"] = 0;
+    wifi["ssid"] = "";
+    wifi["bssid"] = "";
+  }
+
+  wifi["rssi_low"] = wifi_count_rssi_low;
+  wifi["sta_start"] = wifi_count_sta_start;
+  wifi["sta_connected"] = wifi_count_sta_connected;
+  wifi["sta_disconnected"] = wifi_count_sta_disconnected;
+  wifi["sta_lost_ip"] = wifi_count_sta_lost_ip;
+  wifi["sta_got_ip"] = wifi_count_sta_got_ip;
 
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
@@ -706,11 +834,22 @@ esp_err_t content_handler_integration(httpd_req_t *req)
   DynamicJsonDocument doc(1024);
   JsonObject root = doc.to<JsonObject>();
 
+  JsonObject ha = root.createNestedObject("ha");
+  ha["api"] = mysettings.homeassist_apikey;
+
   JsonObject mqtt = root.createNestedObject("mqtt");
   mqtt["enabled"] = mysettings.mqtt_enabled;
+  mqtt["basiccellreporting"] = mysettings.mqtt_basic_cell_reporting;
   mqtt["topic"] = mysettings.mqtt_topic;
   mqtt["uri"] = mysettings.mqtt_uri;
   mqtt["username"] = mysettings.mqtt_username;
+
+  mqtt["connected"] = mqttClient_connected;
+  mqtt["err_conn_count"] = mqtt_error_connection_count;
+  mqtt["err_trans_count"] = mqtt_error_transport_count;
+  mqtt["conn_count"] = mqtt_connection_count;
+  mqtt["disc_count"] = mqtt_disconnection_count;
+
   // We don't output the password in the json file as this could breach security
   // mqtt["password"] =mysettings.mqtt_password;
 
@@ -823,7 +962,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // Output the first batch of settings/parameters/values
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                         R"({"banks":%u,"seriesmodules":%u,"sent":%u,"received":%u,"modulesfnd":%u,"badcrc":%u,"ignored":%u,"roundtrip":%u,"oos":%u,"activerules":%u,"uptime":%u,"can_fail":%u,"can_sent":%u,"can_rec":%u,"sec":"%s","qlen":%u,)",
+                         R"({"banks":%u,"seriesmodules":%u,"sent":%u,"received":%u,"modulesfnd":%u,"badcrc":%u,"ignored":%u,"roundtrip":%u,"oos":%u,"activerules":%u,"uptime":%u,"can_fail":%u,"can_sent":%u,"can_rec":%u,"can_r_err":%u,"qlen":%u,"cmode":%u,"ctime":%i,)",
                          mysettings.totalNumberOfBanks,
                          mysettings.totalNumberOfSeriesModules,
                          prg.packetsGenerated,
@@ -833,10 +972,15 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          receiveProc.totalNotProcessedErrors,
                          receiveProc.packetTimerMillisecond,
                          receiveProc.totalOutofSequenceErrors,
-                         rules.active_rule_count, (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6),
-                         canbus_messages_failed_sent, canbus_messages_sent,
-                         canbus_messages_received, &CookieValue[sizeof(CookieValue) - 3],
-                         prg.queueLength());
+                         rules.active_rule_count,
+                         (uint32_t)(esp_timer_get_time() / (uint64_t)1e+6),
+                         canbus_messages_failed_sent,
+                         canbus_messages_sent,
+                         canbus_messages_received,
+                         canbus_messages_received_error,
+                         prg.queueLength(),
+                         (unsigned int)rules.getChargingMode(),
+                         rules.getChargingTimerSecondsRemaining());
 
   if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
   {
@@ -1116,7 +1260,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
     if (i)
       bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
-    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.bankvoltage[i]);
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%u", rules.bankvoltage.at(i));
   }
   bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "],");
 
@@ -1146,6 +1290,72 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
   return httpd_resp_send_chunk(req, httpbuf, 0);
 }
 
+/// @brief
+/// @param req Incoming HTTPD request handle
+/// @return Error/success status
+esp_err_t ha_handler(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setNoStoreCacheControl(req);
+
+  ESP_LOGI(TAG, "home assistant api request");
+
+  char buffer[128];
+  esp_err_t result = httpd_req_get_hdr_value_str(req, "ApiKey", buffer, sizeof(buffer));
+
+  if (result != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Missing header ApiKey");
+    return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, nullptr);
+  }
+
+  if (strncmp(mysettings.homeassist_apikey, buffer, strlen(mysettings.homeassist_apikey)) != 0)
+  {
+    ESP_LOGE(TAG, "Unauthorized ApiKey=%s", buffer);
+    return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, nullptr);
+  }
+
+  int bufferused = 0;
+
+  // Output the first batch of settings/parameters/values
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                         R"({"activerules":%u,"chgmode":%u,"lowbankv":%u,"highbankv":%u,"lowcellv":%u,"highcellv":%u,"highextt":%i,"highintt":%i)",
+                         rules.active_rule_count,
+                         (unsigned int)rules.getChargingMode(),
+                         rules.lowestBankVoltage,
+                         rules.highestBankVoltage,
+                         rules.lowestCellVoltage,
+                         rules.highestCellVoltage,
+                         rules.highestExternalTemp,
+                         rules.highestInternalTemp);
+
+  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
+  {
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                           R"(,"c":%.4f,"v":%.4f,"pwr":%.2f,"soc":%.2f)",
+                           currentMonitor.modbus.current,
+                           currentMonitor.modbus.voltage,
+                           currentMonitor.modbus.power,
+                           currentMonitor.stateofcharge);
+  }
+
+  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
+  {
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                           R"(,"dyncv":%u,"dyncc":%u)",
+                           rules.DynamicChargeVoltage(),
+                           rules.DynamicChargeCurrent());
+  }
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                         R"(,"chgallow":%u,"dischgallow":%u)",
+                         rules.IsChargeAllowed(&mysettings) ? 1 : 0,
+                         rules.IsDischargeAllowed(&mysettings) ? 1 : 0);
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "}");
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
 esp_err_t api_handler(httpd_req_t *req)
 {
   if (!validateXSS(req))
@@ -1153,19 +1363,24 @@ esp_err_t api_handler(httpd_req_t *req)
     return ESP_FAIL;
   }
 
-  const std::array<std::string, 15> uri_array = {
+  const std::array<std::string, 16> uri_array = {
       "monitor2", "monitor3", "integration",
       "settings", "rules", "rs485settings",
       "currentmonitor", "avrstatus", "modules",
       "identifyModule", "storage", "avrstorage",
-      "chargeconfig", "tileconfig", "history"};
+      "chargeconfig", "tileconfig", "history",
+      "diagnostic"};
 
-  const std::array<std::function<esp_err_t(httpd_req_t * req)>, 15> func_ptr = {
+  const std::array<std::function<esp_err_t(httpd_req_t * req)>, 16> func_ptr = {
       content_handler_monitor2, content_handler_monitor3, content_handler_integration,
       content_handler_settings, content_handler_rules, content_handler_rs485settings,
       content_handler_currentmonitor, content_handler_avrstatus, content_handler_modules,
       content_handler_identifymodule, content_handler_storage, content_handler_avrstorage,
-      content_handler_chargeconfig, content_handler_tileconfig, content_handler_history};
+      content_handler_chargeconfig, content_handler_tileconfig, content_handler_history,
+      content_handler_diagnostic};
+
+  // Ensure arrays are equal length
+  assert(uri_array.size() == func_ptr.size());
 
   auto name = std::string(req->uri);
   if (name.rfind("/api/", 0) == 0)

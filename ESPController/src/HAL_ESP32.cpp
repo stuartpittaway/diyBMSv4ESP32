@@ -15,11 +15,10 @@ SPIClass *HAL_ESP32::VSPI_Ptr() { return &vspi; }
 bool HAL_ESP32::MountSDCard()
 {
     bool result = false;
-    ESP_LOGI(TAG, "Mounting SD card");
     if (GetVSPIMutex())
     {
-        // Initialize SD card
-        if (SD.begin(SDCARD_CHIPSELECT, vspi))
+        // Initialize SD card at 16Mhz SPI
+        if (SD.begin(SDCARD_CHIPSELECT, vspi, 16000000U))
         {
             uint8_t cardType = SD.cardType();
             if (cardType == CARD_NONE)
@@ -28,7 +27,7 @@ bool HAL_ESP32::MountSDCard()
             }
             else
             {
-                ESP_LOGI(TAG, "SD card available");
+                ESP_LOGI(TAG, "SD card mounted, type %i", (int)cardType);
                 result = true;
             }
         }
@@ -281,19 +280,34 @@ void HAL_ESP32::Led(uint8_t bits)
     WriteTCA9534APWROutputState();
 }
 
-void HAL_ESP32::ConfigureCAN()
+void HAL_ESP32::ConfigureCAN(uint16_t canbusbaudrate) const
 {
     // Initialize configuration structures using macro initializers
     twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, TWAI_MODE_NORMAL);
-    twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
 
-    // Filter out all messages except 0x305 and 0x307
-    // https://docs.espressif.com/projects/esp-idf/en/v3.3.5/api-reference/peripherals/can.html
-    // 01100000101 00000 00000000 00000000 = 0x60A00000  (0x305)
-    // 01100000111 00000 00000000 00000000 = 0x60E00000  (0x307)
-    // 00000000010 11111 11111111 11111111 = 0x005FFFFF
-    //          ^ THIS BIT IS IGNORED USING THE MASK SO 0x305 and 0x307 are permitted
-    twai_filter_config_t f_config = {.acceptance_code = 0x60A00000, .acceptance_mask = 0x005FFFFF, .single_filter = true};
+    twai_timing_config_t t_config;
+    if (canbusbaudrate == 250)
+    {
+        t_config = TWAI_TIMING_CONFIG_250KBITS();
+    }
+    else
+    {
+        //Default 500K rate
+        t_config = TWAI_TIMING_CONFIG_500KBITS();
+    }
+
+
+    // We need the CAN ids:
+    // * Pylontech LV battery: 0x305, 0x307
+    // * Pylontech Force HV battery: 0x4200, 0x8200, 0x8210
+    // from these ids we _can not_ derive a filter that makes sense, i.e.
+    // twai_filter_config_t f_config = {
+    //    .acceptance_code = 0x305<<21 & 0x307<<21 & 0x4200<<3 & 0x8200<<3 & 0x8210<<3, // 0
+    //    .acceptance_mask = 0x305<<21 | 0x307<<21 | 0x4200<<3 | 0x8200<<3 | 0x8210<<3, // 0x60E61080
+    //    .single_filter = true
+    // };
+    // ----> acceptance_code == 0, so we can only set ALL
+    twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
     // Install CAN driver
     if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK)
@@ -375,7 +389,7 @@ void HAL_ESP32::ConfigurePins()
     digitalWrite(SDCARD_CHIPSELECT, HIGH);
 
     // Onboard INA229 current monitoring chip
-    pinMode(INA229_INTERRUPT_PIN,INPUT);
+    pinMode(INA229_INTERRUPT_PIN, INPUT);
     pinMode(INA229_CHIPSELECT, OUTPUT);
     digitalWrite(INA229_CHIPSELECT, HIGH);
 

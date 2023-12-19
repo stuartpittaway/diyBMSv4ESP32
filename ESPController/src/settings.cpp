@@ -29,6 +29,7 @@ static const char rs485parity_JSONKEY[] = "rs485parity";
 static const char rs485stopbits_JSONKEY[] = "rs485stopbits";
 static const char language_JSONKEY[] = "language";
 static const char mqtt_enabled_JSONKEY[] = "enabled";
+static const char mqtt_basic_cell_reporting_JSONKEY[] = "basiccellrpt";
 static const char mqtt_uri_JSONKEY[] = "uri";
 static const char mqtt_topic_JSONKEY[] = "topic";
 static const char mqtt_username_JSONKEY[] = "username";
@@ -40,6 +41,9 @@ static const char influxdb_orgid_JSONKEY[] = "org";
 static const char influxdb_serverurl_JSONKEY[] = "url";
 static const char influxdb_loggingFreqSeconds_JSONKEY[] = "logfreq";
 static const char canbusprotocol_JSONKEY[] = "canbusprotocol";
+static const char canbusinverter_JSONKEY[] = "canbusinverter";
+static const char canbusbaud_JSONKEY[] = "canbusbaud";
+static const char canbus_equipment_addr_JSONKEY[] = "canbusequip";
 static const char nominalbatcap_JSONKEY[] = "nominalbatcap";
 static const char chargevolt_JSONKEY[] = "chargevolt";
 static const char chargecurrent_JSONKEY[] = "chargecurrent";
@@ -81,6 +85,12 @@ static const char currentMonitoring_overpowerlimit_JSONKEY[] = "currentMonitorin
 static const char currentMonitoring_shunttempcoefficient_JSONKEY[] = "currentMonitoringShuntTempCoeff";
 static const char currentMonitoring_tempcompenabled_JSONKEY[] = "currentMonitoringTempCompEnable";
 
+static const char absorptiontimer_JSONKEY[] = "absorptiontimer";
+static const char floatvoltage_JSONKEY[] = "floatvoltage";
+static const char floatvoltagetimer_JSONKEY[] = "floatvoltagetimer";
+static const char stateofchargeresumevalue_JSONKEY[] = "stateofchargeresumevalue";
+static const char homeassist_apikey_JSONKEY[] = "homeassistapikey";
+
 /* NVS KEYS
 THESE STRINGS ARE USED TO HOLD THE PARAMETER IN NVS FLASH, MAXIMUM LENGTH OF 16 CHARACTERS
 */
@@ -110,6 +120,9 @@ static const char rs485databits_NVSKEY[] = "485databits";
 static const char rs485parity_NVSKEY[] = "485parity";
 static const char rs485stopbits_NVSKEY[] = "485stopbits";
 static const char canbusprotocol_NVSKEY[] = "canbusprotocol";
+static const char canbusinverter_NVSKEY[] = "canbusinverter";
+static const char canbusbaud_NVSKEY[] = "canbusbaud";
+static const char canbus_equipment_addr_NVSKEY[]="canbusequip";
 static const char nominalbatcap_NVSKEY[] = "nominalbatcap";
 static const char chargevolt_NVSKEY[] = "cha_volt";
 static const char chargecurrent_NVSKEY[] = "cha_current";
@@ -133,6 +146,7 @@ static const char dynamiccharge_NVSKEY[] = "dynamiccharge";
 static const char preventcharging_NVSKEY[] = "preventchar";
 static const char preventdischarge_NVSKEY[] = "preventdis";
 static const char mqtt_enabled_NVSKEY[] = "mqttenable";
+static const char mqtt_basic_cell_reporting_NVSKEY[] = "basiccellrpt";
 static const char influxdb_enabled_NVSKEY[] = "infenabled";
 static const char influxdb_loggingFreqSeconds_NVSKEY[] = "inflogFreq";
 static const char tileconfig_NVSKEY[] = "tileconfig";
@@ -163,6 +177,12 @@ static const char currentMonitoring_overpowerlimit_NVSKEY[] = "curMonoverpower";
 static const char currentMonitoring_shunttempcoefficient_NVSKEY[] = "curMontempcoef";
 static const char currentMonitoring_tempcompenabled_NVSKEY[] = "curMonTempCompE";
 
+static const char absorptiontimer_NVSKEY[] = "absorptimer";
+static const char floatvoltage_NVSKEY[] = "floatV";
+static const char floatvoltagetimer_NVSKEY[] = "floatVtimer";
+static const char stateofchargeresumevalue_NVSKEY[] = "socresume";
+static const char homeassist_apikey_NVSKEY[] = "haapikey";
+
 #define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
 #define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
 #define MACRO_NVSWRITESTRING(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, &settings->VARNAME[0]);
@@ -179,7 +199,7 @@ bool ValidateGetSetting(esp_err_t err, const char *key)
     switch (err)
     {
     case ESP_OK:
-        ESP_LOGI(TAG, "Read key (%s)", key);
+        ESP_LOGD(TAG, "Read key (%s)", key);
         return true;
         break;
     case ESP_ERR_NVS_NOT_FOUND:
@@ -209,12 +229,12 @@ bool getSetting(nvs_handle_t handle, const char *key, int32_t *out_value)
 {
     return ValidateGetSetting(nvs_get_i32(handle, key, out_value), key);
 }
-/*
+
 bool getSetting(nvs_handle_t handle, const char *key, uint32_t *out_value)
 {
     return ValidateGetSetting(nvs_get_u32(handle, key, out_value), key);
 }
-*/
+
 bool getSetting(nvs_handle_t handle, const char *key, int8_t *out_value)
 {
     return ValidateGetSetting(nvs_get_i8(handle, key, out_value), key);
@@ -223,7 +243,7 @@ bool getSetting(nvs_handle_t handle, const char *key, int8_t *out_value)
 bool getSettingBlob(nvs_handle_t handle, const char *key, void *out_value, size_t size)
 {
     size_t stored_size = 0;
-    esp_err_t err = nvs_get_blob(handle, key, NULL, &stored_size);
+    esp_err_t err = nvs_get_blob(handle, key, nullptr, &stored_size);
     if (err == ESP_ERR_NVS_NOT_FOUND)
     {
         ESP_LOGW(TAG, "Key not initialized (%s)", key);
@@ -324,7 +344,6 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
     }
     else
     {
-
         // Save settings
         MACRO_NVSWRITE(totalNumberOfBanks)
         MACRO_NVSWRITE(totalNumberOfSeriesModules)
@@ -354,7 +373,10 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE_UINT8(rs485databits);
         MACRO_NVSWRITE_UINT8(rs485parity);
         MACRO_NVSWRITE_UINT8(rs485stopbits);
-        MACRO_NVSWRITE_UINT8(canbusprotocol);     
+        MACRO_NVSWRITE_UINT8(canbusprotocol);
+        MACRO_NVSWRITE_UINT8(canbusinverter);
+        MACRO_NVSWRITE(canbusbaud);
+        MACRO_NVSWRITE_UINT8(canbus_equipment_addr);
 
         MACRO_NVSWRITE(currentMonitoring_shuntmv);
         MACRO_NVSWRITE(currentMonitoring_shuntmaxcur);
@@ -396,6 +418,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(preventcharging);
         MACRO_NVSWRITE(preventdischarge);
         MACRO_NVSWRITE(mqtt_enabled);
+        MACRO_NVSWRITE(mqtt_basic_cell_reporting);
         MACRO_NVSWRITE(influxdb_enabled);
         MACRO_NVSWRITE(influxdb_loggingFreqSeconds);
 
@@ -411,6 +434,13 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITESTRING(influxdb_databasebucket);
         MACRO_NVSWRITESTRING(influxdb_apitoken);
         MACRO_NVSWRITESTRING(influxdb_orgid);
+
+        MACRO_NVSWRITE(absorptiontimer);
+        MACRO_NVSWRITE(floatvoltage);
+        MACRO_NVSWRITE(floatvoltagetimer);
+        MACRO_NVSWRITE(stateofchargeresumevalue);
+
+        MACRO_NVSWRITESTRING(homeassist_apikey);
 
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
@@ -489,6 +519,9 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD_UINT8(rs485parity);
         MACRO_NVSREAD_UINT8(rs485stopbits);
         MACRO_NVSREAD_UINT8(canbusprotocol);
+        MACRO_NVSREAD_UINT8(canbusinverter);
+        MACRO_NVSREAD(canbusbaud);
+        MACRO_NVSREAD_UINT8(canbus_equipment_addr)
         MACRO_NVSREAD(nominalbatcap);
         MACRO_NVSREAD(chargevolt);
         MACRO_NVSREAD(chargecurrent);
@@ -514,6 +547,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(preventdischarge);
 
         MACRO_NVSREAD(mqtt_enabled);
+        MACRO_NVSREAD(mqtt_basic_cell_reporting);
         MACRO_NVSREAD(influxdb_enabled);
         MACRO_NVSREAD(influxdb_loggingFreqSeconds);
 
@@ -529,6 +563,14 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREADSTRING(influxdb_databasebucket);
         MACRO_NVSREADSTRING(influxdb_apitoken);
         MACRO_NVSREADSTRING(influxdb_orgid);
+
+        MACRO_NVSREAD(absorptiontimer);
+        MACRO_NVSREAD(floatvoltage);
+        MACRO_NVSREAD(floatvoltagetimer);
+        MACRO_NVSREAD_UINT8(stateofchargeresumevalue);
+
+        MACRO_NVSREADSTRING(homeassist_apikey);
+
         nvs_close(nvs_handle);
     }
 
@@ -557,8 +599,13 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
     // EEPROM settings are invalid so default configuration
     _myset->mqtt_enabled = false;
+    _myset->mqtt_basic_cell_reporting = false;
 
     _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+    _myset->canbusinverter = CanBusInverter::INVERTER_GENERIC;
+
+    _myset->canbus_equipment_addr = 0;
+    _myset->canbusbaud=500;
     _myset->nominalbatcap = 280;    // Scale 1
     _myset->chargevolt = 565;       // Scale 0.1
     _myset->chargecurrent = 650;    // Scale 0.1
@@ -696,14 +743,25 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
     // Override hysteresis values if needed
     _myset->rulehysteresis[Rule::BankRange] = 15;
+
+    // Below makes reference to "float" this doesn't really exist in Lithium world
+    // Once state of charge exceeds 99%, wait this many minutes until switching to float mode
+    _myset->absorptiontimer = 60;
+    // Voltage to drop to when in float mode. Scale 0.1 (3.3V * 16)
+    _myset->floatvoltage = 528;
+    // Wait this many minutes in float mode before disabling charge completely (6 hours)
+    _myset->floatvoltagetimer = 6 * 60;
+    // Once battery SoC drops below this value, resume normal charging operation
+    _myset->stateofchargeresumevalue = 96;
 }
 
-void SaveWIFI(wifi_eeprom_settings *wifi)
+/// @brief Save WIFI settings into FLASH NVS
+/// @param wifi
+void SaveWIFI(const wifi_eeprom_settings *wifi)
 {
     const char *partname = "diybms-wifi";
     ESP_LOGI(TAG, "Save WIFI config");
 
-    wifi_eeprom_settings x;
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(partname, NVS_READWRITE, &nvs_handle);
     if (err != ESP_OK)
@@ -715,6 +773,13 @@ void SaveWIFI(wifi_eeprom_settings *wifi)
         // Write values
         ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "SSID", &wifi->wifi_ssid[0]));
         ESP_ERROR_CHECK(nvs_set_str(nvs_handle, "PASS", &wifi->wifi_passphrase[0]));
+
+        ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "IP", wifi->wifi_ip));
+        ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "GATEWAY", wifi->wifi_gateway));
+        ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "NETMASK", wifi->wifi_netmask));
+        ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "DNS1", wifi->wifi_dns1));
+        ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "DNS2", wifi->wifi_dns2));
+        ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "MANUALCONFIG", wifi->manualConfig));
         nvs_close(nvs_handle);
     }
 }
@@ -722,30 +787,39 @@ void SaveWIFI(wifi_eeprom_settings *wifi)
 bool LoadWIFI(wifi_eeprom_settings *wifi)
 {
     const char *partname = "diybms-wifi";
-    ESP_LOGI(TAG, "Load WIFI config");
 
     bool result = false;
     wifi_eeprom_settings x;
+    memset(&x, 0, sizeof(x));
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open(partname, NVS_READONLY, &nvs_handle);
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "Error (%s) opening NVS handle", esp_err_to_name(err));
+        return false;
     }
-    else
+
+    if (
+        getString(nvs_handle, "SSID", &x.wifi_ssid[0], sizeof(x.wifi_ssid)) &&
+        getString(nvs_handle, "PASS", &x.wifi_passphrase[0], sizeof(x.wifi_passphrase)) &&
+        getSetting(nvs_handle, "IP", &x.wifi_ip) &&
+        getSetting(nvs_handle, "GATEWAY", &x.wifi_gateway) &&
+        getSetting(nvs_handle, "NETMASK", &x.wifi_netmask) &&
+        getSetting(nvs_handle, "DNS1", &x.wifi_dns1) &&
+        getSetting(nvs_handle, "DNS2", &x.wifi_dns2) &&
+        getSetting(nvs_handle, "MANUALCONFIG", &x.manualConfig))
     {
-        if (getString(nvs_handle, "SSID", &x.wifi_ssid[0], sizeof(x.wifi_ssid)))
-        {
-            if (getString(nvs_handle, "PASS", &x.wifi_passphrase[0], sizeof(x.wifi_passphrase)))
-            {
-                // Only return success if both values are retrieved, don't corrupt
-                // external copy of wifi settings otherwise.
-                memcpy(wifi, &x, sizeof(x));
-                result = true;
-            }
-        }
-        nvs_close(nvs_handle);
+        // Only return success if all values are retrieved, don't corrupt
+        // external copy of wifi settings otherwise.
+        memcpy(wifi, &x, sizeof(x));
+        result = true;
     }
+
+    nvs_close(nvs_handle);
+
+    ESP_LOGI(TAG, "Load WIFI config from FLASH - return %u", result);
+
+    ESP_LOGI(TAG, "IP=%u,GW=%u", x.wifi_ip, x.wifi_gateway);
 
     return result;
 }
@@ -871,6 +945,28 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
             settings->rulehysteresis[index] = settings->rulevalue[index];
         }
     }
+
+    // 24hr max
+    if (settings->absorptiontimer > 60 * 24)
+    {
+        settings->absorptiontimer = settings->absorptiontimer;
+    }
+    if (settings->floatvoltagetimer > 60 * 24)
+    {
+        settings->floatvoltagetimer = settings->floatvoltagetimer;
+    }
+
+    // Float voltage must be equal or below charge voltage
+    if (settings->floatvoltage > settings->chargevolt)
+    {
+        settings->floatvoltage = settings->chargevolt;
+    }
+
+    // SoC cannot be over 99%
+    if (settings->stateofchargeresumevalue > 99)
+    {
+        settings->stateofchargeresumevalue = settings->stateofchargeresumevalue;
+    }
 }
 
 // Builds up a JSON document which mirrors the parameters inside "diybms_eeprom_settings"
@@ -919,8 +1015,11 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[rs485stopbits_JSONKEY] = settings->rs485stopbits;
     root[language_JSONKEY] = settings->language;
 
+    root[homeassist_apikey_JSONKEY]=settings->homeassist_apikey;
+
     JsonObject mqtt = root.createNestedObject("mqtt");
     mqtt[mqtt_enabled_JSONKEY] = settings->mqtt_enabled;
+    mqtt[mqtt_basic_cell_reporting_JSONKEY] = settings->mqtt_basic_cell_reporting;
     mqtt[mqtt_uri_JSONKEY] = settings->mqtt_uri;
     mqtt[mqtt_topic_JSONKEY] = settings->mqtt_topic;
     mqtt[mqtt_username_JSONKEY] = settings->mqtt_username;
@@ -949,11 +1048,11 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
         // This is a default "catch all"
         String elementName = String("rule") + String(rr);
 
-        if (rr >= 0 && rr <= MAXIMUM_RuleNumber)
+        if (rr <= MAXIMUM_RuleNumber)
         {
             // Map enum to string so when this file is re-imported we are not locked to specific index offsets
             // which may no longer map to the correct rule
-            elementName = String(RuleTextDescription[rr]);
+            elementName = String(Rules::RuleTextDescription.at(rr).c_str());
         }
         else
         {
@@ -973,6 +1072,9 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     } // end for
 
     root[canbusprotocol_JSONKEY] = (uint8_t)settings->canbusprotocol;
+    root[canbusinverter_JSONKEY] = (uint8_t)settings->canbusinverter;
+    root[canbusbaud_JSONKEY] = settings->canbusbaud;
+    root[canbus_equipment_addr_JSONKEY]=settings->canbus_equipment_addr;
     root[nominalbatcap_JSONKEY] = settings->nominalbatcap;
 
     root[chargevolt_JSONKEY] = settings->chargevolt;
@@ -998,6 +1100,11 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[sensitivity_JSONKEY] = settings->sensitivity;
     root[current_value1_JSONKEY] = settings->current_value1;
     root[current_value2_JSONKEY] = settings->current_value2;
+
+    root[absorptiontimer_JSONKEY] = settings->absorptiontimer;
+    root[floatvoltage_JSONKEY] = settings->floatvoltage;
+    root[floatvoltagetimer_JSONKEY] = settings->floatvoltagetimer;
+    root[stateofchargeresumevalue_JSONKEY] = settings->stateofchargeresumevalue;
 
     JsonArray tv = root.createNestedArray("tilevisibility");
     for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
@@ -1068,6 +1175,9 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     strncpy(settings->language, root[language_JSONKEY].as<String>().c_str(), sizeof(settings->language));
 
     settings->canbusprotocol = (CanBusProtocolEmulation)root[canbusprotocol_JSONKEY];
+    settings->canbusinverter = (CanBusInverter)root[canbusinverter_JSONKEY];
+    settings->canbusbaud = root[canbusbaud_JSONKEY];
+    settings->canbus_equipment_addr=root[canbus_equipment_addr_JSONKEY];
     settings->nominalbatcap = root[nominalbatcap_JSONKEY];
     settings->chargevolt = root[chargevolt_JSONKEY];
     settings->chargecurrent = root[chargecurrent_JSONKEY];
@@ -1091,10 +1201,18 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->current_value1 = root[current_value1_JSONKEY];
     settings->current_value2 = root[current_value2_JSONKEY];
 
+    settings->absorptiontimer=root[absorptiontimer_JSONKEY];
+    settings->floatvoltage=root[floatvoltage_JSONKEY];
+    settings->floatvoltagetimer=root[floatvoltagetimer_JSONKEY];
+    settings->stateofchargeresumevalue=root[stateofchargeresumevalue_JSONKEY];
+
+    strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
+
     JsonObject mqtt = root["mqtt"];
     if (!mqtt.isNull())
     {
         settings->mqtt_enabled = mqtt[mqtt_enabled_JSONKEY];
+        settings->mqtt_basic_cell_reporting=mqtt[mqtt_basic_cell_reporting_JSONKEY];
         strncpy(settings->mqtt_uri, mqtt[mqtt_uri_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_uri));
         strncpy(settings->mqtt_topic, mqtt[mqtt_topic_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_topic));
         strncpy(settings->mqtt_username, mqtt[mqtt_username_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_username));
@@ -1149,26 +1267,21 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     {
         for (JsonPair kv : rules)
         {
-            char key[64];
-            strncpy(key, kv.key().c_str(), sizeof(key));
-            ESP_LOGI(TAG, "rule %s", key);
-
             for (size_t rulenumber = 0; rulenumber <= MAXIMUM_RuleNumber; rulenumber++)
             {
-                if (strcmp(RuleTextDescription[rulenumber], key) == 0)
+                if (Rules::RuleTextDescription.at(rulenumber).compare(kv.key().c_str()) == 0)
                 {
-                    ESP_LOGI(TAG, "Matched to rule %u", rulenumber);
                     JsonVariant v = kv.value();
-                    settings->rulevalue[rulenumber] = v["value"].as<uint32_t>();
-                    // ESP_LOGI(TAG, "value=%i", myset.rulevalue[rulenumber]);
-                    settings->rulehysteresis[rulenumber] = v["hysteresis"].as<uint32_t>();
-                    // ESP_LOGI(TAG, "hysteresis=%i", myset.rulehysteresis[rulenumber]);
+                    settings->rulevalue[rulenumber] = v["value"].as<int32_t>();
+                    settings->rulehysteresis[rulenumber] = v["hysteresis"].as<int32_t>();
                     JsonArray states = v["state"].as<JsonArray>();
 
+                    ESP_LOGI(TAG, "Matched to rule %u:%s, value=%i,hysteresis=%i", rulenumber, Rules::RuleTextDescription.at(rulenumber).c_str(), settings->rulevalue[rulenumber], settings->rulehysteresis[rulenumber]);
+
                     uint8_t i = 0;
-                    for (JsonVariant v : states)
+                    for (JsonVariant x : states)
                     {
-                        settings->rulerelaystate[rulenumber][i] = (RelayState)v.as<uint8_t>();
+                        settings->rulerelaystate[rulenumber][i] = (RelayState)x.as<uint8_t>();
                         // ESP_LOGI(TAG, "rulerelaystate %u", myset.rulerelaystate[rulenumber][i]);
                         i++;
                         if (i > RELAY_TOTAL)

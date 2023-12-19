@@ -519,7 +519,7 @@ return_failure:
   resumeTasksAfterFirmwareUpdateFailure();
 
   httpd_resp_set_status(req, HTTPD_500); // Assume failure
-  httpd_resp_send(req, NULL, 0);
+  httpd_resp_send(req, nullptr, 0);
   return ESP_FAIL;
 }
 
@@ -528,28 +528,37 @@ static const httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handle
 static const httpd_uri_t uri_defaulthtm_get = {.uri = "/default.htm", .method = HTTP_GET, .handler = default_htm_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_api_get = {.uri = "/api/*", .method = HTTP_GET, .handler = api_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler = content_handler_downloadfile, .user_ctx = NULL};
+static const httpd_uri_t uri_coredump_get = {.uri = "/coredump", .method = HTTP_GET, .handler = content_handler_coredumpdownloadfile, .user_ctx = NULL};
+
 static const httpd_uri_t uri_save_data_post = {.uri = "/post/*", .method = HTTP_POST, .handler = save_data_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = NULL};
 
 static const httpd_uri_t uri_ota_post = {.uri = "/ota", .method = HTTP_POST, .handler = ota_post_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_uploadfile_post = {.uri = "/uploadfile", .method = HTTP_POST, .handler = uploadfile_post_handler, .user_ctx = NULL};
 
-void resetModuleMinMaxVoltage(uint8_t module)
+static const httpd_uri_t uri_homeassist_get = {.uri = "/ha", .method = HTTP_GET, .handler = ha_handler, .user_ctx = NULL};
+
+void resetModuleMinMaxVoltage(uint8_t m)
 {
-  cmi[module].voltagemVMin = 6000;
-  cmi[module].voltagemVMax = 0;
+  cmi[m].voltagemVMin = 9999;
+  cmi[m].voltagemVMax = 0;
 }
 
-void clearModuleValues(uint8_t module)
+void clearModuleValues(uint8_t m)
 {
-  cmi[module].valid = false;
-  cmi[module].voltagemV = 0;
-  cmi[module].badPacketCount = 0;
-  cmi[module].inBypass = false;
-  cmi[module].bypassOverTemp = false;
-  cmi[module].internalTemp = -40;
-  cmi[module].externalTemp = -40;
-  resetModuleMinMaxVoltage(module);
+  cmi[m].valid = false;
+  cmi[m].voltagemV = 0;
+  cmi[m].badPacketCount = 0;
+  cmi[m].inBypass = false;
+  cmi[m].bypassOverTemp = false;
+  cmi[m].internalTemp = -40;
+  cmi[m].externalTemp = -40;
+
+  cmi[m].FanSwitchOnTemperature = 0;
+  cmi[m].RelayMinmV = 0;
+  cmi[m].RelayRangemV = 0;
+  cmi[m].ParasiteVoltagemV = 0;
+  resetModuleMinMaxVoltage(m);
 }
 
 #ifdef USE_WEBSOCKET_DEBUG_LOG
@@ -611,10 +620,10 @@ httpd_handle_t start_webserver(void)
   /* Generate default configuration */
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
-  config.max_uri_handlers = 10;
-  config.max_open_sockets = 7;
+  config.max_uri_handlers = 11;
+  config.max_open_sockets = 8;
   config.max_resp_headers = 16;
-  config.stack_size = 5000;
+  config.stack_size = 6250;
   config.uri_match_fn = httpd_uri_match_wildcard;
   config.lru_purge_enable = true;
 
@@ -631,6 +640,7 @@ httpd_handle_t start_webserver(void)
     // Web services/API
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_api_get));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_download_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_coredump_get));
 
     // Post services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_save_data_post));
@@ -638,6 +648,9 @@ httpd_handle_t start_webserver(void)
     // OTA services
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_ota_post));
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_uploadfile_post));
+
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_homeassist_get));
+
 
 #ifdef USE_WEBSOCKET_DEBUG_LOG
     // Websocket

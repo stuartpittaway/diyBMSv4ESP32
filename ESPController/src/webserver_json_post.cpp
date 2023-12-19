@@ -4,6 +4,7 @@ static constexpr const char *const TAG = "diybms-webpost";
 #include "webserver.h"
 #include "webserver_json_post.h"
 #include "webserver_helper_funcs.h"
+#include <esp_netif.h>
 
 esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
@@ -78,12 +79,15 @@ esp_err_t post_savemqtt_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     // Default to off
     mysettings.mqtt_enabled = false;
+    mysettings.mqtt_basic_cell_reporting = false;
 
     // Username and password are optional and may not be HTTP posted from web browser
     memset(mysettings.mqtt_username, 0, sizeof(mysettings.mqtt_username));
     memset(mysettings.mqtt_password, 0, sizeof(mysettings.mqtt_password));
 
     GetKeyValue(httpbuf, "mqttEnabled", &mysettings.mqtt_enabled, urlEncoded);
+
+    GetKeyValue(httpbuf, "mqttBasicReporting", &mysettings.mqtt_basic_cell_reporting, urlEncoded);
 
     GetTextFromKeyValue(httpbuf, "mqttTopic", mysettings.mqtt_topic, sizeof(mysettings.mqtt_topic), urlEncoded);
 
@@ -218,45 +222,12 @@ esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlE
 
 esp_err_t post_savewificonfigtosdcard_json_handler(httpd_req_t *req, bool)
 {
-    if (!_sd_card_installed)
+    if (SaveWIFIJson(&_wificonfig))
     {
-        return SendFailure(req);
+        return SendSuccess(req);
     }
 
-    if (_avrsettings.programmingModeEnabled)
-    {
-        return SendFailure(req);
-    }
-
-    if (hal.GetVSPIMutex())
-    {
-        const char *wificonfigfilename = "/diybms/wifi.json";
-
-        ESP_LOGI(TAG, "Creating folder");
-        SD.mkdir("/diybms");
-
-        // Get the file
-        ESP_LOGI(TAG, "Generating SD file %s", wificonfigfilename);
-        StaticJsonDocument<512> doc;
-
-        JsonObject wifi = doc.createNestedObject("wifi");
-        wifi["ssid"] = _wificonfig.wifi_ssid;
-        wifi["password"] = _wificonfig.wifi_passphrase;
-
-        if (SD.exists(wificonfigfilename))
-        {
-            ESP_LOGI(TAG, "Delete existing file %s", wificonfigfilename);
-            SD.remove(wificonfigfilename);
-        }
-
-        File file = SD.open(wificonfigfilename, "w");
-        serializeJson(doc, file);
-        file.close();
-
-        hal.ReleaseVSPIMutex();
-    }
-
-    return SendSuccess(req);
+    return SendFailure(req);
 }
 
 esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded)
@@ -276,19 +247,14 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded)
         else
         {
 
+            if (cmi[m].ChangesProhibited)
+            {
+                return SendFailure(req);
+            }
+
             uint8_t BypassOverTempShutdown = 0xFF;
             uint16_t BypassThresholdmV = 0xFFFF;
-
-            // Resistance of bypass load
-            // float LoadResistance = 0xFFFF;
-            // Voltage Calibration
             float Calibration = 0xFFFF;
-            // Reference voltage (millivolt) normally 2.00mV
-            // float mVPerADC = 0xFFFF;
-            // Internal Thermistor settings
-            // uint16_t Internal_BCoefficient = 0xFFFF;
-            // External Thermistor settings
-            // uint16_t External_BCoefficient = 0xFFFF;
 
             if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &BypassOverTempShutdown, urlEncoded))
             {
@@ -298,8 +264,26 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded)
                     {
                         if (prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration))
                         {
-                            clearModuleValues(m);
 
+                            if (cmi[m].BoardVersionNumber == 490)
+                            {
+                                int16_t FanSwitchOnT = 30;
+                                uint16_t RelayMinV = 1000;
+                                uint16_t RelayRangemV = 5;
+                                uint16_t RunAwayMinmV = 4000;
+                                uint16_t RunAwayDiffmV = 100;
+
+                                GetKeyValue(httpbuf, "FanSwitchOnT", &FanSwitchOnT, urlEncoded);
+                                GetKeyValue(httpbuf, "RelayMinV", &RelayMinV, urlEncoded);
+                                GetKeyValue(httpbuf, "RelayRange", &RelayRangemV, urlEncoded);
+
+                                GetKeyValue(httpbuf, "RunAwayMinmV", &RunAwayMinmV, urlEncoded);
+                                GetKeyValue(httpbuf, "RunAwayDiffmV", &RunAwayDiffmV, urlEncoded);
+
+                                prg.sendSaveAdditionalSetting(m, FanSwitchOnT, RelayMinV, RelayRangemV, RunAwayMinmV, RunAwayDiffmV);
+                            }
+
+                            clearModuleValues(m);
                             return SendSuccess(req);
                         }
                     }
@@ -388,8 +372,9 @@ esp_err_t post_resetcounters_json_handler(httpd_req_t *req, bool)
         canbus_messages_failed_sent = 0;
         canbus_messages_received = 0;
         canbus_messages_sent = 0;
+        canbus_messages_received_error = 0;
 
-        for (uint8_t i = 0; i < maximum_controller_cell_modules; i++)
+        for (auto i = 0; i < maximum_controller_cell_modules; i++)
         {
             cmi[i].badPacketCount = 0;
             cmi[i].PacketReceivedCount = 0;
@@ -483,6 +468,10 @@ esp_err_t post_savers485settings_json_handler(httpd_req_t *req, bool urlEncoded)
 esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     uint8_t temp;
+
+    // If a user updates the charge config, reset the charging mode as well
+    rules.setChargingMode(ChargingMode::standard);
+
     if (GetKeyValue(httpbuf, "canbusprotocol", &temp, urlEncoded))
     {
         mysettings.canbusprotocol = (CanBusProtocolEmulation)temp;
@@ -491,22 +480,24 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     {
         // Field not found/invalid, so disable
         mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+        mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
+        mysettings.canbusbaud = 500;
     }
-    if (GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded))
+
+    // Default value
+    mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
+    if (GetKeyValue(httpbuf, "canbusinverter", &temp, urlEncoded))
     {
+        mysettings.canbusinverter = (CanBusInverter)temp;
     }
-    if (GetKeyValue(httpbuf, "cellminmv", &mysettings.cellminmv, urlEncoded))
-    {
-    }
-    if (GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded))
-    {
-    }
-    if (GetKeyValue(httpbuf, "kneemv", &mysettings.kneemv, urlEncoded))
-    {
-    }
-    if (GetKeyValue(httpbuf, "cellmaxspikemv", &mysettings.cellmaxspikemv, urlEncoded))
-    {
-    }
+
+    GetKeyValue(httpbuf, "canbusbaud", &mysettings.canbusbaud, urlEncoded);
+
+    GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded);
+    GetKeyValue(httpbuf, "cellminmv", &mysettings.cellminmv, urlEncoded);
+    GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded);
+    GetKeyValue(httpbuf, "kneemv", &mysettings.kneemv, urlEncoded);
+    GetKeyValue(httpbuf, "cellmaxspikemv", &mysettings.cellmaxspikemv, urlEncoded);
 
     float temp_float;
 
@@ -514,6 +505,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     {
         mysettings.current_value1 = (uint16_t)(10 * temp_float);
     }
+
     if (GetKeyValue(httpbuf, "cur_val2", &temp_float, urlEncoded))
     {
         mysettings.current_value2 = (uint16_t)(10 * temp_float);
@@ -540,40 +532,50 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         mysettings.dischargevolt = (uint16_t)(10 * temp_float);
     }
     mysettings.stopchargebalance = false;
-    if (GetKeyValue(httpbuf, "stopchargebalance", &mysettings.stopchargebalance, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "stopchargebalance", &mysettings.stopchargebalance, urlEncoded);
+
     mysettings.socoverride = false;
-    if (GetKeyValue(httpbuf, "socoverride", &mysettings.socoverride, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "socoverride", &mysettings.socoverride, urlEncoded);
+
     mysettings.socforcelow = false;
-    if (GetKeyValue(httpbuf, "socforcelow", &mysettings.socforcelow, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "socforcelow", &mysettings.socforcelow, urlEncoded);
+
     mysettings.dynamiccharge = false;
-    if (GetKeyValue(httpbuf, "dynamiccharge", &mysettings.dynamiccharge, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "dynamiccharge", &mysettings.dynamiccharge, urlEncoded);
+
     mysettings.preventcharging = false;
-    if (GetKeyValue(httpbuf, "preventcharging", &mysettings.preventcharging, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "preventcharging", &mysettings.preventcharging, urlEncoded);
+
     mysettings.preventdischarge = false;
-    if (GetKeyValue(httpbuf, "preventdischarge", &mysettings.preventdischarge, urlEncoded))
+    GetKeyValue(httpbuf, "preventdischarge", &mysettings.preventdischarge, urlEncoded);
+
+    GetKeyValue(httpbuf, "chargetemplow", &mysettings.chargetemplow, urlEncoded);
+    GetKeyValue(httpbuf, "chargetemphigh", &mysettings.chargetemphigh, urlEncoded);
+    GetKeyValue(httpbuf, "dischargetemplow", &mysettings.dischargetemplow, urlEncoded);
+    GetKeyValue(httpbuf, "dischargetemphigh", &mysettings.dischargetemphigh, urlEncoded);
+
+    GetKeyValue(httpbuf, "absorptimer", &mysettings.absorptiontimer, urlEncoded);
+
+    if (GetKeyValue(httpbuf, "floatvolt", &temp_float, urlEncoded))
     {
+        mysettings.floatvoltage = (uint16_t)(10 * temp_float);
     }
-    if (GetKeyValue(httpbuf, "chargetemplow", &mysettings.chargetemplow, urlEncoded))
+    GetKeyValue(httpbuf, "floattimer", &mysettings.floatvoltagetimer, urlEncoded);
+    GetKeyValue(httpbuf, "socresume", &mysettings.stateofchargeresumevalue, urlEncoded);
+
+    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
     {
+        // Reset CAN counters if its disabled.
+        canbus_messages_received = 0;
+        canbus_messages_received_error = 0;
+        canbus_messages_sent = 0;
+        canbus_messages_failed_sent = 0;
     }
-    if (GetKeyValue(httpbuf, "chargetemphigh", &mysettings.chargetemphigh, urlEncoded))
+
+    // Default GENERIC inverter for VICTRON integration
+    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
     {
-    }
-    if (GetKeyValue(httpbuf, "dischargetemplow", &mysettings.dischargetemplow, urlEncoded))
-    {
-    }
-    if (GetKeyValue(httpbuf, "dischargetemphigh", &mysettings.dischargetemphigh, urlEncoded))
-    {
+        mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
     }
 
     saveConfiguration();
@@ -636,6 +638,119 @@ esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
             CurrentMonitorSetRelaySettingsInternal(newvalues);
         }
     }
+
+    return SendSuccess(req);
+}
+
+/// @brief Generates new home assistant API key and stored into flash
+/// @param req 
+/// @param urlEncoded 
+/// @return 
+esp_err_t post_homeassistant_apikey_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    char buffer[32];
+
+    // Compare existing key to stored value, if they match allow generation of new key
+    if (GetTextFromKeyValue(httpbuf, "haAPI", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (strncmp(mysettings.homeassist_apikey, buffer, strlen(mysettings.homeassist_apikey)) != 0)
+        {
+            ESP_LOGE(TAG, "Incorrect ApiKey in form variable %s", buffer);
+            return SendFailure(req);
+        }
+
+        memset(&mysettings.homeassist_apikey, 0, sizeof(mysettings.homeassist_apikey));
+        randomCharacters(mysettings.homeassist_apikey, sizeof(mysettings.homeassist_apikey) - 1);
+        saveConfiguration();
+
+        ESP_LOGI(TAG, "new ha apikey=%s", mysettings.homeassist_apikey);
+
+        return SendSuccess(req);
+    }
+
+    return SendFailure(req);
+}
+
+esp_err_t post_savenetconfig_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    char buffer[32];
+
+    uint32_t new_ip = 0;
+    uint32_t new_netmask = 0;
+    uint32_t new_gw = 0;
+    uint32_t new_dns1 = 0;
+    uint32_t new_dns2 = 0;
+
+    ip4_addr_t ipadd;
+
+    if (GetTextFromKeyValue(httpbuf, "new_ip", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (ip4addr_aton(buffer, &ipadd))
+        {
+            new_ip = ipadd.addr;
+        }
+    }
+    if (GetTextFromKeyValue(httpbuf, "new_netmask", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (ip4addr_aton(buffer, &ipadd))
+        {
+            new_netmask = ipadd.addr;
+        }
+    }
+    if (GetTextFromKeyValue(httpbuf, "new_gw", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (ip4addr_aton(buffer, &ipadd))
+        {
+            new_gw = ipadd.addr;
+        }
+    }
+    if (GetTextFromKeyValue(httpbuf, "new_dns1", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (ip4addr_aton(buffer, &ipadd))
+        {
+            new_dns1 = ipadd.addr;
+        }
+    }
+    if (GetTextFromKeyValue(httpbuf, "new_dns2", buffer, sizeof(buffer), urlEncoded))
+    {
+        if (ip4addr_aton(buffer, &ipadd))
+        {
+            new_dns2 = ipadd.addr;
+        }
+    }
+
+    if (new_ip == 0)
+    {
+        // Default back to DHCP, clear all the manual settings
+        _wificonfig.manualConfig = 0;
+        _wificonfig.wifi_ip = 0;
+        _wificonfig.wifi_netmask = 0;
+        _wificonfig.wifi_gateway = 0;
+        _wificonfig.wifi_dns1 = 0;
+        _wificonfig.wifi_dns2 = 0;
+    }
+    else
+    {
+        // Basic validation for invalid address details
+        if ((new_netmask == 0) || (new_gw == 0) || (new_dns1 == 0))
+        {
+            ESP_LOGE(TAG, "Invalid manual network values - rejected");
+            return SendFailure(req);
+        }
+
+        _wificonfig.manualConfig = 1;
+        _wificonfig.wifi_ip = new_ip;
+        _wificonfig.wifi_netmask = new_netmask;
+        _wificonfig.wifi_gateway = new_gw;
+        _wificonfig.wifi_dns1 = new_dns1;
+        _wificonfig.wifi_dns2 = new_dns2;
+    }
+
+    // Save WIFI config
+    SaveWIFI(&_wificonfig);
+
+    // Attempt to save to SD card - but this may not be installed
+    SaveWIFIJson(&_wificonfig);
 
     return SendSuccess(req);
 }
@@ -938,10 +1053,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
         }
 
         // Reset state of rules after updating the new values
-        for (int8_t r = 0; r < RELAY_RULES; r++)
-        {
-            rules.rule_outcome[r] = false;
-        }
+        rules.resetAllRules();
     }
 
     saveConfiguration();
@@ -1094,7 +1206,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    std::array<std::string, 28> uri_array = {
+    std::array<std::string, 30> uri_array = {
         "savebankconfig", "saventp", "saveglobalsetting",
         "savemqtt", "saveinfluxdb",
         "saveconfigtofile", "wificonfigtofile",
@@ -1104,9 +1216,10 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "disableavrprog", "avrprog", "savers485settings",
         "savecurrentmon", "savecmbasic", "savecmadvanced",
         "savecmrelay", "restoreconfig", "savechargeconfig",
-        "visibletiles", "dailyahreset", "setsoc"};
+        "visibletiles", "dailyahreset", "setsoc",
+        "savenetconfig", "newhaapikey"};
 
-    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 28> func_ptr = {
+    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 30> func_ptr = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
         post_savemqtt_json_handler, post_saveinfluxdbsetting_json_handler,
         post_saveconfigurationtoflash_json_handler, post_savewificonfigtosdcard_json_handler,
@@ -1116,7 +1229,8 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_disableavrprog_json_handler, post_avrprog_json_handler, post_savers485settings_json_handler,
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
         post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler,
-        post_visibletiles_json_handler, post_resetdailyahcount_json_handler, post_setsoc_json_handler};
+        post_visibletiles_json_handler, post_resetdailyahcount_json_handler, post_setsoc_json_handler,
+        post_savenetconfig_json_handler, post_homeassistant_apikey_json_handler};
 
     auto name = std::string(req->uri);
 
