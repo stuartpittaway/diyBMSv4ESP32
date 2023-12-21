@@ -101,11 +101,11 @@ public:
     SPIClass *VSPI_Ptr();
 
     void Led(uint8_t bits);
+    void ConfigureCAN(uint16_t canbusbaudrate) const;
     void ConfigurePins();
     void TFTScreenBacklight(bool Status);
 
     void CANBUSEnable(bool value);
-    void ConfigureCAN();
 
     bool IsVSPIMutexAvailable();
     bool GetVSPIMutex();

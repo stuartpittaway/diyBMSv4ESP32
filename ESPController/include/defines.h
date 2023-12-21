@@ -101,7 +101,8 @@ enum ProtocolEmulation : uint8_t
   EMULATION_DISABLED = 0x00,
   CANBUS_VICTRON = 0x01,
   CANBUS_PYLONTECH = 0x02,
-  RS485_PYLONTECH = 0x03
+  CANBUS_PYLONFORCEH2 = 0x03,
+  RS485_PYLONTECH = 0x04
 };
 
 enum CurrentMonitorDevice : uint8_t
@@ -184,6 +185,9 @@ struct diybms_eeprom_settings
 
   ProtocolEmulation protocol;
   CanBusInverter canbusinverter;
+  //CANBUS baud rate, 250=250k, 500=500k
+  uint16_t canbusbaud;
+  //Nominal battery capacity (amp hours) 
   uint16_t nominalbatcap;
   // Maximum charge voltage - scale 0.1
   uint16_t chargevolt;
@@ -231,6 +235,8 @@ struct diybms_eeprom_settings
 
   // NOTE this array is subject to buffer overflow vulnerabilities!
   bool mqtt_enabled;
+  // Only report basic cell data (voltage and temperture) over MQTT
+  bool mqtt_basic_cell_reporting;
   char mqtt_uri[128 + 1];
   char mqtt_topic[32 + 1];
   char mqtt_username[32 + 1];
@@ -246,6 +252,9 @@ struct diybms_eeprom_settings
 
   // Holds a bit pattern indicating which "tiles" are visible on the web gui
   uint16_t tileconfig[5];
+
+  uint8_t canbus_equipment_addr;  // battery index on the same canbus for PYLONFORCE, 0 - 15, default 0
+  char homeassist_apikey[24+1];
 };
 
 typedef union

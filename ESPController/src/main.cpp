@@ -74,6 +74,7 @@ extern "C"
 #include "mqtt.h"
 #include "victron_canbus.h"
 #include "pylon_canbus.h"
+#include "pylonforce_canbus.h"
 #include "pylon_rs485.h"
 #include "string_utils.h"
 
@@ -83,7 +84,7 @@ extern "C"
 #include "history.h"
 
 CurrentMonitorINA229 currentmon_internal = CurrentMonitorINA229();
-
+extern void randomCharacters(char *value, int length);
 const uart_port_t rs485_uart_num = UART_NUM_1;
 
 const std::string wificonfigfilename("/diybms/wifi.json");
@@ -323,7 +324,7 @@ void wake_up_tft(bool force)
   if (tftwake_timer != nullptr)
   {
     force_tft_wake = force;
-    if (xTimerStart(tftwake_timer, pdMS_TO_TICKS(10)) != pdPASS)
+    if (xTimerStart(tftwake_timer, pdMS_TO_TICKS(50)) != pdPASS)
     {
       ESP_LOGE(TAG, "TFT wake timer error");
     }
@@ -934,46 +935,32 @@ const char *packetType(uint8_t cmd)
   {
   case COMMAND::ResetBadPacketCounter:
     return "ResetC";
-    break;
   case COMMAND::ReadVoltageAndStatus:
     return "RdVolt";
-    break;
   case COMMAND::Identify:
     return "Ident";
-    break;
   case COMMAND::ReadTemperature:
     return "RdTemp";
-    break;
   case COMMAND::ReadBadPacketCounter:
     return "RdBadPkC";
-    break;
   case COMMAND::ReadSettings:
     return "RdSettin";
-    break;
   case COMMAND::WriteSettings:
     return "WriteSet";
-    break;
   case COMMAND::ReadBalancePowerPWM:
     return "RdBalanc";
-    break;
   case COMMAND::Timing:
     return "Timing";
-    break;
   case COMMAND::ReadBalanceCurrentCounter:
     return "Current";
-    break;
   case COMMAND::ReadPacketReceivedCounter:
     return "PktRvd";
-    break;
   case COMMAND::ResetBalanceCurrentCounter:
     return "ResBal";
-    break;
   case COMMAND::ReadAdditionalSettings:
     return "RdAddt";
-    break;
   case COMMAND::WriteAdditionalSettings:
     return "WrAddt";
-    break;
   default:
     return " ??????   ";
   }
@@ -1498,7 +1485,7 @@ void pulse_relay_off(const TimerHandle_t)
   }
 }
 
-static int s_retry_num = 0;
+static int wifi_ap_connect_retry_num = 0;
 
 void formatCurrentDateTime(char *buf, size_t buf_size)
 {
@@ -1587,6 +1574,29 @@ static void startMDNS()
   }
 }
 
+void ShutdownAllNetworkServices()
+{
+  // Shut down all TCP/IP reliant services
+  if (server_running)
+  {
+    stop_webserver(_myserver);
+    server_running = false;
+    _myserver = nullptr;
+  }
+  stopMqtt();
+  stopMDNS();
+}
+
+/// @brief Count of events of RSSI low
+uint16_t wifi_count_rssi_low=0;
+uint16_t wifi_count_sta_start=0;
+/// @brief Count of events for WIFI connect
+uint16_t wifi_count_sta_connected=0;
+/// @brief Count of events for WIFI disconnect
+uint16_t wifi_count_sta_disconnected=0;
+uint16_t wifi_count_sta_lost_ip=0;
+uint16_t wifi_count_sta_got_ip=0;
+
 /// @brief WIFI Event Handler
 /// @param
 /// @param event_base
@@ -1595,79 +1605,94 @@ static void startMDNS()
 static void event_handler(void *, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
+  // ESP_LOGD(TAG, "WIFI: event=%i, id=%i", event_base, event_id);
+
   if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_BSS_RSSI_LOW)
   {
     ESP_LOGW(TAG, "WiFi signal strength low");
+    wifi_count_rssi_low++;
   }
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
   {
+    wifi_count_sta_start++;
+    ESP_LOGI(TAG, "WIFI_EVENT_STA_START");
     wifi_isconnected = false;
-    esp_wifi_connect();
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
+  }
+  else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED)
+  {
+    // We have joined the access point - now waiting for IP address IP_EVENT_STA_GOT_IP
+    wifi_ap_connect_retry_num = 0;
+    wifi_count_sta_connected++;
+
+    wifi_ap_record_t ap;
+    esp_wifi_sta_get_ap_info(&ap);
+
+    ESP_LOGI(TAG, "WIFI_EVENT_STA_CONNECTED channel=%u, rssi=%i", ap.primary, ap.rssi);
   }
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
   {
-    wifi_isconnected = false;
-    if (s_retry_num < 200)
+    ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
+    wifi_ap_connect_retry_num++;
+    wifi_count_sta_disconnected++;
+
+    if (wifi_isconnected)
     {
-      esp_wifi_connect();
-      s_retry_num++;
-      ESP_LOGI(TAG, "Retry %i, connect to Wifi AP", s_retry_num);
+      ShutdownAllNetworkServices();
+      wifi_isconnected = false;
+    }
+
+    if (wifi_ap_connect_retry_num < 25)
+    {
+      ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
+      ESP_LOGI(TAG, "WIFI connect quick retry %i", wifi_ap_connect_retry_num);
     }
     else
     {
-      //  xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-      ESP_LOGE(TAG, "Connect to the Wifi AP failed");
+      ESP_LOGE(TAG, "Connect to WIFI AP failed, tried %i times", wifi_ap_connect_retry_num);
     }
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP)
   {
     wifi_isconnected = false;
-
     ESP_LOGI(TAG, "IP_EVENT_STA_LOST_IP");
+    wifi_count_sta_lost_ip++;
 
-    // Shut down all TCP/IP reliant services
-    if (server_running)
-    {
-      stop_webserver(_myserver);
-      server_running = false;
-      _myserver = nullptr;
-    }
-    stopMqtt();
-    stopMDNS();
-
-    esp_wifi_disconnect();
-
+    ShutdownAllNetworkServices();
     wake_up_tft(true);
-
-    // Try and reconnect
-    esp_wifi_connect();
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
   {
-    wifi_isconnected = true;
+    wifi_count_sta_got_ip++;
+
     auto event = (ip_event_got_ip_t *)event_data;
-    // ESP_LOGI(TAG, "Got ip:" IPSTR, IP2STR(&event->ip_info.ip));
-    s_retry_num = 0;
-    // xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+
+    if (event->ip_changed)
+    {
+      ESP_LOGI(TAG, "IP ADDRESS HAS CHANGED");
+      ShutdownAllNetworkServices();
+    }
 
     // Start up all the services after TCP/IP is established
     configureSNTP(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight ? 3600 : 0, mysettings.ntpServer);
 
     if (!server_running)
     {
+      // Start web server
       StartServer();
       server_running = true;
     }
 
-    connectToMqtt();
-
+    // This only exists in the loop()
+    // connectToMqtt();
     startMDNS();
 
     ip_string = ip4_to_string(event->ip_info.ip.addr);
 
-    wake_up_tft(true);
-
     ESP_LOGI(TAG, "You can access DIYBMS interface at http://%s.local or http://%s", hostname.c_str(), ip_string.c_str());
+
+    wifi_isconnected = true;
+    wake_up_tft(true);
   }
 }
 
@@ -1800,7 +1825,7 @@ void wifi_init_sta(void)
   cfg.dynamic_tx_buf_num = 32;
   cfg.tx_buf_type = 1;
   cfg.cache_tx_buf_num = 1;
-  cfg.static_rx_buf_num = 4;
+  cfg.static_rx_buf_num = 6;
   cfg.dynamic_rx_buf_num = 32;
 
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -1841,14 +1866,14 @@ void wifi_init_sta(void)
   ESP_LOGD(TAG, "wifi_init_sta finished");
 }
 
-uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
+uint16_t calculateCRC(const uint8_t *f, uint8_t bufferSize)
 {
   uint16_t flag;
   uint16_t temp;
   temp = 0xFFFF;
   for (unsigned char i = 0; i < bufferSize; i++)
   {
-    temp = temp ^ frame[i];
+    temp = temp ^ f[i];
     for (unsigned char j = 1; j <= 8; j++)
     {
       flag = temp & 0x0001;
@@ -1859,15 +1884,6 @@ uint16_t calculateCRC(const uint8_t *frame, uint8_t bufferSize)
   }
 
   return temp;
-  /*
-  // Reverse byte order.
-  uint16_t temp2 = temp >> 8;
-  temp = (temp << 8) | temp2;
-  temp &= 0xFFFF;
-  // the returned value is already swapped
-  // crcLo byte is first & crcHi byte is last
-  return temp;
-  */
 }
 
 uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
@@ -2644,11 +2660,11 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
 
-void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8_t length)
+void _send_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length, const uint32_t flags)
 {
   twai_message_t message;
   message.identifier = identifier;
-  message.flags = TWAI_MSG_FLAG_NONE;
+  message.flags = flags;
   message.data_length_code = length;
 
   memcpy(&message.data, buffer, length);
@@ -2660,7 +2676,7 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
   if (result == ESP_OK)
   {
     // Everything normal/good
-    ESP_LOGD(TAG, "Sent CAN message 0x%x", identifier);
+    // ESP_LOGD(TAG, "Sent CAN message 0x%x", identifier);
     // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
     canbus_messages_sent++;
     return;
@@ -2698,6 +2714,15 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
     // when the bus is in recovery mode transmit is not possible, so wait...
     vTaskDelay(pdMS_TO_TICKS(250));
   }
+}
+
+void send_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
+{
+  _send_canbus_message(identifier, buffer, length, TWAI_MSG_FLAG_NONE);
+}
+void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
+{
+  _send_canbus_message(identifier, buffer, length, TWAI_MSG_FLAG_EXTD);
 }
 
 [[noreturn]] void canbus_tx(void *)
@@ -2746,8 +2771,11 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
       // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
       // vTaskDelay(pdMS_TO_TICKS(100));
     }
-
-    if (mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON)
+    else if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2 )
+    {
+      pylonforce_handle_tx();
+    }
+    else if (mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON)
     {
       // minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
 
@@ -2799,18 +2827,23 @@ void send_canbus_message(uint32_t identifier, const uint8_t *buffer, const uint8
       canbus_messages_received++;
       ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
                message.identifier, message.data_length_code, message.flags);
-      /*
-      if (!(message.flags & TWAI_MSG_FLAG_RTR))
+      if (!(message.flags & TWAI_MSG_FLAG_RTR))   // we do not answer to Remote-Transmission-Requests
       {
-        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
-      }*/
-
-      // Remote inverter should send a 305 message every few seconds
-      // for now, keep track of last message.
-      // TODO: in future, add timeout/error condition to shut down
-      if (message.identifier == 0x305)
-      {
-        canbus_last_305_message_time = esp_timer_get_time();
+//        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
+        if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2 )
+        {
+          pylonforce_handle_rx(&message);
+        }
+        else
+        {
+          // Remote inverter should send a 305 message every few seconds
+          // for now, keep track of last message.
+          // TODO: in future, add timeout/error condition to shut down
+          if (message.identifier == 0x305)
+          {
+            canbus_last_305_message_time = esp_timer_get_time();
+          }
+        }
       }
     }
     else
@@ -3640,7 +3673,7 @@ struct log_level_t
 };
 
 // Default log levels to use for various components.
-const std::array<log_level_t, 21> log_levels =
+const std::array<log_level_t, 22> log_levels =
     {
         log_level_t{.tag = "*", .level = ESP_LOG_DEBUG},
         {.tag = "wifi", .level = ESP_LOG_WARN},
@@ -3654,7 +3687,7 @@ const std::array<log_level_t, 21> log_levels =
         {.tag = "diybms-rules", .level = ESP_LOG_INFO},
         {.tag = "diybms-softap", .level = ESP_LOG_INFO},
         {.tag = "diybms-tft", .level = ESP_LOG_INFO},
-        {.tag = "diybms-victron", .level = ESP_LOG_DEBUG},
+        {.tag = "diybms-victron", .level = ESP_LOG_INFO},
         {.tag = "diybms-webfuncs", .level = ESP_LOG_INFO},
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
         {.tag = "diybms-webreq", .level = ESP_LOG_INFO},
@@ -3662,6 +3695,7 @@ const std::array<log_level_t, 21> log_levels =
         {.tag = "diybms-set", .level = ESP_LOG_INFO},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
         {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
+        {.tag = "diybms-pyforce", .level = ESP_LOG_INFO},
         {.tag = "curmon", .level = ESP_LOG_INFO}};
 
 void consoleConfigurationCheck()
@@ -3775,10 +3809,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   InitializeNVS();
 
-  // Switch CAN chip TJA1051T/3 ON
-  hal.CANBUSEnable(true);
-  hal.ConfigureCAN();
-
   if (!LittleFS.begin(false))
   {
     ESP_LOGE(TAG, "LittleFS mount failed, did you upload file system image?");
@@ -3815,6 +3845,15 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   LoadConfiguration(&mysettings);
   ValidateConfiguration(&mysettings);
+
+  if (strlen(mysettings.homeassist_apikey) == 0)
+  {
+    // Generate new key
+    memset(&mysettings.homeassist_apikey, 0, sizeof(mysettings.homeassist_apikey));
+    randomCharacters(mysettings.homeassist_apikey, sizeof(mysettings.homeassist_apikey) - 1);    
+    saveConfiguration();
+  }
+  ESP_LOGI(TAG, "homeassist_apikey=%s", mysettings.homeassist_apikey);
 
   if (!EepromConfigValid)
   {
@@ -3859,6 +3898,10 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   rules.setChargingMode(ChargingMode::standard);
 
+  // Switch CAN chip TJA1051T/3 ON
+  hal.CANBUSEnable(true);
+  hal.ConfigureCAN(mysettings.canbusbaud);
+
   // Serial pins IO2/IO32
   SERIAL_DATA.begin(mysettings.baudRate, SERIAL_8N1, 2, 32); // Serial for comms to modules
 
@@ -3883,11 +3926,12 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   pulse_relay_off_timer = xTimerCreate("PULSE", pdMS_TO_TICKS(250), pdFALSE, (void *)2, &pulse_relay_off);
   assert(pulse_relay_off_timer);
 
-  tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(2), pdFALSE, (void *)3, &tftwakeup);
+  tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(50), pdFALSE, (void *)3, &tftwakeup);
   assert(tftwake_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
-  xTaskCreate(updatetftdisplay_task, "tftupd", 2000, nullptr, 0, &updatetftdisplay_task_handle);
+  // Increased tftupd from 2000 to 2450 due to strange bug on rev3 ESP32 chips
+  xTaskCreate(updatetftdisplay_task, "tftupd", 2450, nullptr, 0, &updatetftdisplay_task_handle);
   xTaskCreate(avrprog_task, "avrprog", 2450, &_avrsettings, configMAX_PRIORITIES - 3, &avrprog_task_handle);
 
   // High priority task
@@ -3899,14 +3943,11 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(rs485_tx, "485_TX", 2940, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2940, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
-  xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, 1, &canbus_tx_task_handle);
+  xTaskCreate(canbus_tx, "CAN_Tx", 4096, nullptr, 1, &canbus_tx_task_handle);
   xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
   xTaskCreate(transmit_task, "Tx", 1950, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
-  xTaskCreate(replyqueue_task, "rxq", 2350, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
+  xTaskCreate(replyqueue_task, "rxq", 4096, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 0, &lazy_task_handle);
-
-  // Create PylonTech RS485 protocol emulation handler
-
 
   // Set relay defaults
   for (auto y = 0; y < RELAY_TOTAL; y++)
@@ -4069,7 +4110,7 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
 
 unsigned long wifitimer = 0;
 unsigned long heaptimer = 0;
-unsigned long taskinfotimer = 0;
+// unsigned long taskinfotimer = 0;
 
 void logActualTime()
 {
@@ -4083,6 +4124,9 @@ void logActualTime()
 
 void loop()
 {
+  delay(100);
+
+  unsigned long currentMillis = millis();
 
   if (card_action == CardAction::Mount)
   {
@@ -4099,26 +4143,26 @@ void loop()
     mountSDCard();
   }
 
-  unsigned long currentMillis = millis();
-
-  if (_controller_state != ControllerState::NoWifiConfiguration)
+  // on first pass wifitimer is zero
+  if (_controller_state != ControllerState::NoWifiConfiguration && currentMillis > wifitimer)
   {
-    // on first pass wifitimer is zero
-    if (currentMillis - wifitimer > 30000)
+    // Avoid triggering on the very first loop (causes ESP_ERR_WIFI_CONN warning)
+    if (wifitimer > 0)
     {
-      // Attempt to connect to WiFi every 30 seconds, this caters for when WiFi drops
-      // such as AP reboot
-
-      // wifi_init_sta();
-      if (!wifi_isconnected)
+      // Attempt to connect to WiFi every 30 seconds, this caters for when WiFi drops such as AP reboot
+      if (wifi_isconnected)
       {
-        esp_wifi_connect();
+        // Attempt to connect to MQTT if enabled and not already connected
+        connectToMqtt();
       }
-      wifitimer = currentMillis;
-
-      // Attempt to connect to MQTT if enabled and not already connected
-      connectToMqtt();
+      else
+      {
+        ESP_LOGI(TAG, "Trying to connect WIFI");
+        ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
+      }
     }
+    // Wait another 30 seconds
+    wifitimer = currentMillis + 30000;
   }
 
   // Call update to receive, decode and process incoming packets
