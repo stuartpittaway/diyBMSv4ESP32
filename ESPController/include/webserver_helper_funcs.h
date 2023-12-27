@@ -30,6 +30,8 @@ bool validateXSSWithPOST(httpd_req_t *req, const char *postbuffer, bool urlEncod
 void setCookieValue();
 void setCookie(httpd_req_t *req);
 
+void randomCharacters(char* value, int length);
+
 // These are borrowed from the new ESP IDF framework, will need to be removed if framework is upgraded
 esp_err_t httpd_req_get_cookie_val(httpd_req_t *req, const char *cookie_name, char *val, size_t *val_size);
 esp_err_t httpd_cookie_key_value(const char *cookie_str, const char *key, char *val, size_t *val_size);

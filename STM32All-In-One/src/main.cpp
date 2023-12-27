@@ -733,6 +733,7 @@ void TakeOnboardInternalTempMeasurements(CellData &cd)
 
     // Spread the two internal temperature sensor values across all 16 cells (even though some may not be connected)
     // Odd cells are on the left of the balance board, near TH1/T1, even on right side TH2/T2
+    // but this doesn't matter, as we use the highest recorded temperature from either sensor in safety checks
     for (size_t i = 0; i < 16; i += 2)
     {
       cd.at(i).setInternalTemperature(t1);
@@ -763,6 +764,9 @@ void TakeOnboardInternalTempMeasurements(CellData &cd)
   delay(500);
   while (true)
   {
+    // make sure the code in this loop is executed in less than 2 seconds to leave 50% headroom for the timer reload.
+    IWatchdog.reload();
+
     for (size_t i = 0; i < number; i++)
     {
       NotificationLedOn();
@@ -771,6 +775,8 @@ void TakeOnboardInternalTempMeasurements(CellData &cd)
       delay(220);
     }
 
+    // make sure the code in this loop is executed in less than 2 seconds to leave 50% headroom for the timer reload.
+    IWatchdog.reload();
     delay(2000);
   }
 }
@@ -1029,7 +1035,9 @@ void loop()
   // Now process the ADC readings we have taken...
   DecimateRawADCCellVoltage(rawADC, celldata, number_of_active_cells);
 
+  // Three temperature sensors are recorded over cells 0/1/2, use the highest value
   auto highestTemp = max(celldata.at(0).getInternalTemperature(), celldata.at(1).getInternalTemperature());
+  highestTemp = max(celldata.at(2).getInternalTemperature(), highestTemp);
 
   // If fan timer has expired, switch off FAN
   // This has the side effect of the fan switching off and on (not physically noticable) should the temperature still be too hot.

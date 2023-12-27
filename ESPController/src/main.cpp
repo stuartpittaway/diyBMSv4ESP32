@@ -1588,14 +1588,14 @@ void ShutdownAllNetworkServices()
 }
 
 /// @brief Count of events of RSSI low
-uint16_t wifi_count_rssi_low=0;
-uint16_t wifi_count_sta_start=0;
+uint16_t wifi_count_rssi_low = 0;
+uint16_t wifi_count_sta_start = 0;
 /// @brief Count of events for WIFI connect
-uint16_t wifi_count_sta_connected=0;
+uint16_t wifi_count_sta_connected = 0;
 /// @brief Count of events for WIFI disconnect
-uint16_t wifi_count_sta_disconnected=0;
-uint16_t wifi_count_sta_lost_ip=0;
-uint16_t wifi_count_sta_got_ip=0;
+uint16_t wifi_count_sta_disconnected = 0;
+uint16_t wifi_count_sta_lost_ip = 0;
+uint16_t wifi_count_sta_got_ip = 0;
 
 /// @brief WIFI Event Handler
 /// @param
@@ -2825,9 +2825,9 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
     if (res == ESP_OK)
     {
       canbus_messages_received++;
-      ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
-               message.identifier, message.data_length_code, message.flags);
-      if (!(message.flags & TWAI_MSG_FLAG_RTR))   // we do not answer to Remote-Transmission-Requests
+      // ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",message.identifier, message.data_length_code, message.flags);
+
+      if (!(message.flags & TWAI_MSG_FLAG_RTR)) // we do not answer to Remote-Transmission-Requests
       {
 //        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
         if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2 )
@@ -3211,6 +3211,22 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
   }
 }
 
+void CalculateStateOfHealth(diybms_eeprom_settings *settings)
+{
+  // Value indicating what a typical discharge cycle looks like in amp-hours (normally 80% of cell for LFP)
+  float depth = 1000.0F * ((float)settings->nominalbatcap/100.0F * (float)settings->soh_discharge_depth);
+  float in = (float)settings->soh_total_milliamphour_in / depth;
+  float out = (float)settings->soh_total_milliamphour_out / depth;
+  //Take worst case
+  float cycles = max(in, out);
+
+  settings->soh_percent =100-((cycles / (float)settings->soh_lifetime_battery_cycles) * 100.0F);
+
+  settings->soh_estimated_battery_cycles=(uint16_t)round(cycles);
+
+  ESP_LOGI(TAG, "State of health calc %f %, estimated cycles=%f", settings->soh_percent, cycles);
+}
+
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 [[noreturn]] void lazy_tasks(void *)
 {
@@ -3246,6 +3262,14 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
         // Has day rolled over?
         if (year_day != timeinfo.tm_yday)
         {
+
+          mysettings.soh_total_milliamphour_out += currentMonitor.modbus.daily_milliamphour_out;
+          mysettings.soh_total_milliamphour_in += currentMonitor.modbus.daily_milliamphour_in;
+
+          SaveConfiguration(&mysettings);
+
+          CalculateStateOfHealth(&mysettings);
+
           // Reset the current monitor at midnight (ish)
           CurrentMonitorResetDailyAmpHourCounters();
 
@@ -3850,7 +3874,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   {
     // Generate new key
     memset(&mysettings.homeassist_apikey, 0, sizeof(mysettings.homeassist_apikey));
-    randomCharacters(mysettings.homeassist_apikey, sizeof(mysettings.homeassist_apikey) - 1);    
+    randomCharacters(mysettings.homeassist_apikey, sizeof(mysettings.homeassist_apikey) - 1);
     saveConfiguration();
   }
   ESP_LOGI(TAG, "homeassist_apikey=%s", mysettings.homeassist_apikey);
@@ -3888,6 +3912,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
       currentmon_internal.GuessSOC();
 
       currentmon_internal.TakeReadings();
+
+      CalculateStateOfHealth(&mysettings);
     }
     else
     {

@@ -20,7 +20,7 @@
 #define SERIAL_RS485 Serial1
 
 // Total number of cells a single controler can handle (memory limitation)
-#define maximum_controller_cell_modules 128
+#define maximum_controller_cell_modules 192
 
 typedef union
 {
@@ -162,6 +162,7 @@ struct diybms_eeprom_settings
 
   uint16_t currentMonitoring_shuntmv;
   uint16_t currentMonitoring_shuntmaxcur;
+  /// @brief Amp-hours battery capacity
   uint16_t currentMonitoring_batterycapacity;
   uint16_t currentMonitoring_fullchargevolt;
   uint16_t currentMonitoring_tailcurrent;
@@ -255,6 +256,19 @@ struct diybms_eeprom_settings
 
   uint8_t canbus_equipment_addr;  // battery index on the same canbus for PYLONFORCE, 0 - 15, default 0
   char homeassist_apikey[24+1];
+
+  /// @brief State of health variables - total lifetime mAh output (discharge)
+  uint32_t soh_total_milliamphour_out;
+  /// @brief State of health variables - total lifetime mAh input (charge)
+  uint32_t soh_total_milliamphour_in;
+  /// @brief State of health variables - total expected lifetime cycles of battery (6000)
+  uint16_t soh_lifetime_battery_cycles;
+  /// @brief State of health variables - estimated number of cycles
+  uint16_t soh_estimated_battery_cycles;
+  /// @brief State of health variables - discharge depth (80%)  
+  uint8_t soh_discharge_depth;
+  /// @brief Calculated percentage calculation of health 
+  float soh_percent;
 };
 
 typedef union
