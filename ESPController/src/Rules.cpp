@@ -415,7 +415,7 @@ void Rules::RunRules(
 
 bool Rules::SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings)
 {
-    if (mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    if (mysettings->protocol == ProtocolEmulation::EMULATION_DISABLED)
         return false;
 
     if (invalidModuleCount > 0)
@@ -524,7 +524,7 @@ void Rules::CalculateDynamicChargeCurrent(const diybms_eeprom_settings *mysettin
     // Remember dynamicChargeCurrent scale is 0.1
     dynamicChargeCurrent = mysettings->chargecurrent;
 
-    if (!mysettings->dynamiccharge || mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    if (!mysettings->dynamiccharge || mysettings->protocol == ProtocolEmulation::EMULATION_DISABLED)
     {
         // Its switched off, use default
         return;
@@ -576,7 +576,7 @@ void Rules::CalculateDynamicChargeCurrent(const diybms_eeprom_settings *mysettin
 // Output is cached in variable dynamicChargeVoltage as its used in multiple places
 void Rules::CalculateDynamicChargeVoltage(const diybms_eeprom_settings *mysettings, const CellModuleInfo *cellarray)
 {
-    if (!mysettings->dynamiccharge || mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    if (!mysettings->dynamiccharge || mysettings->protocol == ProtocolEmulation::EMULATION_DISABLED)
     {
         // Dynamic charge switched off, use default or float voltage
         dynamicChargeVoltage = (chargemode == ChargingMode::floating) ? mysettings->floatvoltage : mysettings->chargevolt;
@@ -707,7 +707,7 @@ uint16_t Rules::StateOfChargeWithRulesApplied(const diybms_eeprom_settings *myse
 void Rules::CalculateChargingMode(const diybms_eeprom_settings *mysettings, const currentmonitoring_struct *currentMonitor)
 {
     // If we are not using CANBUS - ignore the charge mode, it doesn't mean anything
-    if (mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    if (mysettings->protocol == ProtocolEmulation::EMULATION_DISABLED)
     {
         return;
     }
@@ -725,7 +725,7 @@ void Rules::CalculateChargingMode(const diybms_eeprom_settings *mysettings, cons
         // or battery is below resume level so normal charging operation in progress
 
         // No difference in STANDARD or DYNAMIC modes - purely visual on screen/cosmetic
-        if (mysettings->dynamiccharge == true && mysettings->canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
+        if (mysettings->dynamiccharge == true && mysettings->protocol != ProtocolEmulation::EMULATION_DISABLED)
         {
             setChargingMode(ChargingMode::dynamic);
         }
@@ -767,4 +767,21 @@ void Rules::CalculateChargingMode(const diybms_eeprom_settings *mysettings, cons
             return;
         }
     }
+}
+
+void Rules::setRuleStatus(Rule r, bool value)
+{
+    if (ruleOutcome(r) != value)
+    {
+        rule_outcome.at(r) = value;
+        ESP_LOGI(TAG, "Rule %s state=%u", RuleTextDescription.at(r).c_str(), (uint8_t)value);
+    }
+}
+
+void Rules::setChargingMode(ChargingMode newMode)
+{
+    if (chargemode == newMode)
+        return;
+    ESP_LOGI(TAG, "Charging mode changed %u", newMode);
+    chargemode = newMode;
 }

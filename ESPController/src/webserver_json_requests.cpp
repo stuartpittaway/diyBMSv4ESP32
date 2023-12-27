@@ -599,7 +599,7 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   JsonObject root = doc.to<JsonObject>();
   JsonObject settings = root.createNestedObject("chargeconfig");
 
-  settings["canbusprotocol"] = mysettings.canbusprotocol;
+  settings["protocol"] = mysettings.protocol;
   settings["canbusinverter"] = mysettings.canbusinverter;
   settings["canbusbaud"] = mysettings.canbusbaud;
   settings["equip_addr"] = mysettings.canbus_equipment_addr;
@@ -990,7 +990,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          (unsigned int)rules.getChargingMode(),
                          rules.getChargingTimerSecondsRemaining());
 
-  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
+  if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED && mysettings.dynamiccharge)
   {
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                            R"("dyncv":%u,"dyncc":%u,)",
@@ -1347,7 +1347,7 @@ esp_err_t ha_handler(httpd_req_t *req)
                            currentMonitor.stateofcharge);
   }
 
-  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
+  if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED && mysettings.dynamiccharge)
   {
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                            R"(,"dyncv":%u,"dyncc":%u)",

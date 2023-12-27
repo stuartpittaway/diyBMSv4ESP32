@@ -1998,7 +1998,7 @@ $(function () {
         $.getJSON("/api/chargeconfig",
             function (data) {
 
-                $("#canbusprotocol").val(data.chargeconfig.canbusprotocol);
+                $("#protocol").val(data.chargeconfig.protocol);
                 $("#canbusinverter").val(data.chargeconfig.canbusinverter);
                 $("#canbusbaud").val(data.chargeconfig.canbusbaud);
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);

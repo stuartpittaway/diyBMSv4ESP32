@@ -96,12 +96,13 @@ enum CanBusInverter : uint8_t
 };
 
 
-enum CanBusProtocolEmulation : uint8_t
+enum ProtocolEmulation : uint8_t
 {
-  CANBUS_DISABLED = 0x00,
+  EMULATION_DISABLED = 0x00,
   CANBUS_VICTRON = 0x01,
   CANBUS_PYLONTECH = 0x02,
-  CANBUS_PYLONFORCEH2 = 0x03
+  CANBUS_PYLONFORCEH2 = 0x03,
+  RS485_PYLONTECH = 0x04
 };
 
 enum CurrentMonitorDevice : uint8_t
@@ -183,7 +184,7 @@ struct diybms_eeprom_settings
 
   char language[2 + 1];
 
-  CanBusProtocolEmulation canbusprotocol;
+  ProtocolEmulation protocol;
   CanBusInverter canbusinverter;
   //CANBUS baud rate, 250=250k, 500=500k
   uint16_t canbusbaud;

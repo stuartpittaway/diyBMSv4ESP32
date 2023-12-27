@@ -16,6 +16,7 @@ extern HAL_ESP32 hal;
 extern fs::SDFS SD;
 
 extern TaskHandle_t avrprog_task_handle;
+extern TaskHandle_t rs485_rx_task_handle;
 extern uint32_t canbus_messages_received;
 extern uint32_t canbus_messages_sent;
 extern uint32_t canbus_messages_failed_sent;

@@ -989,11 +989,11 @@
 
     <div class="region">
       <p id="v1">
-        This feature allows diyBMS to provide battery and BMS data to CANBUS devices using various 3rd party
+        This feature allows diyBMS to provide battery and BMS data to CANBUS or RS485 devices using various 3rd party
         protocols.
       </p>
       <p id="v2">
-        These settings require an external inverter/charger to be able to integrate using CANBUS to control
+        These settings require an external inverter/charger to be able to integrate using CANBUS (RS458) to control
         charge/discharge parameters. Pylontech normally operates at 500k baud. Victron can use other speeds depending on
         the device.
       </p>
@@ -1005,12 +1005,13 @@
       <form id="chargingForm" method="POST" action="/post/savechargeconfig" autocomplete="off">
         <div class="settings">
           <div>
-            <label for="canbusprotocol">CANBUS protocol emulation</label>
-            <select name="canbusprotocol" id="canbusprotocol">
+            <label for="protocol">Protocol emulation</label>
+            <select name="protocol" id="protocol">
               <option value="0">Disabled</option>
               <option value="1">Victron Cerbo GX</option>
-              <option value="2">PylonTech</option>
+              <option value="2">PylonTech CANBUS</option>
               <option value="3">PylonTech Force (HV Battery)</option>
+              <option value="4">PylonTech RS485</option>
             </select>
           </div>
 

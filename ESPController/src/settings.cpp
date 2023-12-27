@@ -40,7 +40,7 @@ static const char influxdb_databasebucket_JSONKEY[] = "bucket";
 static const char influxdb_orgid_JSONKEY[] = "org";
 static const char influxdb_serverurl_JSONKEY[] = "url";
 static const char influxdb_loggingFreqSeconds_JSONKEY[] = "logfreq";
-static const char canbusprotocol_JSONKEY[] = "canbusprotocol";
+static const char protocol_JSONKEY[] = "protocol";
 static const char canbusinverter_JSONKEY[] = "canbusinverter";
 static const char canbusbaud_JSONKEY[] = "canbusbaud";
 static const char canbus_equipment_addr_JSONKEY[] = "canbusequip";
@@ -125,7 +125,7 @@ static const char rs485baudrate_NVSKEY[] = "485baudrate";
 static const char rs485databits_NVSKEY[] = "485databits";
 static const char rs485parity_NVSKEY[] = "485parity";
 static const char rs485stopbits_NVSKEY[] = "485stopbits";
-static const char canbusprotocol_NVSKEY[] = "canbusprotocol";
+static const char protocol_NVSKEY[] = "protocol";
 static const char canbusinverter_NVSKEY[] = "canbusinverter";
 static const char canbusbaud_NVSKEY[] = "canbusbaud";
 static const char canbus_equipment_addr_NVSKEY[] = "canbusequip";
@@ -385,10 +385,11 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(currentMonitoringModBusAddress)
         MACRO_NVSWRITE_UINT8(currentMonitoringDevice)
         MACRO_NVSWRITE(rs485baudrate)
+
         MACRO_NVSWRITE_UINT8(rs485databits)
         MACRO_NVSWRITE_UINT8(rs485parity)
         MACRO_NVSWRITE_UINT8(rs485stopbits)
-        MACRO_NVSWRITE_UINT8(canbusprotocol)
+        MACRO_NVSWRITE_UINT8(protocol)
         MACRO_NVSWRITE_UINT8(canbusinverter)
         MACRO_NVSWRITE(canbusbaud)
         MACRO_NVSWRITE_UINT8(canbus_equipment_addr)
@@ -410,6 +411,7 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(currentMonitoring_tempcompenabled)
 
         MACRO_NVSWRITE(nominalbatcap)
+
         MACRO_NVSWRITE(chargevolt)
         MACRO_NVSWRITE(chargecurrent)
         MACRO_NVSWRITE(dischargecurrent)
@@ -493,6 +495,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
     else
     {
         // Open
+
         MACRO_NVSREAD(totalNumberOfBanks)
         MACRO_NVSREAD(totalNumberOfSeriesModules)
         MACRO_NVSREAD(baudRate)
@@ -538,9 +541,10 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD_UINT8(rs485databits)
         MACRO_NVSREAD_UINT8(rs485parity)
         MACRO_NVSREAD_UINT8(rs485stopbits)
-        MACRO_NVSREAD_UINT8(canbusprotocol)
+        MACRO_NVSREAD_UINT8(protocol)
         MACRO_NVSREAD_UINT8(canbusinverter)
         MACRO_NVSREAD(canbusbaud)
+
         MACRO_NVSREAD_UINT8(canbus_equipment_addr)
         MACRO_NVSREAD(nominalbatcap)
         MACRO_NVSREAD(chargevolt)
@@ -626,7 +630,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->mqtt_enabled = false;
     _myset->mqtt_basic_cell_reporting = false;
 
-    _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+    _myset->protocol = ProtocolEmulation::EMULATION_DISABLED;
     _myset->canbusinverter = CanBusInverter::INVERTER_GENERIC;
 
     _myset->canbus_equipment_addr = 0;
@@ -1107,7 +1111,7 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
         }
     } // end for
 
-    root[canbusprotocol_JSONKEY] = (uint8_t)settings->canbusprotocol;
+    root[protocol_JSONKEY] = (uint8_t)settings->protocol;
     root[canbusinverter_JSONKEY] = (uint8_t)settings->canbusinverter;
     root[canbusbaud_JSONKEY] = settings->canbusbaud;
     root[canbus_equipment_addr_JSONKEY] = settings->canbus_equipment_addr;
@@ -1215,7 +1219,7 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
 
     strncpy(settings->language, root[language_JSONKEY].as<String>().c_str(), sizeof(settings->language));
 
-    settings->canbusprotocol = (CanBusProtocolEmulation)root[canbusprotocol_JSONKEY];
+    settings->protocol = (ProtocolEmulation)root[protocol_JSONKEY];
     settings->canbusinverter = (CanBusInverter)root[canbusinverter_JSONKEY];
     settings->canbusbaud = root[canbusbaud_JSONKEY];
     settings->canbus_equipment_addr = root[canbus_equipment_addr_JSONKEY];
