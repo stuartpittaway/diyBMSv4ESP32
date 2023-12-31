@@ -27,7 +27,7 @@ public:
 
 	void who_is_master();
 
-	int8_t master;
+	uint8_t master;
 
 	uint8_t controllerNetwork_status();
 
@@ -44,7 +44,7 @@ public:
 	uint8_t online_controller_count;
 
 	// returns the heartbeat status of a networked controller
-	bool controller_heartbeat(uint8_t ControllerID);
+	bool controller_heartbeat(uint8_t controllerAddress);
 
 private:
 	void SetBankAndModuleText(char* buffer, uint8_t cellid);

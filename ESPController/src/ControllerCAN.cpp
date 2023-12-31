@@ -32,12 +32,12 @@ const uint32_t ControllerCAN::id[MAX_CAN_PARAMETERS][MAX_NUM_CONTROLLERS] = {
 };
 
 //return whether a controller has a valid heartbeat by checking the bitmssgs timestamp array
-bool ControllerCAN::controller_heartbeat(uint8_t ControllerID)
+bool ControllerCAN::controller_heartbeat(uint8_t controllerAddress)
 {
- if ((esp_timer_get_time() - BITMSGS_TIMESTAMP[ControllerID]) < (HEARTBEAT_PERIOD*1000))
- {
-  return true;
- } 
+ if ((esp_timer_get_time() - BITMSGS_TIMESTAMP[controllerAddress]) < (HEARTBEAT_PERIOD*1000))
+  {
+    return true;
+  }
   return false;
 }
 
@@ -69,27 +69,29 @@ uint8_t ControllerCAN::controllerNetwork_status()
   uint8_t high_availability = mysettings.highAvailable;
   uint8_t networked_controllers = 0;
 
-  for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+  for (uint8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
   {
-      if (controller_heartbeat(i))
+      if (controller_heartbeat(i) == true) // only poll online controllers
       {
         controller_count++;
 
         // checksum for controller address overlap
-        addressbitmask &= data[2][i][0]; // this should should never be raised above 0 or there is an overlap
+        addressbitmask &= data[2][i][0]; // this should should never be elevated above 0 or there is an overlap
         
         // check that local high_availability setting matches the network
-        if (mysettings.highAvailable != data[2][i][4])
+        /*
+        if (mysettings.highAvailable != data[2][i][3])
         {
-        ESP_LOGE(TAG, "'High Availability' settings do not match");
+        ESP_LOGE(TAG, "Local 'High Availability' settings do not match with networked ControllerID %d",i);
         returnvalue = 2;
         } 
         // check that # networked controllers setting matches the network
-        if (mysettings.controllerNet != data[2][i][3])
+        if (mysettings.controllerNet != data[2][i][4])
         {
-        ESP_LOGE(TAG, "'# of Networked Controllers' settings do not match");
-        returnvalue = 2;
-        } 
+        ESP_LOGE(TAG, "Local '# of Networked Controllers' settings do not match with networked ControllerID %d",i);
+        returnvalue = 2; 
+        }
+        */ 
       }
   }
       if (addressbitmask != 0)
@@ -104,20 +106,20 @@ uint8_t ControllerCAN::controllerNetwork_status()
   if (controller_count > mysettings.controllerNet)
   {
       ESP_LOGE(TAG, "Controller network count discrepancy");
-      returnvalue = 2;
+      returnvalue = 0; // debug change this back to 2
       online_controller_count = controller_count;
   }
   else if (controller_count == 0) // for debug only, this should never happen
   {
       ESP_LOGE(TAG, "!ERROR! Online_controller_count = 0");
-      returnvalue = 2;
+      returnvalue = 0; // debug change this back to 2
       online_controller_count = 1; //force it to one to avoid divide by zero later
   }
   else if (controller_count < mysettings.controllerNet && returnvalue !=2)  // don't change a higher level alert to a lower level
   {
-      ESP_LOGE(TAG, "A controller is offline");
-      returnvalue = 1;
+      returnvalue = 0; // debug change this back to 1
       online_controller_count = controller_count;
+      ESP_LOGE(TAG, "A controller is offline. #Online Controllers=%d/%d",online_controller_count,mysettings.controllerNet);
   }
   else  //normal operation
   {
@@ -131,9 +133,9 @@ uint8_t ControllerCAN::controllerNetwork_status()
 void ControllerCAN::who_is_master()  // Decide which controller is master ( == the lowest integer-addressed controller number with a valid heartbeat)
 {   
 
-      for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+      for (uint8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
       {
-        if (controller_heartbeat(i))
+        if (controller_heartbeat(i) == true)
         {
             master=i;
             
@@ -462,15 +464,15 @@ void ControllerCAN::c2c_BIT_MSGS()      // diyBMS messaging/alarms
 
 // byte 2 - reserved for future use
 
-// byte 3 - # Networked Controllers
-  byte3 = mysettings.controllerNet;
-// byte 4 - HighAvailability setting
-  byte4 = mysettings.highAvailable;
+// byte 3 - HighAvailability setting
+  byte3 = mysettings.highAvailable;
+// byte 4 - # Networked Controllers
+  byte4 = mysettings.controllerNet;
 // byte 5 - reserved for future use 
 // byte 6 - reserved for future use
 // byte 7 - reserved for future use 
 
-  candata.dlc = 5;     // this will be increased as more alarms are added.......
+  candata.dlc = 8;    
   candata.identifier = id[2][mysettings.controllerID];
 
   memcpy(&data[2][mysettings.controllerID][0],&candata.data,candata.dlc);                        //copy calculated values to array

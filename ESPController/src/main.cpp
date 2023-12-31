@@ -2742,17 +2742,17 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
 
 [[noreturn]] void canbus_tx_900ms(void* param)
 {
+   uint8_t statusreturn;
     for (;;)
     {
         // Delay .9 second
         vTaskDelay(pdMS_TO_TICKS(900));
 
         if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
-        {
-         CAN.BITMSGS_TIMESTAMP[mysettings.controllerID] = esp_timer_get_time(); //timestamp this controller now since we can't do so in the message receive routine
-         
+        {       
+         CAN.BITMSGS_TIMESTAMP[mysettings.controllerID] = esp_timer_get_time(); //record a timestamp for this controller to be used for heartbeat polling
          CAN.who_is_master(); // determine who is currently the master controller
-
+        
         //CANBUS math and Intra-controller CAN traffic
         CAN.c2c_DVCC();
         CAN.c2c_ALARMS();
@@ -2760,11 +2760,11 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
         CAN.c2c_MODULES();
 
 
+        statusreturn = CAN.controllerNetwork_status();
+
         // Reporting via VICTRON protocol
         if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON) 
         {
-          uint8_t statusreturn = CAN.controllerNetwork_status();
-
             if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
             {
                 victron_message_351();      // 351 message must be sent at least every 3 seconds - or Victron will stop charge/discharge
@@ -2776,8 +2776,6 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
         // Reporting via PYLONTECH protocol
         if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) 
         {
-          uint8_t statusreturn = CAN.controllerNetwork_status();
-
             if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
             {
                 pylon_message_351();      
@@ -2865,24 +2863,28 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
                 message.identifier, message.data_length_code, message.flags);
 
                   //find the identifier in our id table 
-                  for (size_t i = 0; i < MAX_CAN_PARAMETERS; i++)          //traverse rows of id[]
+                  for (uint8_t i = 0; i < MAX_CAN_PARAMETERS; i++)          //traverse rows of id[]
                   {
-                      for (size_t j = 0; j < MAX_NUM_CONTROLLERS; j++)      //traverse columns of id[]
+                      for (uint8_t j = 0; j < MAX_NUM_CONTROLLERS; j++)      //traverse columns of id[]
                       {
                           if (CAN.id[i][j] == message.identifier)
-                          {
+                          {                              
                               memcpy(&CAN.data[i][j], &message.data, message.data_length_code);
+
+                              ESP_LOGD(TAG, "Logged message ID: %0x, DLC: %d",
+                              message.identifier, message.data_length_code);
 
                               // We will timestamp any BITMSGS frames for use as a heartbeat 
                               if (i == 2)
                               {
-                                  CAN.BITMSGS_TIMESTAMP[j] = esp_timer_get_time();
+                                  CAN.BITMSGS_TIMESTAMP[j] = esp_timer_get_time(); //timestamp incoming message from Controller [j]
+                                  ESP_LOGD(TAG, "Logged incoming Controller %d heartbeat=%d",j,CAN.BITMSGS_TIMESTAMP[j]); //for debugging only
                               }
                               match_found = true;
                               break;
                           }
                       }
-                      if (match_found = true)
+                      if (match_found == true)
                       {
                         break;
                       }
