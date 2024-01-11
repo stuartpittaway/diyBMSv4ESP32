@@ -2748,6 +2748,16 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
         // Delay .9 second
         vTaskDelay(pdMS_TO_TICKS(900));
 
+        /* Force Disable the CANBUS if there is an internal error and there are networked controllers. 
+          This is to prevent a controller that has disconnected itself from auto-reconnecting (this could potentially
+          be an issue on a switching device if the inverter is already providing high charge current to other batteries). 
+          User must manually re-enable canbus protocol*/
+        if (_controller_state == ControllerState::Running && mysettings.controllerNet != 1 && rules.NetworkedControllerRules(&mysettings))
+        {
+          mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+        }
+
+
         if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
         {       
          CAN.BITMSGS_TIMESTAMP[mysettings.controllerID] = esp_timer_get_time(); //record a timestamp for this controller to be used for heartbeat polling
@@ -2759,11 +2769,11 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
         CAN.c2c_BIT_MSGS();
         CAN.c2c_MODULES();
 
-
+        //snapshot of the controller network
         statusreturn = CAN.controllerNetwork_status();
 
         // Reporting via VICTRON protocol
-        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON) 
+        if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID == CAN.master)) 
         {
             if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
             {
@@ -2774,7 +2784,7 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
         }
 
         // Reporting via PYLONTECH protocol
-        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) 
+        if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID == CAN.master))
         {
             if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
             {
@@ -2816,7 +2826,7 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
         CAN.c2c_VIT();
 
         // Reporting via VICTRON protocol
-        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON && (CAN.master == mysettings.controllerID))
+        if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID == CAN.master))
         {
             victron_message_370_371_35e();
             victron_message_35f();
@@ -2826,11 +2836,12 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
                 victron_message_355();
                 victron_message_356();
                 victron_message_373_374_375_376_377();
+                victron_message_379();
             }
         }
 
         // Reporting via PYLONTECH protocol
-        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) //&& (CAN.who_is_master() == mysettings.controllerID))
+        if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID == CAN.master))
         {
             if (_controller_state == ControllerState::Running)
             {
@@ -2901,15 +2912,6 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
           }
   }
 }
-
-
-/*[[noreturn]] void canbus_rx(void* param)
-{
-  for (;;)
-  {
-    vTaskDelay(pdMS_TO_TICKS(50));
-  }
-}*/
 
 
 [[noreturn]] void service_rs485_transmit_q(void *)
