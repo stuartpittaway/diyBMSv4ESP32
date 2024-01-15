@@ -2748,11 +2748,14 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
         // Delay .9 second
         vTaskDelay(pdMS_TO_TICKS(900));
 
+        //wait until controller is running so we don't send bad info/alarms during ESP startup    
+    if (_controller_state == ControllerState::Running)
+    {
         /* Force Disable the CANBUS if there is an internal error and there are networked controllers. 
           This is to prevent a controller that has disconnected itself from auto-reconnecting (this could potentially
           be an issue on a switching device if the inverter is already providing high charge current to other batteries). 
           User must manually re-enable canbus protocol*/
-        if (_controller_state == ControllerState::Running && mysettings.controllerNet != 1 && rules.NetworkedControllerRules(&mysettings))
+        if (mysettings.controllerNet != 1 && rules.NetworkedControllerRules(&mysettings))
         {
           mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
         }
@@ -2760,14 +2763,14 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
 
         if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
         {       
-         CAN.BITMSGS_TIMESTAMP[mysettings.controllerID] = esp_timer_get_time(); //record a timestamp for this controller to be used for heartbeat polling
-         CAN.who_is_master(); // determine who is currently the master controller
+          CAN.BITMSGS_TIMESTAMP[mysettings.controllerID] = esp_timer_get_time(); //record a timestamp for this controller to be used for heartbeat polling
+          CAN.who_is_master(); // determine who is currently the master controller
         
-        //CANBUS math and Intra-controller CAN traffic
-        CAN.c2c_DVCC();
-        CAN.c2c_ALARMS();
-        CAN.c2c_BIT_MSGS();
-        CAN.c2c_MODULES();
+          //CANBUS math and Intra-controller CAN traffic
+          CAN.c2c_DVCC();
+          CAN.c2c_ALARMS();
+          CAN.c2c_BIT_MSGS();
+          CAN.c2c_MODULES();
 
         //snapshot of the controller network
         statusreturn = CAN.controllerNetwork_status();
@@ -2798,59 +2801,57 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
         }
       }
     }
+    }
 }
 
 [[noreturn]] void canbus_tx_3000ms(void* param)
 {
-    for (;;)
-    {
-        // timestamp here so we can sync error logs for debugging purposes
-        struct tm timeinfo;
-        if (getLocalTime(&timeinfo),1)
-        {
-        ESP_LOGI(TAG,"Current Time is:%d:%d:%d",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
-        }
-        
+  for (;;)
+  {
+      // timestamp here so we can sync error logs for debugging purposes
+      struct tm timeinfo;
+      if (getLocalTime(&timeinfo),1)
+      {
+      ESP_LOGI(TAG,"Current Time is:%d:%d:%d",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+      }
+      
+      // Delay 3 second
+      vTaskDelay(pdMS_TO_TICKS(3000));
 
-        // Delay 3 second
-        vTaskDelay(pdMS_TO_TICKS(3000));
+      //wait until controller is running so we don't send bad info/alarms during ESP startup    
+  if (_controller_state == ControllerState::Running)
+  {
 
-        if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
-        {
-        // CANBUS math and intra-controller CAN traffic
-        CAN.c2c_SOC();
-        CAN.c2c_CAP();
-        CAN.c2c_HOST();
-        CAN.c2c_MINMAX_CELL_V_T();
-        CAN.c2c_CELL_IDS();
-        CAN.c2c_VIT();
+      if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
+      {
+      // CANBUS math and intra-controller CAN traffic
+      CAN.c2c_SOC();
+      CAN.c2c_CAP();
+      CAN.c2c_HOST();
+      CAN.c2c_MINMAX_CELL_V_T();
+      CAN.c2c_CELL_IDS();
+      CAN.c2c_VIT();
 
-        // Reporting via VICTRON protocol
-        if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID == CAN.master))
-        {
-            victron_message_370_371_35e();
-            victron_message_35f();
+      // Reporting via VICTRON protocol
+      if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID == CAN.master))
+      {
+        victron_message_370_371_35e();
+        victron_message_35f();
+        victron_message_355();
+        victron_message_356();
+        victron_message_373_374_375_376_377();
+        victron_message_379();
+      }
 
-            if (_controller_state == ControllerState::Running)
-            {
-                victron_message_355();
-                victron_message_356();
-                victron_message_373_374_375_376_377();
-                victron_message_379();
-            }
-        }
-
-        // Reporting via PYLONTECH protocol
-        if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID == CAN.master))
-        {
-            if (_controller_state == ControllerState::Running)
-            {
-              pylon_message_355();
-              pylon_message_356();
-            }
-        }
+      // Reporting via PYLONTECH protocol
+      if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID == CAN.master))
+      {
+        pylon_message_355();
+        pylon_message_356();
       }
     }
+  }
+  }
 }
 
 [[noreturn]] void canbus_rx(void* param)

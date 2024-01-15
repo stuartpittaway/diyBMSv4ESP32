@@ -31,6 +31,7 @@ const uint32_t ControllerCAN::id[MAX_CAN_PARAMETERS][MAX_NUM_CONTROLLERS] = {
 
 };
 
+
 //return whether a controller has a valid heartbeat by checking the bitmssgs timestamp array
 bool ControllerCAN::controller_heartbeat(uint8_t controllerAddress)
 {
@@ -93,14 +94,14 @@ uint8_t ControllerCAN::controllerNetwork_status()
         }
         */ 
       }
+
   }
-      if (addressbitmask != 0)
-      {
-        ESP_LOGE(TAG, "Controller address conflict");
-        returnvalue = 2;
-      }
 
-
+  if (addressbitmask != 0)
+  {
+    ESP_LOGE(TAG, "Controller address conflict");
+    returnvalue = 2;
+  }
 
    // checksum for connected controllers 
   if (controller_count > mysettings.controllerNet)
@@ -152,11 +153,11 @@ void ControllerCAN::SetBankAndModuleText(char *buffer, uint8_t cellid)       //f
   uint8_t module = cellid - (bank * mysettings.totalNumberOfSeriesModules);
 
   // Clear all 8 bytes
-  memset(buffer, 0, 9);
+  memset(buffer, 0, 8);
 
     if (mysettings.controllerNet != 1) 
     {
-      snprintf(buffer, 9, "%d", "b%d m%d", mysettings.controllerID, bank, module);      
+      snprintf(buffer, 8, "%db%dm%d", mysettings.controllerID, bank, module);      
     }                                                                   
     else
       snprintf(buffer, 8, "b%d m%d", bank, module);
@@ -267,17 +268,8 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
 void ControllerCAN::c2c_ALARMS()      //Inverter Alarms 
 {
 
-    CANframe candata;
-    memset(&candata.data, 0, sizeof(candata.data));
-
-    uint8_t byte0;
-    uint8_t byte1;
-    uint8_t byte2;
-    uint8_t byte3;
-    uint8_t byte4;
-    uint8_t byte5;
-    uint8_t byte6;
-    uint8_t byte7;
+  CANframe candata;
+  memset(&candata.data, 0, sizeof(candata.data));
 
   const uint8_t BIT01_ALARM = B00000001;
   const uint8_t BIT23_ALARM = B00000100;
@@ -289,34 +281,32 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
   const uint8_t BIT45_OK = B00100000;
   const uint8_t BIT67_OK = B10000000;
 
-  // const uint8_t BIT01_NOTSUP = B00000011;
-  // const uint8_t BIT23_NOTSUP = B00001100;
-  // const uint8_t BIT45_NOTSUP = B00110000;
-  // const uint8_t BIT67_NOTSUP = B11000000;
+  //const uint8_t BIT01_NOTSUP = B00000011;
+  //const uint8_t BIT23_NOTSUP = B00001100;
+  //const uint8_t BIT45_NOTSUP = B00110000;
+  //const uint8_t BIT67_NOTSUP = B11000000;
 
   if (_controller_state == ControllerState::Running)
   {
     // BYTE 0
     //(bit 0+1) General alarm (not implemented)
     //(bit 2+3) Battery high voltage alarm
-    byte0 |= ((rules.ruleOutcome(Rule::BankOverVoltage) | rules.ruleOutcome(Rule::CurrentMonitorOverVoltage)) ? BIT23_ALARM : BIT23_OK);
+    candata.data[0] |= ((rules.ruleOutcome(Rule::BankOverVoltage) | rules.ruleOutcome(Rule::CurrentMonitorOverVoltage)) ? BIT23_ALARM : BIT23_OK);
     
     //(bit 4+5) Battery low voltage alarm
-    byte0 |= ((rules.ruleOutcome(Rule::BankUnderVoltage) | rules.ruleOutcome(Rule::CurrentMonitorUnderVoltage)) ? BIT45_ALARM : BIT45_OK);
+    candata.data[0] |= ((rules.ruleOutcome(Rule::BankUnderVoltage) | rules.ruleOutcome(Rule::CurrentMonitorUnderVoltage)) ? BIT45_ALARM : BIT45_OK);
 
     //(bit 6+7) Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      byte0 |= (rules.ruleOutcome(Rule::ModuleOverTemperatureExternal) ? BIT67_ALARM : BIT67_OK);
+      candata.data[0] |= (rules.ruleOutcome(Rule::ModuleOverTemperatureExternal) ? BIT67_ALARM : BIT67_OK);
     }
-
-    memset(&candata.data[0], byte0, 1);
 
     // BYTE 1
     // 1 (bit 0+1) Battery low temperature alarm
     if (rules.moduleHasExternalTempSensor)
     {
-      byte1 |= (rules.ruleOutcome(Rule::ModuleUnderTemperatureExternal) ? BIT01_ALARM : BIT01_OK);
+      candata.data[1] |= (rules.ruleOutcome(Rule::ModuleUnderTemperatureExternal) ? BIT01_ALARM : BIT01_OK);
     }
     // 1 (bit 2+3) Battery high temperature charge alarm
     // byte1 |= BIT23_NOTSUP;
@@ -324,7 +314,6 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
     // byte1 |= BIT45_NOTSUP;
     // 1 (bit 6+7) Battery high current alarm
     // byte1 |= BIT67_NOTSUP;
-    memset(&candata.data[1], byte1, 1);
   }
 
   // 2 (bit 0+1) Battery high charge current alarm
@@ -337,8 +326,7 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
   // ESP_LOGI(TAG, "Rule BMSError=%u, EmergencyStop=%u", rules.ruleOutcome[Rule::BMSError], rules.ruleOutcome[Rule::EmergencyStop]);
 
   // 2 (bit 6+7) BMS internal alarm
-  byte2 |= ((rules.ruleOutcome(Rule::BMSError) | rules.ruleOutcome(Rule::EmergencyStop)) ? BIT67_ALARM : BIT67_OK);
-  memset(&candata.data[2], byte2, 1);
+  candata.data[2] |= ((rules.ruleOutcome(Rule::BMSError) | rules.ruleOutcome(Rule::EmergencyStop)) ? BIT67_ALARM : BIT67_OK);
   // 3 (bit 0+1) Cell imbalance alarm
   // byte3 |= BIT01_NOTSUP;
   // 3 (bit 2+3) Reserved
@@ -352,25 +340,25 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
     // dischargevolt=490, lowestbankvoltage=48992 (scale down 100)
     if (rules.lowestBankVoltage / 100 < mysettings.dischargevolt)
     {
-      byte4 |= BIT23_ALARM;
+      candata.data[4] |= BIT23_ALARM;
     }
   // 4 (bit 4+5) Battery high voltage warning
       if (rules.highestBankVoltage / 100 > mysettings.chargevolt)
     {
-      byte4 |= BIT45_ALARM;
+      candata.data[4] |= BIT45_ALARM;
     }
 
   // 4 (bit 6+7) Battery high temperature warning
     if (rules.moduleHasExternalTempSensor && rules.highestExternalTemp > mysettings.chargetemphigh)
     {
-      byte4 |= BIT67_ALARM;
+      candata.data[4] |= BIT67_ALARM;
     }
   // memset(&q_message[5], byte4, 1);
 
   // 5 (bit 0+1) Battery low temperature warning
     if (rules.moduleHasExternalTempSensor && rules.lowestExternalTemp < mysettings.chargetemplow)
     {
-      byte5 |= BIT01_ALARM;
+      candata.data[5] |= BIT01_ALARM;
     }
   // 5 (bit 2+3) Battery high temperature charge warning
   // byte5 |= BIT23_NOTSUP;
@@ -387,8 +375,8 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
   // 6 (bit 4+5) Short circuit warning (not implemented)
   // byte6 |= BIT45_NOTSUP;
   // 6 (bit 6+7) BMS internal warning
-   byte6 |= ((rules.ruleOutcome(Rule::BMSError) || rules.ruleOutcome(Rule::EmergencyStop)) ? BIT67_ALARM : 0);
-   byte6 |= ((_controller_state != ControllerState::Running) ? BIT67_ALARM : 0);
+   candata.data[6] |= ((rules.ruleOutcome(Rule::BMSError) || rules.ruleOutcome(Rule::EmergencyStop)) ? BIT67_ALARM : 0);
+   candata.data[6] |= ((_controller_state != ControllerState::Running) ? BIT67_ALARM : 0);
 
 
   // ESP_LOGI(TAG, "numberOfBalancingModules=%u", rules.numberOfBalancingModules);
@@ -397,10 +385,7 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
   // byte7 |= (rules.numberOfBalancingModules > 0 ? BIT01_ALARM : BIT01_OK);
 
   // 7 (bit 2+3) System status (online/offline) [1]
-  byte7 |= ((_controller_state != ControllerState::Running) ? BIT23_ALARM : BIT23_OK);
-  // 7 (rest) Reserved
-  memset(&candata.data[7], byte7, 1);
-
+  candata.data[7] |= ((_controller_state != ControllerState::Running) ? BIT23_ALARM : BIT23_OK);
 
 
     candata.dlc = 8;                                            
@@ -423,15 +408,6 @@ void ControllerCAN::c2c_BIT_MSGS()      // diyBMS messaging/alarms
   CANframe candata;
   memset(&candata.data, 0, sizeof(candata.data));
 
-    uint8_t byte0;
-    uint8_t byte1;
-    uint8_t byte2;
-    uint8_t byte3;
-    uint8_t byte4;
-    uint8_t byte5;
-    uint8_t byte6;
-    uint8_t byte7;
-
 
 // byte 0 - Broadcast the Controller ID
 // 
@@ -444,30 +420,31 @@ void ControllerCAN::c2c_BIT_MSGS()      // diyBMS messaging/alarms
   //CNTRL5 = B00100000
   //CNTRL6 = B01000000
   //CNTRL7 = B10000000    
-  byte0 = 0x1 << mysettings.controllerID;   
+  candata.data[0] = 0x1 << mysettings.controllerID;   
  
 // byte 1 - Is Charge/Discharge Allowed?
-  byte1 = 0;
-  if (rules.IsChargeAllowed(&mysettings))
-  {
-      byte1 = byte1 | B10000000;
-  }
+  candata.data[1] = 0;
+  
 
-  if (rules.IsDischargeAllowed(&mysettings))
-  {
-      byte1 = byte1 | B01000000;
-  }
-  memset(&candata.data[1], byte1, 1);
+    if (rules.IsChargeAllowed(&mysettings))
+    {
+        candata.data[1] = candata.data[1] | B10000000;
+    }
+
+    if (rules.IsDischargeAllowed(&mysettings))
+    {
+        candata.data[1] = candata.data[1] | B01000000;
+    }
 
 
 
-
-// byte 2 - reserved for future use
+// byte 2 - are NetworkedControllerRules active?
+  candata.data[2] = rules.NetworkedControllerRules(&mysettings);
 
 // byte 3 - HighAvailability setting
-  byte3 = mysettings.highAvailable;
+  candata.data[3] = mysettings.highAvailable;
 // byte 4 - # Networked Controllers
-  byte4 = mysettings.controllerNet;
+  candata.data[4] = mysettings.controllerNet;
 // byte 5 - reserved for future use 
 // byte 6 - reserved for future use
 // byte 7 - reserved for future use 
@@ -475,8 +452,7 @@ void ControllerCAN::c2c_BIT_MSGS()      // diyBMS messaging/alarms
   candata.dlc = 8;    
   candata.identifier = id[2][mysettings.controllerID];
 
-  memcpy(&data[2][mysettings.controllerID][0],&candata.data,candata.dlc);                        //copy calculated values to array
-
+  memcpy(&data[2][mysettings.controllerID][0],&candata.data,candata.dlc);     
 
         if (mysettings.controllerNet != 1)
         {
@@ -496,14 +472,16 @@ void ControllerCAN::c2c_MODULES()       // # of modules O.K.
     uint16_t numberofmodulesok = TotalNumberOfCells() - rules.invalidModuleCount;
     // uint16_t numberofmodulesblockingcharge = 0;
     // uint16_t numberofmodulesblockingdischarge = 0;
-    // uint16_t numberofmodulesoffline = rules.invalidModuleCount;
+    uint16_t numberofmodulesoffline = rules.invalidModuleCount;
 
 
-    candata.dlc = 2; 
-    memcpy(&candata.data[0],&numberofmodulesok,sizeof(numberofmodulesok));          
+    candata.dlc = 8; 
+    memcpy(&candata.data[0],&numberofmodulesok,sizeof(numberofmodulesok));
+    memcpy(&candata.data[6],&numberofmodulesoffline,sizeof(numberofmodulesoffline));         
     candata.identifier = id[3][mysettings.controllerID];                                   
 
     memcpy(&data[3][mysettings.controllerID][0],&candata.data,candata.dlc);                        //copy calculated values to array
+ 
 
     if (mysettings.controllerNet != 1)
     {
@@ -542,6 +520,8 @@ void ControllerCAN::c2c_SOC()      // SOC
     if (mysettings.controllerNet != 1)
     {
         // send to tx routine , block 50ms 
+        
+        ESP_LOGI(TAG,"SOC sent over ControllerCAN = %d",stateofchargevalue); //for debug purposes only
         if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
         {
             ESP_LOGE(TAG, "CAN Q Full");

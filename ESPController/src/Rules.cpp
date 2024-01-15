@@ -409,15 +409,32 @@ void Rules::RunRules(
     }
 }
 
+bool Rules::NetworkedControllerRules(const diybms_eeprom_settings *mysettings)
+{
+    if (moduleHasExternalTempSensor == false)
+        return true;
+
+    if (invalidModuleCount > 0)
+        return true;
+
+    // Any errors, stop charge
+    if (numberOfActiveErrors > 0)
+        return true;
+
+    return false;
+}
+
 bool Rules::SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings)
 {
     if (mysettings->canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
         return false;
 
-    if (invalidModuleCount > 0)
-        return false;
     if (moduleHasExternalTempSensor == false)
         return false;
+
+    if (invalidModuleCount > 0)
+        return false;
+
     // Any errors, stop charge
     if (numberOfActiveErrors > 0)
         return false;

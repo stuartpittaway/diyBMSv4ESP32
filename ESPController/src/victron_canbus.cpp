@@ -23,11 +23,12 @@ void victron_message_370_371_35e()
     memcpy(&candata.data[0], &hostname[0], TWAI_FRAME_MAX_DLC);
     candata.identifier = 0x370;
 
-    // send to tx routine , block indefinitley 
-    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-    {
-        ESP_LOGE(TAG, "CAN tx queue full");
-    }
+
+        // send to tx routine , block indefinitley 
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
 
 
     // message 371
@@ -35,24 +36,23 @@ void victron_message_370_371_35e()
     memcpy(&candata.data[0], &hostname[8], TWAI_FRAME_MAX_DLC);
     candata.identifier = 0x371;
 
-    // send to tx routine , block indefinitley 
-    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-    {
-        ESP_LOGE(TAG, "CAN tx queue full");
-    }
 
+        // send to tx routine , block indefinitley 
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
 
     // message 35eCANframe
     memset(&candata.data, 0, sizeof(candata.data));
     memcpy(&candata.data[0], &hostname[0], 6);
     candata.identifier = 0x35e;
 
-    // send to tx routine , block indefinitley 
-    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-    {
-        ESP_LOGE(TAG, "CAN tx queue full");
-    }
-
+        // send to tx routine , block indefinitley 
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
 }
 
 // Firmware & Ah capacity
@@ -109,12 +109,12 @@ void victron_message_35f()
         }
 
         // calculate total Ah based on #of controllers
-        uint16_t Total_Ah = 0;
+        uint16_t Total_Weighted_Ah = 0;
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
             if (CAN.controller_heartbeat(i))  //check bitmsgs timestamp so we only include online controllers
             {
-            Total_Ah = Total_Ah + *(uint16_t*)&CAN.data[5][i][4];
+            Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&CAN.data[4][i][0]) * (*(uint16_t*)&CAN.data[5][i][4]);  //SOC x Online capacity
             }
         }
 
@@ -122,12 +122,11 @@ void victron_message_35f()
 
     }
 
-    // send to tx routine , block indefinitley 
-    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-    {
-        ESP_LOGE(TAG, "CAN tx queue full");
-    }
-
+        // send to tx routine , block indefinitley 
+        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+        {
+            ESP_LOGE(TAG, "CAN tx queue full");
+        }
 
 }
 
@@ -271,26 +270,23 @@ void victron_message_373_374_375_376_377()
         memcpy(&candata.data[4], &min_cell_t, sizeof(min_cell_t));
         memcpy(&candata.data[6], &max_cell_t, sizeof(max_cell_t));
 
-
-        // send to tx routine , block indefinitley 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
+            // send to tx routine , block indefinitley 
+            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+            {
+                ESP_LOGE(TAG, "CAN tx queue full");
+            }
 
         // message 374  (Min Cell V I.D.)
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
         candata.dlc = TWAI_FRAME_MAX_DLC;
-        candata.identifier = 0x373;
+        candata.identifier = 0x374;
         memcpy(&candata.data, &MinCellV_ID, sizeof(MinCellV_ID));
 
-
-        // send to tx routine , block indefinitley 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
-
+            // send to tx routine , block indefinitley 
+            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+            {
+                ESP_LOGE(TAG, "CAN tx queue full");
+            }
 
         // message 375  (Max Cell V I.D.)
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
@@ -298,11 +294,11 @@ void victron_message_373_374_375_376_377()
         memcpy(&candata.data, &MaxCellV_ID, sizeof(MaxCellV_ID));
         candata.identifier = 0x375;
 
-        // send to tx routine , block indefinitley 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
+            // send to tx routine , block indefinitley 
+            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+            {
+                ESP_LOGE(TAG, "CAN tx queue full");
+            }
 
         // message 376  (Min Cell T I.D.)
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
@@ -310,11 +306,11 @@ void victron_message_373_374_375_376_377()
         memcpy(&candata.data, &MinCellT_ID, sizeof(MinCellT_ID));
         candata.identifier = 0x376;
 
-        // send to tx routine , block indefinitley 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
+            // send to tx routine , block indefinitley 
+            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+            {
+                ESP_LOGE(TAG, "CAN tx queue full");
+            }
 
         // message 377  (Max Cell T I.D.)
         memset(&candata.data, 0, sizeof(candata.data));
@@ -322,11 +318,11 @@ void victron_message_373_374_375_376_377()
         memcpy(&candata.data, &MaxCellT_ID, sizeof(MaxCellT_ID));
         candata.identifier = 0x377;
 
-        // send to tx routine , block indefinitley 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
+            // send to tx routine , block indefinitley 
+            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+            {
+                ESP_LOGE(TAG, "CAN tx queue full");
+            }
     }
 }
 
@@ -339,9 +335,6 @@ For aggregation:
 For the maxchargevoltage reported to the inverter we will just use the minimum maxchargevoltage reported by any controller.
 
 For the maxchargecurrent reported to the inverter, we will use the minimum maxchargecurrent reported by any controller multiplied by the number of conrollers online.
-
-
-
 
 */
 void  victron_message_351()
@@ -368,14 +361,15 @@ void  victron_message_351()
     // aggregate DVCC data from networked controllers and use the minimum for each parameter
     else
     {       
-        chargevoltagelimit = *(uint16_t*)&CAN.data[0][0][0];
-        maxchargecurrent = *(uint16_t*)&CAN.data[0][0][2];
-        maxdischargecurrent = *(uint16_t*)&CAN.data[0][0][4];
-        dischargevoltage = *(uint16_t*)&CAN.data[0][0][6];
-
+        chargevoltagelimit = *(uint16_t*)&CAN.data[0][mysettings.controllerID][0];
+        maxchargecurrent = *(uint16_t*)&CAN.data[0][mysettings.controllerID][2];
+        maxdischargecurrent = *(uint16_t*)&CAN.data[0][mysettings.controllerID][4];
+        dischargevoltage = *(uint16_t*)&CAN.data[0][mysettings.controllerID][6];
+        
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.controller_heartbeat(i))  //check bitmsgs timestamp so we only include online controllers
+            //only include online controllers
+            if (CAN.controller_heartbeat(i))  
             {
                 // use minimum
                 if ((*(uint16_t*)&CAN.data[0][i][0] < chargevoltagelimit))
@@ -411,12 +405,11 @@ void  victron_message_351()
         ESP_LOGI(TAG, "Max Discharge Current = %d",maxdischargecurrent);
         ESP_LOGI(TAG, "Discharge Voltage Limit = %d",dischargevoltage);     
 
-    
-    // send to tx routine , block 50ms 
-    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-    {
-        ESP_LOGE(TAG, "CAN tx Q Full");
-    }
+            // send to tx routine , block 50ms 
+            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+            {
+                ESP_LOGE(TAG, "CAN tx Q Full");
+            }
 }
 
 // SOC 
@@ -435,15 +428,15 @@ void victron_message_355()
     else
     {     //SOC (weighted average based on nominal Ah of each controller)
         uint16_t Total_Ah = 0;
-        uint16_t Total_Weighted_Ah = 0;
+        uint32_t Total_Weighted_Ah = 0;
         uint16_t Weighted_SOC = 0;
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
             if (CAN.controller_heartbeat(i))
             {
-            Total_Ah = Total_Ah + *(uint16_t*)&(CAN.data[5][i][4]);
-            Total_Weighted_Ah = Total_Weighted_Ah + *(uint16_t*)&CAN.data[4][i][0] * (*(uint16_t*)&CAN.data[5][i][4]);  //SOC x Online capacity
+            Total_Ah = Total_Ah + *(uint16_t*)&CAN.data[5][i][4];
+            Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&CAN.data[4][i][0]) * (*(uint16_t*)&CAN.data[5][i][4]);  //SOC x Online capacity
             }
 
         }
@@ -456,12 +449,12 @@ void victron_message_355()
         memcpy(&candata.data[0], &Weighted_SOC, sizeof(Weighted_SOC));
 
     }
-    // send to tx routine , block 50ms 
-    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-    {
-        ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
-    }
-
+  
+            // send to tx routine , block 50ms 
+            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+            {
+                ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
+            }
 }
 
 // Battery V, I, T
@@ -480,10 +473,13 @@ void victron_message_356()
     else
     
     {
-         int16_t voltage, current, temperature;
+         int16_t voltage = 0;
+         int16_t current = 0;
+         int16_t temperature = 0;
+
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.controller_heartbeat(i))  // only use 0 values from online controllers
+            if (CAN.controller_heartbeat(i))  // only use values from online controllers
             {
                 voltage = voltage + *(int16_t*)&CAN.data[6][i][0];
                 current = current + *(int16_t*)&CAN.data[6][i][2];
@@ -499,11 +495,11 @@ void victron_message_356()
     memcpy(&candata.data[2], &current, sizeof(current));
     memcpy(&candata.data[4], &temperature, sizeof(temperature));
     }
-    // send to tx routine , block 50ms 
-    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-    {
-        ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
-    }
+            // send to tx routine , block 50ms 
+            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+            {
+                ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
+            }
 
 }
 
@@ -511,11 +507,11 @@ void victron_message_356()
 void victron_message_372()
 {
     CANframe candata;
-    candata.dlc = 2;
+    candata.dlc = 8;
     candata.identifier = 0x372;
     memset(&candata.data, 0, sizeof(candata.data));
 
-    if (mysettings.controllerNet = 1)
+    if (mysettings.controllerNet == 1)
     {
         memcpy(&candata.data[0], &CAN.data[3][mysettings.controllerID][0], candata.dlc);
     }
@@ -525,7 +521,7 @@ void victron_message_372()
         uint16_t online_count = 0;
         // uint16_t numberofmodulesblockingcharge = 0;
        // uint16_t numberofmodulesblockingdischarge = 0;  
-        //uint16_t offline_count = 0;
+        uint16_t offline_count = 0;
 
 
         // # Online Modules
@@ -535,111 +531,163 @@ void victron_message_372()
             if (CAN.controller_heartbeat(i))  // only use 0 values from online controllers
             {
             online_count = online_count + *(uint16_t*)&CAN.data[3][i][0];
+            offline_count = offline_count + *(uint16_t*)&CAN.data[3][i][6];
             }
         }
 
         memcpy(&candata.data[0], &online_count, sizeof(online_count));
+        memcpy(&candata.data[6], &offline_count, sizeof(offline_count));
 
     }
 
-    // send to tx routine , block 50ms 
-    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-    {
-        ESP_LOGE(TAG, "CAN tx Q Full");
-    }
-
+            // send to tx routine , block 50ms 
+            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
+            {
+                ESP_LOGE(TAG, "CAN tx Q Full");
+            }
 
 }
 
 // Alarms
 void victron_message_35a()
 {
-    /*
-     Alarms will be reported in the following manner:
-     1) all connected controllers must report OK for an OK to be reported to the inverter
-     2) If all controllers report Not Supported than that will be reported to the inverter.
-     3) Any other combination will report an alarm to the inverter.
-
-     Alarm = 01
-        OK = 10
-      NSUP = 11
-
-
-
-                    Truth table for reporting alarms
-
-Controller 1:     |  01  |  01  |  10  |  10  |  11  |
-                  |______|______|______|______|______|
-Controller 2:     |  10  |  11  |  11  |  10  |  11  |
-                  |______|______|______|______|______|
-   Report Out:    |  01  |  01  |  01  |  10  |  11  |
-
-
-
-
-    */
 
     CANframe candata;
     candata.dlc = TWAI_FRAME_MAX_DLC;
     candata.identifier = 0x35a;
 
-    uint8_t bitmask, byte, OK_checksum;
+    uint8_t bitmask, byte;
 
     memset(&candata.data, 0, sizeof(candata.data));
 
-
-    for (int8_t i = 0; i < TWAI_FRAME_MAX_DLC; i++)     // loop through all 8 bytes
+        if (mysettings.controllerNet == 1)
     {
-        for (int8_t j = 0; j < 8; j += 2)    // loop through each 'word'
+        memcpy(&candata.data[0], &CAN.data[3][mysettings.controllerID][0], candata.dlc);
+    }
+
+        else  //aggregate
+    {
+
+
+        /*
+        Alarms will be reported in the following manner:
+        1) all connected controllers must report OK for an OK to be reported to the inverter
+        2) If all controllers report Not Supported than that will be reported to the inverter.
+        3) Any other combination will report an alarm to the inverter.
+
+        Alarm = 01
+        OK = 10
+        NSUP = 11
+
+                        Truth table for reporting alarms
+
+  Controller 1:     |  01  |  01  |  10  |  10  |  11  |
+                    |______|______|______|______|______|
+  Controller 2:     |  10  |  11  |  11  |  10  |  11  |
+                    |______|______|______|______|______|
+     Report Out:    |  01  |  01  |  01  |  10  |  11  |
+
+
+
+        */
+
+
+
+        for (int8_t i = 0; i < TWAI_FRAME_MAX_DLC; i++)     // loop through all 8 bytes
         {
-            bitmask = 128 >> j;    /*   set the bitmask so we can compare the same bit across every controller
-                                        e.g. for j=0 then bitmask = 1000 0000
-                                             for j=2 then bitmask = 0010 0000        */
-
-            OK_checksum = 0;
-            for (int8_t k = 0; k < MAX_NUM_CONTROLLERS; k++)    // loop through the controllers 
+            for (int8_t j = 0; j < 8; j += 2)    // loop through each 'word'
             {
-                if (CAN.data[2][i][0] != 0)  // only use online controllers
+                //  set the bitmask so we can compare the same word across every controller
+                bitmask = 3 << j;    // e.g. for j=2 then B0000 1100   
+
+                for (int8_t k = 0; k < MAX_NUM_CONTROLLERS; k++)    // loop through the controllers 
                 {
-
-                    memcpy(&byte, &CAN.data[1][k][i], 1);         //set "byte" equal to the byte found in k controller
-
-                    if ((byte & bitmask) == 0)  // if we don't match a 1 in the even digit then we definitively know there is an alarm so...
+                    if (CAN.controller_heartbeat(k))  // only use online controllers
                     {
-                        candata.data[i] &= ~(bitmask);     // set to zero if it isn't already
-                        candata.data[i] |= bitmask >> 1;   // ...set the adjacent odd bit to 1 in bitarray and break from this 'word'
-                        break;
-                    }
+                    byte = CAN.data[1][k][i];     //set "byte" equal to the byte found in k controller
+                        
+                        switch ((byte & bitmask) >> j)  // Check k controller word. This will compute to a 0, 1, 2, or 3
+                        {
+        
+                        case B00000001:     // ALARM
 
-                    // otherwise the first digit must be a 1....
+                            candata.data[i] &= ~(3 << j);  // zero the word
+                            candata.data[i] |= (1 << j);   //set the word as an ALARM and we can break from this word
+                            break;
+                        /*
+                        case B00000000:     // NSUP
+                            
+                            if ((candata.data[i] & bitmask) >> j == B00000010)  // if the existing word is an OK change it to ALARM since it's a mismatch
+                            {
+                            candata.data[i] &= ~(3 << j);  // zero the word
+                            candata.data[i] |= (1 << j);   //set the word as an ALARM and we can break from this word
+                            break;
+                            }
 
-                    else if ((byte & bitmask >> 1) != 0)  //  ....if the adjacent odd bit also matches a 1.... 
-                    {
-                        candata.data[i] |= bitmask;   // set the first bit to 1 if it isn't already
-                        candata.data[i] |= bitmask >> 1;   //..... then it's NSUP and we set the second bit to 1...  
-                    }
-                    else
-                    {
-                        candata.data[i] |= bitmask;  // set the first bit to 1 if it isn't already
-                        OK_checksum++;   // we leave the second bit as a 0 and it's an OK for now. Increase checksum 
+                            candata.data[i] |= (3 << j);   //set the word as NSUP and break from this word
+                            break;
+
+                        case B00000011:     // NSUP
+
+                            if ((candata.data[i] & bitmask) >> j == B00000010)  // if the existing word is an OK change it to ALARM since it's a mismatch
+                            {
+                            candata.data[i] &= ~(3 << j);  // zero the word
+                            candata.data[i] |= (1 << j);   //set the word as an ALARM and we can break from this word
+                            break;
+                            }
+
+                            candata.data[i] |= (3 << j);   //set the word as NSUP and break from this word
+                            break;
+                        */
+                        case B00000010:     // OK
+                            
+                            if ((candata.data[i] & bitmask) >> j != B00000001)  // only if the existing word is not an Alarm do we mark an OK
+                            {
+                            candata.data[i] &= ~(3 << j);  // zero the word
+                            candata.data[i] |= (2 << j);   //set the word as OK
+                            }
+                        }  
+
                     }
                 }
-            }
 
-            if (OK_checksum > 0 && OK_checksum < mysettings.controllerNet)  // only if all controllers show OK do we report as such to the inverter. Any mix of OK and NSUP will default to Alarm
+            }
+        }   
+
+    }   
+
+
+            // send to tx routine , block 50ms 
+            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
             {
-                candata.data[i] &= ~(bitmask);
-                candata.data[i] |= bitmask >> 1;
+                ESP_LOGE(TAG, "CAN tx Q Full");
             }
+}
 
+// Installed Capacity
+void victron_message_379()
+{
+    CANframe candata;
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
+    candata.dlc = 2;
+    candata.identifier = 0x379;
+
+        // calculate total Ah based on #of controllers
+    uint16_t Online_Ah = 0;
+    for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+    {
+        if (CAN.controller_heartbeat(i))  //check bitmsgs timestamp so we only include online controllers
+        {
+        Online_Ah = Online_Ah + *(uint16_t*)&CAN.data[5][i][4];
         }
     }
 
+    memcpy(&candata.data[0], &Online_Ah, sizeof(uint16_t));
 
-    // send to tx routine , block 50ms 
+            // send to tx routine , block indefinitley 
     if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
     {
-        ESP_LOGE(TAG, "CAN tx Q Full");
+        ESP_LOGE(TAG, "CAN tx queue full");
     }
 }

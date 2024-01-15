@@ -14,8 +14,9 @@ void victron_message_355();
 void victron_message_356();
 void victron_message_372();
 void victron_message_35a();
+void victron_message_379();
 
 extern ControllerCAN CAN;
-//extern bool controller_heartbeat(uint8_t ControllerID);
+extern bool controller_heartbeat(uint8_t ControllerID);
 
 #endif

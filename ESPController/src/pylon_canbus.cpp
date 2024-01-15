@@ -55,7 +55,8 @@ void  pylon_message_351()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.controller_heartbeat(i))  //check bitmsgs timestamp so we only include online controllers
+            //only include online controllers
+            if (CAN.controller_heartbeat(i)) 
             {
                 if ((*(uint16_t*)&CAN.data[0][i][0] <= chargevoltagelimit))  // find minimum
                 {
@@ -76,8 +77,7 @@ void  pylon_message_351()
             }
         }
             maxchargecurrent = maxchargecurrent * CAN.online_controller_count;  //use minimum multiplied by # of online controllers
-            maxdischargecurrent = maxdischargecurrent * CAN.online_controller_count;    //use minimum multiplied by # of online controllers
-            
+            maxdischargecurrent = maxdischargecurrent * CAN.online_controller_count;    //use minimum multiplied by # of online controllers      
 
     }
         
@@ -90,15 +90,11 @@ void  pylon_message_351()
         ESP_LOGI(TAG, "Max Discharge Current = %d",maxdischargecurrent);
         ESP_LOGI(TAG, "Discharge Voltage Limit = %d",dischargevoltage);  
 
-        if (mysettings.controllerID==CAN.master)
-        {
             // send to tx routine , block 50ms 
             if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
             {
                 ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
             }
-        }
-
     
 }
 
@@ -110,23 +106,23 @@ void pylon_message_355()
     candata.identifier = 0x355;
     memset(&candata.data, 0, sizeof(candata.data));
 
+    uint16_t Total_Ah = 0;
+    uint32_t Total_Weighted_Ah = 0;
+    uint16_t Weighted_SOC = 0;
+
     if (mysettings.controllerNet == 1)  //copy over local values for SOC
     {
         memcpy(&candata.data, &CAN.data[4][mysettings.controllerID][0], sizeof(uint16_t));
     }
-
     else
     {     //SOC (weighted average based on nominal Ah of each controller)
-        uint16_t Total_Ah = 0;
-        uint16_t Total_Weighted_Ah = 0;
-        uint16_t Weighted_SOC = 0;
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
             if (CAN.controller_heartbeat(i))
             {
-            Total_Ah = Total_Ah + *(uint16_t*)&(CAN.data[5][i][4]);     //online capacity
-            Total_Weighted_Ah = Total_Weighted_Ah + *(uint16_t*)&CAN.data[4][i][0] * (*(uint16_t*)&CAN.data[5][i][4]);  //SOC x Online capacity
+            Total_Ah = Total_Ah + *(uint16_t*)&CAN.data[5][i][4];     //online capacity
+            Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&CAN.data[4][i][0]) * (*(uint16_t*)&CAN.data[5][i][4]);  //SOC x Online capacity
             }
 
         }
@@ -142,14 +138,15 @@ void pylon_message_355()
     uint16_t stateofhealthvalue = 100;
     memcpy(&candata.data[2], &stateofhealthvalue, sizeof(stateofhealthvalue));
 
-        if (mysettings.controllerID==CAN.master)
-        {
+        
+        
+            ESP_LOGI(TAG, "SOC sent to inverter = %d", Weighted_SOC);  //debug purposes only
             // send to tx routine , block 50ms 
             if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
             {
                 ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
             }
-        }
+        
 
 }
 
@@ -179,6 +176,13 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
     candata.dlc = 8;
     candata.identifier = 0x359;
     memset(&candata.data, 0, sizeof(candata.data));  
+
+    if (mysettings.controllerNet == 1)  //copy over local values
+    {
+        memcpy(&candata.data, &CAN.data[1][mysettings.controllerID][0], candata.dlc);
+    }
+    else
+    {
 
     //byte 0
     //(bit 0) = unused
@@ -221,18 +225,15 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
     candata.data[5] = 0x50;
     candata.data[6] = 0x4e;
 
-        if (mysettings.controllerID==CAN.master)
-        {
+    }
             // send to tx routine , block 50ms 
             if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
             {
                 ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
             }
-        }
 }
 
 // 0x35C – C0 00 – Battery charge request flags
-// Raise charge/discharge flag if ANY controller is currently allowing
 void pylon_message_35c()
 {
     CANframe candata;
@@ -245,20 +246,21 @@ void pylon_message_35c()
 
     for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
     {
-        byte0 = byte0 | CAN.data[2][i][1];  //byte 1 of bitmsgs is the charge/discharge request flag
+        if (CAN.data[2][i][2] == 0)  // don't factor in charge request flags from controllers operating under NetworkedControllerRules since it will prevent charging other controllers
+        {
+            byte0 = byte0 | CAN.data[2][i][1];  //byte 1 of bitmsgs is the charge/discharge request flag
+        }
+        
     }
-
+    
     memcpy(&candata.data[0], &byte0, sizeof(byte0));
 
 
-        if (mysettings.controllerID==CAN.master)
-        {
             // send to tx routine , block 50ms 
             if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
             {
                 ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
             }
-        }
 }
 
 
@@ -274,14 +276,12 @@ void pylon_message_35e()
           uint8_t pylon[] = {0x50, 0x59, 0x4c, 0x4f, 0x4e, 0x20, 0x20, 0x20};;
           memcpy(&candata.data[0], &pylon[0], TWAI_FRAME_MAX_DLC);
 
-        if (mysettings.controllerID==CAN.master)
-        {
+
             // send to tx routine , block 50ms 
             if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
             {
                 ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
             }
-        }
 
 }
 
@@ -299,12 +299,14 @@ void pylon_message_356()
     }
 
     else
-    
     {
-         int16_t voltage, current, temperature;
+         int16_t voltage = 0;
+         int16_t current = 0;
+         int16_t temperature = 0;
+
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.controller_heartbeat(i))  // only use 0 values from online controllers
+            if (CAN.controller_heartbeat(i))  // only use values from online controllers
             {
                 voltage = voltage + *(int16_t*)&CAN.data[6][i][0];
                 current = current + *(int16_t*)&CAN.data[6][i][2];
@@ -320,13 +322,12 @@ void pylon_message_356()
     memcpy(&candata.data[2], &current, sizeof(current));
     memcpy(&candata.data[4], &temperature, sizeof(temperature));
     }
-        if (mysettings.controllerID==CAN.master)
-        {
+
+
             // send to tx routine , block 50ms 
             if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
             {
                 ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
             }
-        }
 
 }

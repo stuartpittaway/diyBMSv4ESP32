@@ -258,7 +258,7 @@ struct diybms_eeprom_settings
   uint8_t influxdb_loggingFreqSeconds;
 
   // Holds a bit pattern indicating which "tiles" are visible on the web gui
-  uint16_t tileconfig[5];
+  uint16_t tileconfig[5];  
 };
 
 typedef union

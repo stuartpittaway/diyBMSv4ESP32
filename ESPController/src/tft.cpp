@@ -61,7 +61,7 @@ void ResetScreenSequence()
     _ScreenToDisplayDelay = 0;
     _ScreenPageCounter = 0;
     _lastScreenToDisplay = ScreenTemplateToDisplay::None;
-    tftsleep_timer = 120;
+    tftsleep_timer = 127;
 }
 
 void IRAM_ATTR TFTScreenTouchInterrupt()
@@ -357,7 +357,7 @@ void IncreaseDelayCounter()
 
     // Switch pages if rotation delay exceeded
     // 15 seconds between pages
-    if (_ScreenToDisplayDelay > 15)
+    if (_ScreenToDisplayDelay > 255)
     {
         // Move to the next page after the "_ScreenToDisplayDelay" delay
         _ScreenToDisplayDelay = 0;
