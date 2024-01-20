@@ -1,4 +1,3 @@
-
 /*
 
 This code formats local controller data into "industry standard" CAN messages for the purpose of reporting to various inverter manufacturers. It also establishes Intra-Controller communication of these messages to be aggregated and reported to an inverter
