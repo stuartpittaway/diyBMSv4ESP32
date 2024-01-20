@@ -14,7 +14,7 @@ public:
 		
 	void c2c_DVCC();
 	void c2c_ALARMS();
-	void c2c_BIT_MSGS();
+	void c2c_DIYBMS_MSGS();
 	void c2c_MODULES();
 	void c2c_SOC();
 	void c2c_CAP();

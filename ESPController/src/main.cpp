@@ -2661,10 +2661,17 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
 
-[[noreturn]] void canbus_populate_outbox(void* param) // populate the CAN TX mailbox from the Queue'd messages. Mailbox holds 5 messages by default
+[[noreturn]] void canbus_populate_outbox(void* param) // populate the CAN TX mailbox from the Queue'd messages.
 {
     for (;;)
     {
+        if (!(mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON || mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON))
+        {
+          // no need to run this task for protocols that don't support aggregation
+          vTaskDelay(5000);
+          continue;
+        }
+
         if (CANtx_q_handle != NULL)
         {
             CANframe tx;
@@ -2768,11 +2775,11 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
     }
 } 
 
-void _send_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length, const uint32_t flags)
+void send_extended_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
 {
   twai_message_t message;
   message.identifier = identifier;
-  message.flags = flags;
+  message.flags = TWAI_MSG_FLAG_EXTD;
   message.data_length_code = length;
 
   memcpy(&message.data, buffer, length);
@@ -2824,15 +2831,6 @@ void _send_canbus_message(const uint32_t identifier, const uint8_t *buffer, cons
   }
 }
 
-void send_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
-{
-  _send_canbus_message(identifier, buffer, length, TWAI_MSG_FLAG_NONE);
-}
-void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
-{
-  _send_canbus_message(identifier, buffer, length, TWAI_MSG_FLAG_EXTD);
-}
-
 [[noreturn]] void canbus_tx_900ms(void* param)
 {
    uint8_t statusreturn;
@@ -2862,7 +2860,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
           //CANBUS math and Intra-controller CAN traffic
           CAN.c2c_DVCC();
           CAN.c2c_ALARMS();
-          CAN.c2c_BIT_MSGS();
+          CAN.c2c_DIYBMS_MSGS();
           CAN.c2c_MODULES();
 
         //snapshot of the controller network
@@ -3825,7 +3823,6 @@ struct log_level_t
 };
 
 // Default log levels to use for various components.
-const std::array<log_level_t, 22> log_levels =
 const std::array<log_level_t, 22> log_levels =
     {
         log_level_t{.tag = "*", .level = ESP_LOG_DEBUG},

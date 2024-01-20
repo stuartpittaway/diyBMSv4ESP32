@@ -3,7 +3,7 @@
 
 This code formats local controller data into "industry standard" CAN messages for the purpose of reporting to various inverter manufacturers. It also establishes Intra-Controller communication of these messages to be aggregated and reported to an inverter
 
-Note!! Any data type greater than one byte will be serialized for transmission in little endian order. It will be received by other controllers and stored as such in a array of single byte type. So, those parameters
+Note!! Data will be serialized for transmission in little endian order. It will be received by other controllers and stored as such in a array of single byte type. So, those parameters
 need cast back to the original data type/size before any aggregation math.
 */
 
@@ -44,7 +44,7 @@ bool ControllerCAN::controller_heartbeat(uint8_t controllerAddress)
 
 void ControllerCAN::clearvalues()
 {
-   online_controller_count = 1; // "i think, therefore i am"
+   online_controller_count = 1; 
    master = 0;
       // Zero Array (traversing out of normal order ( data[q][r][s] ) to include BITMSGS_TIMESTAMP array)
     for (uint8_t r = 0; r < MAX_NUM_CONTROLLERS; r++)
@@ -403,7 +403,7 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
     }
 }
 
-void ControllerCAN::c2c_BIT_MSGS()      // diyBMS messaging/alarms
+void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
 {
   CANframe candata;
   memset(&candata.data, 0, sizeof(candata.data));
@@ -512,7 +512,7 @@ void ControllerCAN::c2c_SOC()      // SOC
     // stateofhealthvalue = 100;
 
     candata.dlc = 2;                                                    
-    memcpy(&candata.data[0],&stateofchargevalue,sizeof(stateofchargevalue));           // fill in 1-8 data bytes
+    memcpy(&candata.data[0],&stateofchargevalue,sizeof(stateofchargevalue));           
     candata.identifier = id[4][mysettings.controllerID];                                 
 
     memcpy(&data[4][mysettings.controllerID][0],&candata.data[0],candata.dlc);                   //copy calculated values to array
@@ -521,7 +521,7 @@ void ControllerCAN::c2c_SOC()      // SOC
     {
         // send to tx routine , block 50ms 
         
-        ESP_LOGI(TAG,"SOC sent over ControllerCAN = %d",stateofchargevalue); //for debug purposes only
+        //ESP_LOGI(TAG,"SOC sent over ControllerCAN = %d",stateofchargevalue); //for debug purposes only
         if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
         {
             ESP_LOGE(TAG, "CAN Q Full");
@@ -551,11 +551,11 @@ void ControllerCAN::c2c_CAP()   // Online capacity and firmware version
 
       
     
-      candata.dlc=6;                                                          //2 bytes each for FIRMWARE VERSION & ONLINECAPACITYINAH
-      memcpy(&candata.data[0],&BatteryModel,sizeof(BatteryModel));                     // fill in 1-8 data bytes      
-      memcpy(&candata.data[2],&Firmwareversion,sizeof(Firmwareversion));                // fill in 1-8 data bytes
-      memcpy(&candata.data[4],&OnlinecapacityinAh,sizeof(OnlinecapacityinAh));           // fill in 1-8 data bytes   
-      candata.identifier = id[5][mysettings.controllerID];                             //append the identifier to the last 4 bytes
+      candata.dlc=6;                                                          
+      memcpy(&candata.data[0],&BatteryModel,sizeof(BatteryModel));                     
+      memcpy(&candata.data[2],&Firmwareversion,sizeof(Firmwareversion));                
+      memcpy(&candata.data[4],&OnlinecapacityinAh,sizeof(OnlinecapacityinAh));  
+      candata.identifier = id[5][mysettings.controllerID];        
 
     
       memcpy(&data[5][mysettings.controllerID][0],&candata.data[0],candata.dlc);                  //copy local values to array
@@ -641,8 +641,8 @@ void ControllerCAN::c2c_HOST()     //unique part of hostname
     memset(&candata.data, 0, sizeof(candata.data));
 
 
-    candata.dlc = 8;                                                 // set first byte to CAN DLC
-    memcpy(&candata.data[0],&hostname[7],sizeof(candata.data));           // fill in 1-8 data bytes
+    candata.dlc = 8;                                                
+    memcpy(&candata.data[0],&hostname[7],sizeof(candata.data));          
     candata.identifier = id[7][mysettings.controllerID];           
   
     memcpy(&data[7][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array
@@ -674,10 +674,10 @@ void ControllerCAN::c2c_MINMAX_CELL_V_T()    // Min/Max Cell V & T
 
 
       candata.dlc = 8;                                                 
-      memcpy(&candata.data[0],&mincellvoltage,sizeof(mincellvoltage));                  // this 'word' will be serialized in little endian order
-      memcpy(&candata.data[2],&maxcellvoltage,sizeof(maxcellvoltage));                 // this 'word' will be serialized in little endian order
-      memcpy(&candata.data[4],&lowestcelltemperature,sizeof(lowestcelltemperature));   // this 'word' will be serialized in little endian order
-      memcpy(&candata.data[6],&highestcelltemperature,sizeof(highestcelltemperature));   // this 'word' will be serialized in little endian order
+      memcpy(&candata.data[0],&mincellvoltage,sizeof(mincellvoltage));               
+      memcpy(&candata.data[2],&maxcellvoltage,sizeof(maxcellvoltage));           
+      memcpy(&candata.data[4],&lowestcelltemperature,sizeof(lowestcelltemperature));  
+      memcpy(&candata.data[6],&highestcelltemperature,sizeof(highestcelltemperature)); 
       candata.identifier = id[8][mysettings.controllerID];                                     
     
       memcpy(&data[8][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array

@@ -81,10 +81,10 @@ void  pylon_message_351()
 
     }
         
-        memcpy(&candata.data[0], &chargevoltagelimit, sizeof(chargevoltagelimit));                  // fill in 1-8 data bytes
-        memcpy(&candata.data[2], &maxchargecurrent, sizeof(maxchargecurrent));                  // fill in 1-8 data bytes
-        memcpy(&candata.data[4], &maxdischargecurrent, sizeof(maxdischargecurrent));                  // fill in 1-8 data bytes
-        memcpy(&candata.data[6], &dischargevoltage, sizeof(dischargevoltage));                  // fill in 1-8 data bytes
+        memcpy(&candata.data[0], &chargevoltagelimit, sizeof(chargevoltagelimit));   
+        memcpy(&candata.data[2], &maxchargecurrent, sizeof(maxchargecurrent));      
+        memcpy(&candata.data[4], &maxdischargecurrent, sizeof(maxdischargecurrent));  
+        memcpy(&candata.data[6], &dischargevoltage, sizeof(dischargevoltage)); 
         ESP_LOGI(TAG, "Charge Voltage Limit = %d",chargevoltagelimit);
         ESP_LOGI(TAG, "Max Charge Current = %d",maxchargecurrent);
         ESP_LOGI(TAG, "Max Discharge Current = %d",maxdischargecurrent);

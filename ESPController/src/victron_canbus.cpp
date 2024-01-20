@@ -70,9 +70,9 @@ void victron_message_35f()
     //if no networked controllers than just copy over the local data
     if (mysettings.controllerNet == 1)
     {
-        memcpy(&candata.data[0], &CAN.data[5][mysettings.controllerID][0], sizeof(uint16_t));           // fill in 1-8 data bytes
-        memcpy(&candata.data[2], &CAN.data[5][mysettings.controllerID][2], sizeof(uint16_t));           // fill in 1-8 data bytes
-        memcpy(&candata.data[4], &CAN.data[5][mysettings.controllerID][4], sizeof(uint16_t));           // fill in 1-8 data bytes
+        memcpy(&candata.data[0], &CAN.data[5][mysettings.controllerID][0], sizeof(uint16_t));          
+        memcpy(&candata.data[2], &CAN.data[5][mysettings.controllerID][2], sizeof(uint16_t));      
+        memcpy(&candata.data[4], &CAN.data[5][mysettings.controllerID][4], sizeof(uint16_t));        
     }
 
 
@@ -396,10 +396,10 @@ void  victron_message_351()
         maxchargecurrent = maxchargecurrent * CAN.online_controller_count;
         maxdischargecurrent = maxdischargecurrent * CAN.online_controller_count;
     }
-        memcpy(&candata.data[0], &chargevoltagelimit, sizeof(chargevoltagelimit));                  // fill in 1-8 data bytes
-        memcpy(&candata.data[2], &maxchargecurrent, sizeof(maxchargecurrent));                  // fill in 1-8 data bytes
-        memcpy(&candata.data[4], &maxdischargecurrent, sizeof(maxdischargecurrent));                  // fill in 1-8 data bytes
-        memcpy(&candata.data[6], &dischargevoltage, sizeof(dischargevoltage));                  // fill in 1-8 data bytes
+        memcpy(&candata.data[0], &chargevoltagelimit, sizeof(chargevoltagelimit));                 
+        memcpy(&candata.data[2], &maxchargecurrent, sizeof(maxchargecurrent));
+        memcpy(&candata.data[4], &maxdischargecurrent, sizeof(maxdischargecurrent));
+        memcpy(&candata.data[6], &dischargevoltage, sizeof(dischargevoltage));                  
         ESP_LOGI(TAG, "Charge Voltage Limit = %d",chargevoltagelimit);
         ESP_LOGI(TAG, "Max Charge Current = %d",maxchargecurrent);
         ESP_LOGI(TAG, "Max Discharge Current = %d",maxdischargecurrent);
@@ -595,9 +595,9 @@ void victron_message_35a()
 
         for (int8_t i = 0; i < TWAI_FRAME_MAX_DLC; i++)     // loop through all 8 bytes
         {
-            for (int8_t j = 0; j < 8; j += 2)    // loop through each 'word'
+            for (int8_t j = 0; j < 8; j += 2)    // loop through each 'crumb'
             {
-                //  set the bitmask so we can compare the same word across every controller
+                //  set the bitmask so we can compare the same crumb across every controller
                 bitmask = 3 << j;    // e.g. for j=2 then B0000 1100   
 
                 for (int8_t k = 0; k < MAX_NUM_CONTROLLERS; k++)    // loop through the controllers 
@@ -606,45 +606,45 @@ void victron_message_35a()
                     {
                     byte = CAN.data[1][k][i];     //set "byte" equal to the byte found in k controller
                         
-                        switch ((byte & bitmask) >> j)  // Check k controller word. This will compute to a 0, 1, 2, or 3
+                        switch ((byte & bitmask) >> j)  // Check k controller crumb. This will compute to a 0, 1, 2, or 3
                         {
         
                         case B00000001:     // ALARM
 
-                            candata.data[i] &= ~(3 << j);  // zero the word
-                            candata.data[i] |= (1 << j);   //set the word as an ALARM and we can break from this word
+                            candata.data[i] &= ~(3 << j);  // zero the crumb
+                            candata.data[i] |= (1 << j);   //set the crumb as an ALARM and we can break from this word
                             break;
                         /*
                         case B00000000:     // NSUP
                             
-                            if ((candata.data[i] & bitmask) >> j == B00000010)  // if the existing word is an OK change it to ALARM since it's a mismatch
+                            if ((candata.data[i] & bitmask) >> j == B00000010)  // if the existing crumb is an OK change it to ALARM since it's a mismatch
                             {
-                            candata.data[i] &= ~(3 << j);  // zero the word
-                            candata.data[i] |= (1 << j);   //set the word as an ALARM and we can break from this word
+                            candata.data[i] &= ~(3 << j);  // zero the crumb
+                            candata.data[i] |= (1 << j);   //set the crumb as an ALARM and we can break from this word
                             break;
                             }
 
-                            candata.data[i] |= (3 << j);   //set the word as NSUP and break from this word
+                            candata.data[i] |= (3 << j);   //set the crumb as NSUP and break from this word
                             break;
 
                         case B00000011:     // NSUP
 
-                            if ((candata.data[i] & bitmask) >> j == B00000010)  // if the existing word is an OK change it to ALARM since it's a mismatch
+                            if ((candata.data[i] & bitmask) >> j == B00000010)  // if the existing crumb is an OK change it to ALARM since it's a mismatch
                             {
-                            candata.data[i] &= ~(3 << j);  // zero the word
-                            candata.data[i] |= (1 << j);   //set the word as an ALARM and we can break from this word
+                            candata.data[i] &= ~(3 << j);  // zero the crumb
+                            candata.data[i] |= (1 << j);   //set the crumb as an ALARM and we can break from this word
                             break;
                             }
 
-                            candata.data[i] |= (3 << j);   //set the word as NSUP and break from this word
+                            candata.data[i] |= (3 << j);   //set the crumb as NSUP and break from this word
                             break;
                         */
                         case B00000010:     // OK
                             
-                            if ((candata.data[i] & bitmask) >> j != B00000001)  // only if the existing word is not an Alarm do we mark an OK
+                            if ((candata.data[i] & bitmask) >> j != B00000001)  // only if the existing crumb is not an Alarm do we mark an OK
                             {
-                            candata.data[i] &= ~(3 << j);  // zero the word
-                            candata.data[i] |= (2 << j);   //set the word as OK
+                            candata.data[i] &= ~(3 << j);  // zero the crumb
+                            candata.data[i] |= (2 << j);   //set the crumb as OK
                             }
                         }  
 
