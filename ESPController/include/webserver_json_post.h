@@ -41,6 +41,7 @@ extern void setCacheControl(httpd_req_t *req);
 extern void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char *server1);
 extern void DefaultConfiguration(diybms_eeprom_settings *_myset);
 extern bool SaveWIFIJson(const wifi_eeprom_settings* setting);
+extern void randomCharacters(char *value, int length);
 
 esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded);
 esp_err_t post_saventp_json_handler(httpd_req_t *req, bool urlEncoded);
@@ -70,6 +71,7 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded);
 esp_err_t post_savecurrentmon_json_handler(httpd_req_t *req, bool urlEncoded);
 esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded);
 esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded);
+esp_err_t post_homeassistant_apikey_json_handler(httpd_req_t *req, bool urlEncoded);
 esp_err_t save_data_handler(httpd_req_t *req);
 
 #endif

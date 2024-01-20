@@ -33,13 +33,11 @@ https://creativecommons.org/licenses/by-nc-sa/2.0/uk/
 
 extern "C"
 {
+#include "stm32_flash.h"
   void SystemClock_Config(void);
 }
 
-extern "C"
-{
-#include "stm32_flash.h"
-}
+#include <IWatchdog.h>
 
 #include "SPI.h"
 #include <SerialEncoder.h>
@@ -50,10 +48,6 @@ extern "C"
 #include "cell.h"
 #include <SerialEncoder.h>
 #include "packet_processor.h"
-
-#if !defined(DIYBMSBAUD)
-#error Expected DIYBMSBAUD define
-#endif
 
 #if !defined(HAL_UART_MODULE_ENABLED)
 #error Expected HAL_UART_MODULE_ENABLED
@@ -78,7 +72,6 @@ const auto FAN = PB3;
 [[noreturn]] void ErrorFlashes(int number);
 uint32_t takeRawMCP33151ADCReading();
 uint32_t MAX14921Command(uint8_t b1, uint8_t b2, uint8_t b3);
-//void DecimateRawADCParasiteVoltage(std::array<uint32_t, 16> &rawADC, CellData &cd, uint8_t numberCells);
 void DecimateRawADCCellVoltage(std::array<uint32_t, 16> &rawADC, CellData &cd, uint8_t numberCells);
 void TakeExternalTempMeasurements(CellData &cd);
 uint16_t DecimateValue(uint64_t val);
@@ -110,6 +103,16 @@ PacketProcessor PP;
 
 /// @brief  Bitmap of which cells are balancing (maps into MAX chip register)
 uint16_t cell_balancing = 0;
+
+/// @brief   Is serial baud rate scanning active?
+bool serialBaudScanning = true;
+/// @brief  Index to current SerialBaudRates array
+int8_t serialBaudIndex = 0;
+/// @brief  Wait X iterations of loop() before swapping baud rates
+int8_t serialBaudCountDown = 15;
+
+// Baud rates that we can use
+constexpr std::array<uint16_t, 4> SerialBaudRates = {10000, 9600, 5000, 2400};
 
 const uint32_t LEVEL_SHIFTING_DELAY_MAX = 50; // μs
 const uint32_t T_SETTLING_TIME_MAX = 10;      // μs
@@ -342,28 +345,6 @@ void ADCSampleCellVoltages(uint8_t cellCount, std::array<uint32_t, 16> &rawADC)
   }
 }
 
-/// @brief Measure internal parasitic sampling voltages to offset from future voltage measurements
-/// @param cellCount number of cells to sample
-/// @param cd Cell data array
-void ParasiticCapacitanceChargeInjectionErrorCalibration(uint8_t cellCount, CellData &cd)
-{
-  // MAX14921
-  digitalWrite(SAMPLE_AFE, HIGH); // Sample mode
-  // Parasitic Capacitance Charge Injection Error Calibration
-  MAX14921Command(0, 0, 0);
-  delay(250);
-  digitalWrite(SAMPLE_AFE, LOW); // Hold mode
-
-  std::array<uint32_t, 16> rawADC;
-  rawADC.fill(0);
-
-  ADCSampleCellVoltages(cellCount, rawADC);
-
-  //DecimateRawADCParasiteVoltage(rawADC, cd, cellCount);
-
-  digitalWrite(SAMPLE_AFE, HIGH); // Sample mode
-}
-
 /// @brief Calibrate internal op-amp buffer
 void BufferAmplifierOffsetCalibration()
 {
@@ -517,6 +498,9 @@ void setup()
 {
   SystemClock_Config();
 
+  // Initialize the IWDG with 4 seconds timeout.  This would cause a CPU reset if the IWDG timer is not reloaded in approximately 4 seconds.
+  IWatchdog.begin(4000000);
+
   configurePins();
   DisableThermistorPower();
 
@@ -529,7 +513,8 @@ void setup()
   // Set up data handler
   Serial1.setTx(PA_9);
   Serial1.setRx(PA_10);
-  Serial1.begin(DIYBMSBAUD, SERIAL_8N1);
+  // Start using the first serial baud rate (10k)
+  Serial1.begin(SerialBaudRates.at(serialBaudIndex), SERIAL_8N1);
   myPacketSerial.begin(&Serial1, &onPacketReceived, sizeof(PacketStruct), SerialPacketReceiveBuffer, sizeof(SerialPacketReceiveBuffer));
 
   SPI.begin();
@@ -545,7 +530,18 @@ void setup()
     takeRawMCP33151ADCReading();
   }
 
-  number_of_active_cells = queryAFE();
+  // Sometimes on power up, the chip returns 1 cell more than actually connected, so take a few
+  // samples and return the lowest cell count
+  number_of_active_cells = 255;
+  for (size_t i = 0; i < 4; i++)
+  {
+    auto x = queryAFE();
+
+    if (x < number_of_active_cells)
+    {
+      number_of_active_cells = x;
+    }
+  }
 
   // We need at least 4 cells with correct voltages for this to work
   if (number_of_active_cells < 4)
@@ -553,7 +549,6 @@ void setup()
     ErrorFlashes(3);
   }
 
-  ParasiticCapacitanceChargeInjectionErrorCalibration(number_of_active_cells, celldata);
   BufferAmplifierOffsetCalibration();
 
   configureModules();
@@ -613,16 +608,6 @@ uint16_t DecimateValue(uint64_t val)
 }
 
 // Take the raw oversampled readings and decimate
-/*
-void DecimateRawADCParasiteVoltage(std::array<uint32_t, 16> &rawADC, CellData &cells, uint8_t numberCells)
-{
-  for (int cellid = 0; cellid < numberCells; cellid++)
-  {
-    cells.at(cellid).setParasiteVoltage(DecimateValue(rawADC[cellid]));
-  }
-}
-*/
-// Take the raw oversampled readings and decimate
 void DecimateRawADCCellVoltage(std::array<uint32_t, 16> &rawADC, CellData &cells, uint8_t numberCells)
 {
   for (int cellid = 0; cellid < numberCells; cellid++)
@@ -659,11 +644,39 @@ uint32_t MAX14921Command(uint8_t b1, uint8_t b2, uint8_t b3)
   return reply;
 }
 
-/// @brief Read external temperature sensors, connected to STM32
+// NTC THERMISTOR CMFB103F3950FANT
+// ADC MAPPING TO TEMPERATURE (DEGREES C)
+constexpr std::array<int8_t, 256> thermistorTable =
+    {
+        -40, -40, -40, -40, -40, -40, -40, -40, -40, -39, -37, -36, -34, -33, -31, -30, -29,
+        -28, -27, -26, -25, -24, -23, -22, -21, -20, -19, -19, -18, -17, -16, -16, -15, -14,
+        -14, -13, -13, -12, -11, -11, -10, -10, -9, -9, -8, -8, -7, -6, -6, -5, -5, -4, -4,
+        -4, -3, -3, -2, -2, -1, -1, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7,
+        7, 8, 8, 8, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 12, 13, 13, 14, 14, 14, 15, 15, 15,
+        16, 16, 16, 17, 17, 17, 18, 18, 19, 19, 19, 20, 20, 20, 21, 21, 21, 22, 22, 22, 23, 23,
+        24, 24, 24, 24, 25, 25, 26, 26, 26, 27, 27, 27, 28, 28, 28, 29, 29, 30, 30, 30, 31, 31,
+        31, 32, 32, 33, 33, 33, 34, 34, 35, 35, 35, 36, 36, 37, 37, 37, 38, 38, 39, 39, 39, 40,
+        40, 41, 41, 42, 42, 42, 43, 43, 44, 44, 45, 45, 46, 46, 47, 47, 48, 48, 49, 49, 50, 50,
+        51, 51, 52, 52, 53, 54, 54, 55, 55, 56, 57, 57, 58, 59, 59, 60, 61, 61, 62, 63, 63, 64,
+        65, 66, 67, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 80, 81, 82, 83, 85, 86, 88,
+        89, 91, 93, 95, 97, 99, 101, 104, 107, 110, 113, 117, 120, 120, 120, 120, 120, 120, 120,
+        120, 120, 120};
+
+/// @brief Read external temperature sensors, connected to STM32 (12 bit ADC)
 /// @return Temperature in celcius. A value of -999 means not-connected (shorted to ground)
 int16_t ReadThermistor(uint32_t pin)
 {
-  return Steinhart::ThermistorToCelcius(EXT_BCOEFFICIENT, (uint16_t)analogRead(pin), 4095);
+  auto value = (uint16_t)analogRead(pin);
+
+  // Ignore extreme ranges - assume not connected
+  if (value < 15 || value > 4000)
+  {
+    return (int16_t)-999;
+  }
+
+  // Scale 12 bit to 8 bit (TODO: we can probably just change the resolution of analogRead instead)
+  auto byte_value = (uint8_t)map(value, 0, 4096, 0, 255);
+  return thermistorTable.at(byte_value);
 }
 
 /// @brief Read external temperature sensors (connected to board J11/J12/J13 sockets)
@@ -689,10 +702,20 @@ void DisableThermistorPower()
 /// @return Celcius temperature reading
 int16_t ReadTH()
 {
+  // 14 bit reply...
   auto value = DecimateValue(takeRawMCP33151ADCReading());
   // THx is connected to 3.3V max via 10K resistors - scale 3.3V to 4.096V reference
   // 3.600 is used as temperature appears to be over read by 2 celcius
-  return Steinhart::ThermistorToCelcius(INT_BCOEFFICIENT, value, (3.600F / ((float)DIYBMSREFMILLIVOLT / 1000.0F)) * 4095.0F);
+
+  // Ignore extreme ranges - assume not connected
+  if (value == 0)
+  {
+    return (int16_t)-999;
+  }
+
+  // Scale to 8 bit
+  auto byte_value = (uint8_t)map(value, 0, long((3600.0F / ((float)DIYBMSREFMILLIVOLT)) * 4095.0F), 0, 255);
+  return thermistorTable.at(byte_value);
 }
 
 /// @brief internal temperature sensors (on board)
@@ -710,6 +733,7 @@ void TakeOnboardInternalTempMeasurements(CellData &cd)
 
     // Spread the two internal temperature sensor values across all 16 cells (even though some may not be connected)
     // Odd cells are on the left of the balance board, near TH1/T1, even on right side TH2/T2
+    // but this doesn't matter, as we use the highest recorded temperature from either sensor in safety checks
     for (size_t i = 0; i < 16; i += 2)
     {
       cd.at(i).setInternalTemperature(t1);
@@ -722,6 +746,16 @@ void TakeOnboardInternalTempMeasurements(CellData &cd)
 
   // Cell 0 internal temperature is the on-board (PCB) sensor (marked TH6)
   cd.at(0).setInternalTemperature(t3);
+
+  if (!PP.BalanceBoardInstalled)
+  {
+    // Populate all cells with an internal temperature to prevent controller error messages
+    for (size_t i = 0; i < 16; i += 2)
+    {
+      cd.at(i).setInternalTemperature(t3);
+      cd.at(i + 1).setInternalTemperature(t3);
+    }
+  }
 }
 
 [[noreturn]] void ErrorFlashes(int number)
@@ -730,6 +764,9 @@ void TakeOnboardInternalTempMeasurements(CellData &cd)
   delay(500);
   while (true)
   {
+    // make sure the code in this loop is executed in less than 2 seconds to leave 50% headroom for the timer reload.
+    IWatchdog.reload();
+
     for (size_t i = 0; i < number; i++)
     {
       NotificationLedOn();
@@ -738,15 +775,18 @@ void TakeOnboardInternalTempMeasurements(CellData &cd)
       delay(220);
     }
 
+    // make sure the code in this loop is executed in less than 2 seconds to leave 50% headroom for the timer reload.
+    IWatchdog.reload();
     delay(2000);
   }
 }
 
 /// @brief Calculate bit pattern for cell passive balancing (MOSFET switches)
-/// @param cd
-/// @param num_cells
+/// @param cd Cell data array
+/// @param num_cells total number of cells
+/// @param runawaycell_index index of cell identified as run away (or -1 if none)
 /// @return bit pattern
-uint16_t CalculateCellBalanceRequirement(CellData &cd, uint8_t num_cells)
+uint16_t CalculateCellBalanceRequirement(CellData &cd, uint8_t num_cells, int runawaycell_index)
 {
   // if balance daughter board is not installed, always return zero - no balance
   if (PP.BalanceBoardInstalled == false)
@@ -761,25 +801,19 @@ uint16_t CalculateCellBalanceRequirement(CellData &cd, uint8_t num_cells)
     // Get reference to cell object
     Cell &cell = cd.at(i);
 
-    if (cell.BypassCheck() == true)
+    // Check if bypass is needed, or if runawaycell is identified
+    if (cell.BypassCheck() == true || runawaycell_index == i)
     {
       // Our cell voltage is OVER the voltage setpoint limit, start draining cell using bypass resistor
-      if (!cell.IsBypassActive())
-      {
-        // We have just entered the bypass code
-        cell.StartBypass();
-      }
+      cell.StartBypass();
 
       // Enable balancing bit pattern - this enables the MOSFET and balance resistor
       reply = reply | (uint16_t)(1U << (15 - i));
     }
     else
     {
-      if (cell.IsBypassActive())
-      {
-        // We've just ended bypass....
-        cell.StopBypass();
-      }
+      // We've just ended bypass....
+      cell.StopBypass();
     }
   }
   return reply;
@@ -834,7 +868,6 @@ void CalculateCellVoltageMinMaxAvg(CellData &cd,
 /// @return bit pattern for which MOSFETs need enabling
 uint16_t DoCellBalancing(const int16_t highestTemp)
 {
-
   uint16_t lowestmV;
   uint16_t highestmV;
   uint8_t highest_index;
@@ -889,31 +922,67 @@ uint16_t DoCellBalancing(const int16_t highestTemp)
     }
   }
 
-  // Start with everything switched off
-  uint16_t cb = 0;
-
   // Calculate the average of all the cells
   auto averagemv = (uint16_t)(total / number_of_active_cells);
 
   // Calculate the differential between highest cell voltage and the average
   uint16_t highest_average_diff = highestmV - averagemv;
 
-  // Should any cells require balancing - check if they have gone over the threshold
-  cb = CalculateCellBalanceRequirement(celldata, number_of_active_cells);
-
-  // Now determine if we should balance the highest "run away" cell
+  // Now determine if we should balance the highest "run away" cell.
   // If the highest cell is above average cell voltage by X millivolts, then begin balancing until it no longer is.
-  // Also ensure the cell voltage is above a minimum - LIFEPO4 cells need to be over 3400mV for this function to be useful.
-  if (highestmV > PP.getRunAwayCellMinimumVoltage() && highest_average_diff > PP.getRunAwayCellDifferential())
+  // Ensure the cell voltage is above a minimum - LIFEPO4 cells need to be over 3400mV for this function to be useful.
+  auto runawaycellindex = (highestmV > PP.getRunAwayCellMinimumVoltage() && highest_average_diff > PP.getRunAwayCellDifferential()) ? highest_index : -1;
+
+  // Should any cells require balancing - check if they have gone over the threshold
+  return CalculateCellBalanceRequirement(celldata, number_of_active_cells, runawaycellindex);
+}
+
+// Checks the serial port for about 60ms and processes any requests
+// auto checks for serial baud rate scanning
+void ServiceSerialPort()
+{
+  // Service the serial port/queue
+  for (size_t i = 0; i < 60; i++)
   {
-    cb = cb | (uint16_t)(1U << (15 - highest_index));
+    // Call update to receive, decode and process incoming packets.
+    myPacketSerial.checkInputStream();
+
+    // Allow data to be received in buffer (delay must be AFTER) checkInputStream
+    delay(1);
   }
 
-  return cb;
+  if (serialBaudScanning)
+  {
+    NotificationLedOff();
+    serialBaudCountDown--;
+
+    if (PP.getPacketReceivedCounter() > 0)
+    {
+      // We have found our baud rate - and processed at least 1 packet successfully, so stop scanning
+      serialBaudScanning = false;
+    }
+    else if (serialBaudCountDown <= 0)
+    {
+      // If we got this far, we have not yet found/received a valid packet of serial data, so try another baud rate
+      serialBaudCountDown = 15;
+      serialBaudIndex++;
+
+      if (serialBaudIndex >= SerialBaudRates.size())
+      {
+        serialBaudIndex = 0;
+      }
+
+      Serial1.end();
+      Serial1.begin(SerialBaudRates.at(serialBaudIndex), SERIAL_8N1);
+    }
+  }
 }
 
 void loop()
 {
+
+  // make sure the code in this loop is executed in less than 2 seconds to leave 50% headroom for the timer reload.
+  IWatchdog.reload();
 
   // Temperature sensor readings...
   EnableThermistorPower();
@@ -924,12 +993,26 @@ void loop()
   {
     // Switch off any bypass balancing before taking voltage readings
     MAX14921Command(0, ANALOG_BUFFERED_T1);
-    // Allow voltages to bounce back
-    delay(20);
+    // Allow cell voltages to bounce back
+    delay(10);
   }
 
-  digitalWrite(SAMPLE_AFE, HIGH);              // Sample cell voltages (all 16 cells at same time)
-  delay(60);                                   // Wait 60ms for capacitors to fill and equalize against cell voltages (1uF caps)
+  digitalWrite(SAMPLE_AFE, HIGH); // Sample cell voltages (all 16 cells at same time)
+
+  if (waitbeforebalance == 0)
+  {
+    // This also takes about 60ms, but allows request packets to be processed quicker than waiting in a blocking delay call
+    ServiceSerialPort();
+  }
+  else
+  {
+    // Delay until we have been through this loop a few times (received a good packet)
+    // so we don't return zero voltage readings to controller
+    delay(60); // Wait 60ms for capacitors to fill and equalize against cell voltages (1uF caps)
+  }
+
+  // delay(60); // Wait 60ms for capacitors to fill and equalize against cell voltages (1uF caps)
+
   digitalWrite(SAMPLE_AFE, LOW);               // Disable sampling - HOLD mode
   delayMicroseconds(LEVEL_SHIFTING_DELAY_MAX); // Wait to settle
 
@@ -952,7 +1035,9 @@ void loop()
   // Now process the ADC readings we have taken...
   DecimateRawADCCellVoltage(rawADC, celldata, number_of_active_cells);
 
+  // Three temperature sensors are recorded over cells 0/1/2, use the highest value
   auto highestTemp = max(celldata.at(0).getInternalTemperature(), celldata.at(1).getInternalTemperature());
+  highestTemp = max(celldata.at(2).getInternalTemperature(), highestTemp);
 
   // If fan timer has expired, switch off FAN
   // This has the side effect of the fan switching off and on (not physically noticable) should the temperature still be too hot.
@@ -987,19 +1072,26 @@ void loop()
     waitbeforebalance--;
   }
 
-  // Service the serial port/queue
-  for (size_t i = 0; i < 300; i++)
-  {
-    // Call update to receive, decode and process incoming packets.
-    myPacketSerial.checkInputStream();
-
-    // Allow data to be received in buffer (delay must be AFTER) checkInputStream
-    delay(1);
-  }
+  // This needs to be below all other cell checking code
+  ServiceSerialPort();
 
   // Every so often, we should call this to calibrate the op-amp as it changes in ambient temperature (takes 8ms to complete)
-  if (PP.getPacketReceivedCounter() % 4096 == 0)
+  if (PP.getPacketReceivedCounter() % 8192 == 0)
   {
     BufferAmplifierOffsetCalibration();
+  }
+
+  if (serialBaudScanning)
+  {
+    NotificationLedOn();
+  }
+
+  // Sleep for 800ms
+  // TODO:ideally, this would be a true CPU sleep with RTC + UART wake up, but running out of FLASH code space
+  uint16_t countdown = 400;
+  while (Serial1.available() == 0 && countdown > 0)
+  {
+    delay(2);
+    countdown--;
   }
 }

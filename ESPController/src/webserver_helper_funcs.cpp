@@ -12,6 +12,19 @@ void setCookie(httpd_req_t *req)
     httpd_resp_set_hdr(req, "Set-Cookie", cookie);
 }
 
+void randomCharacters(char* value, int length) {
+    // Pick random characters from this string (we could just use ASCII offset instead of this)
+    // but this also avoids javascript escape characters like backslash and cookie escape chars like ; and %
+
+    auto alphabet=std::string("!$*#@ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyz");
+    // Leave NULL terminator on char array
+    for (uint8_t x = 0; x < length; x++)
+    {        
+        // Random number between 0 and array length (minus null char)
+        value[x] = alphabet.at(random(0, alphabet.length()));
+    }
+}
+
 void setCookieValue()
 {
     // We generate a unique number which is used in all following JSON requests
@@ -21,18 +34,8 @@ void setCookieValue()
     // ESP32 has inbuilt random number generator
     // https://techtutorialsx.com/2017/12/22/esp32-arduino-random-number-generation/
 
-    // Pick random characters from this string (we could just use ASCII offset instead of this)
-    // but this also avoids javascript escape characters like backslash and cookie escape chars like ; and %
-    char alphabet[] = "!$*#@ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdefghijklmnopqrstuvwxyz";
-
-    memset(CookieValue, 0, sizeof(CookieValue));
-
-    // Leave NULL terminator on char array
-    for (uint8_t x = 0; x < sizeof(CookieValue) - 1; x++)
-    {
-        // Random number between 0 and array length (minus null char)
-        CookieValue[x] = alphabet[random(0, sizeof(alphabet) - 2)];
-    }
+    memset(&CookieValue, 0, sizeof(CookieValue));
+    randomCharacters(CookieValue,sizeof(CookieValue)-1);
 
     // Generate the full cookie string, as a HTTPONLY cookie, valid for this session only
     snprintf(cookie, sizeof(cookie), "DIYBMS=%s; path=/; HttpOnly; SameSite=Strict", CookieValue);

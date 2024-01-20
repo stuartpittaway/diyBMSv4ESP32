@@ -343,7 +343,7 @@
       </p>
 
       <p>
-        <pre id="backtrace"></pre>
+      <pre id="backtrace"></pre>
       </p>
       <p id="runt">
         Running tasks:
@@ -372,7 +372,7 @@
             <th id="mpbypass" class="hide">Bypass PWM &percnt;</th>
             <th id="mpbpc" class="hide">Bad packet count</th>
             <th id="mppktr" class="hide">Packets received</th>
-            <th id="mpbal" class="hide">Balance energy used (mAh)</th>
+            <th id="mpbal" class="hide">Balance statistics</th>
             <th></th>
           </tr>
         </thead>
@@ -482,18 +482,22 @@
 
   <div class="page" id="integrationPage">
     <h1 id="ip1">Integration</h1>
-    <p id="ip2">
-      For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you
-      save.
-    </p>
+
     <div class="region">
       <h2>MQTT</h2>
+      <p id="ip2">For security, you will need to re-enter the password for the MQTT service if you want to enable or
+        modify, before you save.</p>
       <p id="ip4">URI should be similar to mqtt://192.168.0.26:1833</p>
+      <p id="ip5">Basic cell data option reduces the amount of MQTT data being sent over the network.</p>
       <form id="mqttForm" method="POST" action="/post/savemqtt" autocomplete="off">
         <div class="settings">
           <div>
             <label for="mqttEnabled">Enabled</label>
             <input type="checkbox" name="mqttEnabled" id="mqttEnabled" />
+          </div>
+          <div>
+            <label for="mqttBasicReporting">Basic cell data reporting only</label>
+            <input type="checkbox" name="mqttBasicReporting" id="mqttBasicReporting" />
           </div>
           <div>
             <label for="mqttTopic">Topic</label>
@@ -517,6 +521,28 @@
               maxlength="32" />
           </div>
           <button type="submit">Save MQTT settings</button>
+
+
+          <div>
+            <label for="mqttConnected">Connected</label>
+            <input type="input" name="mqttConnected" id="mqttConnected" value="" readonly="" />
+          </div>
+          <div>
+            <label for="mqttErrConnCount">Connection errors (count)</label>
+            <input type="input" name="mqttErrConnCount" id="mqttErrConnCount" value="" readonly="" />
+          </div>
+          <div>
+            <label for="mqttErrTransCount">Transport errors (count)</label>
+            <input type="input" name="mqttErrTransCount" id="mqttErrTransCount" value="" readonly="" />
+          </div>
+          <div>
+            <label for="mqttConnCount">Count of connections</label>
+            <input type="input" name="mqttConnCount" id="mqttConnCount" value="" readonly="" />
+          </div>
+          <div>
+            <label for="mqttDiscCount">Count of disconnections</label>
+            <input type="input" name="mqttDiscCount" id="mqttDiscCount" value="" readonly="" />
+          </div>
         </div>
       </form>
     </div>
@@ -588,6 +614,31 @@
             <input type="input" name="influxDatabase" id="influxDatabase" value="database" required="" maxlength="64" />
           </div>
           <button type="submit">Save Influx settings</button>
+        </div>
+      </form>
+    </div>
+
+
+    <div class="region">
+      <h2 id="ha1">Home Assistant Web API</h2>
+      <p id="ha2">
+        <a href="https://www.home-assistant.io/" target="_blank">Home Assistant</a> integration can be configured using
+        its <a href="https://www.home-assistant.io/integrations/rest/" target="_blank">RESTful API</a>. Example
+        configuration is available in <a href="https://github.com/stuartpittaway/diyBMSv4ESP32" target="_blank">DIYBMS
+          GitHub</a> repository.
+      </p>
+
+      <form id="haForm" method="POST" action="/post/newhaapikey" autocomplete="off">
+        <div class="settings">
+          <div>
+            <label for="haUrl">Endpoint API URL</label>
+            <input type="input" name="haUrl" id="haUrl" value="" readonly="" />
+          </div>
+          <div>
+            <label for="haAPI">API authentication token</label>
+            <input type="input" name="haAPI" id="haAPI" value="" readonly="" />
+          </div>
+          <button type="submit">Generate new API key</button>
         </div>
       </form>
     </div>
@@ -943,14 +994,14 @@
       </p>
       <p id="v2">
         These settings require an external inverter/charger to be able to integrate using CANBUS to control
-        charge/discharge parameters.
+        charge/discharge parameters. Pylontech normally operates at 500k baud. Victron can use other speeds depending on
+        the device.
       </p>
       <p id="v3">
         Temperature control utilises the external temperature sensors on the diyBMS modules. This is very useful for
         LIFEPO4 cells which cannot be charged when below 0&deg;C.
       </p>
       <p id="v7">Current shunt/monitor is required for reliable integration with external inverter/chargers.</p>
-
       <form id="chargingForm" method="POST" action="/post/savechargeconfig" autocomplete="off">
         <div class="settings">
           <div>
@@ -959,6 +1010,7 @@
               <option value="0">Disabled</option>
               <option value="1">Victron Cerbo GX</option>
               <option value="2">PylonTech</option>
+              <option value="3">PylonTech Force (HV Battery)</option>
             </select>
           </div>
 
@@ -967,6 +1019,14 @@
             <select name="canbusinverter" id="canbusinverter">
               <option value="0">Generic</option>
               <option value="1">DEYE</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="canbusbaud">CANBUS baud rate</label>
+            <select name="canbusbaud" id="canbusbaud">
+              <option value="500">500k</option>
+              <option value="250">250k</option>
             </select>
           </div>
 
@@ -1094,13 +1154,13 @@
         <img src="warning.png" width="48" height="41" alt="Warning" />
         Incorrect use of these settings could destroy your battery and cause harm!
       </p>
-      <p id="v6">
-        <img src="warning.png" width="48" height="41" alt="Warning" />
-        CANBUS BMS integration is currently at an EXPERIMENTAL stage, please report issues.
-      </p>
       <p id="v4">
         Remember to install terminator resistors at both ends of CAN connection. On the controller, jumper JP1 can be
         soldered closed for this purpose.
+      </p>
+      <p id="v6">
+        <img src="warning.png" width="48" height="41" alt="Warning" />
+        PylonTech ForceH2 canbus emulation is currently experimental.
       </p>
     </div>
 
@@ -1500,7 +1560,7 @@
 
   <div class="page" id="settingsPage">
     <h1>Controller Settings</h1>
-    <div class="region">
+    <div class="region  wide">
       <h2 id="mb1">Modules &amp; Banks</h2>
       <p id="mb2">
         DIYBMS supports up to
@@ -1536,7 +1596,9 @@
       </form>
     </div>
 
-    <div class="region">
+
+
+    <div class="region  wide">
       <h2 id="mb1">Network - Running Settings</h2>
       <p id="mb5">Wi-Fi "Station" network interface details:</p>
       <form>
@@ -1602,7 +1664,60 @@
       </form>
     </div>
 
-    <div class="region">
+
+    <div class="region  wide">
+      <h2 id="wifi1">WIFI Statistics</h2>
+      <p id="wifi2">
+        To help diagnose WIFI network issues, the values below are counters of WIFI events processed by the ESP32
+      </p>
+
+      <form id="wifistatsForm" method="POST" action="" autocomplete="off">
+        <div class="settings">
+          <div>
+            <label for="ssid">SSID</label>
+            <input type="input" name="ssid" id="ssid" value="" readonly="" />
+          </div>
+          <div>
+            <label for="bssid">BSSID</label>
+            <input type="input" name="bssid" id="bssid" value="" readonly="" />
+          </div>
+
+          <div>
+            <label for="rssi_now">Actual RSSI (dBm)</label>
+            <input type="input" name="rssi_now" id="rssi_now" value="" readonly="" />
+          </div>
+
+          <div>
+            <label for="rssi_low">RSSI low event</label>
+            <input type="input" name="rssi_low" id="rssi_low" value="" readonly="" />
+          </div>
+          <div>
+            <label for="sta_start">sta start</label>
+            <input type="input" name="sta_start" id="sta_start" value="" readonly="" />
+          </div>
+          <div>
+            <label for="sta_connected">sta connected</label>
+            <input type="input" name="sta_connected" id="sta_connected" value="" readonly="" />
+          </div>
+          <div>
+            <label for="sta_disconnected">sta disconnected</label>
+            <input type="input" name="sta_disconnected" id="sta_disconnected" value="" readonly="" />
+          </div>
+          <div>
+            <label for="sta_lost_ip">sta lost ip</label>
+            <input type="input" name="sta_lost_ip" id="sta_lost_ip" value="" readonly="" />
+          </div>
+          <div>
+            <label for="sta_got_ip">sta got ip</label>
+            <input type="input" name="sta_got_ip" id="sta_got_ip" value="" readonly="" />
+          </div>
+        </div>
+      </form>
+    </div>
+
+
+
+    <div class="region wide">
       <h2>Network Time Protocol</h2>
       <p id="b9">
         Time is set via NTP, if your controller is not connected to the Internet. Time based rules will be incorrect.
@@ -1636,7 +1751,7 @@
       </form>
     </div>
 
-    <div class="region">
+    <div class="region wide">
       <h2>Intra Controller CAN Settings</h2>
       <p id="b16">
         DIYBMS can communicate with up to 8 total controllers for the purpose of communicating aggregated data to an inverter.

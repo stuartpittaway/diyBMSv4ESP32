@@ -1617,6 +1617,18 @@ $(function () {
 
                 $("#networkForm").show();
 
+                
+                $("#rssi_now").val(data.wifi.rssi);
+                $("#bssid").val(data.wifi.bssid);
+                $("#ssid").val(data.wifi.ssid);
+                
+                $("#rssi_low").val(data.wifi.rssi_low);
+                $("#sta_start").val(data.wifi.sta_start);
+                $("#sta_connected").val(data.wifi.sta_connected);
+                $("#sta_disconnected").val(data.wifi.sta_disconnected);
+                $("#sta_lost_ip").val(data.wifi.sta_lost_ip);
+                $("#sta_got_ip").val(data.wifi.sta_got_ip);             
+
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 
@@ -1739,10 +1751,17 @@ $(function () {
             function (data) {
 
                 $("#mqttEnabled").prop("checked", data.mqtt.enabled);
+                $("#mqttBasicReporting").prop("checked", data.mqtt.basiccellreporting);
                 $("#mqttTopic").val(data.mqtt.topic);
                 $("#mqttUri").val(data.mqtt.uri);
                 $("#mqttUsername").val(data.mqtt.username);
                 $("#mqttPassword").val("");
+
+                $("#mqttConnected").val(data.mqtt.connected);
+                $("#mqttErrConnCount").val(data.mqtt.err_conn_count);
+                $("#mqttErrTransCount").val(data.mqtt.err_trans_count);
+                $("#mqttConnCount").val(data.mqtt.conn_count);
+                $("#mqttDiscCount").val(data.mqtt.disc_count);
 
                 $("#influxEnabled").prop("checked", data.influxdb.enabled);
                 $("#influxUrl").val(data.influxdb.url);
@@ -1751,6 +1770,10 @@ $(function () {
                 $("#influxOrgId").val(data.influxdb.orgid);
                 $("#influxFreq").val(data.influxdb.frequency);
 
+                $("#haUrl").val(window.location.origin+"/ha");
+                $("#haAPI").val(data.ha.api);                
+
+                $("#haForm").show();
                 $("#mqttForm").show();
                 $("#influxForm").show();
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
@@ -1980,7 +2003,8 @@ $(function () {
             function (data) {
 
                 $("#canbusprotocol").val(data.chargeconfig.canbusprotocol);
-                $("#canbusinverter").val(data.chargeconfig.canbusinverter);                
+                $("#canbusinverter").val(data.chargeconfig.canbusinverter);
+                $("#canbusbaud").val(data.chargeconfig.canbusbaud);
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
 
                 $("#chargevolt").val((data.chargeconfig.chargevolt / 10.0).toFixed(1));
@@ -2109,6 +2133,24 @@ $(function () {
             },
         });
     });
+    
+    $("#haForm").unbind('submit').submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+            type: $(this).attr('method'),
+            url: $(this).attr('action'),
+            data: $("#haAPI").serialize(),
+            success: function (data) {
+                showSuccess();
+                $("#integration").click();
+            },
+            error: function (data) {
+                showFailure();
+            },
+        });
+    });
+    
 
     $("#rulesForm").unbind('submit').submit(function (e) {
         e.preventDefault();

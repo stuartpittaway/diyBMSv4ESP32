@@ -107,10 +107,13 @@ public:
     // Number of modules who have reported zero volts (bad!)
     uint8_t zeroVoltageModuleCount;
 
-    // Highest pack voltage (millivolts)
+    // Highest pack voltage (millivolts) & address
     uint32_t highestBankVoltage;
-    // Lowest pack voltage (millivolts)
+    uint8_t address_highestBankVoltage;
+
+    // Lowest pack voltage (millivolts) & address
     uint32_t lowestBankVoltage;
+    uint8_t address_lowestBankVoltage;
 
     // Highest cell voltage in the whole system (millivolts)
     uint16_t highestCellVoltage;

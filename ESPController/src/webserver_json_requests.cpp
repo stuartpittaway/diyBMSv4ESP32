@@ -5,6 +5,7 @@ static constexpr const char *const TAG = "diybms-webreq";
 #include "webserver_helper_funcs.h"
 #include "webserver_json_requests.h"
 #include <esp_netif.h>
+#include <esp_wifi.h>
 extern "C"
 {
 #include "esp_core_dump.h"
@@ -172,7 +173,7 @@ int fileSystemListDirectory(httpd_req_t *r, char *buffer, size_t bufferLen, fs::
     {
       // Flush http buffer every X files to prevent overflows
       httpd_resp_send_chunk(r, buffer, bufferused);
-      bufferused=0;
+      bufferused = 0;
     }
   }
 
@@ -600,6 +601,8 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
 
   settings["canbusprotocol"] = mysettings.canbusprotocol;
   settings["canbusinverter"] = mysettings.canbusinverter;
+  settings["canbusbaud"] = mysettings.canbusbaud;
+  settings["equip_addr"] = mysettings.canbus_equipment_addr;
   settings["nominalbatcap"] = mysettings.nominalbatcap;
   settings["chargevolt"] = mysettings.chargevolt;
   settings["chargecurrent"] = mysettings.chargecurrent;
@@ -795,6 +798,34 @@ esp_err_t content_handler_settings(httpd_req_t *req)
     settings["man_dns2"] = ip4_to_string(_wificonfig.wifi_dns2);
   }
 
+  JsonObject wifi = root.createNestedObject("wifi");
+
+  if (wifi_isconnected)
+  {
+    wifi_ap_record_t ap;
+    esp_wifi_sta_get_ap_info(&ap);
+    wifi["rssi"] = ap.rssi;
+    wifi["ssid"] = ap.ssid;
+
+    char macStr[18];
+    snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+             ap.bssid[0], ap.bssid[1], ap.bssid[2], ap.bssid[3], ap.bssid[4], ap.bssid[5]);
+    wifi["bssid"] = macStr;
+  }
+  else
+  {
+    wifi["rssi"] = 0;
+    wifi["ssid"] = "";
+    wifi["bssid"] = "";
+  }
+
+  wifi["rssi_low"] = wifi_count_rssi_low;
+  wifi["sta_start"] = wifi_count_sta_start;
+  wifi["sta_connected"] = wifi_count_sta_connected;
+  wifi["sta_disconnected"] = wifi_count_sta_disconnected;
+  wifi["sta_lost_ip"] = wifi_count_sta_lost_ip;
+  wifi["sta_got_ip"] = wifi_count_sta_got_ip;
+
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
 
   return httpd_resp_send(req, httpbuf, bufferused);
@@ -807,11 +838,22 @@ esp_err_t content_handler_integration(httpd_req_t *req)
   DynamicJsonDocument doc(1024);
   JsonObject root = doc.to<JsonObject>();
 
+  JsonObject ha = root.createNestedObject("ha");
+  ha["api"] = mysettings.homeassist_apikey;
+
   JsonObject mqtt = root.createNestedObject("mqtt");
   mqtt["enabled"] = mysettings.mqtt_enabled;
+  mqtt["basiccellreporting"] = mysettings.mqtt_basic_cell_reporting;
   mqtt["topic"] = mysettings.mqtt_topic;
   mqtt["uri"] = mysettings.mqtt_uri;
   mqtt["username"] = mysettings.mqtt_username;
+
+  mqtt["connected"] = mqttClient_connected;
+  mqtt["err_conn_count"] = mqtt_error_connection_count;
+  mqtt["err_trans_count"] = mqtt_error_transport_count;
+  mqtt["conn_count"] = mqtt_connection_count;
+  mqtt["disc_count"] = mqtt_disconnection_count;
+
   // We don't output the password in the json file as this could breach security
   // mqtt["password"] =mysettings.mqtt_password;
 
@@ -1250,6 +1292,72 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
   // Indicate last chunk (zero byte length)
   return httpd_resp_send_chunk(req, httpbuf, 0);
+}
+
+/// @brief
+/// @param req Incoming HTTPD request handle
+/// @return Error/success status
+esp_err_t ha_handler(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "application/json");
+  setNoStoreCacheControl(req);
+
+  ESP_LOGI(TAG, "home assistant api request");
+
+  char buffer[128];
+  esp_err_t result = httpd_req_get_hdr_value_str(req, "ApiKey", buffer, sizeof(buffer));
+
+  if (result != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Missing header ApiKey");
+    return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, nullptr);
+  }
+
+  if (strncmp(mysettings.homeassist_apikey, buffer, strlen(mysettings.homeassist_apikey)) != 0)
+  {
+    ESP_LOGE(TAG, "Unauthorized ApiKey=%s", buffer);
+    return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, nullptr);
+  }
+
+  int bufferused = 0;
+
+  // Output the first batch of settings/parameters/values
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                         R"({"activerules":%u,"chgmode":%u,"lowbankv":%u,"highbankv":%u,"lowcellv":%u,"highcellv":%u,"highextt":%i,"highintt":%i)",
+                         rules.active_rule_count,
+                         (unsigned int)rules.getChargingMode(),
+                         rules.lowestBankVoltage,
+                         rules.highestBankVoltage,
+                         rules.lowestCellVoltage,
+                         rules.highestCellVoltage,
+                         rules.highestExternalTemp,
+                         rules.highestInternalTemp);
+
+  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
+  {
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                           R"(,"c":%.4f,"v":%.4f,"pwr":%.2f,"soc":%.2f)",
+                           currentMonitor.modbus.current,
+                           currentMonitor.modbus.voltage,
+                           currentMonitor.modbus.power,
+                           currentMonitor.stateofcharge);
+  }
+
+  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
+  {
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                           R"(,"dyncv":%u,"dyncc":%u)",
+                           rules.DynamicChargeVoltage(),
+                           rules.DynamicChargeCurrent());
+  }
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
+                         R"(,"chgallow":%u,"dischgallow":%u)",
+                         rules.IsChargeAllowed(&mysettings) ? 1 : 0,
+                         rules.IsDischargeAllowed(&mysettings) ? 1 : 0);
+
+  bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "}");
+  return httpd_resp_send(req, httpbuf, bufferused);
 }
 
 esp_err_t api_handler(httpd_req_t *req)

@@ -461,7 +461,7 @@ void init_tft_display()
 }
 
 // This task switches on/off the TFT screen, and triggers a redraw of its contents
-void tftwakeup(TimerHandle_t xTimer)
+void tftwakeup(TimerHandle_t)
 {
     // Use parameter to force a refresh (used when realtime events occur like wifi disconnect)
     if (_tft_screen_available)
@@ -475,19 +475,16 @@ void tftwakeup(TimerHandle_t xTimer)
             // Screen is already awake, so can we process a touch command?
             // ESP_LOGD(TAG, "touched=%u, pressure=%u, X=%u, Y=%u", _lastTouch.touched, _lastTouch.pressure, _lastTouch.X, _lastTouch.Y);
 
-            if (_lastTouch.touched)
+            // X range is 0-4096
+            if (_lastTouch.touched && _lastTouch.X < 1000)
             {
-                // X range is 0-4096
-                if (_lastTouch.X < 1000)
-                {
-                    ESP_LOGD(TAG, "Touched LEFT");
-                    PageBackward();
-                }
-                else if (_lastTouch.X > 3000)
-                {
-                    ESP_LOGD(TAG, "Touched RIGHT");
-                    PageForward();
-                }
+                ESP_LOGD(TAG, "Touched LEFT");
+                PageBackward();
+            }
+            else if (_lastTouch.touched && _lastTouch.X > 3000)
+            {
+                ESP_LOGD(TAG, "Touched RIGHT");
+                PageForward();
             }
         }
 
@@ -498,14 +495,6 @@ void tftwakeup(TimerHandle_t xTimer)
 
             // Always start on the same screen/settings
             ResetScreenSequence();
-
-            if (hal.GetDisplayMutex())
-            {
-                // Fill screen with a grey colour, to let user know
-                // we have responded to touch (may may be a short delay until the display task runs)
-                tft.fillScreen(TFT_LIGHTGREY);
-                hal.ReleaseDisplayMutex();
-            }
 
             hal.TFTScreenBacklight(true);
         }
@@ -612,8 +601,8 @@ void PrepareTFT_SocBarGraph()
 
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
 
-    // The bar graph  
-    int16_t SoC =(int16_t)currentMonitor.stateofcharge;
+    // The bar graph
+    int16_t SoC = (int16_t)currentMonitor.stateofcharge;
 
     if (SoC > 100)
     {
@@ -624,8 +613,8 @@ void PrepareTFT_SocBarGraph()
 
     if (SoC != 100)
     {
-        //Clear between SoC and 100%
-        tft.fillRect((xhalfway - 100) + (2 * SoC), yhalfway - 22, 200-(2 * SoC), 44, TFT_BLACK);
+        // Clear between SoC and 100%
+        tft.fillRect((xhalfway - 100) + (2 * SoC), yhalfway - 22, 200 - (2 * SoC), 44, TFT_BLACK);
     }
 
     // Stripe lines

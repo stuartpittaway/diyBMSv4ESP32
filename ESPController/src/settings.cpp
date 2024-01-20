@@ -29,6 +29,7 @@ static const char rs485parity_JSONKEY[] = "rs485parity";
 static const char rs485stopbits_JSONKEY[] = "rs485stopbits";
 static const char language_JSONKEY[] = "language";
 static const char mqtt_enabled_JSONKEY[] = "enabled";
+static const char mqtt_basic_cell_reporting_JSONKEY[] = "basiccellrpt";
 static const char mqtt_uri_JSONKEY[] = "uri";
 static const char mqtt_topic_JSONKEY[] = "topic";
 static const char mqtt_username_JSONKEY[] = "username";
@@ -41,6 +42,8 @@ static const char influxdb_serverurl_JSONKEY[] = "url";
 static const char influxdb_loggingFreqSeconds_JSONKEY[] = "logfreq";
 static const char canbusprotocol_JSONKEY[] = "canbusprotocol";
 static const char canbusinverter_JSONKEY[] = "canbusinverter";
+static const char canbusbaud_JSONKEY[] = "canbusbaud";
+static const char canbus_equipment_addr_JSONKEY[] = "canbusequip";
 static const char nominalbatcap_JSONKEY[] = "nominalbatcap";
 static const char chargevolt_JSONKEY[] = "chargevolt";
 static const char chargecurrent_JSONKEY[] = "chargecurrent";
@@ -86,6 +89,7 @@ static const char absorptiontimer_JSONKEY[] = "absorptiontimer";
 static const char floatvoltage_JSONKEY[] = "floatvoltage";
 static const char floatvoltagetimer_JSONKEY[] = "floatvoltagetimer";
 static const char stateofchargeresumevalue_JSONKEY[] = "stateofchargeresumevalue";
+static const char homeassist_apikey_JSONKEY[] = "homeassistapikey";
 
 static const char controllerNet_JSONKEY[] = "controllerNet";
 static const char controllerID_JSONKEY[] = "controllerID";
@@ -121,6 +125,8 @@ static const char rs485parity_NVSKEY[] = "485parity";
 static const char rs485stopbits_NVSKEY[] = "485stopbits";
 static const char canbusprotocol_NVSKEY[] = "canbusprotocol";
 static const char canbusinverter_NVSKEY[] = "canbusinverter";
+static const char canbusbaud_NVSKEY[] = "canbusbaud";
+static const char canbus_equipment_addr_NVSKEY[]="canbusequip";
 static const char nominalbatcap_NVSKEY[] = "nominalbatcap";
 static const char chargevolt_NVSKEY[] = "cha_volt";
 static const char chargecurrent_NVSKEY[] = "cha_current";
@@ -144,6 +150,7 @@ static const char dynamiccharge_NVSKEY[] = "dynamiccharge";
 static const char preventcharging_NVSKEY[] = "preventchar";
 static const char preventdischarge_NVSKEY[] = "preventdis";
 static const char mqtt_enabled_NVSKEY[] = "mqttenable";
+static const char mqtt_basic_cell_reporting_NVSKEY[] = "basiccellrpt";
 static const char influxdb_enabled_NVSKEY[] = "infenabled";
 static const char influxdb_loggingFreqSeconds_NVSKEY[] = "inflogFreq";
 static const char tileconfig_NVSKEY[] = "tileconfig";
@@ -178,6 +185,7 @@ static const char absorptiontimer_NVSKEY[] = "absorptimer";
 static const char floatvoltage_NVSKEY[] = "floatV";
 static const char floatvoltagetimer_NVSKEY[] = "floatVtimer";
 static const char stateofchargeresumevalue_NVSKEY[] = "socresume";
+static const char homeassist_apikey_NVSKEY[] = "haapikey";
 
 static const char controllerNet_NVSKEY[] = "controllerNet";
 static const char controllerID_NVSKEY[] = "controllerID";
@@ -344,7 +352,6 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
     }
     else
     {
-
         // Save settings
         MACRO_NVSWRITE(totalNumberOfBanks)
         MACRO_NVSWRITE(totalNumberOfSeriesModules)
@@ -376,6 +383,8 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE_UINT8(rs485stopbits);
         MACRO_NVSWRITE_UINT8(canbusprotocol);
         MACRO_NVSWRITE_UINT8(canbusinverter);
+        MACRO_NVSWRITE(canbusbaud);
+        MACRO_NVSWRITE_UINT8(canbus_equipment_addr);
 
         MACRO_NVSWRITE(currentMonitoring_shuntmv);
         MACRO_NVSWRITE(currentMonitoring_shuntmaxcur);
@@ -417,6 +426,7 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(preventcharging);
         MACRO_NVSWRITE(preventdischarge);
         MACRO_NVSWRITE(mqtt_enabled);
+        MACRO_NVSWRITE(mqtt_basic_cell_reporting);
         MACRO_NVSWRITE(influxdb_enabled);
         MACRO_NVSWRITE(influxdb_loggingFreqSeconds);
 
@@ -437,6 +447,8 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(floatvoltage);
         MACRO_NVSWRITE(floatvoltagetimer);
         MACRO_NVSWRITE(stateofchargeresumevalue);
+
+        MACRO_NVSWRITESTRING(homeassist_apikey);
 
         MACRO_NVSWRITE_UINT8(controllerNet);
         MACRO_NVSWRITE(controllerID);
@@ -520,6 +532,8 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD_UINT8(rs485stopbits);
         MACRO_NVSREAD_UINT8(canbusprotocol);
         MACRO_NVSREAD_UINT8(canbusinverter);
+        MACRO_NVSREAD(canbusbaud);
+        MACRO_NVSREAD_UINT8(canbus_equipment_addr)
         MACRO_NVSREAD(nominalbatcap);
         MACRO_NVSREAD(chargevolt);
         MACRO_NVSREAD(chargecurrent);
@@ -545,6 +559,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(preventdischarge);
 
         MACRO_NVSREAD(mqtt_enabled);
+        MACRO_NVSREAD(mqtt_basic_cell_reporting);
         MACRO_NVSREAD(influxdb_enabled);
         MACRO_NVSREAD(influxdb_loggingFreqSeconds);
 
@@ -565,6 +580,8 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(floatvoltage);
         MACRO_NVSREAD(floatvoltagetimer);
         MACRO_NVSREAD_UINT8(stateofchargeresumevalue);
+
+        MACRO_NVSREADSTRING(homeassist_apikey);
 
         MACRO_NVSREAD_UINT8(controllerNet);
         MACRO_NVSREAD(controllerID);
@@ -603,9 +620,13 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
 
     // EEPROM settings are invalid so default configuration
     _myset->mqtt_enabled = false;
+    _myset->mqtt_basic_cell_reporting = false;
 
     _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
     _myset->canbusinverter = CanBusInverter::INVERTER_GENERIC;
+
+    _myset->canbus_equipment_addr = 0;
+    _myset->canbusbaud=500;
     _myset->nominalbatcap = 280;    // Scale 1
     _myset->chargevolt = 565;       // Scale 0.1
     _myset->chargecurrent = 650;    // Scale 0.1
@@ -1015,12 +1036,15 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[rs485stopbits_JSONKEY] = settings->rs485stopbits;
     root[language_JSONKEY] = settings->language;
 
+    root[homeassist_apikey_JSONKEY]=settings->homeassist_apikey;
+
     root[controllerNet_JSONKEY] = settings->controllerNet;
     root[controllerID_JSONKEY] = settings->controllerID;
     root[highAvailable_JSONKEY] = settings->highAvailable;
     
     JsonObject mqtt = root.createNestedObject("mqtt");
     mqtt[mqtt_enabled_JSONKEY] = settings->mqtt_enabled;
+    mqtt[mqtt_basic_cell_reporting_JSONKEY] = settings->mqtt_basic_cell_reporting;
     mqtt[mqtt_uri_JSONKEY] = settings->mqtt_uri;
     mqtt[mqtt_topic_JSONKEY] = settings->mqtt_topic;
     mqtt[mqtt_username_JSONKEY] = settings->mqtt_username;
@@ -1074,6 +1098,8 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
 
     root[canbusprotocol_JSONKEY] = (uint8_t)settings->canbusprotocol;
     root[canbusinverter_JSONKEY] = (uint8_t)settings->canbusinverter;
+    root[canbusbaud_JSONKEY] = settings->canbusbaud;
+    root[canbus_equipment_addr_JSONKEY]=settings->canbus_equipment_addr;
     root[nominalbatcap_JSONKEY] = settings->nominalbatcap;
 
     root[chargevolt_JSONKEY] = settings->chargevolt;
@@ -1099,6 +1125,11 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[sensitivity_JSONKEY] = settings->sensitivity;
     root[current_value1_JSONKEY] = settings->current_value1;
     root[current_value2_JSONKEY] = settings->current_value2;
+
+    root[absorptiontimer_JSONKEY] = settings->absorptiontimer;
+    root[floatvoltage_JSONKEY] = settings->floatvoltage;
+    root[floatvoltagetimer_JSONKEY] = settings->floatvoltagetimer;
+    root[stateofchargeresumevalue_JSONKEY] = settings->stateofchargeresumevalue;
 
     JsonArray tv = root.createNestedArray("tilevisibility");
     for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
@@ -1174,6 +1205,8 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
 
     settings->canbusprotocol = (CanBusProtocolEmulation)root[canbusprotocol_JSONKEY];
     settings->canbusinverter = (CanBusInverter)root[canbusinverter_JSONKEY];
+    settings->canbusbaud = root[canbusbaud_JSONKEY];
+    settings->canbus_equipment_addr=root[canbus_equipment_addr_JSONKEY];
     settings->nominalbatcap = root[nominalbatcap_JSONKEY];
     settings->chargevolt = root[chargevolt_JSONKEY];
     settings->chargecurrent = root[chargecurrent_JSONKEY];
@@ -1197,10 +1230,18 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->current_value1 = root[current_value1_JSONKEY];
     settings->current_value2 = root[current_value2_JSONKEY];
 
+    settings->absorptiontimer=root[absorptiontimer_JSONKEY];
+    settings->floatvoltage=root[floatvoltage_JSONKEY];
+    settings->floatvoltagetimer=root[floatvoltagetimer_JSONKEY];
+    settings->stateofchargeresumevalue=root[stateofchargeresumevalue_JSONKEY];
+
+    strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
+
     JsonObject mqtt = root["mqtt"];
     if (!mqtt.isNull())
     {
         settings->mqtt_enabled = mqtt[mqtt_enabled_JSONKEY];
+        settings->mqtt_basic_cell_reporting=mqtt[mqtt_basic_cell_reporting_JSONKEY];
         strncpy(settings->mqtt_uri, mqtt[mqtt_uri_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_uri));
         strncpy(settings->mqtt_topic, mqtt[mqtt_topic_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_topic));
         strncpy(settings->mqtt_username, mqtt[mqtt_username_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_username));

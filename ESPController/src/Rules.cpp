@@ -55,7 +55,9 @@ void Rules::ClearValues()
     HighestCellVoltageInBank.fill(0);
 
     highestBankVoltage = 0;
+    address_highestBankVoltage = maximum_number_of_banks+1;
     lowestBankVoltage = 0xFFFFFFFF;
+    address_lowestBankVoltage = maximum_number_of_banks+1;
     highestCellVoltage = 0;
     lowestCellVoltage = 0xFFFF;
     highestExternalTemp = -127;
@@ -160,10 +162,12 @@ void Rules::ProcessBank(uint8_t bank)
     if (bankvoltage.at(bank) > highestBankVoltage)
     {
         highestBankVoltage = bankvoltage.at(bank);
+        address_highestBankVoltage = bank;
     }
     if (bankvoltage.at(bank) < lowestBankVoltage)
     {
         lowestBankVoltage = bankvoltage.at(bank);
+        address_lowestBankVoltage = bank;
     }
 
     if (VoltageRangeInBank(bank) > highestBankRange)
