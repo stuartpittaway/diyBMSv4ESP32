@@ -37,7 +37,7 @@ void CAN_Networking_disconnect(TimerHandle_t)
           /* Force Disable the CANBUS if there is an internal error for a set period of time (see applicable timer) and there are networked controllers. 
           This is to prevent a controller that has disconnected itself from auto-reconnecting (there's probably be a better way of doing this with some "reconnection rules"). 
           User must manually re-enable canbus protocol*/
-        if (mysettings.controllerNet != 1 && ControllerState::Running)
+        if (mysettings.controllerNet != 1 && _controller_state == ControllerState::Running)
         {
           mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
         }
@@ -467,7 +467,7 @@ void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
         if (mysettings.controllerNet != 1)
         {
        // This is a high priority so should we send it to front of tx queue? 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(250)) != pdPASS)
+        if (xQueueSendToFront(CANtx_q_handle, &candata, pdMS_TO_TICKS(250)) != pdPASS)
         {
             ESP_LOGE(TAG, "CAN tx Q Full");
         }
