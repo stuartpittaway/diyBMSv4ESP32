@@ -118,7 +118,7 @@ void victron_message_35f()
             }
         }
 
-        memcpy(&candata.data[4], &Total_Ah, sizeof(uint16_t));
+        memcpy(&candata.data[4], &Total_Weighted_Ah, sizeof(uint16_t));
 
     }
 

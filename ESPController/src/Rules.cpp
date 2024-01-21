@@ -416,14 +416,29 @@ void Rules::RunRules(
 bool Rules::NetworkedControllerRules(const diybms_eeprom_settings *mysettings)
 {
     if (moduleHasExternalTempSensor == false)
+         if( !xTimerIsTimerActive( error_debounce_timer ))
+         {
+            xTimerStart(error_debounce_timer, pdMS_TO_TICKS(5));
+         }
         return true;
 
     if (invalidModuleCount > 0)
+         if( !xTimerIsTimerActive( error_debounce_timer ))
+         {
+            xTimerStart(error_debounce_timer, pdMS_TO_TICKS(5));
+         }
         return true;
 
     // Any errors, stop charge
     if (numberOfActiveErrors > 0)
+         if( !xTimerIsTimerActive( error_debounce_timer ))
+         {
+            xTimerStart(error_debounce_timer, pdMS_TO_TICKS(5));
+         }
         return true;
+
+    // Clear the Timer if everything is good
+    xTimerStop(error_debounce_timer, pdMS_TO_TICKS(10));
 
     return false;
 }

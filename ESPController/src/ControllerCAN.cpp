@@ -30,7 +30,18 @@ const uint32_t ControllerCAN::id[MAX_CAN_PARAMETERS][MAX_NUM_CONTROLLERS] = {
 
 };
 
+TimerHandle_t error_debounce_timer;
 
+void CAN_Networking_disconnect(TimerHandle_t)
+{
+          /* Force Disable the CANBUS if there is an internal error for a set period of time (see applicable timer) and there are networked controllers. 
+          This is to prevent a controller that has disconnected itself from auto-reconnecting (there's probably be a better way of doing this with some "reconnection rules"). 
+          User must manually re-enable canbus protocol*/
+        if (mysettings.controllerNet != 1 && ControllerState::Running)
+        {
+          mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+        }
+}
 //return whether a controller has a valid heartbeat by checking the bitmssgs timestamp array
 bool ControllerCAN::controller_heartbeat(uint8_t controllerAddress)
 {

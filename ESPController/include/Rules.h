@@ -263,4 +263,6 @@ public:
     uint16_t StateOfChargeWithRulesApplied(const diybms_eeprom_settings *mysettings, float realSOC) const;
 };
 
+extern TimerHandle_t error_debounce_timer;
+
 #endif

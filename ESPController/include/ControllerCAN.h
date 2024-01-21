@@ -46,6 +46,9 @@ public:
 	// returns the heartbeat status of a networked controller
 	bool controller_heartbeat(uint8_t controllerAddress);
 
+	// Disconnect the bms from canbus
+	//void CAN_Networking_disconnect(TimerHandle_t);
+
 private:
 	void SetBankAndModuleText(char* buffer, uint8_t cellid);
 };

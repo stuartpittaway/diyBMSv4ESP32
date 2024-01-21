@@ -116,6 +116,9 @@ extern bool force_tft_wake;
 extern TimerHandle_t tftwake_timer;
 extern void tftwakeup(TimerHandle_t xTimer);
 
+// ControllerCAN timer
+extern void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer);
+
 // HTTPD server handle in webserver.cpp
 extern httpd_handle_t _myserver;
 
@@ -2775,7 +2778,7 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
     }
 } 
 
-void send_extended_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
+void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
 {
   twai_message_t message;
   message.identifier = identifier;
@@ -2842,14 +2845,8 @@ void send_extended_canbus_message(const uint32_t identifier, const uint8_t *buff
         //wait until controller is running so we don't send bad info/alarms during ESP startup    
     if (_controller_state == ControllerState::Running)
     {
-        /* Force Disable the CANBUS if there is an internal error and there are networked controllers. 
-          This is to prevent a controller that has disconnected itself from auto-reconnecting (this could potentially
-          be an issue on a switching device if the inverter is already providing high charge current to other batteries). 
-          User must manually re-enable canbus protocol*/
-        if (mysettings.controllerNet != 1 && rules.NetworkedControllerRules(&mysettings))
-        {
-          mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
-        }
+        // check for internal BMS errors
+        rules.NetworkedControllerRules(&mysettings);
 
 
         if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
@@ -2955,6 +2952,7 @@ void send_extended_canbus_message(const uint32_t identifier, const uint8_t *buff
         {
           // Canbus is disbled, sleep until this changes....
           vTaskDelay(pdMS_TO_TICKS(2000));
+          continue;
         }
           // Wait for message to be received
           twai_message_t message;
@@ -4087,6 +4085,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(50), pdFALSE, (void *)3, &tftwakeup);
   assert(tftwake_timer);
+
+  error_debounce_timer = xTimerCreate("ERROR", pdMS_TO_TICKS(60000), pdFALSE, (void*)4, &CAN_Networking_disconnect);
+  assert(error_debounce_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   // Increased tftupd from 2000 to 2450 due to strange bug on rev3 ESP32 chips
