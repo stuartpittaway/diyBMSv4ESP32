@@ -217,8 +217,11 @@ public:
                    uint16_t shunttempcoefficient,
                    bool TemperatureCompEnabled);
 
-    void GuessSOC();
+    void DefaultSOC();
     void TakeReadings();
+
+    uint32_t raw_milliamphour_out()  const{ return milliamphour_out; }
+    uint32_t raw_milliamphour_in()  const{ return milliamphour_in; }
 
     uint32_t calc_milliamphour_out()  const{ return milliamphour_out - milliamphour_out_offset; }
     uint32_t calc_milliamphour_in()  const{ return milliamphour_in - milliamphour_in_offset; }
@@ -264,11 +267,14 @@ public:
         return registers.R_DIAG_ALRT & ALL_ALERT_BITS;
     }
     void SetSOC(uint16_t value);
+    void SetSOCByMilliAmpCounter(uint32_t in,uint32_t out);
 
     void ResetDailyAmpHourCounters() {
         daily_milliamphour_out=0;
         daily_milliamphour_in=0;
     }
+
+    uint16_t raw_stateofcharge() const { return SOC; }
 
 private:
     uint16_t SOC = 0;

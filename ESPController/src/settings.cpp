@@ -194,6 +194,9 @@ static const char soh_total_milliamphour_in_NVSKEY[] = "soh_mah_in";
 static const char soh_lifetime_battery_cycles_NVSKEY[] = "soh_batcycle";
 static const char soh_discharge_depth_NVSKEY[] = "soh_disdepth";
 
+static const char soc_milliamphour_out_NVSKEY[] = "soc_mah_out";
+static const char soc_milliamphour_in_NVSKEY[] = "soc_mah_in";
+
 #define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
 #define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
 #define MACRO_NVSWRITESTRING(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, &settings->VARNAME[0]);
@@ -344,6 +347,64 @@ void writeSettingBlob(nvs_handle_t handle, const char *key, const void *value, s
 {
     ESP_LOGD(TAG, "Writing (%s), length=%u", key, length);
     ESP_ERROR_CHECK(nvs_set_blob(handle, key, value, length));
+}
+
+/// @brief Reads state of charge (milliamp hour counts) from flash
+/// @param in pointer to milliamp in count
+/// @param out  pointer to milliamp out count
+/// @return true if values are valid
+bool GetStateOfCharge(uint32_t *in, uint32_t *out)
+{
+    const char *partname = "diybms-ctrl";
+    ESP_LOGI(TAG, "Read state of charge from flash");
+
+    nvs_handle_t nvs_handle;
+    auto err = nvs_open(partname, NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Error (%s) opening NVS handle", esp_err_to_name(err));
+    }
+    else
+    {
+        // Open
+        auto ret1 = getSetting(nvs_handle, soc_milliamphour_in_NVSKEY, in);
+        auto ret2 = getSetting(nvs_handle, soc_milliamphour_out_NVSKEY, out);
+
+        nvs_close(nvs_handle);
+
+        if (ret1 && ret2)
+        {
+            return true;
+        }
+
+        ESP_LOGI(TAG, "SoC value doesn't exist in flash");
+    }
+    return false;
+}
+
+/// @brief Stores the milliamp current values to allow restore of state of charge on power up
+/// @param in milliamp hours in
+/// @param out milliamp hours out
+void SaveStateOfCharge(uint32_t in, uint32_t out)
+{
+    const char *partname = "diybms-ctrl";
+    ESP_LOGI(TAG, "Write SoC to flash in=%u out=%u", in, out);
+
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(partname, NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Error %s opening NVS handle!", esp_err_to_name(err));
+    }
+    else
+    {
+        // Save settings
+        writeSetting(nvs_handle, soc_milliamphour_in_NVSKEY, in);
+        writeSetting(nvs_handle, soc_milliamphour_out_NVSKEY, out);
+
+        ESP_ERROR_CHECK(nvs_commit(nvs_handle));
+        nvs_close(nvs_handle);
+    }
 }
 
 void SaveConfiguration(const diybms_eeprom_settings *settings)
@@ -1004,8 +1065,9 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
         settings->stateofchargeresumevalue = settings->stateofchargeresumevalue;
     }
 
-    if (settings->soh_discharge_depth==0 || settings->soh_discharge_depth>100) {
-        settings->soh_discharge_depth=80;
+    if (settings->soh_discharge_depth == 0 || settings->soh_discharge_depth > 100)
+    {
+        settings->soh_discharge_depth = 80;
     }
 }
 
@@ -1074,8 +1136,10 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     influxdb[influxdb_loggingFreqSeconds_JSONKEY] = settings->influxdb_loggingFreqSeconds;
 
     JsonObject outputs = root["outputs"].to<JsonObject>();
-    JsonArray d = outputs["default"].to<JsonArray>();;
-    JsonArray t = outputs["type"].to<JsonArray>();;
+    JsonArray d = outputs["default"].to<JsonArray>();
+    ;
+    JsonArray t = outputs["type"].to<JsonArray>();
+    ;
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
         d.add(settings->rulerelaydefault[i]);
@@ -1104,7 +1168,8 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
         state["value"] = settings->rulevalue[rr];
         state["hysteresis"] = settings->rulehysteresis[rr];
 
-        JsonArray relaystate = state["state"].to<JsonArray>();;
+        JsonArray relaystate = state["state"].to<JsonArray>();
+        ;
         for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
         {
             relaystate.add(settings->rulerelaystate[rr][rt]);

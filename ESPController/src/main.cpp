@@ -3704,7 +3704,7 @@ struct log_level_t
 };
 
 // Default log levels to use for various components.
-const std::array<log_level_t, 22> log_levels =
+const std::array<log_level_t, 23> log_levels =
     {
         log_level_t{.tag = "*", .level = ESP_LOG_DEBUG},
         {.tag = "wifi", .level = ESP_LOG_WARN},
@@ -3725,6 +3725,7 @@ const std::array<log_level_t, 22> log_levels =
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
         {.tag = "diybms-set", .level = ESP_LOG_INFO},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
+        {.tag = "diybms-ctrl", .level = ESP_LOG_INFO},
         {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
         {.tag = "diybms-pyforce", .level = ESP_LOG_INFO},
         {.tag = "curmon", .level = ESP_LOG_INFO}};
@@ -3916,9 +3917,18 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
           mysettings.currentMonitoring_shunttempcoefficient,
           mysettings.currentMonitoring_tempcompenabled);
 
-      currentmon_internal.GuessSOC();
+      currentmon_internal.DefaultSOC();
+
+      uint32_t in;
+      uint32_t out;
+      if (GetStateOfCharge(&in,&out))
+      {
+        currentmon_internal.SetSOCByMilliAmpCounter(in,out);
+      }
 
       currentmon_internal.TakeReadings();
+
+      
 
       CalculateStateOfHealth(&mysettings);
     }
@@ -4061,13 +4071,15 @@ void ESPCoreDumpToJSON(JsonObject &doc)
         ultoa(summary->ex_info.exc_vaddr, outputString, 16);
         core["exc_vaddr"] = outputString;
 
-        auto exc_a = core["exc_a"].to<JsonArray>();;
+        auto exc_a = core["exc_a"].to<JsonArray>();
+        ;
         for (auto value : summary->ex_info.exc_a)
         {
           ultoa(value, outputString, 16);
           exc_a.add(outputString);
         }
-        auto epcx = core["epcx"].to<JsonArray>();;
+        auto epcx = core["epcx"].to<JsonArray>();
+        ;
         for (auto value : summary->ex_info.epcx)
         {
           ultoa(value, outputString, 16);
@@ -4227,7 +4239,14 @@ void loop()
              heap.free_blocks,
              heap.total_blocks);
 
-    // Report again in 30 seconds
-    heaptimer = currentMillis + 30000;
+    // Report again in 60 seconds
+    heaptimer = currentMillis + 60000;
+
+    //Once per minute, store the state of charge into flash, just in case the controller is rebooted and we can restore this value
+    //on power up.
+    if (mysettings.currentMonitoringEnabled && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+    {
+      SaveStateOfCharge(currentmon_internal.raw_milliamphour_in(),currentmon_internal.raw_milliamphour_out());
+    }
   }
 }

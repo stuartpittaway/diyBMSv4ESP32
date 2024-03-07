@@ -258,6 +258,7 @@ struct diybms_eeprom_settings
   char homeassist_apikey[24+1];
 
   /// @brief State of health variables - total lifetime mAh output (discharge)
+  // Might need to watch overflow on the uint32 (max value 4,294,967,295mAh) = approx 15339 cycles of 280Ah battery
   uint32_t soh_total_milliamphour_out;
   /// @brief State of health variables - total lifetime mAh input (charge)
   uint32_t soh_total_milliamphour_in;

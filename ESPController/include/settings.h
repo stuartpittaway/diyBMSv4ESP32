@@ -43,4 +43,7 @@ void writeSetting(nvs_handle_t handle, const char *key, int8_t value);
 void writeSetting(nvs_handle_t handle, const char *key, const char *value);
 void writeSettingBlob(nvs_handle_t handle, const char *key, const void *value, size_t length);
 
+bool GetStateOfCharge(uint32_t *in,uint32_t *out);
+void SaveStateOfCharge(uint32_t,uint32_t);
+
 #endif
