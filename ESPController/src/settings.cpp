@@ -325,7 +325,7 @@ void writeSetting(nvs_handle_t handle, const char *key, int16_t value)
 }
 void writeSetting(nvs_handle_t handle, const char *key, uint32_t value)
 {
-    ESP_LOGD(TAG, "Writing (%s)=%i", key, value);
+    ESP_LOGD(TAG, "Writing (%s)=%u", key, value);
     ESP_ERROR_CHECK(nvs_set_u32(handle, key, value));
 }
 void writeSetting(nvs_handle_t handle, const char *key, int32_t value)
