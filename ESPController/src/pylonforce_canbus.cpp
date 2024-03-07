@@ -132,17 +132,18 @@ void pylonforce_message_4210()
     data.temperature = 121+1000;  // 12.1 °C
   }
 
-    // TODO: Need to determine this based on age of battery/cycles etc.
-  data.stateofhealthvalue = 100;
 
   // Only send CANBUS message if we have a current monitor enabled & valid
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings && (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS || mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL))
   {
-    data.stateofchargevalue = rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
+    data.stateofchargevalue = (uint8_t)rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
+      // Based on age of battery/cycles
+    data.stateofhealthvalue = (uint8_t)(trunc(mysettings.soh_percent));
   }
   else
   {
     data.stateofchargevalue = 50;
+    data.stateofhealthvalue = 100;
   }
 
   send_ext_canbus_message(0x4210+mysettings.canbus_equipment_addr, (uint8_t *)&data, sizeof(data4210));
