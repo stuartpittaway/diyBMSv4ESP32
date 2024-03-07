@@ -30,8 +30,8 @@ void DefaultConfiguration(diybms_eeprom_settings *settings);
 void SaveWIFI(const wifi_eeprom_settings *wifi);
 bool LoadWIFI(wifi_eeprom_settings *wifi);
 
-void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settings *settings);
-void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings);
+void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *settings);
+void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings);
 
 void writeSetting(nvs_handle_t handle, const char *key, bool value);
 void writeSetting(nvs_handle_t handle, const char *key, uint8_t value);

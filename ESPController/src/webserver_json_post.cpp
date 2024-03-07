@@ -188,8 +188,8 @@ esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req, bool urlEncode
 // Saves all the BMS controller settings to a JSON file in FLASH
 esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    DynamicJsonDocument doc(5000);
-    GenerateSettingsJSONDocument(&doc, &mysettings);
+    JsonDocument doc;
+    GenerateSettingsJSONDocument(doc, &mysettings);
 
     struct tm timeinfo;
 
@@ -876,7 +876,7 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
         return SendFailure(req);
     }
 
-    DynamicJsonDocument doc(512);
+    JsonDocument doc;
 
     int bufferused = 0;
 
@@ -895,7 +895,7 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 
     if (LittleFS.exists(manifestfilename))
     {
-        DynamicJsonDocument jsonmanifest(3000);
+        JsonDocument jsonmanifest;
         File file = LittleFS.open(manifestfilename);
         DeserializationError error = deserializeJson(jsonmanifest, file);
         if (error != DeserializationError::Ok)
@@ -1083,8 +1083,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
 
 esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    // Needs to be large enough to de-serialize the JSON file
-    DynamicJsonDocument doc(8000);
+    JsonDocument doc;
 
     bool success = false;
 

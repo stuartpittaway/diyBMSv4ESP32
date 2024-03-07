@@ -1010,9 +1010,9 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
 }
 
 // Builds up a JSON document which mirrors the parameters inside "diybms_eeprom_settings"
-void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settings *settings)
+void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *settings)
 {
-    JsonObject root = doc->createNestedObject("diybms_settings");
+    JsonObject root = doc["diybms_settings"].to<JsonObject>();
 
     root[totalNumberOfBanks_JSONKEY] = settings->totalNumberOfBanks;
     root[totalNumberOfSeriesModules_JSONKEY] = settings->totalNumberOfSeriesModules;
@@ -1057,7 +1057,7 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
 
     root[homeassist_apikey_JSONKEY] = settings->homeassist_apikey;
 
-    JsonObject mqtt = root.createNestedObject("mqtt");
+    JsonObject mqtt = root["mqtt"].to<JsonObject>();
     mqtt[mqtt_enabled_JSONKEY] = settings->mqtt_enabled;
     mqtt[mqtt_basic_cell_reporting_JSONKEY] = settings->mqtt_basic_cell_reporting;
     mqtt[mqtt_uri_JSONKEY] = settings->mqtt_uri;
@@ -1065,7 +1065,7 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     mqtt[mqtt_username_JSONKEY] = settings->mqtt_username;
     mqtt[mqtt_password_JSONKEY] = settings->mqtt_password;
 
-    JsonObject influxdb = root.createNestedObject("influxdb");
+    JsonObject influxdb = root["influxdb"].to<JsonObject>();
     influxdb[influxdb_enabled_JSONKEY] = settings->influxdb_enabled;
     influxdb[influxdb_apitoken_JSONKEY] = settings->influxdb_apitoken;
     influxdb[influxdb_databasebucket_JSONKEY] = settings->influxdb_databasebucket;
@@ -1073,16 +1073,16 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     influxdb[influxdb_serverurl_JSONKEY] = settings->influxdb_serverurl;
     influxdb[influxdb_loggingFreqSeconds_JSONKEY] = settings->influxdb_loggingFreqSeconds;
 
-    JsonObject outputs = root.createNestedObject("outputs");
-    JsonArray d = outputs.createNestedArray("default");
-    JsonArray t = outputs.createNestedArray("type");
+    JsonObject outputs = root["outputs"].to<JsonObject>();
+    JsonArray d = outputs["default"].to<JsonArray>();;
+    JsonArray t = outputs["type"].to<JsonArray>();;
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
         d.add(settings->rulerelaydefault[i]);
         t.add(settings->relaytype[i]);
     }
 
-    JsonObject rules = root.createNestedObject("rules");
+    JsonObject rules = root["rules"].to<JsonObject>();
     for (uint8_t rr = 0; rr < RELAY_RULES; rr++)
     {
         // This is a default "catch all"
@@ -1099,12 +1099,12 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
             ESP_LOGE(TAG, "Loop outside bounds of MAXIMUM_RuleNumber");
         }
 
-        JsonObject state = rules.createNestedObject(elementName);
+        JsonObject state = rules[elementName].to<JsonObject>();
 
         state["value"] = settings->rulevalue[rr];
         state["hysteresis"] = settings->rulehysteresis[rr];
 
-        JsonArray relaystate = state.createNestedArray("state");
+        JsonArray relaystate = state["state"].to<JsonArray>();;
         for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
         {
             relaystate.add(settings->rulerelaystate[rr][rt]);
@@ -1146,7 +1146,7 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[floatvoltagetimer_JSONKEY] = settings->floatvoltagetimer;
     root[stateofchargeresumevalue_JSONKEY] = settings->stateofchargeresumevalue;
 
-    JsonArray tv = root.createNestedArray("tilevisibility");
+    JsonArray tv = root["tilevisibility"].to<JsonArray>();
     for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
     {
         tv.add(settings->tileconfig[i]);
@@ -1160,7 +1160,7 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[soh_discharge_depth_JSONKEY] = settings->soh_discharge_depth;
 }
 
-void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
+void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
 {
     // Use defaults to populate the settings, just in case we are missing values from the JSON
     DefaultConfiguration(settings);

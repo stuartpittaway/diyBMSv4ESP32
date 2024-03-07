@@ -1730,9 +1730,9 @@ bool SaveWIFIJson(const wifi_eeprom_settings *setting)
     return false;
   }
 
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
 
-  JsonObject wifi = doc.createNestedObject("wifi");
+  JsonObject wifi = doc["wifi"].to<JsonObject>();
   wifi["ssid"] = setting->wifi_ssid;
   wifi["password"] = setting->wifi_passphrase;
 
@@ -3597,7 +3597,7 @@ bool AreWifiConfigurationsTheSame(const wifi_eeprom_settings *a, const wifi_eepr
 /// @return TRUE if the WIFI config on the card is different, false if identical
 bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
 {
-  StaticJsonDocument<2048> json;
+  JsonDocument json;
   DeserializationError error;
 
   if (!_sd_card_installed)
@@ -4025,7 +4025,7 @@ void ESPCoreDumpToJSON(JsonObject &doc)
 {
   if (esp_core_dump_image_check() == ESP_OK)
   {
-    JsonObject core = doc.createNestedObject("coredump");
+    JsonObject core = doc["coredump"].to<JsonObject>();
     // A valid core dump is in FLASH storage
 
     esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
@@ -4047,7 +4047,7 @@ void ESPCoreDumpToJSON(JsonObject &doc)
 
         core["bt_corrupted"] = summary->exc_bt_info.corrupted;
         core["bt_depth"] = summary->exc_bt_info.depth;
-        auto backtrace = core.createNestedArray("backtrace");
+        auto backtrace = core["backtrace"].to<JsonArray>();
         for (auto value : summary->exc_bt_info.bt)
         {
           ultoa(value, outputString, 16);
@@ -4061,13 +4061,13 @@ void ESPCoreDumpToJSON(JsonObject &doc)
         ultoa(summary->ex_info.exc_vaddr, outputString, 16);
         core["exc_vaddr"] = outputString;
 
-        auto exc_a = core.createNestedArray("exc_a");
+        auto exc_a = core["exc_a"].to<JsonArray>();;
         for (auto value : summary->ex_info.exc_a)
         {
           ultoa(value, outputString, 16);
           exc_a.add(outputString);
         }
-        auto epcx = core.createNestedArray("epcx");
+        auto epcx = core["epcx"].to<JsonArray>();;
         for (auto value : summary->ex_info.epcx)
         {
           ultoa(value, outputString, 16);
@@ -4086,12 +4086,12 @@ void ESPCoreDumpToJSON(JsonObject &doc)
 /// @return
 esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
 {
-  DynamicJsonDocument doc(2048);
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
-  JsonObject diag = root.createNestedObject("diagnostic");
+  JsonObject diag = root["diagnostic"].to<JsonObject>();
 
   diag["numtasks"] = uxTaskGetNumberOfTasks();
-  auto tasks = diag.createNestedArray("tasks");
+  auto tasks = diag["tasks"].to<JsonArray>();
 
   // Array of pointers to the task handles we are going to examine
   const std::array<TaskHandle_t *, 18> task_handle_ptrs =
@@ -4107,7 +4107,7 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
   {
     if (*h != nullptr)
     {
-      JsonObject nested = tasks.createNestedObject();
+      JsonObject nested = tasks.add<JsonObject>();
       nested["name"] = pcTaskGetName(*h);
       nested["hwm"] = uxTaskGetStackHighWaterMark(*h);
     }
@@ -4123,7 +4123,7 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
   {
     if (h != nullptr)
     {
-      JsonObject nested = tasks.createNestedObject();
+      JsonObject nested = tasks.add<JsonObject>();
       nested["name"] = pcTaskGetName(h);
       nested["hwm"] = uxTaskGetStackHighWaterMark(h);
     }
