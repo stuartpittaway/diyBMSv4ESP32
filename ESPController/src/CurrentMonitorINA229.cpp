@@ -90,9 +90,15 @@ void CurrentMonitorINA229::SetSOCByMilliAmpCounter(uint32_t in,uint32_t out) {
 void CurrentMonitorINA229::SetSOC(uint16_t value)
 {
     // Assume battery is fully charged
-    milliamphour_in = 1000 * (uint32_t)registers.batterycapacity_amphour;
+    //milliamphour_in = 1000 * (uint32_t)registers.batterycapacity_amphour;
     // And we have consumed this much...
-    milliamphour_out = (uint32_t)((1.0F - ((float)value / 10000.0F)) * (float)milliamphour_in);
+    //milliamphour_out = (uint32_t)((1.0F - ((float)value / 10000.0F)) * (float)milliamphour_in);
+
+    // Updated SoC logic by delboy711 https://github.com/stuartpittaway/diyBMSv4ESP32/issues/232
+    // Assume battery is fully charged
+    milliamphour_in = lround(100000.0*(float)registers.batterycapacity_amphour/(registers.charge_efficiency_factor));
+    // And we have consumed this much...
+    milliamphour_out = (uint32_t)((1.0 - ((float)value / 10000.0)) * (1000.0*(float)registers.batterycapacity_amphour));
 
     // Zero out readings using the offsets
     milliamphour_out_offset = milliamphour_out;
@@ -100,6 +106,8 @@ void CurrentMonitorINA229::SetSOC(uint16_t value)
 
     ESP_LOGI(TAG, "SetSOC mA in=%u, mA out=%u",milliamphour_in,milliamphour_out);
 }
+
+
 
 uint8_t CurrentMonitorINA229::readRegisterValue(INA_REGISTER r) const
 {
