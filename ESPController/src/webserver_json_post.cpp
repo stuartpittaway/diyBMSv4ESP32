@@ -579,7 +579,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
 
     GetKeyValue(httpbuf, "expected_cycles", &mysettings.soh_lifetime_battery_cycles, urlEncoded);
-    GetKeyValue(httpbuf, "dischargedepth", &mysettings.soh_discharge_depth, urlEncoded);
+    GetKeyValue(httpbuf, "eol_capacity", &mysettings.soh_eol_capacity, urlEncoded);
 
     if (GetKeyValue(httpbuf, "total_ah_discharge", &mysettings.soh_total_milliamphour_out, urlEncoded))
     {

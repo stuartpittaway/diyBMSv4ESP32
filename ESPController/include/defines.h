@@ -264,10 +264,10 @@ struct diybms_eeprom_settings
   uint32_t soh_total_milliamphour_in;
   /// @brief State of health variables - total expected lifetime cycles of battery (6000)
   uint16_t soh_lifetime_battery_cycles;
+  /// @brief State of health variables - expected remaining capacity (%) at end of life/max cycles
+  uint8_t soh_eol_capacity;
   /// @brief State of health variables - estimated number of cycles
-  uint16_t soh_estimated_battery_cycles;
-  /// @brief State of health variables - discharge depth (80%)  
-  uint8_t soh_discharge_depth;
+  uint16_t soh_estimated_battery_cycles;  
   /// @brief Calculated percentage calculation of health 
   float soh_percent;
 };

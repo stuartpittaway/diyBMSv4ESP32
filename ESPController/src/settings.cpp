@@ -95,7 +95,10 @@ static const char soh_total_milliamphour_out_JSONKEY[] = "soh_mah_out";
 static const char soh_total_milliamphour_in_JSONKEY[] = "soh_mah_in";
 
 static const char soh_lifetime_battery_cycles_JSONKEY[] = "soh_batcycle";
-static const char soh_discharge_depth_JSONKEY[] = "soh_disdepth";
+
+static const char soh_eol_capacity_JSONKEY[] = "soh_eol_capacity";
+
+
 
 /* NVS KEYS
 THESE STRINGS ARE USED TO HOLD THE PARAMETER IN NVS FLASH, MAXIMUM LENGTH OF 16 CHARACTERS
@@ -192,7 +195,7 @@ static const char homeassist_apikey_NVSKEY[] = "haapikey";
 static const char soh_total_milliamphour_out_NVSKEY[] = "soh_mah_out";
 static const char soh_total_milliamphour_in_NVSKEY[] = "soh_mah_in";
 static const char soh_lifetime_battery_cycles_NVSKEY[] = "soh_batcycle";
-static const char soh_discharge_depth_NVSKEY[] = "soh_disdepth";
+static const char soh_eol_capacity_NVSKEY[] = "soh_eol_cap";
 
 static const char soc_milliamphour_out_NVSKEY[] = "soc_mah_out";
 static const char soc_milliamphour_in_NVSKEY[] = "soc_mah_in";
@@ -523,7 +526,7 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(soh_total_milliamphour_out)
         MACRO_NVSWRITE(soh_total_milliamphour_in)
         MACRO_NVSWRITE(soh_lifetime_battery_cycles)
-        MACRO_NVSWRITE_UINT8(soh_discharge_depth)
+        MACRO_NVSWRITE_UINT8(soh_eol_capacity)
 
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
@@ -659,8 +662,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(soh_total_milliamphour_out)
         MACRO_NVSREAD(soh_total_milliamphour_in)
         MACRO_NVSREAD(soh_lifetime_battery_cycles)
-        MACRO_NVSREAD_UINT8(soh_discharge_depth)
-
+        MACRO_NVSREAD_UINT8(soh_eol_capacity)
         nvs_close(nvs_handle);
     }
 
@@ -848,7 +850,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->soh_total_milliamphour_out = 0;
     _myset->soh_total_milliamphour_in = 0;
     _myset->soh_lifetime_battery_cycles = 6000;
-    _myset->soh_discharge_depth = 80;
+    _myset->soh_eol_capacity = 80;
     _myset->soh_percent = 100.0F;
 }
 
@@ -1064,11 +1066,6 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
     {
         settings->stateofchargeresumevalue = settings->stateofchargeresumevalue;
     }
-
-    if (settings->soh_discharge_depth == 0 || settings->soh_discharge_depth > 100)
-    {
-        settings->soh_discharge_depth = 80;
-    }
 }
 
 // Builds up a JSON document which mirrors the parameters inside "diybms_eeprom_settings"
@@ -1222,7 +1219,8 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     root[soh_total_milliamphour_out_JSONKEY] = settings->soh_total_milliamphour_out;
     root[soh_total_milliamphour_in_JSONKEY] = settings->soh_total_milliamphour_in;
     root[soh_lifetime_battery_cycles_JSONKEY] = settings->soh_lifetime_battery_cycles;
-    root[soh_discharge_depth_JSONKEY] = settings->soh_discharge_depth;
+    root[soh_eol_capacity_JSONKEY] = settings->soh_eol_capacity;
+
 }
 
 void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
@@ -1319,7 +1317,8 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
     settings->soh_total_milliamphour_out = root[soh_total_milliamphour_out_JSONKEY];
     settings->soh_total_milliamphour_in = root[soh_total_milliamphour_in_JSONKEY];
     settings->soh_lifetime_battery_cycles = root[soh_lifetime_battery_cycles_JSONKEY];
-    settings->soh_discharge_depth = root[soh_discharge_depth_JSONKEY];
+    settings->soh_eol_capacity=root[soh_eol_capacity_JSONKEY];
+
 
     strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
 

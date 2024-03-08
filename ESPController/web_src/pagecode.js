@@ -2004,7 +2004,7 @@ $(function () {
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
 
                 $("#expected_cycles").val(data.chargeconfig.expectedlifetime_cycles);
-                $("#dischargedepth").val(data.chargeconfig.dischargedepth);
+                $("#eol_capacity").val(data.chargeconfig.eol_capacity);
                 $("#total_ah_charge").val(Math.trunc(data.chargeconfig.total_mah_charge / 1000));
                 $("#total_ah_discharge").val(Math.trunc(data.chargeconfig.total_mah_discharge / 1000));
                 $("#estimate_bat_cycle").val(data.chargeconfig.estimatebatterycycle);

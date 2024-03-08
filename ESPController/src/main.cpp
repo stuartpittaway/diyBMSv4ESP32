@@ -3220,16 +3220,15 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
 
 void CalculateStateOfHealth(diybms_eeprom_settings *settings)
 {
-  // Value indicating what a typical discharge cycle looks like in amp-hours (normally 80% of cell for LFP)
-  float depth = 1000.0F * ((float)settings->nominalbatcap / 100.0F * (float)settings->soh_discharge_depth);
-  float in = (float)settings->soh_total_milliamphour_in / depth;
-  float out = (float)settings->soh_total_milliamphour_out / depth;
-  // Take worst case
+  float batcap_mah = 1000.0F * settings->nominalbatcap;
+  float in = (float)settings->soh_total_milliamphour_in / batcap_mah;
+  float out = (float)settings->soh_total_milliamphour_out / batcap_mah;
+  // Take worst case number of cycles
   float cycles = max(in, out);
 
-  settings->soh_percent = 100 - ((cycles / (float)settings->soh_lifetime_battery_cycles) * 100.0F);
-
   settings->soh_estimated_battery_cycles = (uint16_t)round(cycles);
+
+  settings->soh_percent = 100.0F - ((100.0F - settings->soh_eol_capacity) * (cycles / (float)settings->soh_lifetime_battery_cycles));
 
   ESP_LOGI(TAG, "State of health calc %f %, estimated cycles=%f", settings->soh_percent, cycles);
 }
@@ -3921,14 +3920,12 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
       uint32_t in;
       uint32_t out;
-      if (GetStateOfCharge(&in,&out))
+      if (GetStateOfCharge(&in, &out))
       {
-        currentmon_internal.SetSOCByMilliAmpCounter(in,out);
+        currentmon_internal.SetSOCByMilliAmpCounter(in, out);
       }
 
       currentmon_internal.TakeReadings();
-
-      
 
       CalculateStateOfHealth(&mysettings);
     }
@@ -4242,11 +4239,15 @@ void loop()
     // Report again in 60 seconds
     heaptimer = currentMillis + 60000;
 
-    //Once per minute, store the state of charge into flash, just in case the controller is rebooted and we can restore this value
-    //on power up.
+    // Once per minute, store the state of charge into flash, just in case the controller is rebooted and we can restore this value
+    // on power up.
     if (mysettings.currentMonitoringEnabled && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
     {
-      SaveStateOfCharge(currentmon_internal.raw_milliamphour_in(),currentmon_internal.raw_milliamphour_out());
+      // Avoid writing zero SoC into flash
+      if (currentmon_internal.calc_state_of_charge() > 1.0F)
+      {
+        SaveStateOfCharge(currentmon_internal.raw_milliamphour_in(), currentmon_internal.raw_milliamphour_out());
+      }
     }
   }
 }
