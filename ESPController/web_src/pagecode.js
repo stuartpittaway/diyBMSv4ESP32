@@ -70,7 +70,7 @@ function upload_file() {
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
     xhr.onreadystatechange = function () {
         if (xhr.readyState === XMLHttpRequest.DONE) {
-            var status = xhr.status;
+            let status = xhr.status;
             if (status >= 200 && status < 400) {
                 //Refresh the storage page
                 $("#storage").trigger("click");
@@ -100,7 +100,7 @@ function upload_firmware() {
     });
     xhr.onreadystatechange = function () {
         if (xhr.readyState === XMLHttpRequest.DONE) {
-            var status = xhr.status;
+            let status = xhr.status;
             if (status >= 200 && status < 400) {
                 $("#status_div").text("Upload accepted. BMS will reboot.");
             } else {
@@ -120,16 +120,16 @@ function CalculateChargeCurrent(value1, value2, highestCellVoltage, maximumcharg
         return maximumchargecurrent;
     }
 
-    var knee_voltage = 0 / 100.0;
-    var at_knee = Math.pow(value1, knee_voltage * Math.pow(knee_voltage, value2));
+    let knee_voltage = 0 / 100.0;
+    let at_knee = Math.pow(value1, knee_voltage * Math.pow(knee_voltage, value2));
 
-    var target_cell_voltage = (cellmaxmv - kneemv) / 100.0;
-    var at_target_cell_voltage = Math.pow(value1, target_cell_voltage * Math.pow(target_cell_voltage, value2));
+    let target_cell_voltage = (cellmaxmv - kneemv) / 100.0;
+    let at_target_cell_voltage = Math.pow(value1, target_cell_voltage * Math.pow(target_cell_voltage, value2));
 
-    var actual_cell_voltage = (highestCellVoltage - kneemv) / 100.0;
-    var at_actual_cell_voltage = Math.pow(value1, actual_cell_voltage * Math.pow(actual_cell_voltage, value2));
+    let actual_cell_voltage = (highestCellVoltage - kneemv) / 100.0;
+    let at_actual_cell_voltage = Math.pow(value1, actual_cell_voltage * Math.pow(actual_cell_voltage, value2));
 
-    var percent = 1 - (at_actual_cell_voltage / at_knee) / at_target_cell_voltage;
+    let percent = 1 - (at_actual_cell_voltage / at_knee) / at_target_cell_voltage;
 
     if (percent < 0.01) {
         percent = 0.01;
@@ -139,8 +139,6 @@ function CalculateChargeCurrent(value1, value2, highestCellVoltage, maximumcharg
 }
 
 function DrawChargingGraph() {
-
-
     var xaxisvalues = [];
     var yaxisvalues = [];
 
@@ -158,18 +156,10 @@ function DrawChargingGraph() {
         yaxisvalues.push(CalculateChargeCurrent(value1, value2, voltage, chargecurrent, kneemv, cellmaxmv));
     }
 
-    /*
-        if (window.g3 != null) {
-            window.g3.dispose();
-            window.g3 = null;
-        }
-    */
-    if (window.g3 == null) {
+     if (window.g3 == null) {
         window.g3 = echarts.init(document.getElementById('graph3'))
 
-        var option;
-
-        option = {
+        let option = {
 
             tooltip: {
                 trigger: 'axis',
@@ -304,7 +294,7 @@ function refreshCurrentMonitorValues() {
                 $("#cmmodel").val(data.model.toString(16));
                 $("#cmfirmwarev").val(data.firmwarev.toString(16));
 
-                var d = new Date(data.firmwaredate * 1000);
+                let d = new Date(data.firmwaredate * 1000);
                 $("#cmfirmwaredate").val(d.toString());
 
 
@@ -357,13 +347,13 @@ function refreshCurrentMonitorValues() {
 // Show and hide tiles based on bit pattern in tileconfig array
 function refreshVisibleTiles() {
     for (i = 0; i < TILE_IDS.length; i++) {
-        var tc = TILE_IDS[i];
-        var value = tileconfig[i];
-        for (var a = tc.length - 1; a >= 0; a--) {
-            var visible = (value & 1) == 1 ? true : false;
+        let tc = TILE_IDS[i];
+        let value = tileconfig[i];
+        for (let a = tc.length - 1; a >= 0; a--) {
+            let visible = (value & 1) == 1 ? true : false;
             value = value >>> 1;
             if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
-                var obj = $("#" + tc[a]);
+                let obj = $("#" + tc[a]);
                 if (visible) {
                     //Only show if we have not force hidden it
                     if (obj.hasClass(".hide") == false) {
@@ -383,16 +373,16 @@ function refreshVisibleTiles() {
 function postTileVisibiltity() {
     $(".stat.vistile.hide").removeClass("vistile");
 
-    var newconfig = [];
-    for (var index = 0; index < tileconfig.length; index++) {
+    let newconfig = [];
+    for (let index = 0; index < tileconfig.length; index++) {
         newconfig.push(0);
     }
 
-    for (var i = 0; i < TILE_IDS.length; i++) {
-        var tc = TILE_IDS[i];
-        var value = 0;
-        var v = 0x8000;
-        for (var a = 0; a < tc.length; a++) {
+    for (let i = 0; i < TILE_IDS.length; i++) {
+        let tc = TILE_IDS[i];
+        let value = 0;
+        let v = 0x8000;
+        for (let a = 0; a < tc.length; a++) {
             if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
                 if ($("#" + tc[a]).hasClass("vistile")) {
                     value = value | v;
@@ -404,8 +394,8 @@ function postTileVisibiltity() {
         newconfig[i] = value;
     }
 
-    var diff = false;
-    for (var index = 0; index < tileconfig.length; index++) {
+    let diff = false;
+    for (let index = 0; index < tileconfig.length; index++) {
         if (tileconfig[index] != newconfig[index]) {
             tileconfig[index] = newconfig[index];
             diff = true;
@@ -690,9 +680,7 @@ function queryBMS() {
 
         var markLineData = [];
 
-        markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
-        //markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
-        //markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+        markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#eee', width: 3, type: 'dotted', opacity: 0.4 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
 
         var xAxis = 0;
         for (let index = 0; index < jsondata.banks; index++) {
@@ -980,7 +968,7 @@ function queryBMS() {
                 window.g1 = echarts.init(document.getElementById('graph1'))
 
                 // specify chart configuration item and data
-                var option = {
+                let option = {
                     tooltip: {
                         show: true, axisPointer: {
                             type: 'cross', label: {
@@ -2343,13 +2331,11 @@ $(function () {
             DrawChargingGraph();
         });
 
-
     //On page ready
     queryBMS();
 
-
     //Automatically open correct sub-page based on hash
-    var hash = $(location).attr('hash');
+    let hash = $(location).attr('hash');
     switch (hash) {
         case "#tiles":
         case "#modules":
