@@ -156,7 +156,7 @@ function DrawChargingGraph() {
         yaxisvalues.push(CalculateChargeCurrent(value1, value2, voltage, chargecurrent, kneemv, cellmaxmv));
     }
 
-     if (window.g3 == null) {
+    if (window.g3 == null) {
         window.g3 = echarts.init(document.getElementById('graph3'))
 
         let option = {
@@ -1140,6 +1140,14 @@ function queryBMS() {
                             containLabel: false, left: '4%', right: '4%', top: '76%'
                         }]
                 };
+
+
+                if (jsondata.voltages.length > 24) {
+                    // When lots of cell data is on screen, hide the labels to improve visability               
+                    for (const element of option.series) {
+                        element.label.normal.show = false;
+                    }
+                }
 
                 // use configuration item and data specified to show chart
                 g1.setOption(option);
