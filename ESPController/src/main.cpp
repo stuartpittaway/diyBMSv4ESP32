@@ -4152,7 +4152,7 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
 
 unsigned long wifitimer = 0;
 unsigned long heaptimer = 0;
-// unsigned long taskinfotimer = 0;
+uint8_t flash_write_soc_timer = 0;
 
 void logActualTime()
 {
@@ -4166,9 +4166,10 @@ void logActualTime()
 
 void loop()
 {
-  delay(100);
+  //vTaskDelete(NULL);  
+  delay(250);
 
-  unsigned long currentMillis = millis();
+  auto currentMillis = millis();
 
   if (card_action == CardAction::Mount)
   {
@@ -4213,6 +4214,8 @@ void loop()
 
   if (currentMillis > heaptimer)
   {
+    // This gets called once per minute...
+
     logActualTime();
     /*
      total_free_bytes;        Total free bytes in the heap. Equivalent to multi_free_heap_size().
@@ -4239,15 +4242,13 @@ void loop()
     // Report again in 60 seconds
     heaptimer = currentMillis + 60000;
 
-    // Once per minute, store the state of charge into flash, just in case the controller is rebooted and we can restore this value
-    // on power up.
-    if (mysettings.currentMonitoringEnabled && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+    // Once every 10 minutes, store the state of charge into flash, just in case the controller is rebooted and we can restore this value
+    // on power up.  10 minutes was chosen so we don't rapidly wear out the internal flash memory with writes.
+    flash_write_soc_timer++;
+    if (flash_write_soc_timer > 10 && currentmon_internal.calc_state_of_charge() > 1.0F && mysettings.currentMonitoringEnabled && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
     {
-      // Avoid writing zero SoC into flash
-      if (currentmon_internal.calc_state_of_charge() > 1.0F)
-      {
-        SaveStateOfCharge(currentmon_internal.raw_milliamphour_in(), currentmon_internal.raw_milliamphour_out());
-      }
+      flash_write_soc_timer = 0;
+      SaveStateOfCharge(currentmon_internal.raw_milliamphour_in(), currentmon_internal.raw_milliamphour_out());
     }
   }
 }
