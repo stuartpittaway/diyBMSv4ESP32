@@ -27,7 +27,7 @@ jobs:
 
       - name: Install PlatformIO
         run: pip install --upgrade platformio
-          
+
       - name: Create folders
         run: |
           mkdir -p ./ESPController/data/avr
@@ -54,13 +54,6 @@ jobs:
         run: |
             cp ./STM32All-In-One/.pio/build/V*/*.bin ~/OUTPUT/Modules/BIN/
   
-      - name: Get latest esptool
-        run: |
-          git clone https://github.com/espressif/esptool.git
-          cd esptool
-          pip install --user -e .
-          cd ~
-          python -m esptool version
 
       - name: Build code for ESP32 controller
         run: pio run --project-dir=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ESPController --environment esp32-devkitc --project-conf=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ESPController/platformio.ini
@@ -81,8 +74,12 @@ jobs:
         run: |
           cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin ~/OUTPUT/Controller/
 
-      - name: Build single ESP32 image
+      - name: Get latest esptool / Build single ESP32 image
         run: |
+          git clone https://github.com/espressif/esptool.git
+          cd esptool
+          pip install --user -e .
+          cd ~
           python -m esptool --chip esp32 merge_bin -o ~/OUTPUT/Controller/esp32-controller-firmware-complete.bin --flash_mode=keep --flash_size 4MB 0x1000 ~/OUTPUT/Controller/bootloader.bin 0x8000 ~/OUTPUT/Controller/partitions.bin 0xe000 ~/OUTPUT/Controller/boot_app0.bin 0x10000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x1C0000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x370000 ~/OUTPUT/Controller/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
 
       - name: Board test code for ESP32 controller
