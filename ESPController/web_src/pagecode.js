@@ -540,7 +540,7 @@ function configureModule(button, cellid, attempts) {
             $('#m').val(data.settings.id);
 
             if (data.settings.Cached == true) {
-                var currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
+                const currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
                 $("#ActualVoltage").val(currentReading.toFixed(3));
 
                 $("#settingConfig h2").html("Settings for module bank:" + data.settings.bank + " module:" + data.settings.module);
@@ -632,15 +632,15 @@ function secondsToHms(seconds) {
         return "";
     }
 
-    var d = Math.floor(seconds / (3600 * 24));
-    var h = Math.floor(seconds % (3600 * 24) / 3600);
-    var m = Math.floor(seconds % 3600 / 60);
-    var s = Math.floor(seconds % 60);
+    let d = Math.floor(seconds / (3600 * 24));
+    let h = Math.floor(seconds % (3600 * 24) / 3600);
+    let m = Math.floor(seconds % 3600 / 60);
+    let s = Math.floor(seconds % 60);
 
-    var dDisplay = d > 0 ? d + "d" : "";
-    var hDisplay = h > 0 ? h + "h" : "";
-    var mDisplay = m > 0 ? m + "m" : "";
-    var sDisplay = h > 0 ? "" : (s > 0 ? s + "s" : "");
+    let dDisplay = d > 0 ? d + "d" : "";
+    let hDisplay = h > 0 ? h + "h" : "";
+    let mDisplay = m > 0 ? m + "m" : "";
+    let sDisplay = h > 0 ? "" : (s > 0 ? s + "s" : "");
     return dDisplay + hDisplay + mDisplay + sDisplay;
 }
 
@@ -1222,16 +1222,16 @@ function queryBMS() {
                 var cells3d = [];
                 var banks3d = [];
 
-                for (var seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
+                for (let seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
                     cells3d.push({ value: 'Cell ' + seriesmodules, textStyle: { color: '#ffffff' } });
                 }
 
                 var data3d = [];
                 var cell = 0;
-                for (var bankNumber = 0; bankNumber < jsondata.banks; bankNumber++) {
+                for (let bankNumber = 0; bankNumber < jsondata.banks; bankNumber++) {
                     banks3d.push({ value: 'Bank ' + bankNumber, textStyle: { color: '#ffffff' } });
                     //Build up 3d array for cell data
-                    for (var seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
+                    for (let seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
                         data3d.push({ value: [seriesmodules, bankNumber, voltages[cell].value], itemStyle: voltages[cell].itemStyle });
                         cell++;
                     }
@@ -1316,7 +1316,7 @@ $(function () {
     );
 
     $(".rule").on("change", function () {
-        var origv = $(this).attr("data-origv")
+        let origv = $(this).attr("data-origv")
         if (origv !== this.value) {
             $(this).addClass("modified");
         } else {
@@ -1325,10 +1325,10 @@ $(function () {
     });
 
     $("#labelMaxModules").text(MAXIMUM_NUMBER_OF_SERIES_MODULES);
-    for (var n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
+    for (let n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }
-    for (var n = MAXIMUM_NUMBER_OF_BANKS - 1; n >= 0; n--) {
+    for (let n = MAXIMUM_NUMBER_OF_BANKS - 1; n >= 0; n--) {
         $("#totalBanks").prepend('<option>' + (n + 1) + '</option>')
         $("#info").prepend('<div id="range' + n + '" class="stat"><span class="x t">Range ' + n + ':</span><span class="x v"></span></div>');
         $("#info").prepend('<div id="voltage' + n + '" class="stat"><span class="x t">Voltage ' + n + ':</span><span class="x v"></span></div>');
@@ -1352,10 +1352,10 @@ $(function () {
     });
 
     $('#CalculateCalibration').click(function () {
-        var currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
-        var currentCalib = parseFloat($("#Calib").val());
-        var actualV = parseFloat($("#ActualVoltage").val());
-        var result = (currentCalib / currentReading) * actualV;
+        const currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
+        const currentCalib = parseFloat($("#Calib").val());
+        const actualV = parseFloat($("#ActualVoltage").val());
+        let result = (currentCalib / currentReading) * actualV;
         $("#Calib").val(result.toFixed(4));
         return true;
     });
