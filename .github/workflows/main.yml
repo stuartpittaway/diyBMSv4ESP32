@@ -12,16 +12,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache pio
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.11'
 
       - name: Install PlatformIO
-        run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade platformio
-
+        run: pip install --upgrade platformio
+          
       - name: Create folders
         run: |
           mkdir -p ./ESPController/data/avr
