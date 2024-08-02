@@ -10,29 +10,13 @@ jobs:
   job_build_modulecode:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Cache pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: ${{ runner.os }}-pip-
-
-      - name: Cache PlatformIO
-        uses: actions/cache@v3
-        with:
-          path: ~/.platformio
-          key: ${{ runner.os }}-platformio-2022-${{ hashFiles('**/lockfiles') }}
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
-
-      - uses: actions/cache@v3
+        uses: actions/setup-python@v5
         with:
-          path: ~/.local/share/virtualenvs
-          key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
-          restore-keys: ${{ runner.os }}-pipenv-
+          python-version: '3.9'
+          cache: 'pip' # caching pip dependencies
 
       - name: Install PlatformIO
         run: |
