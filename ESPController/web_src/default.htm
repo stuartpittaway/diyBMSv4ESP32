@@ -231,7 +231,7 @@
         <span class="x v"></span>
       </div>
 
-      <div id="graphOptions" class="">
+      <div id="graphOptions">
         <span class="x t">Graph:</span>
         <span class="x v">
           <a id="view2d" href="">2D</a>
@@ -654,7 +654,7 @@
             <th id="ht1">Date/time</th>
             <th id="ht2">Voltage</th>
             <th id="ht3">Current</th>
-            <th id="ht4">SoC%</th>
+            <th id="ht4">SoC%%</th>
             <th id="ht5">mA In</th>
             <th id="ht6">mA Out</th>
             <th id="ht7">Highest Range</th>
@@ -989,11 +989,11 @@
 
     <div class="region">
       <p id="v1">
-        This feature allows diyBMS to provide battery and BMS data to CANBUS devices using various 3rd party
+        This feature allows diyBMS to provide battery and BMS data to CANBUS or RS485 devices using various 3rd party
         protocols.
       </p>
       <p id="v2">
-        These settings require an external inverter/charger to be able to integrate using CANBUS to control
+        These settings require an external inverter/charger to be able to integrate using CANBUS (RS458) to control
         charge/discharge parameters. Pylontech normally operates at 500k baud. Victron can use other speeds depending on
         the device.
       </p>
@@ -1005,12 +1005,13 @@
       <form id="chargingForm" method="POST" action="/post/savechargeconfig" autocomplete="off">
         <div class="settings">
           <div>
-            <label for="canbusprotocol">CANBUS protocol emulation</label>
-            <select name="canbusprotocol" id="canbusprotocol">
+            <label for="protocol">Protocol emulation</label>
+            <select name="protocol" id="protocol">
               <option value="0">Disabled</option>
               <option value="1">Victron Cerbo GX</option>
-              <option value="2">PylonTech</option>
+              <option value="2">PylonTech CANBUS</option>
               <option value="3">PylonTech Force (HV Battery)</option>
+              <option value="4">PylonTech RS485</option>
             </select>
           </div>
 
@@ -1033,6 +1034,32 @@
           <div>
             <label for="nominalbatcap">Nominal Battery Capacity (Amp-hours)</label>
             <input id="nominalbatcap" name="nominalbatcap" value="" type="number" min="1" max="9999" step="1" />
+          </div>
+          <p>State of Health</p>
+
+          <div>
+            <label for="expected_cycles">Expected battery lifetime/cycles</label>
+            <input id="expected_cycles" name="expected_cycles" value="" type="number" min="100" max="99999" step="1" />
+          </div>
+          <div>
+            <label for="eol_capacity">End of life capacity (%%)</label>
+            <input id="eol_capacity" name="eol_capacity" value="" type="number" min="10" max="100" step="1" />
+          </div>
+          <div>
+            <label for="total_ah_charge">Lifetime amp-hours charge (in)</label>
+            <input id="total_ah_charge" name="total_ah_charge" value="" type="number" min="0" step="1" />
+          </div>
+          <div>
+            <label for="total_ah_discharge">Lifetime amp-hours discharge (out)</label>
+            <input id="total_ah_discharge" name="total_ah_discharge" value="" type="number" min="0" step="1" />
+          </div>
+          <div>
+            <label for="estimate_bat_cycle">Estimated battery cycles consumed</label>
+            <input id="estimate_bat_cycle" name="estimate_bat_cycle" value="" type="number" readonly="" />
+          </div>
+          <div>
+            <label for="stateofhealth">State of health (%%)</label>
+            <input id="stateofhealth" name="stateofhealth" value="" type="number" readonly="" />
           </div>
 
           <p>Charging</p>

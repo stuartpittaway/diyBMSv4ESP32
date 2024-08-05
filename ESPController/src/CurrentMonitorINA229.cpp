@@ -71,19 +71,43 @@ void CurrentMonitorINA229::CalculateLSB()
     // registers.R_SHUNT_CAL = ((uint32_t)registers.R_SHUNT_CAL * 985) / 1000;
 }
 
+
+void CurrentMonitorINA229::SetSOCByMilliAmpCounter(uint32_t in,uint32_t out) {
+    // Assume battery is fully charged
+    milliamphour_in = in;
+    // And we have consumed this much...
+    milliamphour_out = out;
+
+    // Zero out readings using the offsets
+    milliamphour_out_offset = milliamphour_out;
+    milliamphour_in_offset = milliamphour_in;
+
+    ESP_LOGI(TAG, "SetSOCByMilliAmpCounter mA in=%u, mA out=%u",milliamphour_in,milliamphour_out);
+}
+
 // Sets SOC by setting "fake" in/out amphour counts
 // value=8212 = 82.12%
 void CurrentMonitorINA229::SetSOC(uint16_t value)
 {
     // Assume battery is fully charged
-    milliamphour_in = 1000 * (uint32_t)registers.batterycapacity_amphour;
+    //milliamphour_in = 1000 * (uint32_t)registers.batterycapacity_amphour;
     // And we have consumed this much...
-    milliamphour_out = (uint32_t)((1.0F - ((float)value / 10000.0F)) * milliamphour_in);
+    //milliamphour_out = (uint32_t)((1.0F - ((float)value / 10000.0F)) * (float)milliamphour_in);
+
+    // Updated SoC logic by delboy711 https://github.com/stuartpittaway/diyBMSv4ESP32/issues/232
+    // Assume battery is fully charged
+    milliamphour_in = lround(100000.0*(float)registers.batterycapacity_amphour/(registers.charge_efficiency_factor));
+    // And we have consumed this much...
+    milliamphour_out = (uint32_t)((1.0 - ((float)value / 10000.0)) * (1000.0*(float)registers.batterycapacity_amphour));
 
     // Zero out readings using the offsets
     milliamphour_out_offset = milliamphour_out;
     milliamphour_in_offset = milliamphour_in;
+
+    ESP_LOGI(TAG, "SetSOC mA in=%u, mA out=%u",milliamphour_in,milliamphour_out);
 }
+
+
 
 uint8_t CurrentMonitorINA229::readRegisterValue(INA_REGISTER r) const
 {
@@ -391,47 +415,11 @@ void CurrentMonitorINA229::CalculateAmpHourCounts()
     }
 }
 
-// Guess the SoC % based on battery voltage - not accurate, just a guess!
-void CurrentMonitorINA229::GuessSOC()
+// Set SoC to default values
+void CurrentMonitorINA229::DefaultSOC()
 {
     // Default SOC% at 60%
-    uint16_t soc = 6000;
-
-    // We apply a "guestimate" to SoC based on voltage - not really accurate, but somewhere to start
-    // only applicable to 24V/48V (16S) LIFEPO4 setups. These voltages should be the unloaded (no current flowing) voltage.
-    // Assumption that its LIFEPO4 cells we are using...
-    float v = BusVoltage();
-
-    if (v > 20 && v < 30)
-    {
-        // Scale up 24V battery to use the 48V scale
-        v = v * 2;
-    }
-
-    if (v > 40 && v < 60)
-    {
-        // 16S LIFEPO4...
-        if (v >= 40.0)
-            soc = 500;
-        if (v >= 48.0)
-            soc = 900;
-        if (v >= 50.0)
-            soc = 1400;
-        if (v >= 51.2)
-            soc = 1700;
-        if (v >= 51.6)
-            soc = 2000;
-        if (v >= 52.0)
-            soc = 3000;
-        if (v >= 52.4)
-            soc = 4000;
-        if (v >= 52.8)
-            soc = 7000;
-        if (v >= 53.2)
-            soc = 9000;
-    }
-
-    SetSOC(soc);
+    SetSOC(6000);
 
     // Reset the daily counters
     daily_milliamphour_in = 0;

@@ -107,135 +107,24 @@ public:
 
     void CANBUSEnable(bool value);
 
-    bool IsVSPIMutexAvailable()
-    {
-        if (xVSPIMutex == NULL)
-            return false;
+    bool IsVSPIMutexAvailable();
+    bool GetVSPIMutex();
+    bool ReleaseVSPIMutex();
 
-        return (uxSemaphoreGetCount(xVSPIMutex) == 1);
-    }
+    bool GetDisplayMutex();
+    bool ReleaseDisplayMutex();
 
-    bool GetDisplayMutex()
-    {
-        if (xDisplayMutex == NULL)
-            return false;
+    bool Geti2cMutex();
+    bool Releasei2cMutex();
 
-        // Wait 100ms max
-        if (xSemaphoreTake(xDisplayMutex, pdMS_TO_TICKS(100)) == pdFALSE)
-        {
-            ESP_LOGE(TAG, "Unable to get Display mutex");
-            return false;
-        }
-        return true;
-    }
-    bool ReleaseDisplayMutex()
-    {
-        if (xDisplayMutex == NULL)
-            return false;
-
-        return (xSemaphoreGive(xDisplayMutex) == pdTRUE);
-    }
-
-    bool GetVSPIMutex()
-    {
-        if (xVSPIMutex == NULL)
-            return false;
-
-        // Wait 100ms max
-        if (xSemaphoreTake(xVSPIMutex, pdMS_TO_TICKS(100)) == pdFALSE)
-        {
-            ESP_LOGE(TAG, "Unable to get VSPI mutex");
-            return false;
-        }
-        return true;
-    }
-    bool ReleaseVSPIMutex()
-    {
-        if (xVSPIMutex == NULL)
-            return false;
-
-        if (xSemaphoreGive(xVSPIMutex) == pdFALSE)
-        {
-            ESP_LOGE(TAG, "Unable to release VSPI mutex");
-            return false;
-        }
-        return true;
-    }
-
-    bool Geti2cMutex()
-    {
-        if (xi2cMutex == NULL)
-            return false;
-
-        // Wait 100ms max
-        if (xSemaphoreTake(xi2cMutex, pdMS_TO_TICKS(100)) == pdFALSE)
-        {
-            ESP_LOGE(TAG, "Unable to get I2C mutex");
-            return false;
-        }
-        return true;
-    }
-    bool Releasei2cMutex()
-    {
-        if (xi2cMutex == NULL)
-            return false;
-
-        if (xSemaphoreGive(xi2cMutex) == pdFALSE)
-        {
-            ESP_LOGE(TAG, "Unable to release I2C mutex");
-            return false;
-        }
-        return true;
-    }
-
-    bool GetRS485Mutex()
-    {
-        if (RS485Mutex == NULL)
-            return false;
-
-        // Wait 100ms max
-        if (xSemaphoreTake(RS485Mutex, pdMS_TO_TICKS(100)) == pdFALSE)
-        {
-            ESP_LOGE(TAG, "Unable to get RS485 mutex");
-            return false;
-        }
-        return true;
-    }
-    bool ReleaseRS485Mutex()
-    {
-        if (RS485Mutex == NULL)
-            return false;
-
-        if (xSemaphoreGive(RS485Mutex) == pdFALSE)
-        {
-            ESP_LOGE(TAG, "Unable to release RS485 mutex");
-            return false;
-        }
-        return true;
-    }
+    bool GetRS485Mutex();
+    bool ReleaseRS485Mutex();
 
     // Infinite loop flashing the LED RED/WHITE
-    void Halt(RGBLED colour)
-    {
-        ESP_LOGE(TAG, "SYSTEM HALTED");
+    void Halt(RGBLED colour);
 
-        while (true)
-        {
-            Led(RGBLED::Red);
-            delay(700);
-            Led(colour);
-            delay(300);
-        }
-    }
-
-    uint8_t LastTCA6408Value()
-    {
-        return TCA6408_Input;
-    }
-    uint8_t LastTCA9534APWRValue()
-    {
-        return TCA9534APWR_Input;
-    }
+    uint8_t LastTCA6408Value();
+    uint8_t LastTCA9534APWRValue();
     bool MountSDCard();
     void UnmountSDCard();
     TouchScreenValues TouchScreenUpdate();

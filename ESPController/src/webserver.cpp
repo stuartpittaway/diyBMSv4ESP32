@@ -668,9 +668,10 @@ httpd_handle_t start_webserver(void)
 /* Function for stopping the webserver */
 void stop_webserver(httpd_handle_t server)
 {
-  if (server)
+  if (server!=nullptr)
   {
     /* Stop the httpd server */
+    ESP_LOGI(TAG, "httpd_stop");
     httpd_stop(server);
   }
 }

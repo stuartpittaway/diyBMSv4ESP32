@@ -50,6 +50,136 @@ void HAL_ESP32::UnmountSDCard()
     }
 }
 
+bool HAL_ESP32::IsVSPIMutexAvailable()
+{
+    if (xVSPIMutex == NULL)
+        return false;
+
+    return (uxSemaphoreGetCount(xVSPIMutex) == 1);
+}
+
+bool HAL_ESP32::GetDisplayMutex()
+{
+    if (xDisplayMutex == NULL)
+        return false;
+
+    // Wait 100ms max
+    if (xSemaphoreTake(xDisplayMutex, pdMS_TO_TICKS(100)) == pdFALSE)
+    {
+        ESP_LOGE(TAG, "Unable to get Display mutex");
+        return false;
+    }
+    return true;
+}
+bool HAL_ESP32::ReleaseDisplayMutex()
+{
+    if (xDisplayMutex == NULL)
+        return false;
+
+    return (xSemaphoreGive(xDisplayMutex) == pdTRUE);
+}
+
+bool HAL_ESP32::GetVSPIMutex()
+{
+    if (xVSPIMutex == NULL)
+        return false;
+
+    // Wait 100ms max
+    if (xSemaphoreTake(xVSPIMutex, pdMS_TO_TICKS(100)) == pdFALSE)
+    {
+        ESP_LOGE(TAG, "Unable to get VSPI mutex");
+        return false;
+    }
+    return true;
+}
+bool HAL_ESP32::ReleaseVSPIMutex()
+{
+    if (xVSPIMutex == NULL)
+        return false;
+
+    if (xSemaphoreGive(xVSPIMutex) == pdFALSE)
+    {
+        ESP_LOGE(TAG, "Unable to release VSPI mutex");
+        return false;
+    }
+    return true;
+}
+
+bool HAL_ESP32::Geti2cMutex()
+{
+    if (xi2cMutex == NULL)
+        return false;
+
+    // Wait 100ms max
+    if (xSemaphoreTake(xi2cMutex, pdMS_TO_TICKS(100)) == pdFALSE)
+    {
+        ESP_LOGE(TAG, "Unable to get I2C mutex");
+        return false;
+    }
+    return true;
+}
+bool HAL_ESP32::Releasei2cMutex()
+{
+    if (xi2cMutex == NULL)
+        return false;
+
+    if (xSemaphoreGive(xi2cMutex) == pdFALSE)
+    {
+        ESP_LOGE(TAG, "Unable to release I2C mutex");
+        return false;
+    }
+    return true;
+}
+
+bool HAL_ESP32::GetRS485Mutex()
+{
+    if (RS485Mutex == NULL)
+        return false;
+
+    // Wait 100ms max
+    if (xSemaphoreTake(RS485Mutex, pdMS_TO_TICKS(100)) == pdFALSE)
+    {
+        ESP_LOGE(TAG, "Unable to get RS485 mutex");
+        return false;
+    }
+    return true;
+}
+bool HAL_ESP32::ReleaseRS485Mutex()
+{
+    if (RS485Mutex == NULL)
+        return false;
+
+    if (xSemaphoreGive(RS485Mutex) == pdFALSE)
+    {
+        ESP_LOGE(TAG, "Unable to release RS485 mutex");
+        return false;
+    }
+    return true;
+}
+
+// Infinite loop flashing the LED RED/WHITE
+void HAL_ESP32::Halt(RGBLED colour)
+{
+    ESP_LOGE(TAG, "SYSTEM HALTED");
+
+    while (true)
+    {
+        Led(RGBLED::Red);
+        delay(700);
+        Led(colour);
+        delay(300);
+    }
+}
+
+uint8_t HAL_ESP32::LastTCA6408Value()
+{
+    return TCA6408_Input;
+}
+uint8_t HAL_ESP32::LastTCA9534APWRValue()
+{
+    return TCA9534APWR_Input;
+}
+
 uint8_t HAL_ESP32::readByte(i2c_port_t i2c_num, uint8_t dev, uint8_t reg)
 {
     // We use the native i2c commands for ESP32 as the Arduino library

@@ -94,8 +94,7 @@ void pylon_message_355()
     data.stateofchargevalue = rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
 
     //  2 SOH value un16 1 %
-    // TODO: Need to determine this based on age of battery/cycles etc.
-    data.stateofhealthvalue = 100;
+    data.stateofhealthvalue = (uint16_t)(trunc(mysettings.soh_percent));
 
     send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
   }

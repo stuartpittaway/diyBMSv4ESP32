@@ -10,34 +10,23 @@ jobs:
   job_build_modulecode:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Cache pip
-        uses: actions/cache@v3
+      - name: Cache pio
+        uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: ${{ runner.os }}-pip-
-
-      - name: Cache PlatformIO
-        uses: actions/cache@v3
-        with:
-          path: ~/.platformio
-          key: ${{ runner.os }}-platformio-2022-${{ hashFiles('**/lockfiles') }}
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
 
       - name: Set up Python
-        uses: actions/setup-python@v4
-
-      - uses: actions/cache@v3
+        uses: actions/setup-python@v5
         with:
-          path: ~/.local/share/virtualenvs
-          key: ${{ runner.os }}-pipenv-${{ hashFiles('Pipfile.lock') }}
-          restore-keys: ${{ runner.os }}-pipenv-
+          python-version: '3.11'
 
       - name: Install PlatformIO
-        run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade platformio
+        run: pip install --upgrade platformio
 
       - name: Create folders
         run: |
@@ -65,13 +54,6 @@ jobs:
         run: |
             cp ./STM32All-In-One/.pio/build/V*/*.bin ~/OUTPUT/Modules/BIN/
   
-      - name: Get latest esptool
-        run: |
-          git clone https://github.com/espressif/esptool.git
-          cd esptool
-          pip install --user -e .
-          cd ~
-          python -m esptool version
 
       - name: Build code for ESP32 controller
         run: pio run --project-dir=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ESPController --environment esp32-devkitc --project-conf=/home/runner/work/diyBMSv4ESP32/diyBMSv4ESP32/ESPController/platformio.ini
@@ -92,8 +74,12 @@ jobs:
         run: |
           cp ./ESPController/.pio/build/esp32-devkitc/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin ~/OUTPUT/Controller/
 
-      - name: Build single ESP32 image
+      - name: Get latest esptool / Build single ESP32 image
         run: |
+          git clone https://github.com/espressif/esptool.git
+          cd esptool
+          pip install --user -e .
+          cd ~
           python -m esptool --chip esp32 merge_bin -o ~/OUTPUT/Controller/esp32-controller-firmware-complete.bin --flash_mode=keep --flash_size 4MB 0x1000 ~/OUTPUT/Controller/bootloader.bin 0x8000 ~/OUTPUT/Controller/partitions.bin 0xe000 ~/OUTPUT/Controller/boot_app0.bin 0x10000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x1C0000 ~/OUTPUT/Controller/diybms_controller_firmware_espressif32_esp32-devkitc.bin 0x370000 ~/OUTPUT/Controller/diybms_controller_filesystemimage_espressif32_esp32-devkitc.bin
 
       - name: Board test code for ESP32 controller
@@ -104,7 +90,7 @@ jobs:
           cp ./ESP32BoardTest/.pio/build/esp32-devkitc/diybms_boardtest_espressif32_esp32-devkitc.bin ~/OUTPUT/ControllerBoardTest/
 
       - name: Publish Artifacts 1
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: DIYBMS-Compiled
           path: ~/OUTPUT
@@ -115,7 +101,7 @@ jobs:
     needs: [job_build_modulecode]
     steps:
       - name: Download artifact DIYBMS-Compiled
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: DIYBMS-Compiled
 
@@ -142,7 +128,7 @@ jobs:
         run: mv release.zip release_${{ env.dt }}.zip
 
       - name: Publish Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: DIYBMS-Release-Artifact-${{ env.dt }}
           path: |

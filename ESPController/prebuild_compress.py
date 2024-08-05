@@ -13,9 +13,9 @@ env.Execute("$PYTHONEXE -m pip install --upgrade htmlmin")
 
 def prepare_www_files():
     # WARNING -  this script will DELETE your 'data' dir and recreate an empty one to copy/gzip files from 'data_src'
-    #           so make sure to edit your files in 'data_src' folder as changes madt to files in 'data' woll be LOST
+    #           so make sure to edit your files in 'data_src' folder as changes madt to files in 'data' will be LOST
     #
-    #           If 'data_src' dir doesn't exist, and 'data' dir is found, the script will autimatically
+    #           If 'data_src' dir doesn't exist, and 'data' dir is found, the script will automatically
     #           rename 'data' to 'data_src
 
     # add filetypes (extensions only) to be gzipped before uploading. Everything else will be copied directly
@@ -65,7 +65,7 @@ def prepare_www_files():
 
     for file in files_to_gzip:
         print('  GZipping file: ' + file + ' to data dir')
-        with open(file, 'rb') as f_in, gzip.open(os.path.join(data_dir, os.path.basename(file) + '.gz'), 'wb') as f_out:
+        with open(file, 'rb') as f_in, gzip.GzipFile(filename=os.path.join(data_dir, os.path.basename(file) + '.gz'), mode='w', compresslevel=9) as f_out:
             shutil.copyfileobj(f_in, f_out)
 
     print('[/COPY/GZIP DATA FILES]')

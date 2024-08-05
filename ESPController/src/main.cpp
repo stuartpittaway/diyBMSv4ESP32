@@ -75,6 +75,7 @@ extern "C"
 #include "victron_canbus.h"
 #include "pylon_canbus.h"
 #include "pylonforce_canbus.h"
+#include "pylon_rs485.h"
 #include "string_utils.h"
 
 #include <SPI.h>
@@ -190,6 +191,9 @@ SerialEncoder myPacketSerial;
 uint16_t sequence = 0;
 
 ControllerState _controller_state = ControllerState::Unknown;
+
+// Create PylonTech RS485 protocol emulation instance, passing references to necessary variables
+PylonRS485 pylon_rs485(rs485_uart_num, mysettings, rules, currentMonitor, _controller_state, hal);
 
 uint32_t time100 = 0;
 uint32_t time20 = 0;
@@ -1280,7 +1284,7 @@ void ProcessRules()
     rules.SetWarning(InternalWarningCode::NoExternalTempSensor);
   }
 
-  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
+  if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED)
   {
     if (!rules.IsChargeAllowed(&mysettings))
     {
@@ -1550,6 +1554,7 @@ void configureSNTP(long gmtOffset_sec, int daylightOffset_sec, const char *serve
 
 static void stopMDNS()
 {
+  ESP_LOGI(TAG, "stop mdns");
   mdns_free();
 }
 
@@ -1572,26 +1577,32 @@ static void startMDNS()
 
 void ShutdownAllNetworkServices()
 {
+  ESP_LOGI(TAG, "ShutdownAllNetworkServices");
   // Shut down all TCP/IP reliant services
   if (server_running)
   {
-    stop_webserver(_myserver);
+    if (_myserver != nullptr)
+    {
+      stop_webserver(_myserver);
+      _myserver = nullptr;
+    }
+
     server_running = false;
-    _myserver = nullptr;
   }
+
   stopMqtt();
   stopMDNS();
 }
 
 /// @brief Count of events of RSSI low
-uint16_t wifi_count_rssi_low=0;
-uint16_t wifi_count_sta_start=0;
+uint16_t wifi_count_rssi_low = 0;
+uint16_t wifi_count_sta_start = 0;
 /// @brief Count of events for WIFI connect
-uint16_t wifi_count_sta_connected=0;
+uint16_t wifi_count_sta_connected = 0;
 /// @brief Count of events for WIFI disconnect
-uint16_t wifi_count_sta_disconnected=0;
-uint16_t wifi_count_sta_lost_ip=0;
-uint16_t wifi_count_sta_got_ip=0;
+uint16_t wifi_count_sta_disconnected = 0;
+uint16_t wifi_count_sta_lost_ip = 0;
+uint16_t wifi_count_sta_got_ip = 0;
 
 /// @brief WIFI Event Handler
 /// @param
@@ -1719,9 +1730,9 @@ bool SaveWIFIJson(const wifi_eeprom_settings *setting)
     return false;
   }
 
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
 
-  JsonObject wifi = doc.createNestedObject("wifi");
+  JsonObject wifi = doc["wifi"].to<JsonObject>();
   wifi["ssid"] = setting->wifi_ssid;
   wifi["password"] = setting->wifi_passphrase;
 
@@ -2728,7 +2739,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
     // Delay 1 second
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH)
+    if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH)
     {
       // Pylon Tech Battery Emulation
       // https://github.com/PaulSturbo/DIY-BMS-CAN/blob/main/SEPLOS%20BMS%20CAN%20Protocoll%20V1.0.pdf
@@ -2767,11 +2778,11 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
       // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
       // vTaskDelay(pdMS_TO_TICKS(100));
     }
-    else if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2 )
+    else if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2)
     {
       pylonforce_handle_tx();
     }
-    else if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
+    else if (mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON)
     {
       // minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
 
@@ -2809,7 +2820,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
 {
   for (;;)
   {
-    while (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    while (mysettings.protocol == ProtocolEmulation::EMULATION_DISABLED || mysettings.protocol == ProtocolEmulation::RS485_PYLONTECH)
     {
       // Canbus is disbled, sleep until this changes....
       vTaskDelay(pdMS_TO_TICKS(2000));
@@ -2821,12 +2832,12 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
     if (res == ESP_OK)
     {
       canbus_messages_received++;
-      ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
-               message.identifier, message.data_length_code, message.flags);
-      if (!(message.flags & TWAI_MSG_FLAG_RTR))   // we do not answer to Remote-Transmission-Requests
+      // ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",message.identifier, message.data_length_code, message.flags);
+
+      if (!(message.flags & TWAI_MSG_FLAG_RTR)) // we do not answer to Remote-Transmission-Requests
       {
-//        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
-        if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2 )
+        //        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
+        if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2)
         {
           pylonforce_handle_rx(&message);
         }
@@ -2920,147 +2931,156 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
 {
   for (;;)
   {
-    // Wait until this task is triggered (sending queue task triggers it)
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-    // Delay 50ms for the data to arrive
-    vTaskDelay(pdMS_TO_TICKS(50));
-
-    uint16_t len = 0;
-
-    if (hal.GetRS485Mutex())
+    // If Pylon Tech RS485 protocol emulation is enabled, MODBUS current shunt can't be used
+    if (mysettings.protocol == ProtocolEmulation::RS485_PYLONTECH)
     {
-      // Wait 200ms before timeout
-      len = (uint16_t)uart_read_bytes(rs485_uart_num, frame, sizeof(frame), pdMS_TO_TICKS(200));
-      hal.ReleaseRS485Mutex();
+      // For this protocol emulation, RS485 on diyBMS acts as a slave, waiting for queries from the inverter
+      pylon_rs485.handle_rx();
     }
-
-    // Min packet length of 5 bytes
-    if (len > 5)
+    else
     {
-      uint8_t id = frame[0];
+      // Original RS485 RX handler, RS485 port on diyBMS acts as a master
+      // Wait until this task is triggered (sending queue task triggers it, or save of savechargeconfig form)
+      ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-      auto crc = (uint16_t)((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
+      // Delay 50ms for the data to arrive
+      vTaskDelay(pdMS_TO_TICKS(50));
 
-      auto temp = calculateCRC(frame, (uint8_t)(len - 2));
-      // Swap bytes to match MODBUS ordering
-      auto calculatedCRC = (uint16_t)(temp << 8) | (uint16_t)(temp >> 8);
+      uint16_t len = 0;
 
-      // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
-
-      if (calculatedCRC == crc)
+      if (hal.GetRS485Mutex())
       {
-        // if the calculated crc matches the recieved crc continue to process data...
-        uint8_t RS485Error = frame[1] & B10000000;
-        if (RS485Error == 0)
+        // Wait 200ms before timeout
+        len = (uint16_t)uart_read_bytes(rs485_uart_num, frame, sizeof(frame), pdMS_TO_TICKS(200));
+        hal.ReleaseRS485Mutex();
+      }
+
+      // Min packet length of 5 bytes
+      if (len > 5)
+      {
+        uint8_t id = frame[0];
+
+        auto crc = (uint16_t)((frame[len - 2] << 8) | frame[len - 1]); // combine the crc Low & High bytes
+
+        auto temp = calculateCRC(frame, (uint8_t)(len - 2));
+        // Swap bytes to match MODBUS ordering
+        auto calculatedCRC = (uint16_t)(temp << 8) | (uint16_t)(temp >> 8);
+
+        // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+
+        if (calculatedCRC == crc)
         {
-          uint8_t cmd = frame[1] & B01111111;
-          uint8_t length = frame[2];
-
-          ESP_LOGD(TAG, "Recv %i bytes, id=%u, cmd=%u", len, id, cmd);
-          // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
-
-          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
+          // if the calculated crc matches the recieved crc continue to process data...
+          uint8_t RS485Error = frame[1] & B10000000;
+          if (RS485Error == 0)
           {
-            if (cmd == 6 && id == 248)
-            {
-              ESP_LOGI(TAG, "Reply to broadcast/change address");
-            }
-            if (cmd == 6 && id == mysettings.currentMonitoringModBusAddress)
-            {
-              ESP_LOGI(TAG, "Reply to set param");
-            }
-            else if (cmd == 3 && id == mysettings.currentMonitoringModBusAddress)
-            {
-              // 75mV shunt (hard coded for PZEM)
-              currentMonitor.modbus.shuntmillivolt = 75;
+            uint8_t cmd = frame[1] & B01111111;
+            uint8_t length = frame[2];
 
-              // Shunt type 0x0000 - 0x0003 (100A/50A/200A/300A)
-              switch (((uint32_t)frame[9] << 8 | (uint32_t)frame[10]))
+            ESP_LOGD(TAG, "Recv %i bytes, id=%u, cmd=%u", len, id, cmd);
+            // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+
+            if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::PZEM_017)
+            {
+              if (cmd == 6 && id == 248)
               {
-              case 0:
-                currentMonitor.modbus.shuntmaxcurrent = 100;
-                break;
-              case 1:
-                currentMonitor.modbus.shuntmaxcurrent = 50;
-                break;
-              case 2:
-                currentMonitor.modbus.shuntmaxcurrent = 200;
-                break;
-              case 3:
-                currentMonitor.modbus.shuntmaxcurrent = 300;
-                break;
-              default:
-                currentMonitor.modbus.shuntmaxcurrent = 0;
+                ESP_LOGI(TAG, "Reply to broadcast/change address");
+              }
+              if (cmd == 6 && id == mysettings.currentMonitoringModBusAddress)
+              {
+                ESP_LOGI(TAG, "Reply to set param");
+              }
+              else if (cmd == 3 && id == mysettings.currentMonitoringModBusAddress)
+              {
+                // 75mV shunt (hard coded for PZEM)
+                currentMonitor.modbus.shuntmillivolt = 75;
+
+                // Shunt type 0x0000 - 0x0003 (100A/50A/200A/300A)
+                switch (((uint32_t)frame[9] << 8 | (uint32_t)frame[10]))
+                {
+                case 0:
+                  currentMonitor.modbus.shuntmaxcurrent = 100;
+                  break;
+                case 1:
+                  currentMonitor.modbus.shuntmaxcurrent = 50;
+                  break;
+                case 2:
+                  currentMonitor.modbus.shuntmaxcurrent = 200;
+                  break;
+                case 3:
+                  currentMonitor.modbus.shuntmaxcurrent = 300;
+                  break;
+                default:
+                  currentMonitor.modbus.shuntmaxcurrent = 0;
+                }
+              }
+              else if (cmd == 4 && id == mysettings.currentMonitoringModBusAddress && len == 21)
+              {
+                // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+
+                // memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
+                currentMonitor.validReadings = true;
+                currentMonitor.timestamp = esp_timer_get_time();
+                // voltage in 0.01V
+                currentMonitor.modbus.voltage = (float)((uint32_t)frame[3] << 8 | (uint32_t)frame[4]) / (float)100.0;
+                // current in 0.01A
+                currentMonitor.modbus.current = (float)((uint32_t)frame[5] << 8 | (uint32_t)frame[6]) / (float)100.0;
+                // power in 0.1W
+                currentMonitor.modbus.power = ((uint32_t)frame[7] << 8 | (uint32_t)frame[8] | (uint32_t)frame[9] << 24 | (uint32_t)frame[10] << 16) / 10.0F;
+              }
+              else
+              {
+                // Dump out unhandled reply
+                ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
               }
             }
-            else if (cmd == 4 && id == mysettings.currentMonitoringModBusAddress && len == 21)
+            // ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
+            if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
             {
-              // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+              if (id == mysettings.currentMonitoringModBusAddress && cmd == 3)
+              {
+                ProcessDIYBMSCurrentMonitorRegisterReply(length);
 
-              // memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
-              currentMonitor.validReadings = true;
-              currentMonitor.timestamp = esp_timer_get_time();
-              // voltage in 0.01V
-              currentMonitor.modbus.voltage = (float)((uint32_t)frame[3] << 8 | (uint32_t)frame[4]) / (float)100.0;
-              // current in 0.01A
-              currentMonitor.modbus.current = (float)((uint32_t)frame[5] << 8 | (uint32_t)frame[6]) / (float)100.0;
-              // power in 0.1W
-              currentMonitor.modbus.power = ((uint32_t)frame[7] << 8 | (uint32_t)frame[8] | (uint32_t)frame[9] << 24 | (uint32_t)frame[10] << 16) / 10.0F;
-            }
-            else
-            {
-              // Dump out unhandled reply
-              ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+                if (_tft_screen_available)
+                {
+                  // Refresh the TFT display
+                  xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
+                }
+              }
+              else if (id == mysettings.currentMonitoringModBusAddress && cmd == 16)
+              {
+                ESP_LOGI(TAG, "Write multiple regs, success");
+              }
+              else
+              {
+                // Dump out unhandled reply
+                ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+              }
             }
           }
-          // ESP_LOGD(TAG, "CRC pass Id=%u F=%u L=%u", id, cmd, length);
-          if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS)
+          else
           {
-            if (id == mysettings.currentMonitoringModBusAddress && cmd == 3)
-            {
-              ProcessDIYBMSCurrentMonitorRegisterReply(length);
-
-              if (_tft_screen_available)
-              {
-                // Refresh the TFT display
-                xTaskNotify(updatetftdisplay_task_handle, 0x00, eNotifyAction::eNoAction);
-              }
-            }
-            else if (id == mysettings.currentMonitoringModBusAddress && cmd == 16)
-            {
-              ESP_LOGI(TAG, "Write multiple regs, success");
-            }
-            else
-            {
-              // Dump out unhandled reply
-              ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
-            }
+            ESP_LOGE(TAG, "RS485 error");
+            ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
           }
         }
         else
         {
-          ESP_LOGE(TAG, "RS485 error");
-          ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
+          ESP_LOGE(TAG, "CRC error");
         }
       }
       else
       {
-        ESP_LOGE(TAG, "CRC error");
+        // We didn't receive anything on RS485, record error and mark current monitor as invalid
+        ESP_LOGE(TAG, "Short packet %i bytes", len);
+
+        // Indicate that the current monitor values are now invalid/unknown
+        currentMonitor.validReadings = false;
       }
+
+      // Notify sending queue, to continue
+      xTaskNotify(service_rs485_transmit_q_task_handle, 0x00, eNotifyAction::eNoAction);
     }
-    else
-    {
-      // We didn't receive anything on RS485, record error and mark current monitor as invalid
-      ESP_LOGE(TAG, "Short packet %i bytes", len);
-
-      // Indicate that the current monitor values are now invalid/unknown
-      currentMonitor.validReadings = false;
-    }
-
-    // Notify sending queue, to continue
-    xTaskNotify(service_rs485_transmit_q_task_handle, 0x00, eNotifyAction::eNoAction);
-
   } // infinite loop
 }
 
@@ -3198,6 +3218,21 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
   }
 }
 
+void CalculateStateOfHealth(diybms_eeprom_settings *settings)
+{
+  float batcap_mah = 1000.0F * settings->nominalbatcap;
+  float in = (float)settings->soh_total_milliamphour_in / batcap_mah;
+  float out = (float)settings->soh_total_milliamphour_out / batcap_mah;
+  // Take worst case number of cycles
+  float cycles = max(in, out);
+
+  settings->soh_estimated_battery_cycles = (uint16_t)round(cycles);
+
+  settings->soh_percent = 100.0F - ((100.0F - settings->soh_eol_capacity) * (cycles / (float)settings->soh_lifetime_battery_cycles));
+
+  ESP_LOGI(TAG, "State of health calc %f %, estimated cycles=%f", settings->soh_percent, cycles);
+}
+
 // Do activities which are not critical to the system like background loading of config, or updating timing results etc.
 [[noreturn]] void lazy_tasks(void *)
 {
@@ -3233,6 +3268,14 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
         // Has day rolled over?
         if (year_day != timeinfo.tm_yday)
         {
+
+          mysettings.soh_total_milliamphour_out += currentMonitor.modbus.daily_milliamphour_out;
+          mysettings.soh_total_milliamphour_in += currentMonitor.modbus.daily_milliamphour_in;
+
+          SaveConfiguration(&mysettings);
+
+          CalculateStateOfHealth(&mysettings);
+
           // Reset the current monitor at midnight (ish)
           CurrentMonitorResetDailyAmpHourCounters();
 
@@ -3553,7 +3596,7 @@ bool AreWifiConfigurationsTheSame(const wifi_eeprom_settings *a, const wifi_eepr
 /// @return TRUE if the WIFI config on the card is different, false if identical
 bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
 {
-  StaticJsonDocument<2048> json;
+  JsonDocument json;
   DeserializationError error;
 
   if (!_sd_card_installed)
@@ -3660,7 +3703,7 @@ struct log_level_t
 };
 
 // Default log levels to use for various components.
-const std::array<log_level_t, 22> log_levels =
+const std::array<log_level_t, 23> log_levels =
     {
         log_level_t{.tag = "*", .level = ESP_LOG_DEBUG},
         {.tag = "wifi", .level = ESP_LOG_WARN},
@@ -3673,7 +3716,7 @@ const std::array<log_level_t, 22> log_levels =
         {.tag = "diybms-tx", .level = ESP_LOG_INFO},
         {.tag = "diybms-rules", .level = ESP_LOG_INFO},
         {.tag = "diybms-softap", .level = ESP_LOG_INFO},
-        {.tag = "diybms-tft", .level = ESP_LOG_INFO},
+        {.tag = "diybms-tft", .level = ESP_LOG_WARN},
         {.tag = "diybms-victron", .level = ESP_LOG_INFO},
         {.tag = "diybms-webfuncs", .level = ESP_LOG_INFO},
         {.tag = "diybms-webpost", .level = ESP_LOG_INFO},
@@ -3681,6 +3724,7 @@ const std::array<log_level_t, 22> log_levels =
         {.tag = "diybms-web", .level = ESP_LOG_INFO},
         {.tag = "diybms-set", .level = ESP_LOG_INFO},
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
+        {.tag = "diybms-ctrl", .level = ESP_LOG_INFO},
         {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
         {.tag = "diybms-pyforce", .level = ESP_LOG_INFO},
         {.tag = "curmon", .level = ESP_LOG_INFO}};
@@ -3764,8 +3808,8 @@ void setup()
   ESP_LOGI(TAG, R"(
 
 
-               _          __ 
-  _|  o       |_)  |\/|  (_  
+               _          __
+  _|  o       |_)  |\/|  (_
  (_|  |  \/   |_)  |  |  __)
          /
 
@@ -3837,7 +3881,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   {
     // Generate new key
     memset(&mysettings.homeassist_apikey, 0, sizeof(mysettings.homeassist_apikey));
-    randomCharacters(mysettings.homeassist_apikey, sizeof(mysettings.homeassist_apikey) - 1);    
+    randomCharacters(mysettings.homeassist_apikey, sizeof(mysettings.homeassist_apikey) - 1);
     saveConfiguration();
   }
   ESP_LOGI(TAG, "homeassist_apikey=%s", mysettings.homeassist_apikey);
@@ -3872,9 +3916,18 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
           mysettings.currentMonitoring_shunttempcoefficient,
           mysettings.currentMonitoring_tempcompenabled);
 
-      currentmon_internal.GuessSOC();
+      currentmon_internal.DefaultSOC();
+
+      uint32_t in;
+      uint32_t out;
+      if (GetStateOfCharge(&in, &out))
+      {
+        currentmon_internal.SetSOCByMilliAmpCounter(in, out);
+      }
 
       currentmon_internal.TakeReadings();
+
+      CalculateStateOfHealth(&mysettings);
     }
     else
     {
@@ -3979,7 +4032,7 @@ void ESPCoreDumpToJSON(JsonObject &doc)
 {
   if (esp_core_dump_image_check() == ESP_OK)
   {
-    JsonObject core = doc.createNestedObject("coredump");
+    JsonObject core = doc["coredump"].to<JsonObject>();
     // A valid core dump is in FLASH storage
 
     esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
@@ -4001,7 +4054,7 @@ void ESPCoreDumpToJSON(JsonObject &doc)
 
         core["bt_corrupted"] = summary->exc_bt_info.corrupted;
         core["bt_depth"] = summary->exc_bt_info.depth;
-        auto backtrace = core.createNestedArray("backtrace");
+        auto backtrace = core["backtrace"].to<JsonArray>();
         for (auto value : summary->exc_bt_info.bt)
         {
           ultoa(value, outputString, 16);
@@ -4015,13 +4068,15 @@ void ESPCoreDumpToJSON(JsonObject &doc)
         ultoa(summary->ex_info.exc_vaddr, outputString, 16);
         core["exc_vaddr"] = outputString;
 
-        auto exc_a = core.createNestedArray("exc_a");
+        auto exc_a = core["exc_a"].to<JsonArray>();
+        ;
         for (auto value : summary->ex_info.exc_a)
         {
           ultoa(value, outputString, 16);
           exc_a.add(outputString);
         }
-        auto epcx = core.createNestedArray("epcx");
+        auto epcx = core["epcx"].to<JsonArray>();
+        ;
         for (auto value : summary->ex_info.epcx)
         {
           ultoa(value, outputString, 16);
@@ -4040,12 +4095,12 @@ void ESPCoreDumpToJSON(JsonObject &doc)
 /// @return
 esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
 {
-  DynamicJsonDocument doc(2048);
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
-  JsonObject diag = root.createNestedObject("diagnostic");
+  JsonObject diag = root["diagnostic"].to<JsonObject>();
 
   diag["numtasks"] = uxTaskGetNumberOfTasks();
-  auto tasks = diag.createNestedArray("tasks");
+  auto tasks = diag["tasks"].to<JsonArray>();
 
   // Array of pointers to the task handles we are going to examine
   const std::array<TaskHandle_t *, 18> task_handle_ptrs =
@@ -4061,7 +4116,7 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
   {
     if (*h != nullptr)
     {
-      JsonObject nested = tasks.createNestedObject();
+      JsonObject nested = tasks.add<JsonObject>();
       nested["name"] = pcTaskGetName(*h);
       nested["hwm"] = uxTaskGetStackHighWaterMark(*h);
     }
@@ -4077,7 +4132,7 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
   {
     if (h != nullptr)
     {
-      JsonObject nested = tasks.createNestedObject();
+      JsonObject nested = tasks.add<JsonObject>();
       nested["name"] = pcTaskGetName(h);
       nested["hwm"] = uxTaskGetStackHighWaterMark(h);
     }
@@ -4097,7 +4152,7 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
 
 unsigned long wifitimer = 0;
 unsigned long heaptimer = 0;
-// unsigned long taskinfotimer = 0;
+uint8_t flash_write_soc_timer = 0;
 
 void logActualTime()
 {
@@ -4111,9 +4166,10 @@ void logActualTime()
 
 void loop()
 {
-  delay(100);
+  //vTaskDelete(NULL);  
+  delay(250);
 
-  unsigned long currentMillis = millis();
+  auto currentMillis = millis();
 
   if (card_action == CardAction::Mount)
   {
@@ -4142,8 +4198,9 @@ void loop()
         // Attempt to connect to MQTT if enabled and not already connected
         connectToMqtt();
       }
-      else
+      else if (wifi_ap_connect_retry_num >= 25)
       {
+        // Try to reconnect WIFI every 30 seconds, if we have exhausted the first 25 "quick" attempts
         ESP_LOGI(TAG, "Trying to connect WIFI");
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
       }
@@ -4157,6 +4214,8 @@ void loop()
 
   if (currentMillis > heaptimer)
   {
+    // This gets called once per minute...
+
     logActualTime();
     /*
      total_free_bytes;        Total free bytes in the heap. Equivalent to multi_free_heap_size().
@@ -4180,7 +4239,16 @@ void loop()
              heap.free_blocks,
              heap.total_blocks);
 
-    // Report again in 30 seconds
-    heaptimer = currentMillis + 30000;
+    // Report again in 60 seconds
+    heaptimer = currentMillis + 60000;
+
+    // Once every 10 minutes, store the state of charge into flash, just in case the controller is rebooted and we can restore this value
+    // on power up.  10 minutes was chosen so we don't rapidly wear out the internal flash memory with writes.
+    flash_write_soc_timer++;
+    if (flash_write_soc_timer > 10 && currentmon_internal.calc_state_of_charge() > 1.0F && mysettings.currentMonitoringEnabled && mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
+    {
+      flash_write_soc_timer = 0;
+      SaveStateOfCharge(currentmon_internal.raw_milliamphour_in(), currentmon_internal.raw_milliamphour_out());
+    }
   }
 }

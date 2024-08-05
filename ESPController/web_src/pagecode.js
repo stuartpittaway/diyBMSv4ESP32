@@ -70,7 +70,7 @@ function upload_file() {
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
     xhr.onreadystatechange = function () {
         if (xhr.readyState === XMLHttpRequest.DONE) {
-            var status = xhr.status;
+            let status = xhr.status;
             if (status >= 200 && status < 400) {
                 //Refresh the storage page
                 $("#storage").trigger("click");
@@ -100,7 +100,7 @@ function upload_firmware() {
     });
     xhr.onreadystatechange = function () {
         if (xhr.readyState === XMLHttpRequest.DONE) {
-            var status = xhr.status;
+            let status = xhr.status;
             if (status >= 200 && status < 400) {
                 $("#status_div").text("Upload accepted. BMS will reboot.");
             } else {
@@ -120,16 +120,16 @@ function CalculateChargeCurrent(value1, value2, highestCellVoltage, maximumcharg
         return maximumchargecurrent;
     }
 
-    var knee_voltage = 0 / 100.0;
-    var at_knee = Math.pow(value1, knee_voltage * Math.pow(knee_voltage, value2));
+    let knee_voltage = 0 / 100.0;
+    let at_knee = Math.pow(value1, knee_voltage * Math.pow(knee_voltage, value2));
 
-    var target_cell_voltage = (cellmaxmv - kneemv) / 100.0;
-    var at_target_cell_voltage = Math.pow(value1, target_cell_voltage * Math.pow(target_cell_voltage, value2));
+    let target_cell_voltage = (cellmaxmv - kneemv) / 100.0;
+    let at_target_cell_voltage = Math.pow(value1, target_cell_voltage * Math.pow(target_cell_voltage, value2));
 
-    var actual_cell_voltage = (highestCellVoltage - kneemv) / 100.0;
-    var at_actual_cell_voltage = Math.pow(value1, actual_cell_voltage * Math.pow(actual_cell_voltage, value2));
+    let actual_cell_voltage = (highestCellVoltage - kneemv) / 100.0;
+    let at_actual_cell_voltage = Math.pow(value1, actual_cell_voltage * Math.pow(actual_cell_voltage, value2));
 
-    var percent = 1 - (at_actual_cell_voltage / at_knee) / at_target_cell_voltage;
+    let percent = 1 - (at_actual_cell_voltage / at_knee) / at_target_cell_voltage;
 
     if (percent < 0.01) {
         percent = 0.01;
@@ -139,8 +139,6 @@ function CalculateChargeCurrent(value1, value2, highestCellVoltage, maximumcharg
 }
 
 function DrawChargingGraph() {
-
-
     var xaxisvalues = [];
     var yaxisvalues = [];
 
@@ -158,18 +156,10 @@ function DrawChargingGraph() {
         yaxisvalues.push(CalculateChargeCurrent(value1, value2, voltage, chargecurrent, kneemv, cellmaxmv));
     }
 
-    /*
-        if (window.g3 != null) {
-            window.g3.dispose();
-            window.g3 = null;
-        }
-    */
     if (window.g3 == null) {
         window.g3 = echarts.init(document.getElementById('graph3'))
 
-        var option;
-
-        option = {
+        let option = {
 
             tooltip: {
                 trigger: 'axis',
@@ -304,7 +294,7 @@ function refreshCurrentMonitorValues() {
                 $("#cmmodel").val(data.model.toString(16));
                 $("#cmfirmwarev").val(data.firmwarev.toString(16));
 
-                var d = new Date(data.firmwaredate * 1000);
+                let d = new Date(data.firmwaredate * 1000);
                 $("#cmfirmwaredate").val(d.toString());
 
 
@@ -357,13 +347,13 @@ function refreshCurrentMonitorValues() {
 // Show and hide tiles based on bit pattern in tileconfig array
 function refreshVisibleTiles() {
     for (i = 0; i < TILE_IDS.length; i++) {
-        var tc = TILE_IDS[i];
-        var value = tileconfig[i];
-        for (var a = tc.length - 1; a >= 0; a--) {
-            var visible = (value & 1) == 1 ? true : false;
+        let tc = TILE_IDS[i];
+        let value = tileconfig[i];
+        for (let a = tc.length - 1; a >= 0; a--) {
+            let visible = (value & 1) == 1 ? true : false;
             value = value >>> 1;
             if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
-                var obj = $("#" + tc[a]);
+                let obj = $("#" + tc[a]);
                 if (visible) {
                     //Only show if we have not force hidden it
                     if (obj.hasClass(".hide") == false) {
@@ -383,16 +373,16 @@ function refreshVisibleTiles() {
 function postTileVisibiltity() {
     $(".stat.vistile.hide").removeClass("vistile");
 
-    var newconfig = [];
-    for (var index = 0; index < tileconfig.length; index++) {
+    let newconfig = [];
+    for (let index = 0; index < tileconfig.length; index++) {
         newconfig.push(0);
     }
 
-    for (var i = 0; i < TILE_IDS.length; i++) {
-        var tc = TILE_IDS[i];
-        var value = 0;
-        var v = 0x8000;
-        for (var a = 0; a < tc.length; a++) {
+    for (let i = 0; i < TILE_IDS.length; i++) {
+        let tc = TILE_IDS[i];
+        let value = 0;
+        let v = 0x8000;
+        for (let a = 0; a < tc.length; a++) {
             if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
                 if ($("#" + tc[a]).hasClass("vistile")) {
                     value = value | v;
@@ -404,8 +394,8 @@ function postTileVisibiltity() {
         newconfig[i] = value;
     }
 
-    var diff = false;
-    for (var index = 0; index < tileconfig.length; index++) {
+    let diff = false;
+    for (let index = 0; index < tileconfig.length; index++) {
         if (tileconfig[index] != newconfig[index]) {
             tileconfig[index] = newconfig[index];
             diff = true;
@@ -550,7 +540,7 @@ function configureModule(button, cellid, attempts) {
             $('#m').val(data.settings.id);
 
             if (data.settings.Cached == true) {
-                var currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
+                const currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
                 $("#ActualVoltage").val(currentReading.toFixed(3));
 
                 $("#settingConfig h2").html("Settings for module bank:" + data.settings.bank + " module:" + data.settings.module);
@@ -642,630 +632,638 @@ function secondsToHms(seconds) {
         return "";
     }
 
-    var d = Math.floor(seconds / (3600 * 24));
-    var h = Math.floor(seconds % (3600 * 24) / 3600);
-    var m = Math.floor(seconds % 3600 / 60);
-    var s = Math.floor(seconds % 60);
+    let d = Math.floor(seconds / (3600 * 24));
+    let h = Math.floor(seconds % (3600 * 24) / 3600);
+    let m = Math.floor(seconds % 3600 / 60);
+    let s = Math.floor(seconds % 60);
 
-    var dDisplay = d > 0 ? d + "d" : "";
-    var hDisplay = h > 0 ? h + "h" : "";
-    var mDisplay = m > 0 ? m + "m" : "";
-    var sDisplay = h > 0 ? "" : (s > 0 ? s + "s" : "");
+    let dDisplay = d > 0 ? d + "d" : "";
+    let hDisplay = h > 0 ? h + "h" : "";
+    let mDisplay = m > 0 ? m + "m" : "";
+    let sDisplay = h > 0 ? "" : (s > 0 ? s + "s" : "");
     return dDisplay + hDisplay + mDisplay + sDisplay;
 }
 
-function queryBMS() {
-    $.getJSON("/api/monitor2", function (jsondata) {
-        var labels = [];
-        var cells = [];
-        var bank = [];
-        var voltages = [];
-        var voltagesmin = [];
-        var voltagesmax = [];
-        var tempint = [];
-        var tempext = [];
-        var pwm = [];
+function updateChart(jsondata) {
+        
+      let labels = [];
+    let cells = [];
+    let bank = [];
+    let voltages = [];
+    let voltagesmin = [];
+    let voltagesmax = [];
+    let tempint = [];
+    let tempext = [];
+    let pwm = [];
 
-        var minVoltage = DEFAULT_GRAPH_MIN_VOLTAGE / 1000.0;
-        var maxVoltage = DEFAULT_GRAPH_MAX_VOLTAGE / 1000.0;
+    let minVoltage = DEFAULT_GRAPH_MIN_VOLTAGE / 1000.0;
+    let maxVoltage = DEFAULT_GRAPH_MAX_VOLTAGE / 1000.0;
 
-        var minExtTemp = 999;
-        var maxExtTemp = -999;
+    let minExtTemp = 999;
+    let maxExtTemp = -999;
 
-        var bankNumber = 0;
-        var cellsInBank = 0;
+    var bankNumber = 0;
+    let cellsInBank = 0;
 
-        // Need one color for each bank, could make it colourful I suppose :-)
-        const colours = [
-            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
-            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
-            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
-            '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
-        ]
+    // Need one color for each bank, could make it colourful I suppose :-)
+    const colours = [
+        '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
+        '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
+        '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
+        '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
+    ]
 
-        const red = '#B44247'
+    const red = '#B44247'
 
-        const highestCell = '#8c265d'
-        const lowestCell = '#b6a016'
+    const highestCell = '#8c265d'
+    const lowestCell = '#b6a016'
 
-        var markLineData = [];
+    let markLineData = [];
 
-        markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
-        //markLineData.push({ name: 'min', type: 'min', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
-        //markLineData.push({ name: 'max', type: 'max', lineStyle: { color: '#ddd', width: 2, type: 'dotted', opacity: 0.3 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+    markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#eee', width: 3, type: 'dotted', opacity: 0.4 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
 
-        var xAxis = 0;
-        for (let index = 0; index < jsondata.banks; index++) {
-            markLineData.push({ name: "Bank " + index, xAxis: xAxis, lineStyle: { color: colours[index], width: 4, type: 'dashed', opacity: 0.5 }, label: { show: true, distance: [0, 0], formatter: '{b}', color: '#eeeeee', textBorderColor: colours[index], textBorderWidth: 2 } });
-            xAxis += jsondata.seriesmodules;
+    let xAxis = 0;
+    for (let index = 0; index < jsondata.banks; index++) {
+        markLineData.push({ name: "Bank " + index, xAxis: xAxis, lineStyle: { color: colours[index], width: 4, type: 'dashed', opacity: 0.5 }, label: { show: true, distance: [0, 0], formatter: '{b}', color: '#eeeeee', textBorderColor: colours[index], textBorderWidth: 2 } });
+        xAxis += jsondata.seriesmodules;
+    }
+
+    if (jsondata.voltages) {
+        //Clone array of voltages
+        let tempArray = [];
+        for (i = 0; i < jsondata.voltages.length; i++) {
+            tempArray[i] = jsondata.voltages[i];
         }
 
-        if (jsondata.voltages) {
-            //Clone array of voltages
-            tempArray = [];
-            for (i = 0; i < jsondata.voltages.length; i++) {
-                tempArray[i] = jsondata.voltages[i];
+        //Split voltages into banks
+        let sorted_voltages = [];
+        for (i = 0; i < jsondata.banks; i++) {
+            let unsorted = tempArray.splice(0, jsondata.seriesmodules);
+            sorted_voltages.push(unsorted.sort());
+        }
+
+        for (let i = 0; i < jsondata.voltages.length; i++) {
+            labels.push(bankNumber + "/" + i);
+
+            // Make different banks different colours (stripes)
+            let stdcolor = colours[bankNumber];
+
+            let color = stdcolor;
+
+            //Highlight lowest cell voltage in this bank
+            if (jsondata.voltages[i] === sorted_voltages[bankNumber][0]) {
+                color = lowestCell;
+            }
+            //Highlight highest cell voltage in this bank
+            if (jsondata.voltages[i] === sorted_voltages[bankNumber][jsondata.seriesmodules - 1]) {
+                color = highestCell;
+            }
+            // Red
+            if (jsondata.bypass[i] === 1) {
+                color = red;
             }
 
-            //Split voltages into banks
-            sorted_voltages = [];
-            for (i = 0; i < jsondata.banks; i++) {
-                unsorted = tempArray.splice(0, jsondata.seriesmodules);
-                sorted_voltages.push(unsorted.sort());
+            const v = (parseFloat(jsondata.voltages[i]) / 1000.0);
+            voltages.push({ value: v, itemStyle: { color: color } });
+
+            //Auto scale graph is outside of normal bounds
+            if (v > maxVoltage) { maxVoltage = v; }
+            if (v < minVoltage) { minVoltage = v; }
+
+            if (jsondata.minvoltages) {
+                voltagesmin.push((parseFloat(jsondata.minvoltages[i]) / 1000.0));
+            }
+            if (jsondata.maxvoltages) {
+                voltagesmax.push((parseFloat(jsondata.maxvoltages[i]) / 1000.0));
             }
 
-            for (let i = 0; i < jsondata.voltages.length; i++) {
-                labels.push(bankNumber + "/" + i);
+            bank.push(bankNumber);
+            cells.push(i);
 
-                // Make different banks different colours (stripes)
-                var stdcolor = colours[bankNumber];
 
-                var color = stdcolor;
+            cellsInBank++;
+            if (cellsInBank == jsondata.seriesmodules) {
+                cellsInBank = 0;
+                bankNumber++;
+            }
 
-                //Highlight lowest cell voltage in this bank
-                if (jsondata.voltages[i] === sorted_voltages[bankNumber][0]) {
-                    color = lowestCell;
+            color = jsondata.bypasshot[i] == 1 ? red : stdcolor;
+            tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
+            let exttemp = (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]);
+            tempext.push({ value: exttemp, itemStyle: { color: stdcolor } });
+
+            if (jsondata.exttemp[i] != null) {
+                if (exttemp > maxExtTemp) {
+                    maxExtTemp = exttemp;
                 }
-                //Highlight highest cell voltage in this bank
-                if (jsondata.voltages[i] === sorted_voltages[bankNumber][jsondata.seriesmodules - 1]) {
-                    color = highestCell;
+                if (exttemp < minExtTemp) {
+                    minExtTemp = exttemp;
                 }
-                // Red
-                if (jsondata.bypass[i] === 1) {
-                    color = red;
+            }
+
+
+            pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : Math.trunc(jsondata.bypasspwm[i] / 255 * 100) });
+        }
+    }
+
+    //Scale down for low voltages
+    if (minVoltage < 0) { minVoltage = 0; }
+
+    if (jsondata) {
+        $("#badcrc .v").html(jsondata.badcrc);
+        $("#ignored .v").html(jsondata.ignored);
+        $("#sent .v").html(jsondata.sent);
+        $("#received .v").html(jsondata.received);
+        $("#roundtrip .v").html(jsondata.roundtrip);
+        $("#oos .v").html(jsondata.oos);
+        $("#canfail .v").html(jsondata.can_fail);
+        $("#canrecerr .v").html(jsondata.can_r_err);
+        $("#cansent .v").html(jsondata.can_sent);
+        $("#canrecd .v").html(jsondata.can_rec);
+        $("#qlen .v").html(jsondata.qlen);
+        $("#uptime .v").html(secondsToHms(jsondata.uptime));
+        if (minExtTemp == 999 || maxExtTemp == -999) {
+            $("#celltemp .v").html("");
+        } else {
+            $("#celltemp .v").html(minExtTemp + "/" + maxExtTemp + "&deg;C");
+        }
+
+        if (jsondata.activerules == 0) {
+            $("#activerules").hide();
+        } else {
+            $("#activerules").html(jsondata.activerules);
+            $("#activerules").show(400);
+        }
+
+        if (jsondata.dyncv) {
+            $("#dyncvolt .v").html(parseFloat(jsondata.dyncv / 10).toFixed(2) + "V");
+        } else { $("#dyncvolt .v").html(""); }
+
+        if (jsondata.dyncc) {
+            $("#dynccurr .v").html(parseFloat(jsondata.dyncc / 10).toFixed(2) + "A");
+        } else { $("#dynccurr .v").html(""); }
+
+
+
+        switch (jsondata.cmode) {
+            case 0: $("#chgmode .v").html("Standard"); break;
+            case 1: $("#chgmode .v").html("Absorb " + secondsToHms(jsondata.ctime)); break;
+            case 2: $("#chgmode .v").html("Float " + secondsToHms(jsondata.ctime)); break;
+            case 3: $("#chgmode .v").html("Dynamic"); break;
+            case 4: $("#chgmode .v").html("Stopped"); break;
+            default: $("#chgmode .v").html("Unknown");
+        }
+    }
+
+    if (jsondata.bankv) {
+        for (let bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
+            $("#voltage" + bankNumber + " .v").html((parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2) + "V");
+            $("#range" + bankNumber + " .v").html(jsondata.voltrange[bankNumber] + "mV");
+            $("#voltage" + bankNumber).removeClass("hide");
+            $("#range" + bankNumber).removeClass("hide");
+        }
+
+        for (let bankNumber = jsondata.bankv.length; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
+            $("#voltage" + bankNumber).hide().addClass("hide");
+            $("#range" + bankNumber).hide().addClass("hide");
+        }
+    }
+
+
+    if (jsondata.current) {
+        if (jsondata.current[0] == null) {
+            $("#current .v").html("");
+            $("#shuntv .v").html("");
+            $("#soc .v").html("");
+            $("#power .v").html("");
+            $("#amphout .v").html("");
+            $("#amphin .v").html("");
+            $("#damphout .v").html("");
+            $("#damphin .v").html("");
+            $("#time100 .v").html("");
+            $("#time10 .v").html("");
+            $("#time20 .v").html("");
+        } else {
+            var data = jsondata.current[0];
+            $("#current .v").html(parseFloat(data.c).toFixed(2) + "A");
+            $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
+            $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
+            $("#power .v").html(parseFloat(data.p) + "W");
+            $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
+            $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
+            $("#damphout .v").html((parseFloat(data.dmahout) / 1000).toFixed(3));
+            $("#damphin .v").html((parseFloat(data.dmahin) / 1000).toFixed(3));
+
+            if (data.time100 > 0) {
+                $("#time100 .v").html(secondsToHms(data.time100));
+            } else { $("#time100 .v").html("&infin;"); }
+            if (data.time20 > 0) {
+                $("#time20 .v").html(secondsToHms(data.time20));
+            } else { $("#time20 .v").html("&infin;"); }
+            if (data.time10 > 0) {
+                $("#time10 .v").html(secondsToHms(data.time10));
+            } else { $("#time10 .v").html("&infin;"); }
+        }
+    }
+
+    //Loop size needs increasing when more warnings are added
+    if (jsondata.warnings) {
+        for (let warning = 1; warning <= 9; warning++) {
+            if (jsondata.warnings.includes(warning)) {
+                //Once a warning has triggered, hide it from showing in the future
+                if ($("#warning" + warning).data("notify") == undefined) {
+                    $("#warning" + warning).data("notify", 1);
+                    $.notify($("#warning" + warning).text(), { autoHideDelay: 15000, globalPosition: 'top left', className: 'warn' });
                 }
-
-                var v = (parseFloat(jsondata.voltages[i]) / 1000.0);
-                voltages.push({ value: v, itemStyle: { color: color } });
-
-                //Auto scale graph is outside of normal bounds
-                if (v > maxVoltage) { maxVoltage = v; }
-                if (v < minVoltage) { minVoltage = v; }
-
-                if (jsondata.minvoltages) {
-                    voltagesmin.push((parseFloat(jsondata.minvoltages[i]) / 1000.0));
-                }
-                if (jsondata.maxvoltages) {
-                    voltagesmax.push((parseFloat(jsondata.maxvoltages[i]) / 1000.0));
-                }
-
-                bank.push(bankNumber);
-                cells.push(i);
-
-
-                cellsInBank++;
-                if (cellsInBank == jsondata.seriesmodules) {
-                    cellsInBank = 0;
-                    bankNumber++;
-                }
-
-                color = jsondata.bypasshot[i] == 1 ? red : stdcolor;
-                tempint.push({ value: jsondata.inttemp[i], itemStyle: { color: color } });
-                var exttemp = (jsondata.exttemp[i] == -40 ? 0 : jsondata.exttemp[i]);
-                tempext.push({ value: exttemp, itemStyle: { color: stdcolor } });
-
-                if (jsondata.exttemp[i] != null) {
-                    if (exttemp > maxExtTemp) {
-                        maxExtTemp = exttemp;
-                    }
-                    if (exttemp < minExtTemp) {
-                        minExtTemp = exttemp;
-                    }
-                }
-
-
-                pwm.push({ value: jsondata.bypasspwm[i] == 0 ? null : Math.trunc(jsondata.bypasspwm[i] / 255 * 100) });
             }
         }
 
-        //Scale down for low voltages
-        if (minVoltage < 0) { minVoltage = 0; }
+        //Allow charge/discharge warnings to reappear
+        if (jsondata.warnings.includes(7) == false) {
+            $("#warning7").removeData("notify");
+        }
+        if (jsondata.warnings.includes(8) == false) {
+            $("#warning8").removeData("notify");
+        }
+    }
 
-        if (jsondata) {
-            $("#badcrc .v").html(jsondata.badcrc);
-            $("#ignored .v").html(jsondata.ignored);
-            $("#sent .v").html(jsondata.sent);
-            $("#received .v").html(jsondata.received);
-            $("#roundtrip .v").html(jsondata.roundtrip);
-            $("#oos .v").html(jsondata.oos);
-            $("#canfail .v").html(jsondata.can_fail);
-            $("#canrecerr .v").html(jsondata.can_r_err);
-            $("#cansent .v").html(jsondata.can_sent);
-            $("#canrecd .v").html(jsondata.can_rec);
-            $("#qlen .v").html(jsondata.qlen);
-            $("#uptime .v").html(secondsToHms(jsondata.uptime));
-            if (minExtTemp == 999 || maxExtTemp == -999) {
-                $("#celltemp .v").html("");
+    //Needs increasing when more errors are added
+    if (jsondata.errors) {
+        for (let error = 1; error <= 7; error++) {
+            if (jsondata.errors.includes(error)) {
+                $("#error" + error).show();
+
+                if (error == INTERNALERRORCODE.ModuleCountMismatch) {
+                    $("#missingmodule1").html(jsondata.modulesfnd);
+                    $("#missingmodule2").html(jsondata.banks * jsondata.seriesmodules);
+                }
             } else {
-                $("#celltemp .v").html(minExtTemp + "/" + maxExtTemp + "&deg;C");
-            }
-
-            if (jsondata.activerules == 0) {
-                $("#activerules").hide();
-            } else {
-                $("#activerules").html(jsondata.activerules);
-                $("#activerules").show(400);
-            }
-
-            if (jsondata.dyncv) {
-                $("#dyncvolt .v").html(parseFloat(jsondata.dyncv / 10).toFixed(2) + "V");
-            } else { $("#dyncvolt .v").html(""); }
-
-            if (jsondata.dyncc) {
-                $("#dynccurr .v").html(parseFloat(jsondata.dyncc / 10).toFixed(2) + "A");
-            } else { $("#dynccurr .v").html(""); }
-
-
-
-            switch (jsondata.cmode) {
-                case 0: $("#chgmode .v").html("Standard"); break;
-                case 1: $("#chgmode .v").html("Absorb " + secondsToHms(jsondata.ctime)); break;
-                case 2: $("#chgmode .v").html("Float " + secondsToHms(jsondata.ctime)); break;
-                case 3: $("#chgmode .v").html("Dynamic"); break;
-                case 4: $("#chgmode .v").html("Stopped"); break;
-                default: $("#chgmode .v").html("Unknown");
+                $("#error" + error).hide();
             }
         }
+    }
 
-        if (jsondata.bankv) {
-            for (var bankNumber = 0; bankNumber < jsondata.bankv.length; bankNumber++) {
-                $("#voltage" + bankNumber + " .v").html((parseFloat(jsondata.bankv[bankNumber]) / 1000.0).toFixed(2) + "V");
-                $("#range" + bankNumber + " .v").html(jsondata.voltrange[bankNumber] + "mV");
-                $("#voltage" + bankNumber).removeClass("hide");
-                $("#range" + bankNumber).removeClass("hide");
-            }
+    $("#info").show();
+    $("#iperror").hide();
 
-            for (var bankNumber = jsondata.bankv.length; bankNumber < MAXIMUM_NUMBER_OF_BANKS; bankNumber++) {
-                $("#voltage" + bankNumber).hide().addClass("hide");
-                $("#range" + bankNumber).hide().addClass("hide");
-            }
-        }
+    if ($('#modulesPage').is(':visible')) {
+        //The modules page is visible
+        var tbody = $("#modulesRows");
 
+        if ($('#modulesRows tr').length != cells.length) {
+            $("#settingConfig").hide();
 
-        if (jsondata.current) {
-            if (jsondata.current[0] == null) {
-                $("#current .v").html("");
-                $("#shuntv .v").html("");
-                $("#soc .v").html("");
-                $("#power .v").html("");
-                $("#amphout .v").html("");
-                $("#amphin .v").html("");
-                $("#damphout .v").html("");
-                $("#damphin .v").html("");
-                $("#time100 .v").html("");
-                $("#time10 .v").html("");
-                $("#time20 .v").html("");
-            } else {
-                var data = jsondata.current[0];
-                $("#current .v").html(parseFloat(data.c).toFixed(2) + "A");
-                $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
-                $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
-                $("#power .v").html(parseFloat(data.p) + "W");
-                $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
-                $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
-                $("#damphout .v").html((parseFloat(data.dmahout) / 1000).toFixed(3));
-                $("#damphin .v").html((parseFloat(data.dmahin) / 1000).toFixed(3));
-
-                if (data.time100 > 0) {
-                    $("#time100 .v").html(secondsToHms(data.time100));
-                } else { $("#time100 .v").html("&infin;"); }
-                if (data.time20 > 0) {
-                    $("#time20 .v").html(secondsToHms(data.time20));
-                } else { $("#time20 .v").html("&infin;"); }
-                if (data.time10 > 0) {
-                    $("#time10 .v").html(secondsToHms(data.time10));
-                } else { $("#time10 .v").html("&infin;"); }
-            }
-        }
-
-        //Loop size needs increasing when more warnings are added
-        if (jsondata.warnings) {
-            for (let warning = 1; warning <= 9; warning++) {
-                if (jsondata.warnings.includes(warning)) {
-                    //Once a warning has triggered, hide it from showing in the future
-                    if ($("#warning" + warning).data("notify") == undefined) {
-                        $("#warning" + warning).data("notify", 1);
-                        $.notify($("#warning" + warning).text(), { autoHideDelay: 15000, globalPosition: 'top left', className: 'warn' });
-                    }
-                }
-            }
-
-            //Allow charge/discharge warnings to reappear
-            if (jsondata.warnings.includes(7) == false) {
-                $("#warning7").removeData("notify");
-            }
-            if (jsondata.warnings.includes(8) == false) {
-                $("#warning8").removeData("notify");
-            }
-        }
-
-        //Needs increasing when more errors are added
-        if (jsondata.errors) {
-            for (let error = 1; error <= 7; error++) {
-                if (jsondata.errors.includes(error)) {
-                    $("#error" + error).show();
-
-                    if (error == INTERNALERRORCODE.ModuleCountMismatch) {
-                        $("#missingmodule1").html(jsondata.modulesfnd);
-                        $("#missingmodule2").html(jsondata.banks * jsondata.seriesmodules);
-                    }
-                } else {
-                    $("#error" + error).hide();
-                }
-            }
-        }
-
-        $("#info").show();
-        $("#iperror").hide();
-
-        if ($('#modulesPage').is(':visible')) {
-            //The modules page is visible
-            var tbody = $("#modulesRows");
-
-            if ($('#modulesRows tr').length != cells.length) {
-                $("#settingConfig").hide();
-
-                //Add rows if they dont exist (or incorrect amount)
-                $(tbody).find("tr").remove();
-
-                $.each(cells, function (index, value) {
-                    $(tbody).append("<tr><td>"
-                        + bank[index]
-                        + "</td><td>" + value + "</td><td></td><td class='hide'></td><td class='hide'></td>"
-                        + "<td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td>"
-                        + "<td><button type='button' onclick='return identifyModule(this," + index + ");'>Identify</button>"
-                        + "<button type='button' onclick='return configureModule(this," + index + ",10);'>Configure</button></td></tr>")
-                });
-            }
-
-            var rows = $(tbody).find("tr");
+            //Add rows if they dont exist (or incorrect amount)
+            $(tbody).find("tr").remove();
 
             $.each(cells, function (index, value) {
-                var columns = $(rows[index]).find("td");
-                $(columns[2]).html(voltages[index].value.toFixed(3));
-                if (voltagesmin.length > 0) {
-                    $(columns[3]).html(voltagesmin[index].toFixed(3));
-                } else {
-                    $(columns[3]).html("n/a");
-                }
-                if (voltagesmax.length > 0) {
-                    $(columns[4]).html(voltagesmax[index].toFixed(3));
-                } else {
-                    $(columns[4]).html("n/a");
-                }
-                $(columns[5]).html(tempint[index].value);
-                $(columns[6]).html(tempext[index].value);
-                $(columns[7]).html(pwm[index].value);
-            });
-
-            //As the module page is open, we refresh the last 3 columns using seperate JSON web service to keep the monitor2
-            //packets as small as possible
-
-            $.getJSON("/api/monitor3", function (jsondata) {
-                var tbody = $("#modulesRows");
-                var rows = $(tbody).find("tr");
-                $.each(cells, function (index, value) {
-                    var columns = $(rows[index]).find("td");
-                    $(columns[8]).html(jsondata.badpacket[index]);
-                    $(columns[9]).html(jsondata.pktrecvd[index]);
-                    $(columns[10]).html(jsondata.balcurrent[index]);
-                });
+                $(tbody).append("<tr><td>"
+                    + bank[index]
+                    + "</td><td>" + value + "</td><td></td><td class='hide'></td><td class='hide'></td>"
+                    + "<td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td>"
+                    + "<td><button type='button' onclick='return identifyModule(this," + index + ");'>Identify</button>"
+                    + "<button type='button' onclick='return configureModule(this," + index + ",10);'>Configure</button></td></tr>")
             });
         }
 
+        var rows = $(tbody).find("tr");
 
-        if ($('#homePage').is(':visible')) {
-            if (window.g1 == null && $('#graph1').css('display') != 'none') {
-                // based on prepared DOM, initialize echarts instance
-                window.g1 = echarts.init(document.getElementById('graph1'))
+        $.each(cells, function (index, value) {
+            var columns = $(rows[index]).find("td");
+            $(columns[2]).html(voltages[index].value.toFixed(3));
+            if (voltagesmin.length > 0) {
+                $(columns[3]).html(voltagesmin[index].toFixed(3));
+            } else {
+                $(columns[3]).html("n/a");
+            }
+            if (voltagesmax.length > 0) {
+                $(columns[4]).html(voltagesmax[index].toFixed(3));
+            } else {
+                $(columns[4]).html("n/a");
+            }
+            $(columns[5]).html(tempint[index].value);
+            $(columns[6]).html(tempext[index].value);
+            $(columns[7]).html(pwm[index].value);
+        });
 
-                // specify chart configuration item and data
-                var option = {
-                    tooltip: {
-                        show: true, axisPointer: {
-                            type: 'cross', label: {
-                                backgroundColor: '#6a7985'
-                            }
+        //As the module page is open, we refresh the last 3 columns using seperate JSON web service to keep the monitor2
+        //packets as small as possible
+
+        $.getJSON("/api/monitor3", function (jsondata) {
+            var tbody = $("#modulesRows");
+            var rows = $(tbody).find("tr");
+            $.each(cells, function (index, value) {
+                var columns = $(rows[index]).find("td");
+                $(columns[8]).html(jsondata.badpacket[index]);
+                $(columns[9]).html(jsondata.pktrecvd[index]);
+                $(columns[10]).html(jsondata.balcurrent[index]);
+            });
+        });
+    }
+
+
+    if ($('#homePage').is(':visible')) {
+        if (window.g1 == null && $('#graph1').css('display') != 'none') {
+            // based on prepared DOM, initialize echarts instance
+            window.g1 = echarts.init(document.getElementById('graph1'))
+
+            // specify chart configuration item and data
+            let option = {
+                tooltip: {
+                    show: true, axisPointer: {
+                        type: 'cross', label: {
+                            backgroundColor: '#6a7985'
+                        }
+                    }
+                },
+                legend: {
+                    show: false
+                },
+                xAxis: [{
+                    gridIndex: 0, type: 'category', axisLine: {
+                        lineStyle: {
+                            color: '#c1bdbd'
+                        }
+                    }
+                }, {
+                    gridIndex: 1, type: 'category', axisLine: {
+                        lineStyle: { color: '#c1bdbd' }
+                    }
+                }],
+                yAxis: [{
+                    id: 0, gridIndex: 0, name: 'Volts', type: 'value', min: 2.5, max: 4.5, interval: 0.25, position: 'left',
+                    axisLine: {
+                        lineStyle: {
+                            color: '#c1bdbd'
                         }
                     },
-                    legend: {
-                        show: false
+                    axisLabel: {
+                        formatter: function (value, index) {
+                            return value.toFixed(2);
+                        }
+                    }
+                },
+                {
+                    id: 1,
+                    gridIndex: 0, name: 'Bypass', type: 'value', min: 0,
+                    max: 100, interval: 10, position: 'right',
+                    axisLabel: { formatter: '{value}%' },
+                    splitLine: { show: false },
+                    axisLine: { lineStyle: { type: 'dotted', color: '#c1bdbd' } },
+                    axisTick: { show: false }
+                },
+                {
+                    id: 2,
+                    gridIndex: 1,
+                    name: 'Temperature',
+                    type: 'value',
+                    interval: 10,
+                    position: 'left',
+                    axisLine: {
+                        lineStyle: { color: '#c1bdbd' }
                     },
-                    xAxis: [{
-                        gridIndex: 0, type: 'category', axisLine: {
-                            lineStyle: {
-                                color: '#c1bdbd'
+                    axisLabel: { formatter: '{value}°C' }
+                }],
+                series: [
+                    {
+                        xAxisIndex: 0,
+                        name: 'Voltage',
+                        yAxisIndex: 0,
+                        type: 'bar',
+                        data: [],
+                        markLine: {
+                            silent: true, symbol: 'none', data: markLineData
+                        },
+                        itemStyle: { color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
+                        label: {
+                            normal: {
+                                show: true, position: 'insideBottom', distance: 10, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                             }
                         }
                     }, {
-                        gridIndex: 1, type: 'category', axisLine: {
-                            lineStyle: { color: '#c1bdbd' }
-                        }
-                    }],
-                    yAxis: [{
-                        id: 0, gridIndex: 0, name: 'Volts', type: 'value', min: 2.5, max: 4.5, interval: 0.25, position: 'left',
-                        axisLine: {
-                            lineStyle: {
-                                color: '#c1bdbd'
-                            }
-                        },
-                        axisLabel: {
-                            formatter: function (value, index) {
-                                return value.toFixed(2);
-                            }
-                        }
-                    },
-                    {
-                        id: 1,
-                        gridIndex: 0, name: 'Bypass', type: 'value', min: 0,
-                        max: 100, interval: 10, position: 'right',
-                        axisLabel: { formatter: '{value}%' },
-                        splitLine: { show: false },
-                        axisLine: { lineStyle: { type: 'dotted', color: '#c1bdbd' } },
-                        axisTick: { show: false }
-                    },
-                    {
-                        id: 2,
-                        gridIndex: 1,
-                        name: 'Temperature',
-                        type: 'value',
-                        interval: 10,
-                        position: 'left',
-                        axisLine: {
-                            lineStyle: { color: '#c1bdbd' }
-                        },
-                        axisLabel: { formatter: '{value}°C' }
-                    }],
-                    series: [
-                        {
-                            xAxisIndex: 0,
-                            name: 'Voltage',
-                            yAxisIndex: 0,
-                            type: 'bar',
-                            data: [],
-                            markLine: {
-                                silent: true, symbol: 'none', data: markLineData
-                            },
-                            itemStyle: { color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
-                            label: {
-                                normal: {
-                                    show: true, position: 'insideBottom', distance: 10, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Share Tech Mono'
-                                }
-                            }
-                        }, {
-                            xAxisIndex: 0,
-                            name: 'Min V',
-                            yAxisIndex: 0,
-                            type: 'line',
-                            data: [],
-                            label: {
-                                normal: {
-                                    show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#eeeeee', fontFamily: 'Share Tech Mono'
-                                }
-                            },
-                            symbolSize: 16,
-                            symbol: ['circle'],
-                            itemStyle: {
-                                normal: {
-                                    color: "#c1bdbd", lineStyle: { color: 'transparent' }
-                                }
-                            }
-                        }
-                        , {
-                            xAxisIndex: 0,
-                            name: 'Max V',
-                            yAxisIndex: 0,
-                            type: 'line',
-                            data: [],
-                            label: {
-                                normal: {
-                                    show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Share Tech Mono'
-                                }
-                            },
-                            symbolSize: 16,
-                            symbol: ['arrow'],
-                            itemStyle: {
-                                normal: {
-                                    color: "#c1bdbd", lineStyle: { color: 'transparent' }
-                                }
-                            }
-                        }
-
-                        , {
-                            xAxisIndex: 0,
-                            name: 'Bypass',
-                            yAxisIndex: 1,
-                            type: 'line',
-                            data: [],
-                            label: {
-                                normal: {
-                                    show: true, position: 'right', distance: 5, formatter: '{c}%', fontSize: 14, color: '#f0e400', fontFamily: 'Share Tech Mono'
-                                }
-                            },
-                            symbolSize: 16,
-                            symbol: ['square'],
-                            itemStyle: { normal: { color: "#f0e400", lineStyle: { color: 'transparent' } } }
-                        }
-
-                        , {
-                            xAxisIndex: 1,
-                            yAxisIndex: 2,
-                            name: 'BypassTemperature',
-                            type: 'bar',
-                            data: [],
-                            itemStyle: {
-                                color: '#55a1ea', barBorderRadius: [8, 8, 0, 0]
-                            },
-                            label: {
-                                normal: {
-                                    show: true, position: 'insideBottom', distance: 8,
-                                    align: 'left', verticalAlign: 'middle',
-                                    rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
-                                }
-                            }
-                        }
-
-                        , {
-                            xAxisIndex: 1,
-                            yAxisIndex: 2,
-                            name: 'CellTemperature',
-                            type: 'bar',
-                            data: [],
-                            itemStyle: {
-                                color: '#55a1ea', barBorderRadius: [8, 8, 0, 0]
-                            },
-                            label: {
-                                normal: {
-                                    show: true, position: 'insideBottom', distance: 8,
-                                    align: 'left', verticalAlign: 'middle', rotate: 90,
-                                    formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
-                                }
-                            }
-
-                        }
-                    ],
-                    grid: [
-                        {
-                            containLabel: false, left: '4%', right: '4%', bottom: '30%'
-
-                        }, {
-                            containLabel: false, left: '4%', right: '4%', top: '76%'
-                        }]
-                };
-
-                // use configuration item and data specified to show chart
-                g1.setOption(option);
-
-            }
-
-            if (window.g2 == null && $('#graph2').css('display') != 'none' && window.Graph3DAvailable === true) {
-                window.g2 = echarts.init(document.getElementById('graph2'));
-
-                var Option3dBar = {
-                    tooltip: {},
-                    visualMap: { max: 4, inRange: { color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8', '#ffffbf', '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026'] } },
-                    xAxis3D: { type: 'category', data: [], name: 'Cell', nameTextStyle: { color: '#ffffff' } },
-                    yAxis3D: { type: 'category', data: [], name: 'Bank', nameTextStyle: { color: '#ffffff' } },
-                    zAxis3D: { type: 'value', name: 'Voltage', nameTextStyle: { color: '#ffffff' } },
-                    grid3D: {
-                        boxWidth: 200,
-                        boxDepth: 80,
-                        viewControl: {
-                            // projection: 'orthographic'
-                        },
-                        light: {
-                            main: {
-                                intensity: 1.2,
-                                shadow: true
-                            },
-                            ambient: {
-                                intensity: 0.3
-                            }
-                        }
-                    },
-                    series: [{
-                        type: 'bar3D',
+                        xAxisIndex: 0,
+                        name: 'Min V',
+                        yAxisIndex: 0,
+                        type: 'line',
                         data: [],
-                        shading: 'lambert',
-                        label: { textStyle: { fontSize: 16, borderWidth: 1, color: '#ffffff' } },
-
-                        emphasis: {
-                            label: {
-                                textStyle: {
-                                    fontSize: 16,
-                                    color: '#aaa'
-                                }
-                            },
-                            itemStyle: { color: '#fff' }
+                        label: {
+                            normal: {
+                                show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#eeeeee', fontFamily: 'Share Tech Mono'
+                            }
+                        },
+                        symbolSize: 16,
+                        symbol: ['circle'],
+                        itemStyle: {
+                            normal: {
+                                color: "#c1bdbd", lineStyle: { color: 'transparent' }
+                            }
                         }
+                    }
+                    , {
+                        xAxisIndex: 0,
+                        name: 'Max V',
+                        yAxisIndex: 0,
+                        type: 'line',
+                        data: [],
+                        label: {
+                            normal: {
+                                show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Share Tech Mono'
+                            }
+                        },
+                        symbolSize: 16,
+                        symbol: ['arrow'],
+                        itemStyle: {
+                            normal: {
+                                color: "#c1bdbd", lineStyle: { color: 'transparent' }
+                            }
+                        }
+                    }
+
+                    , {
+                        xAxisIndex: 0,
+                        name: 'Bypass',
+                        yAxisIndex: 1,
+                        type: 'line',
+                        data: [],
+                        label: {
+                            normal: {
+                                show: true, position: 'right', distance: 5, formatter: '{c}%', fontSize: 14, color: '#f0e400', fontFamily: 'Share Tech Mono'
+                            }
+                        },
+                        symbolSize: 16,
+                        symbol: ['square'],
+                        itemStyle: { normal: { color: "#f0e400", lineStyle: { color: 'transparent' } } }
+                    }
+
+                    , {
+                        xAxisIndex: 1,
+                        yAxisIndex: 2,
+                        name: 'BypassTemperature',
+                        type: 'bar',
+                        data: [],
+                        itemStyle: {
+                            color: '#55a1ea', barBorderRadius: [8, 8, 0, 0]
+                        },
+                        label: {
+                            normal: {
+                                show: true, position: 'insideBottom', distance: 8,
+                                align: 'left', verticalAlign: 'middle',
+                                rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
+                            }
+                        }
+                    }
+
+                    , {
+                        xAxisIndex: 1,
+                        yAxisIndex: 2,
+                        name: 'CellTemperature',
+                        type: 'bar',
+                        data: [],
+                        itemStyle: {
+                            color: '#55a1ea', barBorderRadius: [8, 8, 0, 0]
+                        },
+                        label: {
+                            normal: {
+                                show: true, position: 'insideBottom', distance: 8,
+                                align: 'left', verticalAlign: 'middle', rotate: 90,
+                                formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
+                            }
+                        }
+
+                    }
+                ],
+                grid: [
+                    {
+                        containLabel: false, left: '4%', right: '4%', bottom: '30%'
+
+                    }, {
+                        containLabel: false, left: '4%', right: '4%', top: '76%'
                     }]
-                };
-
-                g2.setOption(Option3dBar);
-            }
+            };
 
 
-            if (window.g1 != null && $('#graph1').css('display') != 'none') {
-                g1.setOption({
-                    markLine: { data: markLineData },
-                    xAxis: { data: labels },
-                    yAxis: [{ gridIndex: 0, min: minVoltage, max: maxVoltage }]
-                    , series: [{ name: 'Voltage', data: voltages }
-                        , { name: 'Min V', data: voltagesmin }
-                        , { name: 'Max V', data: voltagesmax }
-                        , { name: 'Bypass', data: pwm }
-                        , { name: 'BypassTemperature', data: tempint }
-                        , { name: 'CellTemperature', data: tempext }]
-                });
-            }
-
-
-
-            if (window.g2 != null && $('#graph2').css('display') != 'none') {
-                //Format the data to show as 3D Bar chart
-                var cells3d = [];
-                var banks3d = [];
-
-                for (var seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
-                    cells3d.push({ value: 'Cell ' + seriesmodules, textStyle: { color: '#ffffff' } });
+            if (jsondata.voltages.length > 24) {
+                // When lots of cell data is on screen, hide the labels to improve visability               
+                for (const element of option.series) {
+                    element.label.normal.show = false;
                 }
+            }
 
-                var data3d = [];
-                var cell = 0;
-                for (var bankNumber = 0; bankNumber < jsondata.banks; bankNumber++) {
-                    banks3d.push({ value: 'Bank ' + bankNumber, textStyle: { color: '#ffffff' } });
-                    //Build up 3d array for cell data
-                    for (var seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
-                        data3d.push({ value: [seriesmodules, bankNumber, voltages[cell].value], itemStyle: voltages[cell].itemStyle });
-                        cell++;
+            // use configuration item and data specified to show chart
+            g1.setOption(option);
+
+        }
+
+        if (window.g2 == null && $('#graph2').css('display') != 'none' && window.Graph3DAvailable === true) {
+            window.g2 = echarts.init(document.getElementById('graph2'));
+
+            var Option3dBar = {
+                tooltip: {},
+                visualMap: { max: 4, inRange: { color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8', '#ffffbf', '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026'] } },
+                xAxis3D: { type: 'category', data: [], name: 'Cell', nameTextStyle: { color: '#ffffff' } },
+                yAxis3D: { type: 'category', data: [], name: 'Bank', nameTextStyle: { color: '#ffffff' } },
+                zAxis3D: { type: 'value', name: 'Voltage', nameTextStyle: { color: '#ffffff' } },
+                grid3D: {
+                    boxWidth: 200,
+                    boxDepth: 80,
+                    viewControl: {
+                        // projection: 'orthographic'
+                    },
+                    light: {
+                        main: {
+                            intensity: 1.2,
+                            shadow: true
+                        },
+                        ambient: {
+                            intensity: 0.3
+                        }
                     }
-                }
+                },
+                series: [{
+                    type: 'bar3D',
+                    data: [],
+                    shading: 'lambert',
+                    label: { textStyle: { fontSize: 16, borderWidth: 1, color: '#ffffff' } },
 
-                g2.setOption({
-                    xAxis3D: { data: cells3d },
-                    yAxis3D: { data: banks3d },
-                    zAxis3D: { min: minVoltage, max: maxVoltage },
-                    series: [{ data: data3d }]
-
-                    , grid3D: {
-                        boxWidth: 20 * jsondata.seriesmodules > 200 ? 200 : 20 * jsondata.seriesmodules,
-                        boxDepth: 20 * jsondata.banks > 100 ? 100 : 20 * jsondata.banks
+                    emphasis: {
+                        label: {
+                            textStyle: {
+                                fontSize: 16,
+                                color: '#aaa'
+                            }
+                        },
+                        itemStyle: { color: '#fff' }
                     }
-                }
+                }]
+            };
 
-                );
+            g2.setOption(Option3dBar);
+        }
+
+
+        if (window.g1 != null && $('#graph1').css('display') != 'none') {
+            g1.setOption({
+                markLine: { data: markLineData },
+                xAxis: { data: labels },
+                yAxis: [{ gridIndex: 0, min: minVoltage, max: maxVoltage }]
+                , series: [{ name: 'Voltage', data: voltages }
+                    , { name: 'Min V', data: voltagesmin }
+                    , { name: 'Max V', data: voltagesmax }
+                    , { name: 'Bypass', data: pwm }
+                    , { name: 'BypassTemperature', data: tempint }
+                    , { name: 'CellTemperature', data: tempext }]
+            });
+        }
+
+
+
+        if (window.g2 != null && $('#graph2').css('display') != 'none') {
+            //Format the data to show as 3D Bar chart
+            var cells3d = [];
+            var banks3d = [];
+
+            for (let seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
+                cells3d.push({ value: 'Cell ' + seriesmodules, textStyle: { color: '#ffffff' } });
             }
 
-        }//end homepage visible
+            var data3d = [];
+            var cell = 0;
+            for (let bankNumber = 0; bankNumber < jsondata.banks; bankNumber++) {
+                banks3d.push({ value: 'Bank ' + bankNumber, textStyle: { color: '#ffffff' } });
+                //Build up 3d array for cell data
+                for (let seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
+                    data3d.push({ value: [seriesmodules, bankNumber, voltages[cell].value], itemStyle: voltages[cell].itemStyle });
+                    cell++;
+                }
+            }
 
-        $("#homePage").css({ opacity: 1.0 });
-        $("#loading").hide();
-        //Call again in a few seconds
-        setTimeout(queryBMS, 3500);
+            g2.setOption({
+                xAxis3D: { data: cells3d },
+                yAxis3D: { data: banks3d },
+                zAxis3D: { min: minVoltage, max: maxVoltage },
+                series: [{ data: data3d }]
 
-        loadVisibleTileData();
+                , grid3D: {
+                    boxWidth: 20 * jsondata.seriesmodules > 200 ? 200 : 20 * jsondata.seriesmodules,
+                    boxDepth: 20 * jsondata.banks > 100 ? 100 : 20 * jsondata.banks
+                }
+            }
 
-    }).fail(function (jqXHR, textStatus, errorThrown) {
+            );
+        }
+
+    }//end homepage visible
+
+    $("#homePage").css({ opacity: 1.0 });
+    $("#loading").hide();
+    //Call again in a few seconds
+    setTimeout(queryBMS, 3500);
+
+    loadVisibleTileData();
+}
+
+function queryBMS() {
+    $.getJSON("/api/monitor2", updateChart).fail(function (jqXHR, textStatus, errorThrown) {
 
         if (jqXHR.status == 400 && jqXHR.responseJSON.error === "Invalid cookie") {
             if ($("#warningXSS").data("notify") == undefined) {
@@ -1320,7 +1318,7 @@ $(function () {
     );
 
     $(".rule").on("change", function () {
-        var origv = $(this).attr("data-origv")
+        let origv = $(this).attr("data-origv")
         if (origv !== this.value) {
             $(this).addClass("modified");
         } else {
@@ -1329,10 +1327,10 @@ $(function () {
     });
 
     $("#labelMaxModules").text(MAXIMUM_NUMBER_OF_SERIES_MODULES);
-    for (var n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
+    for (let n = 1; n <= MAXIMUM_NUMBER_OF_SERIES_MODULES; n++) {
         $("#totalSeriesModules").append('<option>' + n + '</option>')
     }
-    for (var n = MAXIMUM_NUMBER_OF_BANKS - 1; n >= 0; n--) {
+    for (let n = MAXIMUM_NUMBER_OF_BANKS - 1; n >= 0; n--) {
         $("#totalBanks").prepend('<option>' + (n + 1) + '</option>')
         $("#info").prepend('<div id="range' + n + '" class="stat"><span class="x t">Range ' + n + ':</span><span class="x v"></span></div>');
         $("#info").prepend('<div id="voltage' + n + '" class="stat"><span class="x t">Voltage ' + n + ':</span><span class="x v"></span></div>');
@@ -1356,10 +1354,10 @@ $(function () {
     });
 
     $('#CalculateCalibration').click(function () {
-        var currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
-        var currentCalib = parseFloat($("#Calib").val());
-        var actualV = parseFloat($("#ActualVoltage").val());
-        var result = (currentCalib / currentReading) * actualV;
+        const currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
+        const currentCalib = parseFloat($("#Calib").val());
+        const actualV = parseFloat($("#ActualVoltage").val());
+        let result = (currentCalib / currentReading) * actualV;
         $("#Calib").val(result.toFixed(4));
         return true;
     });
@@ -1613,17 +1611,17 @@ $(function () {
 
                 $("#networkForm").show();
 
-                
+
                 $("#rssi_now").val(data.wifi.rssi);
                 $("#bssid").val(data.wifi.bssid);
                 $("#ssid").val(data.wifi.ssid);
-                
+
                 $("#rssi_low").val(data.wifi.rssi_low);
                 $("#sta_start").val(data.wifi.sta_start);
                 $("#sta_connected").val(data.wifi.sta_connected);
                 $("#sta_disconnected").val(data.wifi.sta_disconnected);
                 $("#sta_lost_ip").val(data.wifi.sta_lost_ip);
-                $("#sta_got_ip").val(data.wifi.sta_got_ip);             
+                $("#sta_got_ip").val(data.wifi.sta_got_ip);
 
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
@@ -1766,8 +1764,8 @@ $(function () {
                 $("#influxOrgId").val(data.influxdb.orgid);
                 $("#influxFreq").val(data.influxdb.frequency);
 
-                $("#haUrl").val(window.location.origin+"/ha");
-                $("#haAPI").val(data.ha.api);                
+                $("#haUrl").val(window.location.origin + "/ha");
+                $("#haAPI").val(data.ha.api);
 
                 $("#haForm").show();
                 $("#mqttForm").show();
@@ -1998,10 +1996,17 @@ $(function () {
         $.getJSON("/api/chargeconfig",
             function (data) {
 
-                $("#canbusprotocol").val(data.chargeconfig.canbusprotocol);
+                $("#protocol").val(data.chargeconfig.protocol);
                 $("#canbusinverter").val(data.chargeconfig.canbusinverter);
                 $("#canbusbaud").val(data.chargeconfig.canbusbaud);
                 $("#nominalbatcap").val(data.chargeconfig.nominalbatcap);
+
+                $("#expected_cycles").val(data.chargeconfig.expectedlifetime_cycles);
+                $("#eol_capacity").val(data.chargeconfig.eol_capacity);
+                $("#total_ah_charge").val(Math.trunc(data.chargeconfig.total_mah_charge / 1000));
+                $("#total_ah_discharge").val(Math.trunc(data.chargeconfig.total_mah_discharge / 1000));
+                $("#estimate_bat_cycle").val(data.chargeconfig.estimatebatterycycle);
+                $("#stateofhealth").val((data.chargeconfig.stateofhealth).toFixed(2));
 
                 $("#chargevolt").val((data.chargeconfig.chargevolt / 10.0).toFixed(1));
                 $("#chargecurrent").val((data.chargeconfig.chargecurrent / 10.0).toFixed(1));
@@ -2129,7 +2134,7 @@ $(function () {
             },
         });
     });
-    
+
     $("#haForm").unbind('submit').submit(function (e) {
         e.preventDefault();
 
@@ -2146,7 +2151,7 @@ $(function () {
             },
         });
     });
-    
+
 
     $("#rulesForm").unbind('submit').submit(function (e) {
         e.preventDefault();
@@ -2336,13 +2341,11 @@ $(function () {
             DrawChargingGraph();
         });
 
-
     //On page ready
     queryBMS();
 
-
     //Automatically open correct sub-page based on hash
-    var hash = $(location).attr('hash');
+    let hash = $(location).attr('hash');
     switch (hash) {
         case "#tiles":
         case "#modules":

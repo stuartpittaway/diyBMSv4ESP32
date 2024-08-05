@@ -27,8 +27,8 @@ int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean 
 void generateUUID();
 
 void StartServer();
-void resetModuleMinMaxVoltage(uint8_t module);
-void clearModuleValues(uint8_t module);
+void resetModuleMinMaxVoltage(uint8_t m);
+void clearModuleValues(uint8_t m);
 httpd_handle_t start_webserver(void);
 void stop_webserver(httpd_handle_t server);
 
@@ -47,6 +47,6 @@ extern RelayState previousRelayState[RELAY_TOTAL];
 extern currentmonitoring_struct currentMonitor;
 extern void suspendTasksDuringFirmwareUpdate();
 extern void resumeTasksAfterFirmwareUpdateFailure();
-extern void SaveConfiguration(diybms_eeprom_settings *settings);
+extern void SaveConfiguration(const diybms_eeprom_settings *settings);
 extern esp_err_t content_handler_coredumpdownloadfile(httpd_req_t *req);
 #endif

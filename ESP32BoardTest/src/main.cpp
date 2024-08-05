@@ -87,6 +87,9 @@ static constexpr const char *const TAG = "diybms";
 #define RS485_TX GPIO_NUM_22
 #define RS485_ENABLE GPIO_NUM_25
 
+#define INA229_CHIPSELECT GPIO_NUM_33
+#define INA229_INTERRUPT_PIN GPIO_NUM_35
+
 enum RGBLED : uint8_t
 {
     OFF = 0,
@@ -605,7 +608,7 @@ void testSerial()
     delay(10);
 
     ESP_LOGI(TAG, "Test serial TX1/RX1");
-    for (size_t i = 0; i < 50; i++)
+    for (size_t i = 0; i < 20; i++)
     {
         SERIAL_DATA.println("test!");
 
@@ -623,6 +626,65 @@ void testSerial()
     }
 }
 
+    enum INA_REGISTER : uint8_t
+    {
+        CONFIG = 0,
+        ADC_CONFIG = 1,
+        // Shunt Calibration
+        SHUNT_CAL = 2,
+        // Shunt Temperature Coefficient
+        SHUNT_TEMPCO = 3,
+        // Shunt Voltage Measurement 24bit
+        VSHUNT = 4,
+        // Bus Voltage Measurement 24bit
+        VBUS = 5,
+        DIETEMP = 6,
+        // Current Result 24bit
+        CURRENT = 7,
+        // Power Result 24bit
+        POWER = 8,
+        // Energy Result 40bit
+        ENERGY = 9,
+        // Charge Result 40bit
+        CHARGE = 0x0A,
+        // Alert triggers
+        DIAG_ALRT = 0x0b,
+        // Shunt Overvoltage Threshold
+        // overcurrent protection
+        SOVL = 0x0c,
+        // Shunt Undervoltage Threshold
+        // undercurrent protection
+        SUVL = 0x0d,
+        // Bus Overvoltage Threshold
+        BOVL = 0x0e,
+        // Bus Undervoltage Threshold
+        BUVL = 0x0f,
+        // Temperature Over-Limit Threshold
+        TEMP_LIMIT = 0x10,
+        // Power Over-Limit Threshold
+        PWR_LIMIT = 0x11,
+        // Manufacturer ID
+        MANUFACTURER_ID = 0x3E,
+        // Device ID
+        DEVICE_ID = 0x3F
+
+    };
+
+uint16_t read16bits(INA_REGISTER r)
+{
+    SPISettings _spisettings = SPISettings(10000000, MSBFIRST, SPI_MODE1);
+    vspi.beginTransaction(_spisettings);
+    digitalWrite(INA229_CHIPSELECT, LOW);
+    // The transfers are always a step behind, so the transfer reads the previous value/command
+    vspi.write((uint8_t)((r << 2U) | B00000001));
+    uint16_t value = vspi.transfer16(0);
+    digitalWrite(INA229_CHIPSELECT, HIGH);
+    vspi.endTransaction();
+
+    ESP_LOGD(TAG, "Read register 0x%02x = 0x%04x", r, value);
+    return value;
+}
+
 void setup()
 {
     // We are not testing ESP32, so switch off WIFI + BT
@@ -637,6 +699,18 @@ void setup()
     ConfigurePins();
     ConfigureI2C();
     ConfigureVSPI();
+
+
+    uint16_t value = read16bits(INA_REGISTER::DEVICE_ID);
+    if ((value >> 4) == 0x229)
+    {
+        ESP_LOGI(TAG, "FOUND CURRENT SHUNT CHIP INA%02x, Revision=%u", value >> 4, value & B1111);        
+    }
+    else
+    {
+        // Stop here - no chip found
+        ESP_LOGW(TAG, "** CURRENT SHUNT CHIP INA229 CHIP ABSENT **");
+    }
 
     mountSDCard();
 
@@ -681,7 +755,7 @@ void setup()
     Led(RGBLED::OFF);
 
     // Test SERIAL
-    SERIAL_DATA.begin(2400, SERIAL_8N1, 2, 32); // Serial for comms to modules
+    SERIAL_DATA.begin(5000, SERIAL_8N1, 2, 32); // Serial for comms to modules
     testSerial();
 
     init_tft_display();
