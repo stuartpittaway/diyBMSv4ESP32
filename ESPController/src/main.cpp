@@ -99,6 +99,7 @@ std::string hostname;
 std::string ip_string; // xxx.xxx.xxx.xxx
 
 bool wifi_isconnected = false;
+bool net_services_started = false;
 
 History history = History();
 
@@ -130,7 +131,6 @@ uint32_t canbus_messages_sent = 0;
 uint32_t canbus_messages_failed_sent = 0;
 int64_t canbus_last_305_message_time = 0;
 
-bool server_running = false;
 RelayState previousRelayState[RELAY_TOTAL];
 bool previousRelayPulse[RELAY_TOTAL];
 
@@ -1575,25 +1575,6 @@ static void startMDNS()
   }
 }
 
-void ShutdownAllNetworkServices()
-{
-  ESP_LOGI(TAG, "ShutdownAllNetworkServices");
-  // Shut down all TCP/IP reliant services
-  if (server_running)
-  {
-    if (_myserver != nullptr)
-    {
-      stop_webserver(_myserver);
-      _myserver = nullptr;
-    }
-
-    server_running = false;
-  }
-
-  stopMqtt();
-  stopMDNS();
-}
-
 /// @brief Count of events of RSSI low
 uint16_t wifi_count_rssi_low = 0;
 uint16_t wifi_count_sta_start = 0;
@@ -1642,12 +1623,7 @@ static void event_handler(void *, esp_event_base_t event_base,
     ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
     wifi_ap_connect_retry_num++;
     wifi_count_sta_disconnected++;
-
-    if (wifi_isconnected)
-    {
-      ShutdownAllNetworkServices();
-      wifi_isconnected = false;
-    }
+    wifi_isconnected = false;
 
     if (wifi_ap_connect_retry_num < 25)
     {
@@ -1665,7 +1641,6 @@ static void event_handler(void *, esp_event_base_t event_base,
     ESP_LOGI(TAG, "IP_EVENT_STA_LOST_IP");
     wifi_count_sta_lost_ip++;
 
-    ShutdownAllNetworkServices();
     wake_up_tft(true);
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
@@ -1677,22 +1652,22 @@ static void event_handler(void *, esp_event_base_t event_base,
     if (event->ip_changed)
     {
       ESP_LOGI(TAG, "IP ADDRESS HAS CHANGED");
-      ShutdownAllNetworkServices();
     }
 
     // Start up all the services after TCP/IP is established
-    configureSNTP(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight ? 3600 : 0, mysettings.ntpServer);
-
-    if (!server_running)
+    if (!net_services_started)
     {
+      net_services_started = true;
+
+      configureSNTP(mysettings.timeZone * 3600 + mysettings.minutesTimeZone * 60, mysettings.daylight ? 3600 : 0, mysettings.ntpServer);
+
       // Start web server
       StartServer();
-      server_running = true;
-    }
 
-    // This only exists in the loop()
-    // connectToMqtt();
-    startMDNS();
+      // This only exists in the loop()
+      // connectToMqtt();
+      startMDNS();
+    }
 
     ip_string = ip4_to_string(event->ip_info.ip.addr);
 
