@@ -47,7 +47,7 @@ public:
 	bool controller_heartbeat(uint8_t controllerAddress);
 
 	// Disconnect the bms from canbus
-	//void CAN_Networking_disconnect(TimerHandle_t);
+	void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer);
 
 private:
 	void SetBankAndModuleText(char* buffer, uint8_t cellid);

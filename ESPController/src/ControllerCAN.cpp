@@ -32,14 +32,16 @@ const uint32_t ControllerCAN::id[MAX_CAN_PARAMETERS][MAX_NUM_CONTROLLERS] = {
 
 TimerHandle_t error_debounce_timer;
 
-void CAN_Networking_disconnect(TimerHandle_t)
+void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
 {
           /* Force Disable the CANBUS if there is an internal error for a set period of time (see applicable timer) and there are networked controllers. 
           This is to prevent a controller that has disconnected itself from auto-reconnecting (there's probably be a better way of doing this with some "reconnection rules"). 
           User must manually re-enable canbus protocol*/
+          ESP_LOGD(TAG,"disconnect call back function called....");
         if (mysettings.controllerNet != 1 && _controller_state == ControllerState::Running)
         {
           mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+          ESP_LOGD(TAG,"disconnected canbus");
         }
 }
 //return whether a controller has a valid heartbeat by checking the bitmssgs timestamp array
@@ -449,7 +451,7 @@ void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
 
 
 // byte 2 - are NetworkedControllerRules active?
-  candata.data[2] = rules.NetworkedControllerRules(&mysettings);
+  candata.data[2] = rules.NetworkedControllerRules(&mysettings, &error_debounce_timer);
 
 // byte 3 - HighAvailability setting
   candata.data[3] = mysettings.highAvailable;

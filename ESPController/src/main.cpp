@@ -117,6 +117,7 @@ extern TimerHandle_t tftwake_timer;
 extern void tftwakeup(TimerHandle_t xTimer);
 
 // ControllerCAN timer
+extern TimerHandle_t error_debounce_timer;
 extern void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer);
 
 // HTTPD server handle in webserver.cpp
@@ -2846,9 +2847,13 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
     if (_controller_state == ControllerState::Running)
     {
         // check for internal BMS errors
-        rules.NetworkedControllerRules(&mysettings);
-
-
+        //rules.NetworkedControllerRules(&mysettings, &error_debounce_timer);
+        
+        xTimerStart(error_debounce_timer, pdMS_TO_TICKS(5));
+        if (xTimerIsTimerActive(error_debounce_timer))
+        {
+          ESP_LOGD(TAG, "timer started");
+        }
         if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
         {       
           CAN.BITMSGS_TIMESTAMP[mysettings.controllerID] = esp_timer_get_time(); //record a timestamp for this controller to be used for heartbeat polling
@@ -4086,7 +4091,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(50), pdFALSE, (void *)3, &tftwakeup);
   assert(tftwake_timer);
 
-  error_debounce_timer = xTimerCreate("ERROR", pdMS_TO_TICKS(60000), pdFALSE, (void*)4, &CAN_Networking_disconnect);
+  error_debounce_timer = xTimerCreate("ERROR", pdMS_TO_TICKS(50), pdFALSE, (void*)4, &CAN_Networking_disconnect);
   assert(error_debounce_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);

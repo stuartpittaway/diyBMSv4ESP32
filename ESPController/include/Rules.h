@@ -255,14 +255,12 @@ public:
 
     bool IsChargeAllowed(const diybms_eeprom_settings *mysettings);
     bool IsDischargeAllowed(const diybms_eeprom_settings *mysettings);
-    bool NetworkedControllerRules(const diybms_eeprom_settings *mysettings);
+    bool NetworkedControllerRules(const diybms_eeprom_settings *mysettings, TimerHandle_t *error_debounce_timer);
     void CalculateDynamicChargeVoltage(const diybms_eeprom_settings *mysettings, const CellModuleInfo *cellarray);
     void CalculateDynamicChargeCurrent(const diybms_eeprom_settings *mysettings);
     uint16_t DynamicChargeVoltage() const;
     int16_t DynamicChargeCurrent() const;
     uint16_t StateOfChargeWithRulesApplied(const diybms_eeprom_settings *mysettings, float realSOC) const;
 };
-
-extern TimerHandle_t error_debounce_timer;
 
 #endif
