@@ -25,7 +25,7 @@ esp_err_t content_handler_avrstorage(httpd_req_t *req)
   if (LittleFS.exists(manifest))
   {
     // Use Dynamic to avoid head issues
-    DynamicJsonDocument doc(3000);
+    JsonDocument doc;
     File file = LittleFS.open(manifest);
     DeserializationError error = deserializeJson(doc, file);
     if (error)
@@ -524,9 +524,9 @@ esp_err_t content_handler_modules(httpd_req_t *req)
       prg.sendGetSettingsRequest(c);
     }
 
-    DynamicJsonDocument doc(2048);
-    JsonObject root = doc.to<JsonObject>();
-    JsonObject settings = root.createNestedObject("settings");
+  JsonDocument doc;
+  JsonObject root = doc.to<JsonObject>();
+  JsonObject settings = root["settings"].to<JsonObject>();
 
     uint8_t b = c / mysettings.totalNumberOfSeriesModules;
     uint8_t m = c - (b * mysettings.totalNumberOfSeriesModules);
@@ -563,7 +563,7 @@ esp_err_t content_handler_modules(httpd_req_t *req)
 esp_err_t content_handler_avrstatus(httpd_req_t *req)
 {
   int bufferused = 0;
-  StaticJsonDocument<200> doc;
+  JsonDocument doc;
   doc["inprogress"] = _avrsettings.inProgress ? 1 : 0;
   doc["result"] = _avrsettings.progresult;
   doc["duration"] = _avrsettings.duration;
@@ -577,10 +577,10 @@ esp_err_t content_handler_avrstatus(httpd_req_t *req)
 
 esp_err_t content_handler_tileconfig(httpd_req_t *req)
 {
-  StaticJsonDocument<200> doc;
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
-  JsonObject settings = root.createNestedObject("tileconfig");
-  JsonArray v = settings.createNestedArray("values");
+  JsonObject settings = root["tileconfig"].to<JsonObject>();
+  JsonArray v = settings["values"].to<JsonArray>();;
 
   for (auto n : mysettings.tileconfig)
   {
@@ -595,15 +595,23 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
 {
   int bufferused = 0;
 
-  DynamicJsonDocument doc(2048);
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
-  JsonObject settings = root.createNestedObject("chargeconfig");
+  JsonObject settings = root["chargeconfig"].to<JsonObject>();
 
-  settings["canbusprotocol"] = mysettings.canbusprotocol;
+  settings["protocol"] = mysettings.protocol;
   settings["canbusinverter"] = mysettings.canbusinverter;
   settings["canbusbaud"] = mysettings.canbusbaud;
   settings["equip_addr"] = mysettings.canbus_equipment_addr;
   settings["nominalbatcap"] = mysettings.nominalbatcap;
+
+  settings["expectedlifetime_cycles"] = mysettings.soh_lifetime_battery_cycles;
+  settings["eol_capacity"] = mysettings.soh_eol_capacity;
+  settings["total_mah_charge"] = mysettings.soh_total_milliamphour_in;
+  settings["total_mah_discharge"] = mysettings.soh_total_milliamphour_out;
+  settings["estimatebatterycycle"] = mysettings.soh_estimated_battery_cycles;
+  settings["stateofhealth"] = mysettings.soh_percent;
+
   settings["chargevolt"] = mysettings.chargevolt;
   settings["chargecurrent"] = mysettings.chargecurrent;
   settings["dischargecurrent"] = mysettings.dischargecurrent;
@@ -640,7 +648,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
 {
   int bufferused = 0;
 
-  DynamicJsonDocument doc(3000);
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
 
   struct tm timeinfo;
@@ -655,7 +663,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
 
   root["ControlState"] = _controller_state;
 
-  JsonArray defaultArray = root.createNestedArray("relaydefault");
+  JsonArray defaultArray = root["relaydefault"].to<JsonArray>();
   for (auto v : mysettings.rulerelaydefault)
   {
     switch (v)
@@ -673,7 +681,7 @@ esp_err_t content_handler_rules(httpd_req_t *req)
     }
   }
 
-  JsonArray typeArray = root.createNestedArray("relaytype");
+  JsonArray typeArray = root["relaytype"].to<JsonArray>();
   for (auto v : mysettings.relaytype)
   {
     switch (v)
@@ -690,15 +698,15 @@ esp_err_t content_handler_rules(httpd_req_t *req)
     }
   }
 
-  JsonArray bankArray = root.createNestedArray("rules");
+  JsonArray bankArray = root["rules"].to<JsonArray>();
 
   for (uint8_t r = 0; r < RELAY_RULES; r++)
   {
-    JsonObject rule = bankArray.createNestedObject();
+    JsonObject rule = bankArray.add<JsonObject>();
     rule["value"] = mysettings.rulevalue[r];
     rule["hysteresis"] = mysettings.rulehysteresis[r];
     rule["triggered"] = rules.ruleOutcome((Rule)r);
-    JsonArray data = rule.createNestedArray("relays");
+    JsonArray data = rule["relays"].to<JsonArray>();
 
     for (auto v : mysettings.rulerelaystate[r])
     {
@@ -727,10 +735,10 @@ esp_err_t content_handler_settings(httpd_req_t *req)
 {
   int bufferused = 0;
 
-  DynamicJsonDocument doc(2048);
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
 
-  JsonObject settings = root.createNestedObject("settings");
+  JsonObject settings = root["settings"].to<JsonObject>();
 
   settings["totalnumberofbanks"] = mysettings.totalNumberOfBanks;
   settings["totalseriesmodules"] = mysettings.totalNumberOfSeriesModules;
@@ -798,7 +806,7 @@ esp_err_t content_handler_settings(httpd_req_t *req)
     settings["man_dns2"] = ip4_to_string(_wificonfig.wifi_dns2);
   }
 
-  JsonObject wifi = root.createNestedObject("wifi");
+  JsonObject wifi = root["wifi"].to<JsonObject>();
 
   if (wifi_isconnected)
   {
@@ -835,13 +843,13 @@ esp_err_t content_handler_integration(httpd_req_t *req)
 {
   int bufferused = 0;
 
-  DynamicJsonDocument doc(1024);
+  JsonDocument doc;
   JsonObject root = doc.to<JsonObject>();
 
-  JsonObject ha = root.createNestedObject("ha");
+  JsonObject ha = root["ha"].to<JsonObject>();
   ha["api"] = mysettings.homeassist_apikey;
 
-  JsonObject mqtt = root.createNestedObject("mqtt");
+  JsonObject mqtt = root["mqtt"].to<JsonObject>();
   mqtt["enabled"] = mysettings.mqtt_enabled;
   mqtt["basiccellreporting"] = mysettings.mqtt_basic_cell_reporting;
   mqtt["topic"] = mysettings.mqtt_topic;
@@ -857,7 +865,7 @@ esp_err_t content_handler_integration(httpd_req_t *req)
   // We don't output the password in the json file as this could breach security
   // mqtt["password"] =mysettings.mqtt_password;
 
-  JsonObject influxdb = root.createNestedObject("influxdb");
+  JsonObject influxdb = root["influxdb"].to<JsonObject>();
   influxdb["enabled"] = mysettings.influxdb_enabled;
   influxdb["url"] = mysettings.influxdb_serverurl;
   influxdb["bucket"] = mysettings.influxdb_databasebucket;
@@ -986,7 +994,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
                          (unsigned int)rules.getChargingMode(),
                          rules.getChargingTimerSecondsRemaining());
 
-  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
+  if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED && mysettings.dynamiccharge)
   {
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                            R"("dyncv":%u,"dyncc":%u,)",
@@ -1343,7 +1351,7 @@ esp_err_t ha_handler(httpd_req_t *req)
                            currentMonitor.stateofcharge);
   }
 
-  if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED && mysettings.dynamiccharge)
+  if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED && mysettings.dynamiccharge)
   {
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
                            R"(,"dyncv":%u,"dyncc":%u)",

@@ -20,7 +20,7 @@
 #define SERIAL_RS485 Serial1
 
 // Total number of cells a single controler can handle (memory limitation)
-#define maximum_controller_cell_modules 128
+#define maximum_controller_cell_modules 192
 
 // CAN 
 #define MAX_CAN_PARAMETERS 13  // max number of unique CAN message types
@@ -102,12 +102,13 @@ enum CanBusInverter : uint8_t
 };
 
 
-enum CanBusProtocolEmulation : uint8_t
+enum ProtocolEmulation : uint8_t
 {
-  CANBUS_DISABLED = 0x00,
+  EMULATION_DISABLED = 0x00,
   CANBUS_VICTRON = 0x01,
   CANBUS_PYLONTECH = 0x02,
-  CANBUS_PYLONFORCEH2 = 0x03
+  CANBUS_PYLONFORCEH2 = 0x03,
+  RS485_PYLONTECH = 0x04
 };
 
 enum CurrentMonitorDevice : uint8_t
@@ -175,6 +176,7 @@ struct diybms_eeprom_settings
 
   uint16_t currentMonitoring_shuntmv;
   uint16_t currentMonitoring_shuntmaxcur;
+  /// @brief Amp-hours battery capacity
   uint16_t currentMonitoring_batterycapacity;
   uint16_t currentMonitoring_fullchargevolt;
   uint16_t currentMonitoring_tailcurrent;
@@ -196,7 +198,7 @@ struct diybms_eeprom_settings
 
   char language[2 + 1];
 
-  CanBusProtocolEmulation canbusprotocol;
+  ProtocolEmulation protocol;
   CanBusInverter canbusinverter;
   //CANBUS baud rate, 250=250k, 500=500k
   uint16_t canbusbaud;
@@ -268,6 +270,20 @@ struct diybms_eeprom_settings
 
   uint8_t canbus_equipment_addr;  // battery index on the same canbus for PYLONFORCE, 0 - 15, default 0
   char homeassist_apikey[24+1];
+
+  /// @brief State of health variables - total lifetime mAh output (discharge)
+  // Might need to watch overflow on the uint32 (max value 4,294,967,295mAh) = approx 15339 cycles of 280Ah battery
+  uint32_t soh_total_milliamphour_out;
+  /// @brief State of health variables - total lifetime mAh input (charge)
+  uint32_t soh_total_milliamphour_in;
+  /// @brief State of health variables - total expected lifetime cycles of battery (6000)
+  uint16_t soh_lifetime_battery_cycles;
+  /// @brief State of health variables - expected remaining capacity (%) at end of life/max cycles
+  uint8_t soh_eol_capacity;
+  /// @brief State of health variables - estimated number of cycles
+  uint16_t soh_estimated_battery_cycles;  
+  /// @brief Calculated percentage calculation of health 
+  float soh_percent;
 };
 
 typedef union

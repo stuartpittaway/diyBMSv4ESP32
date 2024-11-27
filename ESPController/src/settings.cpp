@@ -40,7 +40,7 @@ static const char influxdb_databasebucket_JSONKEY[] = "bucket";
 static const char influxdb_orgid_JSONKEY[] = "org";
 static const char influxdb_serverurl_JSONKEY[] = "url";
 static const char influxdb_loggingFreqSeconds_JSONKEY[] = "logfreq";
-static const char canbusprotocol_JSONKEY[] = "canbusprotocol";
+static const char protocol_JSONKEY[] = "protocol";
 static const char canbusinverter_JSONKEY[] = "canbusinverter";
 static const char canbusbaud_JSONKEY[] = "canbusbaud";
 static const char canbus_equipment_addr_JSONKEY[] = "canbusequip";
@@ -91,6 +91,15 @@ static const char floatvoltagetimer_JSONKEY[] = "floatvoltagetimer";
 static const char stateofchargeresumevalue_JSONKEY[] = "stateofchargeresumevalue";
 static const char homeassist_apikey_JSONKEY[] = "homeassistapikey";
 
+static const char soh_total_milliamphour_out_JSONKEY[] = "soh_mah_out";
+static const char soh_total_milliamphour_in_JSONKEY[] = "soh_mah_in";
+
+static const char soh_lifetime_battery_cycles_JSONKEY[] = "soh_batcycle";
+
+static const char soh_eol_capacity_JSONKEY[] = "soh_eol_capacity";
+
+
+
 static const char controllerNet_JSONKEY[] = "controllerNet";
 static const char controllerID_JSONKEY[] = "controllerID";
 static const char highAvailable_JSONKEY[] = "highAvailable";
@@ -123,10 +132,10 @@ static const char rs485baudrate_NVSKEY[] = "485baudrate";
 static const char rs485databits_NVSKEY[] = "485databits";
 static const char rs485parity_NVSKEY[] = "485parity";
 static const char rs485stopbits_NVSKEY[] = "485stopbits";
-static const char canbusprotocol_NVSKEY[] = "canbusprotocol";
+static const char protocol_NVSKEY[] = "protocol";
 static const char canbusinverter_NVSKEY[] = "canbusinverter";
 static const char canbusbaud_NVSKEY[] = "canbusbaud";
-static const char canbus_equipment_addr_NVSKEY[]="canbusequip";
+static const char canbus_equipment_addr_NVSKEY[] = "canbusequip";
 static const char nominalbatcap_NVSKEY[] = "nominalbatcap";
 static const char chargevolt_NVSKEY[] = "cha_volt";
 static const char chargecurrent_NVSKEY[] = "cha_current";
@@ -187,6 +196,14 @@ static const char floatvoltagetimer_NVSKEY[] = "floatVtimer";
 static const char stateofchargeresumevalue_NVSKEY[] = "socresume";
 static const char homeassist_apikey_NVSKEY[] = "haapikey";
 
+static const char soh_total_milliamphour_out_NVSKEY[] = "soh_mah_out";
+static const char soh_total_milliamphour_in_NVSKEY[] = "soh_mah_in";
+static const char soh_lifetime_battery_cycles_NVSKEY[] = "soh_batcycle";
+static const char soh_eol_capacity_NVSKEY[] = "soh_eol_cap";
+
+static const char soc_milliamphour_out_NVSKEY[] = "soc_mah_out";
+static const char soc_milliamphour_in_NVSKEY[] = "soc_mah_in";
+
 static const char controllerNet_NVSKEY[] = "controllerNet";
 static const char controllerID_NVSKEY[] = "controllerID";
 static const char highAvailable_NVSKEY[] = "highAvailable";
@@ -209,7 +226,6 @@ bool ValidateGetSetting(esp_err_t err, const char *key)
     case ESP_OK:
         ESP_LOGD(TAG, "Read key (%s)", key);
         return true;
-        break;
     case ESP_ERR_NVS_NOT_FOUND:
         ESP_LOGW(TAG, "Key not initialized (%s)", key);
         break;
@@ -318,6 +334,11 @@ void writeSetting(nvs_handle_t handle, const char *key, int16_t value)
     ESP_LOGD(TAG, "Writing (%s)=%i", key, value);
     ESP_ERROR_CHECK(nvs_set_i16(handle, key, value));
 }
+void writeSetting(nvs_handle_t handle, const char *key, uint32_t value)
+{
+    ESP_LOGD(TAG, "Writing (%s)=%u", key, value);
+    ESP_ERROR_CHECK(nvs_set_u32(handle, key, value));
+}
 void writeSetting(nvs_handle_t handle, const char *key, int32_t value)
 {
     ESP_LOGD(TAG, "Writing (%s)=%i", key, value);
@@ -339,7 +360,65 @@ void writeSettingBlob(nvs_handle_t handle, const char *key, const void *value, s
     ESP_ERROR_CHECK(nvs_set_blob(handle, key, value, length));
 }
 
-void SaveConfiguration(diybms_eeprom_settings *settings)
+/// @brief Reads state of charge (milliamp hour counts) from flash
+/// @param in pointer to milliamp in count
+/// @param out  pointer to milliamp out count
+/// @return true if values are valid
+bool GetStateOfCharge(uint32_t *in, uint32_t *out)
+{
+    const char *partname = "diybms-ctrl";
+    ESP_LOGI(TAG, "Read state of charge from flash");
+
+    nvs_handle_t nvs_handle;
+    auto err = nvs_open(partname, NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Error (%s) opening NVS handle", esp_err_to_name(err));
+    }
+    else
+    {
+        // Open
+        auto ret1 = getSetting(nvs_handle, soc_milliamphour_in_NVSKEY, in);
+        auto ret2 = getSetting(nvs_handle, soc_milliamphour_out_NVSKEY, out);
+
+        nvs_close(nvs_handle);
+
+        if (ret1 && ret2)
+        {
+            return true;
+        }
+
+        ESP_LOGI(TAG, "SoC value doesn't exist in flash");
+    }
+    return false;
+}
+
+/// @brief Stores the milliamp current values to allow restore of state of charge on power up
+/// @param in milliamp hours in
+/// @param out milliamp hours out
+void SaveStateOfCharge(uint32_t in, uint32_t out)
+{
+    const char *partname = "diybms-ctrl";
+    ESP_LOGI(TAG, "Write SoC to flash in=%u out=%u", in, out);
+
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(partname, NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Error %s opening NVS handle!", esp_err_to_name(err));
+    }
+    else
+    {
+        // Save settings
+        writeSetting(nvs_handle, soc_milliamphour_in_NVSKEY, in);
+        writeSetting(nvs_handle, soc_milliamphour_out_NVSKEY, out);
+
+        ESP_ERROR_CHECK(nvs_commit(nvs_handle));
+        nvs_close(nvs_handle);
+    }
+}
+
+void SaveConfiguration(const diybms_eeprom_settings *settings)
 {
     const char *partname = "diybms-ctrl";
     ESP_LOGI(TAG, "Write config");
@@ -358,11 +437,11 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(baudRate)
         MACRO_NVSWRITE(interpacketgap)
 
-        MACRO_NVSWRITEBLOB(rulevalue);
-        MACRO_NVSWRITEBLOB(rulehysteresis);
-        MACRO_NVSWRITEBLOB(rulerelaystate);
-        MACRO_NVSWRITEBLOB(rulerelaydefault);
-        MACRO_NVSWRITEBLOB(relaytype);
+        MACRO_NVSWRITEBLOB(rulevalue)
+        MACRO_NVSWRITEBLOB(rulehysteresis)
+        MACRO_NVSWRITEBLOB(rulerelaystate)
+        MACRO_NVSWRITEBLOB(rulerelaydefault)
+        MACRO_NVSWRITEBLOB(relaytype)
 
         MACRO_NVSWRITE(graph_voltagehigh)
         MACRO_NVSWRITE(graph_voltagelow)
@@ -376,33 +455,35 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
 
         MACRO_NVSWRITE(currentMonitoringEnabled)
         MACRO_NVSWRITE(currentMonitoringModBusAddress)
-        MACRO_NVSWRITE_UINT8(currentMonitoringDevice);
+        MACRO_NVSWRITE_UINT8(currentMonitoringDevice)
         MACRO_NVSWRITE(rs485baudrate)
-        MACRO_NVSWRITE_UINT8(rs485databits);
-        MACRO_NVSWRITE_UINT8(rs485parity);
-        MACRO_NVSWRITE_UINT8(rs485stopbits);
-        MACRO_NVSWRITE_UINT8(canbusprotocol);
-        MACRO_NVSWRITE_UINT8(canbusinverter);
-        MACRO_NVSWRITE(canbusbaud);
-        MACRO_NVSWRITE_UINT8(canbus_equipment_addr);
 
-        MACRO_NVSWRITE(currentMonitoring_shuntmv);
-        MACRO_NVSWRITE(currentMonitoring_shuntmaxcur);
-        MACRO_NVSWRITE(currentMonitoring_batterycapacity);
-        MACRO_NVSWRITE(currentMonitoring_fullchargevolt);
-        MACRO_NVSWRITE(currentMonitoring_tailcurrent);
-        MACRO_NVSWRITE(currentMonitoring_chargeefficiency);
-        MACRO_NVSWRITE(currentMonitoring_shuntcal);
-        MACRO_NVSWRITE(currentMonitoring_temperaturelimit);
-        MACRO_NVSWRITE(currentMonitoring_overvoltagelimit);
-        MACRO_NVSWRITE(currentMonitoring_undervoltagelimit);
-        MACRO_NVSWRITE(currentMonitoring_overcurrentlimit);
-        MACRO_NVSWRITE(currentMonitoring_undercurrentlimit);
-        MACRO_NVSWRITE(currentMonitoring_overpowerlimit);
-        MACRO_NVSWRITE(currentMonitoring_shunttempcoefficient);
-        MACRO_NVSWRITE(currentMonitoring_tempcompenabled);
+        MACRO_NVSWRITE_UINT8(rs485databits)
+        MACRO_NVSWRITE_UINT8(rs485parity)
+        MACRO_NVSWRITE_UINT8(rs485stopbits)
+        MACRO_NVSWRITE_UINT8(protocol)
+        MACRO_NVSWRITE_UINT8(canbusinverter)
+        MACRO_NVSWRITE(canbusbaud)
+        MACRO_NVSWRITE_UINT8(canbus_equipment_addr)
 
-        MACRO_NVSWRITE(nominalbatcap);
+        MACRO_NVSWRITE(currentMonitoring_shuntmv)
+        MACRO_NVSWRITE(currentMonitoring_shuntmaxcur)
+        MACRO_NVSWRITE(currentMonitoring_batterycapacity)
+        MACRO_NVSWRITE(currentMonitoring_fullchargevolt)
+        MACRO_NVSWRITE(currentMonitoring_tailcurrent)
+        MACRO_NVSWRITE(currentMonitoring_chargeefficiency)
+        MACRO_NVSWRITE(currentMonitoring_shuntcal)
+        MACRO_NVSWRITE(currentMonitoring_temperaturelimit)
+        MACRO_NVSWRITE(currentMonitoring_overvoltagelimit)
+        MACRO_NVSWRITE(currentMonitoring_undervoltagelimit)
+        MACRO_NVSWRITE(currentMonitoring_overcurrentlimit)
+        MACRO_NVSWRITE(currentMonitoring_undercurrentlimit)
+        MACRO_NVSWRITE(currentMonitoring_overpowerlimit)
+        MACRO_NVSWRITE(currentMonitoring_shunttempcoefficient)
+        MACRO_NVSWRITE(currentMonitoring_tempcompenabled)
+
+        MACRO_NVSWRITE(nominalbatcap)
+
         MACRO_NVSWRITE(chargevolt)
         MACRO_NVSWRITE(chargecurrent)
         MACRO_NVSWRITE(dischargecurrent)
@@ -410,45 +491,50 @@ void SaveConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(cellminmv)
         MACRO_NVSWRITE(cellmaxmv)
         MACRO_NVSWRITE(kneemv)
-        MACRO_NVSWRITE(sensitivity);
-        MACRO_NVSWRITE(current_value1);
-        MACRO_NVSWRITE(current_value2);
-        MACRO_NVSWRITE(cellmaxspikemv);
-        MACRO_NVSWRITE(chargetemplow);
-        MACRO_NVSWRITE(chargetemphigh);
-        MACRO_NVSWRITE(dischargetemplow);
-        MACRO_NVSWRITE(dischargetemphigh);
-        MACRO_NVSWRITE(stopchargebalance);
-        MACRO_NVSWRITE(socoverride);
-        MACRO_NVSWRITE(socforcelow);
+        MACRO_NVSWRITE(sensitivity)
+        MACRO_NVSWRITE(current_value1)
+        MACRO_NVSWRITE(current_value2)
+        MACRO_NVSWRITE(cellmaxspikemv)
+        MACRO_NVSWRITE(chargetemplow)
+        MACRO_NVSWRITE(chargetemphigh)
+        MACRO_NVSWRITE(dischargetemplow)
+        MACRO_NVSWRITE(dischargetemphigh)
+        MACRO_NVSWRITE(stopchargebalance)
+        MACRO_NVSWRITE(socoverride)
+        MACRO_NVSWRITE(socforcelow)
 
-        MACRO_NVSWRITE(dynamiccharge);
-        MACRO_NVSWRITE(preventcharging);
-        MACRO_NVSWRITE(preventdischarge);
-        MACRO_NVSWRITE(mqtt_enabled);
-        MACRO_NVSWRITE(mqtt_basic_cell_reporting);
-        MACRO_NVSWRITE(influxdb_enabled);
-        MACRO_NVSWRITE(influxdb_loggingFreqSeconds);
+        MACRO_NVSWRITE(dynamiccharge)
+        MACRO_NVSWRITE(preventcharging)
+        MACRO_NVSWRITE(preventdischarge)
+        MACRO_NVSWRITE(mqtt_enabled)
+        MACRO_NVSWRITE(mqtt_basic_cell_reporting)
+        MACRO_NVSWRITE(influxdb_enabled)
+        MACRO_NVSWRITE(influxdb_loggingFreqSeconds)
 
-        MACRO_NVSWRITEBLOB(tileconfig);
+        MACRO_NVSWRITEBLOB(tileconfig)
 
-        MACRO_NVSWRITESTRING(ntpServer);
-        MACRO_NVSWRITESTRING(language);
-        MACRO_NVSWRITESTRING(mqtt_uri);
-        MACRO_NVSWRITESTRING(mqtt_topic);
-        MACRO_NVSWRITESTRING(mqtt_username);
-        MACRO_NVSWRITESTRING(mqtt_password);
-        MACRO_NVSWRITESTRING(influxdb_serverurl);
-        MACRO_NVSWRITESTRING(influxdb_databasebucket);
-        MACRO_NVSWRITESTRING(influxdb_apitoken);
-        MACRO_NVSWRITESTRING(influxdb_orgid);
+        MACRO_NVSWRITESTRING(ntpServer)
+        MACRO_NVSWRITESTRING(language)
+        MACRO_NVSWRITESTRING(mqtt_uri)
+        MACRO_NVSWRITESTRING(mqtt_topic)
+        MACRO_NVSWRITESTRING(mqtt_username)
+        MACRO_NVSWRITESTRING(mqtt_password)
+        MACRO_NVSWRITESTRING(influxdb_serverurl)
+        MACRO_NVSWRITESTRING(influxdb_databasebucket)
+        MACRO_NVSWRITESTRING(influxdb_apitoken)
+        MACRO_NVSWRITESTRING(influxdb_orgid)
 
-        MACRO_NVSWRITE(absorptiontimer);
-        MACRO_NVSWRITE(floatvoltage);
-        MACRO_NVSWRITE(floatvoltagetimer);
-        MACRO_NVSWRITE(stateofchargeresumevalue);
+        MACRO_NVSWRITE(absorptiontimer)
+        MACRO_NVSWRITE(floatvoltage)
+        MACRO_NVSWRITE(floatvoltagetimer)
+        MACRO_NVSWRITE(stateofchargeresumevalue)
 
-        MACRO_NVSWRITESTRING(homeassist_apikey);
+        MACRO_NVSWRITESTRING(homeassist_apikey)
+
+        MACRO_NVSWRITE(soh_total_milliamphour_out)
+        MACRO_NVSWRITE(soh_total_milliamphour_in)
+        MACRO_NVSWRITE(soh_lifetime_battery_cycles)
+        MACRO_NVSWRITE_UINT8(soh_eol_capacity)
 
         MACRO_NVSWRITE_UINT8(controllerNet);
         MACRO_NVSWRITE(controllerID);
@@ -485,102 +571,110 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
     else
     {
         // Open
-        MACRO_NVSREAD(totalNumberOfBanks);
-        MACRO_NVSREAD(totalNumberOfSeriesModules);
-        MACRO_NVSREAD(baudRate);
-        MACRO_NVSREAD(interpacketgap);
 
-        MACRO_NVSREADBLOB(rulevalue);
-        MACRO_NVSREADBLOB(rulehysteresis);
-        MACRO_NVSREADBLOB(rulerelaystate);
-        MACRO_NVSREADBLOB(rulerelaydefault);
-        MACRO_NVSREADBLOB(relaytype);
+        MACRO_NVSREAD(totalNumberOfBanks)
+        MACRO_NVSREAD(totalNumberOfSeriesModules)
+        MACRO_NVSREAD(baudRate)
+        MACRO_NVSREAD(interpacketgap)
 
-        MACRO_NVSREAD(graph_voltagehigh);
-        MACRO_NVSREAD(graph_voltagelow);
-        MACRO_NVSREAD(BypassOverTempShutdown);
-        MACRO_NVSREAD(BypassThresholdmV);
-        MACRO_NVSREAD(timeZone);
-        MACRO_NVSREAD(minutesTimeZone);
-        MACRO_NVSREAD(daylight);
-        MACRO_NVSREAD(loggingEnabled);
-        MACRO_NVSREAD(loggingFrequencySeconds);
+        MACRO_NVSREADBLOB(rulevalue)
+        MACRO_NVSREADBLOB(rulehysteresis)
+        MACRO_NVSREADBLOB(rulerelaystate)
+        MACRO_NVSREADBLOB(rulerelaydefault)
+        MACRO_NVSREADBLOB(relaytype)
 
-        MACRO_NVSREAD(currentMonitoringEnabled);
-        MACRO_NVSREAD(currentMonitoringModBusAddress);
-        MACRO_NVSREAD_UINT8(currentMonitoringDevice);
+        MACRO_NVSREAD(graph_voltagehigh)
+        MACRO_NVSREAD(graph_voltagelow)
+        MACRO_NVSREAD(BypassOverTempShutdown)
+        MACRO_NVSREAD(BypassThresholdmV)
+        MACRO_NVSREAD(timeZone)
+        MACRO_NVSREAD(minutesTimeZone)
+        MACRO_NVSREAD(daylight)
+        MACRO_NVSREAD(loggingEnabled)
+        MACRO_NVSREAD(loggingFrequencySeconds)
 
-        MACRO_NVSREAD(currentMonitoring_shuntmv);
-        MACRO_NVSREAD(currentMonitoring_shuntmaxcur);
-        MACRO_NVSREAD(currentMonitoring_batterycapacity);
-        MACRO_NVSREAD(currentMonitoring_fullchargevolt);
-        MACRO_NVSREAD(currentMonitoring_tailcurrent);
-        MACRO_NVSREAD(currentMonitoring_chargeefficiency);
-        MACRO_NVSREAD(currentMonitoring_shuntcal);
-        MACRO_NVSREAD(currentMonitoring_temperaturelimit);
-        MACRO_NVSREAD(currentMonitoring_overvoltagelimit);
-        MACRO_NVSREAD(currentMonitoring_undervoltagelimit);
-        MACRO_NVSREAD(currentMonitoring_overcurrentlimit);
-        MACRO_NVSREAD(currentMonitoring_undercurrentlimit);
-        MACRO_NVSREAD(currentMonitoring_overpowerlimit);
-        MACRO_NVSREAD(currentMonitoring_shunttempcoefficient);
-        MACRO_NVSREAD(currentMonitoring_tempcompenabled);
+        MACRO_NVSREAD(currentMonitoringEnabled)
+        MACRO_NVSREAD(currentMonitoringModBusAddress)
+        MACRO_NVSREAD_UINT8(currentMonitoringDevice)
 
-        MACRO_NVSREAD(rs485baudrate);
-        MACRO_NVSREAD_UINT8(rs485databits);
-        MACRO_NVSREAD_UINT8(rs485parity);
-        MACRO_NVSREAD_UINT8(rs485stopbits);
-        MACRO_NVSREAD_UINT8(canbusprotocol);
-        MACRO_NVSREAD_UINT8(canbusinverter);
-        MACRO_NVSREAD(canbusbaud);
+        MACRO_NVSREAD(currentMonitoring_shuntmv)
+        MACRO_NVSREAD(currentMonitoring_shuntmaxcur)
+        MACRO_NVSREAD(currentMonitoring_batterycapacity)
+        MACRO_NVSREAD(currentMonitoring_fullchargevolt)
+        MACRO_NVSREAD(currentMonitoring_tailcurrent)
+        MACRO_NVSREAD(currentMonitoring_chargeefficiency)
+        MACRO_NVSREAD(currentMonitoring_shuntcal)
+        MACRO_NVSREAD(currentMonitoring_temperaturelimit)
+        MACRO_NVSREAD(currentMonitoring_overvoltagelimit)
+        MACRO_NVSREAD(currentMonitoring_undervoltagelimit)
+        MACRO_NVSREAD(currentMonitoring_overcurrentlimit)
+        MACRO_NVSREAD(currentMonitoring_undercurrentlimit)
+        MACRO_NVSREAD(currentMonitoring_overpowerlimit)
+        MACRO_NVSREAD(currentMonitoring_shunttempcoefficient)
+        MACRO_NVSREAD(currentMonitoring_tempcompenabled)
+
+        MACRO_NVSREAD(rs485baudrate)
+        MACRO_NVSREAD_UINT8(rs485databits)
+        MACRO_NVSREAD_UINT8(rs485parity)
+        MACRO_NVSREAD_UINT8(rs485stopbits)
+        MACRO_NVSREAD_UINT8(protocol)
+        MACRO_NVSREAD_UINT8(canbusinverter)
+        MACRO_NVSREAD(canbusbaud)
+
         MACRO_NVSREAD_UINT8(canbus_equipment_addr)
-        MACRO_NVSREAD(nominalbatcap);
-        MACRO_NVSREAD(chargevolt);
-        MACRO_NVSREAD(chargecurrent);
-        MACRO_NVSREAD(dischargecurrent);
-        MACRO_NVSREAD(dischargevolt);
-        MACRO_NVSREAD(cellminmv);
-        MACRO_NVSREAD(cellmaxmv);
-        MACRO_NVSREAD(kneemv);
-        MACRO_NVSREAD(sensitivity);
-        MACRO_NVSREAD(current_value1);
-        MACRO_NVSREAD(current_value2);
-        MACRO_NVSREAD(cellmaxspikemv);
-        MACRO_NVSREAD(chargetemplow);
-        MACRO_NVSREAD(chargetemphigh);
-        MACRO_NVSREAD(dischargetemplow);
-        MACRO_NVSREAD(dischargetemphigh);
-        MACRO_NVSREAD(stopchargebalance);
-        MACRO_NVSREAD(socoverride);
-        MACRO_NVSREAD(socforcelow);
+        MACRO_NVSREAD(nominalbatcap)
+        MACRO_NVSREAD(chargevolt)
+        MACRO_NVSREAD(chargecurrent)
+        MACRO_NVSREAD(dischargecurrent)
+        MACRO_NVSREAD(dischargevolt)
+        MACRO_NVSREAD(cellminmv)
+        MACRO_NVSREAD(cellmaxmv)
+        MACRO_NVSREAD(kneemv)
+        MACRO_NVSREAD(sensitivity)
+        MACRO_NVSREAD(current_value1)
+        MACRO_NVSREAD(current_value2)
+        MACRO_NVSREAD(cellmaxspikemv)
+        MACRO_NVSREAD(chargetemplow)
+        MACRO_NVSREAD(chargetemphigh)
+        MACRO_NVSREAD(dischargetemplow)
+        MACRO_NVSREAD(dischargetemphigh)
+        MACRO_NVSREAD(stopchargebalance)
+        MACRO_NVSREAD(socoverride)
+        MACRO_NVSREAD(socforcelow)
 
-        MACRO_NVSREAD(dynamiccharge);
-        MACRO_NVSREAD(preventcharging);
-        MACRO_NVSREAD(preventdischarge);
+        MACRO_NVSREAD(dynamiccharge)
+        MACRO_NVSREAD(preventcharging)
+        MACRO_NVSREAD(preventdischarge)
 
-        MACRO_NVSREAD(mqtt_enabled);
-        MACRO_NVSREAD(mqtt_basic_cell_reporting);
-        MACRO_NVSREAD(influxdb_enabled);
-        MACRO_NVSREAD(influxdb_loggingFreqSeconds);
+        MACRO_NVSREAD(mqtt_enabled)
+        MACRO_NVSREAD(mqtt_basic_cell_reporting)
+        MACRO_NVSREAD(influxdb_enabled)
+        MACRO_NVSREAD(influxdb_loggingFreqSeconds)
 
-        MACRO_NVSREADBLOB(tileconfig);
+        MACRO_NVSREADBLOB(tileconfig)
 
-        MACRO_NVSREADSTRING(ntpServer);
-        MACRO_NVSREADSTRING(language);
-        MACRO_NVSREADSTRING(mqtt_uri);
-        MACRO_NVSREADSTRING(mqtt_topic);
-        MACRO_NVSREADSTRING(mqtt_username);
-        MACRO_NVSREADSTRING(mqtt_password);
-        MACRO_NVSREADSTRING(influxdb_serverurl);
-        MACRO_NVSREADSTRING(influxdb_databasebucket);
-        MACRO_NVSREADSTRING(influxdb_apitoken);
-        MACRO_NVSREADSTRING(influxdb_orgid);
+        MACRO_NVSREADSTRING(ntpServer)
+        MACRO_NVSREADSTRING(language)
+        MACRO_NVSREADSTRING(mqtt_uri)
+        MACRO_NVSREADSTRING(mqtt_topic)
+        MACRO_NVSREADSTRING(mqtt_username)
+        MACRO_NVSREADSTRING(mqtt_password)
+        MACRO_NVSREADSTRING(influxdb_serverurl)
+        MACRO_NVSREADSTRING(influxdb_databasebucket)
+        MACRO_NVSREADSTRING(influxdb_apitoken)
+        MACRO_NVSREADSTRING(influxdb_orgid)
 
-        MACRO_NVSREAD(absorptiontimer);
-        MACRO_NVSREAD(floatvoltage);
-        MACRO_NVSREAD(floatvoltagetimer);
-        MACRO_NVSREAD_UINT8(stateofchargeresumevalue);
+        MACRO_NVSREAD(absorptiontimer)
+        MACRO_NVSREAD(floatvoltage)
+        MACRO_NVSREAD(floatvoltagetimer)
+        MACRO_NVSREAD_UINT8(stateofchargeresumevalue)
 
+        MACRO_NVSREADSTRING(homeassist_apikey)
+
+        MACRO_NVSREAD(soh_total_milliamphour_out)
+        MACRO_NVSREAD(soh_total_milliamphour_in)
+        MACRO_NVSREAD(soh_lifetime_battery_cycles)
+        MACRO_NVSREAD_UINT8(soh_eol_capacity)
         MACRO_NVSREADSTRING(homeassist_apikey);
 
         MACRO_NVSREAD_UINT8(controllerNet);
@@ -622,11 +716,11 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->mqtt_enabled = false;
     _myset->mqtt_basic_cell_reporting = false;
 
-    _myset->canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+    _myset->protocol = ProtocolEmulation::EMULATION_DISABLED;
     _myset->canbusinverter = CanBusInverter::INVERTER_GENERIC;
 
     _myset->canbus_equipment_addr = 0;
-    _myset->canbusbaud=500;
+    _myset->canbusbaud = 500;
     _myset->nominalbatcap = 280;    // Scale 1
     _myset->chargevolt = 565;       // Scale 0.1
     _myset->chargecurrent = 650;    // Scale 0.1
@@ -774,6 +868,13 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->floatvoltagetimer = 6 * 60;
     // Once battery SoC drops below this value, resume normal charging operation
     _myset->stateofchargeresumevalue = 96;
+
+    // State of health
+    _myset->soh_total_milliamphour_out = 0;
+    _myset->soh_total_milliamphour_in = 0;
+    _myset->soh_lifetime_battery_cycles = 6000;
+    _myset->soh_eol_capacity = 80;
+    _myset->soh_percent = 100.0F;
 }
 
 /// @brief Save WIFI settings into FLASH NVS
@@ -867,12 +968,12 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
         settings->baudRate = defaults.baudRate;
     }
 
-    if (settings->graph_voltagehigh > 5000 || settings->graph_voltagehigh < 2000 || settings->graph_voltagehigh < 0)
+    if (settings->graph_voltagehigh > 5000 || settings->graph_voltagehigh < 2000)
     {
         settings->graph_voltagehigh = defaults.graph_voltagehigh;
     }
 
-    if (settings->graph_voltagelow > settings->graph_voltagehigh || settings->graph_voltagelow < 0)
+    if (settings->graph_voltagelow > settings->graph_voltagehigh)
     {
         settings->graph_voltagelow = 0;
     }
@@ -991,9 +1092,9 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
 }
 
 // Builds up a JSON document which mirrors the parameters inside "diybms_eeprom_settings"
-void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settings *settings)
+void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *settings)
 {
-    JsonObject root = doc->createNestedObject("diybms_settings");
+    JsonObject root = doc["diybms_settings"].to<JsonObject>();
 
     root[totalNumberOfBanks_JSONKEY] = settings->totalNumberOfBanks;
     root[totalNumberOfSeriesModules_JSONKEY] = settings->totalNumberOfSeriesModules;
@@ -1036,13 +1137,13 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[rs485stopbits_JSONKEY] = settings->rs485stopbits;
     root[language_JSONKEY] = settings->language;
 
-    root[homeassist_apikey_JSONKEY]=settings->homeassist_apikey;
+    root[homeassist_apikey_JSONKEY] = settings->homeassist_apikey;
 
     root[controllerNet_JSONKEY] = settings->controllerNet;
     root[controllerID_JSONKEY] = settings->controllerID;
     root[highAvailable_JSONKEY] = settings->highAvailable;
     
-    JsonObject mqtt = root.createNestedObject("mqtt");
+    JsonObject mqtt = root["mqtt"].to<JsonObject>();
     mqtt[mqtt_enabled_JSONKEY] = settings->mqtt_enabled;
     mqtt[mqtt_basic_cell_reporting_JSONKEY] = settings->mqtt_basic_cell_reporting;
     mqtt[mqtt_uri_JSONKEY] = settings->mqtt_uri;
@@ -1050,7 +1151,7 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     mqtt[mqtt_username_JSONKEY] = settings->mqtt_username;
     mqtt[mqtt_password_JSONKEY] = settings->mqtt_password;
 
-    JsonObject influxdb = root.createNestedObject("influxdb");
+    JsonObject influxdb = root["influxdb"].to<JsonObject>();
     influxdb[influxdb_enabled_JSONKEY] = settings->influxdb_enabled;
     influxdb[influxdb_apitoken_JSONKEY] = settings->influxdb_apitoken;
     influxdb[influxdb_databasebucket_JSONKEY] = settings->influxdb_databasebucket;
@@ -1058,16 +1159,18 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     influxdb[influxdb_serverurl_JSONKEY] = settings->influxdb_serverurl;
     influxdb[influxdb_loggingFreqSeconds_JSONKEY] = settings->influxdb_loggingFreqSeconds;
 
-    JsonObject outputs = root.createNestedObject("outputs");
-    JsonArray d = outputs.createNestedArray("default");
-    JsonArray t = outputs.createNestedArray("type");
+    JsonObject outputs = root["outputs"].to<JsonObject>();
+    JsonArray d = outputs["default"].to<JsonArray>();
+    ;
+    JsonArray t = outputs["type"].to<JsonArray>();
+    ;
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
         d.add(settings->rulerelaydefault[i]);
         t.add(settings->relaytype[i]);
     }
 
-    JsonObject rules = root.createNestedObject("rules");
+    JsonObject rules = root["rules"].to<JsonObject>();
     for (uint8_t rr = 0; rr < RELAY_RULES; rr++)
     {
         // This is a default "catch all"
@@ -1084,22 +1187,23 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
             ESP_LOGE(TAG, "Loop outside bounds of MAXIMUM_RuleNumber");
         }
 
-        JsonObject state = rules.createNestedObject(elementName);
+        JsonObject state = rules[elementName].to<JsonObject>();
 
         state["value"] = settings->rulevalue[rr];
         state["hysteresis"] = settings->rulehysteresis[rr];
 
-        JsonArray relaystate = state.createNestedArray("state");
+        JsonArray relaystate = state["state"].to<JsonArray>();
+        ;
         for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
         {
             relaystate.add(settings->rulerelaystate[rr][rt]);
         }
     } // end for
 
-    root[canbusprotocol_JSONKEY] = (uint8_t)settings->canbusprotocol;
+    root[protocol_JSONKEY] = (uint8_t)settings->protocol;
     root[canbusinverter_JSONKEY] = (uint8_t)settings->canbusinverter;
     root[canbusbaud_JSONKEY] = settings->canbusbaud;
-    root[canbus_equipment_addr_JSONKEY]=settings->canbus_equipment_addr;
+    root[canbus_equipment_addr_JSONKEY] = settings->canbus_equipment_addr;
     root[nominalbatcap_JSONKEY] = settings->nominalbatcap;
 
     root[chargevolt_JSONKEY] = settings->chargevolt;
@@ -1131,16 +1235,22 @@ void GenerateSettingsJSONDocument(DynamicJsonDocument *doc, diybms_eeprom_settin
     root[floatvoltagetimer_JSONKEY] = settings->floatvoltagetimer;
     root[stateofchargeresumevalue_JSONKEY] = settings->stateofchargeresumevalue;
 
-    JsonArray tv = root.createNestedArray("tilevisibility");
+    JsonArray tv = root["tilevisibility"].to<JsonArray>();
     for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
     {
         tv.add(settings->tileconfig[i]);
     }
 
     // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
+
+    root[soh_total_milliamphour_out_JSONKEY] = settings->soh_total_milliamphour_out;
+    root[soh_total_milliamphour_in_JSONKEY] = settings->soh_total_milliamphour_in;
+    root[soh_lifetime_battery_cycles_JSONKEY] = settings->soh_lifetime_battery_cycles;
+    root[soh_eol_capacity_JSONKEY] = settings->soh_eol_capacity;
+
 }
 
-void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
+void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
 {
     // Use defaults to populate the settings, just in case we are missing values from the JSON
     DefaultConfiguration(settings);
@@ -1203,10 +1313,10 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
 
     strncpy(settings->language, root[language_JSONKEY].as<String>().c_str(), sizeof(settings->language));
 
-    settings->canbusprotocol = (CanBusProtocolEmulation)root[canbusprotocol_JSONKEY];
+    settings->protocol = (ProtocolEmulation)root[protocol_JSONKEY];
     settings->canbusinverter = (CanBusInverter)root[canbusinverter_JSONKEY];
     settings->canbusbaud = root[canbusbaud_JSONKEY];
-    settings->canbus_equipment_addr=root[canbus_equipment_addr_JSONKEY];
+    settings->canbus_equipment_addr = root[canbus_equipment_addr_JSONKEY];
     settings->nominalbatcap = root[nominalbatcap_JSONKEY];
     settings->chargevolt = root[chargevolt_JSONKEY];
     settings->chargecurrent = root[chargecurrent_JSONKEY];
@@ -1230,10 +1340,16 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     settings->current_value1 = root[current_value1_JSONKEY];
     settings->current_value2 = root[current_value2_JSONKEY];
 
-    settings->absorptiontimer=root[absorptiontimer_JSONKEY];
-    settings->floatvoltage=root[floatvoltage_JSONKEY];
-    settings->floatvoltagetimer=root[floatvoltagetimer_JSONKEY];
-    settings->stateofchargeresumevalue=root[stateofchargeresumevalue_JSONKEY];
+    settings->absorptiontimer = root[absorptiontimer_JSONKEY];
+    settings->floatvoltage = root[floatvoltage_JSONKEY];
+    settings->floatvoltagetimer = root[floatvoltagetimer_JSONKEY];
+    settings->stateofchargeresumevalue = root[stateofchargeresumevalue_JSONKEY];
+
+    settings->soh_total_milliamphour_out = root[soh_total_milliamphour_out_JSONKEY];
+    settings->soh_total_milliamphour_in = root[soh_total_milliamphour_in_JSONKEY];
+    settings->soh_lifetime_battery_cycles = root[soh_lifetime_battery_cycles_JSONKEY];
+    settings->soh_eol_capacity=root[soh_eol_capacity_JSONKEY];
+
 
     strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
 
@@ -1241,7 +1357,7 @@ void JSONToSettings(DynamicJsonDocument &doc, diybms_eeprom_settings *settings)
     if (!mqtt.isNull())
     {
         settings->mqtt_enabled = mqtt[mqtt_enabled_JSONKEY];
-        settings->mqtt_basic_cell_reporting=mqtt[mqtt_basic_cell_reporting_JSONKEY];
+        settings->mqtt_basic_cell_reporting = mqtt[mqtt_basic_cell_reporting_JSONKEY];
         strncpy(settings->mqtt_uri, mqtt[mqtt_uri_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_uri));
         strncpy(settings->mqtt_topic, mqtt[mqtt_topic_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_topic));
         strncpy(settings->mqtt_username, mqtt[mqtt_username_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_username));

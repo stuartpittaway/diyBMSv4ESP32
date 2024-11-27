@@ -416,7 +416,7 @@ void  victron_message_351()
 void victron_message_355()
 {
     CANframe candata;
-    candata.dlc = 2;
+    candata.dlc = 4;
     candata.identifier = 0x355;
     memset(&candata.data, 0, sizeof(candata.data));
 
@@ -427,9 +427,11 @@ void victron_message_355()
 
     else
     {     //SOC (weighted average based on nominal Ah of each controller)
+          //SOH (display the minmimum health value of all online packs which could be more useful than an averaged health value)
         uint16_t Total_Ah = 0;
         uint32_t Total_Weighted_Ah = 0;
         uint16_t Weighted_SOC = 0;
+        uint16_t SOH = *(uint16_t*)&CAN.data[4][mysettings.controllerID][0];  //start with this controllers SOH
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
@@ -437,6 +439,12 @@ void victron_message_355()
             {
             Total_Ah = Total_Ah + *(uint16_t*)&CAN.data[5][i][4];
             Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&CAN.data[4][i][0]) * (*(uint16_t*)&CAN.data[5][i][4]);  //SOC x Online capacity
+
+            // use minimum
+            if (*(uint16_t*)&CAN.data[4][i][2] < SOH)
+            {
+                SOH = *(uint16_t*)&CAN.data[4][i][2];
+            }
             }
 
         }
@@ -447,7 +455,7 @@ void victron_message_355()
         }
 
         memcpy(&candata.data[0], &Weighted_SOC, sizeof(Weighted_SOC));
-
+        memcpy(&candata.data[2], &SOH, sizeof(SOH));
     }
   
             // send to tx routine , block 50ms 

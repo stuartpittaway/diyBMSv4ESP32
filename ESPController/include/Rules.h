@@ -150,14 +150,7 @@ public:
     /// @brief Set a rule status
     /// @param r Rule to change
     /// @param value True = rule is active
-    void setRuleStatus(Rule r, bool value)
-    {
-        if (ruleOutcome(r) != value)
-        {
-            rule_outcome.at(r) = value;
-            ESP_LOGI(TAG, "Rule %s state=%u", RuleTextDescription.at(r).c_str(), (uint8_t)value);
-        }
-    }
+    void setRuleStatus(Rule r, bool value);
 
     // True if at least 1 module has an external temp sensor fitted
     bool moduleHasExternalTempSensor;
@@ -180,13 +173,7 @@ public:
     {
         return chargemode;
     }
-    void setChargingMode(ChargingMode newMode)
-    {
-        if (chargemode == newMode)
-            return;
-        ESP_LOGI(TAG, "Charging mode changed %u", newMode);
-        chargemode = newMode;
-    }
+    void setChargingMode(ChargingMode newMode);
 
     // Number of modules which have not yet reported back to the controller
     uint8_t invalidModuleCount;

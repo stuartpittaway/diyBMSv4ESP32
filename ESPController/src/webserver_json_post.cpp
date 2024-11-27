@@ -207,8 +207,8 @@ esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req, bool urlEncode
 // Saves all the BMS controller settings to a JSON file in FLASH
 esp_err_t post_saveconfigurationtoflash_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    DynamicJsonDocument doc(5000);
-    GenerateSettingsJSONDocument(&doc, &mysettings);
+    JsonDocument doc;
+    GenerateSettingsJSONDocument(doc, &mysettings);
 
     struct tm timeinfo;
 
@@ -491,14 +491,14 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     // If a user updates the charge config, reset the charging mode as well
     rules.setChargingMode(ChargingMode::standard);
 
-    if (GetKeyValue(httpbuf, "canbusprotocol", &temp, urlEncoded))
+    if (GetKeyValue(httpbuf, "protocol", &temp, urlEncoded))
     {
-        mysettings.canbusprotocol = (CanBusProtocolEmulation)temp;
+        mysettings.protocol = (ProtocolEmulation)temp;
     }
     else
     {
         // Field not found/invalid, so disable
-        mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+        mysettings.protocol = ProtocolEmulation::EMULATION_DISABLED;
         mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
         mysettings.canbusbaud = 500;
     }
@@ -582,7 +582,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     GetKeyValue(httpbuf, "floattimer", &mysettings.floatvoltagetimer, urlEncoded);
     GetKeyValue(httpbuf, "socresume", &mysettings.stateofchargeresumevalue, urlEncoded);
 
-    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+    if (mysettings.protocol == ProtocolEmulation::EMULATION_DISABLED)
     {
         // Reset CAN counters if its disabled.
         canbus_messages_received = 0;
@@ -592,12 +592,32 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
 
     // Default GENERIC inverter for VICTRON integration
-    if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
+    if (mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON)
     {
         mysettings.canbusinverter = CanBusInverter::INVERTER_GENERIC;
     }
 
+    GetKeyValue(httpbuf, "expected_cycles", &mysettings.soh_lifetime_battery_cycles, urlEncoded);
+    GetKeyValue(httpbuf, "eol_capacity", &mysettings.soh_eol_capacity, urlEncoded);
+
+    if (GetKeyValue(httpbuf, "total_ah_discharge", &mysettings.soh_total_milliamphour_out, urlEncoded))
+    {
+        mysettings.soh_total_milliamphour_out = mysettings.soh_total_milliamphour_out * 1000;
+    }
+    if (GetKeyValue(httpbuf, "total_ah_charge", &mysettings.soh_total_milliamphour_in, urlEncoded))
+    {
+        mysettings.soh_total_milliamphour_in = mysettings.soh_total_milliamphour_in * 1000;
+    }
+
+    CalculateStateOfHealth(&mysettings);
+
     saveConfiguration();
+
+   // Notify the RS458 RX task that might be in bocking state (after enabling the RS485_PYLONTECH emulation)
+   if (rs485_rx_task_handle != NULL)
+   {
+     xTaskNotify(rs485_rx_task_handle, 0x00, eNotifyAction::eNoAction);
+   }
 
     return SendSuccess(req);
 }
@@ -662,9 +682,9 @@ esp_err_t post_savecmrelay_json_handler(httpd_req_t *req, bool urlEncoded)
 }
 
 /// @brief Generates new home assistant API key and stored into flash
-/// @param req 
-/// @param urlEncoded 
-/// @return 
+/// @param req
+/// @param urlEncoded
+/// @return
 esp_err_t post_homeassistant_apikey_json_handler(httpd_req_t *req, bool urlEncoded)
 {
     char buffer[32];
@@ -875,7 +895,7 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
         return SendFailure(req);
     }
 
-    DynamicJsonDocument doc(512);
+    JsonDocument doc;
 
     int bufferused = 0;
 
@@ -894,7 +914,7 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 
     if (LittleFS.exists(manifestfilename))
     {
-        DynamicJsonDocument jsonmanifest(3000);
+        JsonDocument jsonmanifest;
         File file = LittleFS.open(manifestfilename);
         DeserializationError error = deserializeJson(jsonmanifest, file);
         if (error != DeserializationError::Ok)
@@ -1082,6 +1102,8 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
 
 esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
+    JsonDocument doc;
+
     bool success = false;
 
     if (_avrsettings.programmingModeEnabled)
@@ -1100,9 +1122,7 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     }
 
     uint16_t flashram = 0;
-    if (GetKeyValue(httpbuf, "flashram", &flashram, urlEncoded))
-    {
-    }
+    GetKeyValue(httpbuf, "flashram", &flashram, urlEncoded);
 
     if (flashram == 0)
     {
@@ -1116,9 +1136,6 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
             if (SD.exists(filename))
             {
                 ESP_LOGI(TAG, "Restore SD config from %s", filename);
-
-                // Needs to be large enough to de-serialize the JSON file
-                DynamicJsonDocument doc(5000);
 
                 File file = SD.open(filename, "r");
 
@@ -1161,9 +1178,6 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
         if (LittleFS.exists(filename))
         {
             ESP_LOGI(TAG, "Restore LittleFS config from %s", filename);
-
-            // Needs to be large enough to de-serialize the JSON file
-            DynamicJsonDocument doc(5500);
 
             File file = LittleFS.open(filename, "r");
 

@@ -106,23 +106,30 @@ void pylon_message_355()
     candata.identifier = 0x355;
     memset(&candata.data, 0, sizeof(candata.data));
 
-    uint16_t Total_Ah = 0;
-    uint32_t Total_Weighted_Ah = 0;
-    uint16_t Weighted_SOC = 0;
-
     if (mysettings.controllerNet == 1)  //copy over local values for SOC
     {
-        memcpy(&candata.data, &CAN.data[4][mysettings.controllerID][0], sizeof(uint16_t));
+        memcpy(&candata.data, &CAN.data[4][mysettings.controllerID][0], candata.dlc);
     }
     else
-    {     //SOC (weighted average based on nominal Ah of each controller)
-
+    {   //SOC (weighted average based on nominal Ah of each controller)
+        //SOH (display the minmimum health value of all online packs which could be more useful than an averaged health value)
+        uint16_t Total_Ah = 0;
+        uint32_t Total_Weighted_Ah = 0;
+        uint16_t Weighted_SOC = 0;
+        uint16_t SOH = *(uint16_t*)&CAN.data[4][mysettings.controllerID][0];  //start with this controllers SOH  
+        
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
             if (CAN.controller_heartbeat(i))
             {
             Total_Ah = Total_Ah + *(uint16_t*)&CAN.data[5][i][4];     //online capacity
             Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&CAN.data[4][i][0]) * (*(uint16_t*)&CAN.data[5][i][4]);  //SOC x Online capacity
+            
+            // use minimum
+            if (*(uint16_t*)&CAN.data[4][i][2] < SOH)
+            {
+                SOH = *(uint16_t*)&CAN.data[4][i][2];
+            }        
             }
 
         }
@@ -132,13 +139,10 @@ void pylon_message_355()
         }
 
         memcpy(&candata.data[0], &Weighted_SOC, sizeof(Weighted_SOC));
+        memcpy(&candata.data[2], &SOH, sizeof(SOH));
 
     }
-
-    uint16_t stateofhealthvalue = 100;
-    memcpy(&candata.data[2], &stateofhealthvalue, sizeof(stateofhealthvalue));
-
-        
+       
         
             ESP_LOGI(TAG, "SOC sent to inverter = %d", Weighted_SOC);  //debug purposes only
             // send to tx routine , block 50ms 
