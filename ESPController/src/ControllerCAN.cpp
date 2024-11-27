@@ -512,7 +512,7 @@ void ControllerCAN::c2c_SOC()      // SOC
     memset(candata.data, 0, sizeof(candata.data));
 
     uint16_t stateofchargevalue;
-    // uint16_t stateofhealthvalue;
+    uint16_t stateofhealthvalue;
     // uint16_t highresolutionsoc;
 
 
@@ -520,11 +520,11 @@ void ControllerCAN::c2c_SOC()      // SOC
   {
 
     stateofchargevalue = rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
-    // 2 SOH value un16 1 %
-    // stateofhealthvalue = 100;
-
-    candata.dlc = 2;                                                    
-    memcpy(&candata.data[0],&stateofchargevalue,sizeof(stateofchargevalue));           
+    stateofhealthvalue = (uint16_t)(trunc(mysettings.soh_percent));
+   
+    candata.dlc = 4;                                                    
+    memcpy(&candata.data[0],&stateofchargevalue,sizeof(stateofchargevalue));  
+    memcpy(&candata.data[2],&stateofchargevalue,sizeof(stateofhealthvalue));          
     candata.identifier = id[4][mysettings.controllerID];                                 
 
     memcpy(&data[4][mysettings.controllerID][0],&candata.data[0],candata.dlc);                   //copy calculated values to array
