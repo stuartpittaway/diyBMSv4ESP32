@@ -40,14 +40,14 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
           ESP_LOGD(TAG,"disconnect call back function called....");
         if (mysettings.controllerNet != 1 && _controller_state == ControllerState::Running)
         {
-          mysettings.canbusprotocol = CanBusProtocolEmulation::CANBUS_DISABLED;
+          mysettings.protocol = ProtocolEmulation::CANBUS_DISABLED;
           ESP_LOGD(TAG,"disconnected canbus");
         }
 }
 //return whether a controller has a valid heartbeat by checking the bitmssgs timestamp array
 bool ControllerCAN::controller_heartbeat(uint8_t controllerAddress)
 {
- if ((esp_timer_get_time() - BITMSGS_TIMESTAMP[controllerAddress]) < (HEARTBEAT_PERIOD*1000))
+ if ((esp_timer_get_time() - DIYBMS_TIMESTAMP[controllerAddress]) < (HEARTBEAT_PERIOD*1000))
   {
     return true;
   }
@@ -58,19 +58,9 @@ void ControllerCAN::clearvalues()
 {
    online_controller_count = 1; 
    master = 0;
-      // Zero Array (traversing out of normal order ( data[q][r][s] ) to include BITMSGS_TIMESTAMP array)
-    for (uint8_t r = 0; r < MAX_NUM_CONTROLLERS; r++)
-    {
-      BITMSGS_TIMESTAMP[r] = 0;
-      for (uint8_t q = 0; q < MAX_CAN_PARAMETERS; q++)
-      {
-        for (uint8_t s = 0; s < TWAI_FRAME_MAX_DLC; s++)
-        {
-          data[q][r][s]= 0;
-        }
-      }
-        
-    }
+      // Zero Data Array 
+    memset(&data, 0, sizeof(data));
+    memset(&DIYBMS_TIMESTAMP, 0, sizeof(DIYBMS_TIMESTAMP));
 }
 
 // check controller network status      0=OK  1=controller offline  2=controller network configuration error
@@ -80,7 +70,7 @@ uint8_t ControllerCAN::controllerNetwork_status()
   uint8_t controller_count = 0; 
   uint8_t addressbitmask = 0;
   uint8_t high_availability = mysettings.highAvailable;
-  uint8_t networked_controllers = 0;
+  uint8_t dvcc_controllers = 0;
 
   for (uint8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
   {
@@ -88,11 +78,15 @@ uint8_t ControllerCAN::controllerNetwork_status()
       {
         controller_count++;
 
+        // how many are DVCC enabled (not isolated)
+        if (!data[2][i][1])
+        {
+          dvcc_controllers++;
+        }
         // checksum for controller address overlap
         addressbitmask &= data[2][i][0]; // this should should never be elevated above 0 or there is an overlap
         
-        // check that local high_availability setting matches the network
-        /*
+        // check that local high_availability setting matches the network  
         if (mysettings.highAvailable != data[2][i][3])
         {
         ESP_LOGE(TAG, "Local 'High Availability' settings do not match with networked ControllerID %d",i);
@@ -104,42 +98,49 @@ uint8_t ControllerCAN::controllerNetwork_status()
         ESP_LOGE(TAG, "Local '# of Networked Controllers' settings do not match with networked ControllerID %d",i);
         returnvalue = 2; 
         }
-        */ 
+        
       }
-
   }
 
   if (addressbitmask != 0)
   {
     ESP_LOGE(TAG, "Controller address conflict");
     returnvalue = 2;
+    online_controller_count = controller_count;
+    DVCC_Controllers = 1; // this is the lowest this can be to avoid divide by zero
+
+    return returnvalue;
   }
 
    // checksum for connected controllers 
-  if (controller_count > mysettings.controllerNet)
+  else if (controller_count > mysettings.controllerNet)
   {
       ESP_LOGE(TAG, "Controller network count discrepancy");
-      returnvalue = 0; // debug change this back to 2
+      returnvalue = 2;
       online_controller_count = controller_count;
+      DVCC_Controllers = 1; // this is the lowest this can be to avoid divide by zero
+
+      return returnvalue;
   }
-  else if (controller_count == 0) // for debug only, this should never happen
+  else if (controller_count < mysettings.controllerNet)
   {
-      ESP_LOGE(TAG, "!ERROR! Online_controller_count = 0");
-      returnvalue = 0; // debug change this back to 2
-      online_controller_count = 1; //force it to one to avoid divide by zero later
-  }
-  else if (controller_count < mysettings.controllerNet && returnvalue !=2)  // don't change a higher level alert to a lower level
-  {
-      returnvalue = 0; // debug change this back to 1
-      online_controller_count = controller_count;
       ESP_LOGE(TAG, "A controller is offline. #Online Controllers=%d/%d",online_controller_count,mysettings.controllerNet);
-  }
-  else  //normal operation
-  {
+      returnvalue = 1; 
       online_controller_count = controller_count;
+      DVCC_Controllers = dvcc_controllers; 
+
+      return returnvalue;
   }
 
-  return returnvalue;
+  else
+  {
+      returnvalue = 0; 
+      online_controller_count = controller_count;
+      DVCC_Controllers = dvcc_controllers; 
+
+      return returnvalue;
+  }
+
 
  }
 
@@ -197,7 +198,7 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
       int16_t default_charge_current_limit;   
       int16_t default_discharge_current_limit; 
 
-      if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON)
+      if (mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON)
       {
         // Don't use zero for voltage - this indicates to Victron an over voltage situation, and Victron gear attempts to dump
         // the whole battery contents!  (feedback from end users)
@@ -205,7 +206,7 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
         default_charge_current_limit = 0;    
         default_discharge_current_limit = 0; 
       }
-      else if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.canbusinverter == CanBusInverter::INVERTER_DEYE))
+      else if ((mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.canbusinverter == CanBusInverter::INVERTER_DEYE))
       {
         // FOR DEYE INVERTERS APPLY DIFFERENT LOGIC TO PREVENT "W31" ERRORS
         // ISSUE #216
@@ -213,7 +214,7 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
         default_charge_current_limit = 0;
         default_discharge_current_limit = 0;
       }
-      else if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.canbusinverter == CanBusInverter::INVERTER_GENERIC))
+      else if ((mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.canbusinverter == CanBusInverter::INVERTER_GENERIC))
       { // If we pass ZERO's to SOFAR inverter it appears to ignore them
         // so send 0.1V and 0.1Amps instead to indicate "stop"
         default_charge_voltage = 1;         // 0.1V
@@ -435,6 +436,7 @@ void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
   candata.data[0] = 0x1 << mysettings.controllerID;   
  
 // byte 1 - Is Charge/Discharge Allowed?
+// This will work out to be zero (B00000000) if pack is in full Isolation
   candata.data[1] = 0;
   
 
@@ -450,8 +452,8 @@ void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
 
 
 
-// byte 2 - are NetworkedControllerRules active?
-  candata.data[2] = rules.NetworkedControllerRules(&mysettings, &error_debounce_timer);
+// byte 2 - Is DVCC allowed?
+
 
 // byte 3 - HighAvailability setting
   candata.data[3] = mysettings.highAvailable;

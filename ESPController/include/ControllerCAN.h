@@ -11,7 +11,16 @@
 class ControllerCAN
 {
 public:
+	ControllerCAN()
+	{
+		master = 0;
+		online_controller_count = 0;
 		
+		memset(&data, 0, sizeof(data));
+		memset(&DIYBMS_TIMESTAMP, 0, sizeof(DIYBMS_TIMESTAMP));
+	}
+
+
 	void c2c_DVCC();
 	void c2c_ALARMS();
 	void c2c_DIYBMS_MSGS();
@@ -38,10 +47,13 @@ public:
 	uint8_t data[MAX_CAN_PARAMETERS][MAX_NUM_CONTROLLERS][TWAI_FRAME_MAX_DLC];
 
 	// storage array for BITMSGS timestamp (microseconds)
-	int64_t BITMSGS_TIMESTAMP[MAX_NUM_CONTROLLERS];
+	int64_t DIYBMS_TIMESTAMP[MAX_NUM_CONTROLLERS];
 
 	// # of controllers currently online
 	uint8_t online_controller_count;
+	
+	// Get the # of controllers participating in DVCC
+	uint8_t DVCC_count() const {return DVCC_controllers;}
 
 	// returns the heartbeat status of a networked controller
 	bool controller_heartbeat(uint8_t controllerAddress);
@@ -51,6 +63,9 @@ public:
 
 private:
 	void SetBankAndModuleText(char* buffer, uint8_t cellid);
+
+	// # of controllers online and not Isolated (on the DC bus and free to participate in DVCC)
+	uint8_t DVCC_Controllers;
 };
 
 

@@ -2655,7 +2655,7 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
 {
     for (;;)
     {
-        if (!(mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON || mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON))
+        if (!(mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON || mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON))
         {
           // no need to run this task for protocols that don't support aggregation
           vTaskDelay(5000);
@@ -2832,30 +2832,23 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
         //wait until controller is running so we don't send bad info/alarms during ESP startup    
     if (_controller_state == ControllerState::Running)
     {
-        // check for internal BMS errors
-        //rules.NetworkedControllerRules(&mysettings, &error_debounce_timer);
-        
-        xTimerStart(error_debounce_timer, pdMS_TO_TICKS(5));
-        if (xTimerIsTimerActive(error_debounce_timer))
-        {
-          ESP_LOGD(TAG, "timer started");
-        }
-        if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
-        {       
-          CAN.BITMSGS_TIMESTAMP[mysettings.controllerID] = esp_timer_get_time(); //record a timestamp for this controller to be used for heartbeat polling
-          CAN.who_is_master(); // determine who is currently the master controller
-        
+        if (mysettings.protocol != ProtocolEmulation::CANBUS_DISABLED)
+        {              
           //CANBUS math and Intra-controller CAN traffic
           CAN.c2c_DVCC();
           CAN.c2c_ALARMS();
           CAN.c2c_DIYBMS_MSGS();
           CAN.c2c_MODULES();
 
-        //snapshot of the controller network
-        statusreturn = CAN.controllerNetwork_status();
+          //record a timestamp for this controller to be used for heartbeat polling
+          CAN.DIYBMS_TIMESTAMP[mysettings.controllerID] = esp_timer_get_time(); 
+          // determine who is currently the master controller
+          CAN.who_is_master(); 
+          //snapshot of the controller network
+          statusreturn = CAN.controllerNetwork_status();
 
         // Reporting via VICTRON protocol
-        if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID == CAN.master)) 
+        if ((mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID == CAN.master)) 
         {
             if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
             {
@@ -2866,7 +2859,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
         }
 
         // Reporting via PYLONTECH protocol
-        if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID == CAN.master))
+        if ((mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID == CAN.master))
         {
             if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
             {
@@ -2901,7 +2894,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
   if (_controller_state == ControllerState::Running)
   {
 
-      if (mysettings.canbusprotocol != CanBusProtocolEmulation::CANBUS_DISABLED)
+      if (mysettings.protocol != ProtocolEmulation::CANBUS_DISABLED)
       {
       // CANBUS math and intra-controller CAN traffic
       CAN.c2c_SOC();
@@ -2912,7 +2905,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
       CAN.c2c_VIT();
 
       // Reporting via VICTRON protocol
-      if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID == CAN.master))
+      if ((mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID == CAN.master))
       {
         victron_message_370_371_35e();
         victron_message_35f();
@@ -2923,7 +2916,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
       }
 
       // Reporting via PYLONTECH protocol
-      if ((mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID == CAN.master))
+      if ((mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID == CAN.master))
       {
         pylon_message_355();
         pylon_message_356();
@@ -2939,7 +2932,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
   for (;;)
   {
         match_found = false;
-        while (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_DISABLED)
+        while (mysettings.protocol == ProtocolEmulation::CANBUS_DISABLED)
         {
           // Canbus is disbled, sleep until this changes....
           vTaskDelay(pdMS_TO_TICKS(2000));
@@ -2956,7 +2949,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
             if (!(message.flags & TWAI_MSG_FLAG_RTR))   // we do not answer to Remote-Transmission-Requests
             {
       //        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
-              if (mysettings.canbusprotocol == CanBusProtocolEmulation::CANBUS_PYLONFORCEH2 )
+              if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2 )
               {
                 pylonforce_handle_rx(&message);
               }
@@ -2977,8 +2970,8 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
                               // We will timestamp any BITMSGS frames for use as a heartbeat 
                               if (i == 2)
                               {
-                                  CAN.BITMSGS_TIMESTAMP[j] = esp_timer_get_time(); //timestamp incoming message from Controller [j]
-                                  ESP_LOGD(TAG, "Logged incoming Controller %d heartbeat=%d",j,CAN.BITMSGS_TIMESTAMP[j]); //for debugging only
+                                  CAN.DIYBMS_TIMESTAMP[j] = esp_timer_get_time(); //timestamp incoming message from Controller [j]
+                                  ESP_LOGD(TAG, "Logged incoming Controller %d heartbeat=%d",j,CAN.DIYBMS_TIMESTAMP[j]); //for debugging only
                               }
                               match_found = true;
                               break;
@@ -4014,8 +4007,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   {
     clearModuleValues(i);
   }
-
-  CAN.clearvalues();
   
   history.Clear();
 
