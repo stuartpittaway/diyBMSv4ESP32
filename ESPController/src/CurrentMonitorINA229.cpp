@@ -411,7 +411,7 @@ void CurrentMonitorINA229::CalculateAmpHourCounts()
     else
     {
         // Voltage or current is out side of monitoring limits, so set timer to now + 3 minutes
-        int64_t soc_reset_time = esp_timer_get_time() + (3 * 60000000L);
+        soc_reset_time = esp_timer_get_time() + (3 * 60000000L);
     }
 }
 
