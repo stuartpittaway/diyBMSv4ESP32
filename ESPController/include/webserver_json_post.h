@@ -28,7 +28,7 @@ extern CardAction card_action;
 extern avrprogramsettings _avrsettings;
 extern wifi_eeprom_settings _wificonfig;
 
-extern ControllerCAN CAN;
+extern ControllerCAN can;
 
 extern void stopMqtt();
 extern void ConfigureRS485();

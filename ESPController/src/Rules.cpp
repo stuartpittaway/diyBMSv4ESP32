@@ -413,41 +413,6 @@ void Rules::RunRules(
     }
 }
 
-bool Rules::NetworkedControllerRules(const diybms_eeprom_settings *mysettings, TimerHandle_t *error_debounce_timer)
-{
-    ESP_LOGD(TAG,"networked controller call rules function");
-    if (moduleHasExternalTempSensor == false)
-         if( !xTimerIsTimerActive( error_debounce_timer ))
-         {
-            xTimerStart(error_debounce_timer, pdMS_TO_TICKS(5));
-            ESP_LOGD(TAG,"disconnect timer started");
-         }
-        return true;
-
-    if (invalidModuleCount > 0)
-         if( !xTimerIsTimerActive( error_debounce_timer ))
-         {
-            xTimerStart(error_debounce_timer, pdMS_TO_TICKS(5));
-            ESP_LOGD(TAG,"disconnect timer started");
-         }
-        return true;
-
-    // Any errors, stop charge
-    if (numberOfActiveErrors > 0)
-         if( !xTimerIsTimerActive( error_debounce_timer ))
-         {
-            xTimerStart(error_debounce_timer, pdMS_TO_TICKS(5));
-            ESP_LOGD(TAG,"disconnect timer started");
-         }
-        return true;
-
-    // Clear the Timer if everything is good
-    xTimerStop(error_debounce_timer, pdMS_TO_TICKS(10));
-    ESP_LOGD(TAG,"disconnect timer stopped");
-
-    return false;
-}
-
 bool Rules::SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings)
 {
     if (mysettings->protocol == ProtocolEmulation::EMULATION_DISABLED)

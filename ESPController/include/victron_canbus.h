@@ -16,7 +16,8 @@ void victron_message_372();
 void victron_message_35a();
 void victron_message_379();
 
-extern ControllerCAN CAN;
+extern ControllerCAN can;
 extern bool controller_heartbeat(uint8_t ControllerID);
+extern TaskHandle_t canbus_rx_task_handle, canbus_tx_task_handle;
 
 #endif

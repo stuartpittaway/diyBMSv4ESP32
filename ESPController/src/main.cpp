@@ -91,7 +91,6 @@ const uart_port_t rs485_uart_num = UART_NUM_1;
 const std::string wificonfigfilename("/diybms/wifi.json");
 
 HAL_ESP32 hal;
-ControllerCAN CAN;
 
 volatile bool emergencyStop = false;
 bool _sd_card_installed = false;
@@ -119,8 +118,10 @@ extern TimerHandle_t tftwake_timer;
 extern void tftwakeup(TimerHandle_t xTimer);
 
 // ControllerCAN timer
-extern TimerHandle_t error_debounce_timer;
-extern void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer);
+//extern TimerHandle_t error_debounce_timer;
+//extern void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer);
+extern bool canDisconnect;
+extern ControllerCAN can;
 
 // HTTPD server handle in webserver.cpp
 extern httpd_handle_t _myserver;
@@ -164,8 +165,7 @@ TaskHandle_t interrupt_task_handle = nullptr;
 TaskHandle_t rs485_tx_task_handle = nullptr;
 TaskHandle_t rs485_rx_task_handle = nullptr;
 TaskHandle_t service_rs485_transmit_q_task_handle = nullptr;
-TaskHandle_t canbus_tx_900ms_task_handle = nullptr;
-TaskHandle_t canbus_tx_3000ms_task_handle = nullptr;
+TaskHandle_t canbus_tx_task_handle = nullptr;
 TaskHandle_t canbus_rx_task_handle = nullptr;
 TaskHandle_t canbuspopulateoutbox_task_handle = nullptr;
 
@@ -2655,7 +2655,7 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
 {
     for (;;)
     {
-        if (!(mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON || mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON))
+        if (!(mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON || mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH))
         {
           // no need to run this task for protocols that don't support aggregation
           vTaskDelay(5000);
@@ -2696,9 +2696,8 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
                         //  -Average Frame Length = 47bits + 64bits + 20bits = 131bits
                         //  -ThoereticalFrameRate = 1/(262us) = 3816/s
                         //  -Adding messages to the TX mailbox at a timing interval < ~270us could fill up the TX mailbox
-                        //  -use a conservative delay here so that we can maintain control of traffic with our CANtx queue (this will allow us to use xsendtofront, etc)
-                        // 
-                      vTaskDelay(pdMS_TO_TICKS(.4));      // conservative 400us delay
+                        //  -using a delay here could maintain control of traffic with our CANtx queue (this would allow us to use xsendtofront, etc)
+                        // vTaskDelay(pdMS_TO_TICKS(1));      // use minimum delay
                     continue;
                 }
 
@@ -2821,110 +2820,138 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
   }
 }
 
-[[noreturn]] void canbus_tx_900ms(void* param)
+void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
 {
-   uint8_t statusreturn;
-    for (;;)
-    {
-        // Delay .9 second
-        vTaskDelay(pdMS_TO_TICKS(900));
+          /* Force Disable the CANBUS if there is an internal error for a set period of time (see applicable timer) and there are networked controllers. 
+          This is to prevent a controller that has disconnected itself from auto-reconnecting (there's probably be a better way of doing this with some "reconnection rules"). 
+          User must manually re-enable canbus protocol*/
+        if (mysettings.controllerNet != 1)
+        {
+          mysettings.protocol = ProtocolEmulation::EMULATION_DISABLED;
+          
+          can.canDisconnect = true;
+          ESP_LOGD(TAG,"can disconnected");  
+        }
+}
 
-        //wait until controller is running so we don't send bad info/alarms during ESP startup    
-    if (_controller_state == ControllerState::Running)
-    {
-        if (mysettings.protocol != ProtocolEmulation::CANBUS_DISABLED)
-        {              
-          //CANBUS math and Intra-controller CAN traffic
-          CAN.c2c_DVCC();
-          CAN.c2c_ALARMS();
-          CAN.c2c_DIYBMS_MSGS();
-          CAN.c2c_MODULES();
+[[noreturn]] void canbus_tx(void* param)
+{
+  uint8_t count = 0;
+  uint8_t statusreturn;
 
-          //record a timestamp for this controller to be used for heartbeat polling
-          CAN.DIYBMS_TIMESTAMP[mysettings.controllerID] = esp_timer_get_time(); 
-          // determine who is currently the master controller
-          CAN.who_is_master(); 
-          //snapshot of the controller network
-          statusreturn = CAN.controllerNetwork_status();
+  for (;;)
+  {
+    // Delay .9 second
+    vTaskDelay(pdMS_TO_TICKS(900));
+
+    //wait until controller is running 
+    if (_controller_state == ControllerState::Running || _controller_state == ControllerState::Stabilizing)
+    {
+      // Handle special rules for networking controllers
+      if (mysettings.controllerNet > 1)
+      {
+        can.NetworkedControllerRules();
+      }
+
+      if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED)
+      {
+        if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2)
+        {
+          pylonforce_handle_tx();
+          continue;
+        }
+        else
+        {
+        #pragma region 900ms Interval
+
+        //CANBUS math and Intra-controller CAN traffic
+        can.c2c_DVCC();
+        can.c2c_ALARMS();
+        can.c2c_DIYBMS_MSGS();
+        can.c2c_MODULES();
+
+        //Return snapshot of the controller network & update hearbeat
+        statusreturn = can.controllerNetwork_status();
+        // determine who is currently the master controller
+        can.who_is_master(); 
 
         // Reporting via VICTRON protocol
-        if ((mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID == CAN.master)) 
+        if ((mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID ==can.master)) 
         {
-            if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
-            {
-                victron_message_351();      // 351 message must be sent at least every 3 seconds - or Victron will stop charge/discharge
-            }
-            victron_message_35a();
-            victron_message_372();
+          if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
+          {
+            victron_message_351();      // 351 message must be sent at least every 3 seconds - or Victron will stop charge/discharge
+          }
+          victron_message_35a();
+          victron_message_372();
         }
 
         // Reporting via PYLONTECH protocol
-        if ((mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID == CAN.master))
+        if ((mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID ==can.master))
         {
-            if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
-            {
-                pylon_message_351();      
-            }
+          if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
+          {
+              pylon_message_351();      
+          }
           pylon_message_359();
           pylon_message_35c();
-          pylon_message_35e();
+          pylon_message_35e();         
+        }
           
+        #pragma endregion 900ms
+
+        count++;   
+
+        #pragma region 2700ms Interval
+        if (count > 2)
+        {
+          // timestamp here so we can sync error logs for debugging purposes
+          struct tm timeinfo;
+          if (getLocalTime(&timeinfo),1)
+          {
+          ESP_LOGI(TAG,"Current Time is:%d:%d:%d",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+          }
           
+          /////// CANBUS math and intra-controller CAN traffic/////////         
+            can.c2c_SOC();
+            can.c2c_CAP();
+            can.c2c_HOST();
+            can.c2c_MINMAX_CELL_V_T();
+            can.c2c_CELL_IDS();
+            can.c2c_VIT();
+          ////////////////////////////////////////////////////////////
+
+          // Reporting via VICTRON protocol
+          if ((mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID ==can.master))
+          {
+            /////// Aggregation and Inverter CAN traffic///////// 
+            victron_message_370_371_35e();
+            victron_message_35f();
+            victron_message_355();
+            victron_message_356();
+            victron_message_373_374_375_376_377();
+            victron_message_379();
+            ////////////////////////////////////////////////////////////
+          }
+
+          // Reporting via PYLONTECH protocol
+          if ((mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID ==can.master))
+          {
+            /////// Aggregation and Inverter CAN traffic///////// 
+              pylon_message_355();
+              pylon_message_356();
+            ////////////////////////////////////////////////////////////
+          }        
+
+          count = 0;
+        }
+        #pragma endregion 2700ms Interval
         }
       }
     }
-    }
-}
-
-[[noreturn]] void canbus_tx_3000ms(void* param)
-{
-  for (;;)
-  {
-      // timestamp here so we can sync error logs for debugging purposes
-      struct tm timeinfo;
-      if (getLocalTime(&timeinfo),1)
-      {
-      ESP_LOGI(TAG,"Current Time is:%d:%d:%d",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
-      }
-      
-      // Delay 3 second
-      vTaskDelay(pdMS_TO_TICKS(3000));
-
-      //wait until controller is running so we don't send bad info/alarms during ESP startup    
-  if (_controller_state == ControllerState::Running)
-  {
-
-      if (mysettings.protocol != ProtocolEmulation::CANBUS_DISABLED)
-      {
-      // CANBUS math and intra-controller CAN traffic
-      CAN.c2c_SOC();
-      CAN.c2c_CAP();
-      CAN.c2c_HOST();
-      CAN.c2c_MINMAX_CELL_V_T();
-      CAN.c2c_CELL_IDS();
-      CAN.c2c_VIT();
-
-      // Reporting via VICTRON protocol
-      if ((mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID == CAN.master))
-      {
-        victron_message_370_371_35e();
-        victron_message_35f();
-        victron_message_355();
-        victron_message_356();
-        victron_message_373_374_375_376_377();
-        victron_message_379();
-      }
-
-      // Reporting via PYLONTECH protocol
-      if ((mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID == CAN.master))
-      {
-        pylon_message_355();
-        pylon_message_356();
-      }
-    }
-  }
   }
 }
+
 
 [[noreturn]] void canbus_rx(void* param)
 {
@@ -2932,67 +2959,67 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
   for (;;)
   {
         match_found = false;
-        while (mysettings.protocol == ProtocolEmulation::CANBUS_DISABLED)
+        while (mysettings.protocol == ProtocolEmulation::EMULATION_DISABLED)
         {
           // Canbus is disbled, sleep until this changes....
           vTaskDelay(pdMS_TO_TICKS(2000));
           continue;
         }
-          // Wait for message to be received
-          twai_message_t message;
-          esp_err_t res = twai_receive(&message, pdMS_TO_TICKS(20000));
-          if (res == ESP_OK)
+        // Wait for message to be received
+        twai_message_t message;
+        esp_err_t res = twai_receive(&message, pdMS_TO_TICKS(20000));
+        if (res == ESP_OK)
+        {
+          canbus_messages_received++;
+          ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
+              message.identifier, message.data_length_code, message.flags);
+          if (!(message.flags & TWAI_MSG_FLAG_RTR))   // we do not answer to Remote-Transmission-Requests
           {
-            canbus_messages_received++;
-            ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
-                message.identifier, message.data_length_code, message.flags);
-            if (!(message.flags & TWAI_MSG_FLAG_RTR))   // we do not answer to Remote-Transmission-Requests
+            //  ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
+            if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2 )
             {
-      //        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
-              if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2 )
+              pylonforce_handle_rx(&message);
+            }
+            else
+            {
+            
+            // Record Inter Controller communications
+            if (mysettings.controllerNet > 1 && can.ID_LBOUND <= message.identifier <=can.ID_UBOUND)
+             { 
+               // Wait for permission from Canbus_TX task to edit data array
+              if (!xSemaphoreTake(can.dataMutex[can.hash_i(message.identifier)],pdMS_TO_TICKS(100)))
               {
-                pylonforce_handle_rx(&message);
+                ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
               }
-              else
+
+              memcpy(&can.data[can.hash_i(message.identifier)][can.hash_j(message.identifier)],
+              &message.data, message.data_length_code);
+              // We will timestamp any DIYBMS_MSG frames for use as a heartbeat 
+              if (can.hash_i(message.identifier) == 2)
               {
-                  //find the identifier in our id table 
-                  for (uint8_t i = 0; i < MAX_CAN_PARAMETERS; i++)          //traverse rows of id[]
-                  {
-                      for (uint8_t j = 0; j < MAX_NUM_CONTROLLERS; j++)      //traverse columns of id[]
-                      {
-                          if (CAN.id[i][j] == message.identifier)
-                          {                              
-                              memcpy(&CAN.data[i][j], &message.data, message.data_length_code);
-
-                              ESP_LOGD(TAG, "Logged message ID: %0x, DLC: %d",
-                              message.identifier, message.data_length_code);
-
-                              // We will timestamp any BITMSGS frames for use as a heartbeat 
-                              if (i == 2)
-                              {
-                                  CAN.DIYBMS_TIMESTAMP[j] = esp_timer_get_time(); //timestamp incoming message from Controller [j]
-                                  ESP_LOGD(TAG, "Logged incoming Controller %d heartbeat=%d",j,CAN.DIYBMS_TIMESTAMP[j]); //for debugging only
-                              }
-                              match_found = true;
-                              break;
-                          }
-                      }
-                      if (match_found == true)
-                      {
-                        break;
-                      }
-                  }
-                  continue;
+                 can.timestampBuffer[can.hash_j(message.identifier)] = esp_timer_get_time(); //timestamp incoming message from Controller [j]
               }
+              
+              // Return permission to Canbus_TX task 
+              xSemaphoreGive(can.dataMutex[can.hash_i(message.identifier)]); 
+              
+              ESP_LOGD(TAG, "Logged message ID: %0x, DLC: %d",
+              message.identifier, message.data_length_code);
+             }
+            }
+
+
             }
           }
-          else
-          {
-            /// ignore the timeout or do something
-            ESP_LOGE(TAG, "CANBUS error %s", esp_err_to_name(res));
-            canbus_messages_received_error++;
-            ESP_LOGI(TAG, "CANBUS error count %u", canbus_messages_received_error);
-          }
+        
+          
+        else
+        {
+          /// ignore the timeout or do something
+          ESP_LOGE(TAG, "CANBUS error %s", esp_err_to_name(res));
+          canbus_messages_received_error++;
+          ESP_LOGI(TAG, "CANBUS error count %u", canbus_messages_received_error);
+        }
   }
 }
 
@@ -3908,8 +3935,7 @@ void resumeTasksAfterFirmwareUpdateFailure()
   vTaskResume(sdcardlog_outputs_task_handle);
   vTaskResume(rs485_tx_task_handle);
   vTaskResume(service_rs485_transmit_q_task_handle);
-  vTaskResume(canbus_tx_900ms_task_handle);
-  vTaskResume(canbus_tx_3000ms_task_handle);
+  vTaskResume(canbus_tx_task_handle);
   vTaskResume(transmit_task_handle);
   vTaskResume(lazy_task_handle);
   vTaskResume(canbus_rx_task_handle);
@@ -3923,8 +3949,7 @@ void suspendTasksDuringFirmwareUpdate()
   vTaskSuspend(sdcardlog_outputs_task_handle);
   vTaskSuspend(rs485_tx_task_handle);
   vTaskSuspend(service_rs485_transmit_q_task_handle);
-  vTaskSuspend(canbus_tx_900ms_task_handle);
-  vTaskSuspend(canbus_tx_3000ms_task_handle);
+  vTaskSuspend(canbus_tx_task_handle);
   vTaskSuspend(transmit_task_handle);
   vTaskSuspend(lazy_task_handle);
   vTaskSuspend(canbus_rx_task_handle);
@@ -4110,8 +4135,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(50), pdFALSE, (void *)3, &tftwakeup);
   assert(tftwake_timer);
 
-  error_debounce_timer = xTimerCreate("ERROR", pdMS_TO_TICKS(50), pdFALSE, (void*)4, &CAN_Networking_disconnect);
-  assert(error_debounce_timer);
+  can.error_debounce_timer = xTimerCreate("ERROR", pdMS_TO_TICKS(10000), pdFALSE, (void*)4, &CAN_Networking_disconnect);
+  assert(can.error_debounce_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   // Increased tftupd from 2000 to 2450 due to strange bug on rev3 ESP32 chips
@@ -4128,8 +4153,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(rs485_rx, "485_RX", 2940, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
   xTaskCreate(canbus_populate_outbox, "CAN_outbox", 2950, nullptr, configMAX_PRIORITIES - 5, &canbuspopulateoutbox_task_handle);
-  xTaskCreate(canbus_tx_3000ms, "CAN_Tx_3000", 2950, nullptr, configMAX_PRIORITIES - 11, &canbus_tx_3000ms_task_handle);
-  xTaskCreate(canbus_tx_900ms, "CAN_Tx_900", 2950, nullptr, configMAX_PRIORITIES - 10, &canbus_tx_900ms_task_handle);
+  xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, configMAX_PRIORITIES - 10, &canbus_tx_task_handle);
   xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, configMAX_PRIORITIES - 4, &canbus_rx_task_handle);
   xTaskCreate(transmit_task, "Tx", 1950, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 4096, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
@@ -4255,7 +4279,7 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
        &lazy_task_handle, &rule_task_handle, &voltageandstatussnapshot_task_handle, &updatetftdisplay_task_handle,
        &periodic_task_handle, &interrupt_task_handle, &rs485_tx_task_handle,
        &rs485_rx_task_handle, &service_rs485_transmit_q_task_handle,
-       &canbus_tx_900ms_task_handle, &canbus_tx_3000ms_task_handle, &canbus_rx_task_handle, &canbuspopulateoutbox_task_handle};
+       &canbus_tx_task_handle, &canbus_rx_task_handle, &canbuspopulateoutbox_task_handle};
 
   // Remember these are pointers to the handle
   for (auto h : task_handle_ptrs)

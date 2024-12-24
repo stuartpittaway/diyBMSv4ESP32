@@ -75,6 +75,6 @@ extern uint16_t wifi_count_sta_got_ip;
 
 extern bool wifi_isconnected;
 
-extern ControllerCAN CAN;
+extern ControllerCAN can;
 
 #endif

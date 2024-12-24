@@ -12,46 +12,74 @@ static constexpr const char *const TAG = "diybms-ControllerCAN";
 
 #include "ControllerCAN.h"
 
-const uint32_t ControllerCAN::id[MAX_CAN_PARAMETERS][MAX_NUM_CONTROLLERS] = {
-    /*                                                                                                                                                                                     __INDUSTRY STANDARD ID'S__    */
-    /*  0       DVCC*/                    {0x258 /*600*/   ,0x259 /*601*/   ,0x25a /*602*/   ,0x25b /*603*/   ,0x25c /*604*/   ,0x25d /*605*/   ,0x25e /*606*/   ,0x25f /*607*/   },         /*__0x351 (849)__*/
-    /*  1       ALARMS*/                  {0x26c /*620*/   ,0x26d /*621*/   ,0x26e /*622*/   ,0x26f /*623*/   ,0x270 /*624*/   ,0x271 /*625*/   ,0x272 /*626*/   ,0x273 /*627*/   },         /*__0x35a (858)__*/
-    /*  2       BIT MSGS*/                {0x280 /*640*/   ,0x281 /*641*/   ,0x282 /*642*/   ,0x283 /*643*/   ,0x284 /*644*/   ,0x285 /*645*/   ,0x286 /*646*/   ,0x287 /*647*/   },
-    /*  3       #MODULES OK*/             {0x294 /*660*/   ,0x295 /*661*/   ,0x296 /*662*/   ,0x297 /*663*/   ,0x298 /*664*/   ,0x299 /*665*/   ,0x29a /*666*/   ,0x29b /*667*/   },         /*__0X372 (882)__*/
-    /*  4       SOC/SOH*/                 {0x3e8 /*1000*/  ,0x3e9 /*1001*/  ,0x3ea /*1002*/  ,0x3eb /*1003*/  ,0x3ec /*1004*/  ,0x3ed /*1005*/  ,0x3ee /*1006*/  ,0x3ef /*1007*/  },         /*__0x355 (853)__*/
-    /*  5       CAP & FIRMWARE*/          {0x3fc /*1020*/  ,0x3fd /*1021*/  ,0x3fe /*1022*/  ,0x3ff /*1023*/  ,0x400 /*1004*/  ,0x401 /*1005*/  ,0x402 /*1006*/  ,0x403 /*1007*/  },         /*__0x35f (863)__*/
-    /*  6       V-I-T*/                   {0x410 /*1040*/  ,0x411 /*1041*/  ,0x412 /*1042*/  ,0x413 /*1043*/  ,0x414 /*1044*/  ,0x415 /*1045*/  ,0x416 /*1046*/  ,0x417 /*1047*/  },         /*__0x356 (854)__*/
-    /*  7       HOSTNAME*/                {0x424 /*1060*/  ,0x425 /*1061*/  ,0x426 /*1062*/  ,0x427 /*1063*/  ,0x428 /*1064*/  ,0x429 /*1065*/  ,0x42a /*1066*/  ,0x42b /*1067*/  },         /*__0x35e (862)__*/
-    /*  8       MIN_MAX CELL V_T*/        {0x438 /*1080*/  ,0x439 /*1081*/  ,0x43a /*1082*/  ,0x43b /*1083*/  ,0x43c /*1084*/  ,0x43d /*1085*/  ,0x43e /*1086*/  ,0x43f /*1087*/  },         /*__0x373 (883)__*/
-    /*  9       MIN CELL V I.D.*/         {0x44c /*1100*/  ,0x44d /*1101*/  ,0x44e /*1102*/  ,0x44f /*1103*/  ,0x450 /*1104*/  ,0x451 /*1105*/  ,0x452 /*1106*/  ,0x453 /*1107*/  },         /*__0x374 (884)__*/
-    /*  10      MAX CELL V I.D.*/         {0x460 /*1120*/  ,0x461 /*1121*/  ,0x462 /*1122*/  ,0x463 /*1123*/  ,0x464 /*1124*/  ,0x465 /*1125*/  ,0x466 /*1126*/  ,0x467 /*1127*/  },         /*__0x375 (885)__*/
-    /*  11      MIN CELL T I.D.*/         {0x474 /*1140*/  ,0x475 /*1141*/  ,0x476 /*1142*/  ,0x477 /*1143*/  ,0x478 /*1144*/  ,0x479 /*1145*/  ,0x47a /*1146*/  ,0x47b /*1147*/  },         /*__0x376 (886)__*/
-    /*  12      MAX CELL T I.D.*/         {0x488 /*1160*/  ,0x489 /*1161*/  ,0x48a /*1162*/  ,0x48b /*1163*/  ,0x48c /*1164*/  ,0x48d /*1165*/  ,0x48e /*1166*/  ,0x48f /*1167*/  }          /*__0x377 (887)__*/
+ControllerCAN can;
 
-};
+void ControllerCAN::init_hash_table() {
+  memset(&hash_table, 0, sizeof(hash_table));
 
-TimerHandle_t error_debounce_timer;
-
-void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
-{
-          /* Force Disable the CANBUS if there is an internal error for a set period of time (see applicable timer) and there are networked controllers. 
-          This is to prevent a controller that has disconnected itself from auto-reconnecting (there's probably be a better way of doing this with some "reconnection rules"). 
-          User must manually re-enable canbus protocol*/
-          ESP_LOGD(TAG,"disconnect call back function called....");
-        if (mysettings.controllerNet != 1 && _controller_state == ControllerState::Running)
-        {
-          mysettings.protocol = ProtocolEmulation::CANBUS_DISABLED;
-          ESP_LOGD(TAG,"disconnected canbus");
+  for (uint8_t i = 0; i < MAX_CAN_PARAMETERS; i++)          //traverse rows of id[]
+              {
+                  for (uint8_t j = 0; j < MAX_NUM_CONTROLLERS; j++)      //traverse columns of id[]
+                  {
+                      hash_table[id[i][j] - 600] = i * 100 + j;		//hash store indices
         }
+      };
 }
-//return whether a controller has a valid heartbeat by checking the bitmssgs timestamp array
-bool ControllerCAN::controller_heartbeat(uint8_t controllerAddress)
+//TimerHandle_t error_debounce_timer;
+
+bool ControllerCAN::NetworkedControllerRules()
 {
- if ((esp_timer_get_time() - DIYBMS_TIMESTAMP[controllerAddress]) < (HEARTBEAT_PERIOD*1000))
-  {
-    return true;
-  }
-  return false;
+  if (!canDisconnect)
+    {
+      if (rules.moduleHasExternalTempSensor == false)
+         if( !xTimerIsTimerActive( error_debounce_timer ))
+         {
+            xTimerStart(error_debounce_timer, 0);
+            ESP_LOGD(TAG,"disconnect timer started");
+         }
+        return true;
+
+    if (rules.invalidModuleCount > 0)
+         if( !xTimerIsTimerActive(error_debounce_timer ))
+         {
+            xTimerStart(error_debounce_timer, 0);
+            ESP_LOGD(TAG,"disconnect timer started");
+         }
+        return true;
+
+    // Any errors, stop charge
+    if (rules.numberOfActiveErrors > 0)
+         if( !xTimerIsTimerActive(error_debounce_timer ))
+         {
+            xTimerStart(error_debounce_timer, 0);
+            ESP_LOGD(TAG,"disconnect timer started");
+         }
+        return true;
+
+    // Clear the Timer if everything is good
+    xTimerStop(error_debounce_timer, pdMS_TO_TICKS(20));
+
+    return false;
+    }
+  
+    // display disconnect warning 
+  else if (canDisconnect)
+  {     
+      // reset WARNING if CANBUS emulation is manually re-enabled
+      if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED)
+      {
+        canDisconnect = false;
+        return false;
+      }
+
+      ESP_LOGE(TAG,"CANBUS WAS DISCONNECTED DUE TO INTERNAL ERROR - MANUAL RESTART REQUIRED");
+
+      // Add some additional delay here to prevent flooding the error log every 900ms (CanbusTX task has nothing else 
+      // to do at this moment anyhow)
+      vTaskDelay(pdMS_TO_TICKS(10000));
+
+      return true;
+    }
 }
 
 void ControllerCAN::clearvalues()
@@ -60,46 +88,63 @@ void ControllerCAN::clearvalues()
    master = 0;
       // Zero Data Array 
     memset(&data, 0, sizeof(data));
-    memset(&DIYBMS_TIMESTAMP, 0, sizeof(DIYBMS_TIMESTAMP));
+    memset(&timestampBuffer, 0, sizeof(timestampBuffer));
 }
 
-// check controller network status      0=OK  1=controller offline  2=controller network configuration error
+// Check controller network status & update heartbeat  Returns:  0=OK  1=controller offline  2=controller network configuration error
 uint8_t ControllerCAN::controllerNetwork_status()
 {
   uint8_t returnvalue = 0;
   uint8_t controller_count = 0; 
   uint8_t addressbitmask = 0;
   uint8_t high_availability = mysettings.highAvailable;
-  uint8_t dvcc_controllers = 0;
+  ///uint8_t dvcc_controllers = 0;
+
+  // Wait for permission from Canbus_RX task to edit data array
+  if (!xSemaphoreTake(dataMutex[2], pdMS_TO_TICKS(100)))
+  {
+    ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout") ; 
+  }
+
+  memset(&heartbeat[0], 0, sizeof(heartbeat));
 
   for (uint8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
   {
-      if (controller_heartbeat(i) == true) // only poll online controllers
-      {
-        controller_count++;
+    if ((esp_timer_get_time() - timestampBuffer[i]) < HEARTBEAT_PERIOD) // only poll online controllers
+    {
+      controller_count++;
+      heartbeat[i] = true;
 
-        // how many are DVCC enabled (not isolated)
-        if (!data[2][i][1])
-        {
-          dvcc_controllers++;
-        }
-        // checksum for controller address overlap
-        addressbitmask &= data[2][i][0]; // this should should never be elevated above 0 or there is an overlap
-        
-        // check that local high_availability setting matches the network  
-        if (mysettings.highAvailable != data[2][i][3])
-        {
-        ESP_LOGE(TAG, "Local 'High Availability' settings do not match with networked ControllerID %d",i);
-        returnvalue = 2;
-        } 
-        // check that # networked controllers setting matches the network
-        if (mysettings.controllerNet != data[2][i][4])
-        {
-        ESP_LOGE(TAG, "Local '# of Networked Controllers' settings do not match with networked ControllerID %d",i);
-        returnvalue = 2; 
-        }
-        
+      // how many are DVCC enabled (not isolated)
+      /*if (!data[2][i][1])
+      {
+        dvcc_controllers++;
+      }*/
+
+      // checksum for controller address overlap
+      addressbitmask &= data[2][i][0]; // this should should never be elevated above 0 or there is an overlap
+      
+      // check that local high_availability setting matches the network  
+      if (mysettings.highAvailable != data[2][i][3])
+      {
+      ESP_LOGE(TAG, "Local 'High Availability' settings do not match with networked ControllerID %d",i);
+      returnvalue = 2;
+      } 
+      // check that # networked controllers setting matches the network
+      if (mysettings.controllerNet != data[2][i][4])
+      {
+      ESP_LOGE(TAG, "Local '# of Networked Controllers' settings do not match with networked ControllerID %d",i);
+      returnvalue = 2; 
       }
+    }
+  }
+
+  // Return permission to Canbus_RX task 
+  xSemaphoreGive(dataMutex[2]); 
+  
+  if (returnvalue = 2)
+  {
+    return returnvalue;
   }
 
   if (addressbitmask != 0)
@@ -107,18 +152,16 @@ uint8_t ControllerCAN::controllerNetwork_status()
     ESP_LOGE(TAG, "Controller address conflict");
     returnvalue = 2;
     online_controller_count = controller_count;
-    DVCC_Controllers = 1; // this is the lowest this can be to avoid divide by zero
 
     return returnvalue;
   }
 
    // checksum for connected controllers 
-  else if (controller_count > mysettings.controllerNet)
+  if (controller_count > mysettings.controllerNet)
   {
       ESP_LOGE(TAG, "Controller network count discrepancy");
       returnvalue = 2;
       online_controller_count = controller_count;
-      DVCC_Controllers = 1; // this is the lowest this can be to avoid divide by zero
 
       return returnvalue;
   }
@@ -127,17 +170,13 @@ uint8_t ControllerCAN::controllerNetwork_status()
       ESP_LOGE(TAG, "A controller is offline. #Online Controllers=%d/%d",online_controller_count,mysettings.controllerNet);
       returnvalue = 1; 
       online_controller_count = controller_count;
-      DVCC_Controllers = dvcc_controllers; 
 
       return returnvalue;
   }
 
   else
   {
-      returnvalue = 0; 
       online_controller_count = controller_count;
-      DVCC_Controllers = dvcc_controllers; 
-
       return returnvalue;
   }
 
@@ -149,7 +188,7 @@ void ControllerCAN::who_is_master()  // Decide which controller is master ( == t
 
       for (uint8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
       {
-        if (controller_heartbeat(i) == true)
+        if (heartbeat[i])
         {
             master=i;
             
@@ -254,17 +293,24 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
   {
     maxdischargecurrent = default_discharge_current_limit;
   }
-     
+  
+      candata.identifier = id[0][mysettings.controllerID];  
       candata.dlc = 8; 
-      memcpy(&candata.data[0],&chargevoltagelimit,sizeof(chargevoltagelimit));        // this 'word' will be serialized in little endian order
-      memcpy(&candata.data[2],&maxchargecurrent,sizeof(maxchargecurrent));            // this 'word' will be serialized in little endian order
-      memcpy(&candata.data[4],&maxdischargecurrent,sizeof(maxdischargecurrent));     // this 'word' will be serialized in little endian order
-      memcpy(&candata.data[6],&dischargevoltage,sizeof(dischargevoltage));           // this 'word' will be serialized in little endian order
-      candata.identifier = id[0][mysettings.controllerID];                            
+        memcpy(&candata.data[0],&chargevoltagelimit,sizeof(chargevoltagelimit));        // this 'word' will be serialized in little endian order
+        memcpy(&candata.data[2],&maxchargecurrent,sizeof(maxchargecurrent));            // this 'word' will be serialized in little endian order
+        memcpy(&candata.data[4],&maxdischargecurrent,sizeof(maxdischargecurrent));     // this 'word' will be serialized in little endian order
+        memcpy(&candata.data[6],&dischargevoltage,sizeof(dischargevoltage));           // this 'word' will be serialized in little endian order
 
-    
-      memcpy(&data[0][mysettings.controllerID][0], &candata.data, candata.dlc);       //copy calculated values to array
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(dataMutex[0], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
 
+        memcpy(&data[0][mysettings.controllerID][0], &candata.data, candata.dlc);       //copy calculated values to array
+
+        // Return permission to Canbus_RX task 
+        xSemaphoreGive(dataMutex[0]);
 
     if (mysettings.controllerNet != 1)
     {
@@ -404,7 +450,16 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
     candata.dlc = 8;                                            
     candata.identifier = id[1][mysettings.controllerID];                                    
 
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(dataMutex[1], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
+
     memcpy(&data[1][mysettings.controllerID][0],&candata.data,candata.dlc);                        //copy calculated values to array
+    
+    // Return permission to Canbus_RX task 
+    xSemaphoreGive(dataMutex[1]);
 
     if (mysettings.controllerNet != 1)
     {
@@ -440,15 +495,15 @@ void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
   candata.data[1] = 0;
   
 
-    if (rules.IsChargeAllowed(&mysettings))
-    {
-        candata.data[1] = candata.data[1] | B10000000;
-    }
+  if (rules.IsChargeAllowed(&mysettings))
+  {
+      candata.data[1] = candata.data[1] | B10000000;
+  }
 
-    if (rules.IsDischargeAllowed(&mysettings))
-    {
-        candata.data[1] = candata.data[1] | B01000000;
-    }
+  if (rules.IsDischargeAllowed(&mysettings))
+  {
+      candata.data[1] = candata.data[1] | B01000000;
+  }
 
 
 
@@ -466,7 +521,19 @@ void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
   candata.dlc = 8;    
   candata.identifier = id[2][mysettings.controllerID];
 
-  memcpy(&data[2][mysettings.controllerID][0],&candata.data,candata.dlc);     
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(dataMutex[2], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
+
+    memcpy(&data[2][mysettings.controllerID][0],&candata.data,candata.dlc);    
+
+    //update timestamp of this controller
+    can.timestampBuffer[mysettings.controllerID] = esp_timer_get_time();
+
+  // Return permission to Canbus_RX task 
+  xSemaphoreGive(dataMutex[2]);
 
         if (mysettings.controllerNet != 1)
         {
@@ -494,8 +561,16 @@ void ControllerCAN::c2c_MODULES()       // # of modules O.K.
     memcpy(&candata.data[6],&numberofmodulesoffline,sizeof(numberofmodulesoffline));         
     candata.identifier = id[3][mysettings.controllerID];                                   
 
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(dataMutex[3], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
+
     memcpy(&data[3][mysettings.controllerID][0],&candata.data,candata.dlc);                        //copy calculated values to array
  
+    // Return permission to Canbus_RX task 
+    xSemaphoreGive(dataMutex[3]);
 
     if (mysettings.controllerNet != 1)
     {
@@ -517,19 +592,27 @@ void ControllerCAN::c2c_SOC()      // SOC
     uint16_t stateofhealthvalue;
     // uint16_t highresolutionsoc;
 
-
   if (_controller_state == ControllerState::Running && mysettings.currentMonitoringEnabled && currentMonitor.validReadings && (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS || mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL))
   {
 
     stateofchargevalue = rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
     stateofhealthvalue = (uint16_t)(trunc(mysettings.soh_percent));
-   
+
     candata.dlc = 4;                                                    
     memcpy(&candata.data[0],&stateofchargevalue,sizeof(stateofchargevalue));  
     memcpy(&candata.data[2],&stateofchargevalue,sizeof(stateofhealthvalue));          
     candata.identifier = id[4][mysettings.controllerID];                                 
 
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(dataMutex[4], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
+
     memcpy(&data[4][mysettings.controllerID][0],&candata.data[0],candata.dlc);                   //copy calculated values to array
+
+    // Return permission to Canbus_RX task 
+    xSemaphoreGive(dataMutex[4]);
 
     if (mysettings.controllerNet != 1)
     {
@@ -571,8 +654,16 @@ void ControllerCAN::c2c_CAP()   // Online capacity and firmware version
       memcpy(&candata.data[4],&OnlinecapacityinAh,sizeof(OnlinecapacityinAh));  
       candata.identifier = id[5][mysettings.controllerID];        
 
-    
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(dataMutex[5], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
+
       memcpy(&data[5][mysettings.controllerID][0],&candata.data[0],candata.dlc);                  //copy local values to array
+
+      // Return permission to Canbus_RX task 
+      xSemaphoreGive(dataMutex[5]);
 
     if (mysettings.controllerNet != 1)
     {
@@ -632,9 +723,16 @@ void ControllerCAN::c2c_VIT()   //Battery voltage, current, and temperature
       memcpy(&candata.data[4],&temperature,sizeof(temperature));   // this 'word' will be serialized in little endian order
       candata.identifier = id[6][mysettings.controllerID];     
 
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(dataMutex[6], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
     
       memcpy(&data[6][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to local array
 
+      // Return permission to Canbus_RX task 
+      xSemaphoreGive(dataMutex[6]);
 
      // send to tx routine , block 50ms 
       if (mysettings.controllerNet != 1)
@@ -658,8 +756,17 @@ void ControllerCAN::c2c_HOST()     //unique part of hostname
     candata.dlc = 8;                                                
     memcpy(&candata.data[0],&hostname[7],sizeof(candata.data));          
     candata.identifier = id[7][mysettings.controllerID];           
-  
+
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(dataMutex[7], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
+
     memcpy(&data[7][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array
+
+    // Return permission to Canbus_RX task 
+    xSemaphoreGive(dataMutex[7]);
 
     if (mysettings.controllerNet != 1)
     {
@@ -694,8 +801,16 @@ void ControllerCAN::c2c_MINMAX_CELL_V_T()    // Min/Max Cell V & T
       memcpy(&candata.data[6],&highestcelltemperature,sizeof(highestcelltemperature)); 
       candata.identifier = id[8][mysettings.controllerID];                                     
     
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(dataMutex[8], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
+
       memcpy(&data[8][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array
 
+      // Return permission to Canbus_RX task 
+      xSemaphoreGive(dataMutex[8]);
 
     if (mysettings.controllerNet != 1)
     {
@@ -710,10 +825,19 @@ void ControllerCAN::c2c_MINMAX_CELL_V_T()    // Min/Max Cell V & T
 
 void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
 {
-    CANframe candata;
-    candata.dlc = 8;
-    
-    char text[8];
+  CANframe candata;
+  candata.dlc = 8;
+  
+  char text[8];
+
+  // Wait for permission from Canbus_RX task to edit data array
+  if (!xSemaphoreTake(dataMutex[9], pdMS_TO_TICKS(100)) ||
+      !xSemaphoreTake(dataMutex[10], pdMS_TO_TICKS(100)) ||
+      !xSemaphoreTake(dataMutex[11], pdMS_TO_TICKS(100)) ||
+      !xSemaphoreTake(dataMutex[12], pdMS_TO_TICKS(100)) )
+  {
+    ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout");
+  }
 
     // Min. cell voltage id string [1]
   if (rules.address_LowestCellVoltage < maximum_controller_cell_modules)
@@ -784,13 +908,9 @@ void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
         ESP_LOGE(TAG, "CAN Q Full");
     }
   }
+  
+  xSemaphoreGive(dataMutex[9]); 
+  xSemaphoreGive(dataMutex[10]); 
+  xSemaphoreGive(dataMutex[11]);
+  xSemaphoreGive(dataMutex[12]); 
 }
-
-
-
-
-
-
-
-
-

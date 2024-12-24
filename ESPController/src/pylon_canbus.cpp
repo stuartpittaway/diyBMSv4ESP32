@@ -39,45 +39,55 @@ void  pylon_message_351()
     // if no controllers are networked then just send the local values. It won't matter what controllerID is selected on the config page
     if (mysettings.controllerNet == 1)
     {
-        memcpy(&chargevoltagelimit, &CAN.data[0][mysettings.controllerID][0], sizeof(chargevoltagelimit));
-        memcpy(&maxchargecurrent, &CAN.data[0][mysettings.controllerID][2], sizeof(maxchargecurrent));
-        memcpy(&maxdischargecurrent, &CAN.data[0][mysettings.controllerID][4], sizeof(maxdischargecurrent));
-        memcpy(&dischargevoltage, &CAN.data[0][mysettings.controllerID][6], sizeof(dischargevoltage));
+        memcpy(&chargevoltagelimit, &can.data[0][mysettings.controllerID][0], sizeof(chargevoltagelimit));
+        memcpy(&maxchargecurrent, &can.data[0][mysettings.controllerID][2], sizeof(maxchargecurrent));
+        memcpy(&maxdischargecurrent, &can.data[0][mysettings.controllerID][4], sizeof(maxdischargecurrent));
+        memcpy(&dischargevoltage, &can.data[0][mysettings.controllerID][6], sizeof(dischargevoltage));
     }
 
     // aggregate DVCC data from networked controllers
     else
     {
-        chargevoltagelimit = *(uint16_t*)&CAN.data[0][mysettings.controllerID][0];
-        maxchargecurrent = *(uint16_t*)&CAN.data[0][mysettings.controllerID][2];
-        maxdischargecurrent = *(uint16_t*)&CAN.data[0][mysettings.controllerID][4];
-        dischargevoltage = *(uint16_t*)&CAN.data[0][mysettings.controllerID][6];
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(can.dataMutex[0], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
+
+        chargevoltagelimit = *(uint16_t*)&can.data[0][mysettings.controllerID][0];
+        maxchargecurrent = *(uint16_t*)&can.data[0][mysettings.controllerID][2];
+        maxdischargecurrent = *(uint16_t*)&can.data[0][mysettings.controllerID][4];
+        dischargevoltage = *(uint16_t*)&can.data[0][mysettings.controllerID][6];
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
             //only include online controllers
-            if (CAN.controller_heartbeat(i) && !CAN.data[2][i][1]) 
+            if (can.heartbeat[i] && !can.data[2][i][1]) 
             {
-                if ((*(uint16_t*)&CAN.data[0][i][0] <= chargevoltagelimit))  // find minimum
+                if ((*(uint16_t*)&can.data[0][i][0] <= chargevoltagelimit))  // find minimum
                 {
-                    chargevoltagelimit = *(uint16_t*)&CAN.data[0][i][0];    
+                    chargevoltagelimit = *(uint16_t*)&can.data[0][i][0];    
                 }
-                if ((*(uint16_t*)&CAN.data[0][i][2] <= maxchargecurrent))    // find minimum
+                if ((*(uint16_t*)&can.data[0][i][2] <= maxchargecurrent))    // find minimum
                 {
-                    maxchargecurrent = *(uint16_t*)&CAN.data[0][i][2];
+                    maxchargecurrent = *(uint16_t*)&can.data[0][i][2];
                 }
-                if ((*(uint16_t*)&CAN.data[0][i][4] <= maxdischargecurrent))  // find minimum
+                if ((*(uint16_t*)&can.data[0][i][4] <= maxdischargecurrent))  // find minimum
                 {
-                    maxdischargecurrent = *(uint16_t*)&CAN.data[0][i][4];
+                    maxdischargecurrent = *(uint16_t*)&can.data[0][i][4];
                 }
-                if ((*(uint16_t*)&CAN.data[0][i][6] <= dischargevoltage))  // find minimum
+                if ((*(uint16_t*)&can.data[0][i][6] <= dischargevoltage))  // find minimum
                 {
-                    dischargevoltage = *(uint16_t*)&CAN.data[0][i][6];    
+                    dischargevoltage = *(uint16_t*)&can.data[0][i][6];    
                 }   
             }
         }
-            maxchargecurrent = maxchargecurrent * CAN.online_controller_count;  //use minimum multiplied by # of online controllers
-            maxdischargecurrent = maxdischargecurrent * CAN.online_controller_count;    //use minimum multiplied by # of online controllers      
+
+        // Return permission to Canbus_RX task 
+        xSemaphoreGive(can.dataMutex[0]); 
+        
+        maxchargecurrent = maxchargecurrent *can.online_controller_count;  //use minimum multiplied by # of online controllers
+        maxdischargecurrent = maxdischargecurrent *can.online_controller_count;    //use minimum multiplied by # of online controllers      
 
     }
         
@@ -108,31 +118,43 @@ void pylon_message_355()
 
     if (mysettings.controllerNet == 1)  //copy over local values for SOC
     {
-        memcpy(&candata.data, &CAN.data[4][mysettings.controllerID][0], candata.dlc);
+        memcpy(&candata.data, &can.data[4][mysettings.controllerID][0], candata.dlc);
     }
     else
-    {   //SOC (weighted average based on nominal Ah of each controller)
+    {
+        // Wait for permission from Canbus_RX task to edit data array
+        if (!xSemaphoreTake(can.dataMutex[4], pdMS_TO_TICKS(100)) ||
+            !xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(100)))
+        {
+        ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+        }
+
+        //SOC (weighted average based on nominal Ah of each controller)
         //SOH (display the minmimum health value of all online packs which could be more useful than an averaged health value)
         uint16_t Total_Ah = 0;
         uint32_t Total_Weighted_Ah = 0;
         uint16_t Weighted_SOC = 0;
-        uint16_t SOH = *(uint16_t*)&CAN.data[4][mysettings.controllerID][0];  //start with this controllers SOH  
+        uint16_t SOH = *(uint16_t*)&can.data[4][mysettings.controllerID][0];  //start with this controllers SOH  
         
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.controller_heartbeat(i) && !CAN.data[2][i][1])
+            if (can.heartbeat[i] && !can.data[2][i][1])
             {
-            Total_Ah = Total_Ah + *(uint16_t*)&CAN.data[5][i][4];     //online capacity
-            Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&CAN.data[4][i][0]) * (*(uint16_t*)&CAN.data[5][i][4]);  //SOC x Online capacity
-            
-            // use minimum
-            if (*(uint16_t*)&CAN.data[4][i][2] < SOH)
-            {
-                SOH = *(uint16_t*)&CAN.data[4][i][2];
-            }        
+                Total_Ah = Total_Ah + *(uint16_t*)&can.data[5][i][4];     //online capacity
+                Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  //SOC x Online capacity
+                
+                // use minimum
+                if (*(uint16_t*)&can.data[4][i][2] < SOH)
+                {
+                    SOH = *(uint16_t*)&can.data[4][i][2];
+                }        
             }
-
         }
+
+        // Return permission to Canbus_RX task 
+        xSemaphoreGive(can.dataMutex[4]);
+        xSemaphoreGive(can.dataMutex[5]); 
+
         if (Total_Ah != 0)  //avoid divide by zero (we won't have useable values during CAN initialization)
         {
             Weighted_SOC = Total_Weighted_Ah / Total_Ah;
@@ -141,23 +163,14 @@ void pylon_message_355()
         memcpy(&candata.data[0], &Weighted_SOC, sizeof(Weighted_SOC));
         memcpy(&candata.data[2], &SOH, sizeof(SOH));
 
-    }
-       
-        
-            ESP_LOGI(TAG, "SOC sent to inverter = %d", Weighted_SOC);  //debug purposes only
-            // send to tx routine , block 50ms 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
-            }
-        
+    }    
 
 }
 
 //Helper function to re-organize bit alarms
-// q = row of CAN.data
-// s = slice of CAN.data
-// bitsource = the specific bit we're looking for at CAN.data[q][r][s]
+// q = row ofcan.data
+// s = slice ofcan.data
+// bitsource = the specific bit we're looking for atcan.data[q][r][s]
 // bitdest = the bitmask we want to move it to
 uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
 {
@@ -165,7 +178,7 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
     uint8_t bitmask = 0;
     for (int8_t r = 0; r < MAX_NUM_CONTROLLERS; r++) 
     {
-    bitmask |= bitsource & CAN.data[q][r][s];
+    bitmask |= bitsource &can.data[q][r][s];
     }
     bitmask = (bitmask >> bitsource) << bitdest; //re-index the bitmask to the desired destination bit
     return bitmask;
@@ -183,15 +196,20 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
 
     if (mysettings.controllerNet == 1)  //copy over local values
     {
-        memcpy(&candata.data, &CAN.data[1][mysettings.controllerID][0], candata.dlc);
+        memcpy(&candata.data, &can.data[1][mysettings.controllerID][0], candata.dlc);
     }
     else
     {
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
 
     //byte 0
     //(bit 0) = unused
     //(bit 1) Battery high voltage alarm
-    candata.data[0] |= alarm_align(1,0,2,1);   //look at alarm found in CAN.data[1,n,0] , bit position 2 and translate to a bitmask at position 1 (=B0000010)
+    candata.data[0] |= alarm_align(1,0,2,1);   //look at alarm found incan.data[1,n,0] , bit position 2 and translate to a bitmask at position 1 (=B0000010)
     //(bit 2) Battery low voltage alarm 
     candata.data[0] |= alarm_align(1,0,4,2);
     //(bit 3) Battery high temperature alarm
@@ -223,11 +241,14 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
     uint16_t totalnominalbatcap = 0;
     for (uint8_t i=0; i<MAX_NUM_CONTROLLERS; i++)
     {
-    totalnominalbatcap = totalnominalbatcap + CAN.data[5][i][4];
+    totalnominalbatcap = totalnominalbatcap + can.data[5][i][4];
     }
     candata.data[4] = max((uint8_t)1, (uint8_t)round(totalnominalbatcap / 74.0));
     candata.data[5] = 0x50;
     candata.data[6] = 0x4e;
+
+    // Return permission to Canbus_RX task 
+    xSemaphoreGive(can.dataMutex[5]);
 
     }
             // send to tx routine , block 50ms 
@@ -248,15 +269,23 @@ void pylon_message_35c()
      int8_t byte0 = 0;
     // data.byte1 = 0;
 
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(can.dataMutex[2], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
+
     for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
     {
-        if (CAN.controller_heartbeat(i) && !CAN.data[2][i][1] && CAN.data[2][i][2] == 0)  // don't factor in charge request flags from controllers operating under NetworkedControllerRules since it will prevent charging other controllers
+        if (can.heartbeat[i] && !can.data[2][i][1] &&can.data[2][i][2] == 0)  // don't factor in charge request flags from controllers operating under NetworkedControllerRules since it will prevent charging other controllers
         {
-            byte0 = byte0 | CAN.data[2][i][1];  //byte 1 of bitmsgs is the charge/discharge request flag
-        }
-        
+            byte0 = byte0 |can.data[2][i][1];  //byte 1 of bitmsgs is the charge/discharge request flag
+        }     
     }
-    
+
+    // Return permission to Canbus_RX task 
+    xSemaphoreGive(can.dataMutex[2]);  
+
     memcpy(&candata.data[0], &byte0, sizeof(byte0));
 
 
@@ -299,27 +328,36 @@ void pylon_message_356()
 
     if (mysettings.controllerNet == 1)
     {
-        memcpy(&candata.data[0], &CAN.data[6][mysettings.controllerID][0], candata.dlc);
+        memcpy(&candata.data[0], &can.data[6][mysettings.controllerID][0], candata.dlc);
     }
 
     else
     {
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(can.dataMutex[6], pdMS_TO_TICKS(100)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+    }
+
          int16_t voltage = 0;
          int16_t current = 0;
          int16_t temperature = 0;
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (CAN.controller_heartbeat(i) && !CAN.data[2][i][1])  // only use values from online controllers
+            if (can.heartbeat[i] && !can.data[2][i][1])  // only use values from online controllers
             {
-                voltage = voltage + *(int16_t*)&CAN.data[6][i][0];
-                current = current + *(int16_t*)&CAN.data[6][i][2];
-                temperature = temperature + *(int16_t*)&CAN.data[6][i][4];
+                voltage = voltage + *(int16_t*)&can.data[6][i][0];
+                current = current + *(int16_t*)&can.data[6][i][2];
+                temperature = temperature + *(int16_t*)&can.data[6][i][4];
             }
         }
 
-        voltage = voltage / CAN.online_controller_count;
-        temperature = temperature / CAN.online_controller_count;
+        // Return permission to Canbus_RX task 
+        xSemaphoreGive(can.dataMutex[6]); 
+        
+        voltage = voltage /can.online_controller_count;
+        temperature = temperature /can.online_controller_count;
 
 
     memcpy(&candata.data[0], &voltage, sizeof(voltage));
