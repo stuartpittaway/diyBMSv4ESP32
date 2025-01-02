@@ -2553,7 +2553,7 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 // Extract onboard/internal current monitor values into our internal STRUCTURE variables
 void ProcessDIYBMSCurrentMonitorInternal()
 {
-  memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
+  //memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
   currentMonitor.validReadings = false;
 
   currentMonitor.timestamp = esp_timer_get_time();
