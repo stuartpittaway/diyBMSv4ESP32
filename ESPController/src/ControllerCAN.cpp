@@ -32,34 +32,39 @@ bool ControllerCAN::NetworkedControllerRules()
   if (!canDisconnect)
     {
       if (rules.moduleHasExternalTempSensor == false)
+      {
          if( !xTimerIsTimerActive( error_debounce_timer ))
          {
-            xTimerStart(error_debounce_timer, 0);
-            ESP_LOGD(TAG,"disconnect timer started");
+           xTimerStart(error_debounce_timer, 0);
+           ESP_LOGD(TAG,"disconnect timer started");
          }
         return true;
+      }
 
-    if (rules.invalidModuleCount > 0)
-         if( !xTimerIsTimerActive(error_debounce_timer ))
-         {
-            xTimerStart(error_debounce_timer, 0);
-            ESP_LOGD(TAG,"disconnect timer started");
-         }
+      if (rules.invalidModuleCount > 0)
+      {  
+        if( !xTimerIsTimerActive(error_debounce_timer ))
+        {
+          xTimerStart(error_debounce_timer, 0);
+          ESP_LOGD(TAG,"disconnect timer started");
+        }
         return true;
+      }
 
-    // Any errors, stop charge
-    if (rules.numberOfActiveErrors > 0)
-         if( !xTimerIsTimerActive(error_debounce_timer ))
-         {
-            xTimerStart(error_debounce_timer, 0);
-            ESP_LOGD(TAG,"disconnect timer started");
-         }
-        return true;
+      if (rules.numberOfActiveErrors > 0)
+      {   
+        if( !xTimerIsTimerActive(error_debounce_timer ))
+        {
+          xTimerStart(error_debounce_timer, 0);
+          ESP_LOGD(TAG,"disconnect timer started");
+        }
+          return true;
+      }
 
-    // Clear the Timer if everything is good
-    xTimerStop(error_debounce_timer, pdMS_TO_TICKS(20));
+      // Clear the Timer if everything is good
+      xTimerStop(error_debounce_timer, pdMS_TO_TICKS(20));
 
-    return false;
+      return false;
     }
   
     // display disconnect warning 
@@ -142,7 +147,7 @@ uint8_t ControllerCAN::controllerNetwork_status()
   // Return permission to Canbus_RX task 
   xSemaphoreGive(dataMutex[2]); 
   
-  if (returnvalue = 2)
+  if (returnvalue == 2)
   {
     return returnvalue;
   }
@@ -296,10 +301,10 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
   
       candata.identifier = id[0][mysettings.controllerID];  
       candata.dlc = 8; 
-        memcpy(&candata.data[0],&chargevoltagelimit,sizeof(chargevoltagelimit));        // this 'word' will be serialized in little endian order
-        memcpy(&candata.data[2],&maxchargecurrent,sizeof(maxchargecurrent));            // this 'word' will be serialized in little endian order
-        memcpy(&candata.data[4],&maxdischargecurrent,sizeof(maxdischargecurrent));     // this 'word' will be serialized in little endian order
-        memcpy(&candata.data[6],&dischargevoltage,sizeof(dischargevoltage));           // this 'word' will be serialized in little endian order
+        memcpy(&candata.data[0],&chargevoltagelimit,sizeof(chargevoltagelimit));        
+        memcpy(&candata.data[2],&maxchargecurrent,sizeof(maxchargecurrent));            
+        memcpy(&candata.data[4],&maxdischargecurrent,sizeof(maxdischargecurrent));     
+        memcpy(&candata.data[6],&dischargevoltage,sizeof(dischargevoltage));           
 
     // Wait for permission from Canbus_RX task to edit data array
     if (!xSemaphoreTake(dataMutex[0], pdMS_TO_TICKS(100)))
@@ -718,9 +723,9 @@ void ControllerCAN::c2c_VIT()   //Battery voltage, current, and temperature
 
 
       candata.dlc = 6;
-      memcpy(&candata.data[0],&voltage,sizeof(voltage));      // this 'word' will be serialized in little endian order
-      memcpy(&candata.data[2],&current,sizeof(current));      // this 'word' will be serialized in little endian order   
-      memcpy(&candata.data[4],&temperature,sizeof(temperature));   // this 'word' will be serialized in little endian order
+      memcpy(&candata.data[0],&voltage,sizeof(voltage));      
+      memcpy(&candata.data[2],&current,sizeof(current));         
+      memcpy(&candata.data[4],&temperature,sizeof(temperature));   
       candata.identifier = id[6][mysettings.controllerID];     
 
     // Wait for permission from Canbus_RX task to edit data array
@@ -831,10 +836,10 @@ void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
   char text[8];
 
   // Wait for permission from Canbus_RX task to edit data array
-  if (!xSemaphoreTake(dataMutex[9], pdMS_TO_TICKS(100)) ||
-      !xSemaphoreTake(dataMutex[10], pdMS_TO_TICKS(100)) ||
-      !xSemaphoreTake(dataMutex[11], pdMS_TO_TICKS(100)) ||
-      !xSemaphoreTake(dataMutex[12], pdMS_TO_TICKS(100)) )
+  if (!(xSemaphoreTake(dataMutex[9], pdMS_TO_TICKS(100)) &
+       xSemaphoreTake(dataMutex[10], pdMS_TO_TICKS(100)) &
+       xSemaphoreTake(dataMutex[11], pdMS_TO_TICKS(100)) &
+       xSemaphoreTake(dataMutex[12], pdMS_TO_TICKS(100))))
   {
     ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout");
   }

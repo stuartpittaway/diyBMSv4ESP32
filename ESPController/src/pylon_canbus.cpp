@@ -62,7 +62,7 @@ void  pylon_message_351()
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
             //only include online controllers
-            if (can.heartbeat[i] && !can.data[2][i][1]) 
+            if (can.heartbeat[i] && can.data[2][i][1]) 
             {
                 if ((*(uint16_t*)&can.data[0][i][0] <= chargevoltagelimit))  // find minimum
                 {
@@ -123,8 +123,8 @@ void pylon_message_355()
     else
     {
         // Wait for permission from Canbus_RX task to edit data array
-        if (!xSemaphoreTake(can.dataMutex[4], pdMS_TO_TICKS(100)) ||
-            !xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(100)))
+        if (!(xSemaphoreTake(can.dataMutex[4], pdMS_TO_TICKS(100)) &
+            xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(100))))
         {
         ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
         }
@@ -138,7 +138,7 @@ void pylon_message_355()
         
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.heartbeat[i] && !can.data[2][i][1])
+            if (can.heartbeat[i] && can.data[2][i][1])
             {
                 Total_Ah = Total_Ah + *(uint16_t*)&can.data[5][i][4];     //online capacity
                 Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  //SOC x Online capacity
@@ -277,7 +277,7 @@ void pylon_message_35c()
 
     for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
     {
-        if (can.heartbeat[i] && !can.data[2][i][1] &&can.data[2][i][2] == 0)  // don't factor in charge request flags from controllers operating under NetworkedControllerRules since it will prevent charging other controllers
+        if (can.heartbeat[i] && can.data[2][i][1] &&can.data[2][i][2] == 0)  // don't factor in charge request flags from controllers operating under NetworkedControllerRules since it will prevent charging other controllers
         {
             byte0 = byte0 |can.data[2][i][1];  //byte 1 of bitmsgs is the charge/discharge request flag
         }     
@@ -345,7 +345,7 @@ void pylon_message_356()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.heartbeat[i] && !can.data[2][i][1])  // only use values from online controllers
+            if (can.heartbeat[i] && can.data[2][i][1])  // only use values from online controllers
             {
                 voltage = voltage + *(int16_t*)&can.data[6][i][0];
                 current = current + *(int16_t*)&can.data[6][i][2];

@@ -2845,7 +2845,7 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
     vTaskDelay(pdMS_TO_TICKS(900));
 
     //wait until controller is running 
-    if (_controller_state == ControllerState::Running || _controller_state == ControllerState::Stabilizing)
+    if (_controller_state == ControllerState::Running)
     {
       // Handle special rules for networking controllers
       if (mysettings.controllerNet > 1)
@@ -2872,6 +2872,7 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
 
         //Return snapshot of the controller network & update hearbeat
         statusreturn = can.controllerNetwork_status();
+        ESP_LOGE(TAG, "returnvalue = %d",statusreturn);
         // determine who is currently the master controller
         can.who_is_master(); 
 
@@ -2997,7 +2998,8 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
               // We will timestamp any DIYBMS_MSG frames for use as a heartbeat 
               if (can.hash_i(message.identifier) == 2)
               {
-                 can.timestampBuffer[can.hash_j(message.identifier)] = esp_timer_get_time(); //timestamp incoming message from Controller [j]
+                can.timestampBuffer[can.hash_j(message.identifier)] = esp_timer_get_time(); //timestamp incoming message from Controller [j]
+                ESP_LOGE(TAG, "timestamped controller %d = %d", can.hash_j(message.identifier), can.timestampBuffer[can.hash_j(message.identifier)]);
               }
               
               // Return permission to Canbus_TX task 
@@ -4135,7 +4137,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(50), pdFALSE, (void *)3, &tftwakeup);
   assert(tftwake_timer);
 
-  can.error_debounce_timer = xTimerCreate("ERROR", pdMS_TO_TICKS(10000), pdFALSE, (void*)4, &CAN_Networking_disconnect);
+  can.error_debounce_timer = xTimerCreate("ERROR", pdMS_TO_TICKS(30000), pdFALSE, (void*)4, &CAN_Networking_disconnect);
   assert(can.error_debounce_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);

@@ -92,7 +92,7 @@ void victron_message_35f()
         uint8_t mismatches = 0;
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.heartbeat[i] && !can.data[2][i][1])  //check bitmsgs timestamp so we only include online controllers
+            if (can.heartbeat[i] && can.data[2][i][1])  //check bitmsgs timestamp so we only include online controllers
             {
             mismatches = mismatches + memcmp((uint16_t*)&can.data[5][i][2], (uint16_t*)&can.data[5][i + 1][2], sizeof(uint16_t));
             }
@@ -118,7 +118,7 @@ void victron_message_35f()
         uint16_t Total_Weighted_Ah = 0;
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.heartbeat[i] && !can.data[2][i][1])  //check bitmsgs timestamp so we only include online controllers
+            if (can.heartbeat[i] && can.data[2][i][1])  //check bitmsgs timestamp so we only include online controllers
             {
             Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  //SOC x Online capacity
             }
@@ -231,11 +231,13 @@ void victron_message_373_374_375_376_377()
         uint8_t MaxCellT_ID[TWAI_FRAME_MAX_DLC];
 
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(can.dataMutex[8], pdMS_TO_TICKS(100)) ||
-        !xSemaphoreTake(can.dataMutex[9], pdMS_TO_TICKS(100)) ||
-        !xSemaphoreTake(can.dataMutex[10], pdMS_TO_TICKS(100)) ||
-        !xSemaphoreTake(can.dataMutex[11], pdMS_TO_TICKS(100)) ||
-        !xSemaphoreTake(can.dataMutex[12], pdMS_TO_TICKS(100)))
+    if (
+        !(xSemaphoreTake(can.dataMutex[8], pdMS_TO_TICKS(100)) &
+        xSemaphoreTake(can.dataMutex[9], pdMS_TO_TICKS(100)) &
+        xSemaphoreTake(can.dataMutex[10], pdMS_TO_TICKS(100)) &
+        xSemaphoreTake(can.dataMutex[11], pdMS_TO_TICKS(100)) &
+        xSemaphoreTake(can.dataMutex[12], pdMS_TO_TICKS(100)))
+        )
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
     } 
@@ -248,7 +250,7 @@ void victron_message_373_374_375_376_377()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.heartbeat[i] && !can.data[2][i][1])  //check bitmsgs timestamp so we only include online controllers
+            if (can.heartbeat[i] && can.data[2][i][1])  //check bitmsgs timestamp so we only include online controllers
             {
                 // find minimums
                 if ((*(uint16_t*)&can.data[8][i][0] <= min_cell_v))  
@@ -397,7 +399,7 @@ void  victron_message_351()
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
             //only include online controllers (must be present on CANBUS and have one|both Charge/Discharge Allowed)
-            if (can.heartbeat[i] && !can.data[2][i][1])  
+            if (can.heartbeat[i] && can.data[2][i][1])  
             {
                 // use minimum
                 if ((*(uint16_t*)&can.data[0][i][0] < chargevoltagelimit))
@@ -444,7 +446,7 @@ void  victron_message_351()
             }
 }
 
-// SOC 
+// SOC & SOH
 void victron_message_355()
 {
     CANframe candata;
@@ -460,8 +462,8 @@ void victron_message_355()
     else
     { 
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(can.dataMutex[4], pdMS_TO_TICKS(100)) ||
-        !xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(100)))
+    if (!(xSemaphoreTake(can.dataMutex[4], pdMS_TO_TICKS(100)) &
+        xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(100))))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
     }
@@ -475,7 +477,7 @@ void victron_message_355()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.heartbeat[i] && !can.data[2][i][1])
+            if (can.heartbeat[i] && can.data[2][i][1])
             {
             Total_Ah = Total_Ah + *(uint16_t*)&can.data[5][i][4];
             Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  //SOC x Online capacity
@@ -537,7 +539,7 @@ void victron_message_356()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.heartbeat[i] && !can.data[2][i][1])  // only use values from online controllers
+            if (can.heartbeat[i] && can.data[2][i][1])  // only use values from online controllers
             {
                 voltage = voltage + *(int16_t*)&can.data[6][i][0];
                 current = current + *(int16_t*)&can.data[6][i][2];
@@ -595,7 +597,7 @@ void victron_message_372()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.heartbeat[i] && !can.data[2][i][1])  // only use 0 values from online controllers
+            if (can.heartbeat[i] && can.data[2][i][1])  // only use 0 values from online controllers
             {
             online_count = online_count + *(uint16_t*)&can.data[3][i][0];
             offline_count = offline_count + *(uint16_t*)&can.data[3][i][6];
@@ -761,7 +763,7 @@ void victron_message_379()
 
     for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
     {
-        if (can.heartbeat[i] && !can.data[2][i][1])  //check bitmsgs timestamp so we only include online controllers
+        if (can.heartbeat[i] && can.data[2][i][1])  //check bitmsgs timestamp so we only include online controllers
         {
         Online_Ah = Online_Ah + *(uint16_t*)&can.data[5][i][4];
         }
