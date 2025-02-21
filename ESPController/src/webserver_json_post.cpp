@@ -1040,6 +1040,12 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
         }
     }
 
+    // pulse time
+    if (GetKeyValue(httpbuf, "pulsetime", &mysettings.pulsetime, urlEncoded))
+    {
+    }
+
+
     // Relay default
     for (int i = 0; i < RELAY_TOTAL; i++)
     {

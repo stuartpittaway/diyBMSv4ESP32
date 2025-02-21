@@ -147,6 +147,8 @@ struct diybms_eeprom_settings
   RelayState rulerelaydefault[RELAY_TOTAL];
   // Default starting state for relay types
   RelayType relaytype[RELAY_TOTAL];
+  // Default pulse time (ms)
+  uint16_t pulsetime;
 
   uint16_t graph_voltagehigh;
   uint16_t graph_voltagelow;

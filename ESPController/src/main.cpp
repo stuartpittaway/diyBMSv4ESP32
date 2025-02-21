@@ -1359,9 +1359,27 @@ void pulse_relay_off(const TimerHandle_t)
     // 3 seconds
     vTaskDelay(pdMS_TO_TICKS(3000));
 
-    // Run the rules
+     // Run the rules
     ProcessRules();
 
+    // Handle updating the configurable relay pulse timer
+    if (xTimerGetPeriod(pulse_relay_off_timer) != pdMS_TO_TICKS(mysettings.pulsetime))
+    {
+      // don't change a timer it's active
+      if (!xTimerIsTimerActive(pulse_relay_off_timer))
+      {
+        if (xTimerChangePeriod(pulse_relay_off_timer, pdMS_TO_TICKS(mysettings.pulsetime),pdMS_TO_TICKS(50)))
+        {
+          // sucessfully changing the period also starts the timer so we have to immediately stop it....
+          xTimerStop(pulse_relay_off_timer,pdMS_TO_TICKS(100));
+        }
+      }
+    }
+
+    // Wait to fire relays until the controller reaches the running state
+    if (_controller_state == ControllerState::Running)
+    {
+      
     RelayState relay[RELAY_TOTAL];
 
     // Set defaults based on configuration
@@ -1437,6 +1455,8 @@ void pulse_relay_off(const TimerHandle_t)
       // A rule is TRUE or relay state has changed, so MQTT report it...
       xTaskNotify(rule_state_change_task_handle, 0x00, eNotifyAction::eNoAction);
     }
+    }
+ 
   }
 }
 
@@ -4161,12 +4181,12 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(replyqueue_task, "rxq", 4096, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 0, &lazy_task_handle);
 
-  // Set relay defaults
+  // Start relays in the off state
   for (auto y = 0; y < RELAY_TOTAL; y++)
   {
-    previousRelayState[y] = mysettings.rulerelaydefault[y];
+    //previousRelayState[y] = RelayState::RELAY_OFF;
     // Set relay defaults
-    hal.SetOutputState(y, mysettings.rulerelaydefault[y]);
+    //hal.SetOutputState(y, mysettings.rulerelaydefault[y]);
   }
   // Fire task to record state of outputs to SD Card
   xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);

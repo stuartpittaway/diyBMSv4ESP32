@@ -98,7 +98,7 @@ static const char soh_lifetime_battery_cycles_JSONKEY[] = "soh_batcycle";
 
 static const char soh_eol_capacity_JSONKEY[] = "soh_eol_capacity";
 
-
+static const char pulsetime_JSONKEY[] = "pulsetime";
 
 static const char controllerNet_JSONKEY[] = "controllerNet";
 static const char controllerID_JSONKEY[] = "controllerID";
@@ -207,6 +207,8 @@ static const char soc_milliamphour_in_NVSKEY[] = "soc_mah_in";
 static const char controllerNet_NVSKEY[] = "controllerNet";
 static const char controllerID_NVSKEY[] = "controllerID";
 static const char highAvailable_NVSKEY[] = "highAvailable";
+
+static const char pulsetime_NVSKEY[] = "pulsetime";
 
 #define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
 #define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
@@ -540,6 +542,8 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(controllerID);
         MACRO_NVSWRITE(highAvailable);
 
+        MACRO_NVSWRITE(pulsetime);
+
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
     }
@@ -680,6 +684,8 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD_UINT8(controllerNet);
         MACRO_NVSREAD(controllerID);
         MACRO_NVSREAD(highAvailable);
+
+        MACRO_NVSREAD(pulsetime);
 
         nvs_close(nvs_handle);
     }
@@ -847,6 +853,9 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     {
         _myset->relaytype[x] = RELAY_STANDARD;
     }
+
+    // Default relay pulse to 250ms
+    _myset->pulsetime = 250;
 
     // Default which "tiles" are visible on the web gui
     // For the meaning, look at array "TILE_IDS" in pagecode.js
@@ -1016,14 +1025,14 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
         settings->current_value2 = 100 * 10;
     }
 
-    // Ensure that all PULSE relays default to OFF (pulse will only pulse on/off not off/on)
+    /*// Ensure that all PULSE relays default to OFF (pulse will only pulse on/off not off/on)
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
         if (settings->relaytype[i] == RelayType::RELAY_PULSE)
         {
             settings->rulerelaydefault[i] = RelayState::RELAY_OFF;
         }
-    }
+    }*/
 
     // Ensure trigger and reset (rulevalue and rulehysteresis) values make sense and
     // the rulehysteresis value is either greater or lower than rulevalue as required.
@@ -1200,6 +1209,7 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
         }
     } // end for
 
+    root[pulsetime_JSONKEY] = settings->pulsetime;
     root[protocol_JSONKEY] = (uint8_t)settings->protocol;
     root[canbusinverter_JSONKEY] = (uint8_t)settings->canbusinverter;
     root[canbusbaud_JSONKEY] = settings->canbusbaud;
@@ -1350,6 +1360,7 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
     settings->soh_lifetime_battery_cycles = root[soh_lifetime_battery_cycles_JSONKEY];
     settings->soh_eol_capacity=root[soh_eol_capacity_JSONKEY];
 
+    settings->pulsetime = root[pulsetime_JSONKEY];
 
     strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
 

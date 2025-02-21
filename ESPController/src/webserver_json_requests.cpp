@@ -662,7 +662,8 @@ esp_err_t content_handler_rules(httpd_req_t *req)
   }
 
   root["ControlState"] = _controller_state;
-
+  root["pulsetime"] = mysettings.pulsetime;
+  
   JsonArray defaultArray = root["relaydefault"].to<JsonArray>();
   for (auto v : mysettings.rulerelaydefault)
   {
