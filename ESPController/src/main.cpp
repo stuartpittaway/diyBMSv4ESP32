@@ -2843,8 +2843,12 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
 void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
 {
           /* Force Disable the CANBUS if there is an internal error for a set period of time (see applicable timer) and there are networked controllers. 
-          This is to prevent a controller that has disconnected itself from auto-reconnecting (there's probably be a better way of doing this with some "reconnection rules"). 
-          User must manually re-enable canbus protocol*/
+          This is to prevent a controller that has disconnected itself from auto-reconnecting after a long period of time. (there's probably be a better way of doing this with some "reconnection rules"). 
+          User must manually re-enable canbus protocol
+          
+          Note that if there is an error the rules should handle the protection of the battery in the short term. Here we are disconnecting the CANBUS after a longer period of
+          time where the battery voltages will have had time to deviate from each other and therefore there is a risk connecting them back together.
+          */
         if (mysettings.controllerNet != 1)
         {
           mysettings.protocol = ProtocolEmulation::EMULATION_DISABLED;
@@ -4157,7 +4161,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(50), pdFALSE, (void *)3, &tftwakeup);
   assert(tftwake_timer);
 
-  can.error_debounce_timer = xTimerCreate("ERROR", pdMS_TO_TICKS(30000), pdFALSE, (void*)4, &CAN_Networking_disconnect);
+  can.error_debounce_timer = xTimerCreate("ERROR", pdMS_TO_TICKS(300000), pdFALSE, (void*)4, &CAN_Networking_disconnect); // 5 minutes
   assert(can.error_debounce_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
@@ -4184,7 +4188,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   // Start relays in the off state
   for (auto y = 0; y < RELAY_TOTAL; y++)
   {
-    //previousRelayState[y] = RelayState::RELAY_OFF;
+    previousRelayState[y] = RelayState::RELAY_OFF;
     // Set relay defaults
     //hal.SetOutputState(y, mysettings.rulerelaydefault[y]);
   }

@@ -86,8 +86,8 @@ void  pylon_message_351()
         // Return permission to Canbus_RX task 
         xSemaphoreGive(can.dataMutex[0]); 
         
-        maxchargecurrent = maxchargecurrent *can.online_controller_count;  //use minimum multiplied by # of online controllers
-        maxdischargecurrent = maxdischargecurrent *can.online_controller_count;    //use minimum multiplied by # of online controllers      
+        maxchargecurrent = maxchargecurrent *can.integrated_count;  //use minimum multiplied by # of online controllers
+        maxdischargecurrent = maxdischargecurrent *can.integrated_count;    //use minimum multiplied by # of online controllers      
 
     }
         
@@ -141,7 +141,7 @@ void pylon_message_355()
             if (can.heartbeat[i] && can.data[2][i][1])
             {
                 Total_Ah = Total_Ah + *(uint16_t*)&can.data[5][i][4];     //online capacity
-                Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  //SOC x Online capacity
+                Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  // SOC(%) x Online capacity
                 
                 // use minimum
                 if (*(uint16_t*)&can.data[4][i][2] < SOH)
@@ -356,8 +356,8 @@ void pylon_message_356()
         // Return permission to Canbus_RX task 
         xSemaphoreGive(can.dataMutex[6]); 
         
-        voltage = voltage /can.online_controller_count;
-        temperature = temperature /can.online_controller_count;
+        voltage = voltage /can.integrated_count;
+        temperature = temperature /can.integrated_count;
 
 
     memcpy(&candata.data[0], &voltage, sizeof(voltage));

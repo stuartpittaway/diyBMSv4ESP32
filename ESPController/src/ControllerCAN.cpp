@@ -102,6 +102,7 @@ uint8_t ControllerCAN::controllerNetwork_status()
   uint8_t returnvalue = 0;
   uint8_t controller_count = 0; 
   uint8_t addressbitmask = 0;
+  uint8_t integrated_controllers = 0;
   uint8_t high_availability = mysettings.highAvailable;
   ///uint8_t dvcc_controllers = 0;
 
@@ -121,10 +122,10 @@ uint8_t ControllerCAN::controllerNetwork_status()
       heartbeat[i] = true;
 
       // how many are DVCC enabled (not isolated)
-      /*if (!data[2][i][1])
+      if (data[2][i][1])
       {
-        dvcc_controllers++;
-      }*/
+        integrated_controllers++;
+      }
 
       // checksum for controller address overlap
       addressbitmask &= data[2][i][0]; // this should should never be elevated above 0 or there is an overlap
@@ -182,6 +183,7 @@ uint8_t ControllerCAN::controllerNetwork_status()
   else
   {
       online_controller_count = controller_count;
+      integrated_count = integrated_controllers;
       return returnvalue;
   }
 

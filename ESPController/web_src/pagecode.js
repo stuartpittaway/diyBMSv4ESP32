@@ -1652,7 +1652,7 @@ $(function () {
                     $("#relaytype" + (index2 + 1)).val(value2).attr("data-origv", value2).removeClass("modified");
                 });
 
-                //Default Pulse Time
+                //Pulse Time
                 $("#pulsetime").val(data.pulsetime);
 
                 //Loop through each rule updating the page

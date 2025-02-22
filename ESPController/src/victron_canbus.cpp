@@ -120,7 +120,7 @@ void victron_message_35f()
         {
             if (can.heartbeat[i] && can.data[2][i][1])  //check bitmsgs timestamp so we only include online controllers
             {
-            Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  //SOC x Online capacity
+            Total_Weighted_Ah = Total_Weighted_Ah + .01 * (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  // .01 * SOC(%) x Online capacity
             }
         }
 
@@ -423,8 +423,8 @@ void  victron_message_351()
                 }
             }
         }
-        maxchargecurrent = maxchargecurrent *can.online_controller_count;
-        maxdischargecurrent = maxdischargecurrent *can.online_controller_count;
+        maxchargecurrent = maxchargecurrent *can.integrated_count;
+        maxdischargecurrent = maxdischargecurrent *can.integrated_count;
     }
         memcpy(&candata.data[0], &chargevoltagelimit, sizeof(chargevoltagelimit));                 
         memcpy(&candata.data[2], &maxchargecurrent, sizeof(maxchargecurrent));
@@ -450,7 +450,7 @@ void  victron_message_351()
 void victron_message_355()
 {
     CANframe candata;
-    candata.dlc = 4;
+    candata.dlc = 8;
     candata.identifier = 0x355;
     memset(&candata.data, 0, sizeof(candata.data));
 
@@ -480,7 +480,7 @@ void victron_message_355()
             if (can.heartbeat[i] && can.data[2][i][1])
             {
             Total_Ah = Total_Ah + *(uint16_t*)&can.data[5][i][4];
-            Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  //SOC x Online capacity
+            Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  // SOC(%) x Online capacity
 
             // use minimum
             if (*(uint16_t*)&can.data[4][i][2] < SOH)
@@ -502,6 +502,10 @@ void victron_message_355()
 
         memcpy(&candata.data[0], &Weighted_SOC, sizeof(Weighted_SOC));
         memcpy(&candata.data[2], &SOH, sizeof(SOH));
+        Weighted_SOC = Weighted_SOC * .01;
+        memcpy(&candata.data[4], &Weighted_SOC, sizeof(Weighted_SOC));
+        Weighted_SOC = Weighted_SOC * 1000;
+        memcpy(&candata.data[6], &Weighted_SOC, sizeof(Weighted_SOC));
     }
   
             // send to tx routine , block 50ms 
@@ -550,8 +554,8 @@ void victron_message_356()
         // Return permission to Canbus_RX task 
         xSemaphoreGive(can.dataMutex[6]); 
 
-        voltage = voltage /can.online_controller_count;
-        temperature = temperature /can.online_controller_count;
+        voltage = voltage /can.integrated_count;
+        temperature = temperature /can.integrated_count;
 
 
         memcpy(&candata.data[0], &voltage, sizeof(voltage));

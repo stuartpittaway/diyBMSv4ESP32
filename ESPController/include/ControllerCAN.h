@@ -89,6 +89,9 @@ public:
 
 	// # of controllers currently online
 	uint8_t online_controller_count;
+
+	// # of controllers not isolated & participating in aggregation
+	uint8_t integrated_count;
 	
 	//void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer);
 
