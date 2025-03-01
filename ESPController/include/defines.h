@@ -20,7 +20,7 @@
 #define SERIAL_RS485 Serial1
 
 // Total number of cells a single controler can handle (memory limitation)
-#define maximum_controller_cell_modules 192
+#define maximum_controller_cell_modules 200
 
 typedef union
 {
