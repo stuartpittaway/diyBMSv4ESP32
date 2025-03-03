@@ -2,8 +2,6 @@
 
 This code formats local controller data into "industry standard" CAN messages for the purpose of reporting to various inverter manufacturers. It also establishes Intra-Controller communication of these messages to be aggregated and reported to an inverter
 
-Note!! Data will be serialized for transmission in little endian order. It will be received by other controllers and stored as such in a array of single byte type. So, those parameters
-need cast back to the original data type/size before any aggregation math.
 */
 
 
@@ -15,7 +13,7 @@ static constexpr const char *const TAG = "diybms-ControllerCAN";
 ControllerCAN can;
 
 void ControllerCAN::init_hash_table() {
-  memset(&hash_table, 0, sizeof(hash_table));
+  memset(hash_table, 0, sizeof(hash_table));
 
   for (uint8_t i = 0; i < MAX_CAN_PARAMETERS; i++)          //traverse rows of id[]
               {
@@ -68,7 +66,7 @@ bool ControllerCAN::NetworkedControllerRules()
     }
   
     // display disconnect warning 
-  else if (canDisconnect)
+  else 
   {     
       // reset WARNING if CANBUS emulation is manually re-enabled
       if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED)
@@ -104,27 +102,29 @@ uint8_t ControllerCAN::controllerNetwork_status()
   uint8_t addressbitmask = 0;
   uint8_t integrated_controllers = 0;
   uint8_t high_availability = mysettings.highAvailable;
-  ///uint8_t dvcc_controllers = 0;
 
   // Wait for permission from Canbus_RX task to edit data array
-  if (!xSemaphoreTake(dataMutex[2], pdMS_TO_TICKS(100)))
+  if (!xSemaphoreTake(dataMutex[2], pdMS_TO_TICKS(50)))
   {
-    ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout") ; 
+    ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout") ;
+    return returnvalue; 
   }
 
-  memset(&heartbeat[0], 0, sizeof(heartbeat));
+  memset(&controller_is_online[0], 0, sizeof(controller_is_online));
+  memset(&controller_is_integrated[0], 0, sizeof(controller_is_integrated));
 
   for (uint8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
   {
     if ((esp_timer_get_time() - timestampBuffer[i]) < HEARTBEAT_PERIOD) // only poll online controllers
     {
       controller_count++;
-      heartbeat[i] = true;
+      controller_is_online[i] = true;
 
-      // how many are DVCC enabled (not isolated)
+      // how many are integrated (not isolated)
       if (data[2][i][1])
       {
         integrated_controllers++;
+        controller_is_integrated[i] = true;
       }
 
       // checksum for controller address overlap
@@ -195,7 +195,7 @@ void ControllerCAN::who_is_master()  // Decide which controller is master ( == t
 
       for (uint8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
       {
-        if (heartbeat[i])
+        if (controller_is_online[i])
         {
             master=i;
             
@@ -226,7 +226,7 @@ void ControllerCAN::SetBankAndModuleText(char *buffer, uint8_t cellid)       //f
 void ControllerCAN::c2c_DVCC()    //DVCC settings
 {
     CANframe candata;
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
     // CVL - 0.1V scale
     uint16_t chargevoltagelimit;
@@ -309,12 +309,13 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
         memcpy(&candata.data[6],&dischargevoltage,sizeof(dischargevoltage));           
 
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(dataMutex[0], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(dataMutex[0], pdMS_TO_TICKS(50)))
     {
-      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout");
+      return; 
     }
 
-        memcpy(&data[0][mysettings.controllerID][0], &candata.data, candata.dlc);       //copy calculated values to array
+        memcpy(&can.data[0][mysettings.controllerID][0], candata.data, candata.dlc);       //copy calculated values to array
 
         // Return permission to Canbus_RX task 
         xSemaphoreGive(dataMutex[0]);
@@ -335,7 +336,7 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
 {
 
   CANframe candata;
-  memset(&candata.data, 0, sizeof(candata.data));
+  memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
   const uint8_t BIT01_ALARM = B00000001;
   const uint8_t BIT23_ALARM = B00000100;
@@ -458,9 +459,10 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
     candata.identifier = id[1][mysettings.controllerID];                                    
 
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(dataMutex[1], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(dataMutex[1], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
 
     memcpy(&data[1][mysettings.controllerID][0],&candata.data,candata.dlc);                        //copy calculated values to array
@@ -481,7 +483,7 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
 void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
 {
   CANframe candata;
-  memset(&candata.data, 0, sizeof(candata.data));
+  memset(candata.data, 0, TWAI_FRAME_MAX_DLC);
 
 
 // byte 0 - Broadcast the Controller ID
@@ -514,7 +516,7 @@ void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
 
 
 
-// byte 2 - Is DVCC allowed?
+// byte 2 - reserved for future use
 
 
 // byte 3 - HighAvailability setting
@@ -529,14 +531,15 @@ void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
   candata.identifier = id[2][mysettings.controllerID];
 
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(dataMutex[2], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(dataMutex[2], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
 
     memcpy(&data[2][mysettings.controllerID][0],&candata.data,candata.dlc);    
 
-    //update timestamp of this controller
+    //update both heartbeat buffers for this controller
     can.timestampBuffer[mysettings.controllerID] = esp_timer_get_time();
 
   // Return permission to Canbus_RX task 
@@ -555,7 +558,7 @@ void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
 void ControllerCAN::c2c_MODULES()       // # of modules O.K. 
 {
   CANframe candata;
-  memset(&candata.data, 0, sizeof(candata.data));
+  memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
   
     uint16_t numberofmodulesok = TotalNumberOfCells() - rules.invalidModuleCount;
     // uint16_t numberofmodulesblockingcharge = 0;
@@ -569,9 +572,10 @@ void ControllerCAN::c2c_MODULES()       // # of modules O.K.
     candata.identifier = id[3][mysettings.controllerID];                                   
 
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(dataMutex[3], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(dataMutex[3], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
 
     memcpy(&data[3][mysettings.controllerID][0],&candata.data,candata.dlc);                        //copy calculated values to array
@@ -611,9 +615,10 @@ void ControllerCAN::c2c_SOC()      // SOC
     candata.identifier = id[4][mysettings.controllerID];                                 
 
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(dataMutex[4], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(dataMutex[4], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
 
     memcpy(&data[4][mysettings.controllerID][0],&candata.data[0],candata.dlc);                   //copy calculated values to array
@@ -638,7 +643,7 @@ void ControllerCAN::c2c_SOC()      // SOC
 void ControllerCAN::c2c_CAP()   // Online capacity and firmware version
 {
     CANframe candata;
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
     uint16_t BatteryModel;
     uint16_t Firmwareversion;
@@ -662,9 +667,10 @@ void ControllerCAN::c2c_CAP()   // Online capacity and firmware version
       candata.identifier = id[5][mysettings.controllerID];        
 
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(dataMutex[5], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(dataMutex[5], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
 
       memcpy(&data[5][mysettings.controllerID][0],&candata.data[0],candata.dlc);                  //copy local values to array
@@ -685,7 +691,7 @@ void ControllerCAN::c2c_CAP()   // Online capacity and firmware version
 void ControllerCAN::c2c_VIT()   //Battery voltage, current, and temperature
 {
     CANframe candata;
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
 
     int16_t voltage; 
@@ -731,9 +737,10 @@ void ControllerCAN::c2c_VIT()   //Battery voltage, current, and temperature
       candata.identifier = id[6][mysettings.controllerID];     
 
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(dataMutex[6], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(dataMutex[6], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
     
       memcpy(&data[6][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to local array
@@ -757,7 +764,7 @@ void ControllerCAN::c2c_VIT()   //Battery voltage, current, and temperature
 void ControllerCAN::c2c_HOST()     //unique part of hostname
 {
     CANframe candata;
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
 
     candata.dlc = 8;                                                
@@ -765,9 +772,10 @@ void ControllerCAN::c2c_HOST()     //unique part of hostname
     candata.identifier = id[7][mysettings.controllerID];           
 
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(dataMutex[7], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(dataMutex[7], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
 
     memcpy(&data[7][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array
@@ -788,7 +796,7 @@ void ControllerCAN::c2c_HOST()     //unique part of hostname
 void ControllerCAN::c2c_MINMAX_CELL_V_T()    // Min/Max Cell V & T
 {
     CANframe candata;
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
     uint16_t mincellvoltage;
     uint16_t maxcellvoltage;
@@ -809,9 +817,10 @@ void ControllerCAN::c2c_MINMAX_CELL_V_T()    // Min/Max Cell V & T
       candata.identifier = id[8][mysettings.controllerID];                                     
     
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(dataMutex[8], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(dataMutex[8], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
 
       memcpy(&data[8][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array
@@ -838,18 +847,24 @@ void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
   char text[8];
 
   // Wait for permission from Canbus_RX task to edit data array
-  if (!(xSemaphoreTake(dataMutex[9], pdMS_TO_TICKS(100)) &
-       xSemaphoreTake(dataMutex[10], pdMS_TO_TICKS(100)) &
-       xSemaphoreTake(dataMutex[11], pdMS_TO_TICKS(100)) &
-       xSemaphoreTake(dataMutex[12], pdMS_TO_TICKS(100))))
+  if (!(xSemaphoreTake(dataMutex[9], pdMS_TO_TICKS(50)) &&
+       xSemaphoreTake(dataMutex[10], pdMS_TO_TICKS(50)) &&
+       xSemaphoreTake(dataMutex[11], pdMS_TO_TICKS(50)) &&
+       xSemaphoreTake(dataMutex[12], pdMS_TO_TICKS(50))))
   {
     ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout");
+
+    xSemaphoreGive(dataMutex[9]); 
+    xSemaphoreGive(dataMutex[10]); 
+    xSemaphoreGive(dataMutex[11]);
+    xSemaphoreGive(dataMutex[12]); 
+    return; 
   }
 
     // Min. cell voltage id string [1]
   if (rules.address_LowestCellVoltage < maximum_controller_cell_modules)
   {
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
     SetBankAndModuleText(text, rules.address_LowestCellVoltage);
 
     memcpy(&candata.data[0],&text,sizeof(text));   
@@ -867,7 +882,7 @@ void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
     // Max. cell voltage id string [1]
   if (rules.address_HighestCellVoltage < maximum_controller_cell_modules)
   {
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
     SetBankAndModuleText(text, rules.address_HighestCellVoltage);
 
     memcpy(&candata.data[0],&text,sizeof(text));   
@@ -884,7 +899,7 @@ void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
     // Min. cell temp id string [1]
   if (rules.address_lowestExternalTemp < maximum_controller_cell_modules)
   {
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
     SetBankAndModuleText(text, rules.address_lowestExternalTemp);
 
     memcpy(&candata.data[0],&text,sizeof(text));   
@@ -901,7 +916,7 @@ void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
   // Max. cell temp id string [1]
   if (rules.address_highestExternalTemp < maximum_controller_cell_modules)
   {
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
     SetBankAndModuleText(text, rules.address_highestExternalTemp);
 
     memcpy(&candata.data[0],&text,sizeof(text));   

@@ -14,7 +14,7 @@ public:
 	/*                                                                                                                                                                                     __INDUSTRY STANDARD ID'S__    */
 	/*  0       DVCC*/                    {0x258 /*600*/   ,0x259 /*601*/   ,0x25a /*602*/   ,0x25b /*603*/   ,0x25c /*604*/   ,0x25d /*605*/   ,0x25e /*606*/   ,0x25f /*607*/   },         /*__0x351 (849)__*/
 	/*  1       ALARMS*/                  {0x26c /*620*/   ,0x26d /*621*/   ,0x26e /*622*/   ,0x26f /*623*/   ,0x270 /*624*/   ,0x271 /*625*/   ,0x272 /*626*/   ,0x273 /*627*/   },         /*__0x35a (858)__*/
-	/*  2       BIT MSGS*/                {0x280 /*640*/   ,0x281 /*641*/   ,0x282 /*642*/   ,0x283 /*643*/   ,0x284 /*644*/   ,0x285 /*645*/   ,0x286 /*646*/   ,0x287 /*647*/   },
+	/*  2       DIYBMS_MSGS*/             {0x280 /*640*/   ,0x281 /*641*/   ,0x282 /*642*/   ,0x283 /*643*/   ,0x284 /*644*/   ,0x285 /*645*/   ,0x286 /*646*/   ,0x287 /*647*/   },
 	/*  3       #MODULES OK*/             {0x294 /*660*/   ,0x295 /*661*/   ,0x296 /*662*/   ,0x297 /*663*/   ,0x298 /*664*/   ,0x299 /*665*/   ,0x29a /*666*/   ,0x29b /*667*/   },         /*__0X372 (882)__*/
 	/*  4       SOC/SOH*/                 {0x3e8 /*1000*/  ,0x3e9 /*1001*/  ,0x3ea /*1002*/  ,0x3eb /*1003*/  ,0x3ec /*1004*/  ,0x3ed /*1005*/  ,0x3ee /*1006*/  ,0x3ef /*1007*/  },         /*__0x355 (853)__*/
 	/*  5       CAP & FIRMWARE*/          {0x3fc /*1020*/  ,0x3fd /*1021*/  ,0x3fe /*1022*/  ,0x3ff /*1023*/  ,0x400 /*1004*/  ,0x401 /*1005*/  ,0x402 /*1006*/  ,0x403 /*1007*/  },         /*__0x35f (863)__*/
@@ -41,6 +41,7 @@ public:
 		for (uint8_t i =0; i < MAX_CAN_PARAMETERS; i++)
 		{
 			dataMutex[i] = xSemaphoreCreateMutex();
+			assert(dataMutex[i]);
 		}
 	}
 	
@@ -51,12 +52,20 @@ public:
 	// Create pseudo hash table for ID matrix to be able to quickly navigate data table by indices 
 	void init_hash_table();
 
+
 	// retrieve data row from message ID
 	uint8_t hash_i (uint32_t ID) {return hash_table[ID - ID_LBOUND] / 100;} 
 	// retrieve data column from message ID
 	uint8_t hash_j (uint32_t ID) {return hash_table[ID - ID_LBOUND] % 100;}	
-	bool hash_valid (uint32_t ID) {return !hash_table[ID] ? true: false;} // check for blank space
 
+	// ensure this message has a valid entry in our table (only message 0x258 has a valid zero value)
+	bool hash_valid (uint32_t ID) {
+		if ((ID_LBOUND <= ID <=ID_UBOUND) && ((ID == 0x258) || hash_table[ID - ID_LBOUND]))
+		{return true;}
+		else
+		{return false;}
+	}
+	
 	uint16_t hash_table[570]; // array large enough to represent range of CAN id's (600 - 1167 ). largest stored value == 12 * 100 + 8 = 1208
 
 	void c2c_DVCC();
@@ -79,13 +88,16 @@ public:
 	uint8_t controllerNetwork_status();
 
 	// storage array for each parameter  FIRST 2 DIMENSIONS MUST MATCH DIMENSIONS OF id[] ARRAY!
-	uint8_t data[MAX_CAN_PARAMETERS][MAX_NUM_CONTROLLERS][TWAI_FRAME_MAX_DLC];
+	uint8_t data[MAX_CAN_PARAMETERS][MAX_NUM_CONTROLLERS][TWAI_FRAME_MAX_DLC] __attribute__ ((aligned (4)));
 
-	// storage array for BITMSGS timestamp (microseconds)
+	// storage array that will hold the DIY_MSGS timestamp (microseconds)
 	int64_t timestampBuffer[MAX_NUM_CONTROLLERS];
 
-	// Timestamp buffer for incoming messages
-	bool heartbeat[MAX_NUM_CONTROLLERS];
+	// This controller is online
+	bool controller_is_online[MAX_NUM_CONTROLLERS];
+
+	// This controller is integrated
+	bool controller_is_integrated[MAX_NUM_CONTROLLERS];
 
 	// # of controllers currently online
 	uint8_t online_controller_count;

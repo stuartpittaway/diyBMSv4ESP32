@@ -30,7 +30,7 @@ void  pylon_message_351()
     CANframe candata;
     candata.dlc = TWAI_FRAME_MAX_DLC;
     candata.identifier = 0x351;
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
     uint16_t chargevoltagelimit;
     uint16_t maxchargecurrent;
     uint16_t maxdischargecurrent;
@@ -49,9 +49,10 @@ void  pylon_message_351()
     else
     {
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(can.dataMutex[0], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(can.dataMutex[0], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
 
         chargevoltagelimit = *(uint16_t*)&can.data[0][mysettings.controllerID][0];
@@ -62,7 +63,7 @@ void  pylon_message_351()
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
             //only include online controllers
-            if (can.heartbeat[i] && can.data[2][i][1]) 
+            if (can.controller_is_online[i] && can.controller_is_integrated[i]) 
             {
                 if ((*(uint16_t*)&can.data[0][i][0] <= chargevoltagelimit))  // find minimum
                 {
@@ -114,7 +115,7 @@ void pylon_message_355()
     CANframe candata;
     candata.dlc = 4;
     candata.identifier = 0x355;
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
     if (mysettings.controllerNet == 1)  //copy over local values for SOC
     {
@@ -123,10 +124,13 @@ void pylon_message_355()
     else
     {
         // Wait for permission from Canbus_RX task to edit data array
-        if (!(xSemaphoreTake(can.dataMutex[4], pdMS_TO_TICKS(100)) &
-            xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(100))))
+        if (!(xSemaphoreTake(can.dataMutex[4], pdMS_TO_TICKS(50)) &&
+            xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(50))))
         {
         ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+        xSemaphoreGive(can.dataMutex[4]);
+        xSemaphoreGive(can.dataMutex[5]); 
+        return; 
         }
 
         //SOC (weighted average based on nominal Ah of each controller)
@@ -138,7 +142,7 @@ void pylon_message_355()
         
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.heartbeat[i] && can.data[2][i][1])
+            if (can.controller_is_online[i] && can.controller_is_integrated[i])
             {
                 Total_Ah = Total_Ah + *(uint16_t*)&can.data[5][i][4];     //online capacity
                 Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  // SOC(%) x Online capacity
@@ -192,7 +196,7 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
     CANframe candata;
     candata.dlc = 8;
     candata.identifier = 0x359;
-    memset(&candata.data, 0, sizeof(candata.data));  
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);  
 
     if (mysettings.controllerNet == 1)  //copy over local values
     {
@@ -201,9 +205,10 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
     else
     {
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
 
     //byte 0
@@ -264,20 +269,21 @@ void pylon_message_35c()
     CANframe candata;
     candata.dlc = 1;
     candata.identifier = 0x35c;
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
      int8_t byte0 = 0;
     // data.byte1 = 0;
 
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(can.dataMutex[2], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(can.dataMutex[2], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
 
     for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
     {
-        if (can.heartbeat[i] && can.data[2][i][1] &&can.data[2][i][2] == 0)  // don't factor in charge request flags from controllers operating under NetworkedControllerRules since it will prevent charging other controllers
+        if (can.controller_is_online[i] && can.controller_is_integrated[i])  // don't factor in charge request flags from controllers operating under NetworkedControllerRules since it will prevent charging other controllers
         {
             byte0 = byte0 |can.data[2][i][1];  //byte 1 of bitmsgs is the charge/discharge request flag
         }     
@@ -303,7 +309,7 @@ void pylon_message_35e()
     CANframe candata;
     candata.dlc = TWAI_FRAME_MAX_DLC;
     candata.identifier = 0x35e;
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
           // Send 8 byte "magic string" PYLON (with 3 trailing spaces)
           uint8_t pylon[] = {0x50, 0x59, 0x4c, 0x4f, 0x4e, 0x20, 0x20, 0x20};;
@@ -324,7 +330,7 @@ void pylon_message_356()
     CANframe candata;
     candata.dlc = 6;
     candata.identifier = 0x356;
-    memset(&candata.data, 0, sizeof(candata.data));
+    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
 
     if (mysettings.controllerNet == 1)
     {
@@ -334,9 +340,10 @@ void pylon_message_356()
     else
     {
     // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(can.dataMutex[6], pdMS_TO_TICKS(100)))
+    if (!xSemaphoreTake(can.dataMutex[6], pdMS_TO_TICKS(50)))
     {
       ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
 
          int16_t voltage = 0;
@@ -345,7 +352,7 @@ void pylon_message_356()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.heartbeat[i] && can.data[2][i][1])  // only use values from online controllers
+            if (can.controller_is_online[i] && can.controller_is_integrated[i])  // only use values from online controllers
             {
                 voltage = voltage + *(int16_t*)&can.data[6][i][0];
                 current = current + *(int16_t*)&can.data[6][i][2];

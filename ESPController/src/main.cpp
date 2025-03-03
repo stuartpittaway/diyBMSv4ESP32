@@ -2893,6 +2893,7 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
         can.c2c_ALARMS();
         can.c2c_DIYBMS_MSGS();
         can.c2c_MODULES();
+        can.c2c_VIT();
 
         //Return snapshot of the controller network & update hearbeat
         statusreturn = can.controllerNetwork_status();
@@ -2906,6 +2907,7 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
           if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
           {
             victron_message_351();      // 351 message must be sent at least every 3 seconds - or Victron will stop charge/discharge
+            victron_message_356();
           }
           victron_message_35a();
           victron_message_372();
@@ -2943,7 +2945,8 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
             can.c2c_HOST();
             can.c2c_MINMAX_CELL_V_T();
             can.c2c_CELL_IDS();
-            can.c2c_VIT();
+            // can.c2c_VIT();
+
           ////////////////////////////////////////////////////////////
 
           // Reporting via VICTRON protocol
@@ -2953,7 +2956,7 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
             victron_message_370_371_35e();
             victron_message_35f();
             victron_message_355();
-            victron_message_356();
+            //victron_message_356();
             victron_message_373_374_375_376_377();
             victron_message_379();
             ////////////////////////////////////////////////////////////
@@ -2980,10 +2983,8 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
 
 [[noreturn]] void canbus_rx(void* param)
 {
-  bool match_found;
   for (;;)
   {
-        match_found = false;
         while (mysettings.protocol == ProtocolEmulation::EMULATION_DISABLED)
         {
           // Canbus is disbled, sleep until this changes....
@@ -3009,15 +3010,17 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
             {
             
             // Record Inter Controller communications
-            if (mysettings.controllerNet > 1 && can.ID_LBOUND <= message.identifier <=can.ID_UBOUND)
+            if (mysettings.controllerNet > 1 && can.hash_valid(message.identifier))
              { 
                // Wait for permission from Canbus_TX task to edit data array
-              if (!xSemaphoreTake(can.dataMutex[can.hash_i(message.identifier)],pdMS_TO_TICKS(100)))
+              if (!xSemaphoreTake(can.dataMutex[can.hash_i(message.identifier)],pdMS_TO_TICKS(50)))
               {
-                ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+                ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout");
+                continue;
               }
 
-              memcpy(&can.data[can.hash_i(message.identifier)][can.hash_j(message.identifier)],
+
+              memcpy(&can.data[can.hash_i(message.identifier)][can.hash_j(message.identifier)][0],
               &message.data, message.data_length_code);
               // We will timestamp any DIYBMS_MSG frames for use as a heartbeat 
               if (can.hash_i(message.identifier) == 2)
@@ -4179,7 +4182,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(rs485_rx, "485_RX", 2940, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
   xTaskCreate(canbus_populate_outbox, "CAN_outbox", 2950, nullptr, configMAX_PRIORITIES - 5, &canbuspopulateoutbox_task_handle);
-  xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, configMAX_PRIORITIES - 10, &canbus_tx_task_handle);
+  xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, configMAX_PRIORITIES - 4, &canbus_tx_task_handle);
   xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, configMAX_PRIORITIES - 4, &canbus_rx_task_handle);
   xTaskCreate(transmit_task, "Tx", 1950, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 4096, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
