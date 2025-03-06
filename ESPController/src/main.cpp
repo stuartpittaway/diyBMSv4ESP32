@@ -167,7 +167,6 @@ TaskHandle_t rs485_rx_task_handle = nullptr;
 TaskHandle_t service_rs485_transmit_q_task_handle = nullptr;
 TaskHandle_t canbus_tx_task_handle = nullptr;
 TaskHandle_t canbus_rx_task_handle = nullptr;
-TaskHandle_t canbuspopulateoutbox_task_handle = nullptr;
 
 // This large array holds all the information about the modules
 CellModuleInfo cmi[maximum_controller_cell_modules];
@@ -2671,118 +2670,60 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
 
-[[noreturn]] void canbus_populate_outbox(void* param) // populate the CAN TX mailbox from the Queue'd messages.
+void send_canbus_message(CANframe* canframe)
 {
-    for (;;)
-    {
-        if (!(mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON || mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH))
-        {
-          // no need to run this task for protocols that don't support aggregation
-          vTaskDelay(5000);
-          continue;
-        }
+  twai_message_t message;
+  message.identifier = canframe->identifier;
+  message.data_length_code = canframe->dlc;
 
-        if (CANtx_q_handle != NULL)
-        {
-            CANframe tx;
-   
-            if (xQueueReceive(CANtx_q_handle, &tx, pdMS_TO_TICKS(10)) == pdPASS)
-            {
-                twai_message_t message;
-                message.data_length_code = tx.dlc;
-                message.identifier = tx.identifier;
+  memcpy(message.data, canframe->data, canframe->dlc);
 
-                for (uint8_t i=0; i<message.data_length_code; i++)  //is parsing this bytewise necessary to copy a member from {packed_struct} to struct??
-                {
-                message.data[i]=tx.data[i];
-                }
+  // If there is a bus error, we attempt to recover it later, transmitted messages are lost, but this
+  // isn't a problem, as they are repeated every few seconds.
+  esp_err_t result = twai_transmit(&message, pdMS_TO_TICKS(250));
 
-                // Send to CAN TX mailbox for transmission
-                // If there is a bus error, we attempt to recover it later, transmitted messages are lost, but this
-                // isn't a problem, as they are repeated every few seconds.
-                esp_err_t result = twai_transmit(&message, pdMS_TO_TICKS(1));
+  if (result == ESP_OK)
+  {
+    // Everything normal/good
+    // ESP_LOGD(TAG, "Sent CAN message 0x%x", identifier);
+    // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
+    canbus_messages_sent++;
+    return;
+  }
 
-                if (result == ESP_OK)
-                {
-                // Everything normal/good
-                ESP_LOGD(TAG, "Sent CAN message 0x%x", message.identifier);
-                    // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
-                    canbus_messages_sent++;
-                        //  -Average TWAI TX Frame Time
-                        //  -1 bit ~ 2us @ 500khz
-                        //  -minimum frame length for CAN 2.0A is 47 bits
-                        //  -Assume a full 64bit payload
-                        //  -Estimate additional ~20bits for bit stuffing, occasional error frames,etc
-                        //  -Average Frame Length = 47bits + 64bits + 20bits = 131bits
-                        //  -ThoereticalFrameRate = 1/(262us) = 3816/s
-                        //  -Adding messages to the TX mailbox at a timing interval < ~270us could fill up the TX mailbox
-                        //  -using a delay here could maintain control of traffic with our CANtx queue (this would allow us to use xsendtofront, etc)
-                        // vTaskDelay(pdMS_TO_TICKS(1));      // use minimum delay
-                    continue;
-                }
+  // Something failed....
+  ESP_LOGE(TAG, "Failed to queue CANBUS message (0x%x)", result);
+  canbus_messages_failed_sent++;
 
-                // Something failed....
-                
-                else if (result == ESP_ERR_TIMEOUT)
-                {
-                  ESP_LOGE(TAG, "Failed to send CANBUS message (0x%x) Reason: Timed out", message.identifier);  
-                }   
-                
-                else if (result == ESP_ERR_INVALID_ARG)
-                {
-                  ESP_LOGE(TAG, "Failed to send CANBUS message (0x%x) Reason: Invalid arg", message.identifier);  
-                }
-                else
-                {
-                  ESP_LOGE(TAG, "Failed to send CANBUS message (0x%x) Reason: Other", message.identifier);
-                }
-                canbus_messages_failed_sent++;
+  twai_status_info_t status;
+  twai_get_status_info(&status);
 
-                uint32_t active_alerts;
-                twai_read_alerts(&active_alerts,pdMS_TO_TICKS(1));
-                if (active_alerts & TWAI_ALERT_ARB_LOST)
-                ESP_LOGE(TAG, "TWAI_ALERT_ARB_LOST");
-                if (active_alerts & TWAI_ALERT_TX_FAILED)
-                ESP_LOGE(TAG, "TWAI_ALERT_TX_FAILED");
-                if (active_alerts & TWAI_ALERT_ERR_ACTIVE)
-                ESP_LOGE(TAG, "TWAI_ALERT_ERR_ACTIVE");
-                if (active_alerts & TWAI_ALERT_BUS_ERROR)
-                ESP_LOGE(TAG, "TWAI_ALERT_BUS_ERROR");
+  ESP_LOGI(TAG, "CAN STATUS: rx-q:%d, tx-q:%d, rx-err:%d, tx-err:%d, arb-lost:%d, bus-err:%d, state: %s",
+           status.msgs_to_rx, status.msgs_to_tx,
+           status.rx_error_counter, status.tx_error_counter,
+           status.arb_lost_count,
+           status.bus_error_count,
+           ESP32_TWAI_STATUS_STRINGS[status.state]);
 
-
-                twai_status_info_t status;
-                twai_get_status_info(&status);
-
-
-                ESP_LOGI(TAG, "CAN STATUS: rx-q:%d, tx-q:%d, rx-err:%d, tx-err:%d, arb-lost:%d, bus-err:%d, state: %s",
-                        status.msgs_to_rx, status.msgs_to_tx,
-                        status.rx_error_counter, status.tx_error_counter,
-                        status.arb_lost_count,
-                        status.bus_error_count,
-                        ESP32_TWAI_STATUS_STRINGS[status.state]);
-
-                if (status.state == twai_state_t::TWAI_STATE_BUS_OFF)
-                {
-                  // When the bus is OFF we need to initiate recovery, transmit is not possible when in this state.
-                  // Recovery appears to force it into STOPPED state
-                  ESP_LOGW(TAG, "Initiating recovery");
-                  twai_initiate_recovery();
-                }
-                else if (status.state == twai_state_t::TWAI_STATE_STOPPED)
-                  {
-                  // bus has stopped - restart it
-                  esp_err_t startresult = twai_start();
-                  ESP_LOGI(TAG, "Starting CANBUS %s", esp_err_to_name(startresult));
-                  }
-                else if (status.state == twai_state_t::TWAI_STATE_RECOVERING)
-                  {
-                  // when the bus is in recovery mode transmit is not possible, so wait...
-                  vTaskDelay(pdMS_TO_TICKS(250));
-                  } 
-            }
-         }
-    }
-} 
+  if (status.state == twai_state_t::TWAI_STATE_BUS_OFF)
+  {
+    // When the bus is OFF we need to initiate recovery, transmit is not possible when in this state.
+    // Recovery appears to force it into STOPPED state
+    ESP_LOGW(TAG, "Initiating recovery");
+    twai_initiate_recovery();
+  }
+  else if (status.state == twai_state_t::TWAI_STATE_STOPPED)
+  {
+    // bus has stopped - restart it
+    esp_err_t startresult = twai_start();
+    ESP_LOGI(TAG, "Starting CANBUS %s", esp_err_to_name(startresult));
+  }
+  else if (status.state == twai_state_t::TWAI_STATE_RECOVERING)
+  {
+    // when the bus is in recovery mode transmit is not possible, so wait...
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
+}
 
 void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
 {
@@ -2893,7 +2834,6 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
         can.c2c_ALARMS();
         can.c2c_DIYBMS_MSGS();
         can.c2c_MODULES();
-        can.c2c_VIT();
 
         //Return snapshot of the controller network & update hearbeat
         statusreturn = can.controllerNetwork_status();
@@ -2907,7 +2847,6 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
           if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
           {
             victron_message_351();      // 351 message must be sent at least every 3 seconds - or Victron will stop charge/discharge
-            victron_message_356();
           }
           victron_message_35a();
           victron_message_372();
@@ -2945,7 +2884,7 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
             can.c2c_HOST();
             can.c2c_MINMAX_CELL_V_T();
             can.c2c_CELL_IDS();
-            // can.c2c_VIT();
+            can.c2c_VIT();
 
           ////////////////////////////////////////////////////////////
 
@@ -2956,7 +2895,7 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
             victron_message_370_371_35e();
             victron_message_35f();
             victron_message_355();
-            //victron_message_356();
+            victron_message_356();
             victron_message_373_374_375_376_377();
             victron_message_379();
             ////////////////////////////////////////////////////////////
@@ -2979,7 +2918,6 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
     }
   }
 }
-
 
 [[noreturn]] void canbus_rx(void* param)
 {
@@ -3968,7 +3906,6 @@ void resumeTasksAfterFirmwareUpdateFailure()
   vTaskResume(transmit_task_handle);
   vTaskResume(lazy_task_handle);
   vTaskResume(canbus_rx_task_handle);
-  vTaskResume(canbuspopulateoutbox_task_handle);
 }
 void suspendTasksDuringFirmwareUpdate()
 {
@@ -3982,7 +3919,6 @@ void suspendTasksDuringFirmwareUpdate()
   vTaskSuspend(transmit_task_handle);
   vTaskSuspend(lazy_task_handle);
   vTaskSuspend(canbus_rx_task_handle);
-  vTaskSuspend(canbuspopulateoutbox_task_handle);
 }
 
 void setup()
@@ -4181,7 +4117,6 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(rs485_tx, "485_TX", 2940, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2940, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
-  xTaskCreate(canbus_populate_outbox, "CAN_outbox", 2950, nullptr, configMAX_PRIORITIES - 5, &canbuspopulateoutbox_task_handle);
   xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, configMAX_PRIORITIES - 4, &canbus_tx_task_handle);
   xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, configMAX_PRIORITIES - 4, &canbus_rx_task_handle);
   xTaskCreate(transmit_task, "Tx", 1950, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
@@ -4302,13 +4237,13 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
   auto tasks = diag["tasks"].to<JsonArray>();
 
   // Array of pointers to the task handles we are going to examine
-  const std::array<TaskHandle_t *, 20> task_handle_ptrs =
+  const std::array<TaskHandle_t *, 19> task_handle_ptrs =
       {&sdcardlog_task_handle, &sdcardlog_outputs_task_handle, &rule_state_change_task_handle,
        &avrprog_task_handle, &enqueue_task_handle, &transmit_task_handle, &replyqueue_task_handle,
        &lazy_task_handle, &rule_task_handle, &voltageandstatussnapshot_task_handle, &updatetftdisplay_task_handle,
        &periodic_task_handle, &interrupt_task_handle, &rs485_tx_task_handle,
        &rs485_rx_task_handle, &service_rs485_transmit_q_task_handle,
-       &canbus_tx_task_handle, &canbus_rx_task_handle, &canbuspopulateoutbox_task_handle};
+       &canbus_tx_task_handle, &canbus_rx_task_handle};
 
   // Remember these are pointers to the handle
   for (auto h : task_handle_ptrs)

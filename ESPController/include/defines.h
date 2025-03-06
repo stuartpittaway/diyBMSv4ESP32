@@ -152,6 +152,7 @@ struct diybms_eeprom_settings
 
   uint16_t graph_voltagehigh;
   uint16_t graph_voltagelow;
+  bool cycleScreen;
 
   uint8_t BypassOverTempShutdown;
   uint16_t BypassThresholdmV;
@@ -331,6 +332,8 @@ struct CANframe
 	uint8_t dlc;
 	uint8_t data[TWAI_FRAME_MAX_DLC];
 	uint32_t identifier;
+
+  CANframe(uint8_t DLC, uint16_t ID) : dlc(DLC), identifier((uint32_t)ID), data{0} {}
 } __attribute__((packed));
 
 struct CellModuleInfo

@@ -14,8 +14,8 @@ static constexpr const char* const TAG = "diybms-victron";
 
 void victron_message_370_371_35e()
 {
-    CANframe candata;
-    candata.dlc = TWAI_FRAME_MAX_DLC;
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
 
     // message 370
@@ -24,12 +24,7 @@ void victron_message_370_371_35e()
     candata.identifier = 0x370;
 
 
-        // send to tx routine , block indefinitley 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
-
+    send_canbus_message(ptrFrame);
 
     // message 371
     memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
@@ -37,35 +32,21 @@ void victron_message_370_371_35e()
     candata.identifier = 0x371;
 
 
-        // send to tx routine , block indefinitley 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
+    send_canbus_message(ptrFrame);
 
     // message 35eCANframe
     memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
     memcpy(&candata.data[0], &hostname[0], 6);
     candata.identifier = 0x35e;
 
-        // send to tx routine , block indefinitley 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
+    send_canbus_message(ptrFrame);
 }
 
 // Firmware & Ah capacity
 void victron_message_35f()
 {
-    CANframe candata;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-
-    candata.dlc = 6;
-    candata.identifier = 0x35f;
-
-
-
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0x35f);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
     //if no networked controllers than just copy over the local data
     if (mysettings.controllerNet == 1)
@@ -131,91 +112,53 @@ void victron_message_35f()
         // Return permission to Canbus_RX task 
         xSemaphoreGive(can.dataMutex[5]); 
 
-        // send to tx routine , block indefinitley 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
+        send_canbus_message(ptrFrame);
 
 }
 
 // Min/Max Cell V & T I.D.'s
 void victron_message_373_374_375_376_377()
 {
-    CANframe candata;
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
 
     if (mysettings.controllerNet == 1)
     {
         // message 373 //
-
-        candata.dlc = TWAI_FRAME_MAX_DLC;
         candata.identifier = 0x373;
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-        memcpy(&candata.data[0], &can.data[8][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
+        memcpy(&candata.data, &can.data[8][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
 
-        // send to tx routine
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
-
+        send_canbus_message(ptrFrame);
 
         // message 374 //
-
-        candata.dlc = TWAI_FRAME_MAX_DLC;
         candata.identifier = 0x374;
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-        memcpy(&candata.data[0], &can.data[9][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
+        memcpy(&candata.data, &can.data[9][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
 
-        // send to tx routine
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
+        send_canbus_message(ptrFrame);
 
         // message 375 //
-
-        candata.dlc = TWAI_FRAME_MAX_DLC;
         candata.identifier = 0x375;
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-        memcpy(&candata.data[0], &can.data[10][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
+        memcpy(&candata.data, &can.data[10][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
 
-        // send to tx routine
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
-
+        send_canbus_message(ptrFrame);
 
         // message 376  //
-
-        candata.dlc = TWAI_FRAME_MAX_DLC;
         candata.identifier = 0x376;
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-        memcpy(&candata.data[0], &can.data[11][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
+        memcpy(&candata.data, &can.data[11][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
 
-        // send to tx routine
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
-
+        send_canbus_message(ptrFrame);
 
         // message 377 //
-
-        candata.dlc = TWAI_FRAME_MAX_DLC;
         candata.identifier = 0x377;
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-        memcpy(&candata.data[0], &can.data[12][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
+        memcpy(&candata.data, &can.data[12][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
 
-        // send to tx routine
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx queue full");
-        }
-
-    }
+        send_canbus_message(ptrFrame);    }
 
     // aggregate DVCC data from networked controllers 
     else
@@ -293,68 +236,42 @@ void victron_message_373_374_375_376_377()
         xSemaphoreGive(can.dataMutex[12]);  
 
         // message 373  (Min/Max Cell V & T)
-
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-        candata.dlc = TWAI_FRAME_MAX_DLC;
         candata.identifier = 0x373;
         memcpy(&candata.data[0], &min_cell_v, sizeof(min_cell_v));
         memcpy(&candata.data[2], &max_cell_v, sizeof(max_cell_v));
         memcpy(&candata.data[4], &min_cell_t, sizeof(min_cell_t));
         memcpy(&candata.data[6], &max_cell_t, sizeof(max_cell_t));
 
-            // send to tx routine , block indefinitley 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "CAN tx queue full");
-            }
+        send_canbus_message(ptrFrame);
 
         // message 374  (Min Cell V I.D.)
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-        candata.dlc = TWAI_FRAME_MAX_DLC;
         candata.identifier = 0x374;
         memcpy(&candata.data, &MinCellV_ID, sizeof(MinCellV_ID));
 
-            // send to tx routine , block indefinitley 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "CAN tx queue full");
-            }
+        send_canbus_message(ptrFrame);
 
         // message 375  (Max Cell V I.D.)
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-        candata.dlc = TWAI_FRAME_MAX_DLC;
         memcpy(&candata.data, &MaxCellV_ID, sizeof(MaxCellV_ID));
         candata.identifier = 0x375;
 
-            // send to tx routine , block indefinitley 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "CAN tx queue full");
-            }
+        send_canbus_message(ptrFrame);
 
         // message 376  (Min Cell T I.D.)
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-        candata.dlc = TWAI_FRAME_MAX_DLC;
         memcpy(&candata.data, &MinCellT_ID, sizeof(MinCellT_ID));
         candata.identifier = 0x376;
 
-            // send to tx routine , block indefinitley 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "CAN tx queue full");
-            }
+        send_canbus_message(ptrFrame);
 
         // message 377  (Max Cell T I.D.)
         memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-        candata.dlc = TWAI_FRAME_MAX_DLC;
         memcpy(&candata.data, &MaxCellT_ID, sizeof(MaxCellT_ID));
         candata.identifier = 0x377;
 
-            // send to tx routine , block indefinitley 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "CAN tx queue full");
-            }
+        send_canbus_message(ptrFrame);
     }
 }
 
@@ -371,10 +288,9 @@ For the maxchargecurrent reported to the inverter, we will use the minimum maxch
 */
 void  victron_message_351()
 {
-    CANframe candata;
-    candata.dlc = TWAI_FRAME_MAX_DLC;
-    candata.identifier = 0x351;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0x351);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
+
     uint16_t chargevoltagelimit = 0;
     int16_t maxchargecurrent = 0;
     int16_t maxdischargecurrent = 0;
@@ -461,77 +377,14 @@ void  victron_message_351()
         ESP_LOGI(TAG, "Max Discharge Current = %d",maxdischargecurrent);
         ESP_LOGI(TAG, "Discharge Voltage Limit = %d",dischargevoltage);     
 
-            // send to tx routine , block 50ms 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "CAN tx Q Full");
-            }
+        send_canbus_message(ptrFrame);
 }
-
-
-/*void  victron_message_351()
-{
-    CANframe candata;
-    candata.dlc = TWAI_FRAME_MAX_DLC;
-    candata.identifier = 0x351;
-    memset(&candata.data[0], 0, TWAI_FRAME_MAX_DLC);
-    uint16_t chargevoltagelimit = 0;
-    int16_t maxchargecurrent = 0;
-    int16_t maxdischargecurrent = 0;
-    uint16_t dischargevoltage = 0;
-    uint8_t integrated_count = 0;
-
-    // if no controllers are networked then just send the local values. It won't matter what controllerID is selected on the config page
-    if (mysettings.controllerNet == 1)
-    {
-        memcpy(&candata.data, &can.data[0][mysettings.controllerID][0], TWAI_FRAME_MAX_DLC);
-        memcpy(&chargevoltagelimit, &can.data[0][mysettings.controllerID][0], sizeof(chargevoltagelimit));
-        memcpy(&maxchargecurrent, &can.data[0][mysettings.controllerID][2], sizeof(maxchargecurrent));
-        memcpy(&maxdischargecurrent, &can.data[0][mysettings.controllerID][4], sizeof(maxdischargecurrent));
-        memcpy(&dischargevoltage, &can.data[0][mysettings.controllerID][6], sizeof(dischargevoltage));
-    }
-
-    // aggregate DVCC data from networked controllers and use the minimum for each parameter
-    else
-    {       
-        // Wait for permission from Canbus_RX task to edit data array
-        if (!xSemaphoreTake(can.dataMutex[0], pdMS_TO_TICKS(50)))
-        {
-        ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
-        return; 
-        }
-
-
-        chargevoltagelimit =  *(uint16_t*)&can.data[0][1][0];
-        maxchargecurrent =     *(int16_t*)&can.data[0][1][2];
-        maxdischargecurrent =  *(int16_t*)&can.data[0][0][4];
-        dischargevoltage =    *(uint16_t*)&can.data[0][0][6];
-
-
-
-        // Return permission to Canbus_RX task 
-        xSemaphoreGive(can.dataMutex[0]);     
-    }
-
-        memcpy(&candata.data[0], &chargevoltagelimit, sizeof(chargevoltagelimit));                 
-        memcpy(&candata.data[2], &maxchargecurrent, sizeof(maxchargecurrent));
-        memcpy(&candata.data[4], &maxdischargecurrent, sizeof(maxdischargecurrent));
-        memcpy(&candata.data[6], &dischargevoltage, sizeof(dischargevoltage));      
-
-        // send to tx routine , block 50ms 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx Q Full");
-        }
-}*/
 
 // SOC & SOH
 void victron_message_355()
 {
-    CANframe candata;
-    candata.dlc = 4;
-    candata.identifier = 0x355;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+    CANframe candata(4, 0x355);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
     if (mysettings.controllerNet == 1)
     {
@@ -587,24 +440,18 @@ void victron_message_355()
         memcpy(&candata.data[2], &SOH, sizeof(SOH));
     }
   
-            // send to tx routine , block 50ms 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
-            }
+    send_canbus_message(ptrFrame);
 }
 
 // Battery V, I, T
 void victron_message_356()
 {
-    CANframe candata;
-    candata.dlc = 6;
-    candata.identifier = 0x356;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+    CANframe candata(6, 0x356);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
     if (mysettings.controllerNet == 1)
     {
-        memcpy(&candata.data[0], &can.data[6][mysettings.controllerID][0], candata.dlc);
+        memcpy(&candata.data, &can.data[6][mysettings.controllerID][0], candata.dlc);
     }
 
     else
@@ -645,25 +492,20 @@ void victron_message_356()
         memcpy(&candata.data[2], &current, sizeof(current));
         memcpy(&candata.data[4], &temperature, sizeof(temperature));
     }
-            // send to tx routine , block 50ms 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
-            }
+
+    send_canbus_message(ptrFrame);
 
 }
 
 // # modules OK
 void victron_message_372()
 {
-    CANframe candata;
-    candata.dlc = 8;
-    candata.identifier = 0x372;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0x372);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
     if (mysettings.controllerNet == 1)
     {
-        memcpy(&candata.data[0], &can.data[3][mysettings.controllerID][0], candata.dlc);
+        memcpy(&candata.data, &can.data[3][mysettings.controllerID][0], candata.dlc);
     }
 
     else
@@ -700,11 +542,7 @@ void victron_message_372()
 
     }
 
-            // send to tx routine , block 50ms 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "CAN tx Q Full");
-            }
+    send_canbus_message(ptrFrame);
 
 }
 
@@ -712,9 +550,8 @@ void victron_message_372()
 void victron_message_35a()
 {
 
-    CANframe candata;
-    candata.dlc = TWAI_FRAME_MAX_DLC;
-    candata.identifier = 0x35a;
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0x35a);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
     uint8_t bitmask, byte;
 
@@ -722,7 +559,7 @@ void victron_message_35a()
 
         if (mysettings.controllerNet == 1)
     {
-        memcpy(&candata.data[0], &can.data[1][mysettings.controllerID][0], candata.dlc);
+        memcpy(&candata.data, &can.data[1][mysettings.controllerID][0], candata.dlc);
     }
 
         else  //aggregate
@@ -825,21 +662,14 @@ void victron_message_35a()
         // Return permission to Canbus_RX task 
         xSemaphoreGive(can.dataMutex[1]); 
 
-            // send to tx routine , block 50ms 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "CAN tx Q Full");
-            }
+        send_canbus_message(ptrFrame);
 }
 
 // Installed Capacity
 void victron_message_379()
 {
-    CANframe candata;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-
-    candata.dlc = 2;
-    candata.identifier = 0x379;
+    CANframe candata(2, 0x379);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
     // calculate total Ah based on #of controllers
     uint16_t Online_Ah = 0;
@@ -864,9 +694,5 @@ void victron_message_379()
 
     memcpy(&candata.data[0], &Online_Ah, sizeof(uint16_t));
 
-            // send to tx routine , block indefinitley 
-    if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-    {
-        ESP_LOGE(TAG, "CAN tx queue full");
-    }
+    send_canbus_message(ptrFrame);
 }

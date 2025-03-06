@@ -27,10 +27,9 @@ For the maxchargecurrent reported to the inverter, we will use the minimum maxch
 */
 void  pylon_message_351()
 {
-    CANframe candata;
-    candata.dlc = TWAI_FRAME_MAX_DLC;
-    candata.identifier = 0x351;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0x351);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
+
     uint16_t chargevoltagelimit;
     uint16_t maxchargecurrent;
     uint16_t maxdischargecurrent;
@@ -101,21 +100,15 @@ void  pylon_message_351()
         ESP_LOGI(TAG, "Max Discharge Current = %d",maxdischargecurrent);
         ESP_LOGI(TAG, "Discharge Voltage Limit = %d",dischargevoltage);  
 
-            // send to tx routine , block 50ms 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
-            }
+      send_canbus_message(ptrFrame);
     
 }
 
 // 0x355 – 1A 00 64 00 – State of Health (SOH) / State of Charge (SOC)
 void pylon_message_355()
 {
-    CANframe candata;
-    candata.dlc = 4;
-    candata.identifier = 0x355;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+    CANframe candata(4, 0x355);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
     if (mysettings.controllerNet == 1)  //copy over local values for SOC
     {
@@ -168,13 +161,13 @@ void pylon_message_355()
         memcpy(&candata.data[2], &SOH, sizeof(SOH));
 
     }    
-
+    send_canbus_message(ptrFrame);
 }
 
 //Helper function to re-organize bit alarms
-// q = row ofcan.data
-// s = slice ofcan.data
-// bitsource = the specific bit we're looking for atcan.data[q][r][s]
+// q = row of can.data
+// s = slice of can.data
+// bitsource = the specific bit we're looking for at can.data[q][r][s]
 // bitdest = the bitmask we want to move it to
 uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
 {
@@ -182,7 +175,7 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
     uint8_t bitmask = 0;
     for (int8_t r = 0; r < MAX_NUM_CONTROLLERS; r++) 
     {
-    bitmask |= bitsource &can.data[q][r][s];
+    bitmask |= bitsource & can.data[q][r][s];
     }
     bitmask = (bitmask >> bitsource) << bitdest; //re-index the bitmask to the desired destination bit
     return bitmask;
@@ -193,10 +186,8 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
 // 0x359 – 00 00 00 00 0A 50 4E – Protection & Alarm flags
  void pylon_message_359()
 {
-    CANframe candata;
-    candata.dlc = 8;
-    candata.identifier = 0x359;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);  
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0x359);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
     if (mysettings.controllerNet == 1)  //copy over local values
     {
@@ -214,7 +205,7 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
     //byte 0
     //(bit 0) = unused
     //(bit 1) Battery high voltage alarm
-    candata.data[0] |= alarm_align(1,0,2,1);   //look at alarm found incan.data[1,n,0] , bit position 2 and translate to a bitmask at position 1 (=B0000010)
+    candata.data[0] |= alarm_align(1,0,2,1);   //look at alarm found in can.data[1,n,0] , bit position 2 and translate to a bitmask at position 1 (=B0000010)
     //(bit 2) Battery low voltage alarm 
     candata.data[0] |= alarm_align(1,0,4,2);
     //(bit 3) Battery high temperature alarm
@@ -248,6 +239,7 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
     {
     totalnominalbatcap = totalnominalbatcap + can.data[5][i][4];
     }
+    
     candata.data[4] = max((uint8_t)1, (uint8_t)round(totalnominalbatcap / 74.0));
     candata.data[5] = 0x50;
     candata.data[6] = 0x4e;
@@ -256,20 +248,15 @@ uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
     xSemaphoreGive(can.dataMutex[5]);
 
     }
-            // send to tx routine , block 50ms 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
-            }
+
+    send_canbus_message(ptrFrame);
 }
 
 // 0x35C – C0 00 – Battery charge request flags
 void pylon_message_35c()
 {
-    CANframe candata;
-    candata.dlc = 1;
-    candata.identifier = 0x35c;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+    CANframe candata(1, 0x35c);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
      int8_t byte0 = 0;
     // data.byte1 = 0;
@@ -292,49 +279,37 @@ void pylon_message_35c()
     // Return permission to Canbus_RX task 
     xSemaphoreGive(can.dataMutex[2]);  
 
-    memcpy(&candata.data[0], &byte0, sizeof(byte0));
+    memcpy(&candata.data, &byte0, sizeof(byte0));
 
 
-            // send to tx routine , block 50ms 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
-            }
+    send_canbus_message(ptrFrame);
 }
 
 
 // 0x35E – 50 59 4C 4F 4E 20 20 20 – Manufacturer name ("PYLON ")
 void pylon_message_35e()
 {
-    CANframe candata;
-    candata.dlc = TWAI_FRAME_MAX_DLC;
-    candata.identifier = 0x35e;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0x35e);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
           // Send 8 byte "magic string" PYLON (with 3 trailing spaces)
           uint8_t pylon[] = {0x50, 0x59, 0x4c, 0x4f, 0x4e, 0x20, 0x20, 0x20};;
-          memcpy(&candata.data[0], &pylon[0], TWAI_FRAME_MAX_DLC);
+          memcpy(&candata.data, pylon, TWAI_FRAME_MAX_DLC);
 
 
-            // send to tx routine , block 50ms 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
-            }
+          send_canbus_message(ptrFrame);
 
 }
 
 // Battery voltage - 0x356 – 4e 13 02 03 04 05 – Voltage / Current / Temp
 void pylon_message_356()
 {
-    CANframe candata;
-    candata.dlc = 6;
-    candata.identifier = 0x356;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+    CANframe candata(6, 0x356);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
     if (mysettings.controllerNet == 1)
     {
-        memcpy(&candata.data[0], &can.data[6][mysettings.controllerID][0], candata.dlc);
+        memcpy(&candata.data, &can.data[6][mysettings.controllerID][0], candata.dlc);
     }
 
     else
@@ -372,11 +347,6 @@ void pylon_message_356()
     memcpy(&candata.data[4], &temperature, sizeof(temperature));
     }
 
-
-            // send to tx routine , block 50ms 
-            if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-            {
-                ESP_LOGE(TAG, "Failed to Q 0x%x (queue full)",candata.identifier);
-            }
+    send_canbus_message(ptrFrame);
 
 }

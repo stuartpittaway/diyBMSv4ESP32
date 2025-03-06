@@ -355,14 +355,25 @@ void IncreaseDelayCounter()
 {
     _ScreenToDisplayDelay++;
 
-    // Switch pages if rotation delay exceeded
+    // Switch page OR update screen if rotation delay exceeded
     // 15 seconds between pages
-    if (_ScreenToDisplayDelay > 255)
-    {
-        // Move to the next page after the "_ScreenToDisplayDelay" delay
-        _ScreenToDisplayDelay = 0;
-        PageForward();
+    if (_ScreenToDisplayDelay > 15)
+    {    
+        if (mysettings.cycleScreen)
+        {
+            // Move to the next page after the "_ScreenToDisplayDelay" delay
+            _ScreenToDisplayDelay = 0;
+            PageForward();
+        }
+
+        // Trigger a refresh of the screen
+        else if (updatetftdisplay_task_handle != NULL)
+        {
+            xTaskNotify(updatetftdisplay_task_handle, 0, eNotifyAction::eSetValueWithOverwrite);
+        }
     }
+
+
 }
 
 // Determine what screen to show on the TFT based on priority/severity

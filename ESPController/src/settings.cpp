@@ -99,6 +99,7 @@ static const char soh_lifetime_battery_cycles_JSONKEY[] = "soh_batcycle";
 static const char soh_eol_capacity_JSONKEY[] = "soh_eol_capacity";
 
 static const char pulsetime_JSONKEY[] = "pulsetime";
+static const char cycleScreen_JSONKEY[] = "cycleScreen";
 
 static const char controllerNet_JSONKEY[] = "controllerNet";
 static const char controllerID_JSONKEY[] = "controllerID";
@@ -209,6 +210,7 @@ static const char controllerID_NVSKEY[] = "controllerID";
 static const char highAvailable_NVSKEY[] = "highAvailable";
 
 static const char pulsetime_NVSKEY[] = "pulsetime";
+static const char cycleScreen_NVSKEY[] = "cycleScreen";
 
 #define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
 #define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
@@ -543,6 +545,7 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(highAvailable);
 
         MACRO_NVSWRITE(pulsetime);
+        MACRO_NVSWRITE(cycleScreen);
 
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
@@ -686,6 +689,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(highAvailable);
 
         MACRO_NVSREAD(pulsetime);
+        MACRO_NVSREAD(cycleScreen);
 
         nvs_close(nvs_handle);
     }
@@ -712,6 +716,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->BypassThresholdmV = 4100;
     _myset->graph_voltagehigh = 4500;
     _myset->graph_voltagelow = 2750;
+    _myset->cycleScreen = true;
 
     // Default to a single networked controller
     _myset->controllerNet = 1;
@@ -1145,6 +1150,7 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     root[rs485parity_JSONKEY] = settings->rs485parity;
     root[rs485stopbits_JSONKEY] = settings->rs485stopbits;
     root[language_JSONKEY] = settings->language;
+    root[cycleScreen_JSONKEY] = settings->cycleScreen;
 
     root[homeassist_apikey_JSONKEY] = settings->homeassist_apikey;
 
@@ -1280,6 +1286,7 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
 
     settings->graph_voltagehigh = root[graph_voltagehigh_JSONKEY];
     settings->graph_voltagelow = root[graph_voltagelow_JSONKEY];
+    settings->cycleScreen = root[cycleScreen_JSONKEY];
 
     settings->BypassOverTempShutdown = root[BypassOverTempShutdown_JSONKEY];
     settings->BypassThresholdmV = root[BypassThresholdmV_JSONKEY];

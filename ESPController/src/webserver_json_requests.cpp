@@ -760,6 +760,8 @@ esp_err_t content_handler_settings(httpd_req_t *req)
   settings["controllerID"] = mysettings.controllerID;
   settings["highAvailable"] = mysettings.highAvailable;
 
+  settings["cycleScreen"] = mysettings.cycleScreen;
+
   time_t now;
   if (time(&now))
   {

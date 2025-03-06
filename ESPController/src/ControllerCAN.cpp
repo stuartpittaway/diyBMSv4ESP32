@@ -23,8 +23,8 @@ void ControllerCAN::init_hash_table() {
         }
       };
 }
-//TimerHandle_t error_debounce_timer;
 
+//TimerHandle_t error_debounce_timer;
 bool ControllerCAN::NetworkedControllerRules()
 {
   if (!canDisconnect)
@@ -225,8 +225,8 @@ void ControllerCAN::SetBankAndModuleText(char *buffer, uint8_t cellid)       //f
 
 void ControllerCAN::c2c_DVCC()    //DVCC settings
 {
-    CANframe candata;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+    CANframe candata(TWAI_FRAME_MAX_DLC, id[0][mysettings.controllerID]);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
     // CVL - 0.1V scale
     uint16_t chargevoltagelimit;
@@ -301,12 +301,11 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
     maxdischargecurrent = default_discharge_current_limit;
   }
   
-      candata.identifier = id[0][mysettings.controllerID];  
-      candata.dlc = 8; 
-        memcpy(&candata.data[0],&chargevoltagelimit,sizeof(chargevoltagelimit));        
-        memcpy(&candata.data[2],&maxchargecurrent,sizeof(maxchargecurrent));            
-        memcpy(&candata.data[4],&maxdischargecurrent,sizeof(maxdischargecurrent));     
-        memcpy(&candata.data[6],&dischargevoltage,sizeof(dischargevoltage));           
+
+    memcpy(&candata.data[0],&chargevoltagelimit,sizeof(chargevoltagelimit));        
+    memcpy(&candata.data[2],&maxchargecurrent,sizeof(maxchargecurrent));            
+    memcpy(&candata.data[4],&maxdischargecurrent,sizeof(maxdischargecurrent));     
+    memcpy(&candata.data[6],&dischargevoltage,sizeof(dischargevoltage));           
 
     // Wait for permission from Canbus_RX task to edit data array
     if (!xSemaphoreTake(dataMutex[0], pdMS_TO_TICKS(50)))
@@ -315,18 +314,14 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
       return; 
     }
 
-        memcpy(&can.data[0][mysettings.controllerID][0], candata.data, candata.dlc);       //copy calculated values to array
+        memcpy(&can.data[0][mysettings.controllerID][0], &candata.data, candata.dlc);       //copy calculated values to array
 
         // Return permission to Canbus_RX task 
         xSemaphoreGive(dataMutex[0]);
 
     if (mysettings.controllerNet != 1)
-    {
-        // send to tx routine , block 50ms 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx Q Full");
-        }
+    {     
+      send_canbus_message(ptrFrame);
     }
 
 }
@@ -334,9 +329,8 @@ void ControllerCAN::c2c_DVCC()    //DVCC settings
 // diyBMS will use Victron CAN alarm structure to report alarms. These will need reorganized durring aggregation for other inverters  as necessary
 void ControllerCAN::c2c_ALARMS()      //Inverter Alarms 
 {
-
-  CANframe candata;
-  memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+  CANframe candata(TWAI_FRAME_MAX_DLC, id[1][mysettings.controllerID]);  // initialize struct with dlc and identifier
+  CANframe* ptrFrame = &candata;
 
   const uint8_t BIT01_ALARM = B00000001;
   const uint8_t BIT23_ALARM = B00000100;
@@ -453,10 +447,7 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
 
   // 7 (bit 2+3) System status (online/offline) [1]
   candata.data[7] |= ((_controller_state != ControllerState::Running) ? BIT23_ALARM : BIT23_OK);
-
-
-    candata.dlc = 8;                                            
-    candata.identifier = id[1][mysettings.controllerID];                                    
+                                  
 
     // Wait for permission from Canbus_RX task to edit data array
     if (!xSemaphoreTake(dataMutex[1], pdMS_TO_TICKS(50)))
@@ -465,25 +456,21 @@ void ControllerCAN::c2c_ALARMS()      //Inverter Alarms
       return; 
     }
 
-    memcpy(&data[1][mysettings.controllerID][0],&candata.data,candata.dlc);                        //copy calculated values to array
+    memcpy(&data[1][mysettings.controllerID][0], &candata.data, candata.dlc);                        //copy calculated values to array
     
     // Return permission to Canbus_RX task 
     xSemaphoreGive(dataMutex[1]);
 
     if (mysettings.controllerNet != 1)
     {
-        // send to tx routine , block 50ms 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN Q Full");
-        }
+      send_canbus_message(ptrFrame);
     }
 }
 
 void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
 {
-  CANframe candata;
-  memset(candata.data, 0, TWAI_FRAME_MAX_DLC);
+  CANframe candata(TWAI_FRAME_MAX_DLC, id[2][mysettings.controllerID]);  // initialize struct with dlc and identifier
+  CANframe* ptrFrame = &candata;
 
 
 // byte 0 - Broadcast the Controller ID
@@ -527,8 +514,6 @@ void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
 // byte 6 - reserved for future use
 // byte 7 - reserved for future use 
 
-  candata.dlc = 8;    
-  candata.identifier = id[2][mysettings.controllerID];
 
     // Wait for permission from Canbus_RX task to edit data array
     if (!xSemaphoreTake(dataMutex[2], pdMS_TO_TICKS(50)))
@@ -537,39 +522,33 @@ void ControllerCAN::c2c_DIYBMS_MSGS()      // diyBMS messaging/alarms
       return; 
     }
 
-    memcpy(&data[2][mysettings.controllerID][0],&candata.data,candata.dlc);    
+    memcpy(&data[2][mysettings.controllerID][0], &candata.data, candata.dlc);    
 
     //update both heartbeat buffers for this controller
     can.timestampBuffer[mysettings.controllerID] = esp_timer_get_time();
 
-  // Return permission to Canbus_RX task 
-  xSemaphoreGive(dataMutex[2]);
+    // Return permission to Canbus_RX task 
+    xSemaphoreGive(dataMutex[2]);
 
-        if (mysettings.controllerNet != 1)
-        {
-       // This is a high priority so should we send it to front of tx queue? 
-        if (xQueueSendToFront(CANtx_q_handle, &candata, pdMS_TO_TICKS(250)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN tx Q Full");
-        }
-        }
+    if (mysettings.controllerNet != 1)
+    {
+      send_canbus_message(ptrFrame);
+    }
 }
 
 void ControllerCAN::c2c_MODULES()       // # of modules O.K. 
 {
-  CANframe candata;
-  memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+  CANframe candata(TWAI_FRAME_MAX_DLC, id[3][mysettings.controllerID]);  // initialize struct with dlc and identifier
+  CANframe* ptrFrame = &candata;      
+
   
     uint16_t numberofmodulesok = TotalNumberOfCells() - rules.invalidModuleCount;
     // uint16_t numberofmodulesblockingcharge = 0;
     // uint16_t numberofmodulesblockingdischarge = 0;
     uint16_t numberofmodulesoffline = rules.invalidModuleCount;
 
-
-    candata.dlc = 8; 
     memcpy(&candata.data[0],&numberofmodulesok,sizeof(numberofmodulesok));
-    memcpy(&candata.data[6],&numberofmodulesoffline,sizeof(numberofmodulesoffline));         
-    candata.identifier = id[3][mysettings.controllerID];                                   
+    memcpy(&candata.data[6],&numberofmodulesoffline,sizeof(numberofmodulesoffline));                                        
 
     // Wait for permission from Canbus_RX task to edit data array
     if (!xSemaphoreTake(dataMutex[3], pdMS_TO_TICKS(50)))
@@ -578,26 +557,21 @@ void ControllerCAN::c2c_MODULES()       // # of modules O.K.
       return; 
     }
 
-    memcpy(&data[3][mysettings.controllerID][0],&candata.data,candata.dlc);                        //copy calculated values to array
+    memcpy(&data[3][mysettings.controllerID][0], &candata.data, candata.dlc);                        //copy calculated values to array
  
     // Return permission to Canbus_RX task 
     xSemaphoreGive(dataMutex[3]);
 
     if (mysettings.controllerNet != 1)
     {
-        // send to tx routine , block 50ms 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN Q Full");
-        }
+      send_canbus_message(ptrFrame);
     }
 }
 
 void ControllerCAN::c2c_SOC()      // SOC
 {
-
-    CANframe candata;
-    memset(candata.data, 0, sizeof(candata.data));
+  CANframe candata(4, id[4][mysettings.controllerID]);  // initialize struct with dlc and identifier
+  CANframe* ptrFrame = &candata;      
 
     uint16_t stateofchargevalue;
     uint16_t stateofhealthvalue;
@@ -608,11 +582,9 @@ void ControllerCAN::c2c_SOC()      // SOC
 
     stateofchargevalue = rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
     stateofhealthvalue = (uint16_t)(trunc(mysettings.soh_percent));
-
-    candata.dlc = 4;                                                    
+                                             
     memcpy(&candata.data[0],&stateofchargevalue,sizeof(stateofchargevalue));  
-    memcpy(&candata.data[2],&stateofchargevalue,sizeof(stateofhealthvalue));          
-    candata.identifier = id[4][mysettings.controllerID];                                 
+    memcpy(&candata.data[2],&stateofhealthvalue,sizeof(stateofhealthvalue));                                         
 
     // Wait for permission from Canbus_RX task to edit data array
     if (!xSemaphoreTake(dataMutex[4], pdMS_TO_TICKS(50)))
@@ -621,29 +593,22 @@ void ControllerCAN::c2c_SOC()      // SOC
       return; 
     }
 
-    memcpy(&data[4][mysettings.controllerID][0],&candata.data[0],candata.dlc);                   //copy calculated values to array
+    memcpy(&data[4][mysettings.controllerID][0], candata.data,candata.dlc);                   //copy calculated values to array
 
     // Return permission to Canbus_RX task 
     xSemaphoreGive(dataMutex[4]);
 
     if (mysettings.controllerNet != 1)
     {
-        // send to tx routine , block 50ms 
-        
-        //ESP_LOGI(TAG,"SOC sent over ControllerCAN = %d",stateofchargevalue); //for debug purposes only
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN Q Full");
-        }
-
+      send_canbus_message(ptrFrame);
     }
   }
 }
 
 void ControllerCAN::c2c_CAP()   // Online capacity and firmware version
 {
-    CANframe candata;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+  CANframe candata(TWAI_FRAME_MAX_DLC, id[5][mysettings.controllerID]);  // initialize struct with dlc and identifier
+  CANframe* ptrFrame = &candata;      
 
     uint16_t BatteryModel;
     uint16_t Firmwareversion;
@@ -657,14 +622,10 @@ void ControllerCAN::c2c_CAP()   // Online capacity and firmware version
 
   OnlinecapacityinAh = mysettings.nominalbatcap;
 
-
-      
-    
-      candata.dlc=6;                                                          
-      memcpy(&candata.data[0],&BatteryModel,sizeof(BatteryModel));                     
-      memcpy(&candata.data[2],&Firmwareversion,sizeof(Firmwareversion));                
-      memcpy(&candata.data[4],&OnlinecapacityinAh,sizeof(OnlinecapacityinAh));  
-      candata.identifier = id[5][mysettings.controllerID];        
+                                                        
+    memcpy(&candata.data[0],&BatteryModel,sizeof(BatteryModel));                     
+    memcpy(&candata.data[2],&Firmwareversion,sizeof(Firmwareversion));                
+    memcpy(&candata.data[4],&OnlinecapacityinAh,sizeof(OnlinecapacityinAh));    
 
     // Wait for permission from Canbus_RX task to edit data array
     if (!xSemaphoreTake(dataMutex[5], pdMS_TO_TICKS(50)))
@@ -673,26 +634,21 @@ void ControllerCAN::c2c_CAP()   // Online capacity and firmware version
       return; 
     }
 
-      memcpy(&data[5][mysettings.controllerID][0],&candata.data[0],candata.dlc);                  //copy local values to array
+      memcpy(&data[5][mysettings.controllerID][0], &candata.data, candata.dlc);                  //copy local values to array
 
       // Return permission to Canbus_RX task 
       xSemaphoreGive(dataMutex[5]);
 
     if (mysettings.controllerNet != 1)
     {
-        // send to tx routine , block 50ms 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN Q Full");
-        }
+      send_canbus_message(ptrFrame);
     }
 }
 
 void ControllerCAN::c2c_VIT()   //Battery voltage, current, and temperature
 {
-    CANframe candata;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-
+  CANframe candata(6, id[6][mysettings.controllerID]);  // initialize struct with dlc and identifier
+  CANframe* ptrFrame = &candata; 
 
     int16_t voltage; 
     int16_t current;
@@ -729,13 +685,10 @@ void ControllerCAN::c2c_VIT()   //Battery voltage, current, and temperature
    temperature = 0;
   }
 
-
-      candata.dlc = 6;
-      memcpy(&candata.data[0],&voltage,sizeof(voltage));      
-      memcpy(&candata.data[2],&current,sizeof(current));         
-      memcpy(&candata.data[4],&temperature,sizeof(temperature));   
-      candata.identifier = id[6][mysettings.controllerID];     
-
+    memcpy(&candata.data[0],&voltage,sizeof(voltage));      
+    memcpy(&candata.data[2],&current,sizeof(current));         
+    memcpy(&candata.data[4],&temperature,sizeof(temperature));   
+    
     // Wait for permission from Canbus_RX task to edit data array
     if (!xSemaphoreTake(dataMutex[6], pdMS_TO_TICKS(50)))
     {
@@ -743,7 +696,7 @@ void ControllerCAN::c2c_VIT()   //Battery voltage, current, and temperature
       return; 
     }
     
-      memcpy(&data[6][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to local array
+      memcpy(&data[6][mysettings.controllerID][0], candata.data,candata.dlc);       //copy calculated values to local array
 
       // Return permission to Canbus_RX task 
       xSemaphoreGive(dataMutex[6]);
@@ -751,26 +704,17 @@ void ControllerCAN::c2c_VIT()   //Battery voltage, current, and temperature
      // send to tx routine , block 50ms 
       if (mysettings.controllerNet != 1)
       {
-          if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN Q Full");
-        }
+        send_canbus_message(ptrFrame);
       }
-
-
-
 }
 
 void ControllerCAN::c2c_HOST()     //unique part of hostname
 {
-    CANframe candata;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
-
-
-    candata.dlc = 8;                                                
+  CANframe candata(TWAI_FRAME_MAX_DLC, id[7][mysettings.controllerID]);  // initialize struct with dlc and identifier
+  CANframe* ptrFrame = &candata;     
+                                              
     memcpy(&candata.data[0],&hostname[7],sizeof(candata.data));          
-    candata.identifier = id[7][mysettings.controllerID];           
-
+    
     // Wait for permission from Canbus_RX task to edit data array
     if (!xSemaphoreTake(dataMutex[7], pdMS_TO_TICKS(50)))
     {
@@ -778,25 +722,21 @@ void ControllerCAN::c2c_HOST()     //unique part of hostname
       return; 
     }
 
-    memcpy(&data[7][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array
+    memcpy(&data[7][mysettings.controllerID][0], candata.data,candata.dlc);       //copy calculated values to array
 
     // Return permission to Canbus_RX task 
     xSemaphoreGive(dataMutex[7]);
 
     if (mysettings.controllerNet != 1)
     {
-        // send to tx routine , block 50ms 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN Q Full");
-        }
+      send_canbus_message(ptrFrame);
     }
 }
 
 void ControllerCAN::c2c_MINMAX_CELL_V_T()    // Min/Max Cell V & T
 {
-    CANframe candata;
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
+  CANframe candata(TWAI_FRAME_MAX_DLC, id[8][mysettings.controllerID]);  // initialize struct with dlc and identifier
+  CANframe* ptrFrame = &candata;     
 
     uint16_t mincellvoltage;
     uint16_t maxcellvoltage;
@@ -807,14 +747,11 @@ void ControllerCAN::c2c_MINMAX_CELL_V_T()    // Min/Max Cell V & T
       highestcelltemperature = 273 + rules.highestExternalTemp;
       maxcellvoltage = rules.highestCellVoltage;
       mincellvoltage = rules.lowestCellVoltage;
-
-
-      candata.dlc = 8;                                                 
+                                             
       memcpy(&candata.data[0],&mincellvoltage,sizeof(mincellvoltage));               
       memcpy(&candata.data[2],&maxcellvoltage,sizeof(maxcellvoltage));           
       memcpy(&candata.data[4],&lowestcelltemperature,sizeof(lowestcelltemperature));  
-      memcpy(&candata.data[6],&highestcelltemperature,sizeof(highestcelltemperature)); 
-      candata.identifier = id[8][mysettings.controllerID];                                     
+      memcpy(&candata.data[6],&highestcelltemperature,sizeof(highestcelltemperature));                                 
     
     // Wait for permission from Canbus_RX task to edit data array
     if (!xSemaphoreTake(dataMutex[8], pdMS_TO_TICKS(50)))
@@ -823,26 +760,22 @@ void ControllerCAN::c2c_MINMAX_CELL_V_T()    // Min/Max Cell V & T
       return; 
     }
 
-      memcpy(&data[8][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array
+      memcpy(&data[8][mysettings.controllerID][0], candata.data,candata.dlc);       //copy calculated values to array
 
       // Return permission to Canbus_RX task 
       xSemaphoreGive(dataMutex[8]);
 
     if (mysettings.controllerNet != 1)
     {
-        // send to tx routine , block 50ms 
-        if (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS)
-        {
-            ESP_LOGE(TAG, "CAN Q Full");
-        }
+      send_canbus_message(ptrFrame);
     }
 
 }
 
 void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
 {
-  CANframe candata;
-  candata.dlc = 8;
+  CANframe candata(TWAI_FRAME_MAX_DLC, 0);  // initialize struct with dlc and identifier
+  CANframe* ptrFrame = &candata;      
   
   char text[8];
 
@@ -864,19 +797,17 @@ void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
     // Min. cell voltage id string [1]
   if (rules.address_LowestCellVoltage < maximum_controller_cell_modules)
   {
-    memset(&candata.data, 0, TWAI_FRAME_MAX_DLC);
     SetBankAndModuleText(text, rules.address_LowestCellVoltage);
 
     memcpy(&candata.data[0],&text,sizeof(text));   
     candata.identifier = id[9][mysettings.controllerID]; 
 
-    memcpy(&data[9][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array
+    memcpy(&data[9][mysettings.controllerID][0], candata.data,candata.dlc);       //copy calculated values to array
 
-
-     // send to tx routine , block 50ms 
-    if (mysettings.controllerNet != 1 && (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS))
+     // send to tx routine 
+    if (mysettings.controllerNet != 1)
     {
-        ESP_LOGE(TAG, "CAN Q Full");
+      send_canbus_message(ptrFrame);
     }
   }
     // Max. cell voltage id string [1]
@@ -888,12 +819,12 @@ void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
     memcpy(&candata.data[0],&text,sizeof(text));   
     candata.identifier = id[10][mysettings.controllerID]; 
 
-    memcpy(&data[10][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array
+    memcpy(&data[10][mysettings.controllerID][0], candata.data,candata.dlc);       //copy calculated values to array
 
-     // send to tx routine , block 50ms 
-    if (mysettings.controllerNet != 1 && (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS))
+     // send to tx routine
+    if (mysettings.controllerNet != 1)
     {
-        ESP_LOGE(TAG, "CAN Q Full");
+      send_canbus_message(ptrFrame);
     }
   }
     // Min. cell temp id string [1]
@@ -905,12 +836,12 @@ void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
     memcpy(&candata.data[0],&text,sizeof(text));   
     candata.identifier = id[11][mysettings.controllerID]; 
 
-    memcpy(&data[11][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array
+    memcpy(&data[11][mysettings.controllerID][0], candata.data,candata.dlc);       //copy calculated values to array
 
-     // send to tx routine , block 50ms 
-    if (mysettings.controllerNet != 1 && (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS))
+     // send to tx routine 
+    if (mysettings.controllerNet != 1)
     {
-        ESP_LOGE(TAG, "CAN Q Full");
+      send_canbus_message(ptrFrame);
     }
   }
   // Max. cell temp id string [1]
@@ -922,12 +853,12 @@ void ControllerCAN::c2c_CELL_IDS()   // Min/Max Cell V & T addresses
     memcpy(&candata.data[0],&text,sizeof(text));   
     candata.identifier = id[12][mysettings.controllerID]; 
 
-    memcpy(&data[12][mysettings.controllerID][0],&candata.data,candata.dlc);       //copy calculated values to array
+    memcpy(&data[12][mysettings.controllerID][0], candata.data,candata.dlc);       //copy calculated values to array
 
-     // send to tx routine , block 50ms 
-    if (mysettings.controllerNet != 1 && (xQueueSendToBack(CANtx_q_handle, &candata, pdMS_TO_TICKS(50)) != pdPASS))
+     // send to tx routine  
+    if (mysettings.controllerNet != 1)
     {
-        ESP_LOGE(TAG, "CAN Q Full");
+      send_canbus_message(ptrFrame);
     }
   }
   

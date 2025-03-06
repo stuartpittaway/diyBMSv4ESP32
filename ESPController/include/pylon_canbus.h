@@ -16,5 +16,6 @@ void pylon_message_35e();
 extern ControllerCAN can;
 extern bool controller_heartbeat(uint8_t ControllerID);
 extern TaskHandle_t canbus_rx_task_handle, canbus_tx_task_handle;
+extern void send_canbus_message(CANframe *canframe);
 
 #endif
