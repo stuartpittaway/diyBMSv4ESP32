@@ -377,6 +377,8 @@ esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req, bool urlEncoded
     {
     }
 
+    mysettings.cycleScreen = false; 
+    
     if (GetKeyValue(httpbuf, "cycleScreen", &mysettings.cycleScreen, urlEncoded))
     {
     }

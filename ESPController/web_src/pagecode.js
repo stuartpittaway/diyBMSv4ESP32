@@ -1564,6 +1564,8 @@ $(function () {
                 $("#controllerID").val(data.settings.controllerID);
                 $("#highAvailable").prop("checked", data.settings.highAvailable);
 
+                $("#cycleScreen").prop("checked", data.settings.cycleScreen);
+
                 $("#baudrate").empty();
                 $("#baudrate").append('<option value="2400">Standard</option>')
                 $("#baudrate").append('<option value="5000">5K</option>')
