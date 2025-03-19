@@ -31,7 +31,6 @@ public:
 	{
 		master = 0;
 		online_controller_count = 1;
-		canDisconnect = false;
 
 		memset(&data, 0, sizeof(data));
 		memset(&timestampBuffer, 0, sizeof(timestampBuffer));
@@ -45,28 +44,14 @@ public:
 		}
 	}
 	
-	// Define range of CAN parameters we care about
-	const uint16_t ID_LBOUND = 600;
-	const uint16_t ID_UBOUND = 1167;
-
-	// Create pseudo hash table for ID matrix to be able to quickly navigate data table by indices 
-	void init_hash_table();
-
-
 	// retrieve data row from message ID
-	uint8_t hash_i (uint32_t ID) {return hash_table[ID - ID_LBOUND] / 100;} 
+	uint8_t hash_i(uint32_t ID);
 	// retrieve data column from message ID
-	uint8_t hash_j (uint32_t ID) {return hash_table[ID - ID_LBOUND] % 100;}	
+	uint8_t hash_j(uint32_t ID);	
 
 	// ensure this message has a valid entry in our table (only message 0x258 has a valid zero value)
-	bool hash_valid (uint32_t ID) {
-		if ((ID_LBOUND <= ID <=ID_UBOUND) && ((ID == 0x258) || hash_table[ID - ID_LBOUND]))
-		{return true;}
-		else
-		{return false;}
-	}
+	bool hash_valid(uint32_t ID);
 	
-	uint16_t hash_table[570]; // array large enough to represent range of CAN id's (600 - 1167 ). largest stored value == 12 * 100 + 8 = 1208
 
 	void c2c_DVCC();
 	void c2c_ALARMS();
@@ -105,10 +90,6 @@ public:
 	// # of controllers not isolated & participating in aggregation
 	uint8_t integrated_count;
 	
-	//void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer);
-
-	bool canDisconnect;
-	 
 	TimerHandle_t error_debounce_timer;
 
     bool NetworkedControllerRules();
@@ -116,6 +97,15 @@ public:
 	SemaphoreHandle_t dataMutex[MAX_CAN_PARAMETERS];
 private:
 	void SetBankAndModuleText(char* buffer, uint8_t cellid);
+
+	// Define range of CAN parameters we care about
+	const uint32_t ID_LBOUND = 600;
+	const uint32_t ID_UBOUND = 1167;
+
+	// Create pseudo hash table for ID matrix to be able to quickly navigate data table by indices 
+	void init_hash_table();
+
+	uint16_t hash_table[570]; // array large enough to represent range of CAN id's (600 - 1167 ). largest stored value == 12 * 100 + 8 = 1208
 
 };
 
@@ -129,5 +119,6 @@ extern ControllerState _controller_state;
 extern QueueHandle_t CANtx_q_handle;
 extern TaskHandle_t canbus_rx_task_handle, canbus_tx_task_handle;
 extern void send_canbus_message(CANframe *canframe);
+extern void SaveConfiguration(const diybms_eeprom_settings *settings);
 
 #endif

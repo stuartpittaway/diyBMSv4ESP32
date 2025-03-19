@@ -117,10 +117,6 @@ extern bool force_tft_wake;
 extern TimerHandle_t tftwake_timer;
 extern void tftwakeup(TimerHandle_t xTimer);
 
-// ControllerCAN timer
-//extern TimerHandle_t error_debounce_timer;
-//extern void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer);
-extern bool canDisconnect;
 extern ControllerCAN can;
 
 // HTTPD server handle in webserver.cpp
@@ -1278,6 +1274,9 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::ZeroVoltModule);
     rules.setRuleStatus(Rule::BMSError, true);
   }
+  
+  // Run rules that only apply if multiple controllers are connected together 
+  can.NetworkedControllerRules(); 
 
   rules.RunRules(
       mysettings.rulevalue,
@@ -1378,82 +1377,82 @@ void pulse_relay_off(const TimerHandle_t)
     // Wait to fire relays until the controller reaches the running state
     if (_controller_state == ControllerState::Running)
     {
-      
-    RelayState relay[RELAY_TOTAL];
+        
+      RelayState relay[RELAY_TOTAL];
 
-    // Set defaults based on configuration
-    for (int8_t y = 0; y < RELAY_TOTAL; y++)
-    {
-      relay[y] = mysettings.rulerelaydefault[y] == RELAY_ON ? RELAY_ON : RELAY_OFF;
-    }
-
-    // Test the rules (in reverse order)
-    for (int8_t n = RELAY_RULES - 1; n >= 0; n--)
-    {
-      if (rules.ruleOutcome((Rule)n) == true)
+      // Set defaults based on configuration
+      for (int8_t y = 0; y < RELAY_TOTAL; y++)
       {
-        for (int8_t y = 0; y < RELAY_TOTAL; y++)
+        relay[y] = mysettings.rulerelaydefault[y] == RELAY_ON ? RELAY_ON : RELAY_OFF;
+      }
+
+      // Test the rules (in reverse order)
+      for (int8_t n = RELAY_RULES - 1; n >= 0; n--)
+      {
+        if (rules.ruleOutcome((Rule)n) == true)
         {
-          // Dont change relay if its set to ignore/X
-          if (mysettings.rulerelaystate[n][y] != RELAY_X)
+          for (int8_t y = 0; y < RELAY_TOTAL; y++)
           {
-            if (mysettings.rulerelaystate[n][y] == RELAY_ON)
+            // Dont change relay if its set to ignore/X
+            if (mysettings.rulerelaystate[n][y] != RELAY_X)
             {
-              relay[y] = RELAY_ON;
-            }
-            else
-            {
-              relay[y] = RELAY_OFF;
+              if (mysettings.rulerelaystate[n][y] == RELAY_ON)
+              {
+                relay[y] = RELAY_ON;
+              }
+              else
+              {
+                relay[y] = RELAY_OFF;
+              }
             }
           }
         }
       }
-    }
 
-    uint8_t changes = 0;
-    bool firePulse = false;
-    for (int8_t n = 0; n < RELAY_TOTAL; n++)
-    {
-      if (previousRelayState[n] != relay[n])
+      uint8_t changes = 0;
+      bool firePulse = false;
+      for (int8_t n = 0; n < RELAY_TOTAL; n++)
       {
-        ESP_LOGI(TAG, "Set relay %i=%i", n, relay[n] == RelayState::RELAY_ON ? 1 : 0);
-        changes++;
-
-        // This would be better if we worked out the bit pattern first and then just submitted that as a single i2c read/write transaction
-        hal.SetOutputState(n, relay[n]);
-
-        // Record the previous state of the relay, to use on the next loop to prevent chatter
-        previousRelayState[n] = relay[n];
-
-        if (mysettings.relaytype[n] == RELAY_PULSE)
+        if (previousRelayState[n] != relay[n])
         {
-          previousRelayPulse[n] = true;
-          firePulse = true;
-          ESP_LOGI(TAG, "Relay %i PULSED", n);
+          ESP_LOGI(TAG, "Set relay %i=%i", n, relay[n] == RelayState::RELAY_ON ? 1 : 0);
+          changes++;
+
+          // This would be better if we worked out the bit pattern first and then just submitted that as a single i2c read/write transaction
+          hal.SetOutputState(n, relay[n]);
+
+          // Record the previous state of the relay, to use on the next loop to prevent chatter
+          previousRelayState[n] = relay[n];
+
+          if (mysettings.relaytype[n] == RELAY_PULSE)
+          {
+            previousRelayPulse[n] = true;
+            firePulse = true;
+            ESP_LOGI(TAG, "Relay %i PULSED", n);
+          }
         }
       }
-    }
 
-    if (firePulse)
-    {
-      // Fire timer to switch off relay in a few ms
-      if (xTimerStart(pulse_relay_off_timer, 10) != pdPASS)
+      if (firePulse)
       {
-        ESP_LOGE(TAG, "Pulse timer start error");
+        // Fire timer to switch off relay in a few ms
+        if (xTimerStart(pulse_relay_off_timer, 10) != pdPASS)
+        {
+          ESP_LOGE(TAG, "Pulse timer start error");
+        }
       }
-    }
 
-    if (changes)
-    {
-      // Fire task to record state of outputs to SD Card
-      xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
-    }
+      if (changes)
+      {
+        // Fire task to record state of outputs to SD Card
+        xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
+      }
 
-    if (changes || rules.anyRuleTriggered())
-    {
-      // A rule is TRUE or relay state has changed, so MQTT report it...
-      xTaskNotify(rule_state_change_task_handle, 0x00, eNotifyAction::eNoAction);
-    }
+      if (changes || rules.anyRuleTriggered())
+      {
+        // A rule is TRUE or relay state has changed, so MQTT report it...
+        xTaskNotify(rule_state_change_task_handle, 0x00, eNotifyAction::eNoAction);
+      }
     }
  
   }
@@ -2784,19 +2783,13 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
 void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
 {
           /* Force Disable the CANBUS if there is an internal error for a set period of time (see applicable timer) and there are networked controllers. 
-          This is to prevent a controller that has disconnected itself from auto-reconnecting after a long period of time. (there's probably be a better way of doing this with some "reconnection rules"). 
-          User must manually re-enable canbus protocol
-          
-          Note that if there is an error the rules should handle the protection of the battery in the short term. Here we are disconnecting the CANBUS after a longer period of
-          time where the battery voltages will have had time to deviate from each other and therefore there is a risk connecting them back together.
-          */
-        if (mysettings.controllerNet != 1)
-        {
+          This is to prevent a controller that has disconnected itself from auto-reconnecting after a long period of time. This flag will be saved in eeprom and persist through 
+          a reboot. User must manually re-enable canbus protocol to reset the flag (there's probably be a better way of doing this with some "reconnection rules")*/
+
           mysettings.protocol = ProtocolEmulation::EMULATION_DISABLED;
-          
-          can.canDisconnect = true;
-          ESP_LOGD(TAG,"can disconnected");  
-        }
+          mysettings.canDisconnect = true;
+          SaveConfiguration(&mysettings);
+          //Battery will be isolated next time the rules are run
 }
 
 [[noreturn]] void canbus_tx(void* param)
@@ -2812,12 +2805,6 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
     //wait until controller is running 
     if (_controller_state == ControllerState::Running)
     {
-      // Handle special rules for networking controllers
-      if (mysettings.controllerNet > 1)
-      {
-        can.NetworkedControllerRules();
-      }
-
       if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED)
       {
         if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2)
@@ -2935,8 +2922,7 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
         if (res == ESP_OK)
         {
           canbus_messages_received++;
-          ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",
-              message.identifier, message.data_length_code, message.flags);
+          //ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x", message.identifier, message.data_length_code, message.flags);
           if (!(message.flags & TWAI_MSG_FLAG_RTR))   // we do not answer to Remote-Transmission-Requests
           {
             //  ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
@@ -2950,28 +2936,29 @@ void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
             // Record Inter Controller communications
             if (mysettings.controllerNet > 1 && can.hash_valid(message.identifier))
              { 
+              uint8_t row = can.hash_i(message.identifier);
+              uint8_t col = can.hash_j(message.identifier);
+
                // Wait for permission from Canbus_TX task to edit data array
-              if (!xSemaphoreTake(can.dataMutex[can.hash_i(message.identifier)],pdMS_TO_TICKS(50)))
+              if (!xSemaphoreTake(can.dataMutex[row],pdMS_TO_TICKS(50)))
               {
                 ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout");
                 continue;
               }
 
+              memcpy(&can.data[row][col][0], &message.data, message.data_length_code);
 
-              memcpy(&can.data[can.hash_i(message.identifier)][can.hash_j(message.identifier)][0],
-              &message.data, message.data_length_code);
               // We will timestamp any DIYBMS_MSG frames for use as a heartbeat 
-              if (can.hash_i(message.identifier) == 2)
+              if (row == 2)
               {
-                can.timestampBuffer[can.hash_j(message.identifier)] = esp_timer_get_time(); //timestamp incoming message from Controller [j]
-                ESP_LOGE(TAG, "timestamped controller %d = %d", can.hash_j(message.identifier), can.timestampBuffer[can.hash_j(message.identifier)]);
+                can.timestampBuffer[col] = esp_timer_get_time(); //timestamp incoming message from Controller [j]
+                ESP_LOGE(TAG, "timestamped controller %d = %d", col, can.timestampBuffer[col]);
               }
               
               // Return permission to Canbus_TX task 
-              xSemaphoreGive(can.dataMutex[can.hash_i(message.identifier)]); 
+              xSemaphoreGive(can.dataMutex[row]); 
               
-              ESP_LOGD(TAG, "Logged message ID: %0x, DLC: %d",
-              message.identifier, message.data_length_code);
+              //ESP_LOGD(TAG, "Logged message ID: %0x, DLC: %d", message.identifier, message.data_length_code);
              }
             }
 

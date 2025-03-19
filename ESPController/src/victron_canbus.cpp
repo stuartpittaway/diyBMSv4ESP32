@@ -460,14 +460,14 @@ void victron_message_356()
          int16_t voltage = 0;
          int16_t current = 0;
          int16_t temperature = 0;
-         uint8_t integrated_count = 0;
+         int8_t integrated_count = 0;
 
-    // Wait for permission from Canbus_RX task to edit data array
-    if (!xSemaphoreTake(can.dataMutex[6], pdMS_TO_TICKS(50)))
-    {
-      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
-      return; 
-    }
+        // Wait for permission from Canbus_RX task to edit data array
+        if (!xSemaphoreTake(can.dataMutex[6], pdMS_TO_TICKS(50)))
+        {
+        ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+        return; 
+        }
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
@@ -481,12 +481,19 @@ void victron_message_356()
             }
         }
 
+        // DEBUGGING PURPOSES ONLY
+        ESP_LOGE(TAG, "total voltage = %d AND integrated_count =%d", voltage, integrated_count);
+
+
+        
         // Return permission to Canbus_RX task 
         xSemaphoreGive(can.dataMutex[6]); 
 
+        if (integrated_count > 0)
+        {
         voltage = voltage / integrated_count;
         temperature = temperature / integrated_count;
-
+        }
 
         memcpy(&candata.data[0], &voltage, sizeof(voltage));
         memcpy(&candata.data[2], &current, sizeof(current));

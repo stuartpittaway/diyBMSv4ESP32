@@ -1121,6 +1121,15 @@ void DrawTFT_Error()
                 tft.drawCentreString("STOP", x, y, 4);
                 break;
             }
+            case InternalErrorCode::BatteryIsolated:
+            {
+                tft.drawCentreString("Battery isolated", x, y, 4);
+                y += fontHeight_4;
+                tft.drawCentreString("due to ", x, y, 4);
+                y += fontHeight_4;
+                tft.drawCentreString("CANBUS ", x, y, 4);
+                break;
+            }
             default:
                 tft.drawCentreString("Error with", x, y, 4);
                 y += fontHeight_4;

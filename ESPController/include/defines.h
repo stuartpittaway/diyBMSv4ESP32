@@ -169,6 +169,7 @@ struct diybms_eeprom_settings
 	// CAUTION: this should not be set to true unless a failsafe disconnect is properly configured for each controller. Setting this to true means that charge and discharge
 	// will not be curtailed in the event a controller loses communication
 	bool highAvailable;
+  bool canDisconnect;
 
   bool loggingEnabled;
   uint16_t loggingFrequencySeconds;
@@ -329,9 +330,9 @@ struct PacketStruct
 
 struct CANframe
 {
-	uint8_t dlc;
+  uint32_t identifier;
 	uint8_t data[TWAI_FRAME_MAX_DLC];
-	uint32_t identifier;
+	uint8_t dlc;
 
   CANframe(uint8_t DLC, uint16_t ID) : dlc(DLC), identifier((uint32_t)ID), data{0} {}
 } __attribute__((packed));

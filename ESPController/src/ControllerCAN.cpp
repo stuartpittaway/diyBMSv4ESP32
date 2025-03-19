@@ -12,36 +12,46 @@ static constexpr const char *const TAG = "diybms-ControllerCAN";
 
 ControllerCAN can;
 
+// ensure this message has a valid entry in our table (nonzero)
+bool ControllerCAN::hash_valid(uint32_t ID) {
+  if ( (ID_LBOUND <= ID <=ID_UBOUND) &&
+       ( hash_table[ID - ID_LBOUND])
+     )
+  {return true;}
+  else
+  {return false;}
+}
+
 void ControllerCAN::init_hash_table() {
   memset(hash_table, 0, sizeof(hash_table));
 
   for (uint8_t i = 0; i < MAX_CAN_PARAMETERS; i++)          //traverse rows of id[]
-              {
-                  for (uint8_t j = 0; j < MAX_NUM_CONTROLLERS; j++)      //traverse columns of id[]
-                  {
-                      hash_table[id[i][j] - 600] = i * 100 + j;		//hash store indices
-        }
-      };
+    {
+      for (uint8_t j = 0; j < MAX_NUM_CONTROLLERS; j++)      //traverse columns of id[]
+      {
+        hash_table[id[i][j] - 600] = i * 100 + j + 1;		//hash store indices
+      }
+    }
 }
 
-//TimerHandle_t error_debounce_timer;
+// retrieve data row from message ID
+uint8_t ControllerCAN::hash_i(uint32_t ID) {
+  return ((hash_table[ID - ID_LBOUND] - 1) / 100);
+} 
+
+// retrieve data column from message ID
+uint8_t ControllerCAN::hash_j(uint32_t ID) {
+  return ((hash_table[ID - ID_LBOUND] - 1) % 100);
+}	
+
 bool ControllerCAN::NetworkedControllerRules()
 {
-  if (!canDisconnect)
+  // Check if disconnect flag should be set and start timer
+  if (!mysettings.canDisconnect)
     {
-      if (rules.moduleHasExternalTempSensor == false)
+      if (mysettings.controllerNet > 1 && (rules.moduleHasExternalTempSensor == false || rules.invalidModuleCount > 0 || rules.numberOfActiveErrors > 0 ))
       {
-         if( !xTimerIsTimerActive( error_debounce_timer ))
-         {
-           xTimerStart(error_debounce_timer, 0);
-           ESP_LOGD(TAG,"disconnect timer started");
-         }
-        return true;
-      }
-
-      if (rules.invalidModuleCount > 0)
-      {  
-        if( !xTimerIsTimerActive(error_debounce_timer ))
+        if (!xTimerIsTimerActive( error_debounce_timer ))
         {
           xTimerStart(error_debounce_timer, 0);
           ESP_LOGD(TAG,"disconnect timer started");
@@ -49,49 +59,37 @@ bool ControllerCAN::NetworkedControllerRules()
         return true;
       }
 
-      if (rules.numberOfActiveErrors > 0)
-      {   
-        if( !xTimerIsTimerActive(error_debounce_timer ))
-        {
-          xTimerStart(error_debounce_timer, 0);
-          ESP_LOGD(TAG,"disconnect timer started");
-        }
-          return true;
-      }
-
-      // Clear the Timer if everything is good
+      // Clear the Timer if the errors clear before the timer elapses
       xTimerStop(error_debounce_timer, pdMS_TO_TICKS(20));
+      return false;
 
+    }
+
+    // Disconnect flag is already set 
+  else if (mysettings.canDisconnect)
+  {     
+    // reset WARNING if CANBUS emulation is manually re-enabled 
+    if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED || mysettings.controllerNet == 1)
+    {
+      mysettings.canDisconnect = false;
+      SaveConfiguration(&mysettings);
       return false;
     }
-  
-    // display disconnect warning 
-  else 
-  {     
-      // reset WARNING if CANBUS emulation is manually re-enabled
-      if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED)
-      {
-        canDisconnect = false;
-        return false;
-      }
+    
+    rules.setRuleStatus(Rule::BMSError, true);
+    rules.SetError(InternalErrorCode::BatteryIsolated);
 
-      ESP_LOGE(TAG,"CANBUS WAS DISCONNECTED DUE TO INTERNAL ERROR - MANUAL RESTART REQUIRED");
-
-      // Add some additional delay here to prevent flooding the error log every 900ms (CanbusTX task has nothing else 
-      // to do at this moment anyhow)
-      vTaskDelay(pdMS_TO_TICKS(10000));
-
-      return true;
-    }
+    return true;
+  }
 }
 
 void ControllerCAN::clearvalues()
 {
-   online_controller_count = 1; 
-   master = 0;
-      // Zero Data Array 
-    memset(&data, 0, sizeof(data));
-    memset(&timestampBuffer, 0, sizeof(timestampBuffer));
+  online_controller_count = 1; 
+  master = 0;
+  // Zero Data Array 
+  memset(&data, 0, sizeof(data));
+  memset(&timestampBuffer, 0, sizeof(timestampBuffer));
 }
 
 // Check controller network status & update heartbeat  Returns:  0=OK  1=controller offline  2=controller network configuration error

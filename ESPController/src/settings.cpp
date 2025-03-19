@@ -104,6 +104,7 @@ static const char cycleScreen_JSONKEY[] = "cycleScreen";
 static const char controllerNet_JSONKEY[] = "controllerNet";
 static const char controllerID_JSONKEY[] = "controllerID";
 static const char highAvailable_JSONKEY[] = "highAvailable";
+static const char canDisconnect_JSONKEY[] = "canDisconnect";
 
 /* NVS KEYS
 THESE STRINGS ARE USED TO HOLD THE PARAMETER IN NVS FLASH, MAXIMUM LENGTH OF 16 CHARACTERS
@@ -208,6 +209,7 @@ static const char soc_milliamphour_in_NVSKEY[] = "soc_mah_in";
 static const char controllerNet_NVSKEY[] = "controllerNet";
 static const char controllerID_NVSKEY[] = "controllerID";
 static const char highAvailable_NVSKEY[] = "highAvailable";
+static const char canDisconnect_NVSKEY[] = "canDisconnect";
 
 static const char pulsetime_NVSKEY[] = "pulsetime";
 static const char cycleScreen_NVSKEY[] = "cycleScreen";
@@ -543,6 +545,7 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE_UINT8(controllerNet);
         MACRO_NVSWRITE(controllerID);
         MACRO_NVSWRITE(highAvailable);
+        MACRO_NVSWRITE(canDisconnect);
 
         MACRO_NVSWRITE(pulsetime);
         MACRO_NVSWRITE(cycleScreen);
@@ -687,6 +690,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD_UINT8(controllerNet);
         MACRO_NVSREAD(controllerID);
         MACRO_NVSREAD(highAvailable);
+        MACRO_NVSREAD(canDisconnect);
 
         MACRO_NVSREAD(pulsetime);
         MACRO_NVSREAD(cycleScreen);
@@ -722,6 +726,8 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->controllerNet = 1;
     _myset->controllerID = 0;
     _myset->highAvailable = false;
+    // This is not a setting per se, but a persistent variable
+    _myset->canDisconnect = false;
 
     // EEPROM settings are invalid so default configuration
     _myset->mqtt_enabled = false;
@@ -1157,6 +1163,7 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     root[controllerNet_JSONKEY] = settings->controllerNet;
     root[controllerID_JSONKEY] = settings->controllerID;
     root[highAvailable_JSONKEY] = settings->highAvailable;
+    root[canDisconnect_JSONKEY] = settings->canDisconnect;
     
     JsonObject mqtt = root["mqtt"].to<JsonObject>();
     mqtt[mqtt_enabled_JSONKEY] = settings->mqtt_enabled;
@@ -1299,6 +1306,7 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
     settings->controllerNet = root[controllerNet_JSONKEY];
     settings->controllerID = root[controllerID_JSONKEY];
     settings->highAvailable = root[highAvailable_JSONKEY];
+    settings->canDisconnect = root[canDisconnect_JSONKEY];
 
     settings->loggingEnabled = root[loggingEnabled_JSONKEY];
     settings->loggingFrequencySeconds = root[loggingFrequencySeconds_JSONKEY];

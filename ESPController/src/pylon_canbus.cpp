@@ -270,7 +270,7 @@ void pylon_message_35c()
 
     for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
     {
-        if (can.controller_is_online[i] && can.controller_is_integrated[i])  // don't factor in charge request flags from controllers operating under NetworkedControllerRules since it will prevent charging other controllers
+        if (can.controller_is_online[i] && can.controller_is_integrated[i])  
         {
             byte0 = byte0 |can.data[2][i][1];  //byte 1 of bitmsgs is the charge/discharge request flag
         }     

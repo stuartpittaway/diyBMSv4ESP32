@@ -39,7 +39,8 @@ const INTERNALERRORCODE =
     WaitingForModulesToReply: 4,
     ZeroVoltModule: 5,
     ControllerMemoryError: 6,
-    EmergencyStop: 7
+    EmergencyStop: 7,
+    BatteryIsolated: 8
 };
 Object.freeze(INTERNALERRORCODE);
 
@@ -889,7 +890,7 @@ function updateChart(jsondata) {
 
     //Needs increasing when more errors are added
     if (jsondata.errors) {
-        for (let error = 1; error <= 7; error++) {
+        for (let error = 1; error <= 8; error++) {
             if (jsondata.errors.includes(error)) {
                 $("#error" + error).show();
 
