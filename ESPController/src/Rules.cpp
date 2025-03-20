@@ -419,12 +419,10 @@ bool Rules::SharedChargingDischargingRules(const diybms_eeprom_settings *mysetti
     if (mysettings->protocol == ProtocolEmulation::EMULATION_DISABLED)
         return false;
 
-    if (moduleHasExternalTempSensor == false)
-        return false;
-
     if (invalidModuleCount > 0)
         return false;
-
+    if (moduleHasExternalTempSensor == false)
+        return false;
     // Any errors, stop charge
     if (numberOfActiveErrors > 0)
         return false;

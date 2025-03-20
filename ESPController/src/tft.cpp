@@ -61,7 +61,7 @@ void ResetScreenSequence()
     _ScreenToDisplayDelay = 0;
     _ScreenPageCounter = 0;
     _lastScreenToDisplay = ScreenTemplateToDisplay::None;
-    tftsleep_timer = 127;
+    tftsleep_timer = 120;
 }
 
 void IRAM_ATTR TFTScreenTouchInterrupt()

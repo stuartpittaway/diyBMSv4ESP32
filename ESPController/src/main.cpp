@@ -3841,6 +3841,7 @@ const std::array<log_level_t, 23> log_levels =
         {.tag = "diybms-mqtt", .level = ESP_LOG_INFO},
         {.tag = "diybms-ctrl", .level = ESP_LOG_INFO},
         {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
+        {.tag = "diybms-pyforce", .level = ESP_LOG_INFO},
         {.tag = "curmon", .level = ESP_LOG_INFO},
         {.tag = "diybms-ControllerCAN", .level = ESP_LOG_DEBUG}};
 
@@ -4224,7 +4225,7 @@ esp_err_t diagnosticJSON(httpd_req_t *req, char buffer[], int bufferLenMax)
   auto tasks = diag["tasks"].to<JsonArray>();
 
   // Array of pointers to the task handles we are going to examine
-  const std::array<TaskHandle_t *, 19> task_handle_ptrs =
+  const std::array<TaskHandle_t *, 18> task_handle_ptrs =
       {&sdcardlog_task_handle, &sdcardlog_outputs_task_handle, &rule_state_change_task_handle,
        &avrprog_task_handle, &enqueue_task_handle, &transmit_task_handle, &replyqueue_task_handle,
        &lazy_task_handle, &rule_task_handle, &voltageandstatussnapshot_task_handle, &updatetftdisplay_task_handle,

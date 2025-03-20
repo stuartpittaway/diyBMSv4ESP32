@@ -74,7 +74,7 @@ void victron_message_35f()
         uint8_t mismatches = 0;
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.controller_is_online[i] && can.controller_is_integrated[i])  //check bitmsgs timestamp so we only include online controllers
+            if (can.controller_is_online[i] && can.controller_is_integrated[i])  
             {
             mismatches = mismatches + memcmp((uint16_t*)&can.data[5][i][2], (uint16_t*)&can.data[5][i + 1][2], sizeof(uint16_t));
             }
@@ -82,7 +82,7 @@ void victron_message_35f()
 
         if (mismatches != 0)
         {
-            // should we raise an alarm here and add to BIT MSGS??
+            // should we raise an alarm here??
             // firmware_version_mismatch = true;
 
             // if firmware versions don't match just display 1's or something...
@@ -100,7 +100,7 @@ void victron_message_35f()
         uint16_t Total_Weighted_Ah = 0;
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.controller_is_online[i] && can.controller_is_integrated[i])  //check bitmsgs timestamp so we only include online controllers
+            if (can.controller_is_online[i] && can.controller_is_integrated[i])  
             {
             Total_Weighted_Ah = Total_Weighted_Ah + .01 * (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  // .01 * SOC(%) x Online capacity
             }
@@ -201,7 +201,7 @@ void victron_message_373_374_375_376_377()
 
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
-            if (can.controller_is_online[i] && can.controller_is_integrated[i])  //check bitmsgs timestamp so we only include online controllers
+            if (can.controller_is_online[i] && can.controller_is_integrated[i])  
             {
                 // find minimums
                 if ((*(uint16_t*)&can.data[8][i][0] <= min_cell_v))  
@@ -690,7 +690,7 @@ void victron_message_379()
 
     for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
     {
-        if (can.controller_is_online[i] && can.controller_is_integrated[i])  //check bitmsgs timestamp so we only include online controllers
+        if (can.controller_is_online[i] && can.controller_is_integrated[i])  
         {
         Online_Ah = Online_Ah + *(uint16_t*)&can.data[5][i][4];
         }
