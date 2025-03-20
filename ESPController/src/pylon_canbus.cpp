@@ -131,7 +131,7 @@ void pylon_message_355()
         uint16_t Total_Ah = 0;
         uint32_t Total_Weighted_Ah = 0;
         uint16_t Weighted_SOC = 0;
-        uint16_t SOH = *(uint16_t*)&can.data[4][mysettings.controllerID][0];  //start with this controllers SOH  
+        uint16_t SOH = *(uint16_t*)&can.data[4][mysettings.controllerID][2];  //start with this controllers SOH  
         
         for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
         {
