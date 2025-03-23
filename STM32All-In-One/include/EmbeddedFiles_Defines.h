@@ -5,12 +5,12 @@
 #ifndef EmbeddedFiles_Defines_H
 #define EmbeddedFiles_Defines_H
 
-static const char GIT_VERSION[] = "6e62d616aa642884cb6458c0baf8057ccf2c11d6";
+static const char GIT_VERSION[] = "29a0c56a62673a7a0de723bfbb1c171acf73822f";
 
-static const uint16_t GIT_VERSION_B1 = 0xcf2c;
+static const uint16_t GIT_VERSION_B1 = 0xcf73;
 
-static const uint16_t GIT_VERSION_B2 = 0x11d6;
+static const uint16_t GIT_VERSION_B2 = 0x822f;
 
-static const char COMPILE_DATE_TIME[] = "2024-08-02T12:18:35.609Z";
+static const char COMPILE_DATE_TIME[] = "2025-03-23T14:41:32.246Z";
 
 #endif
