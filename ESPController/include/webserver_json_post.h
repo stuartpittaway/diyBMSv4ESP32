@@ -6,6 +6,7 @@
 #include "defines.h"
 #include "PacketRequestGenerator.h"
 #include "PacketReceiveProcessor.h"
+#include "ControllerCAN.h"
 
 esp_err_t save_data_handler(httpd_req_t *req);
 
@@ -26,6 +27,8 @@ extern CardAction card_action;
 
 extern avrprogramsettings _avrsettings;
 extern wifi_eeprom_settings _wificonfig;
+
+extern ControllerCAN can;
 
 extern void stopMqtt();
 extern void ConfigureRS485();

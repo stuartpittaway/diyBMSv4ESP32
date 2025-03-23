@@ -46,7 +46,7 @@ enum InternalWarningCode : uint8_t
 };
 
 // Define a max constant for the highest value (change if you add more errors)
-#define MAXIMUM_InternalErrorCode 7
+#define MAXIMUM_InternalErrorCode 8
 enum InternalErrorCode : uint8_t
 {
     NoError = 0,
@@ -56,7 +56,8 @@ enum InternalErrorCode : uint8_t
     WaitingForModulesToReply = 4,
     ZeroVoltModule = 5,
     ControllerMemoryError = 6,
-    ErrorEmergencyStop = 7
+    ErrorEmergencyStop = 7,
+    BatteryIsolated = 8
 };
 
 enum class ChargingMode : uint8_t

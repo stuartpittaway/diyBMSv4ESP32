@@ -22,6 +22,8 @@
 #include "CurrentMonitorINA229.h"
 #include "history.h"
 
+#include "ControllerCAN.h"
+
 esp_err_t api_handler(httpd_req_t *req);
 esp_err_t content_handler_downloadfile(httpd_req_t *req);
 esp_err_t ha_handler(httpd_req_t *req);
@@ -72,4 +74,7 @@ extern uint16_t wifi_count_sta_lost_ip;
 extern uint16_t wifi_count_sta_got_ip;
 
 extern bool wifi_isconnected;
+
+extern ControllerCAN can;
+
 #endif

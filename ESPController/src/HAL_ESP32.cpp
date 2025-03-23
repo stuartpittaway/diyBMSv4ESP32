@@ -414,6 +414,8 @@ void HAL_ESP32::ConfigureCAN(uint16_t canbusbaudrate) const
 {
     // Initialize configuration structures using macro initializers
     twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(gpio_num_t::GPIO_NUM_16, gpio_num_t::GPIO_NUM_17, TWAI_MODE_NORMAL);
+    g_config.tx_queue_len=10;
+    g_config.alerts_enabled=TWAI_ALERT_ALL;
 
     twai_timing_config_t t_config;
     if (canbusbaudrate == 250)

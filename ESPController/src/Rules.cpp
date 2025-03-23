@@ -44,7 +44,8 @@ const std::array<std::string, 1 + MAXIMUM_InternalErrorCode> Rules::InternalErro
         "WaitingForModulesToReply",
         "ZeroVoltModule",
         "ControllerMemoryError",
-        "ErrorEmergencyStop"};
+        "ErrorEmergencyStop",
+        "BatteryIsolated"};
 
 void Rules::ClearValues()
 {

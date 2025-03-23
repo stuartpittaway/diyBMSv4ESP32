@@ -98,7 +98,13 @@ static const char soh_lifetime_battery_cycles_JSONKEY[] = "soh_batcycle";
 
 static const char soh_eol_capacity_JSONKEY[] = "soh_eol_capacity";
 
+static const char pulsetime_JSONKEY[] = "pulsetime";
+static const char cycleScreen_JSONKEY[] = "cycleScreen";
 
+static const char controllerNet_JSONKEY[] = "controllerNet";
+static const char controllerID_JSONKEY[] = "controllerID";
+static const char highAvailable_JSONKEY[] = "highAvailable";
+static const char canDisconnect_JSONKEY[] = "canDisconnect";
 
 /* NVS KEYS
 THESE STRINGS ARE USED TO HOLD THE PARAMETER IN NVS FLASH, MAXIMUM LENGTH OF 16 CHARACTERS
@@ -199,6 +205,14 @@ static const char soh_eol_capacity_NVSKEY[] = "soh_eol_cap";
 
 static const char soc_milliamphour_out_NVSKEY[] = "soc_mah_out";
 static const char soc_milliamphour_in_NVSKEY[] = "soc_mah_in";
+
+static const char controllerNet_NVSKEY[] = "controllerNet";
+static const char controllerID_NVSKEY[] = "controllerID";
+static const char highAvailable_NVSKEY[] = "highAvailable";
+static const char canDisconnect_NVSKEY[] = "canDisconnect";
+
+static const char pulsetime_NVSKEY[] = "pulsetime";
+static const char cycleScreen_NVSKEY[] = "cycleScreen";
 
 #define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
 #define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
@@ -528,6 +542,14 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(soh_lifetime_battery_cycles)
         MACRO_NVSWRITE_UINT8(soh_eol_capacity)
 
+        MACRO_NVSWRITE_UINT8(controllerNet);
+        MACRO_NVSWRITE(controllerID);
+        MACRO_NVSWRITE(highAvailable);
+        MACRO_NVSWRITE(canDisconnect);
+
+        MACRO_NVSWRITE(pulsetime);
+        MACRO_NVSWRITE(cycleScreen);
+
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
     }
@@ -663,6 +685,16 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(soh_total_milliamphour_in)
         MACRO_NVSREAD(soh_lifetime_battery_cycles)
         MACRO_NVSREAD_UINT8(soh_eol_capacity)
+        MACRO_NVSREADSTRING(homeassist_apikey);
+
+        MACRO_NVSREAD_UINT8(controllerNet);
+        MACRO_NVSREAD(controllerID);
+        MACRO_NVSREAD(highAvailable);
+        MACRO_NVSREAD(canDisconnect);
+
+        MACRO_NVSREAD(pulsetime);
+        MACRO_NVSREAD(cycleScreen);
+
         nvs_close(nvs_handle);
     }
 
@@ -688,6 +720,14 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->BypassThresholdmV = 4100;
     _myset->graph_voltagehigh = 4500;
     _myset->graph_voltagelow = 2750;
+    _myset->cycleScreen = true;
+
+    // Default to a single networked controller
+    _myset->controllerNet = 1;
+    _myset->controllerID = 0;
+    _myset->highAvailable = false;
+    // This is not a setting per se, but a persistent variable
+    _myset->canDisconnect = false;
 
     // EEPROM settings are invalid so default configuration
     _myset->mqtt_enabled = false;
@@ -825,6 +865,9 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
         _myset->relaytype[x] = RELAY_STANDARD;
     }
 
+    // Default relay pulse to 250ms
+    _myset->pulsetime = 250;
+
     // Default which "tiles" are visible on the web gui
     // For the meaning, look at array "TILE_IDS" in pagecode.js
     _myset->tileconfig[0] = 49152;
@@ -909,12 +952,12 @@ bool LoadWIFI(wifi_eeprom_settings *wifi)
         getSetting(nvs_handle, "MANUALCONFIG", &x.manualConfig))
     {
         // Only return success if all values are retrieved, don't corrupt
-        // external copy of wifi settings otherwise.
-        memcpy(wifi, &x, sizeof(x));
-        result = true;
-    }
+                // external copy of wifi settings otherwise.
+                memcpy(wifi, &x, sizeof(x));
+                result = true;
+            }
 
-    nvs_close(nvs_handle);
+        nvs_close(nvs_handle);
 
     ESP_LOGI(TAG, "Load WIFI config from FLASH - return %u", result);
 
@@ -993,14 +1036,14 @@ void ValidateConfiguration(diybms_eeprom_settings *settings)
         settings->current_value2 = 100 * 10;
     }
 
-    // Ensure that all PULSE relays default to OFF (pulse will only pulse on/off not off/on)
+    /*// Ensure that all PULSE relays default to OFF (pulse will only pulse on/off not off/on)
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
         if (settings->relaytype[i] == RelayType::RELAY_PULSE)
         {
             settings->rulerelaydefault[i] = RelayState::RELAY_OFF;
         }
-    }
+    }*/
 
     // Ensure trigger and reset (rulevalue and rulehysteresis) values make sense and
     // the rulehysteresis value is either greater or lower than rulevalue as required.
@@ -1113,9 +1156,15 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     root[rs485parity_JSONKEY] = settings->rs485parity;
     root[rs485stopbits_JSONKEY] = settings->rs485stopbits;
     root[language_JSONKEY] = settings->language;
+    root[cycleScreen_JSONKEY] = settings->cycleScreen;
 
     root[homeassist_apikey_JSONKEY] = settings->homeassist_apikey;
 
+    root[controllerNet_JSONKEY] = settings->controllerNet;
+    root[controllerID_JSONKEY] = settings->controllerID;
+    root[highAvailable_JSONKEY] = settings->highAvailable;
+    root[canDisconnect_JSONKEY] = settings->canDisconnect;
+    
     JsonObject mqtt = root["mqtt"].to<JsonObject>();
     mqtt[mqtt_enabled_JSONKEY] = settings->mqtt_enabled;
     mqtt[mqtt_basic_cell_reporting_JSONKEY] = settings->mqtt_basic_cell_reporting;
@@ -1173,6 +1222,7 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
         }
     } // end for
 
+    root[pulsetime_JSONKEY] = settings->pulsetime;
     root[protocol_JSONKEY] = (uint8_t)settings->protocol;
     root[canbusinverter_JSONKEY] = (uint8_t)settings->canbusinverter;
     root[canbusbaud_JSONKEY] = settings->canbusbaud;
@@ -1243,6 +1293,7 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
 
     settings->graph_voltagehigh = root[graph_voltagehigh_JSONKEY];
     settings->graph_voltagelow = root[graph_voltagelow_JSONKEY];
+    settings->cycleScreen = root[cycleScreen_JSONKEY];
 
     settings->BypassOverTempShutdown = root[BypassOverTempShutdown_JSONKEY];
     settings->BypassThresholdmV = root[BypassThresholdmV_JSONKEY];
@@ -1251,6 +1302,11 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
     settings->minutesTimeZone = root[minutesTimeZone_JSONKEY];
     settings->daylight = root[daylight_JSONKEY];
     strncpy(settings->ntpServer, root[ntpServer_JSONKEY].as<String>().c_str(), sizeof(settings->ntpServer));
+
+    settings->controllerNet = root[controllerNet_JSONKEY];
+    settings->controllerID = root[controllerID_JSONKEY];
+    settings->highAvailable = root[highAvailable_JSONKEY];
+    settings->canDisconnect = root[canDisconnect_JSONKEY];
 
     settings->loggingEnabled = root[loggingEnabled_JSONKEY];
     settings->loggingFrequencySeconds = root[loggingFrequencySeconds_JSONKEY];
@@ -1319,6 +1375,7 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
     settings->soh_lifetime_battery_cycles = root[soh_lifetime_battery_cycles_JSONKEY];
     settings->soh_eol_capacity=root[soh_eol_capacity_JSONKEY];
 
+    settings->pulsetime = root[pulsetime_JSONKEY];
 
     strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
 

@@ -82,6 +82,7 @@ extern "C"
 #include "CurrentMonitorINA229.h"
 
 #include "history.h"
+#include "ControllerCAN.h"
 
 CurrentMonitorINA229 currentmon_internal = CurrentMonitorINA229();
 extern void randomCharacters(char *value, int length);
@@ -115,6 +116,8 @@ extern volatile bool _screen_awake;
 extern bool force_tft_wake;
 extern TimerHandle_t tftwake_timer;
 extern void tftwakeup(TimerHandle_t xTimer);
+
+extern ControllerCAN can;
 
 // HTTPD server handle in webserver.cpp
 extern httpd_handle_t _myserver;
@@ -172,6 +175,7 @@ const uint16_t MAX_SEND_RS485_PACKET_LENGTH = 36;
 QueueHandle_t rs485_transmit_q_handle;
 QueueHandle_t request_q_handle;
 QueueHandle_t reply_q_handle;
+QueueHandle_t CANtx_q_handle;
 
 #include "crc16.h"
 #include "settings.h"
@@ -416,7 +420,7 @@ bool check_sdcard_freespace()
     // We had an error, so switch off logging (this is only in memory so not written perm.)
     mysettings.loggingEnabled = false;
     return false;
-  }
+    }
 
   return true;
 }
@@ -425,13 +429,13 @@ bool check_sdcard_freespace()
 /// @param filename
 /// @param timeinfo
 void log_cell_monitoring_data_to_sdcard(std::string filename, const tm timeinfo)
-{
+      {
   if (!check_sdcard_freespace())
   {
     return;
   }
 
-  File file;
+        File file;
   auto exists = SD.exists(filename.c_str());
 
   // Open/create file
@@ -439,171 +443,171 @@ void log_cell_monitoring_data_to_sdcard(std::string filename, const tm timeinfo)
   file = SD.open(filename.c_str(), exists ? FILE_APPEND : FILE_WRITE);
 
   if (!exists)
-  {
-    file.print("DateTime,");
+            {
+                file.print("DateTime,");
 
-    std::string header;
-    header.reserve(150);
+                std::string header;
+                header.reserve(150);
 
-    for (auto i = 0; i < TotalNumberOfCells(); i++)
-    {
-      std::string n;
-      n = std::to_string(i);
+                for (auto i = 0; i < TotalNumberOfCells(); i++)
+                {
+                  std::string n;
+                  n = std::to_string(i);
 
-      header.clear();
+                  header.clear();
 
-      header.append("VoltagemV_")
-          .append(n)
-          .append(",InternalTemp_")
-          .append(n)
-          .append(",ExternalTemp_")
-          .append(n)
-          .append(",Bypass_")
-          .append(n)
-          .append(",PWM_")
-          .append(n)
-          .append(",BypassOverTemp_")
-          .append(n)
-          .append(",BadPackets_")
-          .append(n)
-          .append(",BalancemAh_")
-          .append(n);
+                  header.append("VoltagemV_")
+                      .append(n)
+                      .append(",InternalTemp_")
+                      .append(n)
+                      .append(",ExternalTemp_")
+                      .append(n)
+                      .append(",Bypass_")
+                      .append(n)
+                      .append(",PWM_")
+                      .append(n)
+                      .append(",BypassOverTemp_")
+                      .append(n)
+                      .append(",BadPackets_")
+                      .append(n)
+                      .append(",BalancemAh_")
+                      .append(n);
 
-      if (i < TotalNumberOfCells() - 1)
-      {
-        header.append(",");
-      }
-      else
-      {
-        header.append("\r\n");
-      }
+                  if (i < TotalNumberOfCells() - 1)
+                  {
+                    header.append(",");
+                  }
+                  else
+                  {
+                    header.append("\r\n");
+                  }
 
-      file.write((const uint8_t *)header.c_str(), header.length());
-    }
-  }
+                  file.write((const uint8_t *)header.c_str(), header.length());
+                }
+              }
 
-  std::string dataMessage;
-  dataMessage.reserve(150);
+            std::string dataMessage;
+            dataMessage.reserve(150);
 
-  dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
-      .append("-")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
-      .append("-")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
-      .append(" ")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
-      .append(":")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
-      .append(":")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
-      .append(",");
+            dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
+                .append("-")
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
+                .append("-")
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
+                .append(" ")
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
+                .append(":")
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
+                .append(":")
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
+                .append(",");
 
-  for (auto i = 0; i < TotalNumberOfCells(); i++)
-  {
-    // This may output invalid data when controller is first powered up
-    dataMessage.append(std::to_string(cmi[i].voltagemV))
-        .append(",")
-        .append(std::to_string(cmi[i].internalTemp))
-        .append(",")
-        .append(std::to_string(cmi[i].externalTemp))
-        .append(",")
-        .append(cmi[i].inBypass ? "Y" : "N")
-        .append(",")
-        .append(std::to_string((int)((float)cmi[i].PWMValue / (float)255.0 * 100)))
-        .append(",")
-        .append(cmi[i].bypassOverTemp ? "Y" : "N")
-        .append(",")
-        .append(std::to_string(cmi[i].badPacketCount))
-        .append(",")
-        .append(std::to_string(cmi[i].BalanceCurrentCount));
+            for (auto i = 0; i < TotalNumberOfCells(); i++)
+            {
+              // This may output invalid data when controller is first powered up
+              dataMessage.append(std::to_string(cmi[i].voltagemV))
+                  .append(",")
+                  .append(std::to_string(cmi[i].internalTemp))
+                  .append(",")
+                  .append(std::to_string(cmi[i].externalTemp))
+                  .append(",")
+                  .append(cmi[i].inBypass ? "Y" : "N")
+                  .append(",")
+                  .append(std::to_string((int)((float)cmi[i].PWMValue / (float)255.0 * 100)))
+                  .append(",")
+                  .append(cmi[i].bypassOverTemp ? "Y" : "N")
+                  .append(",")
+                  .append(std::to_string(cmi[i].badPacketCount))
+                  .append(",")
+                  .append(std::to_string(cmi[i].BalanceCurrentCount));
 
-    if (i < TotalNumberOfCells() - 1)
-    {
-      dataMessage.append(",");
-    }
-    else
-    {
-      dataMessage.append("\r\n");
-    }
+              if (i < TotalNumberOfCells() - 1)
+              {
+                dataMessage.append(",");
+              }
+              else
+              {
+                dataMessage.append("\r\n");
+              }
 
-    // Write the string out to file on each cell to avoid generating a huge string
-    file.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
+              // Write the string out to file on each cell to avoid generating a huge string
+              file.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
 
-    // Start another string
-    dataMessage.clear();
-  }
+              // Start another string
+              dataMessage.clear();
+            }
   file.flush();
-  file.close();
+            file.close();
 
   ESP_LOGI(TAG, "Cell monitor log file");
-}
+          }
 
 /// @brief Log current monitoring data to SD CARD
 /// @param cmon_filename
 /// @param timeinfo
 void log_current_data_to_sdcard(std::string cmon_filename, const tm timeinfo)
-{
+          {
   if (!check_sdcard_freespace())
   {
     return;
-  }
+          }
 
   auto exists = SD.exists(cmon_filename.c_str());
 
-  File file2;
+            File file2;
 
-  // Open existing file (assumes there is enough SD card space to log)
+              // Open existing file (assumes there is enough SD card space to log)
   file2 = SD.open(cmon_filename.c_str(), exists ? FILE_APPEND : FILE_WRITE);
   ESP_LOGD(TAG, "%s file %s", exists ? "Append" : "Create", cmon_filename.c_str());
 
   if (!exists)
-  {
+              {
     file2.println("DateTime,valid,voltage,current,mAhIn,mAhOut,DailymAhIn,DailymAhOut,power,temperature,relayState");
-  }
+                }
 
-  std::string dataMessage;
-  dataMessage.reserve(128);
+              std::string dataMessage;
+              dataMessage.reserve(128);
 
-  dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
-      .append("-")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
-      .append("-")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
-      .append(" ")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
-      .append(":")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
-      .append(":")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
-      .append(",");
+              dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
+                  .append("-")
+                  .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
+                  .append("-")
+                  .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
+                  .append(" ")
+                  .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
+                  .append(":")
+                  .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
+                  .append(":")
+                  .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
+                  .append(",");
 
-  dataMessage.append(currentMonitor.validReadings ? "1" : "0")
-      .append(",")
-      .append(float_to_string(currentMonitor.modbus.voltage))
-      .append(",")
-      .append(float_to_string(currentMonitor.modbus.current))
-      .append(",")
-      .append(std::to_string(currentMonitor.modbus.milliamphour_in))
-      .append(",")
-      .append(std::to_string(currentMonitor.modbus.milliamphour_out))
-      .append(",")
-      .append(std::to_string(currentMonitor.modbus.daily_milliamphour_in))
-      .append(",")
-      .append(std::to_string(currentMonitor.modbus.daily_milliamphour_out))
-      .append(",")
-      .append(float_to_string(currentMonitor.modbus.power))
-      .append(",")
-      .append(std::to_string(currentMonitor.modbus.temperature))
-      .append(",")
-      .append(currentMonitor.RelayState ? "1" : "0")
-      .append("\r\n");
+              dataMessage.append(currentMonitor.validReadings ? "1" : "0")
+                  .append(",")
+                  .append(float_to_string(currentMonitor.modbus.voltage))
+                  .append(",")
+                  .append(float_to_string(currentMonitor.modbus.current))
+                  .append(",")
+                  .append(std::to_string(currentMonitor.modbus.milliamphour_in))
+                  .append(",")
+                  .append(std::to_string(currentMonitor.modbus.milliamphour_out))
+                  .append(",")
+                  .append(std::to_string(currentMonitor.modbus.daily_milliamphour_in))
+                  .append(",")
+                  .append(std::to_string(currentMonitor.modbus.daily_milliamphour_out))
+                  .append(",")
+                  .append(float_to_string(currentMonitor.modbus.power))
+                  .append(",")
+                  .append(std::to_string(currentMonitor.modbus.temperature))
+                  .append(",")
+                  .append(currentMonitor.RelayState ? "1" : "0")
+                  .append("\r\n");
 
-  file2.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
+              file2.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
   file2.flush();
-  file2.close();
+              file2.close();
 
   ESP_LOGI(TAG, "Current monitor log file");
-}
+        }
 
 // Output a status log to the SD Card in CSV format
 [[noreturn]] void sdcardlog_task(void *)
@@ -660,9 +664,9 @@ void log_current_data_to_sdcard(std::string cmon_filename, const tm timeinfo)
 
         // Must be the last thing...
         hal.ReleaseVSPIMutex();
-      }
-      else
-      {
+          }
+          else
+          {
         ESP_LOGE(TAG, "Invalid datetime");
       }
     }
@@ -693,67 +697,67 @@ void sdcardlog_output(std::string filename, const tm timeinfo)
   auto exists = SD.exists(filename.c_str());
   file = SD.open(filename.c_str(), exists ? FILE_APPEND : FILE_WRITE);
   if (!exists)
-  {
-    // Create the file
-    ESP_LOGD(TAG, "Create log %s", filename.c_str());
+            {
+              // Create the file
+                ESP_LOGD(TAG, "Create log %s", filename.c_str());
 
-    std::string header;
-    header.reserve(128);
+                std::string header;
+                header.reserve(128);
 
-    header.append("DateTime,TCA6408,TCA9534,");
+                header.append("DateTime,TCA6408,TCA9534,");
 
-    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
-    {
-      header.append("Output_").append(std::to_string(i));
-      if (i < RELAY_TOTAL - 1)
-      {
-        header.append(",");
-      }
-    }
-    header.append("\r\n");
-    file.write((const uint8_t *)header.c_str(), header.length());
-  }
+                for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+                {
+                  header.append("Output_").append(std::to_string(i));
+                  if (i < RELAY_TOTAL - 1)
+                  {
+                    header.append(",");
+                  }
+                }
+                header.append("\r\n");
+                file.write((const uint8_t *)header.c_str(), header.length());
+              }
 
-  std::string dataMessage;
-  dataMessage.reserve(128);
+            std::string dataMessage;
+            dataMessage.reserve(128);
 
-  dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
-      .append("-")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
-      .append("-")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
-      .append(" ")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
-      .append(":")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
-      .append(":")
-      .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
-      .append(",")
-      .append(uint8_to_binary_string(hal.LastTCA6408Value()))
-      .append(",")
-      .append(uint8_to_binary_string(hal.LastTCA9534APWRValue()))
-      .append(",");
+            dataMessage.append(pad_zero(4, (uint16_t)timeinfo.tm_year))
+                .append("-")
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_mon))
+                .append("-")
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_mday))
+                .append(" ")
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_hour))
+                .append(":")
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_min))
+                .append(":")
+                .append(pad_zero(2, (uint16_t)timeinfo.tm_sec))
+                .append(",")
+                .append(uint8_to_binary_string(hal.LastTCA6408Value()))
+                .append(",")
+                .append(uint8_to_binary_string(hal.LastTCA9534APWRValue()))
+                .append(",");
 
-  for (uint8_t i = 0; i < RELAY_TOTAL; i++)
-  {
-    // This may output invalid data when controller is first powered up
-    dataMessage.append(previousRelayState[i] == RelayState::RELAY_ON ? "Y" : "N");
-    if (i < RELAY_TOTAL - 1)
-    {
-      dataMessage.append(",");
-    }
-  }
-  dataMessage.append("\r\n");
-  file.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
+            for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+            {
+              // This may output invalid data when controller is first powered up
+              dataMessage.append(previousRelayState[i] == RelayState::RELAY_ON ? "Y" : "N");
+              if (i < RELAY_TOTAL - 1)
+              {
+                dataMessage.append(",");
+              }
+            }
+            dataMessage.append("\r\n");
+            file.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
   file.flush();
-  file.close();
+            file.close();
 
   ESP_LOGI(TAG, "Output State logging");
-}
+          }
 
 // Writes a status log of the OUTPUT STATUES to the SD Card in CSV format
 [[noreturn]] void sdcardlog_outputs_task(void *)
-{
+          {
   for (;;)
   {
     // Wait until this task is triggered https://www.freertos.org/ulTaskNotifyTake.html
@@ -784,13 +788,13 @@ void sdcardlog_output(std::string filename, const tm timeinfo)
           sdcardlog_output(filename, timeinfo);
           // Must be the last thing...
           hal.ReleaseVSPIMutex();
+          }
         }
-      }
-      else
-      {
-        ESP_LOGE(TAG, "Invalid datetime");
-      }
-    } // end if
+        else
+        {
+          ESP_LOGE(TAG, "Invalid datetime");
+        }
+      } // end if
   }   // end for loop
 }
 
@@ -1270,6 +1274,9 @@ void ProcessRules()
     rules.SetError(InternalErrorCode::ZeroVoltModule);
     rules.setRuleStatus(Rule::BMSError, true);
   }
+  
+  // Run rules that only apply if multiple controllers are connected together 
+  can.NetworkedControllerRules(); 
 
   rules.RunRules(
       mysettings.rulevalue,
@@ -1350,84 +1357,104 @@ void pulse_relay_off(const TimerHandle_t)
     // 3 seconds
     vTaskDelay(pdMS_TO_TICKS(3000));
 
-    // Run the rules
+     // Run the rules
     ProcessRules();
 
-    RelayState relay[RELAY_TOTAL];
-
-    // Set defaults based on configuration
-    for (int8_t y = 0; y < RELAY_TOTAL; y++)
+    // Handle updating the configurable relay pulse timer
+    if (xTimerGetPeriod(pulse_relay_off_timer) != pdMS_TO_TICKS(mysettings.pulsetime))
     {
-      relay[y] = mysettings.rulerelaydefault[y] == RELAY_ON ? RELAY_ON : RELAY_OFF;
+      // don't change a timer it's active
+      if (!xTimerIsTimerActive(pulse_relay_off_timer))
+      {
+        if (xTimerChangePeriod(pulse_relay_off_timer, pdMS_TO_TICKS(mysettings.pulsetime),pdMS_TO_TICKS(50)))
+        {
+          // sucessfully changing the period also starts the timer so we have to immediately stop it....
+          xTimerStop(pulse_relay_off_timer,pdMS_TO_TICKS(100));
+        }
+      }
     }
 
-    // Test the rules (in reverse order)
-    for (int8_t n = RELAY_RULES - 1; n >= 0; n--)
+    // Wait to fire relays until the controller reaches the running state
+    if (_controller_state == ControllerState::Running)
     {
-      if (rules.ruleOutcome((Rule)n) == true)
+        
+      RelayState relay[RELAY_TOTAL];
+
+      // Set defaults based on configuration
+      for (int8_t y = 0; y < RELAY_TOTAL; y++)
       {
-        for (int8_t y = 0; y < RELAY_TOTAL; y++)
+        relay[y] = mysettings.rulerelaydefault[y] == RELAY_ON ? RELAY_ON : RELAY_OFF;
+      }
+
+      // Test the rules (in reverse order)
+      for (int8_t n = RELAY_RULES - 1; n >= 0; n--)
+      {
+        if (rules.ruleOutcome((Rule)n) == true)
         {
-          // Dont change relay if its set to ignore/X
-          if (mysettings.rulerelaystate[n][y] != RELAY_X)
+          for (int8_t y = 0; y < RELAY_TOTAL; y++)
           {
-            if (mysettings.rulerelaystate[n][y] == RELAY_ON)
+            // Dont change relay if its set to ignore/X
+            if (mysettings.rulerelaystate[n][y] != RELAY_X)
             {
-              relay[y] = RELAY_ON;
-            }
-            else
-            {
-              relay[y] = RELAY_OFF;
+              if (mysettings.rulerelaystate[n][y] == RELAY_ON)
+              {
+                relay[y] = RELAY_ON;
+              }
+              else
+              {
+                relay[y] = RELAY_OFF;
+              }
             }
           }
         }
       }
-    }
 
-    uint8_t changes = 0;
-    bool firePulse = false;
-    for (int8_t n = 0; n < RELAY_TOTAL; n++)
-    {
-      if (previousRelayState[n] != relay[n])
+      uint8_t changes = 0;
+      bool firePulse = false;
+      for (int8_t n = 0; n < RELAY_TOTAL; n++)
       {
-        ESP_LOGI(TAG, "Set relay %i=%i", n, relay[n] == RelayState::RELAY_ON ? 1 : 0);
-        changes++;
-
-        // This would be better if we worked out the bit pattern first and then just submitted that as a single i2c read/write transaction
-        hal.SetOutputState(n, relay[n]);
-
-        // Record the previous state of the relay, to use on the next loop to prevent chatter
-        previousRelayState[n] = relay[n];
-
-        if (mysettings.relaytype[n] == RELAY_PULSE)
+        if (previousRelayState[n] != relay[n])
         {
-          previousRelayPulse[n] = true;
-          firePulse = true;
-          ESP_LOGI(TAG, "Relay %i PULSED", n);
+          ESP_LOGI(TAG, "Set relay %i=%i", n, relay[n] == RelayState::RELAY_ON ? 1 : 0);
+          changes++;
+
+          // This would be better if we worked out the bit pattern first and then just submitted that as a single i2c read/write transaction
+          hal.SetOutputState(n, relay[n]);
+
+          // Record the previous state of the relay, to use on the next loop to prevent chatter
+          previousRelayState[n] = relay[n];
+
+          if (mysettings.relaytype[n] == RELAY_PULSE)
+          {
+            previousRelayPulse[n] = true;
+            firePulse = true;
+            ESP_LOGI(TAG, "Relay %i PULSED", n);
+          }
         }
       }
-    }
 
-    if (firePulse)
-    {
-      // Fire timer to switch off relay in a few ms
-      if (xTimerStart(pulse_relay_off_timer, 10) != pdPASS)
+      if (firePulse)
       {
-        ESP_LOGE(TAG, "Pulse timer start error");
+        // Fire timer to switch off relay in a few ms
+        if (xTimerStart(pulse_relay_off_timer, 10) != pdPASS)
+        {
+          ESP_LOGE(TAG, "Pulse timer start error");
+        }
+      }
+
+      if (changes)
+      {
+        // Fire task to record state of outputs to SD Card
+        xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
+      }
+
+      if (changes || rules.anyRuleTriggered())
+      {
+        // A rule is TRUE or relay state has changed, so MQTT report it...
+        xTaskNotify(rule_state_change_task_handle, 0x00, eNotifyAction::eNoAction);
       }
     }
-
-    if (changes)
-    {
-      // Fire task to record state of outputs to SD Card
-      xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
-    }
-
-    if (changes || rules.anyRuleTriggered())
-    {
-      // A rule is TRUE or relay state has changed, so MQTT report it...
-      xTaskNotify(rule_state_change_task_handle, 0x00, eNotifyAction::eNoAction);
-    }
+ 
   }
 }
 
@@ -2642,11 +2669,66 @@ static const char *ESP32_TWAI_STATUS_STRINGS[] = {
     "RECOVERY UNDERWAY"      // CAN_STATE_RECOVERING
 };
 
-void _send_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length, const uint32_t flags)
+void send_canbus_message(CANframe* canframe)
+{
+  twai_message_t message;
+  message.identifier = canframe->identifier;
+  message.data_length_code = canframe->dlc;
+
+  memcpy(message.data, canframe->data, canframe->dlc);
+
+  // If there is a bus error, we attempt to recover it later, transmitted messages are lost, but this
+  // isn't a problem, as they are repeated every few seconds.
+  esp_err_t result = twai_transmit(&message, pdMS_TO_TICKS(250));
+
+  if (result == ESP_OK)
+  {
+    // Everything normal/good
+    // ESP_LOGD(TAG, "Sent CAN message 0x%x", identifier);
+    // ESP_LOG_BUFFER_HEX_LEVEL(TAG, &message, sizeof(twai_message_t), esp_log_level_t::ESP_LOG_DEBUG);
+    canbus_messages_sent++;
+    return;
+  }
+
+  // Something failed....
+  ESP_LOGE(TAG, "Failed to queue CANBUS message (0x%x)", result);
+  canbus_messages_failed_sent++;
+
+  twai_status_info_t status;
+  twai_get_status_info(&status);
+
+  ESP_LOGI(TAG, "CAN STATUS: rx-q:%d, tx-q:%d, rx-err:%d, tx-err:%d, arb-lost:%d, bus-err:%d, state: %s",
+           status.msgs_to_rx, status.msgs_to_tx,
+           status.rx_error_counter, status.tx_error_counter,
+           status.arb_lost_count,
+           status.bus_error_count,
+           ESP32_TWAI_STATUS_STRINGS[status.state]);
+
+  if (status.state == twai_state_t::TWAI_STATE_BUS_OFF)
+  {
+    // When the bus is OFF we need to initiate recovery, transmit is not possible when in this state.
+    // Recovery appears to force it into STOPPED state
+    ESP_LOGW(TAG, "Initiating recovery");
+    twai_initiate_recovery();
+  }
+  else if (status.state == twai_state_t::TWAI_STATE_STOPPED)
+  {
+    // bus has stopped - restart it
+    esp_err_t startresult = twai_start();
+    ESP_LOGI(TAG, "Starting CANBUS %s", esp_err_to_name(startresult));
+  }
+  else if (status.state == twai_state_t::TWAI_STATE_RECOVERING)
+  {
+    // when the bus is in recovery mode transmit is not possible, so wait...
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
+}
+
+void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
 {
   twai_message_t message;
   message.identifier = identifier;
-  message.flags = flags;
+  message.flags = TWAI_MSG_FLAG_EXTD;
   message.data_length_code = length;
 
   memcpy(&message.data, buffer, length);
@@ -2698,145 +2780,203 @@ void _send_canbus_message(const uint32_t identifier, const uint8_t *buffer, cons
   }
 }
 
-void send_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
+void CAN_Networking_disconnect(TimerHandle_t error_debounce_timer)
 {
-  _send_canbus_message(identifier, buffer, length, TWAI_MSG_FLAG_NONE);
-}
-void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length)
-{
-  _send_canbus_message(identifier, buffer, length, TWAI_MSG_FLAG_EXTD);
+          /* Force Disable the CANBUS if there is an internal error for a set period of time (see applicable timer) and there are networked controllers. 
+          This is to prevent a controller that has disconnected itself from auto-reconnecting after a long period of time. This flag will be saved in eeprom and persist through 
+          a reboot. User must manually re-enable canbus protocol to reset the flag (there's probably be a better way of doing this with some "reconnection rules")*/
+
+          mysettings.protocol = ProtocolEmulation::EMULATION_DISABLED;
+          mysettings.canDisconnect = true;
+          SaveConfiguration(&mysettings);
+          //Battery will be isolated next time the rules are run
 }
 
-[[noreturn]] void canbus_tx(void *)
+[[noreturn]] void canbus_tx(void* param)
 {
+  uint8_t count = 0;
+  uint8_t statusreturn;
+
   for (;;)
   {
-    // Delay 1 second
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    // Delay .9 second
+    vTaskDelay(pdMS_TO_TICKS(900));
 
-    if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH)
+    //wait until controller is running 
+    if (_controller_state == ControllerState::Running)
     {
-      // Pylon Tech Battery Emulation
-      // https://github.com/PaulSturbo/DIY-BMS-CAN/blob/main/SEPLOS%20BMS%20CAN%20Protocoll%20V1.0.pdf
-      // https://www.setfirelabs.com/green-energy/pylontech-can-reading-can-replication
-      // https://github.com/juamiso/PYLON_EMU
-      // https://www.studocu.com/row/document/abasyn-university/electronics-engineering/can-bus-protocol-pylon-low-voltage-v1/17205338
-
-      /*
-      PYLON TECH battery transmits these values....
-
-      CAN ID – followed by 2 to 8 bytes of data:
-      0x351 – 14 02 74 0E 74 0E CC 01 – Battery voltage + current limits
-      0x355 – 1A 00 64 00 – State of Health (SOH) / State of Charge (SOC)
-      0x356 – 4e 13 02 03 04 05 – Voltage / Current / Temp
-      0x359 – 00 00 00 00 0A 50 4E – Protection & Alarm flags
-      0x35C – C0 00 – Battery charge request flags
-      0x35E – 50 59 4C 4F 4E 20 20 20 – Manufacturer name (“PYLON “)
-
-      If you are watching the bus, you will also see a 0x305 ID message which is output by the inverter once per second.
-*/
-      pylon_message_351();
-      vTaskDelay(pdMS_TO_TICKS(20));
-
-      if (_controller_state == ControllerState::Running)
+      if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED)
       {
-        pylon_message_355();
-        vTaskDelay(pdMS_TO_TICKS(20));
-        pylon_message_356();
-        vTaskDelay(pdMS_TO_TICKS(20));
-      }
-      pylon_message_359();
-      vTaskDelay(pdMS_TO_TICKS(20));
-      pylon_message_35c();
-      vTaskDelay(pdMS_TO_TICKS(20));
-      pylon_message_35e();
-      // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
-      // vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    else if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2)
-    {
-      pylonforce_handle_tx();
-    }
-    else if (mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON)
-    {
-      // minimum CAN-IDs required for the core functionality are 0x351, 0x355, 0x356 and 0x35A.
-
-      // 351 message must be sent at least every 3 seconds - or Victron will stop charge/discharge
-      victron_message_351();
-
-      // Delay a little whilst sending packets to give ESP32 some breathing room and not flood the CANBUS
-      vTaskDelay(pdMS_TO_TICKS(100));
-
-      // Advertise the diyBMS name on CANBUS
-      victron_message_370_371();
-      victron_message_35e();
-      victron_message_35a();
-      victron_message_372();
-      victron_message_35f();
-
-      vTaskDelay(pdMS_TO_TICKS(100));
-
-      if (_controller_state == ControllerState::Running)
-      {
-        victron_message_355();
-        victron_message_356();
-
-        vTaskDelay(pdMS_TO_TICKS(100));
-
-        // Detail about individual cells
-        victron_message_373();
-        victron_message_374_375_376_377();
-      }
-    }
-  }
-}
-
-[[noreturn]] void canbus_rx(void *)
-{
-  for (;;)
-  {
-    while (mysettings.protocol == ProtocolEmulation::EMULATION_DISABLED || mysettings.protocol == ProtocolEmulation::RS485_PYLONTECH)
-    {
-      // Canbus is disbled, sleep until this changes....
-      vTaskDelay(pdMS_TO_TICKS(2000));
-    }
-
-    // Wait for message to be received, up to 20 seconds
-    twai_message_t message;
-    esp_err_t res = twai_receive(&message, pdMS_TO_TICKS(20000));
-    if (res == ESP_OK)
-    {
-      canbus_messages_received++;
-      // ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x",message.identifier, message.data_length_code, message.flags);
-
-      if (!(message.flags & TWAI_MSG_FLAG_RTR)) // we do not answer to Remote-Transmission-Requests
-      {
-        //        ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
         if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2)
         {
-          pylonforce_handle_rx(&message);
+          pylonforce_handle_tx();
+          continue;
         }
         else
         {
-          // Remote inverter should send a 305 message every few seconds
-          // for now, keep track of last message.
-          // TODO: in future, add timeout/error condition to shut down
-          if (message.identifier == 0x305)
+        #pragma region 900ms Interval
+
+        //CANBUS math and Intra-controller CAN traffic
+        can.c2c_DVCC();
+        can.c2c_ALARMS();
+        can.c2c_DIYBMS_MSGS();
+        can.c2c_MODULES();
+
+        //Return snapshot of the controller network & update hearbeat
+        statusreturn = can.controllerNetwork_status();
+        ESP_LOGE(TAG, "returnvalue = %d",statusreturn);
+        // determine who is currently the master controller
+        can.who_is_master(); 
+
+        // Reporting via VICTRON protocol
+        if ((mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID ==can.master)) 
+        {
+          if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
           {
-            canbus_last_305_message_time = esp_timer_get_time();
+            victron_message_351();      // 351 message must be sent at least every 3 seconds - or Victron will stop charge/discharge
           }
+          victron_message_35a();
+          victron_message_372();
+        }
+
+        // Reporting via PYLONTECH protocol
+        if ((mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID ==can.master))
+        {
+          if (statusreturn == 0 || (statusreturn == 1 && mysettings.highAvailable))       //suspend DVCC if there is a configuration issue OR there is a controller offline and highAvailable mode is OFF
+          {
+              pylon_message_351();      
+          }
+          pylon_message_359();
+          pylon_message_35c();
+          pylon_message_35e();         
+        }
+          
+        #pragma endregion 900ms
+
+        count++;   
+
+        #pragma region 2700ms Interval
+        if (count > 2)
+        {
+          // timestamp here so we can sync error logs for debugging purposes
+          struct tm timeinfo;
+          if (getLocalTime(&timeinfo),1)
+          {
+          ESP_LOGI(TAG,"Current Time is:%d:%d:%d",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+          }
+          
+          /////// CANBUS math and intra-controller CAN traffic/////////         
+            can.c2c_SOC();
+            can.c2c_CAP();
+            can.c2c_HOST();
+            can.c2c_MINMAX_CELL_V_T();
+            can.c2c_CELL_IDS();
+            can.c2c_VIT();
+
+          ////////////////////////////////////////////////////////////
+
+          // Reporting via VICTRON protocol
+          if ((mysettings.protocol == ProtocolEmulation::CANBUS_VICTRON) && (mysettings.controllerID ==can.master))
+          {
+            /////// Aggregation and Inverter CAN traffic///////// 
+            victron_message_370_371_35e();
+            victron_message_35f();
+            victron_message_355();
+            victron_message_356();
+            victron_message_373_374_375_376_377();
+            victron_message_379();
+            ////////////////////////////////////////////////////////////
+          }
+
+          // Reporting via PYLONTECH protocol
+          if ((mysettings.protocol == ProtocolEmulation::CANBUS_PYLONTECH) && (mysettings.controllerID ==can.master))
+          {
+            /////// Aggregation and Inverter CAN traffic///////// 
+              pylon_message_355();
+              pylon_message_356();
+            ////////////////////////////////////////////////////////////
+          }        
+
+          count = 0;
+        }
+        #pragma endregion 2700ms Interval
         }
       }
     }
-    else
-    {
-      /// ignore the timeout or do something
-      ESP_LOGE(TAG, "CANBUS error %s", esp_err_to_name(res));
-      canbus_messages_received_error++;
-      ESP_LOGI(TAG, "CANBUS error count %u", canbus_messages_received_error);
-    }
   }
 }
+
+[[noreturn]] void canbus_rx(void* param)
+{
+  for (;;)
+  {
+        while (mysettings.protocol == ProtocolEmulation::EMULATION_DISABLED)
+        {
+          // Canbus is disbled, sleep until this changes....
+          vTaskDelay(pdMS_TO_TICKS(2000));
+          continue;
+        }
+        // Wait for message to be received
+        twai_message_t message;
+        esp_err_t res = twai_receive(&message, pdMS_TO_TICKS(20000));
+        if (res == ESP_OK)
+        {
+          canbus_messages_received++;
+          //ESP_LOGD(TAG, "CANBUS received message ID: %0x, DLC: %d, flags: %0x", message.identifier, message.data_length_code, message.flags);
+          if (!(message.flags & TWAI_MSG_FLAG_RTR))   // we do not answer to Remote-Transmission-Requests
+          {
+            //  ESP_LOG_BUFFER_HEXDUMP(TAG, message.data, message.data_length_code, ESP_LOG_DEBUG);
+            if (mysettings.protocol == ProtocolEmulation::CANBUS_PYLONFORCEH2 )
+            {
+              pylonforce_handle_rx(&message);
+            }
+            else
+            {
+            
+            // Record Inter Controller communications
+            if (mysettings.controllerNet > 1 && can.hash_valid(message.identifier))
+             { 
+              uint8_t row = can.hash_i(message.identifier);
+              uint8_t col = can.hash_j(message.identifier);
+
+               // Wait for permission from Canbus_TX task to edit data array
+              if (!xSemaphoreTake(can.dataMutex[row],pdMS_TO_TICKS(50)))
+              {
+                ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout");
+                continue;
+              }
+
+              memcpy(&can.data[row][col][0], &message.data, message.data_length_code);
+
+              // We will timestamp any DIYBMS_MSG frames for use as a heartbeat 
+              if (row == 2)
+              {
+                can.timestampBuffer[col] = esp_timer_get_time(); //timestamp incoming message from Controller [j]
+                ESP_LOGE(TAG, "timestamped controller %d = %d", col, can.timestampBuffer[col]);
+              }
+              
+              // Return permission to Canbus_TX task 
+              xSemaphoreGive(can.dataMutex[row]); 
+              
+              //ESP_LOGD(TAG, "Logged message ID: %0x, DLC: %d", message.identifier, message.data_length_code);
+             }
+            }
+
+
+            }
+          }
+        
+          
+        else
+        {
+          /// ignore the timeout or do something
+          ESP_LOGE(TAG, "CANBUS error %s", esp_err_to_name(res));
+          canbus_messages_received_error++;
+          ESP_LOGI(TAG, "CANBUS error count %u", canbus_messages_received_error);
+        }
+  }
+}
+
 
 [[noreturn]] void service_rs485_transmit_q(void *)
 {
@@ -3291,10 +3431,10 @@ void CalculateStateOfHealth(diybms_eeprom_settings *settings)
       if (cmi[m].valid)
       {
         if (cmi[m].settingsCached == false)
-        {
-          // This will block if the queue length is reached
-          prg.sendGetSettingsRequest(m);
-        }
+      {
+        // This will block if the queue length is reached
+        prg.sendGetSettingsRequest(m);
+      }
         else
         {
           if (cmi[m].BoardVersionNumber == 490 && cmi[m].FanSwitchOnTemperature == 0)
@@ -3587,25 +3727,25 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
 
       File file = SD.open(wificonfigfilename.c_str());
       error = deserializeJson(json, file);
-      file.close();
+        file.close();
     }
-    hal.ReleaseVSPIMutex();
+        hal.ReleaseVSPIMutex();
   }
 
-  if (error != DeserializationError::Ok)
-  {
-    ESP_LOGE(TAG, "Error deserialize JSON");
+        if (error != DeserializationError::Ok)
+        {
+          ESP_LOGE(TAG, "Error deserialize JSON");
     return false;
-  }
+        }
 
   ESP_LOGD(TAG, "Deserialized %s", wificonfigfilename.c_str());
 
-  JsonObject wifi = json["wifi"];
+          JsonObject wifi = json["wifi"];
 
-  wifi_eeprom_settings _new_config;
+          wifi_eeprom_settings _new_config;
 
-  // Clear config
-  memset(&_new_config, 0, sizeof(_new_config));
+          // Clear config
+          memset(&_new_config, 0, sizeof(_new_config));
 
   wifi["ssid"].as<String>().toCharArray(_new_config.wifi_ssid, sizeof(_new_config.wifi_ssid));
   wifi["password"].as<String>().toCharArray(_new_config.wifi_passphrase, sizeof(_new_config.wifi_passphrase));
@@ -3637,7 +3777,7 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
     }
 
     _new_config.manualConfig = wifi["manualconfig"].as<uint8_t>();
-  }
+    }
   else
   {
     ESP_LOGI(TAG, "Older style WIFI format");
@@ -3678,7 +3818,7 @@ struct log_level_t
 };
 
 // Default log levels to use for various components.
-const std::array<log_level_t, 23> log_levels =
+const std::array<log_level_t, 24> log_levels =
     {
         log_level_t{.tag = "*", .level = ESP_LOG_DEBUG},
         {.tag = "wifi", .level = ESP_LOG_WARN},
@@ -3702,7 +3842,8 @@ const std::array<log_level_t, 23> log_levels =
         {.tag = "diybms-ctrl", .level = ESP_LOG_INFO},
         {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
         {.tag = "diybms-pyforce", .level = ESP_LOG_INFO},
-        {.tag = "curmon", .level = ESP_LOG_INFO}};
+        {.tag = "curmon", .level = ESP_LOG_INFO},
+        {.tag = "diybms-ControllerCAN", .level = ESP_LOG_INFO}};
 
 void consoleConfigurationCheck()
 {
@@ -3844,7 +3985,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   {
     clearModuleValues(i);
   }
-
+  
   history.Clear();
 
   rules.resetAllRules();
@@ -3935,6 +4076,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   reply_q_handle = xQueueCreate(4, sizeof(PacketStruct));
   assert(reply_q_handle);
 
+  CANtx_q_handle = xQueueCreate(30, sizeof(CANframe));
+  assert(CANtx_q_handle);
+
   led_off_timer = xTimerCreate("LEDOFF", pdMS_TO_TICKS(100), pdFALSE, (void *)1, &ledoff);
   assert(led_off_timer);
 
@@ -3943,6 +4087,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   tftwake_timer = xTimerCreate("TFTWAKE", pdMS_TO_TICKS(50), pdFALSE, (void *)3, &tftwakeup);
   assert(tftwake_timer);
+
+  can.error_debounce_timer = xTimerCreate("ERROR", pdMS_TO_TICKS(300000), pdFALSE, (void*)4, &CAN_Networking_disconnect); // 5 minutes
+  assert(can.error_debounce_timer);
 
   xTaskCreate(voltageandstatussnapshot_task, "snap", 1950, nullptr, 1, &voltageandstatussnapshot_task_handle);
   // Increased tftupd from 2000 to 2450 due to strange bug on rev3 ESP32 chips
@@ -3958,18 +4105,18 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(rs485_tx, "485_TX", 2940, nullptr, 1, &rs485_tx_task_handle);
   xTaskCreate(rs485_rx, "485_RX", 2940, nullptr, 1, &rs485_rx_task_handle);
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
-  xTaskCreate(canbus_tx, "CAN_Tx", 4096, nullptr, 1, &canbus_tx_task_handle);
-  xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
+  xTaskCreate(canbus_tx, "CAN_Tx", 2950, nullptr, configMAX_PRIORITIES - 4, &canbus_tx_task_handle);
+  xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, configMAX_PRIORITIES - 4, &canbus_rx_task_handle);
   xTaskCreate(transmit_task, "Tx", 1950, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 4096, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 0, &lazy_task_handle);
 
-  // Set relay defaults
+  // Start relays in the off state
   for (auto y = 0; y < RELAY_TOTAL; y++)
   {
-    previousRelayState[y] = mysettings.rulerelaydefault[y];
+    previousRelayState[y] = RelayState::RELAY_OFF;
     // Set relay defaults
-    hal.SetOutputState(y, mysettings.rulerelaydefault[y]);
+    //hal.SetOutputState(y, mysettings.rulerelaydefault[y]);
   }
   // Fire task to record state of outputs to SD Card
   xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);

@@ -355,14 +355,25 @@ void IncreaseDelayCounter()
 {
     _ScreenToDisplayDelay++;
 
-    // Switch pages if rotation delay exceeded
+    // Switch page OR update screen if rotation delay exceeded
     // 15 seconds between pages
     if (_ScreenToDisplayDelay > 15)
-    {
-        // Move to the next page after the "_ScreenToDisplayDelay" delay
-        _ScreenToDisplayDelay = 0;
-        PageForward();
+    {    
+        if (mysettings.cycleScreen)
+        {
+            // Move to the next page after the "_ScreenToDisplayDelay" delay
+            _ScreenToDisplayDelay = 0;
+            PageForward();
+        }
+
+        // Trigger a refresh of the screen
+        else if (updatetftdisplay_task_handle != NULL)
+        {
+            xTaskNotify(updatetftdisplay_task_handle, 0, eNotifyAction::eSetValueWithOverwrite);
+        }
     }
+
+
 }
 
 // Determine what screen to show on the TFT based on priority/severity
@@ -1108,6 +1119,15 @@ void DrawTFT_Error()
                 tft.drawCentreString("Emergency", x, y, 4);
                 y += fontHeight_4;
                 tft.drawCentreString("STOP", x, y, 4);
+                break;
+            }
+            case InternalErrorCode::BatteryIsolated:
+            {
+                tft.drawCentreString("Battery isolated", x, y, 4);
+                y += fontHeight_4;
+                tft.drawCentreString("due to ", x, y, 4);
+                y += fontHeight_4;
+                tft.drawCentreString("CANBUS ", x, y, 4);
                 break;
             }
             default:

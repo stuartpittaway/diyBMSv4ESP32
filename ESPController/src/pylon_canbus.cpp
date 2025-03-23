@@ -16,264 +16,337 @@ static constexpr const char *const TAG = "diybms-pylon";
 #include "pylon_canbus.h"
 
 // 0x351 – Battery voltage + current limits
-void pylon_message_351()
+/*
+See ControllerCAN section for detailed description of DVCC parameters for each controller
+
+For aggregation:
+
+For the maxchargevoltage reported to the inverter we will just use the minimum maxchargevoltage reported by any controller.
+
+For the maxchargecurrent reported to the inverter, we will use the minimum maxchargecurrent reported by any controller multiplied by the number of conrollers online.
+*/
+void  pylon_message_351()
 {
-  struct data351
-  {
-    uint16_t battery_charge_voltage;
-    // positive number
-    int16_t battery_charge_current_limit;
-    // negative number
-    int16_t battery_discharge_current_limit;
-    uint16_t battery_discharge_voltage;
-  };
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0x351);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
-  data351 data;
+    uint16_t chargevoltagelimit;
+    uint16_t maxchargecurrent;
+    uint16_t maxdischargecurrent;
+    uint16_t dischargevoltage;
 
-  // If we pass ZERO's to SOFAR inverter it appears to ignore them
-  // so send 0.1V and 0.1Amps instead to indicate "stop"
-  data.battery_discharge_voltage = mysettings.dischargevolt;
-
-  uint16_t default_charge_voltage = 1;         // 0.1V
-  int16_t default_charge_current_limit = 1;    // 0.1A
-  int16_t default_discharge_current_limit = 1; // 0.1A
-
-  if (mysettings.canbusinverter == CanBusInverter::INVERTER_DEYE)
-  {
-    // FOR DEYE INVERTERS APPLY DIFFERENT LOGIC TO PREVENT "W31" ERRORS
-    // ISSUE #216
-    default_charge_voltage = rules.lowestBankVoltage / 100;
-    default_charge_current_limit = 0;
-    default_discharge_current_limit = 0;
-  }
-
-  //  Defaults (tell inverter to do nothing/stop charge/discharge)
-  data.battery_charge_voltage = default_charge_voltage;
-  data.battery_charge_current_limit = default_charge_current_limit;
-  data.battery_discharge_current_limit = default_discharge_current_limit;
-
-  if (rules.IsChargeAllowed(&mysettings))
-  {
-    if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
+    // if no controllers are networked then just send the local values. It won't matter what controllerID is selected on the config page
+    if (mysettings.controllerNet == 1)
     {
-      // Balancing is active, so stop charging (do nothing here)
+        memcpy(&chargevoltagelimit, &can.data[0][mysettings.controllerID][0], sizeof(chargevoltagelimit));
+        memcpy(&maxchargecurrent, &can.data[0][mysettings.controllerID][2], sizeof(maxchargecurrent));
+        memcpy(&maxdischargecurrent, &can.data[0][mysettings.controllerID][4], sizeof(maxdischargecurrent));
+        memcpy(&dischargevoltage, &can.data[0][mysettings.controllerID][6], sizeof(dischargevoltage));
     }
+
+    // aggregate DVCC data from networked controllers
     else
     {
-      // Default - normal behaviour (apply charging voltage and current)
-      data.battery_charge_voltage = rules.DynamicChargeVoltage();
-      data.battery_charge_current_limit = rules.DynamicChargeCurrent();
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(can.dataMutex[0], pdMS_TO_TICKS(50)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
     }
-  }
 
-  if (rules.IsDischargeAllowed(&mysettings))
-  {
-    // Set discharge current limits in normal operation
-    data.battery_discharge_current_limit = mysettings.dischargecurrent;
-  }
+        chargevoltagelimit = *(uint16_t*)&can.data[0][mysettings.controllerID][0];
+        maxchargecurrent = *(uint16_t*)&can.data[0][mysettings.controllerID][2];
+        maxdischargecurrent = *(uint16_t*)&can.data[0][mysettings.controllerID][4];
+        dischargevoltage = *(uint16_t*)&can.data[0][mysettings.controllerID][6];
 
-  send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
+        for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+        {
+            //only include online controllers
+            if (can.controller_is_online[i] && can.controller_is_integrated[i]) 
+            {
+                if ((*(uint16_t*)&can.data[0][i][0] <= chargevoltagelimit))  // find minimum
+                {
+                    chargevoltagelimit = *(uint16_t*)&can.data[0][i][0];    
+                }
+                if ((*(uint16_t*)&can.data[0][i][2] <= maxchargecurrent))    // find minimum
+                {
+                    maxchargecurrent = *(uint16_t*)&can.data[0][i][2];
+                }
+                if ((*(uint16_t*)&can.data[0][i][4] <= maxdischargecurrent))  // find minimum
+                {
+                    maxdischargecurrent = *(uint16_t*)&can.data[0][i][4];
+                }
+                if ((*(uint16_t*)&can.data[0][i][6] <= dischargevoltage))  // find minimum
+                {
+                    dischargevoltage = *(uint16_t*)&can.data[0][i][6];    
+                }   
+            }
+        }
+
+        // Return permission to Canbus_RX task 
+        xSemaphoreGive(can.dataMutex[0]); 
+        
+        maxchargecurrent = maxchargecurrent *can.integrated_count;  //use minimum multiplied by # of online controllers
+        maxdischargecurrent = maxdischargecurrent *can.integrated_count;    //use minimum multiplied by # of online controllers      
+
+    }
+        
+        memcpy(&candata.data[0], &chargevoltagelimit, sizeof(chargevoltagelimit));   
+        memcpy(&candata.data[2], &maxchargecurrent, sizeof(maxchargecurrent));      
+        memcpy(&candata.data[4], &maxdischargecurrent, sizeof(maxdischargecurrent));  
+        memcpy(&candata.data[6], &dischargevoltage, sizeof(dischargevoltage)); 
+        ESP_LOGI(TAG, "Charge Voltage Limit = %d",chargevoltagelimit);
+        ESP_LOGI(TAG, "Max Charge Current = %d",maxchargecurrent);
+        ESP_LOGI(TAG, "Max Discharge Current = %d",maxdischargecurrent);
+        ESP_LOGI(TAG, "Discharge Voltage Limit = %d",dischargevoltage);  
+
+      send_canbus_message(ptrFrame);
+    
 }
+
 // 0x355 – 1A 00 64 00 – State of Health (SOH) / State of Charge (SOC)
 void pylon_message_355()
 {
-  if (_controller_state != ControllerState::Running)
-    return;
+    CANframe candata(4, 0x355);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
-  struct data355
-  {
-    uint16_t stateofchargevalue;
-    uint16_t stateofhealthvalue;
-  };
+    if (mysettings.controllerNet == 1)  //copy over local values for SOC
+    {
+        memcpy(&candata.data, &can.data[4][mysettings.controllerID][0], candata.dlc);
+    }
+    else
+    {
+        // Wait for permission from Canbus_RX task to edit data array
+        if (!(xSemaphoreTake(can.dataMutex[4], pdMS_TO_TICKS(50)) &&
+            xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(50))))
+        {
+        ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+        xSemaphoreGive(can.dataMutex[4]);
+        xSemaphoreGive(can.dataMutex[5]); 
+        return; 
+        }
 
-  // Only send CANBUS message if we have a current monitor enabled & valid
-  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings && (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS || mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL))
-  {
-    data355 data;
-    // 0 SOC value un16 1 %
-    data.stateofchargevalue = rules.StateOfChargeWithRulesApplied(&mysettings, currentMonitor.stateofcharge);
+        //SOC (weighted average based on nominal Ah of each controller)
+        //SOH (display the minmimum health value of all online packs which could be more useful than an averaged health value)
+        uint16_t Total_Ah = 0;
+        uint32_t Total_Weighted_Ah = 0;
+        uint16_t Weighted_SOC = 0;
+        uint16_t SOH = *(uint16_t*)&can.data[4][mysettings.controllerID][2];  //start with this controllers SOH  
+        
+        for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+        {
+            if (can.controller_is_online[i] && can.controller_is_integrated[i])
+            {
+                Total_Ah = Total_Ah + *(uint16_t*)&can.data[5][i][4];     //online capacity
+                Total_Weighted_Ah = Total_Weighted_Ah + (*(uint16_t*)&can.data[4][i][0]) * (*(uint16_t*)&can.data[5][i][4]);  // SOC(%) x Online capacity
+                
+                // use minimum
+                if (*(uint16_t*)&can.data[4][i][2] < SOH)
+                {
+                    SOH = *(uint16_t*)&can.data[4][i][2];
+                }        
+            }
+        }
 
-    //  2 SOH value un16 1 %
-    data.stateofhealthvalue = (uint16_t)(trunc(mysettings.soh_percent));
+        // Return permission to Canbus_RX task 
+        xSemaphoreGive(can.dataMutex[4]);
+        xSemaphoreGive(can.dataMutex[5]); 
 
-    send_canbus_message(0x355, (uint8_t *)&data, sizeof(data355));
-  }
+        if (Total_Ah != 0)  //avoid divide by zero (we won't have useable values during CAN initialization)
+        {
+            Weighted_SOC = Total_Weighted_Ah / Total_Ah;
+        }
+
+        memcpy(&candata.data[0], &Weighted_SOC, sizeof(Weighted_SOC));
+        memcpy(&candata.data[2], &SOH, sizeof(SOH));
+
+    }    
+    send_canbus_message(ptrFrame);
 }
 
-// 0x359 – 00 00 00 00 0A 50 4E – Protection & Alarm flags
-void pylon_message_359()
+//Helper function to re-organize bit alarms
+// q = row of can.data
+// s = slice of can.data
+// bitsource = the specific bit we're looking for at can.data[q][r][s]
+// bitdest = the bitmask we want to move it to
+uint8_t alarm_align(uint8_t q, uint8_t s, uint8_t bitsource, uint8_t bitdest)
 {
-  struct data359
-  {
-    // Protection - Table 1
-    uint8_t byte0;
-    // Protection - Table 2
-    uint8_t byte1;
-    // Warnings - Table
-    uint8_t byte2;
-    // Warnings - Table 4
-    uint8_t byte3;
-    // Quantity of banks in parallel
-    uint8_t byte4;
-    uint8_t byte5;
-    uint8_t byte6;
-    // Online address of banks in parallel - Table 5
-    uint8_t byte7;
-  };
+    bitsource = 1 << bitsource;
+    uint8_t bitmask = 0;
+    for (int8_t r = 0; r < MAX_NUM_CONTROLLERS; r++) 
+    {
+    bitmask |= bitsource & can.data[q][r][s];
+    }
+    bitmask = (bitmask >> bitsource) << bitdest; //re-index the bitmask to the desired destination bit
+    return bitmask;
+    
+}
 
-  data359 data;
 
-  memset(&data, 0, sizeof(data359));
+// 0x359 – 00 00 00 00 0A 50 4E – Protection & Alarm flags
+ void pylon_message_359()
+{
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0x359);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
-  if (_controller_state == ControllerState::Running)
-  {
-    // bit 0 = unused
+    if (mysettings.controllerNet == 1)  //copy over local values
+    {
+        memcpy(&candata.data, &can.data[1][mysettings.controllerID][0], candata.dlc);
+    }
+    else
+    {
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(can.dataMutex[5], pdMS_TO_TICKS(50)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
+    }
+
+    //byte 0
+    //(bit 0) = unused
     //(bit 1) Battery high voltage alarm
-    data.byte0 |= ((rules.ruleOutcome(Rule::BankOverVoltage) || rules.ruleOutcome(Rule::CurrentMonitorOverVoltage)) ? B00000010 : 0);
-
-    //(bit 2) Battery low voltage alarm
-    data.byte0 |= ((rules.ruleOutcome(Rule::BankUnderVoltage) || rules.ruleOutcome(Rule::CurrentMonitorUnderVoltage)) ? B00000100 : 0);
-
+    candata.data[0] |= alarm_align(1,0,2,1);   //look at alarm found in can.data[1,n,0] , bit position 2 and translate to a bitmask at position 1 (=B0000010)
+    //(bit 2) Battery low voltage alarm 
+    candata.data[0] |= alarm_align(1,0,4,2);
     //(bit 3) Battery high temperature alarm
-    if (rules.moduleHasExternalTempSensor)
-    {
-      data.byte0 |= (rules.ruleOutcome(Rule::ModuleOverTemperatureExternal) ? B00001000 : 0);
-    }
-    // (bit 4) Battery low temperature alarm
-    if (rules.moduleHasExternalTempSensor)
-    {
-      data.byte0 |= (rules.ruleOutcome(Rule::ModuleUnderTemperatureExternal) ? B00010000 : 0);
-    }
-    // bit 5 = unused
-    // bit 6 = unused
-    // bit 7 = Discharge over current
+    candata.data[0] |= alarm_align(1,1,0,3);
+    //(bit 4) Battery low temperature alarm
+    candata.data[0] |= alarm_align(1,0,6,4);
+    //(bit 5) = unused
+    //(bit 6) = unused
+    //(bit 7) = Discharge over current
 
-    // Byte2, Warnings - Table 3
-    data.byte2 = 0;
-
+    //byte 2
     // WARNING:Battery high voltage
-    if (rules.highestBankVoltage / 100 > mysettings.chargevolt)
-    {
-      data.byte2 |= B00000010;
-    }
-
+    candata.data[2] |= alarm_align(1,4,2,1);
     // WARNING:Battery low voltage
-    // dischargevolt=490, lowestbankvoltage=48992 (scale down 100)
-    if (rules.lowestBankVoltage / 100 < mysettings.dischargevolt)
-    {
-      data.byte2 |= B00000100;
-    }
-
+    candata.data[2] |= alarm_align(1,4,4,1);
     // WARNING: Battery high temperature
-    if (rules.moduleHasExternalTempSensor && rules.highestExternalTemp > mysettings.chargetemphigh)
-    {
-      data.byte2 |= B00001000;
-    }
-
+    candata.data[2] |= alarm_align(1,4,6,3);
     // WARNING: Battery low temperature
-    if (rules.moduleHasExternalTempSensor && rules.lowestExternalTemp < mysettings.chargetemplow)
-    {
-      data.byte2 |= B00010000;
-    }
-  }
+    candata.data[2] |= alarm_align(1,5,0,4);
+ 
+     //byte 3
+    // iNTERNAL COMMUNICATION ERRROR
+    candata.data[2] |= alarm_align(1,6,6,3);
 
-  // byte3,table4, Bit 3 = Internal communication failure
-  data.byte3 |= ((rules.ruleOutcome(Rule::BMSError) || rules.ruleOutcome(Rule::EmergencyStop)) ? B00001000 : 0);
-  data.byte3 |= ((_controller_state != ControllerState::Running) ? B00001000 : 0);
-
-  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
-  {
+    // byte 4
     // Pylon can have multiple battery each of 74Ah capacity, so emulate this based on total Ah capacity
     // this drives the inverter to assume certain charge/discharge parameters based on number of battery banks installed
     // Set inverter to use "Pylontech US3000C 3.5kWh" in its settings (these are 74Ah each)
-    data.byte4 = max((uint8_t)1, (uint8_t)round(mysettings.nominalbatcap / 74.0));
-  }
-  else
-  {
-    // Default 1 battery
-    data.byte4 = 1;
-  }
+    uint16_t totalnominalbatcap = 0;
+    for (uint8_t i=0; i<MAX_NUM_CONTROLLERS; i++)
+    {
+    totalnominalbatcap = totalnominalbatcap + can.data[5][i][4];
+    }
+    
+    candata.data[4] = max((uint8_t)1, (uint8_t)round(totalnominalbatcap / 74.0));
+    candata.data[5] = 0x50;
+    candata.data[6] = 0x4e;
 
-  data.byte5 = 0x50; // P
-  data.byte6 = 0x4e; // N
+    // Return permission to Canbus_RX task 
+    xSemaphoreGive(can.dataMutex[5]);
 
-  send_canbus_message(0x359, (uint8_t *)&data, sizeof(data359));
+    }
+
+    send_canbus_message(ptrFrame);
 }
 
 // 0x35C – C0 00 – Battery charge request flags
 void pylon_message_35c()
 {
-  struct data35c
-  {
-    uint8_t byte0;
-  };
+    CANframe candata(1, 0x35c);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
-  data35c data;
+     int8_t byte0 = 0;
+    // data.byte1 = 0;
 
-  // bit 0/1/2/3 unused
-  // bit 4 Force charge 2
-  // bit 5 Force charge 1
-  // bit 6 Discharge enable
-  // bit 7 Charge enable
-  data.byte0 = 0;
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(can.dataMutex[2], pdMS_TO_TICKS(50)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
+    }
 
-  if (rules.IsChargeAllowed(&mysettings))
-  {
-    data.byte0 = data.byte0 | B10000000;
-  }
+    for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+    {
+        if (can.controller_is_online[i] && can.controller_is_integrated[i])  
+        {
+            byte0 = byte0 |can.data[2][i][1];  //byte 1 of bitmsgs is the charge/discharge request flag
+        }     
+    }
 
-  if (rules.IsDischargeAllowed(&mysettings))
-  {
-    data.byte0 = data.byte0 | B01000000;
-  }
+    // Return permission to Canbus_RX task 
+    xSemaphoreGive(can.dataMutex[2]);  
 
-  send_canbus_message(0x35c, (uint8_t *)&data, sizeof(data35c));
+    memcpy(&candata.data, &byte0, sizeof(byte0));
+
+
+    send_canbus_message(ptrFrame);
 }
+
 
 // 0x35E – 50 59 4C 4F 4E 20 20 20 – Manufacturer name ("PYLON ")
 void pylon_message_35e()
 {
-  // Send 8 byte "magic string" PYLON (with 3 trailing spaces)
-  // const char pylon[] = "\x50\x59\x4c\x4f\x4e\x20\x20\x20";
-  uint8_t pylon[] = {0x50, 0x59, 0x4c, 0x4f, 0x4e, 0x20, 0x20, 0x20};
-  send_canbus_message(0x35e, (uint8_t *)&pylon, sizeof(pylon) - 1);
+    CANframe candata(TWAI_FRAME_MAX_DLC, 0x35e);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
+
+          // Send 8 byte "magic string" PYLON (with 3 trailing spaces)
+          uint8_t pylon[] = {0x50, 0x59, 0x4c, 0x4f, 0x4e, 0x20, 0x20, 0x20};;
+          memcpy(&candata.data, pylon, TWAI_FRAME_MAX_DLC);
+
+
+          send_canbus_message(ptrFrame);
+
 }
 
 // Battery voltage - 0x356 – 4e 13 02 03 04 05 – Voltage / Current / Temp
 void pylon_message_356()
 {
-  struct data356
-  {
-    int16_t voltage;
-    int16_t current;
-    int16_t temperature;
-  };
+    CANframe candata(6, 0x356);  // initialize struct with dlc and identifier
+    CANframe* ptrFrame = &candata;
 
-  data356 data;
+    if (mysettings.controllerNet == 1)
+    {
+        memcpy(&candata.data, &can.data[6][mysettings.controllerID][0], candata.dlc);
+    }
 
-  // If current shunt is installed, use the voltage from that as it should be more accurate
-  if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
-  {
-    data.voltage = currentMonitor.modbus.voltage * 100.0;
-    data.current = currentMonitor.modbus.current * 10;
-  }
-  else
-  {
-    // Use highest bank voltage calculated by controller and modules
-    data.voltage = rules.highestBankVoltage / 10;
-    data.current = 0;
-  }
+    else
+    {
+    // Wait for permission from Canbus_RX task to edit data array
+    if (!xSemaphoreTake(can.dataMutex[6], pdMS_TO_TICKS(50)))
+    {
+      ESP_LOGE(TAG, "CANBUS RX/TX intertask notification timeout")  ;
+      return; 
+    }
 
-  // Temperature 0.1 C using external temperature sensor
-  if (rules.moduleHasExternalTempSensor)
-  {
-    data.temperature = (int16_t)rules.highestExternalTemp * (int16_t)10;
-  }
-  else
-  {
-    // No external temp sensors
-    data.temperature = 0;
-  }
+         int16_t voltage = 0;
+         int16_t current = 0;
+         int16_t temperature = 0;
 
-  send_canbus_message(0x356, (uint8_t *)&data, sizeof(data356));
+        for (int8_t i = 0; i < MAX_NUM_CONTROLLERS; i++)
+        {
+            if (can.controller_is_online[i] && can.controller_is_integrated[i])  // only use values from online controllers
+            {
+                voltage = voltage + *(int16_t*)&can.data[6][i][0];
+                current = current + *(int16_t*)&can.data[6][i][2];
+                temperature = temperature + *(int16_t*)&can.data[6][i][4];
+            }
+        }
+
+        // Return permission to Canbus_RX task 
+        xSemaphoreGive(can.dataMutex[6]); 
+        
+        voltage = voltage /can.integrated_count;
+        temperature = temperature /can.integrated_count;
+
+
+    memcpy(&candata.data[0], &voltage, sizeof(voltage));
+    memcpy(&candata.data[2], &current, sizeof(current));
+    memcpy(&candata.data[4], &temperature, sizeof(temperature));
+    }
+
+    send_canbus_message(ptrFrame);
+
 }

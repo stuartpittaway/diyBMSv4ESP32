@@ -39,7 +39,8 @@ const INTERNALERRORCODE =
     WaitingForModulesToReply: 4,
     ZeroVoltModule: 5,
     ControllerMemoryError: 6,
-    EmergencyStop: 7
+    EmergencyStop: 7,
+    BatteryIsolated: 8
 };
 Object.freeze(INTERNALERRORCODE);
 
@@ -889,7 +890,7 @@ function updateChart(jsondata) {
 
     //Needs increasing when more errors are added
     if (jsondata.errors) {
-        for (let error = 1; error <= 7; error++) {
+        for (let error = 1; error <= 8; error++) {
             if (jsondata.errors.includes(error)) {
                 $("#error" + error).show();
 
@@ -1560,6 +1561,12 @@ $(function () {
                 $("#totalSeriesModules").val(data.settings.totalseriesmodules);
                 $("#totalBanks").val(data.settings.totalnumberofbanks);
 
+                $("#controllerNet").val(data.settings.controllerNet);
+                $("#controllerID").val(data.settings.controllerID);
+                $("#highAvailable").prop("checked", data.settings.highAvailable);
+
+                $("#cycleScreen").prop("checked", data.settings.cycleScreen);
+
                 $("#baudrate").empty();
                 $("#baudrate").append('<option value="2400">Standard</option>')
                 $("#baudrate").append('<option value="5000">5K</option>')
@@ -1647,6 +1654,9 @@ $(function () {
                 $.each(data.relaytype, function (index2, value2) {
                     $("#relaytype" + (index2 + 1)).val(value2).attr("data-origv", value2).removeClass("modified");
                 });
+
+                //Pulse Time
+                $("#pulsetime").val(data.pulsetime);
 
                 //Loop through each rule updating the page
                 var i = 1;
