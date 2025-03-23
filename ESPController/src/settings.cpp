@@ -1278,7 +1278,7 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
     // Use defaults to populate the settings, just in case we are missing values from the JSON
     DefaultConfiguration(settings);
 
-    if (!doc.containsKey("diybms_settings"))
+    if (!doc["diybms_settings"].is<JsonVariant>())
     {
         // Wrong document type - quit...
         return;

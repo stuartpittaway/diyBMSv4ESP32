@@ -3750,7 +3750,7 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
   wifi["ssid"].as<String>().toCharArray(_new_config.wifi_ssid, sizeof(_new_config.wifi_ssid));
   wifi["password"].as<String>().toCharArray(_new_config.wifi_passphrase, sizeof(_new_config.wifi_passphrase));
 
-  if (wifi.containsKey("ip"))
+  if (wifi["ip"].is<String>())
   {
     // If the "ip" key exists, then it must be the newer format WIFI JSON document
     ip4_addr_t ipadd;
