@@ -66,8 +66,7 @@ bool ControllerCAN::NetworkedControllerRules()
     }
 
     // Disconnect flag is already set 
-  else if (mysettings.canDisconnect)
-  {     
+  
     // reset WARNING if CANBUS emulation is manually re-enabled 
     if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED || mysettings.controllerNet == 1)
     {
@@ -80,7 +79,7 @@ bool ControllerCAN::NetworkedControllerRules()
     rules.SetError(InternalErrorCode::BatteryIsolated);
 
     return true;
-  }
+  
 }
 
 void ControllerCAN::clearvalues()
