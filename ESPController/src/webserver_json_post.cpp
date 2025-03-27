@@ -523,7 +523,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     GetKeyValue(httpbuf, "kneemv", &mysettings.kneemv, urlEncoded);
     GetKeyValue(httpbuf, "cellmaxspikemv", &mysettings.cellmaxspikemv, urlEncoded);
 
-    float temp_float;
+    float temp_float, temp_float2;
 
     if (GetKeyValue(httpbuf, "cur_val1", &temp_float, urlEncoded))
     {
@@ -584,7 +584,13 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     {
         mysettings.floatvoltage = (uint16_t)(10 * temp_float);
     }
-    GetKeyValue(httpbuf, "floattimer", &mysettings.floatvoltagetimer, urlEncoded);
+
+    if (GetKeyValue(httpbuf, "floatday", &temp_float, urlEncoded) &&
+        GetKeyValue(httpbuf, "floathour", &temp_float2, urlEncoded))
+    {
+        mysettings.floatvoltagetimer = (uint16_t)(temp_float * 1440 + temp_float2 * 60); //we can store up to 44days with uint16_t 
+    }
+
     GetKeyValue(httpbuf, "socresume", &mysettings.stateofchargeresumevalue, urlEncoded);
 
     if (mysettings.protocol == ProtocolEmulation::EMULATION_DISABLED)
