@@ -114,7 +114,7 @@ extern currentmonitoring_struct currentMonitor;
 extern diybms_eeprom_settings mysettings;
 extern std::string hostname;
 extern ControllerState _controller_state;
-extern QueueHandle_t CANtx_q_handle;
+extern const QueueHandle_t CANtx_q_handle;
 extern TaskHandle_t canbus_rx_task_handle, canbus_tx_task_handle;
 extern void send_canbus_message(CANframe *canframe);
 extern void SaveConfiguration(const diybms_eeprom_settings *settings);

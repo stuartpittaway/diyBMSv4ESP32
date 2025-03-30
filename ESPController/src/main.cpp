@@ -141,8 +141,8 @@ volatile enumInputState InputState[INPUTS_TOTAL];
 
 currentmonitoring_struct currentMonitor;
 
-TimerHandle_t led_off_timer;
-TimerHandle_t pulse_relay_off_timer;
+TimerHandle_t led_off_timer= nullptr;
+TimerHandle_t pulse_relay_off_timer= nullptr;
 
 TaskHandle_t sdcardlog_task_handle = nullptr;
 TaskHandle_t sdcardlog_outputs_task_handle = nullptr;
@@ -172,10 +172,10 @@ avrprogramsettings _avrsettings;
 // Number of bytes of the largest MODBUS request we make
 const uint16_t MAX_SEND_RS485_PACKET_LENGTH = 36;
 
-QueueHandle_t rs485_transmit_q_handle;
-QueueHandle_t request_q_handle;
-QueueHandle_t reply_q_handle;
-QueueHandle_t CANtx_q_handle;
+const QueueHandle_t rs485_transmit_q_handle = xQueueCreate(3, MAX_SEND_RS485_PACKET_LENGTH);
+const QueueHandle_t request_q_handle = xQueueCreate(30, sizeof(PacketStruct));
+const QueueHandle_t reply_q_handle= xQueueCreate(4, sizeof(PacketStruct));
+const QueueHandle_t CANtx_q_handle= xQueueCreate(30, sizeof(CANframe));
 
 #include "crc16.h"
 #include "settings.h"
@@ -4065,18 +4065,12 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   SetupRS485();
 
   // Create queue for transmit, each request could be MAX_SEND_RS485_PACKET_LENGTH bytes long, depth of 3 items
-  rs485_transmit_q_handle = xQueueCreate(3, MAX_SEND_RS485_PACKET_LENGTH);
   assert(rs485_transmit_q_handle);
-
-  request_q_handle = xQueueCreate(30, sizeof(PacketStruct));
   assert(request_q_handle);
-  prg.setQueueHandle(request_q_handle);
-
-  reply_q_handle = xQueueCreate(4, sizeof(PacketStruct));
   assert(reply_q_handle);
-
-  CANtx_q_handle = xQueueCreate(30, sizeof(CANframe));
   assert(CANtx_q_handle);
+
+  prg.setQueueHandle(request_q_handle);
 
   led_off_timer = xTimerCreate("LEDOFF", pdMS_TO_TICKS(100), pdFALSE, (void *)1, &ledoff);
   assert(led_off_timer);
