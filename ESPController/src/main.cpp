@@ -1188,7 +1188,6 @@ void ProcessRules()
 
   if (rules.ruleOutcome(Rule::EmergencyStop))
   {
-    // Lowest 3 bits are RGB led GREEN/RED/BLUE
     rules.SetError(InternalErrorCode::ErrorEmergencyStop);
   }
 
@@ -1206,9 +1205,9 @@ void ProcessRules()
   rules.highestBankRange = 0;
   rules.numberOfBalancingModules = 0;
   uint8_t cellid = 0;
-  for (int8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
+  for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
   {
-    for (int8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
+    for (uint8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
     {
       rules.ProcessCell(bank, cellid, &cmi[cellid], mysettings.cellmaxmv);
 
