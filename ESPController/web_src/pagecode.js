@@ -2039,7 +2039,8 @@ $(function () {
                 $("#dischargetemphigh").val(data.chargeconfig.dischargetemphigh);
 
                 $("#absorptimer").val(data.chargeconfig.absorptimer);
-                $("#floattimer").val(data.chargeconfig.floattimer);
+                $("#floatday").val(data.chargeconfig.floatday.toFixed(0)); 
+                $("#floathour").val(data.chargeconfig.floathour.toFixed(2)); 
                 $("#socresume").val(data.chargeconfig.socresume);
                 $("#floatvolt").val((data.chargeconfig.floatvolt / 10.0).toFixed(1));
 

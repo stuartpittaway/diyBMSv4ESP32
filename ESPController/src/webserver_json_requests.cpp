@@ -636,7 +636,12 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   settings["cur_val2"] = mysettings.current_value2;
 
   settings["absorptimer"] = mysettings.absorptiontimer;
-  settings["floattimer"] = mysettings.floatvoltagetimer;
+
+  float hrs_quarter = std::round(((float)mysettings.floatvoltagetimer / 60) * 4) / 4; // round minutes to nearest quarter hour
+  float days = std::trunc(hrs_quarter / 24);
+
+  settings["floatday"] =  days; // # of days;
+  settings["floathour"] = hrs_quarter - 24 * days; //remaining hours
   settings["socresume"] = mysettings.stateofchargeresumevalue;
   settings["floatvolt"] = mysettings.floatvoltage;
 
