@@ -414,7 +414,7 @@ void Rules::RunRules(
     }
 }
 
-bool Rules::SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings)
+bool Rules::SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings) const
 {
     if (mysettings->protocol == ProtocolEmulation::EMULATION_DISABLED)
         return false;
@@ -436,7 +436,8 @@ bool Rules::SharedChargingDischargingRules(const diybms_eeprom_settings *mysetti
 
     return true;
 }
-bool Rules::IsChargeAllowed(const diybms_eeprom_settings *mysettings)
+
+bool Rules::IsChargeAllowed(const diybms_eeprom_settings *mysettings) const
 {
     if (SharedChargingDischargingRules(mysettings) == false)
         return false;

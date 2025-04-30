@@ -75,7 +75,7 @@ private:
     uint16_t dynamicChargeVoltage;
     uint16_t dynamicChargeCurrent;
 
-    bool SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings);
+    bool SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings) const;
 
     /// @brief Calculate future time (specified in minutes)
     /// @param minutes number of minutes to delay for
@@ -179,9 +179,9 @@ public:
     // Number of modules which have not yet reported back to the controller
     uint8_t invalidModuleCount;
 
-    int8_t numberOfActiveErrors;
-    int8_t numberOfActiveWarnings;
-    int8_t numberOfBalancingModules;
+    uint8_t numberOfActiveErrors;
+    uint8_t numberOfActiveWarnings;
+    uint8_t numberOfBalancingModules;
 
     /// @brief Clear all rules (off)
     void resetAllRules()
@@ -194,7 +194,7 @@ public:
 
     /// @brief Check if any rule has been triggered (value of true)
     /// @return true if any rule is true
-    bool anyRuleTriggered()
+    bool anyRuleTriggered() const
     {
         for (size_t i = 0; i < MAXIMUM_RuleNumber; i++)
         {
@@ -241,7 +241,7 @@ public:
         bool emergencyStop,
         uint16_t mins, const currentmonitoring_struct *currentMonitor);
 
-    bool IsChargeAllowed(const diybms_eeprom_settings *mysettings);
+    bool IsChargeAllowed(const diybms_eeprom_settings *mysettings) const;
     bool IsDischargeAllowed(const diybms_eeprom_settings *mysettings);
     void CalculateDynamicChargeVoltage(const diybms_eeprom_settings *mysettings, const CellModuleInfo *cellarray);
     void CalculateDynamicChargeCurrent(const diybms_eeprom_settings *mysettings);
