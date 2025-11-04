@@ -3677,7 +3677,7 @@ struct log_level_t
 };
 
 // Default log levels to use for various components.
-const std::array<log_level_t, 23> log_levels =
+const std::array<log_level_t, 24> log_levels =
     {
         log_level_t{.tag = "*", .level = ESP_LOG_DEBUG},
         {.tag = "wifi", .level = ESP_LOG_WARN},
@@ -3688,7 +3688,7 @@ const std::array<log_level_t, 23> log_levels =
         {.tag = "diybms-influxdb", .level = ESP_LOG_INFO},
         {.tag = "diybms-rx", .level = ESP_LOG_INFO},
         {.tag = "diybms-tx", .level = ESP_LOG_INFO},
-        {.tag = "diybms-rules", .level = ESP_LOG_INFO},
+        {.tag = "diybms-rules", .level = ESP_LOG_DEBUG},
         {.tag = "diybms-softap", .level = ESP_LOG_INFO},
         {.tag = "diybms-tft", .level = ESP_LOG_WARN},
         {.tag = "diybms-victron", .level = ESP_LOG_INFO},
@@ -3701,7 +3701,9 @@ const std::array<log_level_t, 23> log_levels =
         {.tag = "diybms-ctrl", .level = ESP_LOG_INFO},
         {.tag = "diybms-pylon", .level = ESP_LOG_INFO},
         {.tag = "diybms-pyforce", .level = ESP_LOG_INFO},
-        {.tag = "curmon", .level = ESP_LOG_INFO}};
+        {.tag = "curmon", .level = ESP_LOG_INFO},
+        {.tag = "diybms-pylon485", .level = ESP_LOG_DEBUG}
+      };
 
 void consoleConfigurationCheck()
 {

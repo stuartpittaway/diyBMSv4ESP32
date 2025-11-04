@@ -167,6 +167,7 @@ void PylonRS485::handle_rx() {
                   pack_voltage = rules.highestBankVoltage;
                }
 
+               // This is a fixed response taken from PylonTech documentation, with only pack voltage modified
                response_len = snprintf(tmp_buf, sizeof(tmp_buf),"~"      // SOH
                                                                "28"     // VER
                                                                "02"     // ADDR
@@ -185,6 +186,8 @@ void PylonRS485::handle_rx() {
                                     , pack_voltage);
                //add length
                insertLength(tmp_buf, response_len);
+               
+               ESP_LOGD(TAG, "Pylon Analog Val - Pack voltage: %dmV", pack_voltage);
             break;
 
             case CMD_CHARGE_MGMT:
@@ -254,6 +257,9 @@ void PylonRS485::handle_rx() {
                                     , charge_voltage, discharge_voltage, charge_current_limit, discharge_current_limit, flags);
                //add length
                insertLength(tmp_buf, response_len);
+
+               ESP_LOGD(TAG, "Pylon Charge Mgmt - Chrg limit: %dmV, Dischrg limit: %dmV, Chrg curr: %dmA, Dischrg curr: %dmA, Flags: 0x%02X",
+                        charge_voltage, discharge_voltage, charge_current_limit, discharge_current_limit, flags);
             break;
 
             default:
