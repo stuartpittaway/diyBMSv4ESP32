@@ -852,6 +852,12 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->soh_lifetime_battery_cycles = 6000;
     _myset->soh_eol_capacity = 80;
     _myset->soh_percent = 100.0F;
+    
+    // MPPT Control Settings - disabled by default for backward compatibility
+    _myset->mppt_control_enabled = false;
+    _myset->mppt_base_node_id = 10;
+    _myset->mppt_max_devices = 4;
+    _myset->mppt_telemetry_interval_ms = 1000;
 }
 
 /// @brief Save WIFI settings into FLASH NVS

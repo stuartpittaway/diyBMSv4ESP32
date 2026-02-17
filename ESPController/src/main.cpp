@@ -77,6 +77,8 @@ extern "C"
 #include "pylonforce_canbus.h"
 #include "pylon_rs485.h"
 #include "string_utils.h"
+#include "mppt_manager.h"
+#include "thingset_can.h"
 
 #include <SPI.h>
 #include "CurrentMonitorINA229.h"
@@ -2825,6 +2827,19 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
             canbus_last_305_message_time = esp_timer_get_time();
           }
         }
+        
+        // Handle ThingSet MPPT messages (extended frames only)
+        // ThingSet uses extended 29-bit addressing, independent of inverter protocols
+        if (mysettings.mppt_control_enabled && (message.flags & TWAI_MSG_FLAG_EXTD))
+        {
+          // Check if this looks like a ThingSet message
+          // ThingSet message types are in bits 2-0 (values 0-2)
+          uint8_t msg_type = message.identifier & 0x07;
+          if (msg_type <= THINGSET_CAN_TYPE_RESPONSE)
+          {
+            mppt_manager.handleCANMessage(&message);
+          }
+        }
       }
     }
     else
@@ -3961,6 +3976,14 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   xTaskCreate(service_rs485_transmit_q, "485_Q", 2950, nullptr, 1, &service_rs485_transmit_q_task_handle);
   xTaskCreate(canbus_tx, "CAN_Tx", 4096, nullptr, 1, &canbus_tx_task_handle);
   xTaskCreate(canbus_rx, "CAN_Rx", 2950, nullptr, 1, &canbus_rx_task_handle);
+  
+  // Initialize MPPT manager if enabled
+  if (mysettings.mppt_control_enabled)
+  {
+    mppt_manager.begin();
+    ESP_LOGI(TAG, "MPPT manager initialized");
+  }
+  
   xTaskCreate(transmit_task, "Tx", 1950, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
   xTaskCreate(replyqueue_task, "rxq", 4096, nullptr, configMAX_PRIORITIES - 2, &replyqueue_task_handle);
   xTaskCreate(lazy_tasks, "lazyt", 2500, nullptr, 0, &lazy_task_handle);
@@ -4187,6 +4210,12 @@ void loop()
 
   // Call update to receive, decode and process incoming packets
   myPacketSerial.checkInputStream();
+  
+  // Update MPPT manager (check timeouts, etc.)
+  if (mysettings.mppt_control_enabled)
+  {
+    mppt_manager.update();
+  }
 
   if (currentMillis > heaptimer)
   {
