@@ -663,6 +663,17 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(soh_total_milliamphour_in)
         MACRO_NVSREAD(soh_lifetime_battery_cycles)
         MACRO_NVSREAD_UINT8(soh_eol_capacity)
+        
+        // MPPT control settings
+        MACRO_NVSREAD(mppt_control_enabled)
+        MACRO_NVSREAD_UINT8(mppt_base_node_id)
+        MACRO_NVSREAD_UINT8(mppt_max_devices)
+        MACRO_NVSREAD(mppt_telemetry_interval_ms)
+        MACRO_NVSREAD(mppt_temp_compensation_enabled)
+        MACRO_NVSREAD(mppt_temp_compensation_mv_per_c)
+        MACRO_NVSREAD(mppt_absorption_time_minutes)
+        MACRO_NVSREAD(mppt_float_voltage_offset_mv)
+        
         nvs_close(nvs_handle);
     }
 
@@ -858,6 +869,12 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->mppt_base_node_id = 10;
     _myset->mppt_max_devices = 4;
     _myset->mppt_telemetry_interval_ms = 1000;
+    
+    // Phase 2 MPPT control defaults
+    _myset->mppt_temp_compensation_enabled = true;
+    _myset->mppt_temp_compensation_mv_per_c = -3;  // -3mV/°C/cell
+    _myset->mppt_absorption_time_minutes = 30;
+    _myset->mppt_float_voltage_offset_mv = 200;     // -200mV (approx -50mV per cell for 4S)
 }
 
 /// @brief Save WIFI settings into FLASH NVS
