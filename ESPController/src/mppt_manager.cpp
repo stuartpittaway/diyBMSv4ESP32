@@ -9,7 +9,7 @@ static constexpr const char *const TAG = "diybms-mppt";
 MPPTManager mppt_manager;
 
 // External reference to send function (from main.cpp)
-extern void send_ext_canbus_message(uint32_t identifier, uint8_t *buffer, uint8_t length);
+extern void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, const uint8_t length);
 
 MPPTManager::MPPTManager() : device_count_(0), last_timeout_check_(0) {
     memset(devices_, 0, sizeof(devices_));
