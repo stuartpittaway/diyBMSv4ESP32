@@ -98,6 +98,15 @@ static const char soh_lifetime_battery_cycles_JSONKEY[] = "soh_batcycle";
 
 static const char soh_eol_capacity_JSONKEY[] = "soh_eol_capacity";
 
+// MPPT control settings JSON keys
+static const char mppt_control_enabled_JSONKEY[] = "mppt_control_enabled";
+static const char mppt_base_node_id_JSONKEY[] = "mppt_base_node_id";
+static const char mppt_max_devices_JSONKEY[] = "mppt_max_devices";
+static const char mppt_telemetry_interval_ms_JSONKEY[] = "mppt_telemetry_interval_ms";
+static const char mppt_temp_compensation_enabled_JSONKEY[] = "mppt_temp_comp_en";
+static const char mppt_temp_compensation_mv_per_c_JSONKEY[] = "mppt_temp_comp_mv";
+static const char mppt_absorption_time_minutes_JSONKEY[] = "mppt_absorb_time";
+static const char mppt_float_voltage_offset_mv_JSONKEY[] = "mppt_float_offset";
 
 
 /* NVS KEYS
@@ -527,6 +536,16 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(soh_total_milliamphour_in)
         MACRO_NVSWRITE(soh_lifetime_battery_cycles)
         MACRO_NVSWRITE_UINT8(soh_eol_capacity)
+        
+        // MPPT control settings
+        MACRO_NVSWRITE(mppt_control_enabled)
+        MACRO_NVSWRITE_UINT8(mppt_base_node_id)
+        MACRO_NVSWRITE_UINT8(mppt_max_devices)
+        MACRO_NVSWRITE(mppt_telemetry_interval_ms)
+        MACRO_NVSWRITE(mppt_temp_compensation_enabled)
+        MACRO_NVSWRITE(mppt_temp_compensation_mv_per_c)
+        MACRO_NVSWRITE(mppt_absorption_time_minutes)
+        MACRO_NVSWRITE(mppt_float_voltage_offset_mv)
 
         ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
@@ -663,6 +682,17 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(soh_total_milliamphour_in)
         MACRO_NVSREAD(soh_lifetime_battery_cycles)
         MACRO_NVSREAD_UINT8(soh_eol_capacity)
+        
+        // MPPT control settings
+        MACRO_NVSREAD(mppt_control_enabled)
+        MACRO_NVSREAD_UINT8(mppt_base_node_id)
+        MACRO_NVSREAD_UINT8(mppt_max_devices)
+        MACRO_NVSREAD(mppt_telemetry_interval_ms)
+        MACRO_NVSREAD(mppt_temp_compensation_enabled)
+        MACRO_NVSREAD(mppt_temp_compensation_mv_per_c)
+        MACRO_NVSREAD(mppt_absorption_time_minutes)
+        MACRO_NVSREAD(mppt_float_voltage_offset_mv)
+        
         nvs_close(nvs_handle);
     }
 
@@ -858,6 +888,12 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->mppt_base_node_id = 10;
     _myset->mppt_max_devices = 4;
     _myset->mppt_telemetry_interval_ms = 1000;
+    
+    // Phase 2 MPPT control defaults
+    _myset->mppt_temp_compensation_enabled = true;
+    _myset->mppt_temp_compensation_mv_per_c = -3;  // -3mV/°C/cell
+    _myset->mppt_absorption_time_minutes = 30;
+    _myset->mppt_float_voltage_offset_mv = 200;     // 200mV offset below charge voltage
 }
 
 /// @brief Save WIFI settings into FLASH NVS
@@ -1226,6 +1262,16 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     root[soh_total_milliamphour_in_JSONKEY] = settings->soh_total_milliamphour_in;
     root[soh_lifetime_battery_cycles_JSONKEY] = settings->soh_lifetime_battery_cycles;
     root[soh_eol_capacity_JSONKEY] = settings->soh_eol_capacity;
+    
+    // MPPT control settings
+    root[mppt_control_enabled_JSONKEY] = settings->mppt_control_enabled;
+    root[mppt_base_node_id_JSONKEY] = settings->mppt_base_node_id;
+    root[mppt_max_devices_JSONKEY] = settings->mppt_max_devices;
+    root[mppt_telemetry_interval_ms_JSONKEY] = settings->mppt_telemetry_interval_ms;
+    root[mppt_temp_compensation_enabled_JSONKEY] = settings->mppt_temp_compensation_enabled;
+    root[mppt_temp_compensation_mv_per_c_JSONKEY] = settings->mppt_temp_compensation_mv_per_c;
+    root[mppt_absorption_time_minutes_JSONKEY] = settings->mppt_absorption_time_minutes;
+    root[mppt_float_voltage_offset_mv_JSONKEY] = settings->mppt_float_voltage_offset_mv;
 
 }
 
@@ -1324,6 +1370,16 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
     settings->soh_total_milliamphour_in = root[soh_total_milliamphour_in_JSONKEY];
     settings->soh_lifetime_battery_cycles = root[soh_lifetime_battery_cycles_JSONKEY];
     settings->soh_eol_capacity=root[soh_eol_capacity_JSONKEY];
+    
+    // MPPT control settings
+    settings->mppt_control_enabled = root[mppt_control_enabled_JSONKEY];
+    settings->mppt_base_node_id = root[mppt_base_node_id_JSONKEY];
+    settings->mppt_max_devices = root[mppt_max_devices_JSONKEY];
+    settings->mppt_telemetry_interval_ms = root[mppt_telemetry_interval_ms_JSONKEY];
+    settings->mppt_temp_compensation_enabled = root[mppt_temp_compensation_enabled_JSONKEY];
+    settings->mppt_temp_compensation_mv_per_c = root[mppt_temp_compensation_mv_per_c_JSONKEY];
+    settings->mppt_absorption_time_minutes = root[mppt_absorption_time_minutes_JSONKEY];
+    settings->mppt_float_voltage_offset_mv = root[mppt_float_voltage_offset_mv_JSONKEY];
 
 
     strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));

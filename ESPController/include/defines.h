@@ -276,6 +276,12 @@ struct diybms_eeprom_settings
   uint8_t mppt_base_node_id;           // Base ThingSet node ID (default: 10)
   uint8_t mppt_max_devices;            // Max MPPTs to manage (default: 4)
   uint16_t mppt_telemetry_interval_ms; // How often to request data (default: 1000)
+  
+  // Phase 2 MPPT control settings
+  bool mppt_temp_compensation_enabled;
+  int16_t mppt_temp_compensation_mv_per_c;  // mV per °C per cell
+  uint16_t mppt_absorption_time_minutes;
+  uint16_t mppt_float_voltage_offset_mv;    // Offset below charge voltage
 };
 
 typedef union

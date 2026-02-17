@@ -78,6 +78,7 @@ extern "C"
 #include "pylon_rs485.h"
 #include "string_utils.h"
 #include "mppt_manager.h"
+#include "mppt_control.h"
 #include "thingset_can.h"
 
 #include <SPI.h>
@@ -3981,7 +3982,8 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
   if (mysettings.mppt_control_enabled)
   {
     mppt_manager.begin();
-    ESP_LOGI(TAG, "MPPT manager initialized");
+    mppt_control.begin();
+    ESP_LOGI(TAG, "MPPT manager and control initialized");
   }
   
   xTaskCreate(transmit_task, "Tx", 1950, nullptr, configMAX_PRIORITIES - 3, &transmit_task_handle);
@@ -4215,6 +4217,7 @@ void loop()
   if (mysettings.mppt_control_enabled)
   {
     mppt_manager.update();
+    mppt_control.update();
   }
 
   if (currentMillis > heaptimer)
