@@ -255,6 +255,7 @@ void MPPTControl::distributeCurrentTargets() {
     }
     
     // Equal distribution (could be enhanced with load balancing)
+    // This will be applied per-MPPT in sendTargetsToMPPTs
     float current_per_mppt = target_current_ / online_count;
     
     ESP_LOGD(TAG, "Distributing %.2fA across %d MPPTs (%.2fA each)",
@@ -263,17 +264,23 @@ void MPPTControl::distributeCurrentTargets() {
 
 void MPPTControl::sendTargetsToMPPTs() {
     uint8_t device_count = mppt_manager.getDeviceCount();
+    uint8_t online_count = mppt_manager.getOnlineCount();
+    
+    if (online_count == 0) {
+        return;
+    }
+    
+    // Calculate per-MPPT current
+    float current_per_mppt = target_current_ / online_count;
     
     for (uint8_t i = 0; i < device_count; i++) {
         const MPPTDevice* device = mppt_manager.getDevice(i);
         if (device && device->isOnline()) {
             // Send voltage target
             mppt_manager.sendTargetVoltage(device->node_id, target_voltage_);
-            delay(10); // Small delay between messages
             
-            // Send current target
-            mppt_manager.sendTargetCurrent(device->node_id, target_current_);
-            delay(10);
+            // Send distributed current target
+            mppt_manager.sendTargetCurrent(device->node_id, current_per_mppt);
             
             // Enable charging if not stopped
             if (charge_state_ != CHARGE_STATE_STOPPED) {
@@ -290,7 +297,6 @@ void MPPTControl::enableAllMPPTs(bool enable) {
         const MPPTDevice* device = mppt_manager.getDevice(i);
         if (device && device->isOnline()) {
             mppt_manager.sendEnableCommand(device->node_id, enable);
-            delay(10);
         }
     }
     

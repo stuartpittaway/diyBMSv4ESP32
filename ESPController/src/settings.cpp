@@ -893,7 +893,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->mppt_temp_compensation_enabled = true;
     _myset->mppt_temp_compensation_mv_per_c = -3;  // -3mV/°C/cell
     _myset->mppt_absorption_time_minutes = 30;
-    _myset->mppt_float_voltage_offset_mv = 200;     // -200mV (approx -50mV per cell for 4S)
+    _myset->mppt_float_voltage_offset_mv = 200;     // 200mV offset below charge voltage
 }
 
 /// @brief Save WIFI settings into FLASH NVS
