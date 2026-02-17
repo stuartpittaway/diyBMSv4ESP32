@@ -270,6 +270,12 @@ struct diybms_eeprom_settings
   uint16_t soh_estimated_battery_cycles;  
   /// @brief Calculated percentage calculation of health 
   float soh_percent;
+  
+  // MPPT Control Settings
+  bool mppt_control_enabled;           // Enable MPPT control via CAN
+  uint8_t mppt_base_node_id;           // Base ThingSet node ID (default: 10)
+  uint8_t mppt_max_devices;            // Max MPPTs to manage (default: 4)
+  uint16_t mppt_telemetry_interval_ms; // How often to request data (default: 1000)
 };
 
 typedef union
