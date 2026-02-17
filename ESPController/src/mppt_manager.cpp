@@ -179,7 +179,9 @@ bool MPPTManager::sendThingSetRequest(uint8_t node_id, const uint8_t* data, uint
     
     // Build ThingSet request message
     ThingSetCANMessage ts_msg;
-    ts_msg.source_addr = 0x00;  // Broadcast address (we are the master)
+    // Source address 0x00 indicates the master/controller node (no specific node ID assigned)
+    // Target address is the specific MPPT device we're sending to
+    ts_msg.source_addr = 0x00;
     ts_msg.target_addr = node_id;
     ts_msg.msg_type = THINGSET_CAN_TYPE_REQUEST;
     ts_msg.data_len = len;

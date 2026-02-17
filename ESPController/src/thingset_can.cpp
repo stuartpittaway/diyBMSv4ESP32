@@ -57,7 +57,9 @@ bool thingset_can_encode(const ThingSetCANMessage* ts_msg, twai_message_t* can_m
     }
     
     // Validate data length
-    if (ts_msg->data_len > 8) {  // Standard CAN has max 8 bytes
+    // Note: Currently limiting to standard CAN (8 bytes). CAN-FD support (up to 64 bytes)
+    // requires TWAI_MODE_FD flag and is not currently enabled in this implementation.
+    if (ts_msg->data_len > 8) {
         ESP_LOGE(TAG, "ThingSet data too long: %d bytes", ts_msg->data_len);
         return false;
     }
