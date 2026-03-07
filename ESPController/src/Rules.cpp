@@ -652,12 +652,12 @@ void Rules::CalculateDynamicChargeVoltage(const diybms_eeprom_settings *mysettin
     ESP_LOGD(TAG, "S=%u", S);
 
     // Return MIN of either the above calculation or the "user specified value"
-    dynamicChargeVoltage = min(S, (uint32_t)mysettings->chargevolt);
+    dynamicChargeVoltage = static_cast<uint16_t>(std::min(S, (uint32_t)mysettings->chargevolt));
 
     // If we are floating, then use lowest of calculated voltage or float voltage
     if (chargemode == ChargingMode::floating)
     {
-        dynamicChargeVoltage = min(dynamicChargeVoltage, mysettings->floatvoltage);
+        dynamicChargeVoltage = std::min(dynamicChargeVoltage, mysettings->floatvoltage);
     }
 }
 
