@@ -605,7 +605,7 @@ void Rules::CalculateDynamicChargeVoltage(const diybms_eeprom_settings *mysettin
         // ESP_LOGD(TAG, "lowest=%u", lowest);
 
         // Return MIN of either the "lowest Bank voltage" or the "user specified value"
-        dynamicChargeVoltage = min(lowest, (uint32_t)mysettings->chargevolt);
+        dynamicChargeVoltage = static_cast<uint16_t>(std::min(lowest, (uint32_t)mysettings->chargevolt));
         return;
     }
 
