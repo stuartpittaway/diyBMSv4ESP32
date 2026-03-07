@@ -422,9 +422,9 @@ bool check_sdcard_freespace()
 }
 
 /// @brief Log cell monitoring data to SDCARD
-/// @param filename
-/// @param timeinfo
-void log_cell_monitoring_data_to_sdcard(std::string filename, const tm timeinfo)
+/// @param filename path of file (read-only)
+/// @param timeinfo local time snapshot (read-only)
+void log_cell_monitoring_data_to_sdcard(const std::string &filename, const tm &timeinfo)
 {
   if (!check_sdcard_freespace())
   {
@@ -541,7 +541,7 @@ void log_cell_monitoring_data_to_sdcard(std::string filename, const tm timeinfo)
 /// @brief Log current monitoring data to SD CARD
 /// @param cmon_filename
 /// @param timeinfo
-void log_current_data_to_sdcard(std::string cmon_filename, const tm timeinfo)
+void log_current_data_to_sdcard(const std::string &cmon_filename, const tm &timeinfo)
 {
   if (!check_sdcard_freespace())
   {
@@ -681,7 +681,7 @@ void log_current_data_to_sdcard(std::string cmon_filename, const tm timeinfo)
   }
 }
 
-void sdcardlog_output(std::string filename, const tm timeinfo)
+void sdcardlog_output(const std::string &filename, const tm &timeinfo)
 {
   if (!check_sdcard_freespace())
   {
@@ -2161,7 +2161,7 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
 }
 
 // Save the current monitor advanced settings back to the internal device
-void CurrentMonitorSetRelaySettingsInternal(currentmonitoring_struct newvalues)
+void CurrentMonitorSetRelaySettingsInternal(const currentmonitoring_struct &newvalues)
 {
   // Internal current shunt doesn't support any of the relay trigger values
   // so only TempCompEnabled is stored
@@ -2196,7 +2196,7 @@ void CurrentMonitorSetRelaySettingsInternal(currentmonitoring_struct newvalues)
 }
 
 // Save the current monitor advanced settings back to the device over MODBUS/RS485
-void CurrentMonitorSetRelaySettingsExternal(currentmonitoring_struct newvalues)
+void CurrentMonitorSetRelaySettingsExternal(const currentmonitoring_struct &newvalues)
 {
   uint8_t flag1 = 0;
   uint8_t flag2 = 0;
