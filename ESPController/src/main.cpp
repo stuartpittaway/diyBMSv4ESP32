@@ -1751,11 +1751,11 @@ void BuildHostname()
     chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
   }
   // DIYBMS-00000000
-  char buffer[10];
-  snprintf(buffer, sizeof(buffer), "%08X", chipId);
+  std::array<char, 10> buffer{}; // room for 8 hex digits + null
+  snprintf(buffer.data(), buffer.size(), "%08X", chipId);
 
   hostname.clear();
-  hostname.append("DIYBMS-").append(buffer);
+  hostname.append("DIYBMS-").append(buffer.data());
 }
 
 void wifi_init_sta(void)
