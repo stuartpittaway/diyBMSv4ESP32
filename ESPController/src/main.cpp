@@ -1867,19 +1867,27 @@ uint16_t calculateCRC(const uint8_t *f, uint8_t bufferSize)
   return temp;
 }
 
+#include <cstring> // memcpy
+
 uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
 {
-  FloatUnionType fut;
-  fut.value = value;
-  // 4 bytes
-  cmd[ptr] = (uint8_t)(fut.word[0] >> 8);
-  ptr++;
-  cmd[ptr] = (uint8_t)(fut.word[0] & 0xFF);
-  ptr++;
-  cmd[ptr] = (uint8_t)(fut.word[1] >> 8);
-  ptr++;
-  cmd[ptr] = (uint8_t)(fut.word[1] & 0xFF);
-  ptr++;
+  // reinterpret the float bits using memcpy to avoid undefined behaviour
+  static_assert(sizeof(uint32_t) == sizeof(float), "unexpected float size");
+
+  uint32_t asInt;
+  std::memcpy(&asInt, &value, sizeof(asInt));
+
+  // produce same byte order as the previous union-based code
+  uint8_t byte0 = asInt & 0xFF;
+  uint8_t byte1 = (asInt >> 8) & 0xFF;
+  uint8_t byte2 = (asInt >> 16) & 0xFF;
+  uint8_t byte3 = (asInt >> 24) & 0xFF;
+
+  // network/modbus order: byte1, byte0, byte3, byte2
+  cmd[ptr++] = byte1;
+  cmd[ptr++] = byte0;
+  cmd[ptr++] = byte3;
+  cmd[ptr++] = byte2;
 
   return ptr;
 }
