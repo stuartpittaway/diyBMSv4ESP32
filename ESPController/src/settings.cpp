@@ -1134,9 +1134,9 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
 
     JsonObject outputs = root["outputs"].to<JsonObject>();
     JsonArray d = outputs["default"].to<JsonArray>();
-    ;
+    
     JsonArray t = outputs["type"].to<JsonArray>();
-    ;
+    
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
         d.add(settings->rulerelaydefault[i]);
@@ -1166,7 +1166,6 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
         state["hysteresis"] = settings->rulehysteresis[rr];
 
         JsonArray relaystate = state["state"].to<JsonArray>();
-        ;
         for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
         {
             relaystate.add(settings->rulerelaystate[rr][rt]);

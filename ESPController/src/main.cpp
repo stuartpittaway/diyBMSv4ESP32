@@ -4011,7 +4011,7 @@ void ESPCoreDumpToJSON(JsonObject &doc)
     JsonObject core = doc["coredump"].to<JsonObject>();
     // A valid core dump is in FLASH storage
 
-    esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
+    auto *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
     if (summary)
     {
       if (esp_core_dump_get_summary(summary) == ESP_OK)
@@ -4045,14 +4045,12 @@ void ESPCoreDumpToJSON(JsonObject &doc)
         core["exc_vaddr"] = outputString;
 
         auto exc_a = core["exc_a"].to<JsonArray>();
-        ;
         for (auto value : summary->ex_info.exc_a)
         {
           ultoa(value, outputString, 16);
           exc_a.add(outputString);
         }
         auto epcx = core["epcx"].to<JsonArray>();
-        ;
         for (auto value : summary->ex_info.epcx)
         {
           ultoa(value, outputString, 16);
