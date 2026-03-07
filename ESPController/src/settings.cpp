@@ -970,16 +970,12 @@ static void enforceNumericLimits(diybms_eeprom_settings *settings, const diybms_
 
 static void ensurePulseRelaysOff(diybms_eeprom_settings *settings)
 {
-    // use index counter with range-for to respect parallel arrays
+    // simply iterate by index since we need the parallel array index
+    for (size_t idx = 0; idx < RELAY_TOTAL; ++idx)
     {
-        size_t idx = 0;
-        for (auto &type : settings->relaytype)
+        if (settings->relaytype[idx] == RelayType::RELAY_PULSE)
         {
-            if (type == RelayType::RELAY_PULSE)
-            {
-                settings->rulerelaydefault[idx] = RelayState::RELAY_OFF;
-            }
-            ++idx;
+            settings->rulerelaydefault[idx] = RelayState::RELAY_OFF;
         }
     }
 }
