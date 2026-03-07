@@ -1130,9 +1130,10 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
         state["hysteresis"] = settings->rulehysteresis[rr];
 
         JsonArray relaystate = state["state"].to<JsonArray>();
-        for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
+        // iterate over the fixed-size relay state array rather than using indices
+        for (auto s : settings->rulerelaystate[rr])
         {
-            relaystate.add(settings->rulerelaystate[rr][rt]);
+            relaystate.add(s);
         }
     } // end for
 
@@ -1172,9 +1173,9 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     root[stateofchargeresumevalue_JSONKEY] = settings->stateofchargeresumevalue;
 
     JsonArray tv = root["tilevisibility"].to<JsonArray>();
-    for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
+    for (auto tile : settings->tileconfig)
     {
-        tv.add(settings->tileconfig[i]);
+        tv.add(tile);
     }
 
     // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
