@@ -1222,19 +1222,9 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
 
 }
 
-void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
+// helpers for JSONToSettings to keep complexity low
+static void applyBasicSettings(const JsonObject &root, diybms_eeprom_settings *settings)
 {
-    // Use defaults to populate the settings, just in case we are missing values from the JSON
-    DefaultConfiguration(settings);
-
-    if (!doc["diybms_settings"].is<JsonObject>())
-    {
-        // Wrong document type - quit...
-        return;
-    }
-
-    JsonObject root = doc["diybms_settings"];
-
     settings->totalNumberOfBanks = root[totalNumberOfBanks_JSONKEY];
     settings->totalNumberOfSeriesModules = root[totalNumberOfSeriesModules_JSONKEY];
     settings->baudRate = root[baudRate_JSONKEY];
@@ -1316,103 +1306,128 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
     settings->soh_total_milliamphour_out = root[soh_total_milliamphour_out_JSONKEY];
     settings->soh_total_milliamphour_in = root[soh_total_milliamphour_in_JSONKEY];
     settings->soh_lifetime_battery_cycles = root[soh_lifetime_battery_cycles_JSONKEY];
-    settings->soh_eol_capacity=root[soh_eol_capacity_JSONKEY];
-
+    settings->soh_eol_capacity = root[soh_eol_capacity_JSONKEY];
 
     strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
+}
 
+static void applyMqttSettings(const JsonObject &root, diybms_eeprom_settings *settings)
+{
     JsonObject mqtt = root["mqtt"];
-    if (!mqtt.isNull())
-    {
-        settings->mqtt_enabled = mqtt[mqtt_enabled_JSONKEY];
-        settings->mqtt_basic_cell_reporting = mqtt[mqtt_basic_cell_reporting_JSONKEY];
-        strncpy(settings->mqtt_uri, mqtt[mqtt_uri_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_uri));
-        strncpy(settings->mqtt_topic, mqtt[mqtt_topic_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_topic));
-        strncpy(settings->mqtt_username, mqtt[mqtt_username_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_username));
-        strncpy(settings->mqtt_password, mqtt[mqtt_password_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_password));
-    }
+    if (mqtt.isNull())
+        return;
 
+    settings->mqtt_enabled = mqtt[mqtt_enabled_JSONKEY];
+    settings->mqtt_basic_cell_reporting = mqtt[mqtt_basic_cell_reporting_JSONKEY];
+    strncpy(settings->mqtt_uri, mqtt[mqtt_uri_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_uri));
+    strncpy(settings->mqtt_topic, mqtt[mqtt_topic_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_topic));
+    strncpy(settings->mqtt_username, mqtt[mqtt_username_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_username));
+    strncpy(settings->mqtt_password, mqtt[mqtt_password_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_password));
+}
+
+static void applyInfluxdbSettings(const JsonObject &root, diybms_eeprom_settings *settings)
+{
     JsonObject influxdb = root["influxdb"];
-    if (!influxdb.isNull())
-    {
-        settings->influxdb_enabled = influxdb[influxdb_enabled_JSONKEY];
-        strncpy(settings->influxdb_apitoken, influxdb[influxdb_apitoken_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_apitoken));
-        strncpy(settings->influxdb_databasebucket, influxdb[influxdb_databasebucket_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_databasebucket));
-        strncpy(settings->influxdb_orgid, influxdb[influxdb_orgid_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_orgid));
-        strncpy(settings->influxdb_serverurl, influxdb[influxdb_serverurl_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_serverurl));
-        settings->influxdb_loggingFreqSeconds = influxdb[influxdb_loggingFreqSeconds_JSONKEY];
-    }
+    if (influxdb.isNull())
+        return;
 
+    settings->influxdb_enabled = influxdb[influxdb_enabled_JSONKEY];
+    strncpy(settings->influxdb_apitoken, influxdb[influxdb_apitoken_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_apitoken));
+    strncpy(settings->influxdb_databasebucket, influxdb[influxdb_databasebucket_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_databasebucket));
+    strncpy(settings->influxdb_orgid, influxdb[influxdb_orgid_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_orgid));
+    strncpy(settings->influxdb_serverurl, influxdb[influxdb_serverurl_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_serverurl));
+    settings->influxdb_loggingFreqSeconds = influxdb[influxdb_loggingFreqSeconds_JSONKEY];
+}
+
+static void applyOutputsSettings(const JsonObject &root, diybms_eeprom_settings *settings)
+{
     JsonObject outputs = root["outputs"];
-    if (!outputs.isNull())
+    if (outputs.isNull())
+        return;
+
+    JsonArray d = outputs["default"].as<JsonArray>();
+    uint8_t i = 0;
+    for (JsonVariant v : d)
     {
-        JsonArray d = outputs["default"].as<JsonArray>();
-
-        uint8_t i = 0;
-        for (JsonVariant v : d)
-        {
-            settings->rulerelaydefault[i] = (RelayState)v.as<uint8_t>();
-            // ESP_LOGI(TAG, "relay default %u=%u", i, myset.rulerelaydefault[i]);
-            i++;
-
-            if (i > RELAY_TOTAL)
-            {
-                break;
-            }
-        }
-
-        JsonArray t = outputs["type"].as<JsonArray>();
-        i = 0;
-        for (JsonVariant v : t)
-        {
-            settings->relaytype[i] = (RelayType)v.as<uint8_t>();
-            // ESP_LOGI(TAG, "relay type %u=%u", i, myset.relaytype[i]);
-            i++;
-            if (i > RELAY_TOTAL)
-            {
-                break;
-            }
-        }
+        settings->rulerelaydefault[i] = (RelayState)v.as<uint8_t>();
+        if (++i > RELAY_TOTAL) break;
     }
 
+    JsonArray t = outputs["type"].as<JsonArray>();
+    i = 0;
+    for (JsonVariant v : t)
+    {
+        settings->relaytype[i] = (RelayType)v.as<uint8_t>();
+        if (++i > RELAY_TOTAL) break;
+    }
+}
+
+static void applyRulesSettings(const JsonObject &root, diybms_eeprom_settings *settings)
+{
     JsonObject rules = root["rules"];
-    if (!rules.isNull())
+    if (rules.isNull())
+        return;
+
+    for (JsonPair kv : rules)
     {
-        for (JsonPair kv : rules)
+        const char *key = kv.key().c_str();
+        for (size_t rulenumber = 0; rulenumber <= MAXIMUM_RuleNumber; rulenumber++)
         {
-            for (size_t rulenumber = 0; rulenumber <= MAXIMUM_RuleNumber; rulenumber++)
+            if (Rules::RuleTextDescription.at(rulenumber).compare(key) != 0)
+                continue;
+
+            JsonVariant v = kv.value();
+            settings->rulevalue[rulenumber] = v["value"].as<int32_t>();
+            settings->rulehysteresis[rulenumber] = v["hysteresis"].as<int32_t>();
+            JsonArray states = v["state"].as<JsonArray>();
+
+            ESP_LOGI(TAG, "Matched to rule %u:%s, value=%i,hysteresis=%i", rulenumber,
+                     Rules::RuleTextDescription.at(rulenumber).c_str(),
+                     settings->rulevalue[rulenumber],
+                     settings->rulehysteresis[rulenumber]);
+
+            uint8_t i = 0;
+            for (JsonVariant x : states)
             {
-                if (Rules::RuleTextDescription.at(rulenumber).compare(kv.key().c_str()) == 0)
-                {
-                    JsonVariant v = kv.value();
-                    settings->rulevalue[rulenumber] = v["value"].as<int32_t>();
-                    settings->rulehysteresis[rulenumber] = v["hysteresis"].as<int32_t>();
-                    JsonArray states = v["state"].as<JsonArray>();
-
-                    ESP_LOGI(TAG, "Matched to rule %u:%s, value=%i,hysteresis=%i", rulenumber, Rules::RuleTextDescription.at(rulenumber).c_str(), settings->rulevalue[rulenumber], settings->rulehysteresis[rulenumber]);
-
-                    uint8_t i = 0;
-                    for (JsonVariant x : states)
-                    {
-                        settings->rulerelaystate[rulenumber][i] = (RelayState)x.as<uint8_t>();
-                        // ESP_LOGI(TAG, "rulerelaystate %u", myset.rulerelaystate[rulenumber][i]);
-                        i++;
-                        if (i > RELAY_TOTAL)
-                        {
-                            break;
-                        }
-                    }
-
-                    break;
-                }
+                settings->rulerelaystate[rulenumber][i] = (RelayState)x.as<uint8_t>();
+                if (++i > RELAY_TOTAL) break;
             }
+            break;
         }
     }
+}
 
+static void applyTileVisibility(const JsonObject &root, diybms_eeprom_settings *settings)
+{
     uint8_t i = 0;
     for (JsonVariant v : root["tilevisibility"].as<JsonArray>())
     {
-        // Need to check for over flow of tileconfig array
-        settings->tileconfig[i] = v.as<uint16_t>();
+        settings->tileconfig[i++] = v.as<uint16_t>();
     }
+}
+
+static void applyNestedObjects(const JsonObject &root, diybms_eeprom_settings *settings)
+{
+    applyMqttSettings(root, settings);
+    applyInfluxdbSettings(root, settings);
+    applyOutputsSettings(root, settings);
+    applyRulesSettings(root, settings);
+    applyTileVisibility(root, settings);
+}
+
+void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
+{
+    // Use defaults to populate the settings, just in case we are missing values from the JSON
+    DefaultConfiguration(settings);
+
+    if (!doc["diybms_settings"].is<JsonObject>())
+    {
+        // Wrong document type - quit...
+        return;
+    }
+
+    JsonObject root = doc["diybms_settings"];
+
+    applyBasicSettings(root, settings);
+    applyNestedObjects(root, settings);
 }
