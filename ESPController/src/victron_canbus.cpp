@@ -57,12 +57,13 @@ void victron_message_35f()
 void SetBankAndModuleText(char *buffer, uint8_t cellid)
 {
   uint8_t bank = cellid / mysettings.totalNumberOfSeriesModules;
-  uint8_t module = cellid - (bank * mysettings.totalNumberOfSeriesModules);
+  // Module
+  uint8_t m = cellid - (bank * mysettings.totalNumberOfSeriesModules);
 
   // Clear all 8 bytes
   memset(buffer, 0, 8);
 
-  snprintf(buffer, 8, "b%d m%d", bank, module);
+  snprintf(buffer, 8, "b%d m%d", bank, m);
 }
 
 void victron_message_374_375_376_377()
@@ -126,7 +127,7 @@ That strategy does not work with a Victron system.
 */
 void victron_message_351()
 {
-  uint8_t number_of_active_errors = 0;
+  //uint8_t number_of_active_errors = 0;
 
   struct data351
   {
@@ -146,7 +147,7 @@ void victron_message_351()
   // Defaults (do nothing)
   // Don't use zero for voltage - this indicates to Victron an over voltage situation, and Victron gear attempts to dump
   // the whole battery contents!  (feedback from end users)
-  data.chargevoltagelimit = rules.lowestBankVoltage / 100;
+  data.chargevoltagelimit = static_cast<uint16_t>(rules.lowestBankVoltage / 100);
   data.maxchargecurrent = 0;
 
   if (rules.IsChargeAllowed(&mysettings))
@@ -154,7 +155,7 @@ void victron_message_351()
     if (rules.numberOfBalancingModules > 0 && mysettings.stopchargebalance == true)
     {
       // Balancing, stop charge
-      data.chargevoltagelimit = rules.lowestBankVoltage / 100;
+      data.chargevoltagelimit = static_cast<uint16_t>(rules.lowestBankVoltage / 100);
       data.maxchargecurrent = 0;
     }
     else
@@ -213,12 +214,12 @@ void victron_message_356()
 
   // Use highest bank voltage calculated by controller and modules
   // Scale 0.01V
-  data.voltage = rules.highestBankVoltage / 10;
+  data.voltage = static_cast<int16_t>(rules.highestBankVoltage / 10);
 
   // If current shunt is installed, use the voltage from that as it should be more accurate
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
-    data.voltage = currentMonitor.modbus.voltage * 100.0;
+    data.voltage = static_cast<int16_t>(currentMonitor.modbus.voltage * 100.0);
   }
 
   data.current = 0;
@@ -226,13 +227,13 @@ void victron_message_356()
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
     // Scale 0.1A
-    data.current = currentMonitor.modbus.current * 10;
+    data.current = static_cast<int16_t>(currentMonitor.modbus.current * 10.0);
   }
 
   // Temperature 0.1C using external temperature sensor
   if (rules.moduleHasExternalTempSensor)
   {
-    data.temperature = (int16_t)rules.highestExternalTemp * (int16_t)10;
+    data.temperature = static_cast<int16_t>(rules.highestExternalTemp * 10);
   }
   else
   {
@@ -289,9 +290,9 @@ void victron_message_35a()
     // BYTE 0
     //(bit 0+1) General alarm (not implemented)
     //(bit 2+3) Battery low voltage alarm
-    data.byte0 |= ((rules.ruleOutcome(Rule::BankOverVoltage) | rules.ruleOutcome(Rule::CurrentMonitorOverVoltage)) ? BIT23_ALARM : BIT23_OK);
+    data.byte0 |= ((rules.ruleOutcome(Rule::BankOverVoltage) || rules.ruleOutcome(Rule::CurrentMonitorOverVoltage)) ? BIT23_ALARM : BIT23_OK);
     //(bit 4+5) Battery high voltage alarm
-    data.byte0 |= ((rules.ruleOutcome(Rule::BankUnderVoltage) | rules.ruleOutcome(Rule::CurrentMonitorUnderVoltage)) ? BIT45_ALARM : BIT45_OK);
+    data.byte0 |= ((rules.ruleOutcome(Rule::BankUnderVoltage) || rules.ruleOutcome(Rule::CurrentMonitorUnderVoltage)) ? BIT45_ALARM : BIT45_OK);
 
     //(bit 6+7) Battery high temperature alarm
     if (rules.moduleHasExternalTempSensor)
