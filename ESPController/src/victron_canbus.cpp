@@ -70,35 +70,35 @@ void victron_message_374_375_376_377()
 {
   struct candata
   {
-    char text[8];
+    std::array<char,8> text;
   };
 
   candata data;
 
   if (rules.address_LowestCellVoltage < maximum_controller_cell_modules)
   {
-    SetBankAndModuleText(data.text, rules.address_LowestCellVoltage);
+    SetBankAndModuleText(data.text.data(), rules.address_LowestCellVoltage);
     // Min. cell voltage id string [1]
     send_canbus_message(0x374, (uint8_t *)&data, sizeof(candata));
   }
 
   if (rules.address_HighestCellVoltage < maximum_controller_cell_modules)
   {
-    SetBankAndModuleText(data.text, rules.address_HighestCellVoltage);
+    SetBankAndModuleText(data.text.data(), rules.address_HighestCellVoltage);
     // Max. cell voltage id string [1]
     send_canbus_message(0x375, (uint8_t *)&data, sizeof(candata));
   }
 
   if (rules.address_lowestExternalTemp < maximum_controller_cell_modules)
   {
-    SetBankAndModuleText(data.text, rules.address_lowestExternalTemp);
+    SetBankAndModuleText(data.text.data(), rules.address_lowestExternalTemp);
     // Min. cell voltage id string [1]
     send_canbus_message(0x376, (uint8_t *)&data, sizeof(candata));
   }
 
   if (rules.address_highestExternalTemp < maximum_controller_cell_modules)
   {
-    SetBankAndModuleText(data.text, rules.address_highestExternalTemp);
+    SetBankAndModuleText(data.text.data(), rules.address_highestExternalTemp);
     // Min. cell voltage id string [1]
     send_canbus_message(0x377, (uint8_t *)&data, sizeof(candata));
   }
