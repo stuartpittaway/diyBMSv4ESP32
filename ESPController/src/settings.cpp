@@ -2,6 +2,7 @@
 static constexpr const char *const TAG = "diybms-set";
 
 #include "settings.h"
+#include <algorithm>  // for std::find_if used in applyRulesSettings
 
 /*
 THESE STRINGS ARE USED AS KEYS IN THE JSON SETTINGS BACKUP FILES
@@ -772,9 +773,10 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->daylight = false;
     strncpy(_myset->ntpServer, "time.google.com", sizeof(_myset->ntpServer));
 
-    for (size_t x = 0; x < RELAY_TOTAL; x++)
+    // initialize defaults using range-based loops instead of index arithmetic
+    for (auto &relay : _myset->rulerelaydefault)
     {
-        _myset->rulerelaydefault[x] = RELAY_OFF;
+        relay = RELAY_OFF;
     }
 
     // Emergency stop
@@ -813,16 +815,16 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     {
         _myset->rulehysteresis[i] = _myset->rulevalue[i];
 
-        // Set all relays to don't care
-        for (size_t x = 0; x < RELAY_TOTAL; x++)
+        // Set all relays to don't care using range-based inner loop
+        for (auto &state : _myset->rulerelaystate[i])
         {
-            _myset->rulerelaystate[i][x] = RELAY_X;
+            state = RELAY_X;
         }
     }
 
-    for (size_t x = 0; x < RELAY_TOTAL; x++)
+    for (auto &t : _myset->relaytype)
     {
-        _myset->relaytype[x] = RELAY_STANDARD;
+        t = RELAY_STANDARD;
     }
 
     // Default which "tiles" are visible on the web gui
@@ -968,11 +970,16 @@ static void enforceNumericLimits(diybms_eeprom_settings *settings, const diybms_
 
 static void ensurePulseRelaysOff(diybms_eeprom_settings *settings)
 {
-    for (size_t i = 0; i < RELAY_TOTAL; ++i)
+    // use index counter with range-for to respect parallel arrays
     {
-        if (settings->relaytype[i] == RelayType::RELAY_PULSE)
+        size_t idx = 0;
+        for (auto &type : settings->relaytype)
         {
-            settings->rulerelaydefault[i] = RelayState::RELAY_OFF;
+            if (type == RelayType::RELAY_PULSE)
+            {
+                settings->rulerelaydefault[idx] = RelayState::RELAY_OFF;
+            }
+            ++idx;
         }
     }
 }
@@ -1328,28 +1335,32 @@ static void applyRulesSettings(const JsonObject &root, diybms_eeprom_settings *s
     for (JsonPair kv : rules)
     {
         const char *key = kv.key().c_str();
-        for (size_t rulenumber = 0; rulenumber <= MAXIMUM_RuleNumber; rulenumber++)
+        // find the rule number by comparing against the description array
         {
-            if (Rules::RuleTextDescription.at(rulenumber).compare(key) != 0)
-                continue;
-
-            JsonVariant v = kv.value();
-            settings->rulevalue[rulenumber] = v["value"].as<int32_t>();
-            settings->rulehysteresis[rulenumber] = v["hysteresis"].as<int32_t>();
-            JsonArray states = v["state"].as<JsonArray>();
-
-            ESP_LOGI(TAG, "Matched to rule %u:%s, value=%i,hysteresis=%i", rulenumber,
-                     Rules::RuleTextDescription.at(rulenumber).c_str(),
-                     settings->rulevalue[rulenumber],
-                     settings->rulehysteresis[rulenumber]);
-
-            uint8_t i = 0;
-            for (JsonVariant x : states)
+            auto it = std::find_if(Rules::RuleTextDescription.begin(),
+                                   Rules::RuleTextDescription.end(),
+                                   [key](const std::string &desc) { return desc == key; });
+            if (it != Rules::RuleTextDescription.end())
             {
-                settings->rulerelaystate[rulenumber][i] = (RelayState)x.as<uint8_t>();
-                if (++i > RELAY_TOTAL) break;
+                size_t rulenumber = std::distance(Rules::RuleTextDescription.begin(), it);
+
+                JsonVariant v = kv.value();
+                settings->rulevalue[rulenumber] = v["value"].as<int32_t>();
+                settings->rulehysteresis[rulenumber] = v["hysteresis"].as<int32_t>();
+                JsonArray states = v["state"].as<JsonArray>();
+
+                ESP_LOGI(TAG, "Matched to rule %u:%s, value=%i,hysteresis=%i", rulenumber,
+                         Rules::RuleTextDescription.at(rulenumber).c_str(),
+                         settings->rulevalue[rulenumber],
+                         settings->rulehysteresis[rulenumber]);
+
+                uint8_t i = 0;
+                for (JsonVariant x : states)
+                {
+                    settings->rulerelaystate[rulenumber][i] = (RelayState)x.as<uint8_t>();
+                    if (++i > RELAY_TOTAL) break;
+                }
             }
-            break;
         }
     }
 }
