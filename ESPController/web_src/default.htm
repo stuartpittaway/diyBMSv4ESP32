@@ -2005,6 +2005,8 @@
       var lang = $('html').attr('lang')
       $('#Language').val(lang)
 
+      $('#graphOptions').show()
+
       //Load dependant scripts - one at a time so we don't task ESP32
       $.cachedScript('lang_' + lang + '.js')
         .done(function (script, textStatus) {
@@ -2012,17 +2014,17 @@
             .done(function (script, textStatus) {
               //Get GL library from CDN to avoid having it on ESP32 (save flash space)
               //if it fails to load (no internet) disable the 3d view
-              $.cachedScript('https://cdnjs.cloudflare.com/ajax/libs/echarts-gl/2.0.8/echarts-gl.min.js')
+              $.cachedScript('https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js')
                 .done(function (script, textStatus) {
                   //Script loaded
                   Graph3DAvailable = true
-                  $('#graphOptions').show()
+                  
                   console.log('3d charts available')
                 })
                 .fail(function (jqxhr, settings, exception) {
                   console.log('3d charts not available')
                   Graph3DAvailable = false
-                  $('#graphOptions').hide()
+                  //$('#graphOptions').hide()
                 })
 
               $.cachedScript('notify.min.js')

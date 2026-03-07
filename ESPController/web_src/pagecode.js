@@ -1292,10 +1292,10 @@ $(function () {
     $("#avrprogconfirm").hide();
     $(".stat").hide();
 
-    if (window.Graph3DAvailable === true) {
+    //if (window.Graph3DAvailable === true) {
         //Re-show this as pagecode would have hidden it
         $("#graphOptions").show();
-    }
+    //}
 
     $("#more").on("click"
         , function (e) {
@@ -1384,7 +1384,7 @@ $(function () {
         refreshVisibleTiles();
 
         //if (window.Graph3DAvailable === true) {
-        //    $('#graphOptions').show();
+        $('#graphOptions').show();
         //}
 
         return true;
