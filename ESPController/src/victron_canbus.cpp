@@ -176,7 +176,14 @@ void victron_message_351()
   }
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
+
+  // warn if we ended up with no charge current limit
+  if (data.maxchargecurrent == 0)
+  {
+    ESP_LOGW(TAG, "victron_message_351: maxchargecurrent is zero");
+  }
 }
+
 
 // S.o.C value
 void victron_message_355()
