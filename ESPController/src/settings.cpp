@@ -923,149 +923,106 @@ bool LoadWIFI(wifi_eeprom_settings *wifi)
     return result;
 }
 
-// Validate configuration and force correction if needed.
-void ValidateConfiguration(diybms_eeprom_settings *settings)
+// helper that applies numeric and range limits
+static void enforceNumericLimits(diybms_eeprom_settings *settings, const diybms_eeprom_settings &defaults)
 {
-    diybms_eeprom_settings defaults;
-    DefaultConfiguration(&defaults);
-
-    // Check its not zero
     if (settings->influxdb_loggingFreqSeconds < 5)
-    {
         settings->influxdb_loggingFreqSeconds = defaults.influxdb_loggingFreqSeconds;
-    }
 
     if (settings->rs485baudrate < 300)
-    {
         settings->rs485baudrate = defaults.rs485baudrate;
-    }
 
     if (settings->baudRate < 300)
-    {
         settings->baudRate = defaults.baudRate;
-    }
 
     if (settings->graph_voltagehigh > 5000 || settings->graph_voltagehigh < 2000)
-    {
         settings->graph_voltagehigh = defaults.graph_voltagehigh;
-    }
 
     if (settings->graph_voltagelow > settings->graph_voltagehigh)
-    {
         settings->graph_voltagelow = 0;
-    }
 
     if (settings->cellmaxmv > settings->cellmaxspikemv)
-    {
         settings->cellmaxmv = defaults.cellmaxmv;
-    }
     if (settings->cellmaxmv < settings->cellminmv)
-    {
         settings->cellmaxmv = settings->cellminmv;
-    }
     if (settings->cellminmv > settings->cellmaxmv)
-    {
         settings->cellminmv = settings->cellmaxmv;
-    }
     if (settings->kneemv > settings->cellmaxmv || settings->kneemv > settings->cellmaxspikemv)
-    {
         settings->kneemv = defaults.kneemv;
-    }
 
-    // Limit to 1
-    if (settings->sensitivity < 1 * 10)
-    {
-        settings->sensitivity = 1 * 10;
-    }
-    // Limit to 100
-    if (settings->sensitivity > 100 * 10)
-    {
-        settings->sensitivity = 100 * 10;
-    }
+    // sensitivity between 10 and 1000
+    if (settings->sensitivity < 10)
+        settings->sensitivity = 10;
+    else if (settings->sensitivity > 1000)
+        settings->sensitivity = 1000;
 
-    // Limit to 100
-    if (settings->current_value1 > 100 * 10)
-    {
-        settings->current_value1 = 100 * 10;
-    }
-    if (settings->current_value2 > 100 * 10)
-    {
-        settings->current_value2 = 100 * 10;
-    }
+    if (settings->current_value1 > 1000)
+        settings->current_value1 = 1000;
+    if (settings->current_value2 > 1000)
+        settings->current_value2 = 1000;
 
-    // Ensure that all PULSE relays default to OFF (pulse will only pulse on/off not off/on)
-    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
+    if (settings->floatvoltage > settings->chargevolt)
+        settings->floatvoltage = settings->chargevolt;
+}
+
+
+static void ensurePulseRelaysOff(diybms_eeprom_settings *settings)
+{
+    for (size_t i = 0; i < RELAY_TOTAL; ++i)
     {
         if (settings->relaytype[i] == RelayType::RELAY_PULSE)
         {
             settings->rulerelaydefault[i] = RelayState::RELAY_OFF;
         }
     }
+}
 
-    // Ensure trigger and reset (rulevalue and rulehysteresis) values make sense and
-    // the rulehysteresis value is either greater or lower than rulevalue as required.
-
-    // These rules expect the hysteresis (reset) value to be LOWER than the trigger value
-    const Rule hysteresis_lower[] = {Rule::CurrentMonitorOverCurrentAmps,
-                                     Rule::ModuleOverVoltage,
-                                     Rule::ModuleOverTemperatureInternal,
-                                     Rule::ModuleOverTemperatureExternal,
-                                     Rule::CurrentMonitorOverVoltage,
-                                     Rule::BankOverVoltage,
-                                     Rule::BankRange};
-
-    for (size_t i = 0; i < sizeof(hysteresis_lower); i++)
+static void adjustHysteresis(diybms_eeprom_settings *settings)
+{
+    static const std::array<Rule, 7> lower = {Rule::CurrentMonitorOverCurrentAmps,
+                                              Rule::ModuleOverVoltage,
+                                              Rule::ModuleOverTemperatureInternal,
+                                              Rule::ModuleOverTemperatureExternal,
+                                              Rule::CurrentMonitorOverVoltage,
+                                              Rule::BankOverVoltage,
+                                              Rule::BankRange};
+    for (auto idx : lower)
     {
-        Rule index = hysteresis_lower[i];
-
-        if (settings->rulehysteresis[index] > settings->rulevalue[index])
+        if (settings->rulehysteresis[idx] > settings->rulevalue[idx])
         {
-            ESP_LOGI(TAG, "Fixed LOWER hysteresis %u from %i to %i", (uint8_t)index, settings->rulehysteresis[index], settings->rulevalue[index]);
-            settings->rulehysteresis[index] = settings->rulevalue[index];
+            ESP_LOGI(TAG, "Fixed LOWER hysteresis %u from %i to %i", (uint8_t)idx,
+                     settings->rulehysteresis[idx], settings->rulevalue[idx]);
+            settings->rulehysteresis[idx] = settings->rulevalue[idx];
         }
     }
 
-    // These rules expect the hysteresis (reset) value to be GREATER than the trigger value
-    const Rule hysteresis_greater[] = {Rule::ModuleUnderVoltage,
-                                       Rule::ModuleUnderTemperatureInternal,
-                                       Rule::ModuleUnderTemperatureExternal,
-                                       Rule::CurrentMonitorUnderVoltage,
-                                       Rule::BankUnderVoltage,
-                                       Rule::Timer2,
-                                       Rule::Timer1};
-
-    for (size_t i = 0; i < sizeof(hysteresis_greater); i++)
+    static const std::array<Rule, 7> greater = {Rule::ModuleUnderVoltage,
+                                                Rule::ModuleUnderTemperatureInternal,
+                                                Rule::ModuleUnderTemperatureExternal,
+                                                Rule::CurrentMonitorUnderVoltage,
+                                                Rule::BankUnderVoltage,
+                                                Rule::Timer2,
+                                                Rule::Timer1};
+    for (auto idx : greater)
     {
-        Rule index = hysteresis_greater[i];
-
-        if (settings->rulehysteresis[index] < settings->rulevalue[index])
+        if (settings->rulehysteresis[idx] < settings->rulevalue[idx])
         {
-            ESP_LOGI(TAG, "Fixed GREATER hysteresis %u from %i to %i", (uint8_t)index, settings->rulehysteresis[index], settings->rulevalue[index]);
-            settings->rulehysteresis[index] = settings->rulevalue[index];
+            ESP_LOGI(TAG, "Fixed GREATER hysteresis %u from %i to %i", (uint8_t)idx,
+                     settings->rulehysteresis[idx], settings->rulevalue[idx]);
+            settings->rulehysteresis[idx] = settings->rulevalue[idx];
         }
     }
+}
 
-    // 24hr max
-    if (settings->absorptiontimer > 60 * 24)
-    {
-        settings->absorptiontimer = settings->absorptiontimer;
-    }
-    if (settings->floatvoltagetimer > 60 * 24)
-    {
-        settings->floatvoltagetimer = settings->floatvoltagetimer;
-    }
+// Validate configuration and force correction if needed.
+void ValidateConfiguration(diybms_eeprom_settings *settings)
+{
+    diybms_eeprom_settings defaults;
+    DefaultConfiguration(&defaults);
 
-    // Float voltage must be equal or below charge voltage
-    if (settings->floatvoltage > settings->chargevolt)
-    {
-        settings->floatvoltage = settings->chargevolt;
-    }
-
-    // SoC cannot be over 99%
-    if (settings->stateofchargeresumevalue > 99)
-    {
-        settings->stateofchargeresumevalue = settings->stateofchargeresumevalue;
-    }
+    enforceNumericLimits(settings, defaults);
+    ensurePulseRelaysOff(settings);
+    adjustHysteresis(settings);
 }
 
 // Builds up a JSON document which mirrors the parameters inside "diybms_eeprom_settings"
