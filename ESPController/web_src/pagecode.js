@@ -1343,12 +1343,21 @@ $(function () {
     $("#graph2").hide();
     $("#graphOptions a").click(function (event) {
         event.preventDefault();
-        if ($(event.target).text() == "2D") {
+        var choice = $(event.target).text();
+        if (choice == "2D") {
             $("#graph1").show();
             $("#graph2").hide();
-        } else {
+        } else if (choice == "3D") {
+            if (window.Graph3DAvailable !== true) {
+                $.notify("3d charts not available", { autoHide: true, globalPosition: 'top right', className: 'error' });
+                return;
+            }
             $("#graph1").hide();
             $("#graph2").show();
+        } else {
+            // fallback, treat as 2D
+            $("#graph1").show();
+            $("#graph2").hide();
         }
         $(window).trigger('resize');
     });
@@ -1374,9 +1383,9 @@ $(function () {
         g1.resize();
         refreshVisibleTiles();
 
-        if (window.Graph3DAvailable === true) {
-            $('#graphOptions').show();
-        }
+        //if (window.Graph3DAvailable === true) {
+        //    $('#graphOptions').show();
+        //}
 
         return true;
     });
