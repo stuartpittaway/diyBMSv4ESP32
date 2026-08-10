@@ -131,6 +131,18 @@ public:
     USART0.CTRLB |= USART_SFDEN_bm;
   }
 
+  // Start-of-Frame Detection must be switched off again as soon as we are awake.
+  // Silicon errata DS80000902F 2.8.2 "Start-of-Frame Detection Can Unintentionally
+  // Be Triggered in Active Mode": if RXDATA is read while new data is being received,
+  // RXCIF is cleared, the Start-of-Frame Detector is re-armed and falsely takes the
+  // next falling edge for a start bit.  Frame reception restarts and the received
+  // data is corrupted.  RXSIF stays '0' in Active mode and no interrupt is raised,
+  // so this is silent - it only shows up as CRC failures further up.
+  static inline void DisableStartFrameDetection() __attribute__((always_inline))
+  {
+    USART0.CTRLB &= ~(USART_SFDEN_bm);
+  }
+
   static void SetWatchdog8sec()
   {
     // Setup a watchdog timer for 8 seconds
@@ -163,6 +175,10 @@ public:
     // Snoring can be heard at this point....
 
     sleep_disable();
+
+    // We are in Active mode again - errata DS80000902F 2.8.2 requires SFDEN to be
+    // cleared here, it is set again just before the next sleep_cpu() above.
+    diyBMSHAL::DisableStartFrameDetection();
   }
 
   static void SelectCellVoltageChannel()
