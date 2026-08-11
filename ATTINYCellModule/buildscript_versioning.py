@@ -1,5 +1,4 @@
 """ Script for DIYBMS """
-import datetime
 import subprocess
 import os
 from os import path
@@ -43,16 +42,11 @@ with open(os.path.join(include_dir, 'EmbeddedFiles_Defines.h'), 'w') as f:
     f.write("// DO NOT CHECK THIS INTO SOURCE CONTROL\n")
     f.write("\n\n#ifndef EmbeddedFiles_Defines_H\n#define EmbeddedFiles_Defines_H\n\n")
 
-    f.write("static const char GIT_VERSION[] = \"")
-    if (git_sha!=None):
-        f.write(git_sha)
-    else:
-        f.write("LocalCompile")
-    f.write("\";\n\n")
-
+    # The first eight characters, not the last: git resolves an abbreviated hash by
+    # prefix, so "git show c4be162f" on a suffix finds nothing.
     f.write("static const uint16_t GIT_VERSION_B1 = 0x")
     if (git_sha!=None):
-        f.write(git_sha[32:36])
+        f.write(git_sha[0:4])
     else:
         #Default for local compile
         f.write("FFFF")
@@ -60,15 +54,12 @@ with open(os.path.join(include_dir, 'EmbeddedFiles_Defines.h'), 'w') as f:
 
     f.write("static const uint16_t GIT_VERSION_B2 = 0x")
     if (git_sha!=None):
-        f.write(git_sha[36:])
+        f.write(git_sha[4:8])
     else:
         #Default for local compile
         f.write("FFFF")
     f.write(";\n\n")
 
 
-    f.write("static const char COMPILE_DATE_TIME[] = \"")
-    f.write(datetime.datetime.utcnow().isoformat()[:-3]+'Z')
-    f.write("\";\n\n")
 
     f.write("#endif")

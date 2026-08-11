@@ -250,7 +250,7 @@ void PrepareTFT_ControlState()
         tft.drawString("Build Date: ", x, y, 2);
         tft.setTextDatum(ML_DATUM);
         tft.setTextColor(TFT_YELLOW, SplashLogoPalette[3]);
-        tft.drawString(COMPILE_DATE_TIME_SHORT, x, y, 2);
+        tft.drawString(COMPILE_DATE_TIME, x, y, 2);
         y += fontHeight_2;
 
         break;
