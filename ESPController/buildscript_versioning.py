@@ -67,17 +67,11 @@ with open(os.path.join(include_dir, 'EmbeddedFiles_Defines.h'), 'w') as f:
     f.write("\n\n#ifndef EmbeddedFiles_Defines_H\n#define EmbeddedFiles_Defines_H\n\n")
 
     f.write("extern const char GIT_VERSION[];\n\n")
-    f.write("extern const char GIT_VERSION_SHORT[];\n\n")
-
-    # The first eight characters, not the last: git resolves an abbreviated hash by
-    # prefix, so "git show c4be162f" on a suffix finds nothing.
-    f.write("static const uint16_t GIT_VERSION_B1 = 0x")
-    f.write(git_sha[0:4] if git_sha != None else "FFFF")
-    f.write(";\n\n")
-
-    f.write("static const uint16_t GIT_VERSION_B2 = 0x")
-    f.write(git_sha[4:8] if git_sha != None else "FFFF")
-    f.write(";\n\n")
+    # The abbreviated hash, as a number.  The first eight characters, not the last: git
+    # resolves an abbreviation by prefix, so "git show c4be162f" on a suffix finds nothing.
+    f.write("static const uint32_t GIT_VERSION_SHORT = 0x")
+    f.write(git_sha[0:8] if git_sha != None else "FFFFFFFF")
+    f.write("UL;\n\n")
 
     f.write("extern const char COMMIT_DATE_TIME[];\n\n")
 
@@ -102,10 +96,6 @@ with open(os.path.join(env.get('PROJECT_DIR'), 'src', 'EmbeddedFiles_Defines.cpp
 
     f.write("extern const char GIT_VERSION[] = \"")
     f.write(git_sha if git_sha != None else "LocalCompile")
-    f.write("\";\n\n")
-
-    f.write("extern const char GIT_VERSION_SHORT[] = \"")
-    f.write(git_sha[0:8] if git_sha != None else "LocalCompile")
     f.write("\";\n\n")
 
     f.write("extern const char COMMIT_DATE_TIME[] = \"")

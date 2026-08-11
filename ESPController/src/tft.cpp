@@ -242,7 +242,11 @@ void PrepareTFT_ControlState()
 
         tft.setTextDatum(ML_DATUM);
         tft.setTextColor(TFT_YELLOW, SplashLogoPalette[3]);
-        tft.drawString(GIT_VERSION_SHORT, x, y, 2);
+        // The abbreviated hash, which is the first eight characters of GIT_VERSION
+        char shortversion[9];
+        memcpy(shortversion, GIT_VERSION, 8);
+        shortversion[8] = 0;
+        tft.drawString(shortversion, x, y, 2);
 
         y += 2 * fontHeight_2;
         tft.setTextColor(TFT_WHITE, SplashLogoPalette[3]);

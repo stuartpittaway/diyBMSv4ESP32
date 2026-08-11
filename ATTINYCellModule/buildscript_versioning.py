@@ -42,23 +42,15 @@ with open(os.path.join(include_dir, 'EmbeddedFiles_Defines.h'), 'w') as f:
     f.write("// DO NOT CHECK THIS INTO SOURCE CONTROL\n")
     f.write("\n\n#ifndef EmbeddedFiles_Defines_H\n#define EmbeddedFiles_Defines_H\n\n")
 
-    # The first eight characters, not the last: git resolves an abbreviated hash by
-    # prefix, so "git show c4be162f" on a suffix finds nothing.
-    f.write("static const uint16_t GIT_VERSION_B1 = 0x")
+    # The abbreviated hash, as a number.  The first eight characters, not the last: git
+    # resolves an abbreviation by prefix, so "git show c4be162f" on a suffix finds nothing.
+    f.write("static const uint32_t GIT_VERSION_SHORT = 0x")
     if (git_sha!=None):
-        f.write(git_sha[0:4])
+        f.write(git_sha[0:8])
     else:
         #Default for local compile
-        f.write("FFFF")
-    f.write(";\n\n")
-
-    f.write("static const uint16_t GIT_VERSION_B2 = 0x")
-    if (git_sha!=None):
-        f.write(git_sha[4:8])
-    else:
-        #Default for local compile
-        f.write("FFFF")
-    f.write(";\n\n")
+        f.write("FFFFFFFF")
+    f.write("UL;\n\n")
 
 
 

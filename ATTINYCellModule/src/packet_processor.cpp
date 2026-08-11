@@ -325,8 +325,8 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
     buffer->moduledata[10] = DIYBMSMODULEVERSION;
 
     // Version of firmware (taken automatically from GIT)
-    buffer->moduledata[14] = GIT_VERSION_B1;
-    buffer->moduledata[15] = GIT_VERSION_B2;
+    buffer->moduledata[14] = (uint16_t)(GIT_VERSION_SHORT >> 16);
+    buffer->moduledata[15] = (uint16_t)GIT_VERSION_SHORT;
     return true;
   }
 
