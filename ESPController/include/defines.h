@@ -353,6 +353,9 @@ struct CellModuleInfo
   uint16_t BoardVersionNumber;
   /// @brief Last 4 bytes of GITHUB version
   uint32_t CodeVersionNumber;
+  /// @brief Year and week of the commit the module firmware came from, year in the high
+  /// byte.  Zero from a module from before this was reported.
+  uint16_t CodeYearWeek;
   /// @brief Value of PWM timer for load shedding
   uint16_t PWMValue;
 

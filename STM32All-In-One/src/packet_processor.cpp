@@ -177,6 +177,10 @@ bool PacketProcessor::processPacket(PacketStruct *buffer, uint8_t mymoduleaddres
     buffer->moduledata[9] = EXT_BCOEFFICIENT;
     buffer->moduledata[10] = DIYBMSMODULEVERSION;
 
+    // Commit date, as year and week of that year.  The controller reads zero from a module
+    // from before this was reported.  Year in the high byte so that the number sorts.
+    buffer->moduledata[11] = ((uint16_t)COMMIT_YEAR_BYTE << 8) | COMMIT_WEEK_NUMBER_BYTE;
+
     // Version of firmware (taken automatically from GIT)
     buffer->moduledata[14] = (uint16_t)(GIT_VERSION_SHORT >> 16);
     buffer->moduledata[15] = (uint16_t)GIT_VERSION_SHORT;

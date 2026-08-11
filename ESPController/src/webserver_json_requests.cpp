@@ -534,6 +534,7 @@ esp_err_t content_handler_modules(httpd_req_t *req)
   settings["module"] = m;
   settings["id"] = c;
   settings["ver"] = cmi[c].BoardVersionNumber;
+  settings["yearweek"] = cmi[c].CodeYearWeek;
   settings["code"] = cmi[c].CodeVersionNumber;
   settings["Cached"] = cmi[c].settingsCached;
 
