@@ -257,6 +257,11 @@ struct diybms_eeprom_settings
   uint8_t canbus_equipment_addr;  // battery index on the same canbus for PYLONFORCE, 0 - 15, default 0
   char homeassist_apikey[24+1];
 
+  /// @brief Commit date of the firmware that last wrote these settings, as a UNIX
+  /// timestamp.  Zero on an installation saved before the stamp existed.  Lets a change to
+  /// what a setting means be applied once, rather than every boot or not at all.
+  uint32_t settingswrittenby;
+
   /// @brief State of health variables - total lifetime mAh output (discharge)
   // Might need to watch overflow on the uint32 (max value 4,294,967,295mAh) = approx 15339 cycles of 280Ah battery
   uint32_t soh_total_milliamphour_out;

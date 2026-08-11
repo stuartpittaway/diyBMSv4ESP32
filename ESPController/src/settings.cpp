@@ -91,6 +91,7 @@ static const char floatvoltagetimer_JSONKEY[] = "floatvoltagetimer";
 static const char stateofchargeresumevalue_JSONKEY[] = "stateofchargeresumevalue";
 static const char homeassist_apikey_JSONKEY[] = "homeassistapikey";
 
+static const char settingswrittenby_JSONKEY[] = "settingsWrittenBy";
 static const char soh_total_milliamphour_out_JSONKEY[] = "soh_mah_out";
 static const char soh_total_milliamphour_in_JSONKEY[] = "soh_mah_in";
 
@@ -192,6 +193,7 @@ static const char floatvoltagetimer_NVSKEY[] = "floatVtimer";
 static const char stateofchargeresumevalue_NVSKEY[] = "socresume";
 static const char homeassist_apikey_NVSKEY[] = "haapikey";
 
+static const char settingswrittenby_NVSKEY[] = "setwrittenby";
 static const char soh_total_milliamphour_out_NVSKEY[] = "soh_mah_out";
 static const char soh_total_milliamphour_in_NVSKEY[] = "soh_mah_in";
 static const char soh_lifetime_battery_cycles_NVSKEY[] = "soh_batcycle";
@@ -523,6 +525,7 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
 
         MACRO_NVSWRITESTRING(homeassist_apikey)
 
+        MACRO_NVSWRITE(settingswrittenby)
         MACRO_NVSWRITE(soh_total_milliamphour_out)
         MACRO_NVSWRITE(soh_total_milliamphour_in)
         MACRO_NVSWRITE(soh_lifetime_battery_cycles)
@@ -659,6 +662,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
 
         MACRO_NVSREADSTRING(homeassist_apikey)
 
+        MACRO_NVSREAD(settingswrittenby)
         MACRO_NVSREAD(soh_total_milliamphour_out)
         MACRO_NVSREAD(soh_total_milliamphour_in)
         MACRO_NVSREAD(soh_lifetime_battery_cycles)
@@ -847,6 +851,9 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->stateofchargeresumevalue = 96;
 
     // State of health
+    // Zero, not this build.  LoadConfiguration lays the defaults down and then reads NVS
+    // key by key, so an installation saved before the stamp existed keeps the zero.
+    _myset->settingswrittenby = 0;
     _myset->soh_total_milliamphour_out = 0;
     _myset->soh_total_milliamphour_in = 0;
     _myset->soh_lifetime_battery_cycles = 6000;
@@ -1216,6 +1223,7 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
 
     // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
 
+    root[settingswrittenby_JSONKEY] = settings->settingswrittenby;
     root[soh_total_milliamphour_out_JSONKEY] = settings->soh_total_milliamphour_out;
     root[soh_total_milliamphour_in_JSONKEY] = settings->soh_total_milliamphour_in;
     root[soh_lifetime_battery_cycles_JSONKEY] = settings->soh_lifetime_battery_cycles;
@@ -1314,6 +1322,8 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
     settings->floatvoltagetimer = root[floatvoltagetimer_JSONKEY];
     settings->stateofchargeresumevalue = root[stateofchargeresumevalue_JSONKEY];
 
+    // Absent in a backup taken before the stamp existed, which reads back as zero
+    settings->settingswrittenby = root[settingswrittenby_JSONKEY];
     settings->soh_total_milliamphour_out = root[soh_total_milliamphour_out_JSONKEY];
     settings->soh_total_milliamphour_in = root[soh_total_milliamphour_in_JSONKEY];
     settings->soh_lifetime_battery_cycles = root[soh_lifetime_battery_cycles_JSONKEY];
