@@ -464,9 +464,9 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
     registers.R_SHUNT_TEMPCO = shunttempcoefficient & 0x3FFF;
 
     // Shunt Over Limit (current limit) = overcurrent protection
-    registers.R_SOVL = ConvertTo2sComp((((float)overcurrentlimit / 100.0F) * 1000.0F / 1.25F) * full_scale_adc / registers.shunt_max_current);
+    registers.R_SOVL = ConvertTo2sComp(shunt_limit_register(overcurrentlimit));
     // Shunt UNDER Limit (under current limit) = undercurrent protection
-    registers.R_SUVL = ConvertTo2sComp((((float)undercurrentlimit / 100.0F) * 1000.0F / 1.25F) * full_scale_adc / registers.shunt_max_current);
+    registers.R_SUVL = ConvertTo2sComp(shunt_limit_register(undercurrentlimit));
     // Bus Overvoltage (overvoltage protection).
     registers.R_BOVL = ConvertTo2sComp(((float)overvoltagelimit / 100.0F) / 0.003125F);
     // Bus under voltage protection

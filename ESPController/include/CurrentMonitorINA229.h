@@ -256,8 +256,8 @@ public:
     }
     float calc_overvoltagelimit()  const{ return (float)ConvertFrom2sComp(registers.R_BOVL) * 0.003125F; }
     float calc_undervoltagelimit()  const{ return (float)ConvertFrom2sComp(registers.R_BUVL) * 0.003125F; }
-    float calc_overcurrentlimit()  const{ return ((float)ConvertFrom2sComp(registers.R_SOVL) / 1000.0F * 1.25F) / full_scale_adc * registers.shunt_max_current; }
-    float calc_undercurrentlimit()  const{ return ((float)ConvertFrom2sComp(registers.R_SUVL) / 1000.0F * 1.25F) / full_scale_adc * registers.shunt_max_current; }
+    float calc_overcurrentlimit()  const{ return shunt_limit_amps(registers.R_SOVL); }
+    float calc_undercurrentlimit()  const{ return shunt_limit_amps(registers.R_SUVL); }
 
     bool calc_tempcompenabled() const { return (registers.R_CONFIG & bit(5)) != 0; }
 
@@ -284,6 +284,41 @@ private:
     float temperature = 0;
 
     const float full_scale_adc = 40.96F;
+
+    // SOVL and SUVL hold a shunt voltage, in units of 1.25uV while ADCRANGE is 1
+    // (INA229 datasheet SLYS023A, tables 7-17 and 7-18).  A current of I amps develops
+    // I * shunt_millivolt / shunt_max_current millivolts across the shunt, so a threshold
+    // of I amps is
+    //
+    //   I * shunt_millivolt * 1000 / (LSB_uV * shunt_max_current)
+    //
+    // A threshold beyond what the ADC can measure cannot be honoured, so clamp rather than
+    // let the value wrap round into a small - or negative - threshold.
+    static constexpr float SHUNT_LIMIT_MICROVOLT_LSB = 1.25F;
+    static constexpr int16_t SHUNT_LIMIT_REGISTER_MAX = 32767;
+
+    int16_t shunt_limit_register(int32_t centiamps) const
+    {
+        float reg = ((float)centiamps / 100.0F) * (float)registers.shunt_millivolt * 1000.0F /
+                    (SHUNT_LIMIT_MICROVOLT_LSB * (float)registers.shunt_max_current);
+
+        if (reg >= (float)SHUNT_LIMIT_REGISTER_MAX)
+        {
+            return SHUNT_LIMIT_REGISTER_MAX;
+        }
+        if (reg <= (float)-SHUNT_LIMIT_REGISTER_MAX)
+        {
+            return -SHUNT_LIMIT_REGISTER_MAX;
+        }
+        return (int16_t)reg;
+    }
+
+    float shunt_limit_amps(uint16_t reg) const
+    {
+        return (float)ConvertFrom2sComp(reg) * SHUNT_LIMIT_MICROVOLT_LSB *
+               (float)registers.shunt_max_current / ((float)registers.shunt_millivolt * 1000.0F);
+    }
+
     // const float CoulombsToAmpHours = 1.0F / 3600.0F;
     const float CoulombsToMilliAmpHours = 1.0F / 3.6F;
 
