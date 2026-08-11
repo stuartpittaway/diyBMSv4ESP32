@@ -42,8 +42,8 @@ String TemplateProcessor(const String &var)
   if (var == "GIT_VERSION")
     return String(GIT_VERSION);
 
-  if (var == "COMPILE_DATE_TIME")
-    return String(COMPILE_DATE_TIME);
+  if (var == "COMMIT_DATE_TIME")
+    return String(COMMIT_DATE_TIME);
 
   if (var == "graph_voltagehigh")
     return String(mysettings.graph_voltagehigh);

@@ -79,19 +79,19 @@ with open(os.path.join(include_dir, 'EmbeddedFiles_Defines.h'), 'w') as f:
     f.write(git_sha[4:8] if git_sha != None else "FFFF")
     f.write(";\n\n")
 
-    f.write("extern const char COMPILE_DATE_TIME[];\n\n")
+    f.write("extern const char COMMIT_DATE_TIME[];\n\n")
 
     # Reported to Victron as the firmware version, so it has to describe the source rather
     # than the moment it was built.
-    f.write("static const uint8_t COMPILE_YEAR_BYTE = ")
+    f.write("static const uint8_t COMMIT_YEAR_BYTE = ")
     f.write(dt.strftime("%y"))
     f.write(";\n\n")
 
-    f.write("static const uint8_t COMPILE_WEEK_NUMBER_BYTE = ")
+    f.write("static const uint8_t COMMIT_WEEK_NUMBER_BYTE = ")
     f.write(str(int(dt.strftime("%W"))))
     f.write(";\n\n")
 
-    f.write("extern const uint32_t COMPILE_DATE_TIME_UTC_EPOCH;\n\n")
+    f.write("extern const uint32_t COMMIT_DATE_TIME_UTC_EPOCH;\n\n")
 
     f.write("#endif")
 
@@ -108,10 +108,10 @@ with open(os.path.join(env.get('PROJECT_DIR'), 'src', 'EmbeddedFiles_Defines.cpp
     f.write(git_sha[0:8] if git_sha != None else "LocalCompile")
     f.write("\";\n\n")
 
-    f.write("extern const char COMPILE_DATE_TIME[] = \"")
+    f.write("extern const char COMMIT_DATE_TIME[] = \"")
     f.write(dt.isoformat()[:-3]+'Z')
     f.write("\";\n\n")
 
-    f.write("extern const uint32_t COMPILE_DATE_TIME_UTC_EPOCH = ")
+    f.write("extern const uint32_t COMMIT_DATE_TIME_UTC_EPOCH = ")
     f.write(str(epoch))
     f.write("UL;\n")
