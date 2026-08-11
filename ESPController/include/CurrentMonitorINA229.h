@@ -374,13 +374,6 @@ private:
         return v;
     }
 
-    // Calculated power output.  Output value in watts. Unsigned representation. Positive value.
-    float Power()
-    {
-        // POWER Power [W] = 3.2 x CURRENT_LSB x POWER
-        return (float)spi_readUint24(INA_REGISTER::POWER) * (float)3.2 * registers.CURRENT_LSB;
-    }
-
     // The INA228 device has an internal temperature sensor which can measure die temperature from –40 °C to +125°C.
     float DieTemperature()
     {

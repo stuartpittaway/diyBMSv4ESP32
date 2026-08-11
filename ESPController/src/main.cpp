@@ -2492,6 +2492,13 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 
   // ESP_LOG_BUFFER_HEXDUMP(TAG, &currentMonitor.modbus, sizeof(currentmonitor_raw_modbus), esp_log_level_t::ESP_LOG_DEBUG);
 
+  // https://github.com/stuartpittaway/diyBMSv4ESP32/issues/240
+  // The shunt board sends a power figure taken from its INA228's POWER register, which is
+  // specified against full scale rather than against the reading, so its error is a fixed
+  // number of watts.  Voltage and current arrive in the same reply and are specified
+  // against the reading, so use those instead - the same thing the onboard monitor does.
+  currentMonitor.modbus.power = currentMonitor.modbus.voltage * abs(currentMonitor.modbus.current);
+
   currentMonitor.timestamp = esp_timer_get_time();
 
   // High byte
