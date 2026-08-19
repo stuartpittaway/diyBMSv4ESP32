@@ -298,14 +298,14 @@ void CurrentMonitorINA229::TakeReadings()
 {
     voltage = BusVoltage();
     current = Current();
-    power = Power();
 
     // https://github.com/stuartpittaway/diyBMSv4ESP32/issues/240
-    // INA229 is reported to have poor calculation of power at low levels
-    // this workaround overrides the power value below 200W
-    auto pow_val = voltage * abs(current);
-    ESP_LOGD(TAG, "V=%.4f, I=%.4f, P=%.2f, Calc_P=%.2f", voltage, current, power, pow_val);
-    if (pow_val < 200) { power = pow_val; }
+    // The chip's own POWER register is specified against full scale rather than against the
+    // reading - PTME +-0.5% - so its error is a fixed number of watts and swamps a small
+    // reading.  Bus voltage and shunt voltage are specified against the reading, at +-0.05%
+    // gain, so their product is the better figure everywhere, not just below 200W.
+    power = voltage * abs(current);
+    ESP_LOGD(TAG, "V=%.4f, I=%.4f, P=%.2f", voltage, current, power);
 
     temperature = DieTemperature();
     SOC = CalculateSOC();
