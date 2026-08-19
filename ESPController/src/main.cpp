@@ -2560,8 +2560,8 @@ void ProcessDIYBMSCurrentMonitorInternal()
   currentMonitor.modbus.milliamphour_in = currentmon_internal.calc_milliamphour_in();
   currentMonitor.modbus.daily_milliamphour_out = currentmon_internal.calc_daily_milliamphour_out();
   currentMonitor.modbus.daily_milliamphour_in = currentmon_internal.calc_daily_milliamphour_in();
-  currentMonitor.modbus.firmwareversion = (((uint32_t)GIT_VERSION_B1) << 16) + (uint32_t)GIT_VERSION_B2;
-  currentMonitor.modbus.firmwaredatetime = COMPILE_DATE_TIME_UTC_EPOCH;
+  currentMonitor.modbus.firmwareversion = GIT_VERSION_SHORT;
+  currentMonitor.modbus.firmwaredatetime = COMMIT_DATE_TIME_UTC_EPOCH;
 
   /*
 16|TMPOL|Read only
@@ -3789,9 +3789,9 @@ void setup()
  (_|  |  \/   |_)  |  |  __)
          /
 
-CONTROLLER - ver:%s compiled %s
+CONTROLLER - ver:%s commit %s
 ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
-           GIT_VERSION, COMPILE_DATE_TIME,
+           GIT_VERSION, COMMIT_DATE_TIME,
            chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
   esp_core_dump_init();

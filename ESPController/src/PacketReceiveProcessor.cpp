@@ -283,5 +283,8 @@ void PacketReceiveProcessor::ProcessReplySettings()
   // uint16_t
   cmi[m].BoardVersionNumber = _packetbuffer.moduledata[10];
 
+  // Zero from a module from before it reported this
+  cmi[m].CodeYearWeek = _packetbuffer.moduledata[11];
+
   cmi[m].CodeVersionNumber = (_packetbuffer.moduledata[14] << 16) + _packetbuffer.moduledata[15];
 }
