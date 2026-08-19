@@ -3915,7 +3915,7 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
                    mysettings.currentMonitoring_shuntcal);
         }
 
-        mysettings.settingswrittenby = COMPILE_DATE_TIME_UTC_EPOCH;
+        mysettings.settingswrittenby = COMMIT_DATE_TIME_UTC_EPOCH;
         SaveConfiguration(&mysettings);
       }
 
