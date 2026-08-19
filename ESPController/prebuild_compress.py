@@ -5,10 +5,43 @@ import shutil
 import gzip
 import os
 import errno
+import sys
+import importlib
 Import('env')
 
-env.Execute("$PYTHONEXE -m pip install -v htmlmin")
-env.Execute("$PYTHONEXE -m pip install --upgrade htmlmin")
+
+def load_minifier():
+    # Only reach for pip when the minifier is not already usable.  Installing on every build
+    # costs a round trip to the package index each time, and an offline build on a machine
+    # that already has it has no reason to go looking.
+    #
+    # htmlmin2 is a maintained fork of htmlmin, which has had no release since 2020 and no
+    # longer installs at all: it imports "cgi", removed from the standard library in Python
+    # 3.13 (PEP 594).  The fork keeps the same module name.
+    for last_attempt in (False, True):
+        try:
+            import htmlmin
+            return htmlmin.minify
+        except (ImportError, AttributeError) as e:
+            if last_attempt:
+                # Carry on with unminified pages - a build without a network, or on a machine
+                # where pip is locked down, should still produce working firmware.  Say so
+                # loudly though: this used to happen silently, and the pages are not small.
+                print('  WARNING: cannot use htmlmin (%s)' % e)
+                print('  WARNING: pages will be embedded unminified, costing ~20kB of flash')
+                return None
+
+            print('  htmlmin not usable (%s), installing htmlmin2' % e)
+
+            # --force-reinstall also repairs the one messy case: both packages ship the same
+            # "htmlmin" package directory, so on a machine that had the original, removing it
+            # afterwards takes the shared files with it and leaves an importable but empty
+            # module.  A plain install would report "already satisfied" and change nothing.
+            env.Execute('"$PYTHONEXE" -m pip install --upgrade --force-reinstall htmlmin2')
+
+            # That empty module is already in sys.modules, so drop it before trying again.
+            sys.modules.pop('htmlmin', None)
+            importlib.invalidate_caches()
 
 
 def prepare_www_files():
@@ -57,11 +90,28 @@ def prepare_www_files():
         print('  Copying file: ' + file + ' to data dir')
         shutil.copy(file, data_dir)
 
+    # Call htmlmin through its module rather than its command line.  pip puts the console
+    # script next to whichever Python is running PlatformIO, and nothing adds that directory
+    # to PATH for the commands SCons runs, so "htmlmin ..." only resolved when PlatformIO
+    # happened to be installed into a Python already on PATH.
+    minify = load_minifier() if files_to_minify else None
+
     for file in files_to_minify:
+        destination = os.path.join(data_dir, os.path.basename(file))
+
+        if minify is None:
+            print('  Copying file UNMINIFIED: ' + file + ' to data dir')
+            shutil.copy(file, destination)
+            continue
+
         print('  Minify file: ' + file + ' to data dir')
-        shutil.copy(file, os.path.join(data_dir, os.path.basename(file)))
-        env.Execute("htmlmin  --keep-optional-attribute-quotes " +
-                    file+" "+os.path.join(data_dir, os.path.basename(file)))
+
+        with open(file, 'r', encoding='utf-8') as f_in:
+            content = f_in.read()
+
+        # remove_optional_attribute_quotes=False is the old --keep-optional-attribute-quotes.
+        with open(destination, 'w', encoding='utf-8') as f_out:
+            f_out.write(minify(content, remove_optional_attribute_quotes=False))
 
     for file in files_to_gzip:
         print('  GZipping file: ' + file + ' to data dir')
