@@ -3875,6 +3875,29 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
     {
       ESP_LOGI(TAG, "Onboard/internal current monitoring chip available");
 
+      // The ADC range below changes what SHUNT_CAL means, so a calibration saved by an
+      // earlier build belongs to a different scale.  Carry it over once, rather than
+      // applying it as it stands or asking for the shunt to be measured again.
+      //
+      // The constant only has to fall between the last build without the change and this
+      // one, because a build that has the change stamps the settings with its own date.
+      static constexpr uint32_t SHUNT_CAL_SCALE_CHANGED = 1786492800UL; // 2026-08-12
+
+      if (mysettings.settingswrittenby < SHUNT_CAL_SCALE_CHANGED)
+      {
+        if (mysettings.currentMonitoring_shuntcal != 0)
+        {
+          uint16_t saved = mysettings.currentMonitoring_shuntcal;
+          mysettings.currentMonitoring_shuntcal =
+              CurrentMonitorINA229::CarryOverCalibration(saved, mysettings.currentMonitoring_shuntmv);
+          ESP_LOGI(TAG, "Current shunt calibration %u carried over as %u", saved,
+                   mysettings.currentMonitoring_shuntcal);
+        }
+
+        mysettings.settingswrittenby = COMPILE_DATE_TIME_UTC_EPOCH;
+        SaveConfiguration(&mysettings);
+      }
+
       currentmon_internal.Configure(
           mysettings.currentMonitoring_shuntmv,
           mysettings.currentMonitoring_shuntmaxcur,

@@ -36,32 +36,32 @@ void CurrentMonitorINA229::CalculateLSB()
     // in above - click COG icon top left.
     // https://e2e.ti.com/support/amplifiers-group/amplifiers/f/amplifiers-forum/1034569/ina228-accumulated-energy-and-charge-is-wrong
 
-    // 150A/50mV shunt =   full_scale_current= 150.00A / 50.00 * 40.96 = 122.88 AMPS
+    // 150A/50mV shunt =   50.00mV is inside the 163.84mV scale, so no derating
     //                     RSHUNT = (50 / 1000) / 150 = 0.00033333333
     //                     CURRENT_LSB = 150/ 524288 = 0.000286102294921875
-    //                     R_SHUNT_CAL = 52428800000*0.000286102294921875*0.00033333333 = 4999.999 = 5000
+    //                     R_SHUNT_CAL = 13107200000*0.000286102294921875*0.00033333333 = 1249.999 = 1250
 
-    // 300A/75mV shunt =   full_scale_current= 300.00A / 75.00 * 40.96 = 163.84 AMPS
-    //                     RSHUNT = (75 / 1000) / 163.84 = 0.000457763671875
-    //                     CURRENT_LSB = 163.84/ 524288 = 2.648162841796875e-4
-    //                     R_SHUNT_CAL = 52428800000*0.00057220458984375*0.00025 = 7499.9922688 = 7500
+    // 300A/75mV shunt =   75.00mV is inside the 163.84mV scale, so no derating
+    //                     RSHUNT = (75 / 1000) / 300 = 0.00025
+    //                     CURRENT_LSB = 300/ 524288 = 0.00057220458984375
+    //                     R_SHUNT_CAL = 13107200000*0.00057220458984375*0.00025 = 1875
 
     // Calculate CURRENT_LSB and R_SHUNT_CAL values
     // registers.full_scale_current = ((float)registers.shunt_max_current / (float)registers.shunt_millivolt) * full_scale_adc;
     registers.RSHUNT = ((float)registers.shunt_millivolt / 1000.0F) / (float)registers.shunt_max_current;
     registers.CURRENT_LSB = registers.shunt_max_current / (float)0x80000;
-    registers.R_SHUNT_CAL = 4L * (13107200000L * registers.CURRENT_LSB * registers.RSHUNT);
+    registers.R_SHUNT_CAL = 13107200000L * registers.CURRENT_LSB * registers.RSHUNT;
 
     ESP_LOGI(TAG, "RSHUNT=%.8f, CURRENT_LSB=%.8f, R_SHUNT_CAL=%u", registers.RSHUNT, registers.CURRENT_LSB, registers.R_SHUNT_CAL);
 
-    // Will the full scale current be over the 40.96mV range the ADC can handle?
+    // Will the full scale current be over the range the ADC can handle?
     if (((float)registers.shunt_max_current * registers.RSHUNT * 1000.0) > full_scale_adc)
     {
         float true_max_current = ((float)registers.shunt_max_current / (float)registers.shunt_millivolt) * full_scale_adc;
         ESP_LOGW(TAG, "WARNING: True Max Current Measurable %.2f Amps", true_max_current);
 
         registers.CURRENT_LSB = true_max_current / (float)0x80000;
-        registers.R_SHUNT_CAL = 4L * (13107200000L * registers.CURRENT_LSB * registers.RSHUNT);
+        registers.R_SHUNT_CAL = 13107200000L * registers.CURRENT_LSB * registers.RSHUNT;
         ESP_LOGI(TAG, "RECALC: RSHUNT=%.8f, CURRENT_LSB=%.8f, R_SHUNT_CAL=%u", registers.RSHUNT, registers.CURRENT_LSB, registers.R_SHUNT_CAL);
     }
 
@@ -287,11 +287,11 @@ int32_t CurrentMonitorINA229::readInt20(INA_REGISTER r)
 // Shunt voltage in MILLIVOLTS mV
 float CurrentMonitorINA229::ShuntVoltage()
 {
-    // 78.125 nV/LSB when ADCRANGE = 1
+    // 312.5 nV/LSB when ADCRANGE = 0
     // Differential voltage measured across the shunt output. Two's complement value.
     // 20 bit value max = 1048575
     int32_t vshunt = readInt20(INA_REGISTER::VSHUNT);
-    return (float)(((int64_t)vshunt) * 78125UL) / 1000000000.0;
+    return (float)(((int64_t)vshunt) * 312500UL) / 1000000000.0;
 }
 
 void CurrentMonitorINA229::TakeReadings()
@@ -464,9 +464,9 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
     registers.R_SHUNT_TEMPCO = shunttempcoefficient & 0x3FFF;
 
     // Shunt Over Limit (current limit) = overcurrent protection
-    registers.R_SOVL = ConvertTo2sComp((((float)overcurrentlimit / 100.0F) * 1000.0F / 1.25F) * full_scale_adc / registers.shunt_max_current);
+    registers.R_SOVL = ConvertTo2sComp(shunt_limit_register(overcurrentlimit));
     // Shunt UNDER Limit (under current limit) = undercurrent protection
-    registers.R_SUVL = ConvertTo2sComp((((float)undercurrentlimit / 100.0F) * 1000.0F / 1.25F) * full_scale_adc / registers.shunt_max_current);
+    registers.R_SUVL = ConvertTo2sComp(shunt_limit_register(undercurrentlimit));
     // Bus Overvoltage (overvoltage protection).
     registers.R_BOVL = ConvertTo2sComp(((float)overvoltagelimit / 100.0F) / 0.003125F);
     // Bus under voltage protection
@@ -479,7 +479,7 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
 
     // ESP_LOGI(TAG, "undercurrentlimit=%f, R_SUVL=%u", ((float)undercurrentlimit / 100.0F), registers.R_SUVL);
 
-    registers.R_CONFIG = _BV(4); // ADCRANGE = 40.96mV scale
+    registers.R_CONFIG = 0; // ADCRANGE = 0 = 163.84mV scale
 
     if (TemperatureCompEnabled)
     {

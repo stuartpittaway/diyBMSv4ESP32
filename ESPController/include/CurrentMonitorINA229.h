@@ -161,7 +161,7 @@ public:
         // B1111 111 111 010 100 = 0xFFD4
         registers.R_ADC_CONFIG = 0xFFD4;
 
-        registers.R_CONFIG = _BV(4); // ADCRANGE = 40.96mV scale
+        registers.R_CONFIG = 0; // ADCRANGE = 0 = 163.84mV scale
 
         // Defaults for battery capacity/voltages
         registers.batterycapacity_amphour = 280;
@@ -217,6 +217,21 @@ public:
                    uint16_t shunttempcoefficient,
                    bool TemperatureCompEnabled);
 
+    // Firmware before this change ran the ADC on its +-40.96mV range with a derated
+    // CURRENT_LSB, and that pair always calculates the same SHUNT_CAL, whatever shunt is
+    // fitted:
+    //
+    //   4 * 13107.2e6 * (40.96 / 1000 / 2^19) = 4096
+    //
+    // A calibration saved by one of those builds is therefore 4096 carrying the
+    // installation's trim - a percent or two, taking up shunt tolerance.  On the 163.84mV
+    // range the same trim belongs on shunt_millivolt/163.84 of it, so scaling the saved
+    // value across keeps the calibration instead of it having to be measured again.
+    static uint16_t CarryOverCalibration(uint16_t saved, uint16_t shuntmillivolt)
+    {
+        return (uint16_t)lround((float)saved * (float)shuntmillivolt / full_scale_adc);
+    }
+
     void DefaultSOC();
     void TakeReadings();
 
@@ -256,8 +271,8 @@ public:
     }
     float calc_overvoltagelimit()  const{ return (float)ConvertFrom2sComp(registers.R_BOVL) * 0.003125F; }
     float calc_undervoltagelimit()  const{ return (float)ConvertFrom2sComp(registers.R_BUVL) * 0.003125F; }
-    float calc_overcurrentlimit()  const{ return ((float)ConvertFrom2sComp(registers.R_SOVL) / 1000.0F * 1.25F) / full_scale_adc * registers.shunt_max_current; }
-    float calc_undercurrentlimit()  const{ return ((float)ConvertFrom2sComp(registers.R_SUVL) / 1000.0F * 1.25F) / full_scale_adc * registers.shunt_max_current; }
+    float calc_overcurrentlimit()  const{ return shunt_limit_amps(registers.R_SOVL); }
+    float calc_undercurrentlimit()  const{ return shunt_limit_amps(registers.R_SUVL); }
 
     bool calc_tempcompenabled() const { return (registers.R_CONFIG & bit(5)) != 0; }
 
@@ -283,7 +298,59 @@ private:
     float power = 0;
     float temperature = 0;
 
-    const float full_scale_adc = 40.96F;
+    // CONFIG bit 4 (ADCRANGE) selects the shunt voltage full scale.  This driver uses the
+    // wide one, because the web UI offers shunts up to 150mV and the narrow range stops at
+    // 40.96mV - on the narrow range a 150A/50mV shunt reads no further than 122.88A, and a
+    // 500A/150mV shunt no further than 136.53A.
+    //
+    //   ADCRANGE=0  +-163.84mV   VSHUNT  312.5nV/LSB   SOVL/SUVL    5uV/LSB   SHUNT_CAL x1
+    //   ADCRANGE=1   +-40.96mV   VSHUNT 78.125nV/LSB   SOVL/SUVL 1.25uV/LSB   SHUNT_CAL x4
+    //
+    // (INA229 datasheet SLYS023A: table 8-1 full scale, table 7-9 VSHUNT, tables 7-17 and
+    //  7-18 SOVL/SUVL, equation 2 SHUNT_CAL)
+    //
+    // Nothing is given up for it.  Offset voltage, offset drift and gain error are each
+    // specified once, with no ADCRANGE qualifier, and the noise floor is lower in absolute
+    // terms: at the 4120us / 128 sample averaging configured above the datasheet gives 19.7
+    // noise-free bits over +-163.84mV against 17.1 over +-40.96mV, so 385nV against 582nV
+    // (table 8-2).
+    static constexpr float full_scale_adc = 163.84F;
+
+    // SOVL and SUVL hold a shunt voltage, in units of 5uV while ADCRANGE is 0
+    // (INA229 datasheet SLYS023A, tables 7-17 and 7-18).  A current of I amps develops
+    // I * shunt_millivolt / shunt_max_current millivolts across the shunt, so a threshold
+    // of I amps is
+    //
+    //   I * shunt_millivolt * 1000 / (LSB_uV * shunt_max_current)
+    //
+    // A threshold beyond what the ADC can measure cannot be honoured, so clamp rather than
+    // let the value wrap round into a small - or negative - threshold.
+    static constexpr float SHUNT_LIMIT_MICROVOLT_LSB = 5.0F;
+    static constexpr int16_t SHUNT_LIMIT_REGISTER_MAX = 32767;
+
+    int16_t shunt_limit_register(int32_t centiamps) const
+    {
+        float reg = ((float)centiamps / 100.0F) * (float)registers.shunt_millivolt * 1000.0F /
+                    (SHUNT_LIMIT_MICROVOLT_LSB * (float)registers.shunt_max_current);
+
+        if (reg >= (float)SHUNT_LIMIT_REGISTER_MAX)
+        {
+            return SHUNT_LIMIT_REGISTER_MAX;
+        }
+        if (reg <= (float)-SHUNT_LIMIT_REGISTER_MAX)
+        {
+            return -SHUNT_LIMIT_REGISTER_MAX;
+        }
+        return (int16_t)reg;
+    }
+
+    float shunt_limit_amps(uint16_t reg) const
+    {
+        return (float)ConvertFrom2sComp(reg) * SHUNT_LIMIT_MICROVOLT_LSB *
+               (float)registers.shunt_max_current / ((float)registers.shunt_millivolt * 1000.0F);
+    }
+
+
     // const float CoulombsToAmpHours = 1.0F / 3600.0F;
     const float CoulombsToMilliAmpHours = 1.0F / 3.6F;
 
