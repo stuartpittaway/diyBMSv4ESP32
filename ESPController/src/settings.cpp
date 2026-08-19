@@ -2,6 +2,7 @@
 static constexpr const char *const TAG = "diybms-set";
 
 #include "settings.h"
+#include <algorithm>  // for std::find_if used in applyRulesSettings
 
 /*
 THESE STRINGS ARE USED AS KEYS IN THE JSON SETTINGS BACKUP FILES
@@ -776,9 +777,10 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->daylight = false;
     strncpy(_myset->ntpServer, "time.google.com", sizeof(_myset->ntpServer));
 
-    for (size_t x = 0; x < RELAY_TOTAL; x++)
+    // initialize defaults using range-based loops instead of index arithmetic
+    for (auto &relay : _myset->rulerelaydefault)
     {
-        _myset->rulerelaydefault[x] = RELAY_OFF;
+        relay = RELAY_OFF;
     }
 
     // Emergency stop
@@ -817,16 +819,16 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     {
         _myset->rulehysteresis[i] = _myset->rulevalue[i];
 
-        // Set all relays to don't care
-        for (size_t x = 0; x < RELAY_TOTAL; x++)
+        // Set all relays to don't care using range-based inner loop
+        for (auto &state : _myset->rulerelaystate[i])
         {
-            _myset->rulerelaystate[i][x] = RELAY_X;
+            state = RELAY_X;
         }
     }
 
-    for (size_t x = 0; x < RELAY_TOTAL; x++)
+    for (auto &t : _myset->relaytype)
     {
-        _myset->relaytype[x] = RELAY_STANDARD;
+        t = RELAY_STANDARD;
     }
 
     // Default which "tiles" are visible on the web gui
@@ -930,149 +932,107 @@ bool LoadWIFI(wifi_eeprom_settings *wifi)
     return result;
 }
 
+// helper that applies numeric and range limits
+static void enforceNumericLimits(diybms_eeprom_settings *settings, const diybms_eeprom_settings &defaults)
+{
+    if (settings->influxdb_loggingFreqSeconds < 5)
+        settings->influxdb_loggingFreqSeconds = defaults.influxdb_loggingFreqSeconds;
+
+    if (settings->rs485baudrate < 300)
+        settings->rs485baudrate = defaults.rs485baudrate;
+
+    if (settings->baudRate < 300)
+        settings->baudRate = defaults.baudRate;
+
+    if (settings->graph_voltagehigh > 5000 || settings->graph_voltagehigh < 2000)
+        settings->graph_voltagehigh = defaults.graph_voltagehigh;
+
+    if (settings->graph_voltagelow > settings->graph_voltagehigh)
+        settings->graph_voltagelow = 0;
+
+    if (settings->cellmaxmv > settings->cellmaxspikemv)
+        settings->cellmaxmv = defaults.cellmaxmv;
+    if (settings->cellmaxmv < settings->cellminmv)
+        settings->cellmaxmv = settings->cellminmv;
+    if (settings->cellminmv > settings->cellmaxmv)
+        settings->cellminmv = settings->cellmaxmv;
+    if (settings->kneemv > settings->cellmaxmv || settings->kneemv > settings->cellmaxspikemv)
+        settings->kneemv = defaults.kneemv;
+
+    // sensitivity between 10 and 1000
+    if (settings->sensitivity < 10)
+        settings->sensitivity = 10;
+    else if (settings->sensitivity > 1000)
+        settings->sensitivity = 1000;
+
+    if (settings->current_value1 > 1000)
+        settings->current_value1 = 1000;
+    if (settings->current_value2 > 1000)
+        settings->current_value2 = 1000;
+
+    if (settings->floatvoltage > settings->chargevolt)
+        settings->floatvoltage = settings->chargevolt;
+}
+
+
+static void ensurePulseRelaysOff(diybms_eeprom_settings *settings)
+{
+    // simply iterate by index since we need the parallel array index
+    for (size_t idx = 0; idx < RELAY_TOTAL; ++idx)
+    {
+        if (settings->relaytype[idx] == RelayType::RELAY_PULSE)
+        {
+            settings->rulerelaydefault[idx] = RelayState::RELAY_OFF;
+        }
+    }
+}
+
+static void adjustHysteresis(diybms_eeprom_settings *settings)
+{
+    static const std::array<Rule, 7> lower = {Rule::CurrentMonitorOverCurrentAmps,
+                                              Rule::ModuleOverVoltage,
+                                              Rule::ModuleOverTemperatureInternal,
+                                              Rule::ModuleOverTemperatureExternal,
+                                              Rule::CurrentMonitorOverVoltage,
+                                              Rule::BankOverVoltage,
+                                              Rule::BankRange};
+    for (auto idx : lower)
+    {
+        if (settings->rulehysteresis[idx] > settings->rulevalue[idx])
+        {
+            ESP_LOGI(TAG, "Fixed LOWER hysteresis %u from %i to %i", (uint8_t)idx,
+                     settings->rulehysteresis[idx], settings->rulevalue[idx]);
+            settings->rulehysteresis[idx] = settings->rulevalue[idx];
+        }
+    }
+
+    static const std::array<Rule, 7> greater = {Rule::ModuleUnderVoltage,
+                                                Rule::ModuleUnderTemperatureInternal,
+                                                Rule::ModuleUnderTemperatureExternal,
+                                                Rule::CurrentMonitorUnderVoltage,
+                                                Rule::BankUnderVoltage,
+                                                Rule::Timer2,
+                                                Rule::Timer1};
+    for (auto idx : greater)
+    {
+        if (settings->rulehysteresis[idx] < settings->rulevalue[idx])
+        {
+            ESP_LOGI(TAG, "Fixed GREATER hysteresis %u from %i to %i", (uint8_t)idx,
+                     settings->rulehysteresis[idx], settings->rulevalue[idx]);
+            settings->rulehysteresis[idx] = settings->rulevalue[idx];
+        }
+    }
+}
+
 // Validate configuration and force correction if needed.
 void ValidateConfiguration(diybms_eeprom_settings *settings)
 {
     diybms_eeprom_settings defaults;
     DefaultConfiguration(&defaults);
 
-    // Check its not zero
-    if (settings->influxdb_loggingFreqSeconds < 5)
-    {
-        settings->influxdb_loggingFreqSeconds = defaults.influxdb_loggingFreqSeconds;
-    }
-
-    if (settings->rs485baudrate < 300)
-    {
-        settings->rs485baudrate = defaults.rs485baudrate;
-    }
-
-    if (settings->baudRate < 300)
-    {
-        settings->baudRate = defaults.baudRate;
-    }
-
-    if (settings->graph_voltagehigh > 5000 || settings->graph_voltagehigh < 2000)
-    {
-        settings->graph_voltagehigh = defaults.graph_voltagehigh;
-    }
-
-    if (settings->graph_voltagelow > settings->graph_voltagehigh)
-    {
-        settings->graph_voltagelow = 0;
-    }
-
-    if (settings->cellmaxmv > settings->cellmaxspikemv)
-    {
-        settings->cellmaxmv = defaults.cellmaxmv;
-    }
-    if (settings->cellmaxmv < settings->cellminmv)
-    {
-        settings->cellmaxmv = settings->cellminmv;
-    }
-    if (settings->cellminmv > settings->cellmaxmv)
-    {
-        settings->cellminmv = settings->cellmaxmv;
-    }
-    if (settings->kneemv > settings->cellmaxmv || settings->kneemv > settings->cellmaxspikemv)
-    {
-        settings->kneemv = defaults.kneemv;
-    }
-
-    // Limit to 1
-    if (settings->sensitivity < 1 * 10)
-    {
-        settings->sensitivity = 1 * 10;
-    }
-    // Limit to 100
-    if (settings->sensitivity > 100 * 10)
-    {
-        settings->sensitivity = 100 * 10;
-    }
-
-    // Limit to 100
-    if (settings->current_value1 > 100 * 10)
-    {
-        settings->current_value1 = 100 * 10;
-    }
-    if (settings->current_value2 > 100 * 10)
-    {
-        settings->current_value2 = 100 * 10;
-    }
-
-    // Ensure that all PULSE relays default to OFF (pulse will only pulse on/off not off/on)
-    for (uint8_t i = 0; i < RELAY_TOTAL; i++)
-    {
-        if (settings->relaytype[i] == RelayType::RELAY_PULSE)
-        {
-            settings->rulerelaydefault[i] = RelayState::RELAY_OFF;
-        }
-    }
-
-    // Ensure trigger and reset (rulevalue and rulehysteresis) values make sense and
-    // the rulehysteresis value is either greater or lower than rulevalue as required.
-
-    // These rules expect the hysteresis (reset) value to be LOWER than the trigger value
-    const Rule hysteresis_lower[] = {Rule::CurrentMonitorOverCurrentAmps,
-                                     Rule::ModuleOverVoltage,
-                                     Rule::ModuleOverTemperatureInternal,
-                                     Rule::ModuleOverTemperatureExternal,
-                                     Rule::CurrentMonitorOverVoltage,
-                                     Rule::BankOverVoltage,
-                                     Rule::BankRange};
-
-    for (size_t i = 0; i < sizeof(hysteresis_lower); i++)
-    {
-        Rule index = hysteresis_lower[i];
-
-        if (settings->rulehysteresis[index] > settings->rulevalue[index])
-        {
-            ESP_LOGI(TAG, "Fixed LOWER hysteresis %u from %i to %i", (uint8_t)index, settings->rulehysteresis[index], settings->rulevalue[index]);
-            settings->rulehysteresis[index] = settings->rulevalue[index];
-        }
-    }
-
-    // These rules expect the hysteresis (reset) value to be GREATER than the trigger value
-    const Rule hysteresis_greater[] = {Rule::ModuleUnderVoltage,
-                                       Rule::ModuleUnderTemperatureInternal,
-                                       Rule::ModuleUnderTemperatureExternal,
-                                       Rule::CurrentMonitorUnderVoltage,
-                                       Rule::BankUnderVoltage,
-                                       Rule::Timer2,
-                                       Rule::Timer1};
-
-    for (size_t i = 0; i < sizeof(hysteresis_greater); i++)
-    {
-        Rule index = hysteresis_greater[i];
-
-        if (settings->rulehysteresis[index] < settings->rulevalue[index])
-        {
-            ESP_LOGI(TAG, "Fixed GREATER hysteresis %u from %i to %i", (uint8_t)index, settings->rulehysteresis[index], settings->rulevalue[index]);
-            settings->rulehysteresis[index] = settings->rulevalue[index];
-        }
-    }
-
-    // 24hr max
-    if (settings->absorptiontimer > 60 * 24)
-    {
-        settings->absorptiontimer = settings->absorptiontimer;
-    }
-    if (settings->floatvoltagetimer > 60 * 24)
-    {
-        settings->floatvoltagetimer = settings->floatvoltagetimer;
-    }
-
-    // Float voltage must be equal or below charge voltage
-    if (settings->floatvoltage > settings->chargevolt)
-    {
-        settings->floatvoltage = settings->chargevolt;
-    }
-
-    // SoC cannot be over 99%
-    if (settings->stateofchargeresumevalue > 99)
-    {
-        settings->stateofchargeresumevalue = settings->stateofchargeresumevalue;
-    }
+    enforceNumericLimits(settings, defaults);
+    ensurePulseRelaysOff(settings);
+    adjustHysteresis(settings);
 }
 
 // Builds up a JSON document which mirrors the parameters inside "diybms_eeprom_settings"
@@ -1141,9 +1101,9 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
 
     JsonObject outputs = root["outputs"].to<JsonObject>();
     JsonArray d = outputs["default"].to<JsonArray>();
-    ;
+    
     JsonArray t = outputs["type"].to<JsonArray>();
-    ;
+    
     for (uint8_t i = 0; i < RELAY_TOTAL; i++)
     {
         d.add(settings->rulerelaydefault[i]);
@@ -1173,10 +1133,10 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
         state["hysteresis"] = settings->rulehysteresis[rr];
 
         JsonArray relaystate = state["state"].to<JsonArray>();
-        ;
-        for (uint8_t rt = 0; rt < RELAY_TOTAL; rt++)
+        // iterate over the fixed-size relay state array rather than using indices
+        for (auto s : settings->rulerelaystate[rr])
         {
-            relaystate.add(settings->rulerelaystate[rr][rt]);
+            relaystate.add(s);
         }
     } // end for
 
@@ -1216,9 +1176,9 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     root[stateofchargeresumevalue_JSONKEY] = settings->stateofchargeresumevalue;
 
     JsonArray tv = root["tilevisibility"].to<JsonArray>();
-    for (uint8_t i = 0; i < sizeof(settings->tileconfig) / sizeof(uint16_t); i++)
+    for (auto tile : settings->tileconfig)
     {
-        tv.add(settings->tileconfig[i]);
+        tv.add(tile);
     }
 
     // wifi["password"] = DIYBMSSoftAP::Config().wifi_passphrase;
@@ -1231,19 +1191,9 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
 
 }
 
-void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
+// helpers for JSONToSettings to keep complexity low
+static void applyBasicSettings(const JsonObject &root, diybms_eeprom_settings *settings)
 {
-    // Use defaults to populate the settings, just in case we are missing values from the JSON
-    DefaultConfiguration(settings);
-
-    if (!doc.containsKey("diybms_settings"))
-    {
-        // Wrong document type - quit...
-        return;
-    }
-
-    JsonObject root = doc["diybms_settings"];
-
     settings->totalNumberOfBanks = root[totalNumberOfBanks_JSONKEY];
     settings->totalNumberOfSeriesModules = root[totalNumberOfSeriesModules_JSONKEY];
     settings->baudRate = root[baudRate_JSONKEY];
@@ -1327,103 +1277,132 @@ void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
     settings->soh_total_milliamphour_out = root[soh_total_milliamphour_out_JSONKEY];
     settings->soh_total_milliamphour_in = root[soh_total_milliamphour_in_JSONKEY];
     settings->soh_lifetime_battery_cycles = root[soh_lifetime_battery_cycles_JSONKEY];
-    settings->soh_eol_capacity=root[soh_eol_capacity_JSONKEY];
-
+    settings->soh_eol_capacity = root[soh_eol_capacity_JSONKEY];
 
     strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
+}
 
+static void applyMqttSettings(const JsonObject &root, diybms_eeprom_settings *settings)
+{
     JsonObject mqtt = root["mqtt"];
-    if (!mqtt.isNull())
-    {
-        settings->mqtt_enabled = mqtt[mqtt_enabled_JSONKEY];
-        settings->mqtt_basic_cell_reporting = mqtt[mqtt_basic_cell_reporting_JSONKEY];
-        strncpy(settings->mqtt_uri, mqtt[mqtt_uri_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_uri));
-        strncpy(settings->mqtt_topic, mqtt[mqtt_topic_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_topic));
-        strncpy(settings->mqtt_username, mqtt[mqtt_username_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_username));
-        strncpy(settings->mqtt_password, mqtt[mqtt_password_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_password));
-    }
+    if (mqtt.isNull())
+        return;
 
+    settings->mqtt_enabled = mqtt[mqtt_enabled_JSONKEY];
+    settings->mqtt_basic_cell_reporting = mqtt[mqtt_basic_cell_reporting_JSONKEY];
+    strncpy(settings->mqtt_uri, mqtt[mqtt_uri_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_uri));
+    strncpy(settings->mqtt_topic, mqtt[mqtt_topic_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_topic));
+    strncpy(settings->mqtt_username, mqtt[mqtt_username_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_username));
+    strncpy(settings->mqtt_password, mqtt[mqtt_password_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_password));
+}
+
+static void applyInfluxdbSettings(const JsonObject &root, diybms_eeprom_settings *settings)
+{
     JsonObject influxdb = root["influxdb"];
-    if (!influxdb.isNull())
-    {
-        settings->influxdb_enabled = influxdb[influxdb_enabled_JSONKEY];
-        strncpy(settings->influxdb_apitoken, influxdb[influxdb_apitoken_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_apitoken));
-        strncpy(settings->influxdb_databasebucket, influxdb[influxdb_databasebucket_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_databasebucket));
-        strncpy(settings->influxdb_orgid, influxdb[influxdb_orgid_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_orgid));
-        strncpy(settings->influxdb_serverurl, influxdb[influxdb_serverurl_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_serverurl));
-        settings->influxdb_loggingFreqSeconds = influxdb[influxdb_loggingFreqSeconds_JSONKEY];
-    }
+    if (influxdb.isNull())
+        return;
 
+    settings->influxdb_enabled = influxdb[influxdb_enabled_JSONKEY];
+    strncpy(settings->influxdb_apitoken, influxdb[influxdb_apitoken_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_apitoken));
+    strncpy(settings->influxdb_databasebucket, influxdb[influxdb_databasebucket_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_databasebucket));
+    strncpy(settings->influxdb_orgid, influxdb[influxdb_orgid_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_orgid));
+    strncpy(settings->influxdb_serverurl, influxdb[influxdb_serverurl_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_serverurl));
+    settings->influxdb_loggingFreqSeconds = influxdb[influxdb_loggingFreqSeconds_JSONKEY];
+}
+
+static void applyOutputsSettings(const JsonObject &root, diybms_eeprom_settings *settings)
+{
     JsonObject outputs = root["outputs"];
-    if (!outputs.isNull())
+    if (outputs.isNull())
+        return;
+
+    JsonArray d = outputs["default"].as<JsonArray>();
+    uint8_t i = 0;
+    for (JsonVariant v : d)
     {
-        JsonArray d = outputs["default"].as<JsonArray>();
-
-        uint8_t i = 0;
-        for (JsonVariant v : d)
-        {
-            settings->rulerelaydefault[i] = (RelayState)v.as<uint8_t>();
-            // ESP_LOGI(TAG, "relay default %u=%u", i, myset.rulerelaydefault[i]);
-            i++;
-
-            if (i > RELAY_TOTAL)
-            {
-                break;
-            }
-        }
-
-        JsonArray t = outputs["type"].as<JsonArray>();
-        i = 0;
-        for (JsonVariant v : t)
-        {
-            settings->relaytype[i] = (RelayType)v.as<uint8_t>();
-            // ESP_LOGI(TAG, "relay type %u=%u", i, myset.relaytype[i]);
-            i++;
-            if (i > RELAY_TOTAL)
-            {
-                break;
-            }
-        }
+        settings->rulerelaydefault[i] = (RelayState)v.as<uint8_t>();
+        if (++i > RELAY_TOTAL) break;
     }
 
-    JsonObject rules = root["rules"];
-    if (!rules.isNull())
+    JsonArray t = outputs["type"].as<JsonArray>();
+    i = 0;
+    for (JsonVariant v : t)
     {
-        for (JsonPair kv : rules)
+        settings->relaytype[i] = (RelayType)v.as<uint8_t>();
+        if (++i > RELAY_TOTAL) break;
+    }
+}
+
+static void applyRulesSettings(const JsonObject &root, diybms_eeprom_settings *settings)
+{
+    JsonObject rules = root["rules"];
+    if (rules.isNull())
+        return;
+
+    for (JsonPair kv : rules)
+    {
+        const char *key = kv.key().c_str();
+        // find the rule number by comparing against the description array
         {
-            for (size_t rulenumber = 0; rulenumber <= MAXIMUM_RuleNumber; rulenumber++)
+            auto it = std::find_if(Rules::RuleTextDescription.begin(),
+                                   Rules::RuleTextDescription.end(),
+                                   [key](const std::string &desc) { return desc == key; });
+            if (it != Rules::RuleTextDescription.end())
             {
-                if (Rules::RuleTextDescription.at(rulenumber).compare(kv.key().c_str()) == 0)
+                size_t rulenumber = std::distance(Rules::RuleTextDescription.begin(), it);
+
+                JsonVariant v = kv.value();
+                settings->rulevalue[rulenumber] = v["value"].as<int32_t>();
+                settings->rulehysteresis[rulenumber] = v["hysteresis"].as<int32_t>();
+                JsonArray states = v["state"].as<JsonArray>();
+
+                ESP_LOGI(TAG, "Matched to rule %u:%s, value=%i,hysteresis=%i", rulenumber,
+                         Rules::RuleTextDescription.at(rulenumber).c_str(),
+                         settings->rulevalue[rulenumber],
+                         settings->rulehysteresis[rulenumber]);
+
+                uint8_t i = 0;
+                for (JsonVariant x : states)
                 {
-                    JsonVariant v = kv.value();
-                    settings->rulevalue[rulenumber] = v["value"].as<int32_t>();
-                    settings->rulehysteresis[rulenumber] = v["hysteresis"].as<int32_t>();
-                    JsonArray states = v["state"].as<JsonArray>();
-
-                    ESP_LOGI(TAG, "Matched to rule %u:%s, value=%i,hysteresis=%i", rulenumber, Rules::RuleTextDescription.at(rulenumber).c_str(), settings->rulevalue[rulenumber], settings->rulehysteresis[rulenumber]);
-
-                    uint8_t i = 0;
-                    for (JsonVariant x : states)
-                    {
-                        settings->rulerelaystate[rulenumber][i] = (RelayState)x.as<uint8_t>();
-                        // ESP_LOGI(TAG, "rulerelaystate %u", myset.rulerelaystate[rulenumber][i]);
-                        i++;
-                        if (i > RELAY_TOTAL)
-                        {
-                            break;
-                        }
-                    }
-
-                    break;
+                    settings->rulerelaystate[rulenumber][i] = (RelayState)x.as<uint8_t>();
+                    if (++i > RELAY_TOTAL) break;
                 }
             }
         }
     }
+}
 
+static void applyTileVisibility(const JsonObject &root, diybms_eeprom_settings *settings)
+{
     uint8_t i = 0;
     for (JsonVariant v : root["tilevisibility"].as<JsonArray>())
     {
-        // Need to check for over flow of tileconfig array
-        settings->tileconfig[i] = v.as<uint16_t>();
+        settings->tileconfig[i++] = v.as<uint16_t>();
     }
+}
+
+static void applyNestedObjects(const JsonObject &root, diybms_eeprom_settings *settings)
+{
+    applyMqttSettings(root, settings);
+    applyInfluxdbSettings(root, settings);
+    applyOutputsSettings(root, settings);
+    applyRulesSettings(root, settings);
+    applyTileVisibility(root, settings);
+}
+
+void JSONToSettings(JsonDocument &doc, diybms_eeprom_settings *settings)
+{
+    // Use defaults to populate the settings, just in case we are missing values from the JSON
+    DefaultConfiguration(settings);
+
+    if (!doc["diybms_settings"].is<JsonObject>())
+    {
+        // Wrong document type - quit...
+        return;
+    }
+
+    JsonObject root = doc["diybms_settings"];
+
+    applyBasicSettings(root, settings);
+    applyNestedObjects(root, settings);
 }

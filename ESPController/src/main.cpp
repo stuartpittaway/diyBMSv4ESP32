@@ -422,9 +422,9 @@ bool check_sdcard_freespace()
 }
 
 /// @brief Log cell monitoring data to SDCARD
-/// @param filename
-/// @param timeinfo
-void log_cell_monitoring_data_to_sdcard(std::string filename, const tm timeinfo)
+/// @param filename path of file (read-only)
+/// @param timeinfo local time snapshot (read-only)
+void log_cell_monitoring_data_to_sdcard(const std::string &filename, const tm &timeinfo)
 {
   if (!check_sdcard_freespace())
   {
@@ -541,7 +541,7 @@ void log_cell_monitoring_data_to_sdcard(std::string filename, const tm timeinfo)
 /// @brief Log current monitoring data to SD CARD
 /// @param cmon_filename
 /// @param timeinfo
-void log_current_data_to_sdcard(std::string cmon_filename, const tm timeinfo)
+void log_current_data_to_sdcard(const std::string &cmon_filename, const tm &timeinfo)
 {
   if (!check_sdcard_freespace())
   {
@@ -681,7 +681,7 @@ void log_current_data_to_sdcard(std::string cmon_filename, const tm timeinfo)
   }
 }
 
-void sdcardlog_output(std::string filename, const tm timeinfo)
+void sdcardlog_output(const std::string &filename, const tm &timeinfo)
 {
   if (!check_sdcard_freespace())
   {
@@ -1751,11 +1751,11 @@ void BuildHostname()
     chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
   }
   // DIYBMS-00000000
-  char buffer[10];
-  snprintf(buffer, sizeof(buffer), "%08X", chipId);
+  std::array<char, 10> buffer{}; // room for 8 hex digits + null
+  snprintf(buffer.data(), buffer.size(), "%08X", chipId);
 
   hostname.clear();
-  hostname.append("DIYBMS-").append(buffer);
+  hostname.append("DIYBMS-").append(buffer.data());
 }
 
 void wifi_init_sta(void)
@@ -1867,19 +1867,27 @@ uint16_t calculateCRC(const uint8_t *f, uint8_t bufferSize)
   return temp;
 }
 
+#include <cstring> // memcpy
+
 uint8_t SetMobusRegistersFromFloat(uint8_t *cmd, uint8_t ptr, float value)
 {
-  FloatUnionType fut;
-  fut.value = value;
-  // 4 bytes
-  cmd[ptr] = (uint8_t)(fut.word[0] >> 8);
-  ptr++;
-  cmd[ptr] = (uint8_t)(fut.word[0] & 0xFF);
-  ptr++;
-  cmd[ptr] = (uint8_t)(fut.word[1] >> 8);
-  ptr++;
-  cmd[ptr] = (uint8_t)(fut.word[1] & 0xFF);
-  ptr++;
+  // reinterpret the float bits using memcpy to avoid undefined behaviour
+  static_assert(sizeof(uint32_t) == sizeof(float), "unexpected float size");
+
+  uint32_t asInt;
+  std::memcpy(&asInt, &value, sizeof(asInt));
+
+  // produce same byte order as the previous union-based code
+  uint8_t byte0 = asInt & 0xFF;
+  uint8_t byte1 = (asInt >> 8) & 0xFF;
+  uint8_t byte2 = (asInt >> 16) & 0xFF;
+  uint8_t byte3 = (asInt >> 24) & 0xFF;
+
+  // network/modbus order: byte1, byte0, byte3, byte2
+  cmd[ptr++] = byte1;
+  cmd[ptr++] = byte0;
+  cmd[ptr++] = byte3;
+  cmd[ptr++] = byte2;
 
   return ptr;
 }
@@ -2161,7 +2169,7 @@ void CurrentMonitorSetBasicSettings(uint16_t shuntmv, uint16_t shuntmaxcur, uint
 }
 
 // Save the current monitor advanced settings back to the internal device
-void CurrentMonitorSetRelaySettingsInternal(currentmonitoring_struct newvalues)
+void CurrentMonitorSetRelaySettingsInternal(const currentmonitoring_struct &newvalues)
 {
   // Internal current shunt doesn't support any of the relay trigger values
   // so only TempCompEnabled is stored
@@ -2196,7 +2204,7 @@ void CurrentMonitorSetRelaySettingsInternal(currentmonitoring_struct newvalues)
 }
 
 // Save the current monitor advanced settings back to the device over MODBUS/RS485
-void CurrentMonitorSetRelaySettingsExternal(currentmonitoring_struct newvalues)
+void CurrentMonitorSetRelaySettingsExternal(const currentmonitoring_struct &newvalues)
 {
   uint8_t flag1 = 0;
   uint8_t flag2 = 0;
@@ -2414,11 +2422,17 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   {
     mysettings.currentMonitoring_shuntcal = newvalues.modbus.shuntcal;
     mysettings.currentMonitoring_temperaturelimit = newvalues.modbus.temperaturelimit;
-    mysettings.currentMonitoring_overvoltagelimit = 100 * newvalues.modbus.overvoltagelimit;
-    mysettings.currentMonitoring_undervoltagelimit = 100 * newvalues.modbus.undervoltagelimit;
-    mysettings.currentMonitoring_overcurrentlimit = 100 * newvalues.modbus.overcurrentlimit;
-    mysettings.currentMonitoring_undercurrentlimit = 100 * newvalues.modbus.undercurrentlimit;
-    mysettings.currentMonitoring_overpowerlimit = newvalues.modbus.overpowerlimit;
+    // convert floats to scaled integers with explicit cast to avoid precision warnings
+    mysettings.currentMonitoring_overvoltagelimit = static_cast<int16_t>(
+        100.0f * newvalues.modbus.overvoltagelimit + 0.5f);
+    mysettings.currentMonitoring_undervoltagelimit = static_cast<int16_t>(
+        100.0f * newvalues.modbus.undervoltagelimit + 0.5f);
+    mysettings.currentMonitoring_overcurrentlimit = static_cast<int32_t>(
+        100.0f * newvalues.modbus.overcurrentlimit + 0.5f);
+    mysettings.currentMonitoring_undercurrentlimit = static_cast<int32_t>(
+        100.0f * newvalues.modbus.undercurrentlimit + 0.5f);
+    mysettings.currentMonitoring_overpowerlimit = static_cast<int32_t>(
+        newvalues.modbus.overpowerlimit + 0.5f);
     mysettings.currentMonitoring_shunttempcoefficient = newvalues.modbus.shunttempcoefficient;
     ValidateConfiguration(&mysettings);
     SaveConfiguration(&mysettings);
@@ -3616,7 +3630,7 @@ bool LoadWiFiConfigFromSDCard(const bool existingConfigValid)
   wifi["ssid"].as<String>().toCharArray(_new_config.wifi_ssid, sizeof(_new_config.wifi_ssid));
   wifi["password"].as<String>().toCharArray(_new_config.wifi_passphrase, sizeof(_new_config.wifi_passphrase));
 
-  if (wifi.containsKey("ip"))
+  if (wifi["ip"].is<String>())
   {
     // If the "ip" key exists, then it must be the newer format WIFI JSON document
     ip4_addr_t ipadd;
@@ -4041,7 +4055,7 @@ void ESPCoreDumpToJSON(JsonObject &doc)
     JsonObject core = doc["coredump"].to<JsonObject>();
     // A valid core dump is in FLASH storage
 
-    esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
+    auto *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
     if (summary)
     {
       if (esp_core_dump_get_summary(summary) == ESP_OK)
@@ -4075,14 +4089,12 @@ void ESPCoreDumpToJSON(JsonObject &doc)
         core["exc_vaddr"] = outputString;
 
         auto exc_a = core["exc_a"].to<JsonArray>();
-        ;
         for (auto value : summary->ex_info.exc_a)
         {
           ultoa(value, outputString, 16);
           exc_a.add(outputString);
         }
         auto epcx = core["epcx"].to<JsonArray>();
-        ;
         for (auto value : summary->ex_info.epcx)
         {
           ultoa(value, outputString, 16);

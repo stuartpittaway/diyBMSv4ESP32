@@ -74,7 +74,7 @@ private:
     uint16_t dynamicChargeVoltage;
     uint16_t dynamicChargeCurrent;
 
-    bool SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings);
+    bool SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings) const;
 
     /// @brief Calculate future time (specified in minutes)
     /// @param minutes number of minutes to delay for
