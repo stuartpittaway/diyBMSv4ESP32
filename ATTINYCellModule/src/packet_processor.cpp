@@ -408,6 +408,8 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
     return true;
   }
 
+#if defined(__AVR_ATtinyx24__)
+  // Nur tinyAVR-2 (V450): der ATtiny841 hat keinen Platz fuer Bootloader und Update-Code
   case COMMAND::FirmwareControl:
   {
     // Versionsvergleich / Bootloader anfordern
@@ -419,6 +421,7 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
     }
     return processed;
   }
+#endif
   }
 
   return false;

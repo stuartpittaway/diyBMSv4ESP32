@@ -3,6 +3,12 @@
  * (siehe include/fwupdate_module.h und ../common/fwupdate_protocol.h)
  */
 
+// Nur fuer tinyAVR-2 (ATtiny1624/3224) und die PC-Simulation
+#if !defined(FW_HOST_TEST)
+#include <Arduino.h> // definiert __AVR_ATtinyx24__ (megaTinyCore)
+#endif
+#if defined(FW_HOST_TEST) || defined(__AVR_ATtinyx24__)
+
 #if defined(FW_HOST_TEST)
 #include <stdint.h>
 #include <string.h>
@@ -143,3 +149,5 @@ void FwUpdate_EnterBootloader()
   }
 }
 #endif
+
+#endif // FW_HOST_TEST || __AVR_ATtinyx24__

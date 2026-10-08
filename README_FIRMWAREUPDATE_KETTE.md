@@ -37,6 +37,19 @@ Einmalig pro Modul wird der Bootloader per **UPDI** geschrieben. Dafür reicht a
 Der ATtiny3224 (doppelter Flash) wäre pinkompatibel, ist bei JLCPCB aber kaum lagernd und wird nicht
 gebraucht.
 
+## Neustart ohne Spannungsunterbrechung
+
+Alle Neustarts sind Software-Resets (`RSTCTRL.SWRR`): Anwendung → Bootloader und nach dem Update
+Bootloader → neue Anwendung. Die Module bleiben an der Zelle, der ESP32 läuft weiter.
+Auch nach der einmaligen UPDI-Programmierung ist kein Abklemmen nötig (der Programmer setzt den Chip zurück).
+
+## Alte Module mit ATtiny841 (V400–V440)
+
+Nicht unterstützt. Der ATtiny841 hat nur 8 KB Flash, die vorhandene Firmware belegt ihn fast vollständig,
+und er hat keinen geschützten Boot-Bereich. Für diese Module ist der neue Code abgeschaltet
+(Build-Größe praktisch unverändert). In einer gemischten Kette leiten sie die Update-Pakete weiter
+und erscheinen als „keine Antwort“; sie werden weiter per ISP programmiert.
+
 ## Erstinbetriebnahme (je Modul einmal, per UPDI)
 
 Baudrate passend zum Controller wählen (`V450_BL_5K` oder `V450_BL_10K`):
