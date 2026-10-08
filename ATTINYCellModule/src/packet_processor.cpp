@@ -407,6 +407,18 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
     MilliAmpHourBalanceCounter = 0;
     return true;
   }
+
+  case COMMAND::FirmwareControl:
+  {
+    // Versionsvergleich / Bootloader anfordern
+    bool enterBoot = false;
+    bool processed = FwUpdate_HandleControl(buffer, mymoduleaddress, &enterBoot);
+    if (enterBoot)
+    {
+      EnterBootloaderRequested = true;
+    }
+    return processed;
+  }
   }
 
   return false;

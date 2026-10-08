@@ -1,6 +1,7 @@
 import os
 from os import path
 import json
+import zlib
 from shutil import copyfile
 
 Import("env")
@@ -77,8 +78,18 @@ def generatejson(target, source, env):
             break
 
     if str(env["BOARD_MCU"]).lower()=="attiny1624":
+        entry = {'board': board, 'name':  newfilename, 'ver': env["git_sha_short"],'mcu':signature,'efuse':0,'hfuse':0,'lfuse':0}
+        if "FW_WITH_BOOTLOADER" in defines:
+            # Image fuer das Update ueber die RX/TX-Kette (Anwendung ab 0x0600, ohne Bootloader)
+            with open(source, 'rb') as binfile:
+                image = binfile.read()
+            entry['chain'] = 1
+            entry['boardver'] = int(defines.get("DIYBMSMODULEVERSION"))
+            entry['baud'] = int(defines.get("DIYBMSBAUD"))
+            entry['len'] = len(image)
+            entry['crc32'] = "%08x" % (zlib.crc32(image) & 0xffffffff)
         #Add the new entry
-        data['avrprog'].append({'board': board, 'name':  newfilename, 'ver': env["git_sha_short"],'mcu':signature,'efuse':0,'hfuse':0,'lfuse':0})
+        data['avrprog'].append(entry)
 
     if str(env["BOARD_MCU"]).lower()=="attiny824":
         #Add the new entry

@@ -135,6 +135,8 @@ ISR(ADC_vect)
 }
 #endif
 
+void StopBalance();
+
 void onPacketReceived()
 {
   diyBMSHAL::EnableSerial0TX();
@@ -158,6 +160,15 @@ void onPacketReceived()
   diyBMSHAL::FlushSerial0();
 
   diyBMSHAL::NotificationLedOff();
+
+#if defined(FW_WITH_BOOTLOADER)
+  if (PP.EnterBootloaderRequested)
+  {
+    // Antwort ist weitergeleitet -> jetzt in den Bootloader (Firmware-Update ueber die Kette)
+    StopBalance();
+    FwUpdate_EnterBootloader();
+  }
+#endif
 }
 
 // Kp: Determines how aggressively the PID reacts to the current amount of error

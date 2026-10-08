@@ -1444,6 +1444,55 @@ $(function () {
     });
 
 
+    var modFwResultText = ["keine Antwort", "ohne Bootloader", "aktuell", "wartet", "l&auml;uft", "aktualisiert", "FEHLER"];
+
+    function modFwStatusUpdate() {
+        $.getJSON("/api/modfwstatus", function (data) {
+            var txt = data.phase;
+            if (data.busy) {
+                txt += " &ndash; Modul " + data.module;
+                if (data.chunks > 0) {
+                    txt += " &ndash; " + Math.round(100 * data.acked / data.chunks) + "% (" + data.acked + "/" + data.chunks + " Bl&ouml;cke)";
+                }
+            }
+            if (data.len > 0) {
+                txt += "<br/>Image " + data.len + " Byte, CRC32 " + data.crc + ", " + data.updated + " von " + data.todo +
+                    " aktualisiert, " + data.failed + " Fehler, " + Math.round(data.elapsed / 1000) + " s";
+            }
+            if (data.msg) { txt += "<br/>" + $("<div>").text(data.msg).html(); }
+            $("#modfwinfo").html(txt);
+
+            var tb = $("#modfwtable tbody");
+            tb.empty();
+            $.each(data.modules, function (index, value) {
+                tb.append("<tr><td>" + index + "</td><td>" + (modFwResultText[value] || value) + "</td></tr>");
+            });
+
+            $("#ModFwStart").prop('disabled', data.busy == 1 || $("#modfwindex").val() === "");
+            if (data.busy == 1 && $("#avrprogPage").is(":visible")) {
+                setTimeout(modFwStatusUpdate, 2000);
+            }
+        });
+    }
+
+    $("#ModFwStart").click(function () {
+        $("#ModFwStart").prop('disabled', true);
+        $.ajax({ type: 'POST', url: '/post/modfwstart', data: { file: $("#modfwindex").val() }, timeout: 30000 })
+            .done(function (data) {
+                $("#modfwinfo").text(data.message);
+                if (data.started) { setTimeout(modFwStatusUpdate, 1000); }
+                else { $("#ModFwStart").prop('disabled', false); }
+            })
+            .fail(function () { $("#modfwinfo").html("Fehler"); $("#ModFwStart").prop('disabled', false); });
+        return true;
+    });
+
+    $("#ModFwAbort").click(function () {
+        $.ajax({ type: 'POST', url: '/post/modfwabort', data: {}, timeout: 10000 })
+            .always(function () { setTimeout(modFwStatusUpdate, 500); });
+        return true;
+    });
+
     $("#avrprogrammer").click(function () {
         $(".header-right a").removeClass("active");
         $(this).addClass("active");
@@ -1487,7 +1536,26 @@ $(function () {
                         $(li).appendTo()
                         $(li).append(aref);
                     });
+
+                    // Images fuer das Update ueber die Kette
+                    $("#modfwfiles").empty();
+                    $("#modfwindex").val("");
+                    $.each(data.avrprog.avrprog, function (index, value) {
+                        if (value.chain != 1) { return; }
+                        var li = $("<li></li>");
+                        var label = value.board + " (" + value.ver + ", " + value.len + " Byte, " + value.baud + " Baud)";
+                        var a = $("<a href='#'></a>").text(label).data("index", index).on("click", function (event) {
+                            event.preventDefault();
+                            $("#modfwfiles a").css("font-weight", "normal");
+                            $(this).css("font-weight", "bold");
+                            $("#modfwindex").val($(this).data("index"));
+                            $("#ModFwStart").prop('disabled', false);
+                        });
+                        li.append(a);
+                        $("#modfwfiles").append(li);
+                    });
                 }
+                modFwStatusUpdate();
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
 

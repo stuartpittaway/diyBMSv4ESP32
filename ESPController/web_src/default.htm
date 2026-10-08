@@ -1219,6 +1219,24 @@
                 <p id='avrinfo'></p>
             </div>
         </div>
+        <div class="region" id="modfwregion">
+            <h2>Modul-Firmware &uuml;ber die RX/TX-Kette</h2>
+            <p>F&uuml;r Module mit Bootloader (Firmware-Varianten <strong>V450_BL_*</strong>). Die Module bleiben
+                angeschlossen. Jedes Modul vergleicht seine Firmware mit der ausgew&auml;hlten Datei; abweichende
+                Module werden nacheinander aktualisiert, die &uuml;brigen leiten die Daten nur weiter. W&auml;hrend
+                ein Modul aktualisiert wird, sind seine Messwerte eingefroren.</p>
+            <ul id="modfwfiles"></ul>
+            <div>
+                <input type="hidden" value="" id="modfwindex" />
+                <button type="button" id="ModFwStart" disabled>Update starten</button>
+                <button type="button" id="ModFwAbort">Abbrechen</button>
+            </div>
+            <p id="modfwinfo"></p>
+            <table id="modfwtable" class="datatable">
+                <thead><tr><th>Modul</th><th>Status</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 
     <div class="page" id="storagePage">

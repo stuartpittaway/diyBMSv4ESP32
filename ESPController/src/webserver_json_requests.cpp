@@ -4,6 +4,7 @@ static constexpr const char *const TAG = "diybms-webreq";
 #include "webserver.h"
 #include "webserver_helper_funcs.h"
 #include "webserver_json_requests.h"
+#include "ModuleFirmwareUpdateTask.h"
 
 esp_err_t content_handler_avrstorage(httpd_req_t *req)
 {
@@ -19,7 +20,7 @@ esp_err_t content_handler_avrstorage(httpd_req_t *req)
   if (LittleFS.exists(manifest))
   {
     // Use Dynamic to avoid head issues
-    DynamicJsonDocument doc(3000);
+    DynamicJsonDocument doc(6000);
     File file = LittleFS.open(manifest);
     DeserializationError error = deserializeJson(doc, file);
     if (error)
@@ -29,7 +30,22 @@ esp_err_t content_handler_avrstorage(httpd_req_t *req)
     }
     else
     {
-      bufferused += serializeJson(doc, &httpbuf[bufferused], BUFSIZE - bufferused);
+      // Nur die Felder ausgeben, die die Weboberflaeche braucht (passt so in httpbuf)
+      DynamicJsonDocument out(2500);
+      JsonArray list = out.createNestedArray("avrprog");
+      for (JsonObject e : doc["avrprog"].as<JsonArray>())
+      {
+        JsonObject o = list.createNestedObject();
+        o["board"] = e["board"];
+        o["ver"] = e["ver"];
+        if ((e["chain"] | 0) == 1)
+        {
+          o["chain"] = 1;
+          o["len"] = e["len"];
+          o["baud"] = e["baud"];
+        }
+      }
+      bufferused += serializeJson(out, &httpbuf[bufferused], BUFSIZE - bufferused);
     }
     file.close();
   }
@@ -480,6 +496,13 @@ esp_err_t content_handler_modules(httpd_req_t *req)
     // It failed!
     return httpd_resp_send_500(req);
   }
+}
+
+// Status des Modul-Firmware-Updates ueber die Kette
+esp_err_t content_handler_modfwstatus(httpd_req_t *req)
+{
+  int bufferused = ModuleFwUpdate_StatusJson(httpbuf, BUFSIZE);
+  return httpd_resp_send(req, httpbuf, bufferused);
 }
 
 esp_err_t content_handler_avrstatus(httpd_req_t *req)
@@ -1113,7 +1136,7 @@ esp_err_t api_handler(httpd_req_t *req)
       "monitor2", "monitor3", "integration", "settings", "rules",
       "victron", "rs485settings", "currentmonitor",
       "avrstatus", "modules", "identifyModule", "storage",
-      "avrstorage"};
+      "avrstorage", "modfwstatus"};
 
   esp_err_t (*func_ptr[])(httpd_req_t * req) = {
       content_handler_monitor2,
@@ -1128,7 +1151,8 @@ esp_err_t api_handler(httpd_req_t *req)
       content_handler_modules,
       content_handler_identifymodule,
       content_handler_storage,
-      content_handler_avrstorage};
+      content_handler_avrstorage,
+      content_handler_modfwstatus};
 
   // Sanity check arrays are the same size
   ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);

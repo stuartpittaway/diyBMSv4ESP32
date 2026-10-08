@@ -4,6 +4,9 @@ static constexpr const char *const TAG = "diybms-webpost";
 #include "webserver.h"
 #include "webserver_json_post.h"
 #include "webserver_helper_funcs.h"
+#include "ModuleFirmwareUpdateTask.h"
+
+extern uint16_t TotalNumberOfCells();
 
 esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
@@ -797,7 +800,7 @@ esp_err_t post_avrprog_json_handler(httpd_req_t *req, bool urlEncoded)
 
     if (LittleFS.exists(manifestfilename))
     {
-        DynamicJsonDocument jsonmanifest(3000);
+        DynamicJsonDocument jsonmanifest(6000);
         File file = LittleFS.open(manifestfilename);
         DeserializationError error = deserializeJson(jsonmanifest, file);
         if (error != DeserializationError::Ok)
@@ -1238,6 +1241,33 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendFailure(req);
 }
 
+// Firmware-Update der Zellmodule ueber die RX/TX-Kette starten (file = Index in /avr/manifest.json)
+esp_err_t post_modfwstart_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    uint16_t filenumber;
+    if (!GetKeyValue(httpbuf, "file", &filenumber, urlEncoded))
+    {
+        return SendFailure(req);
+    }
+
+    char message[128];
+    bool started = ModuleFwUpdate_Start(filenumber, (uint8_t)TotalNumberOfCells(), mysettings.baudRate, message, sizeof(message));
+
+    DynamicJsonDocument doc(256);
+    doc["started"] = started ? 1 : 0;
+    doc["message"] = message;
+    httpd_resp_set_type(req, "application/json");
+    setNoStoreCacheControl(req);
+    int bufferused = serializeJson(doc, httpbuf, BUFSIZE);
+    return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t post_modfwabort_json_handler(httpd_req_t *req, bool)
+{
+    ModuleFwUpdate_Abort();
+    return SendSuccess(req);
+}
+
 esp_err_t save_data_handler(httpd_req_t *req)
 {
     // ESP_LOGI(TAG, "JSON call");
@@ -1262,7 +1292,8 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "restartcontroller", "saverules", "savedisplaysetting", "savestorage",
         "resetcounters", "sdmount", "sdunmount", "enableavrprog",
         "disableavrprog", "avrprog", "savers485settings", "savecurrentmon",
-        "savecmbasic", "savecmadvanced", "savecmrelay", "savevictron", "restoreconfig"};
+        "savecmbasic", "savecmadvanced", "savecmrelay", "savevictron", "restoreconfig",
+        "modfwstart", "modfwabort"};
 
     esp_err_t (*func_ptr[])(httpd_req_t * req, bool urlEncoded) = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
@@ -1273,7 +1304,8 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_sdmount_json_handler, post_sdunmount_json_handler, post_enableavrprog_json_handler,
         post_disableavrprog_json_handler, post_avrprog_json_handler, post_savers485settings_json_handler,
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
-        post_savecmrelay_json_handler, post_savevictron_json_handler, post_restoreconfig_json_handler};
+        post_savecmrelay_json_handler, post_savevictron_json_handler, post_restoreconfig_json_handler,
+        post_modfwstart_json_handler, post_modfwabort_json_handler};
 
     // Sanity check arrays are the same size
     ESP_ERROR_CHECK(sizeof(func_ptr) == sizeof(uri_array) ? ESP_OK : ESP_FAIL);
