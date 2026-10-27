@@ -86,34 +86,6 @@ function upload_file() {
 
 }
 
-function upload_firmware() {
-    $("#progress").show();
-    $("#status_div").text("Upload in progress");
-    let data = document.getElementById("file_sel").files[0];
-    xhr = new XMLHttpRequest();
-    xhr.open("POST", "/ota", true);
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-    xhr.upload.addEventListener("progress", function (event) {
-        if (event.lengthComputable) {
-            document.getElementById("progress").style.width = (event.loaded / event.total) * 100 + "%";
-        }
-    });
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === XMLHttpRequest.DONE) {
-            let status = xhr.status;
-            if (status >= 200 && status < 400) {
-                $("#status_div").text("Upload accepted. BMS will reboot.");
-            } else {
-                $("#status_div").text("Upload rejected!");
-            }
-            $("#progress").hide();
-        }
-    };
-    xhr.send(data);
-    return false;
-}
-
-
 function CalculateChargeCurrent(value1, value2, highestCellVoltage, maximumchargecurrent, kneemv, cellmaxmv) {
     if (highestCellVoltage < kneemv) {
         // Voltage is below the knee voltage, so use full current
@@ -1936,7 +1908,106 @@ $(function () {
         switchPage("#utilityPage");
 
         $("#setsoc").val(75.5);
+        otaRefreshCurrent();
     });
+
+    function otaSetBar(pct, busy) {
+        $("#otaprog").show().toggleClass("busy", !!busy);
+        $("#otaprog > div").css("width", pct + "%");
+    }
+
+    // Show running partition (app0/app1) and uptime next to the firmware version
+    function otaShowCurrent(d) {
+        var v = $("#otaver").text();
+        if (v.length > 8) { $("#otaver").text(v.substring(0, 8)).attr("title", v); }
+        if (d && d.part !== undefined) {
+            $("#otacur").text(", partition " + d.part + ", uptime " + Math.max(0, Math.round(d.uptime || 0)) + " s");
+        }
+        if (d && d.max) { otaMaxSize = d.max; }
+    }
+
+    var otaMaxSize = 0;
+
+    // After a firmware upload or "Restart Controller": wait until the controller has restarted,
+    // then reload the page. Restarted = uptime smaller than the time we have been waiting, or
+    // "Invalid cookie" (HTTP 400, the controller uses a new session key after a restart).
+    //   started   Date.now() when the restart was requested
+    //   info      element for the status messages
+    //   onTimeout called if the controller has not come back after 60 s (re-enable buttons etc.)
+    function ctrlWaitForRestart(started, info, onTimeout) {
+        var waited = Math.round((Date.now() - started) / 1000);
+        var next = function () {
+            if (waited >= 60) {
+                $(info).text("Controller did not come back within 60 s - check the display or power cycle the controller, then refresh the page (F5).");
+                if (onTimeout) { onTimeout(); }
+                return;
+            }
+            $(info).text("Controller is restarting ... " + waited + " s");
+            setTimeout(ctrlWaitForRestart, 1000, started, info, onTimeout);
+        };
+        $.ajax({ type: "GET", url: "/api/otastatus", dataType: "json", timeout: 2000, cache: false })
+            .done(function (d) {
+                if (d && d.uptime !== undefined && d.uptime <= waited + 5) {
+                    $(info).text("Controller has restarted (partition " + d.part + ") - reloading page ...");
+                    setTimeout(function () { location.reload(); }, 1500);
+                    return;
+                }
+                next();
+            })
+            .fail(function (x) {
+                if (x && x.status == 400) {
+                    $(info).text("Controller has restarted - reloading page ...");
+                    setTimeout(function () { location.reload(); }, 1000);
+                    return;
+                }
+                next();
+            });
+    }
+
+    function otaRefreshCurrent() {
+        $.ajax({ type: "GET", url: "/api/otastatus", dataType: "json", timeout: 3000, cache: false }).done(otaShowCurrent);
+    }
+
+    $("#OtaUpload").click(function () {
+        var f = $("#otafile")[0].files[0];
+        if (!f) { $("#otainfo").text("Please select the firmware file first."); return true; }
+        if (otaMaxSize > 0 && f.size > otaMaxSize) { $("#otainfo").text("File is too large for the OTA partition - is this the full flash image? Please use the over-the-air image."); return true; }
+        if (!confirm("Upload '" + f.name + "' to the controller? The controller restarts afterwards.")) { return true; }
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/ota?xss=" + encodeURIComponent(XSS_KEY), true);
+        xhr.setRequestHeader("Content-Type", "application/octet-stream");
+        otaSetBar(0, true);
+        $("#otainfo").text("Connecting ...");
+        $("#OtaUpload").prop('disabled', true);
+        xhr.upload.onprogress = function (e) {
+            if (e.lengthComputable) {
+                var p = Math.round(100 * e.loaded / e.total);
+                otaSetBar(Math.max(2, Math.min(p, 99)), p >= 99);
+                $("#otainfo").text(p >= 99 ? "Checking firmware ..." : "Uploading and writing ... " + p + " %");
+            }
+        };
+        xhr.onload = function () {
+            var d;
+            try { d = JSON.parse(xhr.responseText); } catch (e) { d = { ok: 0, message: "Error HTTP " + xhr.status }; }
+            if (d.ok) {
+                otaSetBar(100, true);
+                $("#otainfo").text(d.message);
+                var t0 = Date.now();
+                setTimeout(ctrlWaitForRestart, 2000, t0, "#otainfo", function () {
+                    otaSetBar(100, false);
+                    $("#OtaUpload").prop('disabled', false);
+                });
+            } else {
+                otaSetBar(0, false);
+                $("#otainfo").text(d.message);
+                $("#OtaUpload").prop('disabled', false);
+            }
+        };
+        xhr.onerror = function () { otaSetBar(0, false); $("#otainfo").text("Upload failed - refresh the page and try again."); $("#OtaUpload").prop('disabled', false); };
+        xhr.send(f);
+        return true;
+    });
+
 
     $("#avrprogrammer").click(function () {
         $(".header-right a").removeClass("active");
@@ -2135,6 +2206,22 @@ $(function () {
         });
     });
 
+    // Restart Controller: wait for the restart like after a firmware upload, then reload
+    $("#restartControllerForm").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        $("#restartControllerForm button").prop('disabled', true);
+        $("#restartinfo").text("Restart requested ...");
+        var t0 = Date.now();
+        $.ajax({ type: 'POST', url: '/post/restartcontroller', data: $(this).serialize(), timeout: 5000 })
+            .always(function () {
+                setTimeout(ctrlWaitForRestart, 2000, t0, "#restartinfo", function () {
+                    $("#restartControllerForm button").prop('disabled', false);
+                });
+            });
+        return false;
+    });
+
+
     $("#haForm").unbind('submit').submit(function (e) {
         e.preventDefault();
 
@@ -2151,6 +2238,7 @@ $(function () {
             },
         });
     });
+
 
 
     $("#rulesForm").unbind('submit').submit(function (e) {
@@ -2272,7 +2360,7 @@ $(function () {
     });
 
     $.ajaxPrefilter(function (options, originalOptions, jqXHR) {
-        if (originalOptions.type.toUpperCase() !== 'POST' || options.type.toUpperCase() !== 'POST') {
+        if ((originalOptions.type || 'GET').toUpperCase() !== 'POST' || (options.type || 'GET').toUpperCase() !== 'POST') {
             return;
         }
 
@@ -2300,8 +2388,6 @@ $(function () {
         timer_postTileVisibiltity = setTimeout(postTileVisibiltity, 3500);
     });
 
-    $("#file_sel").change(function () { upload_firmware(); });
-    $("#uploadfw").click(function () { $("#file_sel").click(); });
 
     $("#uploadfile").click(function () { $("#uploadfile_sel").click(); });
     $("#uploadfile_sel").change(function () { upload_file(); });

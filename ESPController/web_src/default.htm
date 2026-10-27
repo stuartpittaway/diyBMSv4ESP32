@@ -1549,6 +1549,7 @@
           <button type="submit">Restart Controller</button>
         </div>
       </form>
+      <p id="restartinfo" class="note"></p>
 
       <h2>Set DIYBMS Current Monitor State Of Charge</h2>
       <form id="setSOCForm" method="POST" action="/post/setsoc" autocomplete="off">
@@ -1562,26 +1563,31 @@
       </form>
     </div>
 
-    <div class="region">
+    <div class="region" id="esp32otaregion">
       <h2 id="ap12">Controller Firmware Upgrade</h2>
-      <p>
+      <p id="ota1">
         Use this feature to upload a new firmware to a running controller. Recommend saving configuration before
         updating. Controller will reboot after update. This function will not update module firmware or files.
       </p>
-      <p>The file you need to upload is usually called "esp32-controller-firmware-over-the-air.bin".</p>
+      <p>
+        <span id="ota2">Running firmware:</span> <strong id="otaver">%GIT_VERSION%</strong>, %COMPILE_DATE_TIME%<span id="otacur"></span>
+      </p>
+      <p id="ota3">
+        The file you need to upload is usually called "esp32-controller-firmware-over-the-air.bin" (not the full flash
+        image). If the transfer or the image check fails, the current firmware stays active. The page reloads by itself
+        once the controller has restarted.
+      </p>
       <p>
         <img src="warning.png" width="48" height="41" alt="Warning" />
         Note: Do not attempt this when the battery is charging/discharging. The BMS will not operate whilst update is
         running, external interfaces like RS485 and CAN will be disabled during update.
       </p>
       <div>
-        <button id="uploadfw" type="button">Upload new firmware</button>
-        <input type="file" id="file_sel" style="display: none" />
-        <div class="progress">
-          <div class="progress__bar" id="progress"></div>
-        </div>
-        <div class="status" id="status_div"></div>
+        <input type="file" id="otafile" accept=".bin" />
+        <button type="button" id="OtaUpload">Upload new firmware</button>
       </div>
+      <div class="prog" id="otaprog"><div></div></div>
+      <p id="otainfo" class="note"></p>
     </div>
   </div>
 

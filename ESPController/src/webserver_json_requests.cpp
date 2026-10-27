@@ -10,6 +10,7 @@ extern "C"
 {
 #include "esp_core_dump.h"
 }
+#include "esp32_ota.h"
 
 esp_err_t content_handler_avrstorage(httpd_req_t *req)
 {
@@ -1371,21 +1372,21 @@ esp_err_t api_handler(httpd_req_t *req)
     return ESP_FAIL;
   }
 
-  const std::array<std::string, 16> uri_array = {
+  const std::array<std::string, 17> uri_array = {
       "monitor2", "monitor3", "integration",
       "settings", "rules", "rs485settings",
       "currentmonitor", "avrstatus", "modules",
       "identifyModule", "storage", "avrstorage",
       "chargeconfig", "tileconfig", "history",
-      "diagnostic"};
+      "diagnostic", "otastatus"};
 
-  const std::array<std::function<esp_err_t(httpd_req_t * req)>, 16> func_ptr = {
+  const std::array<std::function<esp_err_t(httpd_req_t * req)>, 17> func_ptr = {
       content_handler_monitor2, content_handler_monitor3, content_handler_integration,
       content_handler_settings, content_handler_rules, content_handler_rs485settings,
       content_handler_currentmonitor, content_handler_avrstatus, content_handler_modules,
       content_handler_identifymodule, content_handler_storage, content_handler_avrstorage,
       content_handler_chargeconfig, content_handler_tileconfig, content_handler_history,
-      content_handler_diagnostic};
+      content_handler_diagnostic, ESP32Ota_StatusHandler};
 
   // Ensure arrays are equal length
   assert(uri_array.size() == func_ptr.size());

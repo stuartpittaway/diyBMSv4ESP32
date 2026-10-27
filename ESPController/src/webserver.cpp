@@ -8,6 +8,7 @@ static constexpr const char *const TAG = "diybms-web";
 // #define USE_WEBSOCKET_DEBUG_LOG
 
 #include "webserver.h"
+#include "esp32_ota.h"
 #include "webserver_helper_funcs.h"
 #include "webserver_json_requests.h"
 #include "webserver_json_post.h"
@@ -422,106 +423,7 @@ static esp_err_t uploadfile_post_handler(httpd_req_t *req)
   httpd_resp_send(req, NULL, 0);
   return ESP_OK;
 }
-//-----------------------------------------------------------------------------
-// Over the air firmware upgrade - note this is not securely implemented
-// anyone on the local LAN can send new ESP32 firmware to the controller
-//
-static esp_err_t ota_post_handler(httpd_req_t *req)
-{
-  if (!validateXSS(req))
-  {
-    // validateXSS has already sent httpd_resp_send_err...
-    return false;
-  }
-
-  httpd_resp_set_status(req, HTTPD_500); // Assume failure
-
-  int ret, remaining = req->content_len;
-  ESP_LOGI(TAG, "OTA Receiving");
-
-  esp_ota_handle_t update_handle = 0;
-  const esp_partition_t *update_partition = esp_ota_get_next_update_partition(NULL);
-  const esp_partition_t *running = esp_ota_get_running_partition();
-  esp_err_t err = ESP_OK;
-
-  if (update_partition == NULL)
-  {
-    ESP_LOGE(TAG, "OTA Failed, no partition");
-    goto return_failure;
-  }
-
-  ESP_LOGD(TAG, "OTA Writing: type %d, subtype %d, offset 0x%08x", update_partition->type, update_partition->subtype, update_partition->address);
-  ESP_LOGD(TAG, "OTA Running: type %d, subtype %d, offset 0x%08x", running->type, running->subtype, running->address);
-  err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
-  if (err != ESP_OK)
-  {
-    ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
-    goto return_failure;
-  }
-
-  suspendTasksDuringFirmwareUpdate();
-
-  while (remaining > 0)
-  {
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-    // Read the data for the request
-    if ((ret = httpd_req_recv(req, httpbuf, MIN(remaining, BUFSIZE))) <= 0)
-    {
-      if (ret == HTTPD_SOCK_ERR_TIMEOUT)
-      {
-        // Retry receiving if timeout occurred
-        continue;
-      }
-
-      goto return_failure;
-    }
-
-    size_t bytes_read = ret;
-
-    remaining -= bytes_read;
-    err = esp_ota_write(update_handle, httpbuf, bytes_read);
-    if (err != ESP_OK)
-    {
-      goto return_failure;
-    }
-    ESP_LOGD(TAG, "OTA Write: remaining %d", remaining);
-
-    // Allow other tasks to do stuff (avoid watchdog timeouts)
-    vTaskDelay(10);
-  }
-
-  ESP_LOGI(TAG, "OTA Receiving complete");
-
-  // End response
-  if ((esp_ota_end(update_handle) == ESP_OK) &&
-      (esp_ota_set_boot_partition(update_partition) == ESP_OK))
-  {
-    ESP_LOGI(TAG, "OTA Success?! - Rebooting");
-
-    httpd_resp_set_status(req, HTTPD_200);
-    httpd_resp_send(req, NULL, 0);
-
-    vTaskDelay(2000 / portTICK_RATE_MS);
-    esp_restart();
-
-    return ESP_OK;
-  }
-
-  ESP_LOGE(TAG, "OTA End failed-%s", esp_err_to_name(err));
-
-return_failure:
-
-  if (update_handle)
-  {
-    esp_ota_abort(update_handle);
-  }
-
-  resumeTasksAfterFirmwareUpdateFailure();
-
-  httpd_resp_set_status(req, HTTPD_500); // Assume failure
-  httpd_resp_send(req, nullptr, 0);
-  return ESP_FAIL;
-}
+// Over the air firmware upgrade: see esp32_ota.cpp (ESP32Ota_UploadHandler)
 
 /* URI handler structure for GET /uri */
 static const httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
@@ -533,7 +435,7 @@ static const httpd_uri_t uri_coredump_get = {.uri = "/coredump", .method = HTTP_
 static const httpd_uri_t uri_save_data_post = {.uri = "/post/*", .method = HTTP_POST, .handler = save_data_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_static_content_get = {.uri = "*", .method = HTTP_GET, .handler = static_content_handler, .user_ctx = NULL};
 
-static const httpd_uri_t uri_ota_post = {.uri = "/ota", .method = HTTP_POST, .handler = ota_post_handler, .user_ctx = NULL};
+static const httpd_uri_t uri_ota_post = {.uri = "/ota", .method = HTTP_POST, .handler = ESP32Ota_UploadHandler, .user_ctx = NULL};
 static const httpd_uri_t uri_uploadfile_post = {.uri = "/uploadfile", .method = HTTP_POST, .handler = uploadfile_post_handler, .user_ctx = NULL};
 
 static const httpd_uri_t uri_homeassist_get = {.uri = "/ha", .method = HTTP_GET, .handler = ha_handler, .user_ctx = NULL};

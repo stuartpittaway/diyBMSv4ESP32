@@ -302,3 +302,10 @@ $("label[for='cmVOLTUL']").text("Relaisauslöser: Unterspannung");
 
 //<label for="cmPOL">Relay Trigger: Power</label>
 $("label[for='cmPOL']").text("Relaisauslöser: Stromversorgung");
+
+// Controller Firmware Upgrade (Utilities)
+$("#ap12").text("Controller-Firmware aktualisieren");
+$("#ota1").text("Neue Firmware auf den laufenden Controller laden. Vorher am besten die Konfiguration sichern. Der Controller startet danach neu. Modul-Firmware und Dateien werden dabei nicht aktualisiert.");
+$("#ota2").text("Laufende Firmware:");
+$("#ota3").text("Die Datei heißt normalerweise \"esp32-controller-firmware-over-the-air.bin\" (nicht das komplette Flash-Image). Schlägt die Übertragung oder die Prüfung fehl, bleibt die bisherige Firmware aktiv. Nach dem Neustart lädt die Seite von selbst neu.");
+$("#OtaUpload").text("Neue Firmware hochladen");
