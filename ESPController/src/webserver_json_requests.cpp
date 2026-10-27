@@ -10,6 +10,8 @@ extern "C"
 {
 #include "esp_core_dump.h"
 }
+#include "esp32_ota.h"
+#include "ModuleFirmwareUpdateTask.h"
 
 esp_err_t content_handler_avrstorage(httpd_req_t *req)
 {
@@ -35,7 +37,25 @@ esp_err_t content_handler_avrstorage(httpd_req_t *req)
     }
     else
     {
-      bufferused += serializeJson(doc, &httpbuf[bufferused], BUFSIZE - bufferused);
+      // Only output the fields the web interface needs (so it fits into httpbuf)
+      JsonDocument out;
+      JsonArray list = out["avrprog"].to<JsonArray>();
+      for (JsonObject e : doc["avrprog"].as<JsonArray>())
+      {
+        JsonObject o = list.add<JsonObject>();
+        o["board"] = e["board"];
+        o["ver"] = e["ver"];
+        if ((e["chain"] | 0) == 1)
+        {
+          o["chain"] = 1;
+          o["len"] = e["len"];
+          o["baud"] = e["baud"];
+          o["crc32"] = e["crc32"];
+          if ((e["upload"] | 0) == 1)
+            o["upload"] = 1;
+        }
+      }
+      bufferused += serializeJson(out, &httpbuf[bufferused], BUFSIZE - bufferused);
     }
     file.close();
   }
@@ -557,6 +577,14 @@ esp_err_t content_handler_modules(httpd_req_t *req)
 
   int bufferused = 0;
   bufferused += serializeJson(doc, httpbuf, BUFSIZE);
+  return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+// Status of the module firmware update over the chain
+
+esp_err_t content_handler_modfwstatus(httpd_req_t *req)
+{
+  int bufferused = ModuleFwUpdate_StatusJson(httpbuf, BUFSIZE);
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
@@ -1371,21 +1399,21 @@ esp_err_t api_handler(httpd_req_t *req)
     return ESP_FAIL;
   }
 
-  const std::array<std::string, 16> uri_array = {
+  const std::array<std::string, 18> uri_array = {
       "monitor2", "monitor3", "integration",
       "settings", "rules", "rs485settings",
       "currentmonitor", "avrstatus", "modules",
       "identifyModule", "storage", "avrstorage",
       "chargeconfig", "tileconfig", "history",
-      "diagnostic"};
+      "diagnostic", "otastatus", "modfwstatus"};
 
-  const std::array<std::function<esp_err_t(httpd_req_t * req)>, 16> func_ptr = {
+  const std::array<std::function<esp_err_t(httpd_req_t * req)>, 18> func_ptr = {
       content_handler_monitor2, content_handler_monitor3, content_handler_integration,
       content_handler_settings, content_handler_rules, content_handler_rs485settings,
       content_handler_currentmonitor, content_handler_avrstatus, content_handler_modules,
       content_handler_identifymodule, content_handler_storage, content_handler_avrstorage,
       content_handler_chargeconfig, content_handler_tileconfig, content_handler_history,
-      content_handler_diagnostic};
+      content_handler_diagnostic, ESP32Ota_StatusHandler, content_handler_modfwstatus};
 
   // Ensure arrays are equal length
   assert(uri_array.size() == func_ptr.size());

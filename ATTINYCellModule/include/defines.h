@@ -45,7 +45,12 @@ enum COMMAND: uint8_t
     Timing=8,
     ReadBalanceCurrentCounter=9,
     ReadPacketReceivedCounter=10,
-    ResetBalanceCurrentCounter=11
+    ResetBalanceCurrentCounter=11,
+    // Firmware update over the module chain (see ../common/fwupdate_protocol.h)
+
+    FirmwareControl=12,
+    FirmwareData=13,
+    FirmwareReport=14
 };
 
 

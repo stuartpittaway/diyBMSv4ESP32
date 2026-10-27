@@ -135,6 +135,8 @@ ISR(ADC_vect)
 }
 #endif
 
+void StopBalance();
+
 void onPacketReceived()
 {
   diyBMSHAL::EnableSerial0TX();
@@ -158,6 +160,15 @@ void onPacketReceived()
   diyBMSHAL::FlushSerial0();
 
   diyBMSHAL::NotificationLedOff();
+
+#if defined(FW_WITH_BOOTLOADER)
+  if (PP.EnterBootloaderRequested)
+  {
+    // The reply has been forwarded -> now enter the bootloader (firmware update over the chain)
+    StopBalance();
+    FwUpdate_EnterBootloader();
+  }
+#endif
 }
 
 // Kp: Determines how aggressively the PID reacts to the current amount of error
@@ -266,6 +277,13 @@ void setup()
   }
 
   ValidateConfiguration();
+
+#if defined(__AVR_ATtinyx24__)
+  // Calculate the CRC32 of our own firmware once (about 0.15 s), reported by FW_CMD_REPORT
+
+  FwUpdate_InitOwnCrc();
+  wdt_reset();
+#endif
 
 #if defined(DIYBMSMODULEVERSION) && DIYBMSMODULEVERSION < 440
   diyBMSHAL::double_tap_blue_led();

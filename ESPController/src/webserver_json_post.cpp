@@ -5,6 +5,10 @@ static constexpr const char *const TAG = "diybms-webpost";
 #include "webserver_json_post.h"
 #include "webserver_helper_funcs.h"
 #include <esp_netif.h>
+#include "esp32_ota.h"
+#include "ModuleFirmwareUpdateTask.h"
+
+extern uint16_t TotalNumberOfCells();
 
 esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 {
@@ -143,10 +147,9 @@ Restart controller from web interface
 */
 esp_err_t post_restartcontroller_json_handler(httpd_req_t *req, bool urlEncoded)
 {
-    // Reboot!
-    ESP.restart();
-
-    return SendSuccess(req);
+    // Reply first so the web page can wait for the restart, then restart
+    SendSuccess(req);
+    ESP32Ota_RestartAfterReply("Restart Controller");
 }
 
 esp_err_t post_saveinfluxdbsetting_json_handler(httpd_req_t *req, bool urlEncoded)
@@ -252,41 +255,38 @@ esp_err_t post_savesetting_json_handler(httpd_req_t *req, bool urlEncoded)
                 return SendFailure(req);
             }
 
-            uint8_t BypassOverTempShutdown = 0xFF;
-            uint16_t BypassThresholdmV = 0xFFFF;
+            // Bypass temperature and threshold are only set through the global settings
+            // (post_saveglobalsetting_json_handler). Always send "no change" here (the module
+            // ignores 0xFF / 0xFFFF), even if the page sends values.
+            const uint8_t BypassOverTempShutdown = 0xFF;
+            const uint16_t BypassThresholdmV = 0xFFFF;
             float Calibration = 0xFFFF;
 
-            if (GetKeyValue(httpbuf, "BypassOverTempShutdown", &BypassOverTempShutdown, urlEncoded))
+            if (GetKeyValue(httpbuf, "Calib", &Calibration, urlEncoded))
             {
-                if (GetKeyValue(httpbuf, "BypassThresholdmV", &BypassThresholdmV, urlEncoded))
+                if (prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration))
                 {
-                    if (GetKeyValue(httpbuf, "Calib", &Calibration, urlEncoded))
+
+                    if (cmi[m].BoardVersionNumber == 490)
                     {
-                        if (prg.sendSaveSetting(m, BypassThresholdmV, BypassOverTempShutdown, Calibration))
-                        {
+                        int16_t FanSwitchOnT = 30;
+                        uint16_t RelayMinV = 1000;
+                        uint16_t RelayRangemV = 5;
+                        uint16_t RunAwayMinmV = 4000;
+                        uint16_t RunAwayDiffmV = 100;
 
-                            if (cmi[m].BoardVersionNumber == 490)
-                            {
-                                int16_t FanSwitchOnT = 30;
-                                uint16_t RelayMinV = 1000;
-                                uint16_t RelayRangemV = 5;
-                                uint16_t RunAwayMinmV = 4000;
-                                uint16_t RunAwayDiffmV = 100;
+                        GetKeyValue(httpbuf, "FanSwitchOnT", &FanSwitchOnT, urlEncoded);
+                        GetKeyValue(httpbuf, "RelayMinV", &RelayMinV, urlEncoded);
+                        GetKeyValue(httpbuf, "RelayRange", &RelayRangemV, urlEncoded);
 
-                                GetKeyValue(httpbuf, "FanSwitchOnT", &FanSwitchOnT, urlEncoded);
-                                GetKeyValue(httpbuf, "RelayMinV", &RelayMinV, urlEncoded);
-                                GetKeyValue(httpbuf, "RelayRange", &RelayRangemV, urlEncoded);
+                        GetKeyValue(httpbuf, "RunAwayMinmV", &RunAwayMinmV, urlEncoded);
+                        GetKeyValue(httpbuf, "RunAwayDiffmV", &RunAwayDiffmV, urlEncoded);
 
-                                GetKeyValue(httpbuf, "RunAwayMinmV", &RunAwayMinmV, urlEncoded);
-                                GetKeyValue(httpbuf, "RunAwayDiffmV", &RunAwayDiffmV, urlEncoded);
-
-                                prg.sendSaveAdditionalSetting(m, FanSwitchOnT, RelayMinV, RelayRangemV, RunAwayMinmV, RunAwayDiffmV);
-                            }
-
-                            clearModuleValues(m);
-                            return SendSuccess(req);
-                        }
+                        prg.sendSaveAdditionalSetting(m, FanSwitchOnT, RelayMinV, RelayRangemV, RunAwayMinmV, RunAwayDiffmV);
                     }
+
+                    clearModuleValues(m);
+                    return SendSuccess(req);
                 }
             }
         }
@@ -1202,6 +1202,58 @@ esp_err_t post_restoreconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     return SendFailure(req);
 }
 
+// Start the cell module firmware update over the RX/TX chain (file = index in /avr/manifest.json)
+
+esp_err_t post_modfwstart_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    uint16_t filenumber;
+    if (!GetKeyValue(httpbuf, "file", &filenumber, urlEncoded))
+    {
+        return SendFailure(req);
+    }
+
+    char message[128];
+    bool started = ModuleFwUpdate_Start(filenumber, (uint8_t)TotalNumberOfCells(), mysettings.baudRate, message, sizeof(message));
+
+    JsonDocument doc;
+    doc["started"] = started ? 1 : 0;
+    doc["message"] = message;
+    httpd_resp_set_type(req, "application/json");
+    setNoStoreCacheControl(req);
+    int bufferused = serializeJson(doc, httpbuf, BUFSIZE);
+    return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t post_modfwdelete_json_handler(httpd_req_t *req, bool urlEncoded)
+{
+    uint16_t filenumber;
+    if (!GetKeyValue(httpbuf, "file", &filenumber, urlEncoded))
+    {
+        return SendFailure(req);
+    }
+    char message[96];
+    bool ok = ModuleFwUpdate_DeleteEntry(filenumber, message, sizeof(message));
+    JsonDocument doc;
+    doc["ok"] = ok ? 1 : 0;
+    doc["message"] = message;
+    httpd_resp_set_type(req, "application/json");
+    setNoStoreCacheControl(req);
+    int bufferused = serializeJson(doc, httpbuf, BUFSIZE);
+    return httpd_resp_send(req, httpbuf, bufferused);
+}
+
+esp_err_t post_modfwcheck_json_handler(httpd_req_t *req, bool)
+{
+    ModuleFwUpdate_RequestCrcCheck((uint8_t)TotalNumberOfCells());
+    return SendSuccess(req);
+}
+
+esp_err_t post_modfwabort_json_handler(httpd_req_t *req, bool)
+{
+    ModuleFwUpdate_Abort();
+    return SendSuccess(req);
+}
+
 esp_err_t save_data_handler(httpd_req_t *req)
 {
     // ESP_LOGI(TAG, "JSON call");
@@ -1220,7 +1272,7 @@ esp_err_t save_data_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    std::array<std::string, 30> uri_array = {
+    std::array<std::string, 34> uri_array = {
         "savebankconfig", "saventp", "saveglobalsetting",
         "savemqtt", "saveinfluxdb",
         "saveconfigtofile", "wificonfigtofile",
@@ -1231,9 +1283,10 @@ esp_err_t save_data_handler(httpd_req_t *req)
         "savecurrentmon", "savecmbasic", "savecmadvanced",
         "savecmrelay", "restoreconfig", "savechargeconfig",
         "visibletiles", "dailyahreset", "setsoc",
-        "savenetconfig", "newhaapikey"};
+        "savenetconfig", "newhaapikey",
+        "modfwstart", "modfwabort", "modfwdelete", "modfwcheck"};
 
-    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 30> func_ptr = {
+    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 34> func_ptr = {
         post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
         post_savemqtt_json_handler, post_saveinfluxdbsetting_json_handler,
         post_saveconfigurationtoflash_json_handler, post_savewificonfigtosdcard_json_handler,
@@ -1244,7 +1297,9 @@ esp_err_t save_data_handler(httpd_req_t *req)
         post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
         post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler,
         post_visibletiles_json_handler, post_resetdailyahcount_json_handler, post_setsoc_json_handler,
-        post_savenetconfig_json_handler, post_homeassistant_apikey_json_handler};
+        post_savenetconfig_json_handler, post_homeassistant_apikey_json_handler,
+        post_modfwstart_json_handler, post_modfwabort_json_handler, post_modfwdelete_json_handler,
+        post_modfwcheck_json_handler};
 
     auto name = std::string(req->uri);
 
