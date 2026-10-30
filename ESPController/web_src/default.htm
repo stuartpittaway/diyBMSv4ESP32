@@ -380,6 +380,7 @@
       </table>
       <div id="settingConfig">
         <h2>Settings for module</h2>
+        <div class="cfgrow">
         <form id="settingsForm" method="POST" action="/post/savesetting" autocomplete="off">
           <div class="settings">
             <input name="b" id="b" type="hidden" value="" />
@@ -405,10 +406,7 @@
             </div>
             <div>
               <label for="Calib">Calibration multiplier</label>
-              <input id="Calib" name="Calib" type="number" min="0.5" max="5" step="0.0001" value="1" required="" />
-              <label for="ActualVoltage">Calculator - Actual measured voltage</label>
-              <input id="ActualVoltage" name="ActualVoltage" type="number" min="1" max="5" step="0.001" value="4.2" />
-              <button type="button" id="CalculateCalibration">Calculate</button>
+              <input id="Calib" name="Calib" type="number" min="0.5" max="5" step="any" value="1" required="" />
             </div>
             <div>
               <label for="ExtBCoef">External temperature BCoef</label>
@@ -457,6 +455,99 @@
             <button type="submit">Save settings</button>
           </div>
         </form>
+        <div class="calibleft">
+          <table id="calibTable">
+            <thead><tr><th>#</th><th>mV</th></tr></thead>
+            <tbody id="calibRows">
+              <tr><td>1</td><td></td></tr><tr><td>2</td><td></td></tr><tr><td>3</td><td></td></tr><tr><td>4</td><td></td></tr><tr><td>5</td><td></td></tr>
+              <tr><td>6</td><td></td></tr><tr><td>7</td><td></td></tr><tr><td>8</td><td></td></tr><tr><td>9</td><td></td></tr><tr><td>10</td><td></td></tr>
+            </tbody>
+          </table>
+          <div class="calibcalc">
+            <label for="ActualVoltage">Calculator - Actual measured voltage</label>
+            <input id="ActualVoltage" type="number" min="1" max="5" step="0.001" value="4.2" />
+            <button type="button" id="CalculateCalibration">Calculate</button>
+          </div>
+        </div>
+        <div id="calibPanel">
+          <h3 id="calibTitle">Calibration</h3>
+          <div class="calibrow">
+            <div class="calibdata">
+              <div class="calibsum">
+                <div><span id="calibLblCount">Readings</span><b id="calibCount">0 / 10</b></div>
+                <div><span id="calibLblAvg">Average</span><b id="calibAvg">&ndash;</b></div>
+                <div><span id="calibLblRange">Min &ndash; max</span><b id="calibRange">&ndash;</b></div>
+                <div><span id="calibLblTarget">Target (meter)</span><b id="calibTarget">&ndash;</b></div>
+                <div><span id="calibLblOld">Multiplier now</span><b id="calibOld">&ndash;</b></div>
+                <div><span id="calibLblNew">New multiplier</span><b id="calibNew">&ndash;</b></div>
+              </div>
+              <p id="calibHint">Enter the multimeter voltage and press Calculate.</p>
+            </div>
+            <svg class="calibsvg" viewBox="0 0 380 272" role="img" aria-label="Calibration setup">
+              <path d="M20 100 L34 86 L174 86 L160 100 Z" fill="#2b2b2b" stroke="#111"/>
+              <path d="M160 100 L174 86 L174 242 L160 256 Z" fill="#17468f" stroke="#111"/>
+              <rect x="20" y="100" width="140" height="156" fill="#1f5fc4" stroke="#111"/>
+              <rect x="32" y="150" width="96" height="52" rx="2" fill="#f2f2f2"/>
+              <text x="80" y="170" text-anchor="middle" fill="#222" font-size="11" font-weight="bold">LiFePO4</text>
+              <text x="80" y="186" text-anchor="middle" fill="#444" font-size="9">3.2 V · 360 Ah</text>
+              <ellipse cx="58" cy="93" rx="13" ry="4" fill="#ccc" stroke="#777"/>
+              <ellipse cx="136" cy="93" rx="13" ry="4" fill="#ccc" stroke="#777"/>
+              <rect x="54" y="58" width="8" height="34" fill="#b9b9b9" stroke="#666"/>
+              <rect x="132" y="58" width="8" height="34" fill="#b9b9b9" stroke="#666"/>
+              <path d="M44 70 Q44 64 52 64 L142 64 Q150 64 150 70 L150 76 Q150 82 142 82 L52 82 Q44 82 44 76 Z" fill="#1d7a3e" stroke="#9fe1a8"/>
+              <rect x="82" y="68" width="16" height="9" fill="#111"/>
+              <rect x="104" y="67" width="9" height="6" fill="#eee"/>
+              <rect x="117" y="67" width="9" height="6" fill="#eee"/>
+              <polygon points="52,60 58,57 64,60 64,66 58,69 52,66" fill="#d0d0d0" stroke="#555"/>
+              <polygon points="130,60 136,57 142,60 142,66 136,69 130,66" fill="#d0d0d0" stroke="#555"/>
+              <text x="58" y="51" text-anchor="middle" fill="#ddd" font-size="12" font-weight="bold">&minus;</text>
+              <text x="136" y="51" text-anchor="middle" fill="#ff8a80" font-size="12" font-weight="bold">+</text>
+              <text x="97" y="96" text-anchor="middle" fill="#9fe1a8" font-size="9" id="calSvgModule">Cell module</text>
+              <path d="M108 67 C108 30 170 22 214 40" fill="none" stroke="#e53935" stroke-width="1.6"/>
+              <path d="M110 67 C112 34 172 28 214 44" fill="none" stroke="#222" stroke-width="1.6"/>
+              <path d="M121 67 C124 44 176 40 214 76" fill="none" stroke="#e53935" stroke-width="1.6"/>
+              <path d="M123 67 C128 48 178 46 214 80" fill="none" stroke="#222" stroke-width="1.6"/>
+              <rect x="210" y="16" width="160" height="104" rx="4" fill="#1d7a3e" stroke="#9fe1a8"/>
+              <rect x="214" y="34" width="10" height="14" fill="#2e7d32" stroke="#a5d6a7"/>
+              <rect x="214" y="70" width="10" height="14" fill="#2e7d32" stroke="#a5d6a7"/>
+              <text x="228" y="45" fill="#e8f5e9" font-size="8">TX1</text>
+              <text x="228" y="81" fill="#e8f5e9" font-size="8">RX1</text>
+              <rect x="246" y="24" width="76" height="56" rx="2" fill="#d84315" stroke="#ff8a65"/>
+              <rect x="250" y="28" width="68" height="48" fill="#202830"/>
+              <text x="284" y="50" text-anchor="middle" fill="#7fd7ff" font-size="12" font-family="monospace">3.265V</text>
+              <text x="284" y="64" text-anchor="middle" fill="#9fb3c8" font-size="8">diyBMS</text>
+              <rect x="330" y="30" width="34" height="70" rx="2" fill="#111" stroke="#666"/>
+              <rect x="336" y="36" width="22" height="22" fill="#9e9e9e"/>
+              <circle cx="342" cy="90" r="2.5" fill="#ff1744"/>
+              <rect x="250" y="90" width="22" height="14" fill="#2e7d32" stroke="#a5d6a7"/>
+              <rect x="278" y="90" width="22" height="14" fill="#2e7d32" stroke="#a5d6a7"/>
+              <text x="290" y="114" text-anchor="middle" fill="#e8f5e9" font-size="9" id="calSvgCtrl">Controller ESP32</text>
+              <path d="M300 140 a14 14 0 0 1 20 0" fill="none" stroke="#bbb" stroke-width="1.5"/>
+              <path d="M295 134 a22 22 0 0 1 30 0" fill="none" stroke="#bbb" stroke-width="1.5"/>
+              <circle cx="310" cy="146" r="2" fill="#bbb"/>
+              <text x="332" y="142" fill="#bbb" font-size="9" id="calSvgWifi">WiFi</text>
+              <rect x="282" y="160" width="86" height="56" rx="3" fill="#333" stroke="#999"/>
+              <rect x="287" y="165" width="76" height="46" fill="#1565c0"/>
+              <rect x="292" y="170" width="38" height="6" fill="#e3f2fd"/>
+              <rect x="292" y="180" width="60" height="4" fill="#90caf9"/>
+              <rect x="292" y="188" width="60" height="4" fill="#90caf9"/>
+              <rect x="292" y="196" width="30" height="8" rx="2" fill="#1e88e5" stroke="#e3f2fd"/>
+              <path d="M274 216 L376 216 L370 226 L280 226 Z" fill="#555" stroke="#999"/>
+              <text x="325" y="242" text-anchor="middle" fill="#ccc" font-size="9" id="calSvgPc">PC / browser</text>
+              <rect x="196" y="150" width="70" height="104" rx="8" fill="#f9a825" stroke="#5d4037"/>
+              <rect x="204" y="158" width="54" height="24" rx="2" fill="#b8c4a8" stroke="#333"/>
+              <text x="231" y="175" text-anchor="middle" fill="#111" font-size="12" font-family="monospace">3.265</text>
+              <circle cx="231" cy="208" r="13" fill="#333" stroke="#111"/>
+              <line x1="231" y1="208" x2="239" y2="200" stroke="#eee" stroke-width="2"/>
+              <circle cx="214" cy="240" r="4" fill="#111"/>
+              <circle cx="248" cy="240" r="4" fill="#d32f2f"/>
+              <path d="M142 62 C178 62 186 96 186 136 L186 262 L248 262 L248 245" fill="none" stroke="#d32f2f" stroke-width="1.6"/>
+              <path d="M52 62 C20 62 8 84 8 124 L8 266 L214 266 L214 245" fill="none" stroke="#111" stroke-width="1.6"/>
+              <text x="231" y="146" text-anchor="middle" fill="#ccc" font-size="9" id="calSvgMeter">Multimeter</text>
+            </svg>
+          </div>
+        </div>
+        </div>
       </div>
     </div>
     <div id="globalConfig" class="region">

@@ -111,3 +111,26 @@ form input:read-only{background-color:transparent;color:#fff;border:dashed 1px #
 #graphOptions .x{display:block;width:100%;text-align:right}
 #graphOptions .t{font-size:10pt;color:#c1bdbd}
 #graphOptions .v{font-size:22pt;font-family:'Share Tech Mono',monospace;font-weight:700;color:#55a1ea}
+
+.cfgrow{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+.cfgrow > form{flex:0 0 auto}
+#calibPanel{border:1px solid #6a6a6a;border-radius:6px;padding:8px 12px;min-width:320px}
+#calibPanel h3{margin:0 0 8px 0;font-size:15px}
+.calibrow{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+.calibleft{display:flex;flex-direction:column;gap:12px;padding-top:4px}
+.calibcalc{display:flex;flex-direction:column;gap:6px;max-width:220px}
+.calibcalc input{width:110px;padding:2px 5px;font-family:'Share Tech Mono',monospace}
+.calibcalc label{font-size:smaller}
+.calibcalc button{width:auto;padding:6px 14px;align-self:flex-start}
+.calibdata{min-width:200px}
+#calibTable{border-collapse:collapse;min-width:120px;font-family:monospace;font-size:13px}
+#calibTable th,#calibTable td{padding:1px 10px;text-align:right;border-bottom:1px solid #666;height:16px}
+#calibTable td:last-child{min-width:48px}
+#calibTable tr.calnew td{color:#9FE1CB}
+.calibsum{margin-top:8px;font-size:13px}
+.calibsum div{display:flex;justify-content:space-between;gap:16px}
+.calibsum b{font-family:monospace}
+#calibHint{font-size:12px;color:#ccc;margin:8px 0 0 0;max-width:260px}
+.calibsvg{width:340px;max-width:100%;height:auto}
+#Calib.calchanged{outline:2px solid #49BE3B}
+@media screen and (min-width:1100px){.cfgrow{flex-wrap:nowrap}}

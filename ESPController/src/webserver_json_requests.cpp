@@ -511,6 +511,37 @@ esp_err_t content_handler_modules(httpd_req_t *req)
           valid = true;
         }
       }
+
+      // r=1 : force a fresh read of the module settings (e.g. after swapping a module)
+      char refresh[4];
+      if (valid && httpd_query_key_value(buf, "r", refresh, sizeof(refresh)) == ESP_OK && refresh[0] == '1')
+      {
+        cmi[c].settingsCached = false;
+        cmi[c].voltageSinceSettings = false;
+      }
+
+      // s=N : start a calibration capture. Queue N voltage requests for this module in one go,
+      // every voltage reply of this module (including the regular polling) is stored in calibCapture.
+      char sample[4];
+      if (valid && httpd_query_key_value(buf, "s", sample, sizeof(sample)) == ESP_OK)
+      {
+        int n = atoi(sample);
+        if (n > CALIB_CAPTURE_MAX)
+        {
+          n = CALIB_CAPTURE_MAX;
+        }
+        if (n > 0)
+        {
+          calibCapture.module = 0xFF;
+          calibCapture.count = 0;
+          calibCapture.wanted = (uint8_t)n;
+          calibCapture.module = c;
+          for (int i = 0; i < n; i++)
+          {
+            prg.sendCellVoltageRequest(c, c);
+          }
+        }
+      }
     }
   }
 
@@ -536,6 +567,18 @@ esp_err_t content_handler_modules(httpd_req_t *req)
   settings["ver"] = cmi[c].BoardVersionNumber;
   settings["code"] = cmi[c].CodeVersionNumber;
   settings["Cached"] = cmi[c].settingsCached;
+  // Ready for calibration: settings are fresh and a voltage reading arrived afterwards
+  settings["Ready"] = cmi[c].settingsCached && cmi[c].voltageSinceSettings;
+  settings["mV"] = cmi[c].voltagemV;
+  if (calibCapture.module == c)
+  {
+    // Readings collected so far by the calibration capture
+    JsonArray cap = settings["cap"].to<JsonArray>();
+    for (uint8_t i = 0; i < calibCapture.count && i < CALIB_CAPTURE_MAX; i++)
+    {
+      cap.add(calibCapture.mV[i]);
+    }
+  }
 
   if (cmi[c].settingsCached)
   {

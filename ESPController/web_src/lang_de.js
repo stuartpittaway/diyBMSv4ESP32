@@ -302,3 +302,18 @@ $("label[for='cmVOLTUL']").text("Relaisauslöser: Unterspannung");
 
 //<label for="cmPOL">Relay Trigger: Power</label>
 $("label[for='cmPOL']").text("Relaisauslöser: Stromversorgung");
+
+// Calibration panel
+$("#calibTitle").text("Kalibrierung");
+$("#calibLblCount").text("Messungen");
+$("#calibLblAvg").text("Mittelwert");
+$("#calibLblRange").text("Min – Max");
+$("#calibLblTarget").text("Soll (Multimeter)");
+$("#calibLblOld").text("Multiplier aktuell");
+$("#calibLblNew").text("Multiplier neu");
+$("#calibHint").text("Multimeter-Spannung eintragen und Calculate drücken.");
+$("#calSvgModule").text("Zellmodul");
+$("#calSvgCtrl").text("Controller ESP32");
+$("#calSvgWifi").text("WLAN");
+$("#calSvgPc").text("PC / Browser");
+var calibTexts = { start: "Messreihe läuft …", done: "Neuer Multiplier steht im Feld. Mit „Save settings“ speichern.", fallback: "Zeitüberschreitung – mit den erhaltenen Messwerten gerechnet.", none: "Keine Messung erhalten." };

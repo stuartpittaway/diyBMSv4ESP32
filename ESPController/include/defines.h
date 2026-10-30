@@ -322,6 +322,9 @@ struct CellModuleInfo
   bool bypassOverTemp : 1;
   // Introduced for v490 all-in-one cells, prevents changes to module configuration
   bool ChangesProhibited : 1;
+  /// @brief A voltage reading arrived after the settings were read, so the reading
+  /// was taken with the calibration multiplier the controller knows about
+  bool voltageSinceSettings : 1;
 
   /// @brief actual cell voltage (millivolts)
   uint16_t voltagemV;
@@ -388,6 +391,17 @@ enum CardAction : uint8_t
 
 // This holds all the cell information in a large array array
 extern CellModuleInfo cmi[maximum_controller_cell_modules];
+
+// Calibration: collects the next voltage replies of a single module
+#define CALIB_CAPTURE_MAX 10
+struct CalibCapture
+{
+  volatile uint8_t module; // 0xFF = no capture active
+  volatile uint8_t wanted;
+  volatile uint8_t count;
+  volatile uint16_t mV[CALIB_CAPTURE_MAX];
+};
+extern CalibCapture calibCapture;
 
 struct avrprogramsettings
 {

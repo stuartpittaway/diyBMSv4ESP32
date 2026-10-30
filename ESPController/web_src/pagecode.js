@@ -526,21 +526,46 @@ function avrProgrammingStatsUpdate(attempts) {
         });
 }
 
-function configureModule(button, cellid, attempts) {
+// Calibration calculator: number of voltage readings that are averaged
+const CALIB_SAMPLES = 10;
+// Give up waiting for readings after this time (long module chains answer late)
+const CALIB_TIMEOUT_MS = 30000;
+
+// Status texts of the calibration panel, a language file can override them with calibTexts
+function calibText() {
+    const en = { start: "Measuring …", done: "New multiplier is in the field. Press 'Save settings' to store it.", fallback: "Timeout – calculated with the readings received.", none: "No reading received." };
+    return (typeof calibTexts !== 'undefined') ? calibTexts : en;
+}
+
+function calibPanelReset(currentCalib) {
+    $('#calibRows tr').removeClass('calnew').find('td:last-child').text('');
+    $('#calibCount').text('0 / ' + CALIB_SAMPLES);
+    $('#calibAvg, #calibRange, #calibTarget, #calibNew').html('&ndash;');
+    $('#calibOld').text((currentCalib !== undefined) ? Number(currentCalib).toFixed(5) : '–');
+    $('#Calib').removeClass('calchanged');
+}
+
+function configureModule(button, cellid, attempts, refresh) {
     $('#loading').show();
+    // Clicking "Configure" (refresh not given) always reads the settings fresh from the module,
+    // retries only wait for that read to complete
+    if (refresh === undefined) { refresh = true; }
 
     //Select correct row in table
     $(button).parent().parent().parent().find(".selected").removeClass("selected");
     $(button).parent().parent().addClass("selected");
 
-    $.getJSON("/api/modules", { c: cellid },
+    const query = refresh ? { c: cellid, r: 1 } : { c: cellid };
+    $.getJSON("/api/modules", query,
         function (data) {
             var div = $("#settingConfig .settings");
             $('#c').val(data.settings.id);
             $('#m').val(data.settings.id);
 
-            if (data.settings.Cached == true) {
-                const currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
+            // Wait until the settings are fresh and a voltage reading arrived after them,
+            // this reading is the base for the calibration calculator
+            if (data.settings.Ready == true) {
+                const currentReading = data.settings.mV / 1000.0;
                 $("#ActualVoltage").val(currentReading.toFixed(3));
 
                 $("#settingConfig h2").html("Settings for module bank:" + data.settings.bank + " module:" + data.settings.module);
@@ -550,7 +575,11 @@ function configureModule(button, cellid, attempts) {
                 $('#Version').html(data.settings.ver.toString() + ' / <a href="https://github.com/stuartpittaway/diyBMSv4ESP32/commit/' + data.settings.code.toString(16) + '" rel="noreferrer" target="_blank">' + data.settings.code.toString(16) + '</a>');
                 $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);
                 $('#BypassThresholdmV').val(data.settings.BypassThresholdmV);
-                $('#Calib').val(data.settings.Calib.toFixed(4));
+                $('#Calib').val(data.settings.Calib.toFixed(5));
+                calibPanelReset(data.settings.Calib);
+                // Remember the multiplier stored in the module and the reading taken with it,
+                // so pressing "Calculate" again does not compound the correction
+                $('#CalculateCalibration').data('baseCalib', data.settings.Calib).data('baseReading', currentReading);
                 $('#ExtBCoef').val(data.settings.ExtBCoef);
                 $('#IntBCoef').val(data.settings.IntBCoef);
                 $('#LoadRes').val(data.settings.LoadRes.toFixed(2));
@@ -616,7 +645,7 @@ function configureModule(button, cellid, attempts) {
                 if (attempts > 0) {
                     //Call back to refresh page, only try for a limited number of attempts
                     attempts--;
-                    setTimeout(configureModule, 1500, button, cellid, attempts);
+                    setTimeout(configureModule, 1500, button, cellid, attempts, false);
                 }
             }
         }).fail(function () {
@@ -922,7 +951,7 @@ function updateChart(jsondata) {
                     + "</td><td>" + value + "</td><td></td><td class='hide'></td><td class='hide'></td>"
                     + "<td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td>"
                     + "<td><button type='button' onclick='return identifyModule(this," + index + ");'>Identify</button>"
-                    + "<button type='button' onclick='return configureModule(this," + index + ",10);'>Configure</button></td></tr>")
+                    + "<button type='button' onclick='return configureModule(this," + index + ",20);'>Configure</button></td></tr>")
             });
         }
 
@@ -1353,12 +1382,83 @@ $(function () {
         $(window).trigger('resize');
     });
 
+    function calibUpdateSummary(values) {
+        $('#calibCount').text(values.length + ' / ' + CALIB_SAMPLES);
+        if (values.length === 0) { return null; }
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        $('#calibAvg').text(avg.toFixed(1) + ' mV');
+        $('#calibRange').text(Math.min(...values) + ' – ' + Math.max(...values) + ' mV');
+        return avg / 1000.0;
+    }
+
+    // Calibration calculator
+    // The controller sends CALIB_SAMPLES voltage requests for the selected module in one go and collects
+    // the replies. Modules report whole (truncated) millivolts, averaging several readings gives a
+    // sub-millivolt result, so after saving the module reliably shows the voltage measured with the meter.
     $('#CalculateCalibration').click(function () {
-        const currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
-        const currentCalib = parseFloat($("#Calib").val());
+        const btn = $(this);
+        const txt = calibText();
+        // Always start from the multiplier stored in the module when "Configure" was clicked
+        const baseCalib = parseFloat(btn.data('baseCalib'));
+        const baseReading = parseFloat(btn.data('baseReading'));
         const actualV = parseFloat($("#ActualVoltage").val());
-        let result = (currentCalib / currentReading) * actualV;
-        $("#Calib").val(result.toFixed(4));
+        const cellid = parseInt($('#m').val());
+        if (!(baseCalib > 0) || !(actualV > 0) || isNaN(cellid)) {
+            return false;
+        }
+
+        calibPanelReset(baseCalib);
+        $('#calibTarget').text((actualV * 1000).toFixed(0) + ' mV');
+
+        function finish(avgV, hint) {
+            // Truncated readings are on average 0.5 mV below the true voltage, so add 0.5 mV to the
+            // average and aim for the middle of the target millivolt (target + 0.5 mV)
+            const result = (baseCalib / (avgV + 0.0005)) * (actualV + 0.0005);
+            $("#Calib").val(result.toFixed(5)).addClass('calchanged');
+            $('#calibNew').text(result.toFixed(5));
+            $('#calibHint').text(hint);
+            btn.prop('disabled', false);
+        }
+
+        let shown = 0;
+        function show(values) {
+            for (; shown < values.length && shown < CALIB_SAMPLES; shown++) {
+                $('#calibRows tr').removeClass('calnew');
+                $('#calibRows tr').eq(shown).addClass('calnew').find('td:last-child').text(values[shown]);
+            }
+            return calibUpdateSummary(values.slice(0, CALIB_SAMPLES));
+        }
+
+        function giveUp(values) {
+            if (values.length > 0) {
+                finish(show(values), txt.fallback);
+            } else if (baseReading > 0) {
+                finish(baseReading, txt.fallback);
+            } else {
+                $('#calibHint').text(txt.none);
+                btn.prop('disabled', false);
+            }
+        }
+
+        const started = Date.now();
+        function poll(first) {
+            $.getJSON("/api/modules", first ? { c: cellid, s: CALIB_SAMPLES } : { c: cellid })
+                .done(function (d) {
+                    const values = d.settings.cap || [];
+                    const avg = show(values);
+                    if (values.length >= CALIB_SAMPLES) { finish(avg, txt.done); return; }
+                    if (Date.now() - started > CALIB_TIMEOUT_MS) { giveUp(values); return; }
+                    setTimeout(poll, 300, false);
+                })
+                .fail(function () {
+                    if (Date.now() - started > CALIB_TIMEOUT_MS) { giveUp([]); return; }
+                    setTimeout(poll, 1000, false);
+                });
+        }
+
+        btn.prop('disabled', true);
+        $('#calibHint').text(txt.start);
+        poll(true);
         return true;
     });
 

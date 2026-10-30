@@ -1180,6 +1180,13 @@ void ProcessRules()
   {
     rules.SetError(InternalErrorCode::CommunicationsError);
     rules.setRuleStatus(Rule::BMSError, true);
+
+    // A module may have been swapped, forget the cached settings so they are read again
+    for (uint8_t i = 0; i < maximum_controller_cell_modules; i++)
+    {
+      cmi[i].settingsCached = false;
+      cmi[i].voltageSinceSettings = false;
+    }
   }
 
   if (rules.ruleOutcome(Rule::EmergencyStop))

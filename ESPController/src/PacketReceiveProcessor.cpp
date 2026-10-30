@@ -3,6 +3,8 @@ static constexpr const char *const TAG = "diybms-rx";
 
 #include "PacketReceiveProcessor.h"
 
+CalibCapture calibCapture = {0xFF, 0, 0, {0}};
+
 bool PacketReceiveProcessor::HasCommsTimedOut() const
 {
   // We timeout the comms if we don't receive a packet within 3 times the normal
@@ -231,7 +233,18 @@ void PacketReceiveProcessor::ProcessReplyVoltage()
 
     if (cellptr->voltagemV > 0)
     {
+      // Calibration capture: record replies of the selected module
+      if (calibCapture.module == _packetbuffer.start_address + i && calibCapture.count < calibCapture.wanted)
+      {
+        calibCapture.mV[calibCapture.count] = cellptr->voltagemV;
+        calibCapture.count = calibCapture.count + 1;
+      }
+
       cellptr->valid = true;
+      if (cellptr->settingsCached)
+      {
+        cellptr->voltageSinceSettings = true;
+      }
     }
   }
 }
@@ -254,6 +267,7 @@ void PacketReceiveProcessor::ProcessReplySettings()
 
   // TODO: Validate m here to prevent array overflow
   cmi[m].settingsCached = true;
+  cmi[m].voltageSinceSettings = false;
 
   FLOATUNION_t myFloat;
 
