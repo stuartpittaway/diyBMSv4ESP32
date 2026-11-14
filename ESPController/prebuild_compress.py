@@ -3,6 +3,8 @@ import json
 import glob
 import shutil
 import gzip
+import hashlib
+import base64
 import os
 import errno
 import sys
@@ -60,12 +62,25 @@ def prepare_www_files():
 
     for file in files_to_minify:
         print('  Minify file: ' + file + ' to data dir')
+        minified = os.path.join(data_dir, os.path.basename(file))
         # Run htmlmin with PlatformIO's own Python, so it doesn't depend on the
         # htmlmin command being on PATH (it isn't outside the PlatformIO terminal).
         # Stop the build if it fails, rather than silently embedding the larger page.
         if env.Execute('"$PYTHONEXE" -m htmlmin.command --keep-optional-attribute-quotes "' +
-                       file + '" "' + os.path.join(data_dir, os.path.basename(file)) + '"'):
+                       file + '" "' + minified + '"'):
             sys.exit("htmlmin failed to minify " + file)
+
+        # The page is static (runtime values come from /settings.js), so it can be
+        # gzipped like the other files. Fill in the build-time values first.
+        with open(minified, 'r', encoding='utf-8') as f_in:
+            html = f_in.read()
+        html = html.replace('%integrity_file_jquery_js%', integrity_of(os.path.join(data_src_dir, 'jquery.js')))
+        leftover = re.findall(r'%[A-Za-z_]+%', html)
+        if leftover:
+            sys.exit("Unknown template placeholders in " + file + ": " + str(leftover))
+        with gzip.GzipFile(filename=minified + '.gz', mode='w', compresslevel=9) as f_out:
+            f_out.write(html.encode('utf-8'))
+        os.remove(minified)
 
     for file in files_to_gzip:
         print('  GZipping file: ' + file + ' to data dir')
@@ -73,6 +88,12 @@ def prepare_www_files():
             shutil.copyfileobj(f_in, f_out)
 
     print('[/COPY/GZIP DATA FILES]')
+
+
+def integrity_of(file):
+    # Subresource integrity (SHA256) of a file, same as prebuild_generate_integrity_hash.py
+    with open(file, 'rb') as f:
+        return 'sha256-' + base64.b64encode(hashlib.sha256(f.read()).digest()).decode()
 
 
 def get_build_flag_value(flag_name):

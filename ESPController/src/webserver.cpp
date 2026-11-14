@@ -27,49 +27,6 @@ void setNoStoreCacheControl(httpd_req_t *req)
   httpd_resp_set_hdr(req, "Cache-Control", "no-store");
 }
 
-String TemplateProcessor(const String &var)
-{
-  if (var == "XSS_KEY")
-    return String(CookieValue);
-
-#if defined(ESP32)
-  if (var == "PLATFORM")
-    return String("ESP32");
-#endif
-
-  if (var == "LANGUAGE")
-    return String(mysettings.language);
-
-  if (var == "GIT_VERSION")
-    return String(GIT_VERSION);
-
-  if (var == "COMMIT_DATE_TIME")
-    return String(COMMIT_DATE_TIME);
-
-  if (var == "graph_voltagehigh")
-    return String(mysettings.graph_voltagehigh);
-
-  if (var == "graph_voltagelow")
-    return String(mysettings.graph_voltagelow);
-
-  if (var == "tft_sleep_seconds")
-    return String(mysettings.tft_sleep_seconds);
-
-  if (var == "graph_labels")
-    return String(mysettings.graph_labels);
-
-  if (var == "integrity_file_jquery_js")
-    return String(integrity_file_jquery_js);
-
-  if (var == "noofseriesmodules")
-    return String(maximum_controller_cell_modules);
-
-  if (var == "maxnumberofbanks")
-    return String(maximum_number_of_banks);
-
-  return String();
-}
-
 int printBoolean(char *buffer, size_t bufferLen, const char *fieldName, boolean value, boolean addComma)
 {
   return snprintf(buffer, bufferLen,
@@ -105,88 +62,38 @@ void saveConfiguration()
   SaveConfiguration(&mysettings);
 }
 
-// The main home page
-esp_err_t default_htm_handler(httpd_req_t *req)
+// Values the web page needs at runtime, loaded by default.htm as /settings.js.
+// default.htm itself is static (gzipped, cached with an ETag), so this script is the
+// only part of the page generated on each request. It is never cached and also sets
+// the session cookie, which must match the XSS_KEY it contains.
+esp_err_t settings_js_handler(httpd_req_t *req)
 {
-  httpd_resp_set_type(req, "text/html");
+  httpd_resp_set_type(req, "application/javascript");
   setNoStoreCacheControl(req);
   setCookie(req);
 
-  char *file_pointer = (char *)file_default_htm;
-  size_t max_len = size_file_default_htm;
-  char *end_pointer = file_pointer + max_len;
+  // Only pass on a valid two letter language code, the page falls back to English
+  const char *language = (strlen(mysettings.language) == 2 && isalpha(mysettings.language[0]) && isalpha(mysettings.language[1])) ? mysettings.language : "en";
 
-  ESP_LOGI(TAG, "default.htm");
+  int len = snprintf(httpbuf, BUFSIZE,
+                     "const MAXIMUM_NUMBER_OF_BANKS=%u;"
+                     "const MAXIMUM_NUMBER_OF_SERIES_MODULES=%u;"
+                     "var DEFAULT_GRAPH_MAX_VOLTAGE=%u;"
+                     "var DEFAULT_GRAPH_MIN_VOLTAGE=%u;"
+                     "var TFT_SLEEP_SECONDS=%u;"
+                     "var GRAPH_LABELS=%u;"
+                     "var XSS_KEY='%s';"
+                     "var LANGUAGE='%s';"
+                     "var PLATFORM='ESP32';"
+                     "var GIT_VERSION='%s';"
+                     "var COMMIT_DATE_TIME='%s';"
+                     "document.documentElement.lang=LANGUAGE;",
+                     (unsigned)maximum_number_of_banks, (unsigned)maximum_controller_cell_modules,
+                     (unsigned)mysettings.graph_voltagehigh, (unsigned)mysettings.graph_voltagelow,
+                     (unsigned)mysettings.tft_sleep_seconds, (unsigned)mysettings.graph_labels,
+                     CookieValue, language, GIT_VERSION, COMMIT_DATE_TIME);
 
-  char *p = file_pointer;
-
-  while (p < end_pointer)
-  {
-    const char *templateCharacter = "%";
-
-    // Find the next escape character (start of a template keyword)
-    char *start_ptr = (char *)memchr(p, '%', end_pointer - p);
-
-    if (start_ptr != NULL)
-    {
-      // Output to client up to the start of the template string
-      httpd_resp_send_chunk(req, p, start_ptr - p);
-
-      // Skip over template character %
-      p = start_ptr + 1;
-
-      // Find the end of the template
-      char *end_ptr = (char *)memchr(p, '%', end_pointer - p);
-
-      if (end_ptr != NULL)
-      {
-        // Length of the template keyword
-        int paramNameLength = end_ptr - p;
-
-        if (paramNameLength > 0)
-        {
-          char buf[50 + 1];
-          memcpy(buf, p, paramNameLength);
-          buf[paramNameLength] = 0;
-          String paramName = String(buf);
-          String templateValue = TemplateProcessor(paramName);
-
-          ESP_LOGD(TAG, "Template %s = '%s'", paramName.c_str(), templateValue.c_str());
-
-          // Output the template answer
-          httpd_resp_sendstr_chunk(req, templateValue.c_str());
-        }
-        else
-        {
-          // Its an empty keyword %% - so just output a % character
-          httpd_resp_sendstr_chunk(req, templateCharacter);
-        }
-
-        end_ptr++;
-        p = end_ptr;
-      }
-      else
-      {
-        break;
-      }
-    }
-    else
-    {
-      break;
-    }
-  }
-
-  // output the last chunk
-  if (p < end_pointer)
-  {
-    httpd_resp_send_chunk(req, p, end_pointer - p);
-  }
-
-  // Indicate last chunk (zero byte length)
-  esp_err_t e = httpd_resp_send_chunk(req, p, 0);
-
-  ESP_LOGI(TAG, "default.htm complete");
-  return e;
+  return httpd_resp_send(req, httpbuf, len);
 }
 
 void SetCacheAndETag(httpd_req_t *req, const char *ETag)
@@ -203,13 +110,15 @@ esp_err_t static_content_handler(httpd_req_t *req)
   const char *const mime_application_javascript = "application/javascript";
   const char *const mime_image_png = "image/png";
   const char *const mime_image_x_icon = "image/x-icon";
+  const char *const mime_text_html = "text/html";
 
   enum enum_mimetype : uint8_t
   {
     text_css,
     application_javascript,
     image_x_icon,
-    image_png
+    image_png,
+    text_html
   };
 
   typedef struct
@@ -220,6 +129,7 @@ esp_err_t static_content_handler(httpd_req_t *req)
     enum_mimetype mimetype;
   } WEBKIT_RESPONSE_ARGS;
 
+  WEBKIT_RESPONSE_ARGS webkit_default_htm_args = {file_default_htm_gz, size_file_default_htm_gz, etag_file_default_htm_gz, text_html};
   WEBKIT_RESPONSE_ARGS webkit_style_css_args = {file_style_css_gz, size_file_style_css_gz, etag_file_style_css_gz, text_css};
   WEBKIT_RESPONSE_ARGS webkit_pagecode_js_args = {file_pagecode_js_gz, size_file_pagecode_js_gz, etag_file_pagecode_js_gz, application_javascript};
   WEBKIT_RESPONSE_ARGS webkit_jquery_js_args = {file_jquery_js_gz, size_file_jquery_js_gz, etag_file_jquery_js_gz, application_javascript};
@@ -236,17 +146,16 @@ esp_err_t static_content_handler(httpd_req_t *req)
   WEBKIT_RESPONSE_ARGS webkit_lang_ja_js_args = {file_lang_ja_js_gz, size_file_lang_ja_js_gz, etag_file_lang_ja_js_gz, application_javascript};
   WEBKIT_RESPONSE_ARGS webkit_favicon_ico_args = {file_favicon_ico_gz, size_file_favicon_ico_gz, etag_file_favicon_ico_gz, image_x_icon};
   WEBKIT_RESPONSE_ARGS webkit_logo_png_args = {file_logo_png, size_file_logo_png, etag_file_logo_png, image_png};
-  WEBKIT_RESPONSE_ARGS webkit_wait_png_args = {file_wait_png, size_file_wait_png, etag_file_wait_png, image_png};
   WEBKIT_RESPONSE_ARGS webkit_warning_png_args = {file_warning_png, size_file_warning_png, etag_file_warning_png, image_png};
 
   const char *uri_array[] = {
-      "/style.css", "/pagecode.js", "/jquery.js", "/echarts.min.js",
+      "/default.htm", "/style.css", "/pagecode.js", "/jquery.js", "/echarts.min.js",
       "/lang_fr.js", "/lang_ru.js", "/lang_hr.js", "/lang_nl.js", "/lang_pt.js", "/lang_de.js", "/lang_es.js", "/lang_en.js", "/lang_pl.js", "/lang_ja.js",
-      "/favicon.ico", "/logo.png", "/wait.png", "/warning.png"};
+      "/favicon.ico", "/logo.png", "/warning.png"};
 
   WEBKIT_RESPONSE_ARGS arguments[] = {
-      webkit_style_css_args, webkit_pagecode_js_args, webkit_jquery_js_args, webkit_echarts_min_js_args,
-      webkit_lang_fr_js_args, webkit_lang_ru_js_args, webkit_lang_hr_js_args, webkit_lang_nl_js_args, webkit_lang_pt_js_args, webkit_lang_de_js_args, webkit_lang_es_js_args, webkit_lang_en_js_args, webkit_lang_pl_js_args, webkit_lang_ja_js_args, webkit_favicon_ico_args, webkit_logo_png_args, webkit_wait_png_args,
+      webkit_default_htm_args, webkit_style_css_args, webkit_pagecode_js_args, webkit_jquery_js_args, webkit_echarts_min_js_args,
+      webkit_lang_fr_js_args, webkit_lang_ru_js_args, webkit_lang_hr_js_args, webkit_lang_nl_js_args, webkit_lang_pt_js_args, webkit_lang_de_js_args, webkit_lang_es_js_args, webkit_lang_en_js_args, webkit_lang_pl_js_args, webkit_lang_ja_js_args, webkit_favicon_ico_args, webkit_logo_png_args,
       webkit_warning_png_args};
 
   // Sanity check arrays are the same size
@@ -271,6 +180,9 @@ esp_err_t static_content_handler(httpd_req_t *req)
         break;
       case image_png:
         httpd_resp_set_type(req, mime_image_png);
+        break;
+      case text_html:
+        httpd_resp_set_type(req, mime_text_html);
         break;
       }
 
@@ -433,7 +345,7 @@ static esp_err_t uploadfile_post_handler(httpd_req_t *req)
 
 /* URI handler structure for GET /uri */
 static const httpd_uri_t uri_root_get = {.uri = "/", .method = HTTP_GET, .handler = get_root_handler, .user_ctx = NULL};
-static const httpd_uri_t uri_defaulthtm_get = {.uri = "/default.htm", .method = HTTP_GET, .handler = default_htm_handler, .user_ctx = NULL};
+static const httpd_uri_t uri_settingsjs_get = {.uri = "/settings.js", .method = HTTP_GET, .handler = settings_js_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_api_get = {.uri = "/api/*", .method = HTTP_GET, .handler = api_handler, .user_ctx = NULL};
 static const httpd_uri_t uri_download_get = {.uri = "/download", .method = HTTP_GET, .handler = content_handler_downloadfile, .user_ctx = NULL};
 static const httpd_uri_t uri_coredump_get = {.uri = "/coredump", .method = HTTP_GET, .handler = content_handler_coredumpdownloadfile, .user_ctx = NULL};
@@ -543,7 +455,7 @@ httpd_handle_t start_webserver(void)
   {
     /* Register URI handlers */
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_root_get));
-    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_defaulthtm_get));
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_settingsjs_get));
 
     // Web services/API
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &uri_api_get));
