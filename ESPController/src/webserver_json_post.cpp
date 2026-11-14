@@ -358,6 +358,12 @@ esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req, bool urlEncoded
     {
     }
 
+    uint8_t sleepSeconds;
+    if (GetKeyValue(httpbuf, "TFTSleep", &sleepSeconds, urlEncoded) && sleepSeconds >= 15)
+    {
+        mysettings.tft_sleep_seconds = sleepSeconds;
+    }
+
     saveConfiguration();
 
     return SendSuccess(req);

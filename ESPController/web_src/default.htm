@@ -15,6 +15,7 @@
 
     var DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat('%graph_voltagehigh%')
     var DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat('%graph_voltagelow%')
+    var TFT_SLEEP_SECONDS = parseInt('%tft_sleep_seconds%', 10)
     var XSS_KEY = '%XSS_KEY%'
   </script>
   <script type="text/javascript" src="/jquery.js" integrity="%integrity_file_jquery_js%"
@@ -1831,6 +1832,18 @@
               <option>1000</option>
               <option>500</option>
               <option>0</option>
+            </select>
+          </div>
+          <div>
+            <label for="TFTSleep">TFT screen sleep timer</label>
+            <select name="TFTSleep" id="TFTSleep">
+              <option value="15">15 seconds</option>
+              <option value="30">30 seconds</option>
+              <option value="45">45 seconds</option>
+              <option value="60">60 seconds</option>
+              <option value="120">2 minutes</option>
+              <option value="180">3 minutes</option>
+              <option value="240">4 minutes</option>
             </select>
           </div>
           <button type="submit">Save display settings</button>

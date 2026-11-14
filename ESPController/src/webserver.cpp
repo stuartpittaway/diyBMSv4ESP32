@@ -51,6 +51,9 @@ String TemplateProcessor(const String &var)
   if (var == "graph_voltagelow")
     return String(mysettings.graph_voltagelow);
 
+  if (var == "tft_sleep_seconds")
+    return String(mysettings.tft_sleep_seconds);
+
   if (var == "integrity_file_jquery_js")
     return String(integrity_file_jquery_js);
 

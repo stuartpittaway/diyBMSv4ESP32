@@ -14,6 +14,7 @@ static const char baudRate_JSONKEY[] = "baudRate";
 static const char interpacketgap_JSONKEY[] = "interpacketgap";
 static const char graph_voltagehigh_JSONKEY[] = "graph_voltagehigh";
 static const char graph_voltagelow_JSONKEY[] = "graph_voltagelow";
+static const char tft_sleep_seconds_JSONKEY[] = "tft_sleep_seconds";
 static const char BypassOverTempShutdown_JSONKEY[] = "BypassOverTempShutdown";
 static const char BypassThresholdmV_JSONKEY[] = "BypassThresholdmV";
 static const char timeZone_JSONKEY[] = "timeZone";
@@ -115,6 +116,7 @@ static const char rulerelaydefault_NVSKEY[] = "rulerelaydef";
 static const char relaytype_NVSKEY[] = "relaytype";
 static const char graph_voltagehigh_NVSKEY[] = "g_voltagehigh";
 static const char graph_voltagelow_NVSKEY[] = "g_voltagelow";
+static const char tft_sleep_seconds_NVSKEY[] = "tft_sleep";
 static const char BypassOverTempShutdown_NVSKEY[] = "BypassOverTemp";
 static const char BypassThresholdmV_NVSKEY[] = "BypassThresmV";
 static const char timeZone_NVSKEY[] = "TZ";
@@ -438,6 +440,7 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
 
         MACRO_NVSWRITE(graph_voltagehigh)
         MACRO_NVSWRITE(graph_voltagelow)
+        MACRO_NVSWRITE(tft_sleep_seconds)
         MACRO_NVSWRITE(BypassOverTempShutdown)
         MACRO_NVSWRITE(BypassThresholdmV)
         MACRO_NVSWRITE(timeZone)
@@ -574,6 +577,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
 
         MACRO_NVSREAD(graph_voltagehigh)
         MACRO_NVSREAD(graph_voltagelow)
+        MACRO_NVSREAD(tft_sleep_seconds)
         MACRO_NVSREAD(BypassOverTempShutdown)
         MACRO_NVSREAD(BypassThresholdmV)
         MACRO_NVSREAD(timeZone)
@@ -689,6 +693,8 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->BypassThresholdmV = 4100;
     _myset->graph_voltagehigh = 4500;
     _myset->graph_voltagelow = 2750;
+    // TFT screen turns off after this many seconds without a touch
+    _myset->tft_sleep_seconds = 120;
 
     // EEPROM settings are invalid so default configuration
     _myset->mqtt_enabled = false;
@@ -943,6 +949,9 @@ static void enforceNumericLimits(diybms_eeprom_settings *settings, const diybms_
     if (settings->graph_voltagelow > settings->graph_voltagehigh)
         settings->graph_voltagelow = 0;
 
+    if (settings->tft_sleep_seconds < 15)
+        settings->tft_sleep_seconds = defaults.tft_sleep_seconds;
+
     if (settings->cellmaxmv > settings->cellmaxspikemv)
         settings->cellmaxmv = defaults.cellmaxmv;
     if (settings->cellmaxmv < settings->cellminmv)
@@ -1049,6 +1058,7 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     root[interpacketgap_JSONKEY] = settings->interpacketgap;
     root[graph_voltagehigh_JSONKEY] = settings->graph_voltagehigh;
     root[graph_voltagelow_JSONKEY] = settings->graph_voltagelow;
+    root[tft_sleep_seconds_JSONKEY] = settings->tft_sleep_seconds;
     root[BypassOverTempShutdown_JSONKEY] = settings->BypassOverTempShutdown;
     root[BypassThresholdmV_JSONKEY] = settings->BypassThresholdmV;
     root[timeZone_JSONKEY] = settings->timeZone;
@@ -1203,6 +1213,8 @@ static void applyBasicSettings(const JsonObject &root, diybms_eeprom_settings *s
 
     settings->graph_voltagehigh = root[graph_voltagehigh_JSONKEY];
     settings->graph_voltagelow = root[graph_voltagelow_JSONKEY];
+    // Older backups do not have this key, so keep the default
+    settings->tft_sleep_seconds = root[tft_sleep_seconds_JSONKEY] | settings->tft_sleep_seconds;
 
     settings->BypassOverTempShutdown = root[BypassOverTempShutdown_JSONKEY];
     settings->BypassThresholdmV = root[BypassThresholdmV_JSONKEY];

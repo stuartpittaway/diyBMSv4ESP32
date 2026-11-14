@@ -45,7 +45,7 @@ volatile bool _screen_awake = false;
 volatile uint32_t _interrupt_triggered = 0;
 bool force_tft_wake = false;
 TimerHandle_t tftwake_timer;
-int8_t tftsleep_timer = 0;
+uint8_t tftsleep_timer = 0;
 
 ScreenTemplateToDisplay _lastScreenToDisplay = ScreenTemplateToDisplay::NotInstalled;
 uint8_t _ScreenToDisplayDelay = 0;
@@ -61,7 +61,7 @@ void ResetScreenSequence()
     _ScreenToDisplayDelay = 0;
     _ScreenPageCounter = 0;
     _lastScreenToDisplay = ScreenTemplateToDisplay::None;
-    tftsleep_timer = 120;
+    tftsleep_timer = mysettings.tft_sleep_seconds;
 }
 
 void IRAM_ATTR TFTScreenTouchInterrupt()

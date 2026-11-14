@@ -1601,6 +1601,7 @@ $(function () {
 
         $("#VoltageHigh").val(DEFAULT_GRAPH_MAX_VOLTAGE);
         $("#VoltageLow").val(DEFAULT_GRAPH_MIN_VOLTAGE);
+        $("#TFTSleep").val(TFT_SLEEP_SECONDS);
 
         switchPage("#settingsPage");
 
@@ -2247,6 +2248,7 @@ $(function () {
             success: function (data) {
                 DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat($("#VoltageHigh").val());
                 DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat($("#VoltageLow").val());
+                TFT_SLEEP_SECONDS = parseInt($("#TFTSleep").val(), 10);
                 showSuccess();
             },
             error: function (data) {

@@ -144,6 +144,8 @@ struct diybms_eeprom_settings
 
   uint16_t graph_voltagehigh;
   uint16_t graph_voltagelow;
+  // Seconds before the TFT screen goes to sleep
+  uint8_t tft_sleep_seconds;
 
   uint8_t BypassOverTempShutdown;
   uint16_t BypassThresholdmV;
