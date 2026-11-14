@@ -116,7 +116,11 @@ var timer_postTileVisibiltity = null;
 function upload_file() {
 
     let data = document.getElementById("uploadfile_sel").files[0];
-    xhr = new XMLHttpRequest();
+    if (!data) {
+        // No file chosen (dialog cancelled)
+        return false;
+    }
+    let xhr = new XMLHttpRequest();
     xhr.open("POST", "/uploadfile", true);
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
     xhr.onreadystatechange = function () {
@@ -129,7 +133,6 @@ function upload_file() {
             } else {
                 $.notify("File upload failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
             }
-            $("#progress").hide();
         }
     };
     xhr.send(data);
@@ -138,10 +141,14 @@ function upload_file() {
 }
 
 function upload_firmware() {
+    let data = document.getElementById("file_sel").files[0];
+    if (!data) {
+        // No file chosen (dialog cancelled)
+        return false;
+    }
     $("#progress").show();
     $("#status_div").text("Upload in progress");
-    let data = document.getElementById("file_sel").files[0];
-    xhr = new XMLHttpRequest();
+    let xhr = new XMLHttpRequest();
     xhr.open("POST", "/ota", true);
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
     xhr.upload.addEventListener("progress", function (event) {
@@ -306,6 +313,32 @@ function restoreconfig(location, filename) {
     }
 }
 
+// Populate a storage page file list (<ul>) with download links and optional Restore buttons.
+// File names are inserted as text (never HTML) and passed to restoreconfig unencoded -
+// $.param encodes them exactly once and the controller URL-decodes them.
+//   storageType: download "type" parameter ("sdcard" or "flash")
+//   location: restoreconfig location (0 = SD card, 1 = flash)
+//   isRestorable: function(name) returning true if the file can be restored
+function renderFileList(list, files, storageType, location, isRestorable) {
+    list.empty();
+    if (!files) {
+        return;
+    }
+    $.each(files, function (index, name) {
+        if (name == null) {
+            return;
+        }
+        let li = $("<li>");
+        $("<a>").attr("href", "download?type=" + storageType + "&file=" + encodeURI(name)).text(name).appendTo(li);
+        if (isRestorable(name)) {
+            $("<button>").attr("type", "button").addClass("small").text("Restore")
+                .on("click", function () { restoreconfig(location, name); })
+                .appendTo(li);
+        }
+        list.append(li);
+    });
+}
+
 function refreshCurrentMonitorValues() {
     $.getJSON("/api/currentmonitor",
         function (data) {
@@ -397,7 +430,7 @@ function refreshCurrentMonitorValues() {
 
 // Show and hide tiles based on bit pattern in tileconfig array
 function refreshVisibleTiles() {
-    for (i = 0; i < TILE_IDS.length; i++) {
+    for (let i = 0; i < TILE_IDS.length; i++) {
         let tc = TILE_IDS[i];
         let value = tileconfig[i];
         for (let a = tc.length - 1; a >= 0; a--) {
@@ -406,9 +439,10 @@ function refreshVisibleTiles() {
             if (tc[a] != null && tc[a] != undefined && tc[a] != "") {
                 let obj = $("#" + tc[a]);
                 if (visible) {
+                    obj.addClass("vistile");
                     //Only show if we have not force hidden it
-                    if (obj.hasClass(".hide") == false) {
-                        obj.addClass("vistile").show();
+                    if (obj.hasClass("hide") == false) {
+                        obj.show();
                     }
                 } else {
                     obj.hide();
@@ -480,7 +514,7 @@ function loadVisibleTileData() {
 
         $.getJSON("/api/tileconfig",
             function (data) {
-                for (i = 0; i < data.tileconfig.values.length; i++) {
+                for (let i = 0; i < data.tileconfig.values.length; i++) {
                     tileconfig[i] = data.tileconfig.values[i];
                 }
                 refreshVisibleTiles();
@@ -634,6 +668,8 @@ function configureModule(button, cellid, attempts) {
                     $('#v490_2').show();
                     $('#v490_3').show();
                     $('#v490_4').show();
+                    $('#v490_5').show();
+                    $('#v490_6').show();
 
                     if (data.settings.Prohibited) {
                         $('#FanSwitchOnT').attr('disabled', 'disabled');
@@ -741,16 +777,13 @@ function updateChart(jsondata) {
 
     if (jsondata.voltages) {
         //Clone array of voltages
-        let tempArray = [];
-        for (i = 0; i < jsondata.voltages.length; i++) {
-            tempArray[i] = jsondata.voltages[i];
-        }
+        let tempArray = jsondata.voltages.slice();
 
-        //Split voltages into banks
+        //Split voltages into banks (numeric sort - default sort() compares as strings)
         let sorted_voltages = [];
-        for (i = 0; i < jsondata.banks; i++) {
+        for (let i = 0; i < jsondata.banks; i++) {
             let unsorted = tempArray.splice(0, jsondata.seriesmodules);
-            sorted_voltages.push(unsorted.sort());
+            sorted_voltages.push(unsorted.sort((a, b) => a - b));
         }
 
         for (let i = 0; i < jsondata.voltages.length; i++) {
@@ -1193,7 +1226,7 @@ function updateChart(jsondata) {
             };
 
 
-            if (jsondata.voltages.length > 24) {
+            if (jsondata.voltages && jsondata.voltages.length > 24) {
                 // When lots of cell data is on screen, hide the labels to improve visability               
                 for (const element of option.series) {
                     element.label.normal.show = false;
@@ -1254,10 +1287,10 @@ function updateChart(jsondata) {
 
         if (window.g1 != null && $('#graph1').css('display') != 'none') {
             g1.setOption({
-                markLine: { data: markLineData },
                 xAxis: { data: labels },
                 yAxis: [{ gridIndex: 0, min: minVoltage, max: maxVoltage }]
-                , series: [{ name: 'Voltage', data: voltages }
+                // markLine belongs to the series - a top-level markLine is ignored by ECharts
+                , series: [{ name: 'Voltage', data: voltages, markLine: { data: markLineData } }
                     , { name: 'Min V', data: voltagesmin }
                     , { name: 'Max V', data: voltagesmax }
                     , { name: 'Bypass', data: pwm }
@@ -1268,7 +1301,7 @@ function updateChart(jsondata) {
 
 
 
-        if (window.g2 != null && $('#graph2').css('display') != 'none') {
+        if (window.g2 != null && $('#graph2').css('display') != 'none' && voltages.length >= jsondata.banks * jsondata.seriesmodules) {
             //Format the data to show as 3D Bar chart
             var cells3d = [];
             var banks3d = [];
@@ -1307,16 +1340,25 @@ function updateChart(jsondata) {
 
     $("#homePage").css({ opacity: 1.0 });
     $("#loading").hide();
-    //Call again in a few seconds
-    setTimeout(queryBMS, 3500);
 
     loadVisibleTileData();
 }
 
 function queryBMS() {
-    $.getJSON("/api/monitor2", updateChart).fail(function (jqXHR, textStatus, errorThrown) {
+    $.getJSON("/api/monitor2", function (jsondata) {
+        try {
+            updateChart(jsondata);
+        } catch (e) {
+            // Never let one bad/unexpected response stop the polling loop
+            console.error("updateChart failed", e);
+        } finally {
+            //Call again in a few seconds
+            setTimeout(queryBMS, 3500);
+        }
+    }).fail(function (jqXHR, textStatus, errorThrown) {
 
-        if (jqXHR.status == 400 && jqXHR.responseJSON.error === "Invalid cookie") {
+        if (jqXHR.status == 400 && jqXHR.responseJSON && jqXHR.responseJSON.error === "Invalid cookie") {
+            // Session cookie no longer valid - polling stops, user must reload the page
             if ($("#warningXSS").data("notify") == undefined) {
                 $("#warningXSS").data("notify", 1);
                 $.notify($("#warningXSS").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
@@ -1431,7 +1473,10 @@ $(function () {
         $("#info .stat").not(".vistile").hide();
         $("#info .vistile").not(".hide").show();
         switchPage("#homePage");
-        g1.resize();
+        if (g1 != null) {
+            // Graph is only created after the first data arrives
+            g1.resize();
+        }
         refreshVisibleTiles();
 
         //if (window.Graph3DAvailable === true) {
@@ -2136,18 +2181,8 @@ $(function () {
                 }
                 else { $("#sdcard_used_percent").html("0"); }
 
-                $("#sdcardfiles").empty();
-                if (data.storage.sdcard.files) {
-                    $.each(data.storage.sdcard.files, function (index, value) {
-                        if (value != null) {
-                            link = "<a href='download?type=sdcard&file=" + encodeURI(value) + "'>" + value + "</a>";
-                            if (value.endsWith(".json") && value.startsWith("backup_config_")) {
-                                link += "<button class='small' onclick='restoreconfig(0,\"" + encodeURI(value) + "\")'>Restore</button>";
-                            }
-                            $("#sdcardfiles").append("<li>" + link + "</li>");
-                        }
-                    });
-                }
+                renderFileList($("#sdcardfiles"), data.storage.sdcard.files, "sdcard", 0,
+                    function (name) { return name.endsWith(".json") && name.startsWith("backup_config_"); });
 
                 $("#flash_total").html(Number(data.storage.flash.total).toLocaleString());
                 $("#flash_used").html(Number(data.storage.flash.used).toLocaleString());
@@ -2157,18 +2192,8 @@ $(function () {
                 }
                 else { $("#flash_used_percent").html("0"); }
 
-                $("#flashfiles").empty();
-                if (data.storage.flash.files) {
-                    $.each(data.storage.flash.files, function (index, value) {
-                        if (value != null) {
-                            link = "<a href='download?type=flash&file=" + encodeURI(value) + "'>" + value + "</a>";
-                            if (value.endsWith(".json") && (value.startsWith("cfg_") || value.startsWith("upld_"))) {
-                                link += "<button class='small' onclick='restoreconfig(1,\"" + encodeURI(value) + "\")'>Restore</button>";
-                            }
-                            $("#flashfiles").append("<li>" + link + "</li>");
-                        }
-                    });
-                }
+                renderFileList($("#flashfiles"), data.storage.flash.files, "flash", 1,
+                    function (name) { return name.endsWith(".json") && (name.startsWith("cfg_") || name.startsWith("upld_")); });
 
             }).fail(function () {
                 $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
@@ -2331,16 +2356,27 @@ $(function () {
         }
     });
 
+    // Append the XSS key to every POST.
+    // NOTE: since jQuery 4, prefilters run BEFORE object data is converted to a query
+    // string, so options.data can be a plain object, a string, or empty.
     $.ajaxPrefilter(function (options, originalOptions, jqXHR) {
-        if (originalOptions.type.toUpperCase() !== 'POST' || options.type.toUpperCase() !== 'POST') {
+        if (String(options.type || "").toUpperCase() !== 'POST') {
             return;
         }
 
-        if (options.data.length > 0) {
-            options.data += '&';
+        if ($.isPlainObject(options.data)) {
+            // jQuery converts this to a query string after the prefilters have run
+            options.data = $.extend({}, options.data, { xss: XSS_KEY });
+            return;
         }
 
-        options.data += $.param({ xss: XSS_KEY });
+        if (options.data != null && typeof options.data !== "string") {
+            // e.g. FormData with processData:false - leave untouched
+            return;
+        }
+
+        let data = options.data || "";
+        options.data = (data.length > 0 ? data + '&' : '') + $.param({ xss: XSS_KEY });
     });
 
     $(".stat").mouseenter(function () {
@@ -2350,7 +2386,7 @@ $(function () {
     });
 
     $(".stat").click(function () {
-        if ($(this).hasClass("vistile") == false && $(this).hasClass(".hide") == false) {
+        if ($(this).hasClass("vistile") == false && $(this).hasClass("hide") == false) {
             $(this).addClass("vistile");
         } else {
             $(this).removeClass("vistile");
