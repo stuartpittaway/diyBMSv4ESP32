@@ -9,6 +9,7 @@
   ----------------------------  ------------------------------------------------------------
   LineChart                     Cell voltage lines on the main graph (g1) and the line chart (g3)
   BarChart                      Bypass / temperature / other bars on the main graph (g1)
+  CandlestickChart              "Candle" view of the main graph (g1): min/max range per cell + current voltage
   GridSimpleComponent           x/y axes and the two stacked grids (gridIndex 0/1) on the main graph
   TooltipComponent              Hover tooltips, including axisPointer type 'cross' (pulls in AxisPointer)
   MarkLineComponent             The dotted "avg" line and the dashed per-bank divider lines
@@ -16,7 +17,7 @@
   CanvasRenderer                Drawing the charts (ECharts default renderer)
 
   Deliberately NOT included:
-  - PieChart, CandlestickChart  No series of these types exist
+  - PieChart                    No series of this type exist
   - TitleComponent              No chart sets a title
   - MarkPointComponent          Not used
   - LegendComponent             The only legend is { show: false } and nothing toggles series
@@ -26,7 +27,7 @@
 */
 
 import * as echarts from 'echarts/core';
-import { LineChart, BarChart } from 'echarts/charts';
+import { LineChart, BarChart, CandlestickChart } from 'echarts/charts';
 import {
     GridSimpleComponent,
     TooltipComponent,
@@ -38,6 +39,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 echarts.use([
     LineChart,
     BarChart,
+    CandlestickChart,
     GridSimpleComponent,
     TooltipComponent,
     MarkLineComponent,

@@ -114,6 +114,25 @@ var tileconfig = [];
 // Number of cells shown when the home page graph was created
 let graphCellCount = 0;
 
+// Home page graph style: 'bar', 'candle' or '3d'. Always starts as 'bar', not saved.
+let graphMode = 'bar';
+// Last /api/monitor2 response, so changing graph style can redraw straight away
+let lastMonitorData = null;
+
+// Show the graph element for the current graphMode and highlight its option link
+function applyGraphMode() {
+    $("#graphOptions a").removeClass("active");
+    $("#view" + graphMode).addClass("active");
+    if (graphMode === '3d') {
+        $("#graph1").hide();
+        $("#graph2").show();
+    } else {
+        $("#graph1").show();
+        $("#graph2").hide();
+    }
+    $(window).trigger('resize');
+}
+
 // Should the home page graph show its bar labels? GRAPH_LABELS (Display Settings):
 // 0 = automatic, hidden above 24 cells as they become unreadable (#270), 1 = always, 2 = never (#313)
 function graphLabelsVisible() {
@@ -1124,6 +1143,34 @@ function updateChart(jsondata) {
                             show: true, position: 'insideBottom', distance: 10, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                         }
                     }, {
+                        // Candle view: body spans the cell's min to max voltage
+                        xAxisIndex: 0,
+                        name: 'Range',
+                        yAxisIndex: 0,
+                        type: 'candlestick',
+                        data: [],
+                        barMaxWidth: 40,
+                        itemStyle: { borderWidth: 1 },
+                        tooltip: {
+                            formatter: function (p) {
+                                return p.name + '<br/>Min: ' + p.data.value[0].toFixed(3) + 'V<br/>Max: ' + p.data.value[1].toFixed(3) + 'V';
+                            }
+                        }
+                    }, {
+                        // Candle view: zero height candle, drawn as a horizontal line at the current voltage
+                        xAxisIndex: 0,
+                        name: 'Current',
+                        yAxisIndex: 0,
+                        type: 'candlestick',
+                        data: [],
+                        barMaxWidth: 40,
+                        markLine: { silent: true, symbol: 'none', data: [] },
+                        tooltip: {
+                            formatter: function (p) {
+                                return p.name + '<br/>' + p.data.value[0].toFixed(3) + 'V';
+                            }
+                        }
+                    }, {
                         xAxisIndex: 0,
                         name: 'Min V',
                         yAxisIndex: 0,
@@ -1202,7 +1249,7 @@ function updateChart(jsondata) {
             graphCellCount = jsondata.voltages ? jsondata.voltages.length : 0;
             const showLabels = graphLabelsVisible();
             for (const element of option.series) {
-                element.label.show = showLabels;
+                if (element.label) { element.label.show = showLabels; }
             }
 
             // use configuration item and data specified to show chart
@@ -1258,13 +1305,56 @@ function updateChart(jsondata) {
 
 
         if (window.g1 != null && $('#graph1').css('display') != 'none') {
+            const candle = (graphMode === 'candle');
+            let candleRange = [];
+            let candleCurrent = [];
+            let candleMarkLine = [];
+
+            if (candle) {
+                let total = 0;
+                for (let i = 0; i < voltages.length; i++) {
+                    const v = voltages[i].value;
+                    // min/max are null until a module is valid, fall back to the current voltage
+                    const lo = Number.isFinite(voltagesmin[i]) ? voltagesmin[i] : v;
+                    const hi = Number.isFinite(voltagesmax[i]) ? voltagesmax[i] : v;
+                    const colour = voltages[i].itemStyle.color;
+                    const bankColour = colours[bank[i]];
+                    total += v;
+
+                    if (hi > maxVoltage) { maxVoltage = hi; }
+                    if (lo < minVoltage) { minVoltage = lo; }
+
+                    // Candlestick value order is [open, close, lowest, highest]
+                    candleRange.push({
+                        value: [lo, hi, lo, hi],
+                        itemStyle: { color: bankColour + '59', color0: bankColour + '59', borderColor: bankColour, borderColor0: bankColour, borderColorDoji: bankColour }
+                    });
+                    candleCurrent.push({
+                        value: [v, v, v, v],
+                        itemStyle: { color: colour, color0: colour, borderColor: colour, borderColor0: colour, borderColorDoji: colour, borderWidth: 4 }
+                    });
+                }
+
+                // 'average' markLine type does not apply to candlestick data, so use a fixed y value
+                candleMarkLine = markLineData.map(function (m) {
+                    if (m.type !== 'average') { return m; }
+                    const avg = voltages.length ? Math.round(total / voltages.length * 1000) / 1000 : 0;
+                    return { name: m.name, yAxis: avg, lineStyle: m.lineStyle, label: m.label };
+                });
+            }
+
+            // Min V / Max V keep their labels in candle view, but hide their symbols as the candle shows them
+            const minMaxSymbol = candle ? 0 : 16;
+
             g1.setOption({
                 xAxis: { data: labels },
                 yAxis: [{ gridIndex: 0, min: minVoltage, max: maxVoltage }]
                 // markLine belongs to the series - a top-level markLine is ignored by ECharts
-                , series: [{ name: 'Voltage', data: voltages, markLine: { data: markLineData } }
-                    , { name: 'Min V', data: voltagesmin }
-                    , { name: 'Max V', data: voltagesmax }
+                , series: [{ name: 'Voltage', data: candle ? [] : voltages, markLine: { data: candle ? [] : markLineData } }
+                    , { name: 'Range', data: candleRange }
+                    , { name: 'Current', data: candleCurrent, markLine: { data: candleMarkLine } }
+                    , { name: 'Min V', data: voltagesmin, symbolSize: minMaxSymbol }
+                    , { name: 'Max V', data: voltagesmax, symbolSize: minMaxSymbol }
                     , { name: 'Bypass', data: pwm }
                     , { name: 'BypassTemperature', data: tempint }
                     , { name: 'CellTemperature', data: tempext }]
@@ -1319,6 +1409,7 @@ function updateChart(jsondata) {
 function queryBMS() {
     $.getJSON("/api/monitor2", function (jsondata) {
         try {
+            lastMonitorData = jsondata;
             updateChart(jsondata);
         } catch (e) {
             // Never let one bad/unexpected response stop the polling loop
@@ -1402,27 +1493,27 @@ $(function () {
         $("#range" + n).hide();
     }
 
-    $("#graph1").show();
-    $("#graph2").hide();
+    applyGraphMode();
     $("#graphOptions a").on('click', function (event) {
         event.preventDefault();
-        var choice = $(event.target).text();
-        if (choice == "2D") {
-            $("#graph1").show();
-            $("#graph2").hide();
-        } else if (choice == "3D") {
-            if (window.Graph3DAvailable !== true) {
-                $.notify("3d charts not available", { autoHide: true, className: 'error' });
-                return;
-            }
-            $("#graph1").hide();
-            $("#graph2").show();
-        } else {
-            // fallback, treat as 2D
-            $("#graph1").show();
-            $("#graph2").hide();
+        // Use the element id, the link text may be translated
+        let choice = this.id.replace('view', '');
+        if (choice === '3d' && window.Graph3DAvailable !== true) {
+            $.notify("3d charts not available", { autoHide: true, className: 'error' });
+            return;
         }
-        $(window).trigger('resize');
+        if (choice !== 'candle' && choice !== '3d') { choice = 'bar'; }
+        graphMode = choice;
+        applyGraphMode();
+
+        // Redraw now with the last data, rather than waiting for the next poll
+        if (lastMonitorData != null) {
+            try {
+                updateChart(lastMonitorData);
+            } catch (e) {
+                console.error("updateChart failed", e);
+            }
+        }
     });
 
     $('#CalculateCalibration').on('click', function () {
@@ -1437,8 +1528,7 @@ $(function () {
     $("#home").on('click', function () {
         setActiveMenu(this);
         $(".graphs").show();
-        $("#graph1").show();
-        $("#graph2").hide();
+        applyGraphMode();
         $("#info .stat").not(".vistile").hide();
         $("#info .vistile").not(".hide").show();
         switchPage("#homePage");
