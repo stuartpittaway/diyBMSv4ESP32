@@ -1,0 +1,14 @@
+{
+  "name": "diybms-echarts-build",
+  "private": true,
+  "description": "Custom ECharts build for the DIYBMS web UI (writes web_src/echarts.min.js)",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "echarts": "6.1.0",
+    "esbuild": "0.28.2",
+    "terser": "5.44.0"
+  }
+}

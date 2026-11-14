@@ -44,6 +44,11 @@ $.notify = function (message, options) {
     }
 };
 
+// NOTE: echarts.min.js is a custom build containing only the chart types and components
+// this page uses (line, bar, grid, tooltip, markLine, visualMap). If you use a new chart
+// type or option component (e.g. title, legend, dataZoom, pie), add it to
+// tools/echarts_build/entry.js and rebuild - otherwise ECharts silently ignores it.
+
 const INTERNALRULENUMBER = {
     EmergencyStop: 0,
     BMSError: 1,
