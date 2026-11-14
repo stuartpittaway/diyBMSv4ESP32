@@ -49,6 +49,12 @@ $.notify = function (message, options) {
 // type or option component (e.g. title, legend, dataZoom, pie), add it to
 // tools/echarts_build/entry.js and rebuild - otherwise ECharts silently ignores it.
 
+// Read a design token (CSS custom property) from :root in style.css,
+// so the graphs use the same colours/fonts as the active theme. Pass the name without "--".
+function themeToken(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
+}
+
 const INTERNALRULENUMBER = {
     EmergencyStop: 0,
     BMSError: 1,
@@ -254,7 +260,7 @@ function DrawChargingGraph() {
                 axisPointer: {
                     type: 'cross',
                     label: {
-                        backgroundColor: '#6a7985'
+                        backgroundColor: themeToken('chart-tooltip')
                     }
                 }
             },
@@ -273,7 +279,7 @@ function DrawChargingGraph() {
                         fontSize: '12',
                         fontFamily: 'monospace',
                         formatter: '{value}mV',
-                        color: '#ffffff'
+                        color: themeToken('chart-axis-label')
                     }
                 }
             ],
@@ -284,7 +290,7 @@ function DrawChargingGraph() {
                         fontSize: '12',
                         fontFamily: 'monospace',
                         formatter: '{value}A',
-                        color: '#ffffff'
+                        color: themeToken('chart-axis-label')
                     },
                     splitNumber: 10
                 }
@@ -777,26 +783,24 @@ function updateChart(jsondata) {
     var bankNumber = 0;
     let cellsInBank = 0;
 
-    // Need one color for each bank, could make it colourful I suppose :-)
-    const colours = [
-        '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
-        '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
-        '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
-        '#55a1ea', '#33628f', '#498FD0', '#6D8EA0',
-    ]
+    // One colour for each bank, cycling through the --chart-bank-1..4 theme tokens
+    const bankPalette = [themeToken('chart-bank-1'), themeToken('chart-bank-2'), themeToken('chart-bank-3'), themeToken('chart-bank-4')];
+    const colours = [];
+    for (let i = 0; i < 16; i++) { colours.push(bankPalette[i % bankPalette.length]); }
 
-    const red = '#B44247'
+    const red = themeToken('chart-bypass')
 
-    const highestCell = '#8c265d'
-    const lowestCell = '#b6a016'
+    const highestCell = themeToken('chart-highest')
+    const lowestCell = themeToken('chart-lowest')
+    const labelColour = themeToken('chart-label')
 
     let markLineData = [];
 
-    markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: '#eee', width: 3, type: 'dotted', opacity: 0.4 }, label: { distance: [10, 0], position: 'start', color: "#eeeeee", textBorderColor: '#313131', textBorderWidth: 2 } });
+    markLineData.push({ name: 'avg', type: 'average', lineStyle: { color: labelColour, width: 3, type: 'dotted', opacity: 0.4 }, label: { distance: [10, 0], position: 'start', color: labelColour, textBorderColor: themeToken('chart-label-outline'), textBorderWidth: 2 } });
 
     let xAxis = 0;
     for (let index = 0; index < jsondata.banks; index++) {
-        markLineData.push({ name: "Bank " + index, xAxis: xAxis, lineStyle: { color: colours[index], width: 4, type: 'dashed', opacity: 0.5 }, label: { show: true, distance: [0, 0], formatter: '{b}', color: '#eeeeee', textBorderColor: colours[index], textBorderWidth: 2 } });
+        markLineData.push({ name: "Bank " + index, xAxis: xAxis, lineStyle: { color: colours[index], width: 4, type: 'dashed', opacity: 0.5 }, label: { show: true, distance: [0, 0], formatter: '{b}', color: labelColour, textBorderColor: colours[index], textBorderWidth: 2 } });
         xAxis += jsondata.seriesmodules;
     }
 
@@ -1081,7 +1085,7 @@ function updateChart(jsondata) {
                 tooltip: {
                     show: true, axisPointer: {
                         type: 'cross', label: {
-                            backgroundColor: '#6a7985'
+                            backgroundColor: themeToken('chart-tooltip')
                         }
                     }
                 },
@@ -1091,19 +1095,19 @@ function updateChart(jsondata) {
                 xAxis: [{
                     gridIndex: 0, type: 'category', axisLine: {
                         lineStyle: {
-                            color: '#c1bdbd'
+                            color: themeToken('chart-axis')
                         }
                     }
                 }, {
                     gridIndex: 1, type: 'category', axisLine: {
-                        lineStyle: { color: '#c1bdbd' }
+                        lineStyle: { color: themeToken('chart-axis') }
                     }
                 }],
                 yAxis: [{
                     id: 0, gridIndex: 0, name: 'Volts', type: 'value', min: 2.5, max: 4.5, interval: 0.25, position: 'left',
                     axisLine: {
                         lineStyle: {
-                            color: '#c1bdbd'
+                            color: themeToken('chart-axis')
                         }
                     },
                     axisLabel: {
@@ -1118,7 +1122,7 @@ function updateChart(jsondata) {
                     max: 100, interval: 10, position: 'right',
                     axisLabel: { formatter: '{value}%' },
                     splitLine: { show: false },
-                    axisLine: { lineStyle: { type: 'dotted', color: '#c1bdbd' } },
+                    axisLine: { lineStyle: { type: 'dotted', color: themeToken('chart-axis') } },
                     axisTick: { show: false }
                 },
                 {
@@ -1129,7 +1133,7 @@ function updateChart(jsondata) {
                     interval: 10,
                     position: 'left',
                     axisLine: {
-                        lineStyle: { color: '#c1bdbd' }
+                        lineStyle: { color: themeToken('chart-axis') }
                     },
                     axisLabel: { formatter: '{value}°C' }
                 }],
@@ -1143,9 +1147,9 @@ function updateChart(jsondata) {
                         markLine: {
                             silent: true, symbol: 'none', data: markLineData
                         },
-                        itemStyle: { color: '#55a1ea', borderRadius: [8, 8, 0, 0] },
+                        itemStyle: { color: themeToken('chart-bar'), borderRadius: [8, 8, 0, 0] },
                         label: {
-                            show: true, position: 'insideBottom', distance: 10, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Share Tech Mono'
+                            show: true, position: 'insideBottom', distance: 10, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: themeToken('chart-label'), fontFamily: themeToken('font-mono')
                         }
                     }, {
                         // Candle view: body spans the cell's min to max voltage
@@ -1182,11 +1186,11 @@ function updateChart(jsondata) {
                         type: 'line',
                         data: [],
                         label: {
-                            show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#eeeeee', fontFamily: 'Share Tech Mono'
+                            show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: themeToken('chart-label'), fontFamily: themeToken('font-mono')
                         },
                         symbolSize: 16,
                         symbol: ['circle'],
-                        itemStyle: { color: "#c1bdbd" },
+                        itemStyle: { color: themeToken('chart-minmax') },
                         // Only show the symbols, not the line between them
                         lineStyle: { color: 'transparent' }
                     }, {
@@ -1196,11 +1200,11 @@ function updateChart(jsondata) {
                         type: 'line',
                         data: [],
                         label: {
-                            show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Share Tech Mono'
+                            show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: themeToken('chart-minmax'), fontFamily: themeToken('font-mono')
                         },
                         symbolSize: 16,
                         symbol: ['arrow'],
-                        itemStyle: { color: "#c1bdbd" },
+                        itemStyle: { color: themeToken('chart-minmax') },
                         lineStyle: { color: 'transparent' }
                     }, {
                         xAxisIndex: 0,
@@ -1209,11 +1213,11 @@ function updateChart(jsondata) {
                         type: 'line',
                         data: [],
                         label: {
-                            show: true, position: 'right', distance: 5, formatter: '{c}%', fontSize: 14, color: '#f0e400', fontFamily: 'Share Tech Mono'
+                            show: true, position: 'right', distance: 5, formatter: '{c}%', fontSize: 14, color: themeToken('chart-pwm'), fontFamily: themeToken('font-mono')
                         },
                         symbolSize: 16,
                         symbol: ['square'],
-                        itemStyle: { color: "#f0e400" },
+                        itemStyle: { color: themeToken('chart-pwm') },
                         lineStyle: { color: 'transparent' }
                     }, {
                         xAxisIndex: 1,
@@ -1221,11 +1225,11 @@ function updateChart(jsondata) {
                         name: 'BypassTemperature',
                         type: 'bar',
                         data: [],
-                        itemStyle: { color: '#55a1ea', borderRadius: [8, 8, 0, 0] },
+                        itemStyle: { color: themeToken('chart-bar'), borderRadius: [8, 8, 0, 0] },
                         label: {
                             show: true, position: 'insideBottom', distance: 8,
                             align: 'left', verticalAlign: 'middle',
-                            rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
+                            rotate: 90, formatter: '{c}°C', fontSize: 20, color: themeToken('chart-label'), fontFamily: themeToken('font-mono')
                         }
                     }, {
                         xAxisIndex: 1,
@@ -1233,11 +1237,11 @@ function updateChart(jsondata) {
                         name: 'CellTemperature',
                         type: 'bar',
                         data: [],
-                        itemStyle: { color: '#55a1ea', borderRadius: [8, 8, 0, 0] },
+                        itemStyle: { color: themeToken('chart-bar'), borderRadius: [8, 8, 0, 0] },
                         label: {
                             show: true, position: 'insideBottom', distance: 8,
                             align: 'left', verticalAlign: 'middle', rotate: 90,
-                            formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
+                            formatter: '{c}°C', fontSize: 20, color: themeToken('chart-label'), fontFamily: themeToken('font-mono')
                         }
                     }
                 ],
@@ -1268,9 +1272,9 @@ function updateChart(jsondata) {
             var Option3dBar = {
                 tooltip: {},
                 visualMap: { max: 4, inRange: { color: ['#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8', '#ffffbf', '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026'] } },
-                xAxis3D: { type: 'category', data: [], name: 'Cell', nameTextStyle: { color: '#ffffff' } },
-                yAxis3D: { type: 'category', data: [], name: 'Bank', nameTextStyle: { color: '#ffffff' } },
-                zAxis3D: { type: 'value', name: 'Voltage', nameTextStyle: { color: '#ffffff' } },
+                xAxis3D: { type: 'category', data: [], name: 'Cell', nameTextStyle: { color: themeToken('chart-axis-label') } },
+                yAxis3D: { type: 'category', data: [], name: 'Bank', nameTextStyle: { color: themeToken('chart-axis-label') } },
+                zAxis3D: { type: 'value', name: 'Voltage', nameTextStyle: { color: themeToken('chart-axis-label') } },
                 grid3D: {
                     boxWidth: 200,
                     boxDepth: 80,
@@ -1291,16 +1295,16 @@ function updateChart(jsondata) {
                     type: 'bar3D',
                     data: [],
                     shading: 'lambert',
-                    label: { textStyle: { fontSize: 16, borderWidth: 1, color: '#ffffff' } },
+                    label: { textStyle: { fontSize: 16, borderWidth: 1, color: themeToken('chart-axis-label') } },
 
                     emphasis: {
                         label: {
                             textStyle: {
                                 fontSize: 16,
-                                color: '#aaa'
+                                color: themeToken('chart-emphasis-label')
                             }
                         },
-                        itemStyle: { color: '#fff' }
+                        itemStyle: { color: themeToken('chart-emphasis') }
                     }
                 }]
             };
@@ -1374,13 +1378,13 @@ function updateChart(jsondata) {
             var banks3d = [];
 
             for (let seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
-                cells3d.push({ value: 'Cell ' + seriesmodules, textStyle: { color: '#ffffff' } });
+                cells3d.push({ value: 'Cell ' + seriesmodules, textStyle: { color: themeToken('chart-axis-label') } });
             }
 
             var data3d = [];
             var cell = 0;
             for (let bankNumber = 0; bankNumber < jsondata.banks; bankNumber++) {
-                banks3d.push({ value: 'Bank ' + bankNumber, textStyle: { color: '#ffffff' } });
+                banks3d.push({ value: 'Bank ' + bankNumber, textStyle: { color: themeToken('chart-axis-label') } });
                 //Build up 3d array for cell data
                 for (let seriesmodules = 0; seriesmodules < jsondata.seriesmodules; seriesmodules++) {
                     data3d.push({ value: [seriesmodules, bankNumber, voltages[cell].value], itemStyle: voltages[cell].itemStyle });
