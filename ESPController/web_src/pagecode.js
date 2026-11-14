@@ -1,22 +1,22 @@
 // Lightweight replacement for notify.js (unmaintained since 2016, incompatible with jQuery 4)
 // Supports the subset of the notify.js API used by this page:
 //   $.notify(message, className)
-//   $.notify(message, { className, autoHide, autoHideDelay, globalPosition })
+//   $.notify(message, { className, autoHide, autoHideDelay })
 // className: 'error' (default), 'success', 'warn' or 'info'
-// globalPosition: 'top right' (default) or 'top left'
+// All notifications stack in the centre of the screen, so they never cover the
+// error/warning bars at the top of the page (issue #207).
 // Click a notification to dismiss it.
 $.notify = function (message, options) {
     if (typeof options === "string") {
         options = { className: options };
     }
-    const opts = Object.assign({ className: 'error', autoHide: true, autoHideDelay: 5000, globalPosition: 'top right' }, options);
+    const opts = Object.assign({ className: 'error', autoHide: true, autoHideDelay: 5000 }, options);
 
-    const side = opts.globalPosition === 'top left' ? 'left' : 'right';
-    let container = document.getElementById('toasts-' + side);
+    let container = document.getElementById('toasts');
     if (!container) {
         container = document.createElement('div');
-        container.id = 'toasts-' + side;
-        container.className = 'toasts toasts-' + side;
+        container.id = 'toasts';
+        container.className = 'toasts';
         container.setAttribute('aria-live', 'polite');
         document.body.appendChild(container);
     }
@@ -129,9 +129,9 @@ function upload_file() {
             if (status >= 200 && status < 400) {
                 //Refresh the storage page
                 $("#storage").trigger("click");
-                $.notify("File upload success", { autoHide: true, globalPosition: 'top right', className: 'success' });
+                $.notify("File upload success", { autoHide: true, className: 'success' });
             } else {
-                $.notify("File upload failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
+                $.notify("File upload failed", { autoHide: true, className: 'error' });
             }
         }
     };
@@ -538,7 +538,7 @@ function showActionSuccess() {
 
 // Error notification for a failed API request
 function showRequestFailed(message) {
-    $.notify(message || "Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
+    $.notify(message || "Request failed", { autoHide: true, className: 'error' });
 }
 
 // Highlight the selected menu item
@@ -947,7 +947,7 @@ function updateChart(jsondata) {
                 //Once a warning has triggered, hide it from showing in the future
                 if ($("#warning" + warning).data("notify") == undefined) {
                     $("#warning" + warning).data("notify", 1);
-                    $.notify($("#warning" + warning).text(), { autoHideDelay: 15000, globalPosition: 'top left', className: 'warn' });
+                    $.notify($("#warning" + warning).text(), { autoHideDelay: 15000, className: 'warn' });
                 }
             }
         }
@@ -1323,7 +1323,7 @@ function queryBMS() {
             // Session cookie no longer valid - polling stops, user must reload the page
             if ($("#warningXSS").data("notify") == undefined) {
                 $("#warningXSS").data("notify", 1);
-                $.notify($("#warningXSS").text(), { autoHide: false, globalPosition: 'top left', className: 'error' });
+                $.notify($("#warningXSS").text(), { autoHide: false, className: 'error' });
             }
         } else {
             //Other type of error
@@ -1402,7 +1402,7 @@ $(function () {
             $("#graph2").hide();
         } else if (choice == "3D") {
             if (window.Graph3DAvailable !== true) {
-                $.notify("3d charts not available", { autoHide: true, globalPosition: 'top right', className: 'error' });
+                $.notify("3d charts not available", { autoHide: true, className: 'error' });
                 return;
             }
             $("#graph1").hide();

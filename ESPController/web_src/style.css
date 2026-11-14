@@ -111,10 +111,8 @@ form input:read-only{background-color:transparent;color:#fff;border:dashed 1px #
 #graphOptions .x{display:block;width:100%;text-align:right}
 #graphOptions .t{font-size:10pt;color:#c1bdbd}
 #graphOptions .v{font-size:22pt;font-family:'Share Tech Mono',monospace;font-weight:700;color:#55a1ea}
-.toasts{position:fixed;top:10px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:min(400px,calc(100vw - 20px));pointer-events:none}
-.toasts-right{right:10px;align-items:flex-end}
-.toasts-left{left:10px;align-items:flex-start}
-.toast{pointer-events:auto;cursor:pointer;padding:10px 14px;border-radius:6px;font-weight:700;color:#fff;background-color:#1e90ff;box-shadow:0 2px 8px rgba(0,0,0,.6);overflow-wrap:anywhere;opacity:0;transform:translateY(-10px);transition:opacity .3s,transform .3s}
+.toasts{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;display:flex;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:min(400px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:hidden;pointer-events:none}
+.toast{pointer-events:auto;text-align:center;cursor:pointer;padding:10px 14px;border-radius:6px;font-weight:700;color:#fff;background-color:#1e90ff;box-shadow:0 2px 8px rgba(0,0,0,.6);overflow-wrap:anywhere;opacity:0;transform:translateY(-10px);transition:opacity .3s,transform .3s}
 .toast-show{opacity:1;transform:none}
 .toast-error{color:#fff;background-color:#ca3e47}
 .toast-success{color:#000;background-color:#49be3b}
