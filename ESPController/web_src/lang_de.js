@@ -306,3 +306,10 @@ $("#calSvgCtrl").text("Controller ESP32");
 $("#calSvgWifi").text("WLAN");
 $("#calSvgPc").text("PC / Browser");
 var calibTexts = { start: "Messreihe läuft …", done: "Neuer Multiplier steht im Feld. Mit „Save settings“ speichern.", fallback: "Zeitüberschreitung – mit den erhaltenen Messwerten gerechnet.", none: "Keine Messung erhalten." };
+
+// Controller Firmware Upgrade (Utilities)
+$("#ap12").text("Controller-Firmware aktualisieren");
+$("#ota1").text("Neue Firmware auf den laufenden Controller laden. Vorher am besten die Konfiguration sichern. Der Controller startet danach neu. Modul-Firmware und Dateien werden dabei nicht aktualisiert.");
+$("#ota2").text("Laufende Firmware:");
+$("#ota3").text("Die Datei heißt normalerweise \"esp32-controller-firmware-over-the-air.bin\" (nicht das komplette Flash-Image). Schlägt die Übertragung oder die Prüfung fehl, bleibt die bisherige Firmware aktiv. Nach dem Neustart lädt die Seite von selbst neu.");
+$("#OtaUpload").text("Neue Firmware hochladen");

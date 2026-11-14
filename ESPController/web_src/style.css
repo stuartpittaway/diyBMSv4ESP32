@@ -199,9 +199,6 @@ th{font-family:var(--font-ui);text-align:center;font-size:13px;color:var(--text-
 
 .notify-container{position:relative;display:inline-block;margin-top:0}
 .notify-bubble{position:absolute;top:-2px;right:-2px;z-index:1;padding:2px 6px;background-color:var(--accent);color:var(--accent-text);font-size:.8em;font-weight:700;border-radius:10px;box-shadow:0 1px 4px var(--shadow);display:none;font-family:var(--font-mono)}
-.progress{margin:15px auto;max-width:500px;height:30px;background-color:var(--surface-2);border-radius:15px}
-.progress .progress__bar{height:100%;width:1%;border-radius:15px;background:repeating-linear-gradient(135deg,var(--progress-1),var(--progress-2) 15px,var(--progress-3) 15px,var(--progress-3) 30px)}
-.status{font-weight:700;font-size:30px}
 
 /* Graph selector tile */
 #graphOptions{background-color:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin:3px;max-width:175px}
@@ -271,3 +268,10 @@ form input[type='checkbox'],form input[type='checkbox']::before{transition:none}
 .calibsvg{width:340px;max-width:100%;height:auto}
 #Calib.calchanged{outline:2px solid var(--ok)}
 @media screen and (min-width:1100px){.cfgrow{flex-wrap:nowrap}}
+/* Controller firmware upgrade progress bar (Utilities) */
+.prog{height:16px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:4px 0 8px 0;max-width:600px;display:none}
+.prog>div{height:100%;width:0;background:var(--progress-1);transition:width .4s}
+@keyframes progstripes{from{background-position:0 0}to{background-position:40px 0}}
+.prog.busy>div{background-image:repeating-linear-gradient(135deg,var(--progress-1),var(--progress-2) 10px,var(--progress-3) 10px,var(--progress-3) 20px);background-size:56.57px 56.57px;animation:progstripes 1s linear infinite;min-width:40px}
+@media (prefers-reduced-motion:reduce){.prog>div{transition:none}.prog.busy>div{animation:none}}
+.note{font-size:.85em;color:var(--text-muted)}
