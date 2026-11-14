@@ -142,7 +142,7 @@ void Rules::ProcessCell(uint8_t bank, uint8_t cellNumber, const CellModuleInfo *
         highestInternalTemp = c->internalTemp;
     }
 
-    if (c->externalTemp < lowestInternalTemp)
+    if (c->internalTemp < lowestInternalTemp)
     {
         lowestInternalTemp = c->internalTemp;
     }
@@ -636,15 +636,16 @@ void Rules::CalculateDynamicChargeVoltage(const diybms_eeprom_settings *mysettin
     ESP_LOGD(TAG, "MminusH=%u", MminusH);
 
     // Jump to start of cells in the correct bank.
-    uint8_t cellid = index_bank_HighestCellVoltage * mysettings->totalNumberOfSeriesModules;
+    const uint8_t firstcell = index_bank_HighestCellVoltage * mysettings->totalNumberOfSeriesModules;
     for (uint8_t i = 0; i < mysettings->totalNumberOfSeriesModules; i++)
     {
-        if (cellarray[i].voltagemV >= HminusR)
+        const uint8_t cellid = firstcell + i;
+        if (cellarray[cellid].voltagemV >= HminusR)
         {
-            S += ((MminusH) * (cellarray[i].voltagemV - (HminusR)) / R);
+            S += ((MminusH) * (cellarray[cellid].voltagemV - (HminusR)) / R);
         }
 
-        ESP_LOGD(TAG, "id=%u, V=%u, S=%u", cellid, cellarray[i].voltagemV, S);
+        ESP_LOGD(TAG, "id=%u, V=%u, S=%u", cellid, cellarray[cellid].voltagemV, S);
     }
 
     // Scale down to 0.1V
