@@ -5,6 +5,7 @@ import shutil
 import gzip
 import os
 import errno
+import sys
 Import('env')
 
 env.Execute("$PYTHONEXE -m pip install -v htmlmin")
@@ -59,9 +60,12 @@ def prepare_www_files():
 
     for file in files_to_minify:
         print('  Minify file: ' + file + ' to data dir')
-        shutil.copy(file, os.path.join(data_dir, os.path.basename(file)))
-        env.Execute("htmlmin  --keep-optional-attribute-quotes " +
-                    file+" "+os.path.join(data_dir, os.path.basename(file)))
+        # Run htmlmin with PlatformIO's own Python, so it doesn't depend on the
+        # htmlmin command being on PATH (it isn't outside the PlatformIO terminal).
+        # Stop the build if it fails, rather than silently embedding the larger page.
+        if env.Execute('"$PYTHONEXE" -m htmlmin.command --keep-optional-attribute-quotes "' +
+                       file + '" "' + os.path.join(data_dir, os.path.basename(file)) + '"'):
+            sys.exit("htmlmin failed to minify " + file)
 
     for file in files_to_gzip:
         print('  GZipping file: ' + file + ' to data dir')
