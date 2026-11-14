@@ -9,7 +9,6 @@ deliberately NOT translated here, because .text() would delete that child:
   #error2          contains <span id="missingmodule1"> and <span id="missingmodule2">
   #genericerror    contains <span id="genericerrcode">
   #genericwarning  contains <span id="genericwarningcode">
-  #ap4             contains the Patreon <a><img></a> link
 
 The following ids appear more than once in default.htm, so a "#id" selector is
 ambiguous and they are left alone as well: #mb1, #b9, #b10, #b11

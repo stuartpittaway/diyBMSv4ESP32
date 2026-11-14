@@ -128,9 +128,6 @@ $("#ip1").text("Integratie");
 //For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.
 $("#ip2").text("Paswoorden moeten opnieuw ingegeven worden voor de service(s) die geactiveerd of gewijzigd worden.");
 
-//PATREON
-//Remember, this product is free for personal use, if you would like to make a regular donation to keep the features and improvements flowing, use the Patreon link below. Even just a coffee/beer a month makes a difference. Thank you!
-$("#ap4").text("Vergeet niet dat dit een gratis product is voor persoonlijk gebruik.  Om het project te laten groeien en evolueren kan je altijd steunen via de Patreon link hieronder, zelfs een kleine gift maakt het verschil.  Bedankt!");
 
 //WARNING
 $("#ap5").text("OPGELET");

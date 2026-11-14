@@ -129,9 +129,6 @@ $("#ip1").text("Einbindung");
 //For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.
 $("#ip2").text("Aus Sicherheitsgründen müssen Sie vor dem Speichern das Kennwort für die Dienste, die Sie aktivieren oder ändern möchten, erneut eingeben.");
 
-//PATREON
-//Remember, this product is free for personal use, if you would like to make a regular donation to keep the features and improvements flowing, use the Patreon link below. Even just a coffee/beer a month makes a difference. Thank you!
-$("#ap4").text("Denken Sie daran, dass dieses Produkt für den persönlichen Gebrauch kostenlos ist. Wenn Sie regelmäßig spenden möchten, um die Funktionen und Verbesserungen aufrechtzuerhalten, verwenden Sie den unten stehenden Patreon-Link. Schon ein Kaffee / Bier im Monat macht den Unterschied. Vielen Dank!");
 
 //WARNING
 $("#ap5").text("WARNUNG");

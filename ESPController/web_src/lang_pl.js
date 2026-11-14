@@ -140,10 +140,6 @@ $("#ip5").text("Opcja podstawowych danych ogniw zmniejsza ilość danych MQTT pr
 
 $("#ap1").text("Kod źródłowy i sprzęt");
 $("#ap2").text("Filmy");
-$("#ap3").text("Patreon (wspieranie)");
-//PATREON
-//Remember, this product is free for personal use, if you would like to make a regular donation to keep the features and improvements flowing, use the Patreon link below. Even just a coffee/beer a month makes a difference. Thank you!
-$("#ap4").text("Pamiętaj, że ten produkt jest bezpłatny do użytku osobistego. Jeśli chcesz regularnie przekazywać darowizny na utrzymanie funkcjonalności i ulepszeń, skorzystaj z poniższego linku Patreon. Nawet kawa/piwo miesięcznie robi różnicę. Dziękuję!");
 
 //WARNING
 $("#ap5").text("OSTRZEŻENIE");
