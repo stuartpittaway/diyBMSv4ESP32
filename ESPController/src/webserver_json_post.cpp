@@ -482,7 +482,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     uint8_t temp;
 
     // If a user updates the charge config, reset the charging mode as well
-    rules.setChargingMode(ChargingMode::standard);
+    RequestChargingModeReset();
 
     if (GetKeyValue(httpbuf, "protocol", &temp, urlEncoded))
     {
@@ -1085,7 +1085,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
         }
 
         // Reset state of rules after updating the new values
-        rules.resetAllRules();
+        RequestRulesReset();
     }
 
     saveConfiguration();

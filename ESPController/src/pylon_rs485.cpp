@@ -156,7 +156,9 @@ void PylonRS485::handle_rx() {
                                     );
             break;
 
-            case CMD_ANALOG_VAL:
+            case CMD_ANALOG_VAL: {
+               // Hold the rules/current monitor data steady whilst building this response
+               SharedDataLock data_lock;
                //skip if version doesn't match
                if (hdr.ver != PYL_VERSION) break;
 
@@ -192,9 +194,11 @@ void PylonRS485::handle_rx() {
                insertLength(tmp_buf, response_len);
                
                ESP_LOGD(TAG, "Pylon Analog Val - Pack voltage: %dmV", pack_voltage);
-            break;
+            } break;
 
-            case CMD_CHARGE_MGMT:
+            case CMD_CHARGE_MGMT: {
+               // Hold the rules/current monitor data steady whilst building this response
+               SharedDataLock data_lock;
                //skip if version doesn't match
                if (hdr.ver != PYL_VERSION) break;
 
@@ -264,7 +268,7 @@ void PylonRS485::handle_rx() {
 
                ESP_LOGD(TAG, "Pylon Charge Mgmt - Chrg limit: %dmV, Dischrg limit: %dmV, Chrg curr: %d (0.1A), Dischrg curr: %d  (0.1A), Flags: 0x%02X",
                         charge_voltage, discharge_voltage, charge_current_limit, discharge_current_limit, flags);
-            break;
+            } break;
 
             default:
                //ignore unsupported commands

@@ -121,7 +121,35 @@ extern httpd_handle_t _myserver;
 
 wifi_eeprom_settings _wificonfig;
 
+// Published rules snapshot, read by every other task (CAN/RS485 inverter, web, MQTT, TFT...)
 Rules rules;
+// Private working copy, only ever touched by rules_task (via ProcessRules).
+// Rule outcomes, charging mode and timers persist here between cycles.
+static Rules rules_working;
+// Guards "rules" and "currentMonitor" whilst new values are copied in - see SharedDataLock
+SemaphoreHandle_t shared_data_mutex = nullptr;
+
+// Task notification bits sent to rules_task to request state changes from other tasks
+#define RULES_NOTIFY_RESET_RULES 0x01
+#define RULES_NOTIFY_RESET_CHARGEMODE 0x02
+
+extern TaskHandle_t rule_task_handle;
+
+void RequestRulesReset()
+{
+  if (rule_task_handle != nullptr)
+  {
+    xTaskNotify(rule_task_handle, RULES_NOTIFY_RESET_RULES, eNotifyAction::eSetBits);
+  }
+}
+void RequestChargingModeReset()
+{
+  if (rule_task_handle != nullptr)
+  {
+    xTaskNotify(rule_task_handle, RULES_NOTIFY_RESET_CHARGEMODE, eNotifyAction::eSetBits);
+  }
+}
+
 diybms_eeprom_settings mysettings;
 uint8_t TotalNumberOfCells() { return mysettings.totalNumberOfBanks * mysettings.totalNumberOfSeriesModules; }
 
@@ -1154,169 +1182,206 @@ void onPacketReceived()
 // Runs the rules and populates rule_outcome array with true/false for each rule
 // Rules based on module parameters/readings like voltage and temperature
 // are only processed once every module has returned at least 1 reading/communication
+// ProcessRules builds its results in the private "rules_working" copy, then publishes
+// a complete snapshot to the shared "rules" object (see PublishRules).
+// Other tasks must never see "rules" part way through being recalculated.
+static void PublishRules()
+{
+  // Copying the object is quick (a few hundred bytes), so readers are never blocked for long
+  SharedDataLock lock;
+  rules = rules_working;
+}
+
 void ProcessRules()
 {
-  rules.ClearValues();
-  rules.ClearWarnings();
-  rules.ClearErrors();
+  // Apply any state changes requested by other tasks (e.g. web server) to the working copy
+  // Read and clear any pending request bits, without waiting
+  uint32_t notifybits = 0;
+  xTaskNotifyWait(0, UINT32_MAX, &notifybits, 0);
 
-  rules.setRuleStatus(Rule::BMSError, false);
+  if (notifybits & RULES_NOTIFY_RESET_RULES)
+  {
+    rules_working.resetAllRules();
+  }
+  if (notifybits & RULES_NOTIFY_RESET_CHARGEMODE)
+  {
+    rules_working.setChargingMode(ChargingMode::standard);
+  }
+
+  // Take a consistent copy of the current monitor readings to use for this whole calculation
+  // Static to save stack, this is only ever called from rules_task
+  static currentmonitoring_struct cm_snapshot;
+  {
+    SharedDataLock lock;
+    cm_snapshot = currentMonitor;
+  }
+
+  rules_working.ClearValues();
+  rules_working.ClearWarnings();
+  rules_working.ClearErrors();
+
+  rules_working.setRuleStatus(Rule::BMSError, false);
 
   auto totalConfiguredModules = TotalNumberOfCells();
   if (totalConfiguredModules > maximum_controller_cell_modules)
   {
     // System is configured with more than maximum modules - abort!
-    rules.SetError(InternalErrorCode::TooManyModules);
+    rules_working.SetError(InternalErrorCode::TooManyModules);
   }
 
   if (receiveProc.totalModulesFound > 0 && receiveProc.totalModulesFound != totalConfiguredModules)
   {
     // Found more or less modules than configured for
-    rules.SetError(InternalErrorCode::ModuleCountMismatch);
+    rules_working.SetError(InternalErrorCode::ModuleCountMismatch);
   }
 
   // Communications error...
   if (receiveProc.HasCommsTimedOut())
   {
-    rules.SetError(InternalErrorCode::CommunicationsError);
-    rules.setRuleStatus(Rule::BMSError, true);
+    rules_working.SetError(InternalErrorCode::CommunicationsError);
+    rules_working.setRuleStatus(Rule::BMSError, true);
   }
 
-  if (rules.ruleOutcome(Rule::EmergencyStop))
+  if (rules_working.ruleOutcome(Rule::EmergencyStop))
   {
-    rules.SetError(InternalErrorCode::ErrorEmergencyStop);
+    rules_working.SetError(InternalErrorCode::ErrorEmergencyStop);
   }
 
   // Raise error is the current shunt stops responding for over 45 seconds
   if (mysettings.currentMonitoringEnabled)
   {
-    auto secondsSinceLastMessage = (int64_t)((esp_timer_get_time() - currentMonitor.timestamp) / 1000000);
+    auto secondsSinceLastMessage = (int64_t)((esp_timer_get_time() - cm_snapshot.timestamp) / 1000000);
     if (secondsSinceLastMessage > 45)
     {
-      rules.SetError(InternalErrorCode::CommunicationsError);
-      rules.setRuleStatus(Rule::BMSError, true);
+      rules_working.SetError(InternalErrorCode::CommunicationsError);
+      rules_working.setRuleStatus(Rule::BMSError, true);
     }
   }
 
-  rules.highestBankRange = 0;
-  rules.numberOfBalancingModules = 0;
+  rules_working.highestBankRange = 0;
+  rules_working.numberOfBalancingModules = 0;
   uint8_t cellid = 0;
   for (uint8_t bank = 0; bank < mysettings.totalNumberOfBanks; bank++)
   {
     for (uint8_t i = 0; i < mysettings.totalNumberOfSeriesModules; i++)
     {
-      rules.ProcessCell(bank, cellid, &cmi[cellid], mysettings.cellmaxmv);
+      rules_working.ProcessCell(bank, cellid, &cmi[cellid], mysettings.cellmaxmv);
 
       if (cmi[cellid].valid && cmi[cellid].settingsCached)
       {
 
         if (cmi[cellid].BypassThresholdmV != mysettings.BypassThresholdmV)
         {
-          rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassVoltage);
+          rules_working.SetWarning(InternalWarningCode::ModuleInconsistantBypassVoltage);
         }
 
         if (cmi[cellid].BypassOverTempShutdown != mysettings.BypassOverTempShutdown)
         {
-          rules.SetWarning(InternalWarningCode::ModuleInconsistantBypassTemperature);
+          rules_working.SetWarning(InternalWarningCode::ModuleInconsistantBypassTemperature);
         }
 
         if (cmi[cellid].inBypass)
         {
-          rules.numberOfBalancingModules++;
+          rules_working.numberOfBalancingModules++;
         }
 
         if (cmi[0].settingsCached && cmi[cellid].CodeVersionNumber != cmi[0].CodeVersionNumber)
         {
           // Do all the modules have the same version of code as module zero?
-          rules.SetWarning(InternalWarningCode::ModuleInconsistantCodeVersion);
+          rules_working.SetWarning(InternalWarningCode::ModuleInconsistantCodeVersion);
         }
 
         if (cmi[0].settingsCached && cmi[cellid].BoardVersionNumber != cmi[0].BoardVersionNumber)
         {
           // Do all the modules have the same hardware revision?
-          rules.SetWarning(InternalWarningCode::ModuleInconsistantBoardRevision);
+          rules_working.SetWarning(InternalWarningCode::ModuleInconsistantBoardRevision);
         }
       }
 
       cellid++;
     }
-    rules.ProcessBank(bank);
+    rules_working.ProcessBank(bank);
   }
 
-  rules.CalculateChargingMode(&mysettings, &currentMonitor);
+  rules_working.CalculateChargingMode(&mysettings, &cm_snapshot);
   // Need to call these even if Dynamic is switched off, as it seeds the internal variables with the correct values
-  rules.CalculateDynamicChargeVoltage(&mysettings, cmi);
-  rules.CalculateDynamicChargeCurrent(&mysettings);
+  rules_working.CalculateDynamicChargeVoltage(&mysettings, cmi);
+  rules_working.CalculateDynamicChargeCurrent(&mysettings);
 
   if (mysettings.loggingEnabled && !_sd_card_installed && !_avrsettings.programmingModeEnabled)
   {
-    rules.SetWarning(InternalWarningCode::LoggingEnabledNoSDCard);
+    rules_working.SetWarning(InternalWarningCode::LoggingEnabledNoSDCard);
   }
 
   if (_avrsettings.programmingModeEnabled)
   {
-    rules.SetWarning(InternalWarningCode::AVRProgrammingMode);
+    rules_working.SetWarning(InternalWarningCode::AVRProgrammingMode);
   }
 
-  if (rules.invalidModuleCount > 0)
+  if (rules_working.invalidModuleCount > 0)
   {
     // Some modules are not yet valid
-    rules.SetError(InternalErrorCode::WaitingForModulesToReply);
+    rules_working.SetError(InternalErrorCode::WaitingForModulesToReply);
   }
 
-  if (_controller_state == ControllerState::Running && rules.zeroVoltageModuleCount > 0)
+  if (_controller_state == ControllerState::Running && rules_working.zeroVoltageModuleCount > 0)
   {
-    rules.SetError(InternalErrorCode::ZeroVoltModule);
-    rules.setRuleStatus(Rule::BMSError, true);
+    rules_working.SetError(InternalErrorCode::ZeroVoltModule);
+    rules_working.setRuleStatus(Rule::BMSError, true);
   }
 
-  rules.RunRules(
+  rules_working.RunRules(
       mysettings.rulevalue,
       mysettings.rulehysteresis,
       emergencyStop,
       minutesSinceMidnight(),
-      &currentMonitor);
+      &cm_snapshot);
 
-  if (rules.moduleHasExternalTempSensor == false)
+  if (rules_working.moduleHasExternalTempSensor == false)
   {
     // NoExternalTempSensor
-    rules.SetWarning(InternalWarningCode::NoExternalTempSensor);
+    rules_working.SetWarning(InternalWarningCode::NoExternalTempSensor);
   }
 
   if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED)
   {
-    if (!rules.IsChargeAllowed(&mysettings))
+    if (!rules_working.IsChargeAllowed(&mysettings))
     {
       // Charge prevented
-      rules.SetWarning(InternalWarningCode::ChargePrevented);
+      rules_working.SetWarning(InternalWarningCode::ChargePrevented);
     }
-    if (!rules.IsDischargeAllowed(&mysettings))
+    if (!rules_working.IsDischargeAllowed(&mysettings))
     {
       // Discharge prevented
-      rules.SetWarning(InternalWarningCode::DischargePrevented);
+      rules_working.SetWarning(InternalWarningCode::DischargePrevented);
     }
   }
+
+  // Calculation complete - make the new results visible to other tasks.
+  // Do this before the controller can move into "Running" state, so the inverter
+  // tasks never see Running with a stale snapshot.
+  PublishRules();
 
   if (_controller_state == ControllerState::Stabilizing)
   {
     // Check for zero volt modules - not a problem whilst we are in stabilizing start up mode
-    if (rules.zeroVoltageModuleCount == 0 && rules.invalidModuleCount == 0)
+    if (rules_working.zeroVoltageModuleCount == 0 && rules_working.invalidModuleCount == 0)
     {
       // Every module has been read and they all returned a voltage move to running state
       SetControllerState(ControllerState::Running);
     }
   }
 
-  if (rules.ruleOutcome(Rule::EmergencyStop))
+  if (rules_working.ruleOutcome(Rule::EmergencyStop))
   {
     // Lowest 3 bits are RGB led GREEN/RED/BLUE
     LED(RGBLED::Red);
   }
 
-  if (rules.numberOfActiveErrors > 0 || rules.WarningCodes.at(InternalWarningCode::AVRProgrammingMode) != InternalWarningCode::NoWarning)
+  if (rules_working.numberOfActiveErrors > 0 || rules_working.WarningCodes.at(InternalWarningCode::AVRProgrammingMode) != InternalWarningCode::NoWarning)
   {
     // We have active errors, or AVR programming mode is enabled
-    ESP_LOGI(TAG, "Active errors=%u", rules.numberOfActiveErrors);
+    ESP_LOGI(TAG, "Active errors=%u", rules_working.numberOfActiveErrors);
 
     // Wake up the screen, this will also trigger it to update the display
     wake_up_tft(true);
@@ -1363,7 +1428,7 @@ void pulse_relay_off(const TimerHandle_t)
     // Test the rules (in reverse order)
     for (int8_t n = RELAY_RULES - 1; n >= 0; n--)
     {
-      if (rules.ruleOutcome((Rule)n) == true)
+      if (rules_working.ruleOutcome((Rule)n) == true)
       {
         for (int8_t y = 0; y < RELAY_TOTAL; y++)
         {
@@ -1422,7 +1487,7 @@ void pulse_relay_off(const TimerHandle_t)
       xTaskNotify(sdcardlog_outputs_task_handle, 0x00, eNotifyAction::eNoAction);
     }
 
-    if (changes || rules.anyRuleTriggered())
+    if (changes || rules_working.anyRuleTriggered())
     {
       // A rule is TRUE or relay state has changed, so MQTT report it...
       xTaskNotify(rule_state_change_task_handle, 0x00, eNotifyAction::eNoAction);
@@ -1931,8 +1996,11 @@ void PZEM017_SetShuntType(uint8_t modbusAddress, uint16_t shuntMaxCurrent)
   xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
 
   // Zero all data
-  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
-  currentMonitor.validReadings = false;
+  {
+    SharedDataLock lock;
+    memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+    currentMonitor.validReadings = false;
+  }
 }
 
 void PZEM017_SetDeviceAddress(uint8_t newAddress)
@@ -1958,8 +2026,11 @@ void PZEM017_SetDeviceAddress(uint8_t newAddress)
   ESP_LOGD(TAG, "Sent PZEM_017 change address");
 
   // Zero all data
-  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
-  currentMonitor.validReadings = false;
+  {
+    SharedDataLock lock;
+    memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+    currentMonitor.validReadings = false;
+  }
   xQueueSend(rs485_transmit_q_handle, &cmd, portMAX_DELAY);
 }
 
@@ -2462,8 +2533,11 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
   ESP_LOGD(TAG, "Advanced save settings");
 
   // Zero all data
-  memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
-  currentMonitor.validReadings = false;
+  {
+    SharedDataLock lock;
+    memset(&currentMonitor, 0, sizeof(currentmonitoring_struct));
+    currentMonitor.validReadings = false;
+  }
 }
 
 // Swap the two 16 bit words in a 32bit word
@@ -2472,9 +2546,25 @@ static inline unsigned int word16swap32(unsigned int __bsx)
   return ((__bsx & 0xffff0000) >> 16) | ((__bsx & 0x0000ffff) << 16);
 }
 
+// Copy a complete set of current monitor values into the shared "currentMonitor" struct
+static void PublishCurrentMonitor(const currentmonitoring_struct &newvalues)
+{
+  SharedDataLock lock;
+  currentMonitor = newvalues;
+}
+
 // Extract the current monitor MODBUS registers into our internal STRUCTURE variables
 void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 {
+  // Build the new values in a private copy, then publish them in one go (see PublishCurrentMonitor)
+  // so other tasks never see a part decoded/byte swapped struct.
+  // Static to save stack, this is only ever called from the rs485_rx task.
+  static currentmonitoring_struct cm;
+  {
+    SharedDataLock lock;
+    cm = currentMonitor;
+  }
+
   // ESP_LOGD(TAG, "Modbus len=%i, struct len=%i", length, sizeof(currentmonitor_raw_modbus));
 
   // ESP_LOG_BUFFER_HEXDUMP(TAG, &frame[3], length, esp_log_level_t::ESP_LOG_DEBUG);
@@ -2482,13 +2572,14 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
   if (sizeof(currentmonitor_raw_modbus) != length)
   {
     // Abort if the packet sizes are different
-    memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
-    currentMonitor.validReadings = false;
+    memset(&cm.modbus, 0, sizeof(currentmonitor_raw_modbus));
+    cm.validReadings = false;
+    PublishCurrentMonitor(cm);
     return;
   }
 
   // Now byte swap to align to ESP32 endiness, and copy as we go into new structure
-  auto *ptr = (uint8_t *)&currentMonitor.modbus;
+  auto *ptr = (uint8_t *)&cm.modbus;
   for (size_t i = 0; i < length; i += 2)
   {
     uint8_t temp = frame[3 + i];
@@ -2497,28 +2588,28 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
   }
 
   // Finally, we have to fix the 32 bit fields
-  currentMonitor.modbus.milliamphour_out = word16swap32(currentMonitor.modbus.milliamphour_out);
-  currentMonitor.modbus.milliamphour_in = word16swap32(currentMonitor.modbus.milliamphour_in);
-  currentMonitor.modbus.daily_milliamphour_out = word16swap32(currentMonitor.modbus.daily_milliamphour_out);
-  currentMonitor.modbus.daily_milliamphour_in = word16swap32(currentMonitor.modbus.daily_milliamphour_in);
-  currentMonitor.modbus.firmwareversion = word16swap32(currentMonitor.modbus.firmwareversion);
-  currentMonitor.modbus.firmwaredatetime = word16swap32(currentMonitor.modbus.firmwaredatetime);
+  cm.modbus.milliamphour_out = word16swap32(cm.modbus.milliamphour_out);
+  cm.modbus.milliamphour_in = word16swap32(cm.modbus.milliamphour_in);
+  cm.modbus.daily_milliamphour_out = word16swap32(cm.modbus.daily_milliamphour_out);
+  cm.modbus.daily_milliamphour_in = word16swap32(cm.modbus.daily_milliamphour_in);
+  cm.modbus.firmwareversion = word16swap32(cm.modbus.firmwareversion);
+  cm.modbus.firmwaredatetime = word16swap32(cm.modbus.firmwaredatetime);
 
-  // ESP_LOG_BUFFER_HEXDUMP(TAG, &currentMonitor.modbus, sizeof(currentmonitor_raw_modbus), esp_log_level_t::ESP_LOG_DEBUG);
+  // ESP_LOG_BUFFER_HEXDUMP(TAG, &cm.modbus, sizeof(currentmonitor_raw_modbus), esp_log_level_t::ESP_LOG_DEBUG);
 
   // https://github.com/stuartpittaway/diyBMSv4ESP32/issues/240
   // The shunt board sends a power figure taken from its INA228's POWER register, which is
   // specified against full scale rather than against the reading, so its error is a fixed
   // number of watts.  Voltage and current arrive in the same reply and are specified
   // against the reading, so use those instead - the same thing the onboard monitor does.
-  currentMonitor.modbus.power = currentMonitor.modbus.voltage * abs(currentMonitor.modbus.current);
+  cm.modbus.power = cm.modbus.voltage * abs(cm.modbus.current);
 
-  currentMonitor.timestamp = esp_timer_get_time();
+  cm.timestamp = esp_timer_get_time();
 
   // High byte
-  auto flag1 = (uint8_t)(currentMonitor.modbus.flags >> 8);
+  auto flag1 = (uint8_t)(cm.modbus.flags >> 8);
   // Low byte
-  auto flag2 = (uint8_t)(currentMonitor.modbus.flags);
+  auto flag2 = (uint8_t)(cm.modbus.flags);
 
   // ESP_LOGD(TAG, "Read relay trigger settings %u %u", flag1, flag2);
 
@@ -2533,15 +2624,15 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
 */
 
-  currentMonitor.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
-  currentMonitor.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
-  currentMonitor.CurrentUnderLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTUL);
-  currentMonitor.VoltageOverlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSOL);
-  currentMonitor.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
-  currentMonitor.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
+  cm.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
+  cm.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
+  cm.CurrentUnderLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTUL);
+  cm.VoltageOverlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSOL);
+  cm.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
+  cm.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
 
-  currentMonitor.TempCompEnabled = flag1 & B00000010;
-  currentMonitor.ADCRange4096mV = flag1 & B00000001;
+  cm.TempCompEnabled = flag1 & B00000010;
+  cm.ADCRange4096mV = flag1 & B00000001;
 
   /*
 8|Relay Trigger on TMPOL|Read write
@@ -2553,19 +2644,21 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 2|Existing Relay state (0=off)|Read write
 1|Factory reset bit (always 0 when read)|Read write
 */
-  currentMonitor.RelayTriggerTemperatureOverLimit = flag2 & bit(DIAG_ALRT_FIELD::TMPOL);
-  currentMonitor.RelayTriggerCurrentOverLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTOL);
-  currentMonitor.RelayTriggerCurrentUnderLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTUL);
-  currentMonitor.RelayTriggerVoltageOverlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSOL);
-  currentMonitor.RelayTriggerVoltageUnderlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSUL);
-  currentMonitor.RelayTriggerPowerOverLimit = flag2 & bit(DIAG_ALRT_FIELD::POL);
-  currentMonitor.RelayState = flag2 & B00000010;
+  cm.RelayTriggerTemperatureOverLimit = flag2 & bit(DIAG_ALRT_FIELD::TMPOL);
+  cm.RelayTriggerCurrentOverLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTOL);
+  cm.RelayTriggerCurrentUnderLimit = flag2 & bit(DIAG_ALRT_FIELD::SHNTUL);
+  cm.RelayTriggerVoltageOverlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSOL);
+  cm.RelayTriggerVoltageUnderlimit = flag2 & bit(DIAG_ALRT_FIELD::BUSUL);
+  cm.RelayTriggerPowerOverLimit = flag2 & bit(DIAG_ALRT_FIELD::POL);
+  cm.RelayState = flag2 & B00000010;
   // Last bit is for factory reset (always zero)
 
-  currentMonitor.chargeefficiency = ((float)currentMonitor.modbus.raw_chargeefficiency) / 100.0F;
-  currentMonitor.stateofcharge = ((float)currentMonitor.modbus.raw_stateofcharge) / 100.0F;
+  cm.chargeefficiency = ((float)cm.modbus.raw_chargeefficiency) / 100.0F;
+  cm.stateofcharge = ((float)cm.modbus.raw_stateofcharge) / 100.0F;
 
-  currentMonitor.validReadings = true;
+  cm.validReadings = true;
+
+  PublishCurrentMonitor(cm);
 
   TimeToSoCCalculation();
 }
@@ -2573,16 +2666,22 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 // Extract onboard/internal current monitor values into our internal STRUCTURE variables
 void ProcessDIYBMSCurrentMonitorInternal()
 {
-  //memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
-  currentMonitor.validReadings = false;
+  // Build the new values in a private copy, then publish them in one go (see PublishCurrentMonitor)
+  // so other tasks never see a half updated struct.
+  // Static to save stack, this is only ever called from the rs485_tx task.
+  static currentmonitoring_struct cm;
+  {
+    SharedDataLock lock;
+    cm = currentMonitor;
+  }
 
-  currentMonitor.timestamp = esp_timer_get_time();
-  currentMonitor.modbus.milliamphour_out = currentmon_internal.calc_milliamphour_out();
-  currentMonitor.modbus.milliamphour_in = currentmon_internal.calc_milliamphour_in();
-  currentMonitor.modbus.daily_milliamphour_out = currentmon_internal.calc_daily_milliamphour_out();
-  currentMonitor.modbus.daily_milliamphour_in = currentmon_internal.calc_daily_milliamphour_in();
-  currentMonitor.modbus.firmwareversion = GIT_VERSION_SHORT;
-  currentMonitor.modbus.firmwaredatetime = COMMIT_DATE_TIME_UTC_EPOCH;
+  cm.timestamp = esp_timer_get_time();
+  cm.modbus.milliamphour_out = currentmon_internal.calc_milliamphour_out();
+  cm.modbus.milliamphour_in = currentmon_internal.calc_milliamphour_in();
+  cm.modbus.daily_milliamphour_out = currentmon_internal.calc_daily_milliamphour_out();
+  cm.modbus.daily_milliamphour_in = currentmon_internal.calc_daily_milliamphour_in();
+  cm.modbus.firmwareversion = GIT_VERSION_SHORT;
+  cm.modbus.firmwaredatetime = COMMIT_DATE_TIME_UTC_EPOCH;
 
   /*
 16|TMPOL|Read only
@@ -2595,63 +2694,66 @@ void ProcessDIYBMSCurrentMonitorInternal()
 9|ADC Range 0=±163.84 mV, 1=±40.96 mV (only 40.96mV supported by diyBMS)|Read only
 */
   uint16_t flag1 = currentmon_internal.calc_alerts();
-  currentMonitor.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
-  currentMonitor.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
-  currentMonitor.CurrentUnderLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTUL);
-  currentMonitor.VoltageOverlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSOL);
-  currentMonitor.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
-  currentMonitor.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
+  cm.TemperatureOverLimit = flag1 & bit(DIAG_ALRT_FIELD::TMPOL);
+  cm.CurrentOverLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTOL);
+  cm.CurrentUnderLimit = flag1 & bit(DIAG_ALRT_FIELD::SHNTUL);
+  cm.VoltageOverlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSOL);
+  cm.VoltageUnderlimit = flag1 & bit(DIAG_ALRT_FIELD::BUSUL);
+  cm.PowerOverLimit = flag1 & bit(DIAG_ALRT_FIELD::POL);
 
-  currentMonitor.TempCompEnabled = currentmon_internal.calc_tempcompenabled();
-  currentMonitor.ADCRange4096mV = true;
+  cm.TempCompEnabled = currentmon_internal.calc_tempcompenabled();
+  cm.ADCRange4096mV = true;
   // mysettings.currentMonitoring_tempcompenabled = currentmon_internal.calc_tempcompenabled();
 
-  currentMonitor.RelayTriggerTemperatureOverLimit = false;
-  currentMonitor.RelayTriggerCurrentOverLimit = false;
-  currentMonitor.RelayTriggerCurrentUnderLimit = false;
-  currentMonitor.RelayTriggerVoltageOverlimit = false;
-  currentMonitor.RelayTriggerVoltageUnderlimit = false;
-  currentMonitor.RelayTriggerPowerOverLimit = false;
-  currentMonitor.RelayState = false;
+  cm.RelayTriggerTemperatureOverLimit = false;
+  cm.RelayTriggerCurrentOverLimit = false;
+  cm.RelayTriggerCurrentUnderLimit = false;
+  cm.RelayTriggerVoltageOverlimit = false;
+  cm.RelayTriggerVoltageUnderlimit = false;
+  cm.RelayTriggerPowerOverLimit = false;
+  cm.RelayState = false;
 
-  currentMonitor.modbus.temperature = currentmon_internal.calc_temperature();
-  currentMonitor.modbus.temperaturelimit = currentmon_internal.calc_temperaturelimit();
-  currentMonitor.modbus.shunttempcoefficient = currentmon_internal.calc_shunttempcoefficient();
-  currentMonitor.modbus.batterycapacityamphour = currentmon_internal.calc_batterycapacityAh();
-  currentMonitor.modbus.shuntmaxcurrent = currentmon_internal.calc_shuntmaxcurrent();
-  currentMonitor.modbus.shuntmillivolt = currentmon_internal.calc_shuntmillivolt();
-  currentMonitor.modbus.shuntcal = currentmon_internal.calc_shuntcalibration();
-  currentMonitor.modbus.modelnumber = 0x229;
-  currentMonitor.modbus.power = currentmon_internal.calc_power();
-  currentMonitor.modbus.overpowerlimit = currentmon_internal.calc_overpowerlimit();
-  currentMonitor.modbus.voltage = currentmon_internal.calc_voltage();
-  currentMonitor.modbus.current = currentmon_internal.calc_current();
-  currentMonitor.modbus.shuntresistance = currentmon_internal.calc_shuntresistance();
-  currentMonitor.modbus.tailcurrentamps = currentmon_internal.calc_tailcurrentamps();
-  currentMonitor.chargeefficiency = currentmon_internal.calc_charge_efficiency_factor();
-  currentMonitor.stateofcharge = currentmon_internal.calc_state_of_charge();
-  currentMonitor.modbus.fullychargedvoltage = currentmon_internal.calc_fullychargedvoltage();
-  currentMonitor.modbus.overvoltagelimit = currentmon_internal.calc_overvoltagelimit();
-  currentMonitor.modbus.undervoltagelimit = currentmon_internal.calc_undervoltagelimit();
-  currentMonitor.modbus.overcurrentlimit = currentmon_internal.calc_overcurrentlimit();
-  currentMonitor.modbus.undercurrentlimit = currentmon_internal.calc_undercurrentlimit();
+  cm.modbus.temperature = currentmon_internal.calc_temperature();
+  cm.modbus.temperaturelimit = currentmon_internal.calc_temperaturelimit();
+  cm.modbus.shunttempcoefficient = currentmon_internal.calc_shunttempcoefficient();
+  cm.modbus.batterycapacityamphour = currentmon_internal.calc_batterycapacityAh();
+  cm.modbus.shuntmaxcurrent = currentmon_internal.calc_shuntmaxcurrent();
+  cm.modbus.shuntmillivolt = currentmon_internal.calc_shuntmillivolt();
+  cm.modbus.shuntcal = currentmon_internal.calc_shuntcalibration();
+  cm.modbus.modelnumber = 0x229;
+  cm.modbus.power = currentmon_internal.calc_power();
+  cm.modbus.overpowerlimit = currentmon_internal.calc_overpowerlimit();
+  cm.modbus.voltage = currentmon_internal.calc_voltage();
+  cm.modbus.current = currentmon_internal.calc_current();
+  cm.modbus.shuntresistance = currentmon_internal.calc_shuntresistance();
+  cm.modbus.tailcurrentamps = currentmon_internal.calc_tailcurrentamps();
+  cm.chargeefficiency = currentmon_internal.calc_charge_efficiency_factor();
+  cm.stateofcharge = currentmon_internal.calc_state_of_charge();
+  cm.modbus.fullychargedvoltage = currentmon_internal.calc_fullychargedvoltage();
+  cm.modbus.overvoltagelimit = currentmon_internal.calc_overvoltagelimit();
+  cm.modbus.undervoltagelimit = currentmon_internal.calc_undervoltagelimit();
+  cm.modbus.overcurrentlimit = currentmon_internal.calc_overcurrentlimit();
+  cm.modbus.undercurrentlimit = currentmon_internal.calc_undercurrentlimit();
 
-  currentMonitor.validReadings = true;
+  cm.validReadings = true;
+
+  PublishCurrentMonitor(cm);
+
   TimeToSoCCalculation();
 
   /*
-  ESP_LOGD(TAG, "WDog = %u", currentMonitor.modbus.watchdogcounter);
-  ESP_LOGD(TAG, "SOC = %i", currentMonitor.stateofcharge);
+  ESP_LOGD(TAG, "WDog = %u", cm.modbus.watchdogcounter);
+  ESP_LOGD(TAG, "SOC = %i", cm.stateofcharge);
 
-  ESP_LOGD(TAG, "Volt = %f", currentMonitor.modbus.voltage);
-  ESP_LOGD(TAG, "Curr = %f", currentMonitor.modbus.current);
-  ESP_LOGD(TAG, "Temp = %i", currentMonitor.modbus.temperature);
+  ESP_LOGD(TAG, "Volt = %f", cm.modbus.voltage);
+  ESP_LOGD(TAG, "Curr = %f", cm.modbus.current);
+  ESP_LOGD(TAG, "Temp = %i", cm.modbus.temperature);
 
-  ESP_LOGD(TAG, "Out = %f", currentMonitor.modbus.milliamphour_in);
-  ESP_LOGD(TAG, "In = %f", currentMonitor.modbus.milliamphour_out);
+  ESP_LOGD(TAG, "Out = %f", cm.modbus.milliamphour_in);
+  ESP_LOGD(TAG, "In = %f", cm.modbus.milliamphour_out);
 
-  ESP_LOGD(TAG, "Ver = %x", currentMonitor.modbus.firmwareversion);
-  ESP_LOGD(TAG, "Date = %u", currentMonitor.modbus.firmwaredatetime);
+  ESP_LOGD(TAG, "Ver = %x", cm.modbus.firmwareversion);
+  ESP_LOGD(TAG, "Date = %u", cm.modbus.firmwaredatetime);
 */
 }
 /// ESP32 CAN bus status strings, used for periodic status reporting
@@ -2987,6 +3089,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
               }
               else if (cmd == 3 && id == mysettings.currentMonitoringModBusAddress)
               {
+                SharedDataLock lock;
                 // 75mV shunt (hard coded for PZEM)
                 currentMonitor.modbus.shuntmillivolt = 75;
 
@@ -3014,6 +3117,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
                 // ESP_LOG_BUFFER_HEXDUMP(TAG, frame, len, esp_log_level_t::ESP_LOG_DEBUG);
 
                 // memset(&currentMonitor.modbus, 0, sizeof(currentmonitor_raw_modbus));
+                SharedDataLock lock;
                 currentMonitor.validReadings = true;
                 currentMonitor.timestamp = esp_timer_get_time();
                 // voltage in 0.01V
@@ -3869,7 +3973,11 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
 
   history.Clear();
 
-  rules.resetAllRules();
+  shared_data_mutex = xSemaphoreCreateMutex();
+  assert(shared_data_mutex);
+
+  rules_working.resetAllRules();
+  rules = rules_working;
 
   LoadConfiguration(&mysettings);
   ValidateConfiguration(&mysettings);
@@ -3933,7 +4041,9 @@ ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
     hal.ReleaseVSPIMutex();
   }
 
-  rules.setChargingMode(ChargingMode::standard);
+  rules_working.setChargingMode(ChargingMode::standard);
+  // No other tasks are running yet, so publish directly
+  rules = rules_working;
 
   // Switch CAN chip TJA1051T/3 ON
   hal.CANBUSEnable(true);

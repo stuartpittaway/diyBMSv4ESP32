@@ -95,6 +95,8 @@ void pylonforce_message_7330_7340()
 // 0x4210+Addr - Total Voltage / total current / SOC / SOH
 void pylonforce_message_4210()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data4210
   {
     uint16_t voltage;  // Battery Pile Total Voltage, 100mV (0.1V) resolution
@@ -153,6 +155,8 @@ void pylonforce_message_4210()
 // 0x4220+Addr - Battery cutoff voltages + current limits
 void pylonforce_message_4220()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data4220
   {
     uint16_t battery_charge_voltage; // Charge cutoff voltage, resolution 0.1V, offset 0
@@ -198,6 +202,8 @@ void pylonforce_message_4220()
 // 0x4230+Addr - Highest / lowest cell voltages
 void pylonforce_message_4230()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data4230
   {
     uint16_t max_single_battery_cell_voltage; // Voltage of the highest cell, resolution 0.001V
@@ -220,6 +226,8 @@ void pylonforce_message_4230()
 // 0x4240+Addr - Highest / lowest cell temperatures
 void pylonforce_message_4240()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data4240
   {
     uint16_t max_single_battery_cell_temperature; // temperature of the highest cell, resolution 0.1°C, offset 100°C
@@ -258,6 +266,8 @@ void pylonforce_message_4240()
 // 0x4250+Addr - Status
 void pylonforce_message_4250()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data4250
   {
     // use uint8_t for bitfields as otherwise there may be issues with endian order (see C99 6.7.2.1-11)
@@ -403,6 +413,8 @@ void pylonforce_message_4250()
 // 0x4260+Addr - Highest / lowest module (diyBMS "bank") voltages
 void pylonforce_message_4260()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data4260
   {
     uint16_t max_single_battery_module_voltage; // Voltage of the highest module, resolution 0.001V
@@ -426,6 +438,8 @@ void pylonforce_message_4260()
 // 0x4270+Addr - Highest / lowest module (diyBMS "bank") temperatures
 void pylonforce_message_4270()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data4270
   {
     uint16_t max_single_battery_module_temperature; // temperature of the highest module, resolution 0.1°C, offset 100°C
@@ -459,6 +473,8 @@ void pylonforce_message_4270()
 // 0x4280+Addr - Status
 void pylonforce_message_4280()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data4280
   {
     uint8_t charge_forbidden_mark;

@@ -68,6 +68,8 @@ void SetBankAndModuleText(char *buffer, uint8_t cellid)
 
 void victron_message_374_375_376_377()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct candata
   {
     std::array<char,8> text;
@@ -127,6 +129,8 @@ That strategy does not work with a Victron system.
 */
 void victron_message_351()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   //uint8_t number_of_active_errors = 0;
 
   struct data351
@@ -191,6 +195,8 @@ void victron_message_351()
 // S.o.C value
 void victron_message_355()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data355
   {
     uint16_t stateofchargevalue;
@@ -213,6 +219,8 @@ void victron_message_355()
 // Battery voltage
 void victron_message_356()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data356
   {
     int16_t voltage;
@@ -257,6 +265,8 @@ void victron_message_356()
 // Send alarm details to Victron over CANBUS
 void victron_message_35a()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
 
   struct data35a
   {
@@ -384,6 +394,8 @@ void victron_message_35a()
 
 void victron_message_372()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data372
   {
     uint16_t numberofmodulesok;
@@ -404,6 +416,8 @@ void victron_message_372()
 
 void victron_message_373()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
 
   struct data373
   {

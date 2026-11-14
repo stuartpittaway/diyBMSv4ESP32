@@ -4,6 +4,7 @@
 #pragma once
 
 #include "defines.h"
+#include "shared_data_lock.h"
 
 // Needs to match the ordering on the HTML screen
 // You also need to update "RuleTextDescription" (Rules.cpp)
@@ -248,5 +249,11 @@ public:
     int16_t DynamicChargeCurrent() const;
     uint16_t StateOfChargeWithRulesApplied(const diybms_eeprom_settings *mysettings, float realSOC) const;
 };
+
+// Changes to rule state requested from other tasks (e.g. the web server).
+// These are applied by rules_task to its working copy on the next cycle, so
+// they are not overwritten when the next snapshot is published.
+void RequestRulesReset();
+void RequestChargingModeReset();
 
 #endif

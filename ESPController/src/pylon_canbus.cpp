@@ -18,6 +18,8 @@ static constexpr const char *const TAG = "diybms-pylon";
 // 0x351 – Battery voltage + current limits
 void pylon_message_351()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data351
   {
     uint16_t battery_charge_voltage;
@@ -77,6 +79,8 @@ void pylon_message_351()
 // 0x355 – 1A 00 64 00 – State of Health (SOH) / State of Charge (SOC)
 void pylon_message_355()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   if (_controller_state != ControllerState::Running)
     return;
 
@@ -103,6 +107,8 @@ void pylon_message_355()
 // 0x359 – 00 00 00 00 0A 50 4E – Protection & Alarm flags
 void pylon_message_359()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data359
   {
     // Protection - Table 1
@@ -203,6 +209,8 @@ void pylon_message_359()
 // 0x35C – C0 00 – Battery charge request flags
 void pylon_message_35c()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data35c
   {
     uint8_t byte0;
@@ -242,6 +250,8 @@ void pylon_message_35e()
 // Battery voltage - 0x356 – 4e 13 02 03 04 05 – Voltage / Current / Temp
 void pylon_message_356()
 {
+  // Hold the rules/current monitor data steady whilst building this message
+  SharedDataLock data_lock;
   struct data356
   {
     int16_t voltage;
