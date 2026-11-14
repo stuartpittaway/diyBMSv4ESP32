@@ -7,6 +7,7 @@ from os import path
 Import("env")
 
 git_sha=None
+git_datetime=None
 
 AreWeInGitHubAction = True if "GITHUB_SHA" in env else False
 
@@ -20,6 +21,13 @@ else:
         except:
             # Ignore any error, user may not have GIT installed
             git_sha = None
+
+if (path.exists('..'+os.path.sep+'.git')):
+    # Date of the commit this is built from, as a UNIX timestamp
+    try:
+        git_datetime = subprocess.check_output(['git','log','-1','--pretty=format:%at']).decode('utf-8')
+    except:
+        git_datetime = None
 
 # print(env.Dump())
 
@@ -43,32 +51,38 @@ with open(os.path.join(include_dir, 'EmbeddedFiles_Defines.h'), 'w') as f:
     f.write("// DO NOT CHECK THIS INTO SOURCE CONTROL\n")
     f.write("\n\n#ifndef EmbeddedFiles_Defines_H\n#define EmbeddedFiles_Defines_H\n\n")
 
-    f.write("static const char GIT_VERSION[] = \"")
+    # The abbreviated hash, as a number.  The first eight characters, not the last: git
+    # resolves an abbreviation by prefix, so "git show c4be162f" on a suffix finds nothing.
+    f.write("static const uint32_t GIT_VERSION_SHORT = 0x")
     if (git_sha!=None):
-        f.write(git_sha)
-    else:
-        f.write("LocalCompile")
-    f.write("\";\n\n")
-
-    f.write("static const uint16_t GIT_VERSION_B1 = 0x")
-    if (git_sha!=None):
-        f.write(git_sha[32:36])
+        f.write(git_sha[0:8])
     else:
         #Default for local compile
-        f.write("FFFF")
-    f.write(";\n\n")
+        f.write("FFFFFFFF")
+    f.write("UL;\n\n")
 
-    f.write("static const uint16_t GIT_VERSION_B2 = 0x")
-    if (git_sha!=None):
-        f.write(git_sha[36:])
+
+
+    # Reported to the controller as the date of the commit this was built from, so that
+    # rebuilding the same source does not move it.
+    #
+    # 255/255 with no git to ask, matching GIT_VERSION_SHORT's 0xFFFFFFFF.  Not the 1 Jan
+    # 2000 used elsewhere: that is year 0 week 0, and the controller reads a zero word as
+    # "this module does not report a date at all".
+    if (git_datetime):
+        dt = datetime.datetime.utcfromtimestamp(int(git_datetime))
+        commit_year = dt.strftime("%y")
+        commit_week = str(int(dt.strftime("%W")))
     else:
-        #Default for local compile
-        f.write("FFFF")
+        commit_year = "255"
+        commit_week = "255"
+
+    f.write("static const uint8_t COMMIT_YEAR_BYTE = ")
+    f.write(commit_year)
     f.write(";\n\n")
 
-
-    f.write("static const char COMPILE_DATE_TIME[] = \"")
-    f.write(datetime.datetime.utcnow().isoformat()[:-3]+'Z')
-    f.write("\";\n\n")
+    f.write("static const uint8_t COMMIT_WEEK_NUMBER_BYTE = ")
+    f.write(commit_week)
+    f.write(";\n\n")
 
     f.write("#endif")

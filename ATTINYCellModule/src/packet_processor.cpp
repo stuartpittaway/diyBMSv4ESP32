@@ -324,9 +324,13 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
     buffer->moduledata[9] = EXT_BCOEFFICIENT;
     buffer->moduledata[10] = DIYBMSMODULEVERSION;
 
+    // Commit date, as year and week of that year.  The controller reads zero from a module
+    // from before this was reported.  Year in the high byte so that the number sorts.
+    buffer->moduledata[11] = ((uint16_t)COMMIT_YEAR_BYTE << 8) | COMMIT_WEEK_NUMBER_BYTE;
+
     // Version of firmware (taken automatically from GIT)
-    buffer->moduledata[14] = GIT_VERSION_B1;
-    buffer->moduledata[15] = GIT_VERSION_B2;
+    buffer->moduledata[14] = (uint16_t)(GIT_VERSION_SHORT >> 16);
+    buffer->moduledata[15] = (uint16_t)GIT_VERSION_SHORT;
     return true;
   }
 
@@ -358,14 +362,6 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
     if (buffer->moduledata[6] != 0xFF)
     {
       _config->BypassTemperatureSetPoint = buffer->moduledata[6];
-
-#if defined(DIYBMSMODULEVERSION) && (DIYBMSMODULEVERSION == 420 && !defined(SWAPR19R20))
-      // Keep temperature low for modules with R19 and R20 not swapped
-      if (_config->BypassTemperatureSetPoint > 45)
-      {
-        _config->BypassTemperatureSetPoint = 45;
-      }
-#endif
     }
 
     if (buffer->moduledata[7] != 0xFFFF)
@@ -381,6 +377,10 @@ bool PacketProcessor::processPacket(PacketStruct *buffer)
     //{
     //       _config->External_BCoefficient = buffer.moduledata[9];
     // }
+
+    // The same check the module makes at power up.  Without it a setting the
+    // module would have rejected is stored and used until it is next reset.
+    ValidateConfiguration();
 
     // Save settings
     Settings::WriteConfigToEEPROM((uint8_t *)_config, sizeof(CellModuleConfig), EEPROM_CONFIG_ADDRESS);

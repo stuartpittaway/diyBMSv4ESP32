@@ -313,7 +313,7 @@
           %GIT_VERSION%
         </a>
       </p>
-      <p>Compiled: %COMPILE_DATE_TIME%</p>
+      <p>Commit: %COMMIT_DATE_TIME%</p>
       <p>
         Language:
         <span id="lang">%LANGUAGE%</span>
@@ -407,7 +407,7 @@
             </div>
             <div>
               <label for="Calib">Calibration multiplier</label>
-              <input id="Calib" name="Calib" type="number" min="0.5" max="5" step="0.0001" value="1" required="" />
+              <input id="Calib" name="Calib" type="number" min="0.8" max="10" step="0.0001" value="1" required="" />
               <label for="ActualVoltage">Calculator - Actual measured voltage</label>
               <input id="ActualVoltage" name="ActualVoltage" type="number" min="1" max="5" step="0.001" value="4.2" />
               <button type="button" id="CalculateCalibration">Calculate</button>
@@ -1287,8 +1287,8 @@
       <h2>Basic Settings</h2>
       <p id="b3">Ensure the current shunt parameters match the data sheet for your particular shunt resistor.</p>
       <p id="b4">
-        The DIYBMS current monitor uses a 40.96mV maximum scale, so shunt voltages over this will be scaled down
-        proportionally.
+        The DIYBMS current monitor uses a 163.84mV maximum scale, so every shunt listed here reads its full rated
+        current.
       </p>
       <p id="b11">
         Battery capacity and charge voltage/tail current are used to calculate the battery 'state of charge' (SOC).
@@ -1796,6 +1796,7 @@
               <option value="hr">Croatian</option>
               <option value="pl">Polish</option>
               <option value="ru">Russian</option>
+              <option value="ja">Japanese</option>
             </select>
           </div>
           <div>

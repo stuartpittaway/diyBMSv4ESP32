@@ -79,6 +79,7 @@ static const char currentMonitoring_tailcurrent_JSONKEY[] = "currentMonitoringTa
 static const char currentMonitoring_chargeefficiency_JSONKEY[] = "currentMonitoringChargeEfficiency";
 
 static const char currentMonitoring_shuntcal_JSONKEY[] = "currentMonitoringShuntCal";
+static const char currentMonitoring_shuntcal163_JSONKEY[] = "currentMonitoringShuntCal163";
 static const char currentMonitoring_temperaturelimit_JSONKEY[] = "currentMonitoringTempLimit";
 static const char currentMonitoring_overvoltagelimit_JSONKEY[] = "currentMonitoringOverVLimit";
 static const char currentMonitoring_undervoltagelimit_JSONKEY[] = "currentMonitoringUnderVLimit";
@@ -182,6 +183,7 @@ static const char currentMonitoring_fullchargevolt_NVSKEY[] = "curMonFullChgV";
 static const char currentMonitoring_tailcurrent_NVSKEY[] = "curMonTailCur";
 static const char currentMonitoring_chargeefficiency_NVSKEY[] = "curMonChargeEff";
 static const char currentMonitoring_shuntcal_NVSKEY[] = "curMonShuntCal";
+static const char currentMonitoring_shuntcal163_NVSKEY[] = "curMonShuntCal2";
 static const char currentMonitoring_temperaturelimit_NVSKEY[] = "curMontemplimit";
 static const char currentMonitoring_overvoltagelimit_NVSKEY[] = "curMonovervolt";
 static const char currentMonitoring_undervoltagelimit_NVSKEY[] = "curMonundervolt";
@@ -204,6 +206,87 @@ static const char soh_eol_capacity_NVSKEY[] = "soh_eol_cap";
 
 static const char soc_milliamphour_out_NVSKEY[] = "soc_mah_out";
 static const char soc_milliamphour_in_NVSKEY[] = "soc_mah_in";
+
+// INA229 SHUNT_CAL calibration, old and new ADC range
+// ---------------------------------------------------
+// Firmware before the INA229 moved to its +-163.84mV ADC range ran it on +-40.96mV, where
+// SHUNT_CAL is 4x larger and shunts over 40.96mV were derated to 40.96mV.  The nominal
+// (untrimmed) SHUNT_CAL for a shunt of mV millivolts is therefore
+//
+//   old firmware   100 * min(mV, 40.96)
+//   this firmware   25 * mV
+//
+// and a saved calibration carries the installation's trim on top of that.
+//
+// currentMonitoring_shuntcal always holds the value for the 163.84mV range.  It is saved
+// under a new key, and the old key keeps the equivalent old-range value, so that:
+//  - an older firmware (after a downgrade) still reads a calibration it understands
+//  - when the old key does not match the new value, older firmware or an old settings
+//    backup wrote it, and it is converted.  This needs no build date or settings version,
+//    so it works for builds made without git and after a downgrade and upgrade again.
+// The conversions are deterministic, so a value converted once compares equal from then on.
+
+// Old-range calibration -> 163.84mV range
+static uint16_t ShuntCalFromLegacy(uint16_t legacy, uint16_t shuntmv)
+{
+    if (shuntmv == 0)
+    {
+        return 0;
+    }
+    if (shuntmv <= 40)
+    {
+        // Not derated by old firmware, only the x4 differs
+        return (uint16_t)(((uint32_t)legacy + 2) / 4);
+    }
+    // new = legacy * 25 * mV / 4096 = legacy * mV * 100 / 16384
+    uint64_t v = ((uint64_t)legacy * shuntmv * 100 + 8192) / 16384;
+    return (uint16_t)std::min<uint64_t>(v, UINT16_MAX);
+}
+
+// 163.84mV range calibration -> old-range equivalent
+static uint16_t ShuntCalToLegacy(uint16_t shuntcal, uint16_t shuntmv)
+{
+    if (shuntmv == 0)
+    {
+        return 0;
+    }
+    uint64_t v;
+    if (shuntmv <= 40)
+    {
+        v = (uint64_t)shuntcal * 4;
+    }
+    else
+    {
+        v = ((uint64_t)shuntcal * 16384 + (uint64_t)shuntmv * 50) / ((uint64_t)shuntmv * 100);
+    }
+    return (uint16_t)std::min<uint64_t>(v, UINT16_MAX);
+}
+
+// Pre-release builds of the 163.84mV change (zakinko-ai-generated-prs branch) converted the
+// calibration in place under the old key and stamped the settings with their commit date
+// under these keys.  A stamp on or after the change means the old key already holds a
+// 163.84mV range value.
+static const char preview_settingswrittenby_JSONKEY[] = "settingsWrittenBy";
+static const char preview_settingswrittenby_NVSKEY[] = "setwrittenby";
+static constexpr uint32_t PREVIEW_SHUNT_CAL_SCALE_CHANGED = 1786492800UL; // 2026-08-12
+
+// Pick the 163.84mV range calibration from what was stored under the old and new keys.
+// settings->currentMonitoring_shuntcal must already hold the new key's value (zero if absent).
+static void ReconcileShuntCal(diybms_eeprom_settings *settings, uint16_t legacy, bool hasNewKey, uint32_t previewStamp)
+{
+    if (!hasNewKey && previewStamp >= PREVIEW_SHUNT_CAL_SCALE_CHANGED)
+    {
+        settings->currentMonitoring_shuntcal = legacy;
+        return;
+    }
+
+    if (legacy != ShuntCalToLegacy(settings->currentMonitoring_shuntcal, settings->currentMonitoring_shuntmv))
+    {
+        uint16_t converted = ShuntCalFromLegacy(legacy, settings->currentMonitoring_shuntmv);
+        ESP_LOGI(TAG, "Current shunt calibration %u (40.96mV range) carried over as %u", legacy, converted);
+        settings->currentMonitoring_shuntcal = converted;
+    }
+}
 
 #define MACRO_NVSWRITE(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, settings->VARNAME);
 #define MACRO_NVSWRITE_UINT8(VARNAME) writeSetting(nvs_handle, VARNAME##_NVSKEY, (uint8_t)settings->VARNAME);
@@ -471,7 +554,10 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(currentMonitoring_fullchargevolt)
         MACRO_NVSWRITE(currentMonitoring_tailcurrent)
         MACRO_NVSWRITE(currentMonitoring_chargeefficiency)
-        MACRO_NVSWRITE(currentMonitoring_shuntcal)
+        // Saved twice, see ReconcileShuntCal
+        writeSetting(nvs_handle, currentMonitoring_shuntcal_NVSKEY,
+                     ShuntCalToLegacy(settings->currentMonitoring_shuntcal, settings->currentMonitoring_shuntmv));
+        writeSetting(nvs_handle, currentMonitoring_shuntcal163_NVSKEY, settings->currentMonitoring_shuntcal);
         MACRO_NVSWRITE(currentMonitoring_temperaturelimit)
         MACRO_NVSWRITE(currentMonitoring_overvoltagelimit)
         MACRO_NVSWRITE(currentMonitoring_undervoltagelimit)
@@ -600,7 +686,15 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
         MACRO_NVSREAD(currentMonitoring_fullchargevolt)
         MACRO_NVSREAD(currentMonitoring_tailcurrent)
         MACRO_NVSREAD(currentMonitoring_chargeefficiency)
-        MACRO_NVSREAD(currentMonitoring_shuntcal)
+        // Old key holds the 40.96mV range value, see ReconcileShuntCal
+        {
+            uint16_t legacy_shuntcal = 0;
+            uint32_t preview_stamp = 0;
+            getSetting(nvs_handle, currentMonitoring_shuntcal_NVSKEY, &legacy_shuntcal);
+            getSetting(nvs_handle, preview_settingswrittenby_NVSKEY, &preview_stamp);
+            bool hasNewKey = getSetting(nvs_handle, currentMonitoring_shuntcal163_NVSKEY, &settings->currentMonitoring_shuntcal);
+            ReconcileShuntCal(settings, legacy_shuntcal, hasNewKey, preview_stamp);
+        }
         MACRO_NVSREAD(currentMonitoring_temperaturelimit)
         MACRO_NVSREAD(currentMonitoring_overvoltagelimit)
         MACRO_NVSREAD(currentMonitoring_undervoltagelimit)
@@ -1088,7 +1182,9 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     root[currentMonitoring_tailcurrent_JSONKEY] = settings->currentMonitoring_tailcurrent;
     root[currentMonitoring_chargeefficiency_JSONKEY] = settings->currentMonitoring_chargeefficiency;
 
-    root[currentMonitoring_shuntcal_JSONKEY] = settings->currentMonitoring_shuntcal;
+    // Both ranges, so older firmware can restore this backup too - see ReconcileShuntCal
+    root[currentMonitoring_shuntcal_JSONKEY] = ShuntCalToLegacy(settings->currentMonitoring_shuntcal, settings->currentMonitoring_shuntmv);
+    root[currentMonitoring_shuntcal163_JSONKEY] = settings->currentMonitoring_shuntcal;
     root[currentMonitoring_temperaturelimit_JSONKEY] = settings->currentMonitoring_temperaturelimit;
     root[currentMonitoring_overvoltagelimit_JSONKEY] = settings->currentMonitoring_overvoltagelimit;
     root[currentMonitoring_undervoltagelimit_JSONKEY] = settings->currentMonitoring_undervoltagelimit;
@@ -1248,7 +1344,12 @@ static void applyBasicSettings(const JsonObject &root, diybms_eeprom_settings *s
     settings->currentMonitoring_fullchargevolt = root[currentMonitoring_fullchargevolt_JSONKEY];
     settings->currentMonitoring_tailcurrent = root[currentMonitoring_tailcurrent_JSONKEY];
     settings->currentMonitoring_chargeefficiency = root[currentMonitoring_chargeefficiency_JSONKEY];
-    settings->currentMonitoring_shuntcal = root[currentMonitoring_shuntcal_JSONKEY];
+    // Absent (zero) in a backup from older firmware - see ReconcileShuntCal
+    settings->currentMonitoring_shuntcal = root[currentMonitoring_shuntcal163_JSONKEY] | (uint16_t)0;
+    ReconcileShuntCal(settings,
+                      root[currentMonitoring_shuntcal_JSONKEY] | (uint16_t)0,
+                      root[currentMonitoring_shuntcal163_JSONKEY].is<uint16_t>(),
+                      root[preview_settingswrittenby_JSONKEY] | (uint32_t)0);
     settings->currentMonitoring_temperaturelimit = root[currentMonitoring_temperaturelimit_JSONKEY];
     settings->currentMonitoring_overvoltagelimit = root[currentMonitoring_overvoltagelimit_JSONKEY];
     settings->currentMonitoring_undervoltagelimit = root[currentMonitoring_undervoltagelimit_JSONKEY];

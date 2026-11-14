@@ -2506,6 +2506,13 @@ void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
 
   // ESP_LOG_BUFFER_HEXDUMP(TAG, &currentMonitor.modbus, sizeof(currentmonitor_raw_modbus), esp_log_level_t::ESP_LOG_DEBUG);
 
+  // https://github.com/stuartpittaway/diyBMSv4ESP32/issues/240
+  // The shunt board sends a power figure taken from its INA228's POWER register, which is
+  // specified against full scale rather than against the reading, so its error is a fixed
+  // number of watts.  Voltage and current arrive in the same reply and are specified
+  // against the reading, so use those instead - the same thing the onboard monitor does.
+  currentMonitor.modbus.power = currentMonitor.modbus.voltage * abs(currentMonitor.modbus.current);
+
   currentMonitor.timestamp = esp_timer_get_time();
 
   // High byte
@@ -2574,8 +2581,8 @@ void ProcessDIYBMSCurrentMonitorInternal()
   currentMonitor.modbus.milliamphour_in = currentmon_internal.calc_milliamphour_in();
   currentMonitor.modbus.daily_milliamphour_out = currentmon_internal.calc_daily_milliamphour_out();
   currentMonitor.modbus.daily_milliamphour_in = currentmon_internal.calc_daily_milliamphour_in();
-  currentMonitor.modbus.firmwareversion = (((uint32_t)GIT_VERSION_B1) << 16) + (uint32_t)GIT_VERSION_B2;
-  currentMonitor.modbus.firmwaredatetime = COMPILE_DATE_TIME_UTC_EPOCH;
+  currentMonitor.modbus.firmwareversion = GIT_VERSION_SHORT;
+  currentMonitor.modbus.firmwaredatetime = COMMIT_DATE_TIME_UTC_EPOCH;
 
   /*
 16|TMPOL|Read only
@@ -3803,9 +3810,9 @@ void setup()
  (_|  |  \/   |_)  |  |  __)
          /
 
-CONTROLLER - ver:%s compiled %s
+CONTROLLER - ver:%s commit %s
 ESP32 Chip model = %u, Rev %u, Cores=%u, Features=%u)",
-           GIT_VERSION, COMPILE_DATE_TIME,
+           GIT_VERSION, COMMIT_DATE_TIME,
            chip_info.model, chip_info.revision, chip_info.cores, chip_info.features);
 
   esp_core_dump_init();

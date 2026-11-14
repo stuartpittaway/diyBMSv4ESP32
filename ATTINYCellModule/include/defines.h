@@ -67,4 +67,9 @@ struct CellModuleConfig {
   //uint16_t External_BCoefficient;
 } __attribute__((packed));
 
+// Clamp any setting that is out of range back to something the module can run
+// on.  Defined in main.cpp, called both at power up and whenever settings
+// arrive over the wire.
+void ValidateConfiguration();
+
 #endif

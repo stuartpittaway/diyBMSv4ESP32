@@ -47,7 +47,7 @@ void victron_message_35f()
   // Not used by Victron
   data.BatteryModel = 0;
   // Need to swap bytes for this to make sense.
-  data.Firmwareversion = ((uint16_t)COMPILE_WEEK_NUMBER_BYTE << 8) | COMPILE_YEAR_BYTE;
+  data.Firmwareversion = ((uint16_t)COMMIT_WEEK_NUMBER_BYTE << 8) | COMMIT_YEAR_BYTE;
 
   data.OnlinecapacityinAh = mysettings.nominalbatcap;
 
