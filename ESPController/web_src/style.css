@@ -22,8 +22,17 @@ p{margin-block-start:1em;margin-block-end:0}
 .info .stat .x{display:block;width:100%;text-align:right}
 .info .stat .t{font-size:10pt;color:#c1bdbd}
 .info .stat .v{font-size:22pt;font-family:'Share Tech Mono',monospace;font-weight:700;color:#55a1ea}
-.stat.hover{border:solid 2px #55a1ea!important}
 .info .vistile{border:dotted 2px #848484}
+.tilechk{display:none}
+.tilesedit .info{flex-direction:column;flex-wrap:nowrap;align-items:stretch;max-width:420px;margin:0 auto}
+.tilesedit .info>div{flex:none}
+.tilesedit .info .stat{display:flex;align-items:center;max-width:none;border:solid 1px #404040;margin:1px 0;padding:4px 6px;cursor:pointer}
+.tilesedit .info .stat:hover{border-color:#55a1ea}
+.tilesedit .info .stat:not(.vistile){opacity:.5}
+.tilesedit .info .stat .x{display:inline-block;width:auto}
+.tilesedit .info .stat .t{flex:1;text-align:left;font-size:11pt}
+.tilesedit .info .stat .v{font-size:12pt;text-align:right}
+.tilesedit .tilechk{display:inline-block;margin:0 8px 0 0;cursor:pointer}
 .graphs{height:670px;width:99%}
 .ct-series-a .ct-bar{stroke-width:25px}
 button{border-radius:6px;color:#fff;background-color:#1e90ff;font-family:Arial,Helvetica,sans-serif;font-weight:700;border:solid 1px transparent;text-align:center;text-decoration:none;display:inline-block;font-size:14px;min-width:40pt;padding:6px;margin:1px}

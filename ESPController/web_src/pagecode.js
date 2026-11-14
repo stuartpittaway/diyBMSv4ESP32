@@ -311,6 +311,11 @@ function DrawChargingGraph() {
 }
 
 function switchPage(newPage) {
+    if ($("body").hasClass("tilesedit")) {
+        // Leaving the Tiles page, hide the tiles which are not selected
+        $("body").removeClass("tilesedit");
+        $(".info .stat").not(".vistile").hide();
+    }
     $(".page").hide();
     $(newPage).show();
     $("#myNav").height("0%");
@@ -1550,8 +1555,13 @@ $(function () {
         $(".graphs").hide();
         $("#graph1").hide();
         $("#graph2").hide();
-        //Show all statistic panels (which are not forced hidden)
-        $("#info .stat").not(".hide").show();
+        $("#graphOptions").hide();
+        //Show all statistic panels (which are not forced hidden) as a vertical list with checkboxes
+        $("body").addClass("tilesedit");
+        $(".info .stat").each(function () {
+            $(this).find(".tilechk").prop("checked", $(this).hasClass("vistile"));
+        });
+        $(".info .stat").not(".hide").show();
         return true;
     });
 
@@ -2405,18 +2415,21 @@ $(function () {
         options.data = (data.length > 0 ? data + '&' : '') + $.param({ xss: XSS_KEY });
     });
 
-    $(".stat").on('mouseenter', function () {
-        $(this).addClass("hover");
-    }).on('mouseleave', function () {
-        $(this).removeClass("hover");
-    });
+    // Each tile gets a checkbox, only shown on the Tiles page
+    $(".stat").prepend('<input type="checkbox" class="tilechk">');
 
-    $(".stat").on('click', function () {
-        if ($(this).hasClass("vistile") == false && $(this).hasClass("hide") == false) {
-            $(this).addClass("vistile");
-        } else {
-            $(this).removeClass("vistile");
+    $(".stat").on('click', function (e) {
+        // Tile visibility can only be changed on the Tiles page
+        if (!$("body").hasClass("tilesedit") || $(this).hasClass("hide")) {
+            return;
         }
+
+        let chk = $(this).find(".tilechk");
+        // Clicking the checkbox toggles it natively, clicking the rest of the row toggles it here
+        if (!$(e.target).is(chk)) {
+            chk.prop("checked", !chk.prop("checked"));
+        }
+        $(this).toggleClass("vistile", chk.prop("checked"));
 
         clearTimeout(timer_postTileVisibiltity);
         timer_postTileVisibiltity = setTimeout(postTileVisibiltity, 3500);
