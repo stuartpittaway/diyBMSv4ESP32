@@ -304,3 +304,5 @@ $("label[for='cmVOLTUL']").text("Wyzwalacz przekaźnika: Napięcie poniżej");
 
 //<label for="cmPOL">Relay Trigger: Power</label>
 $("label[for='cmPOL']").text("Wyzwalacz przekaźnika: Moc");
+
+$("#tileshelp").text("Wybierz, które elementy są wyświetlane na stronie Start. Zaznacz element, aby go pokazać, odznacz, aby go ukryć. Zmiany są zapisywane automatycznie.");

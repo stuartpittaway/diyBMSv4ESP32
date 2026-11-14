@@ -105,7 +105,7 @@ const TILE_IDS = [
     ["voltage0", "range0", "voltage1", "range1", "voltage2", "range2", "voltage3", "range3", "voltage4", "range4", "voltage5", "range5", "voltage6", "range6", "voltage7", "range7"],
     ["voltage8", "range8", "voltage9", "range9", "voltage10", "range10", "voltage11", "range11", "voltage12", "range12", "voltage13", "range13", "voltage14", "range14", "voltage15", "range15"],
     ["soc", "current", "shuntv", "power", "amphout", "amphin", "damphout", "damphin", "oos", "badcrc", "ignored", "canfail", "sent", "received", "roundtrip", "uptime"],
-    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", "graphOptions", "time100", "time20", "time10", "celltemp", "canrecerr", "chgmode", null, null, null, null]
+    ["qlen", "cansent", "canrecd", "dyncvolt", "dynccurr", null, "time100", "time20", "time10", "celltemp", "canrecerr", "chgmode", null, null, null, null]
 ];
 Object.freeze(TILE_IDS);
 

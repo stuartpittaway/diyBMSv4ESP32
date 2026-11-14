@@ -24,11 +24,12 @@ p{margin-block-start:1em;margin-block-end:0}
 .info .stat .v{font-size:22pt;font-family:'Share Tech Mono',monospace;font-weight:700;color:#55a1ea}
 .info .vistile{border:dotted 2px #848484}
 .tilechk{display:none}
+.tileshelp{display:none}
+.tilesedit .tileshelp{display:block;max-width:420px;margin:8px auto;padding:0 4px}
 .tilesedit .info{flex-direction:column;flex-wrap:nowrap;align-items:stretch;max-width:420px;margin:0 auto}
 .tilesedit .info>div{flex:none}
 .tilesedit .info .stat{display:flex;align-items:center;max-width:none;border:solid 1px #404040;margin:1px 0;padding:4px 6px;cursor:pointer}
 .tilesedit .info .stat:hover{border-color:#55a1ea}
-.tilesedit .info .stat:not(.vistile){opacity:.5}
 .tilesedit .info .stat .x{display:inline-block;width:auto}
 .tilesedit .info .stat .t{flex:1;text-align:left;font-size:11pt}
 .tilesedit .info .stat .v{font-size:12pt;text-align:right}

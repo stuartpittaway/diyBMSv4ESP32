@@ -292,3 +292,5 @@ $("label[for='cmVOLTUL']").text("Relaisauslöser: Unterspannung");
 
 //<label for="cmPOL">Relay Trigger: Power</label>
 $("label[for='cmPOL']").text("Relaisauslöser: Leistung");
+
+$("#tileshelp").text("Wählen Sie aus, welche Kacheln auf der Startseite angezeigt werden. Haken setzen zum Anzeigen, Haken entfernen zum Ausblenden. Änderungen werden automatisch gespeichert.");

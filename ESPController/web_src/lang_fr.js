@@ -151,3 +151,5 @@ $("#mb4").text("Seule la version 4.4 ou ultérieure du module prend en charge de
                                 
 
 
+
+$("#tileshelp").text("Choisissez les tuiles affichées sur la page d'accueil. Cochez une tuile pour l'afficher, décochez-la pour la masquer. Les modifications sont enregistrées automatiquement.");

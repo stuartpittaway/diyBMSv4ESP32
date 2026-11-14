@@ -291,3 +291,5 @@ $("label[for='cmVOLTUL']").text("Relaistrigger: Onderspanning");
 
 //<label for="cmPOL">Relay Trigger: Power</label>
 $("label[for='cmPOL']").text("Relaistrigger: Vermogen");
+
+$("#tileshelp").text("Kies welke tegels op de startpagina worden getoond. Vink een tegel aan om hem te tonen, vink hem uit om hem te verbergen. Wijzigingen worden automatisch opgeslagen.");

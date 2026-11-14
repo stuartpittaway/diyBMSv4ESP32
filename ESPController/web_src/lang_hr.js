@@ -148,3 +148,5 @@ $("#mb2").text("DIYBMS podržava ukupno do 100 modula. Ovi moduli mogu se podije
 $("#mb3").text("Na primjer, imate 16 ćelija prikupljenih kao 8 u nizu i 2 paralelno (8S2P)..");
 
 
+
+$("#tileshelp").text("Odaberite koje se pločice prikazuju na početnoj stranici. Označite pločicu da biste je prikazali, uklonite oznaku da biste je sakrili. Promjene se spremaju automatski.");

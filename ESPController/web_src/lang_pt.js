@@ -141,3 +141,5 @@ $("#mb2").text("DIYBMS suporta até 100 módulos no total. Esses módulos podem 
 //Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).
 $("#mb3").text("Exemplo: pode ter 16 células configuradas como 8 em série e 2 em paralelo (8S2P)");
 
+
+$("#tileshelp").text("Escolha quais os mosaicos mostrados na página inicial. Marque um mosaico para o mostrar, desmarque para o ocultar. As alterações são guardadas automaticamente.");
