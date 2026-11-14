@@ -946,8 +946,10 @@ function updateChart(jsondata) {
     if (jsondata.current) {
         if (jsondata.current[0] == null) {
             $("#current .v").html("");
+            $("#current").removeClass("charging discharging");
             $("#shuntv .v").html("");
             $("#soc .v").html("");
+            document.getElementById("soc").style.removeProperty("--soc");
             $("#power .v").html("");
             $("#amphout .v").html("");
             $("#amphin .v").html("");
@@ -958,9 +960,15 @@ function updateChart(jsondata) {
             $("#time20 .v").html("");
         } else {
             var data = jsondata.current[0];
-            $("#current .v").html(parseFloat(data.c).toFixed(2) + "A");
+            const amps = parseFloat(data.c);
+            const soc = parseFloat(data.soc);
+            $("#current .v").html(amps.toFixed(2) + "A");
+            // Negative current is discharging (see defines.h)
+            $("#current").toggleClass("charging", amps > 0).toggleClass("discharging", amps < 0);
             $("#shuntv .v").html(parseFloat(data.v).toFixed(2) + "V");
-            $("#soc .v").html(parseFloat(data.soc).toFixed(2) + "%");
+            $("#soc .v").html(soc.toFixed(2) + "%");
+            // Drives the fill bar behind the S.o.C tile (style.css)
+            document.getElementById("soc").style.setProperty("--soc", Math.max(0, Math.min(100, soc)) + "%");
             $("#power .v").html(parseFloat(data.p) + "W");
             $("#amphout .v").html((parseFloat(data.mahout) / 1000).toFixed(3));
             $("#amphin .v").html((parseFloat(data.mahin) / 1000).toFixed(3));
