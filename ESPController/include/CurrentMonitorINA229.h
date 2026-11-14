@@ -217,21 +217,6 @@ public:
                    uint16_t shunttempcoefficient,
                    bool TemperatureCompEnabled);
 
-    // Firmware before this change ran the ADC on its +-40.96mV range with a derated
-    // CURRENT_LSB, and that pair always calculates the same SHUNT_CAL, whatever shunt is
-    // fitted:
-    //
-    //   4 * 13107.2e6 * (40.96 / 1000 / 2^19) = 4096
-    //
-    // A calibration saved by one of those builds is therefore 4096 carrying the
-    // installation's trim - a percent or two, taking up shunt tolerance.  On the 163.84mV
-    // range the same trim belongs on shunt_millivolt/163.84 of it, so scaling the saved
-    // value across keeps the calibration instead of it having to be measured again.
-    static uint16_t CarryOverCalibration(uint16_t saved, uint16_t shuntmillivolt)
-    {
-        return (uint16_t)lround((float)saved * (float)shuntmillivolt / full_scale_adc);
-    }
-
     void DefaultSOC();
     void TakeReadings();
 
