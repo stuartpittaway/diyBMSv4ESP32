@@ -43,6 +43,12 @@ public:
     return (uint16_t)uxQueueMessagesWaiting(_requestq);
   }
 
+  /// @brief Number of free slots in the request queue
+  uint16_t queueSpaces()
+  {
+    return (uint16_t)uxQueueSpacesAvailable(_requestq);
+  }
+
   void ResetCounters()
   {
     packetsGenerated = 0;
