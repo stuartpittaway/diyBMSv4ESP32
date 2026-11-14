@@ -154,8 +154,8 @@ public:
         // Conversion times for voltage, current  temperature
         // 128 times sample averaging
         // MODE  = 1111 = Continuous bus, shunt voltage and temperature
-        // VBUSCT= 111 = 6h = 4120µs BUS VOLT
-        //  VSHCT= 111 = 6h = 4120µs CURRENT
+        // VBUSCT= 111 = 7h = 4120µs BUS VOLT
+        //  VSHCT= 111 = 7h = 4120µs CURRENT
         //   VTCT= 010 = 2h =  150µs TEMPERATURE
         //    AVG= 100 = 4h = 128 ADC sample averaging count
         // B1111 111 111 010 100 = 0xFFD4
@@ -252,7 +252,8 @@ public:
     }
     float calc_overpowerlimit() const
     {
-        return ConvertFrom2sComp(registers.R_PWR_LIMIT) * 256.0F * 3.2F * registers.CURRENT_LSB;
+        // PWR_LIMIT is unsigned (datasheet table 7-22), 256 x the POWER register LSB
+        return (float)registers.R_PWR_LIMIT * 256.0F * 3.2F * registers.CURRENT_LSB;
     }
     float calc_overvoltagelimit()  const{ return (float)ConvertFrom2sComp(registers.R_BOVL) * 0.003125F; }
     float calc_undervoltagelimit()  const{ return (float)ConvertFrom2sComp(registers.R_BUVL) * 0.003125F; }
@@ -263,8 +264,10 @@ public:
 
     uint16_t calc_alerts()
     {
-        registers.R_DIAG_ALRT = read16bits(INA_REGISTER::DIAG_ALRT);
-        return registers.R_DIAG_ALRT & ALL_ALERT_BITS;
+        // Keep the read-back (which includes the status flags) apart from registers.R_DIAG_ALRT,
+        // the configuration bits that Configure() writes to the chip.
+        diag_alrt_value = read16bits(INA_REGISTER::DIAG_ALRT);
+        return diag_alrt_value & ALL_ALERT_BITS;
     }
     void SetSOC(uint16_t value);
     void SetSOCByMilliAmpCounter(uint32_t in,uint32_t out);
@@ -286,7 +289,8 @@ private:
     // CONFIG bit 4 (ADCRANGE) selects the shunt voltage full scale.  This driver uses the
     // wide one, because the web UI offers shunts up to 150mV and the narrow range stops at
     // 40.96mV - on the narrow range a 150A/50mV shunt reads no further than 122.88A, and a
-    // 500A/150mV shunt no further than 136.53A.
+    // 500A/150mV shunt no further than 136.53A.  CURRENT_LSB is sized to this full scale
+    // (see CalculateLSB), so a shunt can be read well beyond its rating.
     //
     //   ADCRANGE=0  +-163.84mV   VSHUNT  312.5nV/LSB   SOVL/SUVL    5uV/LSB   SHUNT_CAL x1
     //   ADCRANGE=1   +-40.96mV   VSHUNT 78.125nV/LSB   SOVL/SUVL 1.25uV/LSB   SHUNT_CAL x4
@@ -334,6 +338,15 @@ private:
         return (float)ConvertFrom2sComp(reg) * SHUNT_LIMIT_MICROVOLT_LSB *
                (float)registers.shunt_max_current / ((float)registers.shunt_millivolt * 1000.0F);
     }
+
+    // SHUNT_CAL is a 15-bit field, bit 15 is reserved (datasheet table 7-7)
+    static constexpr uint16_t SHUNT_CAL_MASK = 0x7FFF;
+
+    // A calibration override only trims for shunt and circuit tolerance - a percent or two.
+    // A value further than this from the calculated one belongs to a different scale (for
+    // example a pre-release build, or older firmware on a shunt of 40.96mV or less) and is
+    // ignored in favour of the calculated value.
+    static constexpr float SHUNT_CAL_MAX_TRIM = 0.10F;
 
 
     // const float CoulombsToAmpHours = 1.0F / 3600.0F;

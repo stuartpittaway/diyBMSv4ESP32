@@ -36,33 +36,46 @@ void CurrentMonitorINA229::CalculateLSB()
     // in above - click COG icon top left.
     // https://e2e.ti.com/support/amplifiers-group/amplifiers/f/amplifiers-forum/1034569/ina228-accumulated-energy-and-charge-is-wrong
 
-    // 150A/50mV shunt =   50.00mV is inside the 163.84mV scale, so no derating
-    //                     RSHUNT = (50 / 1000) / 150 = 0.00033333333
-    //                     CURRENT_LSB = 150/ 524288 = 0.000286102294921875
-    //                     R_SHUNT_CAL = 13107200000*0.000286102294921875*0.00033333333 = 1249.999 = 1250
-
-    // 300A/75mV shunt =   75.00mV is inside the 163.84mV scale, so no derating
-    //                     RSHUNT = (75 / 1000) / 300 = 0.00025
-    //                     CURRENT_LSB = 300/ 524288 = 0.00057220458984375
-    //                     R_SHUNT_CAL = 13107200000*0.00057220458984375*0.00025 = 1875
-
-    // Calculate CURRENT_LSB and R_SHUNT_CAL values
-    // registers.full_scale_current = ((float)registers.shunt_max_current / (float)registers.shunt_millivolt) * full_scale_adc;
-    registers.RSHUNT = ((float)registers.shunt_millivolt / 1000.0F) / (float)registers.shunt_max_current;
-    registers.CURRENT_LSB = registers.shunt_max_current / (float)0x80000;
-    registers.R_SHUNT_CAL = 13107200000L * registers.CURRENT_LSB * registers.RSHUNT;
-
-    ESP_LOGI(TAG, "RSHUNT=%.8f, CURRENT_LSB=%.8f, R_SHUNT_CAL=%u", registers.RSHUNT, registers.CURRENT_LSB, registers.R_SHUNT_CAL);
-
-    // Will the full scale current be over the range the ADC can handle?
-    if (((float)registers.shunt_max_current * registers.RSHUNT * 1000.0) > full_scale_adc)
+    // CURRENT is a 20-bit two's complement register (datasheet table 7-12), so it holds
+    // +-2^19 x CURRENT_LSB.  Size CURRENT_LSB to the current at the ADC's full scale
+    // (163.84mV across the shunt), not to the shunt's rating: sized to the rating, any
+    // current over the rating overflowed CURRENT (MATHOF) although the ADC could measure it,
+    // and corrupted the CHARGE accumulation.
+    //
+    //   CURRENT_LSB = (full_scale_adc / RSHUNT) / 2^19                         (equation 3)
+    //   SHUNT_CAL   = 13107.2e6 x CURRENT_LSB x RSHUNT                        (equation 2)
+    //               = 13107.2e6 x 0.16384 / 2^19 = 4096 for every shunt
+    //
+    // 4096 is also what firmware on the 40.96mV range used for every shunt over 40.96mV
+    // (4 x 13107.2e6 x 0.04096 / 2^19), so a saved calibration means the same in both.
+    //
+    // 150A/50mV shunt:  RSHUNT = 0.000333333, max measurable 491.52A, CURRENT_LSB = 0.9375mA
+    // 500A/150mV shunt: RSHUNT = 0.0003,      max measurable 546.13A, CURRENT_LSB = 1.0417mA
+    if (registers.shunt_millivolt == 0 || registers.shunt_max_current == 0)
     {
-        float true_max_current = ((float)registers.shunt_max_current / (float)registers.shunt_millivolt) * full_scale_adc;
-        ESP_LOGW(TAG, "WARNING: True Max Current Measurable %.2f Amps", true_max_current);
+        // Nothing sensible to calculate - zero SHUNT_CAL makes the chip report zero current
+        ESP_LOGE(TAG, "Invalid shunt %uA/%umV", registers.shunt_max_current, registers.shunt_millivolt);
+        registers.RSHUNT = 0;
+        registers.CURRENT_LSB = 0;
+        registers.R_SHUNT_CAL = 0;
+        return;
+    }
 
-        registers.CURRENT_LSB = true_max_current / (float)0x80000;
-        registers.R_SHUNT_CAL = 13107200000L * registers.CURRENT_LSB * registers.RSHUNT;
-        ESP_LOGI(TAG, "RECALC: RSHUNT=%.8f, CURRENT_LSB=%.8f, R_SHUNT_CAL=%u", registers.RSHUNT, registers.CURRENT_LSB, registers.R_SHUNT_CAL);
+    registers.RSHUNT = ((float)registers.shunt_millivolt / 1000.0F) / (float)registers.shunt_max_current;
+
+    const double max_measurable_current = ((double)full_scale_adc / 1000.0) / (double)registers.RSHUNT;
+    registers.CURRENT_LSB = (float)(max_measurable_current / 524288.0);
+
+    // Round rather than truncate - float error put some shunts one count low (0.07%)
+    registers.R_SHUNT_CAL = (uint16_t)lround(13107.2e6 * (double)registers.CURRENT_LSB * (double)registers.RSHUNT) & SHUNT_CAL_MASK;
+
+    ESP_LOGI(TAG, "RSHUNT=%.8f, CURRENT_LSB=%.8f, R_SHUNT_CAL=%u, max measurable %.2fA",
+             registers.RSHUNT, registers.CURRENT_LSB, registers.R_SHUNT_CAL, max_measurable_current);
+
+    if (registers.shunt_millivolt > full_scale_adc)
+    {
+        ESP_LOGW(TAG, "WARNING: %umV shunt is beyond the ADC range, max current measurable %.2f Amps",
+                 registers.shunt_millivolt, max_measurable_current);
     }
 
     // Deliberately reduce calibration by 2.5%, which appears to be the loses seen in the current monitor circuit design
@@ -451,11 +464,20 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
 
     CalculateLSB();
 
-    if (shuntcal != 0 && registers.R_SHUNT_CAL != shuntcal)
+    // Are we trying to override the calculated SHUNT_CAL value (calibration trim)?
+    if (shuntcal != 0 && registers.R_SHUNT_CAL != 0 && registers.R_SHUNT_CAL != shuntcal)
     {
-        ESP_LOGI(TAG, "Override SHUNT_CAL from %u to %u", registers.R_SHUNT_CAL, shuntcal);
-        // Are we trying to override the default SHUNT_CAL value?
-        registers.R_SHUNT_CAL = shuntcal;
+        const float trim = ((float)shuntcal / (float)registers.R_SHUNT_CAL) - 1.0F;
+
+        if ((shuntcal & ~SHUNT_CAL_MASK) != 0 || fabsf(trim) > SHUNT_CAL_MAX_TRIM)
+        {
+            ESP_LOGW(TAG, "Ignoring SHUNT_CAL override %u, too far from calculated %u", shuntcal, registers.R_SHUNT_CAL);
+        }
+        else
+        {
+            ESP_LOGI(TAG, "Override SHUNT_CAL from %u to %u", registers.R_SHUNT_CAL, shuntcal);
+            registers.R_SHUNT_CAL = shuntcal;
+        }
     }
 
     // This is not enabled by default
@@ -471,11 +493,16 @@ bool CurrentMonitorINA229::Configure(uint16_t shuntmv,
     registers.R_BOVL = ConvertTo2sComp(((float)overvoltagelimit / 100.0F) / 0.003125F);
     // Bus under voltage protection
     registers.R_BUVL = ConvertTo2sComp(((float)undervoltagelimit / 100.0F) / 0.003125F);
-    // temperature limit
-    registers.R_TEMP_LIMIT = (int16_t)temperaturelimit / (float)0.0078125;
+    // Temperature limit, two's complement at 7.8125m°C/LSB (datasheet table 7-21).  Go through
+    // a signed integer - converting a negative float straight to uint16_t is undefined.
+    long templimit = lround((float)temperaturelimit / 0.0078125F);
+    templimit = constrain(templimit, (long)INT16_MIN + 1, (long)INT16_MAX);
+    registers.R_TEMP_LIMIT = ConvertTo2sComp((int16_t)templimit);
 
-    // Default Power limit = 5kW
-    registers.R_PWR_LIMIT = (uint16_t)((float)overpowerlimit / 256.0F / 3.2F / registers.CURRENT_LSB);
+    // Power limit, unsigned at 256 x the POWER register LSB (datasheet table 7-22).  Clamp so
+    // a large limit cannot wrap round to a small one.
+    float pwrlimit = (registers.CURRENT_LSB > 0) ? (float)overpowerlimit / 256.0F / 3.2F / registers.CURRENT_LSB : (float)UINT16_MAX;
+    registers.R_PWR_LIMIT = (pwrlimit <= 0) ? 0 : (pwrlimit >= (float)UINT16_MAX) ? UINT16_MAX : (uint16_t)lroundf(pwrlimit);
 
     // ESP_LOGI(TAG, "undercurrentlimit=%f, R_SUVL=%u", ((float)undercurrentlimit / 100.0F), registers.R_SUVL);
 
