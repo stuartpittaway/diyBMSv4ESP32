@@ -1980,25 +1980,27 @@
     var g3 = null
     var Graph3DAvailable = false
 
+    // Outputs lang_xx.js style statements for the translatable text on the page.
+    // Text is JSON encoded so quotes inside a translation can't break the generated file,
+    // and only elements with a stable selector (id or label for=) are included.
     function dumpTextElementsForLanguageTranslation() {
-      $('.warning').each(function (index, value) {
-        console.log('$("#' + $(this).attr('id') + '").text("' + $(this).text() + '");')
+      var lines = []
+      function emit(selector, element) {
+        var text = $(element).text().replace(/\s+/g, ' ').trim()
+        if (text.length > 0) {
+          lines.push('$(' + JSON.stringify(selector) + ').text(' + JSON.stringify(text) + ');')
+        }
+      }
+      $('.warning[id], .error[id], p[id], a[id]').each(function () {
+        emit('#' + this.id, this)
       })
-      $('.error').each(function (index, value) {
-        console.log('$("#' + $(this).attr('id') + '").text("' + $(this).text() + '");')
+      $('label[for]').each(function () {
+        emit("label[for='" + $(this).attr('for') + "']", this)
       })
-      $('label').each(function (index, value) {
-        console.log('$("label[for=\'' + $(this).attr('for') + '\']").text("' + $(this).text() + '");')
+      $('.stat[id] > span.x.t').each(function () {
+        emit('#' + $(this).parent().attr('id') + ' > span.x.t', this)
       })
-      $('p').each(function (index, value) {
-        console.log('$("#' + $(this).attr('id') + ').text("' + $(this).text() + '");')
-      })
-      $('.stat').each(function (index, value) {
-        console.log('$("#' + $(this).attr('id') + ' span .x").text("' + $(this).text() + '");')
-      })
-      $('a').each(function (index, value) {
-        console.log('$("#' + $(this).attr('id') + '").text("' + $(this).text() + '");')
-      })
+      console.log(lines.join('\n'))
     }
 
     jQuery.cachedScript = function (url, options) {
@@ -2025,13 +2027,20 @@
 
     $(document).ready(function () {
       var lang = $('html').attr('lang')
+      if (!/^[a-z]{2}$/.test(lang)) {
+        lang = 'en'
+      }
       $('#Language').val(lang)
 
       $('#graphOptions').show()
 
       //Load dependant scripts - one at a time so we don't task ESP32
+      //A missing/broken language file must not stop the rest of the page loading
       $.cachedScript('lang_' + lang + '.js')
-        .done(function (script, textStatus) {
+        .fail(function (jqxhr, settings, exception) {
+          console.warn('Language file lang_' + lang + '.js failed to load', exception)
+        })
+        .always(function () {
           $.cachedScript('echarts.min.js')
             .done(function (script, textStatus) {
               //Get GL library from CDN to avoid having it on ESP32 (save flash space)
@@ -2060,9 +2069,6 @@
             .fail(function (jqxhr, settings, exception) {
               $('#jslibrary').show()
             })
-        })
-        .fail(function (jqxhr, settings, exception) {
-          $('#jslibrary').show()
         })
 
       /*

@@ -57,7 +57,7 @@ $("label[for='NTPZoneHour']").text("Vremenska zona (Sati)");
 //DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules allow you to configure the relays for your situation.
 $("#rt1").text("DIYBMS podržava releje za sigurno odvajanje punjača, sklopnika ili potrošača. Pravila vam omogućuju da konfigurirate releje za svoju situaciju.");
 //Rules are processed from lowest priorty to highest (bottom up). Control the relays using the options. A value of "X" means don't care/leave at value defined by lower priority rules.
-$("#rt2").text("Pravila se obrađuju od najnižeg do najvišeg prioriteta (odozdo prema gore). Upravljajte relejima pomoću opcija. "X" znači da nije aktivan. "On" za uključivanje i "Off" za isključivanje.");
+$("#rt2").text("Pravila se obrađuju od najnižeg do najvišeg prioriteta (odozdo prema gore). Upravljajte relejima pomoću opcija. „X” znači da nije aktivan. „On” za uključivanje i „Off” za isključivanje.");
 //Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will only disable when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing on/off rapidly.
 $("#rt3").text("Pravila se aktiviraju kada izmjerena vrijednost dosegne ili premaši vrijednost okidača. Pravilo se deaktivira samo ako vrijednost premašuje vrijednost resetiranja. To može spriječiti zveckanje releja i brzo uključivanje i isključivanje pravila.");
 //'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of minutes past midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch on at 8:15am and off at 9:15am. This only works if connected to internet for regular time updates.
@@ -79,37 +79,37 @@ $("#rf4").text("Status releja");
 
 
 //Emergency Stop
-$("label[for='rule0value']").text("Not Stop");
+$("label[for='rule0value']").text("Zaustavljanje u nuždi");
 //Internal BMS error 
 $("label[for='rule1value']").text("Greška unutrašnjeg BMSa");
 //Current monitoring over current (Amps)
+$("label[for='rule2value']").text("Prekomjerna struja strujnog monitora (A)");
 //Individual cell over voltage (mV)
-$("label[for='rule3value']").text("Prenapon pojedine čelije (mV)");
+$("label[for='rule3value']").text("Prenapon pojedine ćelije (mV)");
 //Cell under voltage (mV)
-$("label[for='rule4value']").text("Podnapon pojedine čelije (mV)");
+$("label[for='rule4value']").text("Podnapon pojedine ćelije (mV)");
 //Module over temperature (internal) °C
 $("label[for='rule5value']").text("Prekomjerna temperatura modula (unutarnji) °C");
 //Module under temperature (internal)
-$("label[for='rule6value']").text("Podtemperatura modula (unutarnji)");
+$("label[for='rule6value']").text("Podtemperatura modula (unutarnji) °C");
 //Cell over temperature (external)
-$("label[for='rule7value']").text("Prekomjerna temperatura čelije (vanjski)");
+$("label[for='rule7value']").text("Prekomjerna temperatura ćelije (vanjski) °C");
 //Cell under temperature (external)
-$("label[for='rule8value']").text("Podtemperatura čelije (vanjski)");
-//Bank over voltage (mV)
-//Bank under voltage (mV)
+$("label[for='rule8value']").text("Podtemperatura ćelije (vanjski) °C");
+//Current monitor over voltage (mV)
+$("label[for='rule9value']").text("Prenapon strujnog monitora (mV)");
+//Current monitor under voltage (mV)
+$("label[for='rule10value']").text("Podnapon strujnog monitora (mV)");
 //Bank over voltage (mV)
 $("label[for='rule11value']").text("Prenapon bloka (mV)");
 //Bank under voltage (mV)
 $("label[for='rule12value']").text("Podnapon bloka (mV)");
 //Bank range/deviation (mV)
+$("label[for='rule13value']").text("Raspon/odstupanje napona bloka (mV)");
 //Timer 2
 $("label[for='rule14value']").text("Vremenski brojač 2");
 //Timer 1
 $("label[for='rule15value']").text("Vremenski brojač 1");
-//Relay default
-$("label[for='defaultvalue']").text("Defaultni relej");
-//Relay type
-$("label[for='relaytype']").text("Tip releja");
 
 
 //Bypass over temperature
@@ -128,8 +128,6 @@ $("#roundtrip > span.x.t").text("Kruženje (ms):");
 $("#ip1").text("Integracija");
 //For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.
 $("#ip2").text("Iz sigurnosnih razloga morate ponovno unijeti lozinku za usluge koje želite omogućiti ili promijeniti prije spremanja.");
-//After changes are made, the controller will need to be rebooted, do this manually.
-$("#ip3").text("Nakon promjene, kontroler mora biti ponovno pokrenut. Učinite to ručno.");
 
 //WARNING
 $("#ap5").text("UPOZORENJE");

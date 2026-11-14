@@ -56,11 +56,11 @@ $("label[for='NTPZoneHour']").text("Tijdzone (Uren)");
 //DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules allow you to configure the relays for your situation.
 $("#rt1").text("DIYBMS ondersteunt relais om veilig laders, contactors en verbruikers te schakelen. De regels onderaan laten toe ze instellen voor jouw situatie");
 //Rules are processed from lowest priorty to highest (bottom up). Control the relays using the options. A value of "X" means don't care/leave at value defined by lower priority rules.
-$("#rt2").text("Regels worden gevalueerd van laag naar hoog (van onder naar boven).  Stuur de relais met de opties. X wil zeggen negeer waarde van lagere regeles");
+$("#rt2").text("Regels worden geëvalueerd van laag naar hoog (van onder naar boven).  Stuur de relais met de opties. X wil zeggen negeer waarde van lagere regels");
 //Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will only disable when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing on/off rapidly.
 $("#rt3").text("Regels worden actief wanneer de waarde boven de alarmwaarde gaat en wordt pas terug inactief wanneer de waarde onder de herstelwaarde gaat.  Dit vermijdt onstabiele regelingen.");
 //'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of minutes past midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch on at 8:15am and off at 9:15am. This only works if connected to internet for regular time updates.
-$("#rt4").text("De regels 'Timer 1' en 'Timer 2' laten een tijdsturing toe, de regel is actief wanneer het aantal minuten na middernacht is bereikt.  Bijvoorbeeld Timer 1 alarmwaarde 495 en herstelwaarde 555 zou activeren om 08:15 en deactiveren om 21:15. Deze regel werkt enkel als er internetverbinding is (NTP). ");
+$("#rt4").text("De regels 'Timer 1' en 'Timer 2' laten een tijdsturing toe, de regel is actief wanneer het aantal minuten na middernacht is bereikt.  Bijvoorbeeld Timer 1 alarmwaarde 495 en herstelwaarde 555 zou activeren om 08:15 en deactiveren om 09:15. Deze regel werkt enkel als er internetverbinding is (NTP). ");
 //Minutes since midnight now is: 
 $("#rt5").text("Tijd na middernacht in minuten: ");
 //Emergency stop is triggered by connector J1, once triggered controller needs to be reset to disable.
@@ -82,33 +82,33 @@ $("label[for='rule0value']").text("Noodstop");
 //Internal BMS error 
 $("label[for='rule1value']").text("Interne BMS fout");
 //Current monitoring over current (Amps)
+$("label[for='rule2value']").text("Overstroom stroommeter (A)");
 //Individual cell over voltage (mV)
-$("label[for='rule3value']").text("Celoverspannig (mV)");
+$("label[for='rule3value']").text("Celoverspanning (mV)");
 //Cell under voltage (mV)
-$("label[for='rule4value']").text("Celonderspannijg (mV)");
+$("label[for='rule4value']").text("Celonderspanning (mV)");
 //Module over temperature (internal) °C
 $("label[for='rule5value']").text("Maximale moduletemperatuur (intern) °C");
 //Module under temperature (internal)
-$("label[for='rule6value']").text("Minimale moduletemperatuur (intern)");
+$("label[for='rule6value']").text("Minimale moduletemperatuur (intern) °C");
 //Cell over temperature (external)
-$("label[for='rule7value']").text("Maximale celtemperatuur (extern)");
+$("label[for='rule7value']").text("Maximale celtemperatuur (extern) °C");
 //Cell under temperature (external)
-$("label[for='rule8value']").text("Minimale celtemperatuur (extern)");
-//Bank over voltage (mV)
-//Bank under voltage (mV)
+$("label[for='rule8value']").text("Minimale celtemperatuur (extern) °C");
+//Current monitor over voltage (mV)
+$("label[for='rule9value']").text("Maximale spanning stroommeter (mV)");
+//Current monitor under voltage (mV)
+$("label[for='rule10value']").text("Minimale spanning stroommeter (mV)");
 //Bank over voltage (mV)
 $("label[for='rule11value']").text("Maximale batterijspanning (mV)");
 //Bank under voltage (mV)
 $("label[for='rule12value']").text("Minimale batterijspanning (mV)");
 //Bank range/deviation (mV)
+$("label[for='rule13value']").text("Spanningsverschil batterij (mV)");
 //Timer 2
 $("label[for='rule14value']").text("Timer 2");
 //Timer 1
 $("label[for='rule15value']").text("Timer 1");
-//Relay default
-$("label[for='defaultvalue']").text("Standaardwaarde relais");
-//Relay type
-$("label[for='relaytype']").text("Type relais");
 
 
 //Bypass over temperature
@@ -127,8 +127,6 @@ $("#roundtrip > span.x.t").text("Roundtrip (ms):");
 $("#ip1").text("Integratie");
 //For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.
 $("#ip2").text("Paswoorden moeten opnieuw ingegeven worden voor de service(s) die geactiveerd of gewijzigd worden.");
-//After changes are made, the controller will need to be rebooted, do this manually.
-$("#ip3").text("Na het bewaren van instellingen moet de controller manueel herstart worden");
 
 //PATREON
 //Remember, this product is free for personal use, if you would like to make a regular donation to keep the features and improvements flowing, use the Patreon link below. Even just a coffee/beer a month makes a difference. Thank you!
@@ -192,11 +190,7 @@ $("label[for='cmwatchdog']").text("Watchdog-teller");
 //<label for="cmtemperature">Die temperature &deg;C</label>
 $("label[for='cmtemperature']").text("CPU-core temperatuur");
 
-//<label for="cmactualshuntmv">Actual shunt mV reading</label>
-$("label[for='cmactualshuntmv']").text("Actuele shunt mV waarde");
 
-//<label for="cmcurrentlsb">Current LSB size</label>
-$("label[for='cmcurrentlsb']").text("Actuele LSB-grootte");
 
 //<label for="cmresistance">Shunt resistance</label>
 $("label[for='cmresistance']").text("Shunt-weerstand");

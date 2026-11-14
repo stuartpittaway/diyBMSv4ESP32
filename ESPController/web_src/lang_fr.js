@@ -1,4 +1,4 @@
-  // This file is for FRENCH language translation
+// This file is for FRENCH language translation
 
 $("#home").text("Acceuil"); 
 $("#modules").text("Modules");
@@ -8,7 +8,6 @@ $("#more").text("Plus...");
 
 $("#integration").text("Integration");
 $("#currentmonitor").text("Moniteur de courant");
-$("#victroncanbus").text("BMS CAN bus emulateur pylontech/victron");
 $("#storage").text("Paramétres SDCard et Logg");
 $("#avrprogrammer").text("Programmateur de module (AVR)");
 $("#about").text("Informations");
@@ -91,7 +90,7 @@ $("label[for='rule2value']").text("Surintensité vu par le moniteur de courant (
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Seuil de surtension cellule individuelle (mV)");
 //Cell under voltage (mV)
-$("label[for='rule4value']").text("Seuil de soustension cellule individuelle (mV))");
+$("label[for='rule4value']").text("Seuil de soustension cellule individuelle (mV)");
 //Module over temperature (internal) °C	= 
 $("label[for='rule5value']").text("PCB Surtemperature °C");
 //Module under temperature (internal)
@@ -100,21 +99,20 @@ $("label[for='rule6value']").text("PCB Soustemperature °C");
 $("label[for='rule7value']").text("Cellule Surtemperature (Ext) °C");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Cellule Soustemperature (Ext) °C");
+//Current monitor over voltage (mV)
+$("label[for='rule9value']").text("Surtension vue par le moniteur de courant (mV)");
+//Current monitor under voltage (mV)
+$("label[for='rule10value']").text("Soustension vue par le moniteur de courant (mV)");
 //Bank over voltage (mV)
-$("label[for='rule9value']").text("Surtention chaîne (mV)");
+$("label[for='rule11value']").text("Surtension chaîne (mV)");
 //Bank under voltage (mV)
-$("label[for='rule10value']").text("Soustention chaîne (mV)");
-//Bank over voltage (mV)
-//Bank under voltage (mV)
+$("label[for='rule12value']").text("Soustension chaîne (mV)");
 //Bank range/deviation (mV)
+$("label[for='rule13value']").text("Écart de tension chaîne (mV)");
 //Timer 2
 $("label[for='rule14value']").text("Tempo 2");
 //Timer 1
 $("label[for='rule15value']").text("Tempo 1");
-//Relay default
-$("label[for='defaultvalue']").text("Défault relais");
-//Relay type
-$("label[for='relaytype']").text("Type de Relais");
 
 
 
@@ -131,8 +129,6 @@ $("#roundtrip > span.x.t").text("vitesse com (ms):");
 $("#ip1").text("Integration");
 //For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.
 $("#ip2").text("Pour des raisons de sécurité, vous devrez ressaisir le mot de passe du ou des services que vous souhaitez activer ou modifier avant d'enregistrer.");
-//After changes are made, the controller will need to be rebooted, do this manually.
-$("#ip3").text("Une fois les modifications apportées, le contrôleur devra être redémarré, faites-le manuellement.");
 
 //WARNING
 $("#ap5").text("! ATTENTION !");

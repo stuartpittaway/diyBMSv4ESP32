@@ -45,7 +45,7 @@ $("#warning1").text("Warnung: Die Bypass-Spannung der Module unterscheidet sich 
 $("#warning2").text("Warnung: Die Bypass-Temperatur der Module unterscheidet sich von der globalen Einstellung");
 $("#warning3").text("Warnung: Module haben verschiedene Codeversionen, das könnte zu Instabilität führen");
 $("#warning4").text("Warnung: Module haben verschiedene Hardware oder Board-Versionen");
-$("#warning5").text("Warnung: Prtokollierung aktiviert, SD-Karte jedoch nicht installiert oder gefunden");
+$("#warning5").text("Warnung: Protokollierung aktiviert, SD-Karte jedoch nicht installiert oder gefunden");
 $("#warning6").text("Einige Funktionen sind deaktiviert, während der AVR-Programmiermodus aktiviert ist");
 
 $("label[for='NTPServer']").text("NTP Server");
@@ -81,9 +81,9 @@ $("#rf4").text("Relaisstatus");
 //Emergency Stop
 $("label[for='rule0value']").text("Not-Aus");
 //Internal BMS error 
-$("label[for='rule1value']").text("Interner fehler im BMS");
+$("label[for='rule1value']").text("Interner Fehler im BMS");
 //Current monitoring over current (Amps)
-$("label[for='rule2value']").text("maximaler Strom (A)");
+$("label[for='rule2value']").text("Strommonitor Überstrom (A)");
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Zellenüberspannung (mV)");
 //Cell under voltage (mV)
@@ -91,29 +91,25 @@ $("label[for='rule4value']").text("Zellenunterspannung (mV)");
 //Module over temperature (internal) °C
 $("label[for='rule5value']").text("Modul Übertemperatur (intern) °C");
 //Module under temperature (internal)
-$("label[for='rule6value']").text("Modul Untertemperatur (intern)");
+$("label[for='rule6value']").text("Modul Untertemperatur (intern) °C");
 //Cell over temperature (external)
-$("label[for='rule7value']").text("Zellen Übertemperatur (extern)");
+$("label[for='rule7value']").text("Zellen Übertemperatur (extern) °C");
 //Cell under temperature (external)
-$("label[for='rule8value']").text("Zellen Untertemperatur (extern)");
+$("label[for='rule8value']").text("Zellen Untertemperatur (extern) °C");
+//Current monitor over voltage (mV)
+$("label[for='rule9value']").text("Strommonitor Überspannung (mV)");
+//Current monitor under voltage (mV)
+$("label[for='rule10value']").text("Strommonitor Unterspannung (mV)");
 //Bank over voltage (mV)
-$("label[for='rule9value']").text("Überspannung des Strommonitors (mV)");
+$("label[for='rule11value']").text("Paket Überspannung (mV)");
 //Bank under voltage (mV)
-$("label[for='rule10value']").text("Stromwächter unter Spannung (mV)");
-//Bank over voltage (mV)
-$("label[for='rule11value'").text("Paket Überspannung (mV)");
-//Bank under voltage (mV)
-$("label[for='rule12value'").text("Paket Unterspannung (mV)");
+$("label[for='rule12value']").text("Paket Unterspannung (mV)");
 //Bank range/deviation (mV)
-$("label[for='rule13value'").text("Bankbereich/Varianz (mV)");
+$("label[for='rule13value']").text("Bankbereich/Varianz (mV)");
 //Timer 2
 $("label[for='rule14value']").text("Timer 2");
 //Timer 1
 $("label[for='rule15value']").text("Timer 1");
-//Relay default
-$("label[for='defaultvalue']").text("Relais Grundeinstellung");
-//Relay type
-$("label[for='relaytype']").text("Relais Typen");
 
 
 //Bypass over temperature
@@ -132,8 +128,6 @@ $("#roundtrip > span.x.t").text("Rundenzeit (ms):");
 $("#ip1").text("Einbindung");
 //For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.
 $("#ip2").text("Aus Sicherheitsgründen müssen Sie vor dem Speichern das Kennwort für die Dienste, die Sie aktivieren oder ändern möchten, erneut eingeben.");
-//After changes are made, the controller will need to be rebooted, do this manually.
-$("#ip3").text("Nachdem Änderungen vorgenommen wurden, muss der Controller neu gestartet werden. Führen Sie dieses manuell durch.");
 
 //PATREON
 //Remember, this product is free for personal use, if you would like to make a regular donation to keep the features and improvements flowing, use the Patreon link below. Even just a coffee/beer a month makes a difference. Thank you!
@@ -144,9 +138,9 @@ $("#ap5").text("WARNUNG");
 //This is a DIY product/solution so don’t use this for safety critical systems or in any situation where there could be a risk to life.
 $("#ap6").text("Dies ist ein DIY-Produkt/DIY-Lösung. Verwenden Sie dieses Produkt/Lösung daher nicht für sicherheitskritische Systeme oder in Situationen, in denen Lebensgefahr besteht.");
 //There is no warranty, it may not work as expected or at all.
-$("#ap7").text("Es gibt keine Garantie oder Gewährleistung. Es funktioniert möglicherweise nicht wie erwartet oder überhaupt nicht..");
+$("#ap7").text("Es gibt keine Garantie oder Gewährleistung. Es funktioniert möglicherweise nicht wie erwartet oder überhaupt nicht.");
 //The use of this project is done so entirely at your own risk. It may involve electrical voltages which could kill - if in doubt, seek help.
-$("#ap8").text("Die Nutzung dieses Projekts erfolgt ausschließlich auf eigene Gefahr und eigenes Risiko. Es kann sich um elektrische Spannungen handeln, die tödlich sein können - im Zweifelsfall bitten sie um Hilfe..");
+$("#ap8").text("Die Nutzung dieses Projekts erfolgt ausschließlich auf eigene Gefahr und eigenes Risiko. Es kann sich um elektrische Spannungen handeln, die tödlich sein können - im Zweifelsfall bitten Sie um Hilfe.");
 //The use of this project may not be compliant with local laws or regulations - if in doubt, seek help.
 $("#ap8a").text("Die Verwendung dieses Projekts entspricht möglicherweise nicht den örtlichen Gesetzen oder Vorschriften. Fragen Sie im Zweifelsfall nach.");
 
@@ -155,14 +149,14 @@ $("#mb1").text("Module & Banken");
 //DIYBMS supports up to 100 modules in total. These modules can be split into banks to support parallel configurations.
 $("#mb2").text("DIYBMS unterstützt insgesamt bis zu 100 Module. Diese Module können in Bänke aufgeteilt werden, um parallele Konfigurationen zu unterstützen.");
 //Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).
-$("#mb3").text("Beispiel: Sie haben 16 Zellen, die als 8 in einer Reihe und 2 parallel zusammengestellt sind (8S2P)..");
+$("#mb3").text("Beispiel: Sie haben 16 Zellen, die als 8 in einer Reihe und 2 parallel zusammengestellt sind (8S2P).");
 
 //diybmsCurrentMonitorPage
 
 //<h1>diyBMS Current &amp; Voltage Monitor</h1>
 $("#diybmsCurrentMonitorPage > h1").text("diyBMS Ampere & Spannungsüberwachung");
 //<p>Configure the MODBUS connection to the current monitor using the settings below.</p>
-//Konfigurieren Sie die MODBUS-Verbindung zum aktuellen Monitor mit den folgenden Einstellungen.
+//Konfigurieren Sie die MODBUS-Verbindung zum Strommonitor mit den folgenden Einstellungen.
 
 //<label for="CurrentMonEnabled">Enabled</label>
 $("label[for='CurrentMonEnabled']").text("aktiviert");
@@ -174,10 +168,10 @@ $("label[for='CurrentMonEnabled']").text("aktiviert");
 //Grundeinstellungen
 
 //<p>Ensure the current shunt parameters match the data sheet for your particular shunt resistor.</p>
-//Stellen Sie sicher, dass die aktuellen Shunt-Parameter mit dem Datenblatt für Ihren speziellen Shunt-Widerstand übereinstimmen.
+//Stellen Sie sicher, dass die Shunt-Parameter mit dem Datenblatt für Ihren speziellen Shunt-Widerstand übereinstimmen.
 
 //<p>The current monitor uses a 40.96mV maximum scale, so shunt voltages over this will be scaled down proportionally.</p>
-//Der aktuelle Monitor verwendet eine maximale Skalierung von 40,96 mV, sodass die darüber liegenden Shuntspannungen proportional verkleinert werden.
+//Der Strommonitor verwendet eine maximale Skalierung von 40,96 mV, sodass die darüber liegenden Shuntspannungen proportional verkleinert werden.
 
 //<label for="shuntmaxcur">Shunt maximum current</label>
 $("label[for='shuntmaxcur']").text("Shunt maximaler Strom");
@@ -195,13 +189,9 @@ $("label[for='cmtimestampage']").text("Letzte Verbindung (Millisekunden)");
 $("label[for='cmwatchdog']").text("Watchdog-Zähler");
 
 //<label for="cmtemperature">Die temperature &deg;C</label>
-$("label[for='cmtemperature']").text("CPU-Kern Temperatur");
+$("label[for='cmtemperature']").text("Chip-Temperatur °C");
 
-//<label for="cmactualshuntmv">Actual shunt mV reading</label>
-$("label[for='cmactualshuntmv']").text("Tatsächlicher Shunt-MV-Messwert");
 
-//<label for="cmcurrentlsb">Current LSB size</label>
-$("label[for='cmcurrentlsb']").text("Aktuelle LSB-Größe");
 
 //<label for="cmresistance">Shunt resistance</label>
 $("label[for='cmresistance']").text("Shunt-Widerstand");
@@ -234,7 +224,7 @@ $("label[for='cmVoltageOverLimit']").text("Spannung über dem Grenzwert");
 $("label[for='cmVoltageUnderLimit']").text("Spannung unter dem Grenzwert");
 
 //<label for="cmPowerOverLimit">Power over limit</label>
-$("label[for='cmPowerOverLimit']").text("Leistungsgrenze");
+$("label[for='cmPowerOverLimit']").text("Leistung über dem Grenzwert");
 
 
 //<h2>Advanced Current Monitor Settings</h2>
@@ -244,7 +234,7 @@ $("label[for='cmPowerOverLimit']").text("Leistungsgrenze");
 //Wenn Sie die Relaissteuerung am Shunt-Monitor verwenden möchten, stellen Sie hier die Parameter ein. Normalerweise sollten Sie den Kalibrierungswert nicht ändern müssen.
 
 //<p>Current limit is for use whilst discharging the battery, under current limit is used when charging, so different discharge/charge current limits can be used.</u></p>
-// I cannot translate meaningfully
+// Die Überstromgrenze gilt beim Entladen der Batterie, die Unterstromgrenze beim Laden, sodass unterschiedliche Entlade-/Ladestromgrenzen verwendet werden können.
 
 //<p>Temperature limit is based on the chip die temperature, which may not match the shunt temperature. Only positive temperature coefficient is supported.</u></p>
 // Die Temperaturgrenze basiert auf der CPU-Kern Temperatur, die möglicherweise nicht mit der Shunt-Temperatur übereinstimmt. Es wird nur ein positiver Temperaturkoeffizient unterstützt.
@@ -271,10 +261,10 @@ $("label[for='cmoverclimit']").text("Überstrombegrenzung");
 $("label[for='cmunderclimit']").text("Unterstrombegrenzung");
 
 //<label for="cmoverplimit">Over power limit</label>
-$("label[for='cmoverplimit']").text("Leistungsgrenze");
+$("label[for='cmoverplimit']").text("Leistungsobergrenze");
 
 //<label for="cmtempcoeff">Temperature coefficient ppm/&deg;C</label>
-$("label[for='cmtempcoeff']").text("Temperaturkoeffizient");
+$("label[for='cmtempcoeff']").text("Temperaturkoeffizient ppm/°C");
 
 //<h2>Current Monitor Relay Settings &amp; Temperature coefficient</h2>
 // Strom Überwachungsrelais Einstellungen und Temperaturkoeffizient
@@ -301,4 +291,4 @@ $("label[for='cmVOLTOL']").text("Relaisauslöser: Überspannung");
 $("label[for='cmVOLTUL']").text("Relaisauslöser: Unterspannung");
 
 //<label for="cmPOL">Relay Trigger: Power</label>
-$("label[for='cmPOL']").text("Relaisauslöser: Stromversorgung");
+$("label[for='cmPOL']").text("Relaisauslöser: Leistung");

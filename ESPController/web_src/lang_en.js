@@ -1,6 +1,6 @@
 // This file is for ENGLISH language translation
-// as the main default.htm is already in English,
-// this file doesn't do anything
+// default.htm is already in English, so this file only re-applies a few labels
+// and serves as a template for the rule labels
 // https://www.w3schools.com/tags/ref_language_codes.asp
 
 /*
@@ -29,9 +29,9 @@ $("label[for='rule6value']").text("Module under temperature (internal) °C");
 $("label[for='rule7value']").text("Cell over temperature (external) °C");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Cell under temperature (external) °C");
-//Bank over voltage (mV)
+//Current monitor over voltage (mV)
 $("label[for='rule9value']").text("Current monitor over voltage (mV)");
-//Bank under voltage (mV)
+//Current monitor under voltage (mV)
 $("label[for='rule10value']").text("Current monitor under voltage (mV)");
 //Bank over voltage (mV)
 $("label[for='rule11value']").text("Bank over voltage (mV)");

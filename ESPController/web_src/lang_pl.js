@@ -1,4 +1,5 @@
-//Grzegorz Mirż 18.12.2023
+// This file is for POLISH language translation
+// Translation by Grzegorz Mirż 18.12.2023
 
 $("#home").text("Start");
 $("#tiles").text("Elementy");
@@ -30,7 +31,7 @@ $("#mptext").text("Temp zewn °C");
 $("#mpbypass").text("Obejście PWM %");
 $("#mpbpc").text("Ilość błędnych pakietów");
 $("#mppktr").text("Pakiety otrzymane");
-$("#mpbal").text("Statysytka balansowania (mAh)");
+$("#mpbal").text("Statystyka balansowania (mAh)");
 
 $("#error1").text("Kontroler ma trudności z komunikacją z modułami ogniw i/lub monitorem prądu.");
 $("#error3").text("Kontroler jest skonfigurowany tak, aby wykorzystywać więcej modułów, niż jest w stanie obsłużyć.");
@@ -38,7 +39,7 @@ $("#error4").text("Oczekiwanie na odpowiedź modułów.");
 $("#error5").text("Moduł zwrócił odczyt napięcia ZERO, sprawdź konfigurację");
 $("#error6").text("W kontrolerze zabrakło pamięci.");
 $("#error7").text("Awaryjne zatrzymanie!");
-$("#iperror").text("Nie można zkomunikować się z kontrolerem w celu aktualizacji statusu.");
+$("#iperror").text("Nie można skomunikować się z kontrolerem w celu aktualizacji statusu.");
 $("#genericerror").text("Błąd kontrolera!");
 $("#jslibrary").text("Nie udało się poprawnie załadować biblioteki JavaScript. Odśwież stronę.");
 $("#saveerror").text("Nie udało się zapisać ustawień.");
@@ -53,7 +54,6 @@ $("#warning6").text("Niektóre funkcje są wyłączone, gdy włączony jest tryb
 $("#warning7").text("Ładowanie jest zablokowane (ustawienia ładowania)");
 $("#warning8").text("Rozładowanie jest uniemożliwione (ustawienia rozładowania)");
 $("#warning9").text("Brak zewnętrznego czujnika temperatury ogniwa");
-$("#warningxss").text("Strona internetowa nie jest zsynchronizowana z kontrolerem, odśwież stronę (F5)");
 
 $("label[for='NTPServer']").text("Serwer czasu NTP");
 $("label[for='NTPZoneHour']").text("Strefa czasowa NTP (godziny)");
@@ -88,61 +88,55 @@ $("label[for='rule0value']").text("Awaryjne zatrzymanie");
 //Internal BMS error 
 $("label[for='rule1value']").text("Błąd wewnętrzny BMS");
 //Current monitoring over current (Amps)
-$("label[for='rule2value']").text("maksymalny prąd (A)");
+$("label[for='rule2value']").text("Monitor prądu: prąd powyżej (A)");
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Napięcie ogniwa powyżej (mV)");
 //Cell under voltage (mV)
 $("label[for='rule4value']").text("Napięcie ogniwa poniżej (mV)");
 //Module over temperature (internal) °C
-$("label[for='rule5value']").text("Temperatura ogniwa powyżej (wewn) °C");
+$("label[for='rule5value']").text("Temperatura modułu powyżej (wewn) °C");
 //Module under temperature (internal)
-$("label[for='rule6value']").text("Temperatura ogniwa powyżej (wewn)");
+$("label[for='rule6value']").text("Temperatura modułu poniżej (wewn) °C");
 //Cell over temperature (external)
-$("label[for='rule7value']").text("Temperatura ogniwa powyżej (zewn)");
+$("label[for='rule7value']").text("Temperatura ogniwa powyżej (zewn) °C");
 //Cell under temperature (external)
-$("label[for='rule8value']").text("Temperatura ogniwa poniżej (zewn)");
+$("label[for='rule8value']").text("Temperatura ogniwa poniżej (zewn) °C");
+//Current monitor over voltage (mV)
+$("label[for='rule9value']").text("Monitor prądu: napięcie powyżej (mV)");
+//Current monitor under voltage (mV)
+$("label[for='rule10value']").text("Monitor prądu: napięcie poniżej (mV)");
 //Bank over voltage (mV)
-$("label[for='rule9value']").text("Napięcie maksymalne (mV)");
+$("label[for='rule11value']").text("Napięcie pakietu powyżej (mV)");
 //Bank under voltage (mV)
-$("label[for='rule10value']").text("Napięcie minimalne (mV)");
-//Bank over voltage (mV)
-$("label[for='rule11value'").text("Napięcie pakietu powyżej (mV)");
-//Bank under voltage (mV)
-$("label[for='rule12value'").text("Napięcie pakietu poniżej (mV)");
+$("label[for='rule12value']").text("Napięcie pakietu poniżej (mV)");
 //Bank range/deviation (mV)
-$("label[for='rule13value'").text("Zakres różnicy napięć ogniw w pakiecie (mV)");
+$("label[for='rule13value']").text("Zakres różnicy napięć ogniw w pakiecie (mV)");
 //Timer 2
 $("label[for='rule14value']").text("Timer 2");
 //Timer 1
 $("label[for='rule15value']").text("Timer 1");
-//Relay default
-$("label[for='defaultvalue']").text("Domyślne ustawienia przekaźnika");
-//Relay type
-$("label[for='relaytype']").text("Typ przekaźnika");
 
 
 //Bypass over temperature
-$("label[for='g1']").text("Bypass Übertemperatur");
+$("label[for='g1']").text("Maksymalna temperatura obejścia (bypass)");
 //Bypass threshold mV
-$("label[for='g2']").text("Bypass-Schwelle mV");
+$("label[for='g2']").text("Próg napięcia obejścia (bypass) mV");
 
 //Packets sent
-$("#sent > span.x.t").text("Pakete gesendet:");
+$("#sent > span.x.t").text("Pakiety wysłane:");
 //Packets rec'd
-$("#received > span.x.t").text("Pakete empfangen:");
+$("#received > span.x.t").text("Pakiety odebrane:");
 //Roundtrip (ms)
-$("#roundtrip > span.x.t").text("Rundenzeit (ms):");
+$("#roundtrip > span.x.t").text("Czas odpowiedzi (ms):");
 
 //Integration
 $("#ip1").text("Integracje");
 //For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.
 $("#ip2").text("Ze względów bezpieczeństwa przed zapisaniem konieczne będzie ponowne wprowadzenie hasła do usługi MQTT, jeśli chcesz ją włączyć lub zmodyfikować.");
-//After changes are made, the controller will need to be rebooted, do this manually.
-$("#ip3").text("Po dokonaniu zmian należy zrestartować sterownik. Zrób to ręcznie.");
 
 $("#ip4").text("Adres URI powinien być podobny do mqtt://192.168.0.26:1833");
 
-$("#ip5").text("Opcja podstawowych danych komórkowych zmniejsza ilość danych MQTT przesyłanych przez sieć.");
+$("#ip5").text("Opcja podstawowych danych ogniw zmniejsza ilość danych MQTT przesyłanych przez sieć.");
 
 $("#ap1").text("Kod źródłowy i sprzęt");
 $("#ap2").text("Filmy");
@@ -158,7 +152,7 @@ $("#ap6").text("Jest to produkt/rozwiązanie typu „zrób to sam”, więc nie 
 //There is no warranty, it may not work as expected or at all.
 $("#ap7").text("Nie ma gwarancji na poprawne działanie, może nie działać zgodnie z oczekiwaniami lub wcale.");
 //The use of this project is done so entirely at your own risk. It may involve electrical voltages which could kill - if in doubt, seek help.
-$("#ap8").text("Korzystanie z tego projektu odbywa się całkowicie na własne ryzyko. Ryzysko wysokiego napięcia elektrycznego, które może zabić. W razie wątpliwości należy zwrócić się o pomoc do specjalisty.");
+$("#ap8").text("Korzystanie z tego projektu odbywa się całkowicie na własne ryzyko. Ryzyko wysokiego napięcia elektrycznego, które może zabić. W razie wątpliwości należy zwrócić się o pomoc do specjalisty.");
 //The use of this project may not be compliant with local laws or regulations - if in doubt, seek help.
 $("#ap8a").text("Korzystanie z tego projektu może być niezgodne z lokalnymi przepisami lub regulacjami – w razie wątpliwości należy zwrócić się o pomoc.");
 
@@ -192,10 +186,10 @@ $("label[for='CurrentMonEnabled']").text("Włączony");
 //Monitor prądu wykorzystuje maksymalną skalę 40,96 mV, więc napięcia bocznikowe powyżej tej wartości będą proporcjonalnie zmniejszane.
 
 //<label for="shuntmaxcur">Shunt maximum current</label>
-$("label[for='shuntmaxcur']").text("Maksymalny prąd bocznikowy");
+$("label[for='shuntmaxcur']").text("Maksymalny prąd bocznika");
 
 //<label for="shuntmv">Shunt output voltage (mV)</label>
-$("label[for='shuntmv']").text("Maksymalne napięcie bocznikowe (mV)");
+$("label[for='shuntmv']").text("Napięcie wyjściowe bocznika (mV)");
 
 //<label for="cmvalid">Values valid?</label>
 $("label[for='cmvalid']").text("Czy wartości są poprawne?");
@@ -207,16 +201,12 @@ $("label[for='cmtimestampage']").text("Ostatnia komunikacja (milisekundy)");
 $("label[for='cmwatchdog']").text("Licznik Watchdoga");
 
 //<label for="cmtemperature">Die temperature &deg;C</label>
-$("label[for='cmtemperature']").text("Temperatura CPU &deg;C");
+$("label[for='cmtemperature']").text("Temperatura układu °C");
 
-//<label for="cmactualshuntmv">Actual shunt mV reading</label>
-$("label[for='cmactualshuntmv']").text("Aktualny odczyt napięcia bocznika mV");
 
-//<label for="cmcurrentlsb">Current LSB size</label>
-$("label[for='cmcurrentlsb']").text("Aktualny rozmiar LSB");
 
 //<label for="cmresistance">Shunt resistance</label>
-$("label[for='cmresistance']").text("Rezystancja bocznikowa");
+$("label[for='cmresistance']").text("Rezystancja bocznika");
 
 //<label for="cmmodel">Sensor model</label>
 $("label[for='cmmodel']").text("Model czujnika");
@@ -286,7 +276,7 @@ $("label[for='cmunderclimit']").text("Limit dolny prądu");
 $("label[for='cmoverplimit']").text("Limit mocy maksymalnej");
 
 //<label for="cmtempcoeff">Temperature coefficient ppm/&deg;C</label>
-$("label[for='cmtempcoeff']").text("Współczynnik temperatury ppm/&deg;C");
+$("label[for='cmtempcoeff']").text("Współczynnik temperaturowy ppm/°C");
 
 //<h2>Current Monitor Relay Settings &amp; Temperature coefficient</h2>
 // Aktualne ustawienia przekaźnika monitorującego i współczynnik temperaturowy
@@ -298,19 +288,19 @@ $("label[for='cmtempcoeff']").text("Współczynnik temperatury ppm/&deg;C");
 $("label[for='TempCompEnabled']").text("Współczynnik temperaturowy włączony");
 
 //<label for="cmTMPOL">Relay Trigger: Temperature</label>
-$("label[for='cmTMPOL']").text("Wyzwalacz przekażnika: Temperatura");
+$("label[for='cmTMPOL']").text("Wyzwalacz przekaźnika: Temperatura");
 
 //<label for="cmCURROL">Relay Trigger: Current over</label>
-$("label[for='cmCURROL']").text("Wyzwalacz przekażnika: Prąd powyżej");
+$("label[for='cmCURROL']").text("Wyzwalacz przekaźnika: Prąd powyżej");
 
 //<label for="cmCURRUL">Relay Trigger: Current under</label>
-$("label[for='cmCURRUL']").text("Wyzwalacz przekażnika: Prąd poniżej");
+$("label[for='cmCURRUL']").text("Wyzwalacz przekaźnika: Prąd poniżej");
 
 //<label for="cmVOLTOL">Relay Trigger: Voltage over</label>
-$("label[for='cmVOLTOL']").text("Wyzwalacz przekażnika: Napięcie powyżej");
+$("label[for='cmVOLTOL']").text("Wyzwalacz przekaźnika: Napięcie powyżej");
 
 //<label for="cmVOLTUL">Relay Trigger: Voltage under</label>
-$("label[for='cmVOLTUL']").text("Wyzwalacz przekażnika: Napięcie poniżej");
+$("label[for='cmVOLTUL']").text("Wyzwalacz przekaźnika: Napięcie poniżej");
 
 //<label for="cmPOL">Relay Trigger: Power</label>
-$("label[for='cmPOL']").text("Wyzwalacz przekażnika: Moc");
+$("label[for='cmPOL']").text("Wyzwalacz przekaźnika: Moc");

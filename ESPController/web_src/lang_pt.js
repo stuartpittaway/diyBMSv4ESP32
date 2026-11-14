@@ -48,16 +48,16 @@ $("#warning5").text("Aviso: registo ativado mas cartão SD não instalado / enco
 $("#warning6").text("Algumas funções estão desativadas enquanto o modo de programação AVR está ativo");
 
 $("label[for='NTPServer']").text("Servidor NTP");
-$("label[for='NTPZoneHour']").text("Zona horária (hour)"); 
+$("label[for='NTPZoneHour']").text("Zona horária (horas)"); 
 
 //DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules allow you to configure the relays for your situation.
 $("#rt1").text("DIYBMS suporta módulos de relé para desligar carregadores, contatores ou consumidores com segurança. As regras permitem que configure os relés para a sua situação.");
 //Rules are processed from lowest priorty to highest (bottom up). Control the relays using the options. A value of "X" means don't care/leave at value defined by lower priority rules.
-$("#rt2").text("As regras são processadas da prioridade mais baixa para a mais alta (de baixo para cima). Controle os relés usando as opções. Um valor de "X" significa deixar no valor definido por regras de prioridade mais baixa.");
+$("#rt2").text("As regras são processadas da prioridade mais baixa para a mais alta (de baixo para cima). Controle os relés usando as opções. Um valor de “X” significa deixar no valor definido por regras de prioridade mais baixa.");
 //Rules are triggered when the relevant value meets or exceeds the 'trigger' value. The rule will only disable when the value then passes the 'reset' value. This can help prevent relay clatter and rules firing on/off rapidly.
 $("#rt3").text("As regras são acionadas quando o valor relevante iguala ou excede o valor 'acionador'. A regra só desliga quando o valor passar o valor de 'reset'. Isso pode ajudar a evitar o ruído do relé e as regras ligando / desligando rapidamente.");
 //'Timer 1' and 'Timer 2' rules allow timed operation, this rule is active when the number of minutes past midnight has been reached, for instance setting 'Timer 1' trigger to 495 and reset to 555 would switch on at 8:15am and off at 9:15am. This only works if connected to internet for regular time updates.
-$("#rt4").text("As regras do 'Temporizador 1' e 'Temporizador 2' permitem a operação cronometrada, esta regra está ativa quando o número de minutos após a meia-noite for atingido, por exemplo, definir o gatilho do 'Cronómetro 1' para 495 e reset para 555 ligaria às 8h15 e desligava às 9h15. Isso só funciona se estiver conectado à Internet para atualizações regulares de horário.");
+$("#rt4").text("As regras do 'Temporizador 1' e 'Temporizador 2' permitem a operação cronometrada, esta regra está ativa quando o número de minutos após a meia-noite for atingido, por exemplo, definir o gatilho do 'Temporizador 1' para 495 e reset para 555 ligaria às 8h15 e desligava às 9h15. Isso só funciona se estiver conectado à Internet para atualizações regulares de horário.");
 //Minutes since midnight now is: 
 $("#rt5").text("Minutos desde a meia-noite, agora são:");
 //Emergency stop is triggered by connector J1, once triggered controller needs to be reset to disable.
@@ -65,7 +65,7 @@ $("#rt6").text("A paragem de emergência é acionada pelo conector J1, uma vez a
 
 
 //Rule
-$("#rf1").text("Regras");
+$("#rf1").text("Regra");
 //Trigger value
 $("#rf2").text("Valor de activação");
 //Reset value
@@ -76,13 +76,14 @@ $("#rf4").text("Estado do relé");
 
 //Emergency Stop
 $("label[for='rule0value']").text("Paragem de emergência");
-//Internal BMS error= 
+//Internal BMS error
 $("label[for='rule1value']").text("Erro interno do BMS");
 //Current monitoring over current (Amps)
+$("label[for='rule2value']").text("Sobrecorrente do monitor de corrente (A)");
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Sobretensão de célula individual (mV)");
 //Cell under voltage (mV)
-$("label[for='rule4value']").text("Subtensão de célula individual  (mV)");
+$("label[for='rule4value']").text("Subtensão de célula individual (mV)");
 //Module over temperature (internal) °C	= 
 $("label[for='rule5value']").text("Módulo acima da temperatura (interna) °C");
 //Module under temperature (internal)
@@ -91,28 +92,27 @@ $("label[for='rule6value']").text("Módulo abaixo da temperatura (interna) °C")
 $("label[for='rule7value']").text("Célula acima da temperatura (externa) °C");
 //Cell under temperature (external)
 $("label[for='rule8value']").text("Célula abaixo da temperatura (externa) °C");
+//Current monitor over voltage (mV)
+$("label[for='rule9value']").text("Sobretensão do monitor de corrente (mV)");
+//Current monitor under voltage (mV)
+$("label[for='rule10value']").text("Subtensão do monitor de corrente (mV)");
 //Bank over voltage (mV)
-$("label[for='rule9value']").text("Sobretensão do conjunto (mV)");
+$("label[for='rule11value']").text("Sobretensão do conjunto (mV)");
 //Bank under voltage (mV)
-$("label[for='rule10value']").text("Subtensão do conjunto (mV)");
-//Bank over voltage (mV)
-//Bank under voltage (mV)
+$("label[for='rule12value']").text("Subtensão do conjunto (mV)");
 //Bank range/deviation (mV)
+$("label[for='rule13value']").text("Intervalo/desvio de tensão do conjunto (mV)");
 //Timer 2
 $("label[for='rule14value']").text("Temporizador 2");
 //Timer 1
 $("label[for='rule15value']").text("Temporizador 1");
-//Relay default
-$("label[for='defaultvalue']").text("Configuração por defeito do Relé");
-//Relay type = 
-$("label[for='relaytype']").text("Tipo de Relé");
 
 
 
 //Bypass over temperature
 $("label[for='g1']").text("Bypass acima da temperatura");
 //Bypass threshold mV
-$("label[for='g2']").text("Bypass threshold mV"); // need some context in order to translate this
+$("label[for='g2']").text("Limiar de bypass mV");
 
 $("#sent > span.x.t").text("Pacotes enviados:");
 $("#received > span.x.t").text("Pacotes recebidos:");
@@ -122,8 +122,6 @@ $("#roundtrip > span.x.t").text("Ida e volta (ms):");
 $("#ip1").text("Integração");
 //For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.
 $("#ip2").text("Por segurança, precisará inserir novamente a senha do(s) serviço(s) que deseja ativar ou modificar antes de salvar.");
-//After changes are made, the controller will need to be rebooted, do this manually.
-$("#ip3").text("Após as alterações serem feitas, o controlador precisará ser reinicializado, faça isso manualmente.");
 
 //WARNING
 $("#ap5").text("AVISO!");

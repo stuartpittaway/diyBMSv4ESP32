@@ -21,7 +21,7 @@ $("#mpBank").text("Banco");
 $("#mpModule").text("Módulo");
 $("#mpVoltage").text("Voltaje");
 $("#mpvmin").text("V. Mínimo");
-// nota: aquí seguramente falte  $("#mpvmax").text("V. Máximo");
+$("#mpvmax").text("V. Máximo");
 $("#mptint").text("Temp interna °C");
 $("#mptext").text("Temp externa °C");
 $("#mpbypass").text("Bypass %"); //For me is better not translate "Bypass"
@@ -48,7 +48,7 @@ $("#warning5").text("Advertencia: registro habilitado pero tarjeta SD no instala
 $("#warning6").text("Algunas funciones están deshabilitadas mientras el modo de programación AVR está habilitado");
 
 $("label[for='NTPServer']").text("Servidor NTP");
-$("label[for='NTPZoneHour']").text("Zona horaria (hour)"); 
+$("label[for='NTPZoneHour']").text("Zona horaria (horas)"); 
 
 //DIYBMS supports relay modules to safely disconnect chargers, contactors or consumers. The rules allow you to configure the relays for your situation.
 $("#rt1").text("DIYBMS admite módulos de relé para desconectar de forma segura cargadores, contactores o consumos. Las reglas le permiten configurar los relés para su situación.");
@@ -65,7 +65,7 @@ $("#rt6").text("La parada de emergencia se activa mediante el conector J1, una v
 
 
 //Rule
-$("#rf1").text("Reglas");
+$("#rf1").text("Regla");
 //Trigger value
 $("#rf2").text("Valor de activación");
 //Reset value
@@ -76,69 +76,68 @@ $("#rf4").text("Estado del relé");
 
 //Emergency Stop
 $("label[for='rule0value']").text("Parada de emergencia");
-//Internal BMS error= 
+//Internal BMS error
 $("label[for='rule1value']").text("Error interno de BMS");
+//Current monitoring over current (Amps)
+$("label[for='rule2value']").text("Sobrecorriente del monitor de corriente (A)");
 //Individual cell over voltage (mV)
 $("label[for='rule3value']").text("Celda individual por encima de voltaje (mV)");
 //Cell under voltage (mV)
 $("label[for='rule4value']").text("Celda individual por debajo de voltaje (mV)");
 //Module over temperature (internal) °C
-$("label[for='rule5value']").text("Modulo por encima de temperatua (interna) °C");
+$("label[for='rule5value']").text("Módulo por encima de temperatura (interna) °C");
 //Module under temperature (internal)
-$("label[for='rule6value']").text("Modulo por debajo de temperatua (interna) °C");
+$("label[for='rule6value']").text("Módulo por debajo de temperatura (interna) °C");
 //Cell over temperature (external)
-$("label[for='rule7value']").text("Celda por encima de temperatua (externa) °C");
+$("label[for='rule7value']").text("Celda por encima de temperatura (externa) °C");
 //Cell under temperature (external)
-$("label[for='rule8value']").text("Celda por debajo de temperatua (externa) °C");
+$("label[for='rule8value']").text("Celda por debajo de temperatura (externa) °C");
+//Current monitor over voltage (mV)
+$("label[for='rule9value']").text("Monitor de corriente por encima de voltaje (mV)");
+//Current monitor under voltage (mV)
+$("label[for='rule10value']").text("Monitor de corriente por debajo de voltaje (mV)");
 //Bank over voltage (mV)
-$("label[for='rule9value']").text("Paquete por encima de voltaje (mV)");
+$("label[for='rule11value']").text("Banco por encima de voltaje (mV)");
 //Bank under voltage (mV)
-//Bank over voltage (mV)
-$("label[for='rule11value']").text("Paquete por debajo de voltaje (mV)");
-//Bank under voltage (mV)
+$("label[for='rule12value']").text("Banco por debajo de voltaje (mV)");
 //Bank range/deviation (mV)
+$("label[for='rule13value']").text("Rango/desviación del banco (mV)");
 //Timer 2
 $("label[for='rule14value']").text("Temporizador 2");
 //Timer 1
 $("label[for='rule15value']").text("Temporizador 1");
-//Relay default
-$("label[for='defaultvalue']").text("Configuracion Relé");
-//Relay type = 
-$("label[for='relaytype']").text("Tipo de Relé");
 
 
 
 //Bypass over temperature
-$("label[for='g1']").text("Bypass over temperature");
+$("label[for='g1']").text("Sobretemperatura de bypass");
 //Bypass threshold mV
-$("label[for='g2']").text("Bypass threshold mV");
+$("label[for='g2']").text("Umbral de bypass mV");
 
-$("#sent > span.x.t").text("Packets sent:");
-$("#received > span.x.t").text("Packets rec'd:");
-$("#roundtrip > span.x.t").text("Roundtrip (ms):");
+$("#sent > span.x.t").text("Paquetes enviados:");
+$("#received > span.x.t").text("Paquetes recibidos:");
+$("#roundtrip > span.x.t").text("Ida y vuelta (ms):");
 
 //Integration
-$("#ip1").text("Integration");
+$("#ip1").text("Integración");
 //For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.
-$("#ip2").text("For security, you will need to re-enter the password for the service(s) you want to enable or modify, before you save.");
-//After changes are made, the controller will need to be rebooted, do this manually.
-$("#ip3").text("After changes are made, the controller will need to be rebooted, do this manually.");
+$("#ip2").text("Por seguridad, deberá volver a introducir la contraseña de los servicios que desee habilitar o modificar antes de guardar.");
 
 //WARNING
-$("#ap5").text("WARNING");
+$("#ap5").text("ADVERTENCIA");
 //This is a DIY product/solution so don’t use this for safety critical systems or in any situation where there could be a risk to life.
-$("#ap6").text("This is a DIY product/solution so don’t use this for safety critical systems or in any situation where there could be a risk to life.");
+$("#ap6").text("Este es un producto/solución DIY (hágalo usted mismo), así que no lo utilice en sistemas críticos para la seguridad ni en ninguna situación en la que pueda existir riesgo para la vida.");
 //There is no warranty, it may not work as expected or at all.
-$("#ap7").text("There is no warranty, it may not work as expected or at all.");
+$("#ap7").text("No hay garantía; puede que no funcione como se espera o que no funcione en absoluto.");
 //The use of this project is done so entirely at your own risk. It may involve electrical voltages which could kill - if in doubt, seek help.
-$("#ap8").text("The use of this project is done so entirely at your own risk. It may involve electrical voltages which could kill - if in doubt, seek help.");
+$("#ap8").text("El uso de este proyecto es enteramente bajo su propio riesgo. Puede implicar tensiones eléctricas que podrían matar; en caso de duda, busque ayuda.");
 //The use of this project may not be compliant with local laws or regulations - if in doubt, seek help.
-$("#ap8a").text("The use of this project may not be compliant with local laws or regulations - if in doubt, seek help.");
+$("#ap8a").text("Es posible que el uso de este proyecto no cumpla las leyes o normativas locales; en caso de duda, busque ayuda.");
 
 //Modules & Banks
-$("#mb1").text("Modules & Banks");
+$("#mb1").text("Módulos y bancos");
 //DIYBMS supports up to 100 modules in total. These modules can be split into banks to support parallel configurations.
-$("#mb2").text("DIYBMS supports up to 100 modules in total. These modules can be split into banks to support parallel configurations.");
+$("#mb2").text("DIYBMS admite hasta 100 módulos en total. Estos módulos se pueden dividir en bancos para admitir configuraciones en paralelo.");
 //Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).
-$("#mb3").text("Example: You have 16 cells configured as 8 in series and 2 in parallel (8S2P).");
+$("#mb3").text("Ejemplo: tiene 16 celdas configuradas como 8 en serie y 2 en paralelo (8S2P).");
 
