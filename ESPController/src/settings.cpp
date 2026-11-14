@@ -965,6 +965,16 @@ static void enforceNumericLimits(diybms_eeprom_settings *settings, const diybms_
 
     if (settings->floatvoltage > settings->chargevolt)
         settings->floatvoltage = settings->chargevolt;
+
+    // 24hr max
+    if (settings->absorptiontimer > 60 * 24)
+        settings->absorptiontimer = 60 * 24;
+    if (settings->floatvoltagetimer > 60 * 24)
+        settings->floatvoltagetimer = 60 * 24;
+
+    // SoC cannot be over 99%
+    if (settings->stateofchargeresumevalue > 99)
+        settings->stateofchargeresumevalue = 99;
 }
 
 
@@ -1311,7 +1321,7 @@ static void applyOutputsSettings(const JsonObject &root, diybms_eeprom_settings 
     for (JsonVariant v : d)
     {
         settings->rulerelaydefault[i] = (RelayState)v.as<uint8_t>();
-        if (++i > RELAY_TOTAL) break;
+        if (++i >= RELAY_TOTAL) break;
     }
 
     JsonArray t = outputs["type"].as<JsonArray>();
@@ -1319,7 +1329,7 @@ static void applyOutputsSettings(const JsonObject &root, diybms_eeprom_settings 
     for (JsonVariant v : t)
     {
         settings->relaytype[i] = (RelayType)v.as<uint8_t>();
-        if (++i > RELAY_TOTAL) break;
+        if (++i >= RELAY_TOTAL) break;
     }
 }
 
@@ -1355,7 +1365,7 @@ static void applyRulesSettings(const JsonObject &root, diybms_eeprom_settings *s
                 for (JsonVariant x : states)
                 {
                     settings->rulerelaystate[rulenumber][i] = (RelayState)x.as<uint8_t>();
-                    if (++i > RELAY_TOTAL) break;
+                    if (++i >= RELAY_TOTAL) break;
                 }
             }
         }
@@ -1364,9 +1374,11 @@ static void applyRulesSettings(const JsonObject &root, diybms_eeprom_settings *s
 
 static void applyTileVisibility(const JsonObject &root, diybms_eeprom_settings *settings)
 {
-    uint8_t i = 0;
+    size_t i = 0;
     for (JsonVariant v : root["tilevisibility"].as<JsonArray>())
     {
+        if (i >= sizeof(settings->tileconfig) / sizeof(settings->tileconfig[0]))
+            break;
         settings->tileconfig[i++] = v.as<uint16_t>();
     }
 }

@@ -177,10 +177,13 @@ void victron_message_351()
 
   send_canbus_message(0x351, (uint8_t *)&data, sizeof(data351));
 
-  // warn if we ended up with no charge current limit
-  if (data.maxchargecurrent == 0)
+  // Zero charge current is normal (charge prevented/balancing), so only log on transition
+  static bool previousChargeCurrentZero = false;
+  const bool chargeCurrentZero = (data.maxchargecurrent == 0);
+  if (chargeCurrentZero != previousChargeCurrentZero)
   {
-    ESP_LOGW(TAG, "victron_message_351: maxchargecurrent is zero");
+    ESP_LOGD(TAG, "victron_message_351: maxchargecurrent %s", chargeCurrentZero ? "now zero" : "restored");
+    previousChargeCurrentZero = chargeCurrentZero;
   }
 }
 

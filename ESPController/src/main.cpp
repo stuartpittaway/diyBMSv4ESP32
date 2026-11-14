@@ -2423,16 +2423,16 @@ void CurrentMonitorSetAdvancedSettings(currentmonitoring_struct newvalues)
     mysettings.currentMonitoring_shuntcal = newvalues.modbus.shuntcal;
     mysettings.currentMonitoring_temperaturelimit = newvalues.modbus.temperaturelimit;
     // convert floats to scaled integers with explicit cast to avoid precision warnings
-    mysettings.currentMonitoring_overvoltagelimit = static_cast<int16_t>(
-        100.0f * newvalues.modbus.overvoltagelimit + 0.5f);
-    mysettings.currentMonitoring_undervoltagelimit = static_cast<int16_t>(
-        100.0f * newvalues.modbus.undervoltagelimit + 0.5f);
-    mysettings.currentMonitoring_overcurrentlimit = static_cast<int32_t>(
-        100.0f * newvalues.modbus.overcurrentlimit + 0.5f);
-    mysettings.currentMonitoring_undercurrentlimit = static_cast<int32_t>(
-        100.0f * newvalues.modbus.undercurrentlimit + 0.5f);
-    mysettings.currentMonitoring_overpowerlimit = static_cast<int32_t>(
-        newvalues.modbus.overpowerlimit + 0.5f);
+    mysettings.currentMonitoring_overvoltagelimit = static_cast<int16_t>(lroundf(
+        100.0f * newvalues.modbus.overvoltagelimit));
+    mysettings.currentMonitoring_undervoltagelimit = static_cast<int16_t>(lroundf(
+        100.0f * newvalues.modbus.undervoltagelimit));
+    mysettings.currentMonitoring_overcurrentlimit = static_cast<int32_t>(lroundf(
+        100.0f * newvalues.modbus.overcurrentlimit));
+    mysettings.currentMonitoring_undercurrentlimit = static_cast<int32_t>(lroundf(
+        100.0f * newvalues.modbus.undercurrentlimit));
+    mysettings.currentMonitoring_overpowerlimit = static_cast<int32_t>(lroundf(
+        newvalues.modbus.overpowerlimit));
     mysettings.currentMonitoring_shunttempcoefficient = newvalues.modbus.shunttempcoefficient;
     ValidateConfiguration(&mysettings);
     SaveConfiguration(&mysettings);
