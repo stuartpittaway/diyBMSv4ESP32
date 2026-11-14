@@ -2027,15 +2027,9 @@
                   //$('#graphOptions').hide()
                 })
 
-              $.cachedScript('notify.min.js')
+              $.cachedScript('pagecode.js')
                 .done(function (script, textStatus) {
-                  $.cachedScript('pagecode.js')
-                    .done(function (script, textStatus) {
-                      //All done, scripts loaded
-                    })
-                    .fail(function (jqxhr, settings, exception) {
-                      $('#jslibrary').show()
-                    })
+                  //All done, scripts loaded
                 })
                 .fail(function (jqxhr, settings, exception) {
                   $('#jslibrary').show()

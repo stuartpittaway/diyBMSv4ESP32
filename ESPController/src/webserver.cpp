@@ -216,7 +216,6 @@ esp_err_t static_content_handler(httpd_req_t *req)
   WEBKIT_RESPONSE_ARGS webkit_style_css_args = {file_style_css_gz, size_file_style_css_gz, etag_file_style_css_gz, text_css};
   WEBKIT_RESPONSE_ARGS webkit_pagecode_js_args = {file_pagecode_js_gz, size_file_pagecode_js_gz, etag_file_pagecode_js_gz, application_javascript};
   WEBKIT_RESPONSE_ARGS webkit_jquery_js_args = {file_jquery_js_gz, size_file_jquery_js_gz, etag_file_jquery_js_gz, application_javascript};
-  WEBKIT_RESPONSE_ARGS webkit_notify_min_js_args = {file_notify_min_js_gz, size_file_notify_min_js_gz, etag_file_notify_min_js_gz, application_javascript};
   WEBKIT_RESPONSE_ARGS webkit_echarts_min_js_args = {file_echarts_min_js_gz, size_file_echarts_min_js_gz, etag_file_echarts_min_js_gz, application_javascript};
   WEBKIT_RESPONSE_ARGS webkit_lang_fr_js_args = {file_lang_fr_js_gz, size_file_lang_fr_js_gz, etag_file_lang_fr_js_gz, application_javascript};
   WEBKIT_RESPONSE_ARGS webkit_lang_ru_js_args = {file_lang_ru_js_gz, size_file_lang_ru_js_gz, etag_file_lang_ru_js_gz, application_javascript};
@@ -233,12 +232,12 @@ esp_err_t static_content_handler(httpd_req_t *req)
   WEBKIT_RESPONSE_ARGS webkit_warning_png_args = {file_warning_png, size_file_warning_png, etag_file_warning_png, image_png};
 
   const char *uri_array[] = {
-      "/style.css", "/pagecode.js", "/jquery.js", "/notify.min.js", "/echarts.min.js",
+      "/style.css", "/pagecode.js", "/jquery.js", "/echarts.min.js",
       "/lang_fr.js", "/lang_ru.js", "/lang_hr.js", "/lang_nl.js", "/lang_pt.js", "/lang_de.js", "/lang_es.js", "/lang_en.js",
       "/favicon.ico", "/logo.png", "/wait.png", "/patron.png", "/warning.png"};
 
   WEBKIT_RESPONSE_ARGS arguments[] = {
-      webkit_style_css_args, webkit_pagecode_js_args, webkit_jquery_js_args, webkit_notify_min_js_args, webkit_echarts_min_js_args,
+      webkit_style_css_args, webkit_pagecode_js_args, webkit_jquery_js_args, webkit_echarts_min_js_args,
       webkit_lang_fr_js_args, webkit_lang_ru_js_args, webkit_lang_hr_js_args, webkit_lang_nl_js_args, webkit_lang_pt_js_args, webkit_lang_de_js_args, webkit_lang_es_js_args, webkit_lang_en_js_args, webkit_favicon_ico_args, webkit_logo_png_args, webkit_wait_png_args,
       webkit_patron_png_args, webkit_warning_png_args};
 

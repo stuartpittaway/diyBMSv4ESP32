@@ -1,3 +1,49 @@
+// Lightweight replacement for notify.js (unmaintained since 2016, incompatible with jQuery 4)
+// Supports the subset of the notify.js API used by this page:
+//   $.notify(message, className)
+//   $.notify(message, { className, autoHide, autoHideDelay, globalPosition })
+// className: 'error' (default), 'success', 'warn' or 'info'
+// globalPosition: 'top right' (default) or 'top left'
+// Click a notification to dismiss it.
+$.notify = function (message, options) {
+    if (typeof options === "string") {
+        options = { className: options };
+    }
+    const opts = Object.assign({ className: 'error', autoHide: true, autoHideDelay: 5000, globalPosition: 'top right' }, options);
+
+    const side = opts.globalPosition === 'top left' ? 'left' : 'right';
+    let container = document.getElementById('toasts-' + side);
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toasts-' + side;
+        container.className = 'toasts toasts-' + side;
+        container.setAttribute('aria-live', 'polite');
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-' + opts.className;
+    toast.setAttribute('role', opts.className === 'error' ? 'alert' : 'status');
+    // textContent, never innerHTML - message must not be interpreted as HTML
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    // Force a reflow so the CSS transition runs (works in background tabs, unlike requestAnimationFrame)
+    void toast.offsetWidth;
+    toast.classList.add('toast-show');
+
+    let timer = null;
+    const hide = function () {
+        clearTimeout(timer);
+        toast.classList.remove('toast-show');
+        setTimeout(function () { toast.remove(); }, 300);
+    };
+    toast.addEventListener('click', hide);
+    if (opts.autoHide) {
+        timer = setTimeout(hide, opts.autoHideDelay);
+    }
+};
+
 const INTERNALRULENUMBER = {
     EmergencyStop: 0,
     BMSError: 1,
