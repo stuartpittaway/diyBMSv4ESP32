@@ -423,7 +423,7 @@ function refreshCurrentMonitorValues() {
                 $("#currentmonrelay").hide();
             }
 
-        }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+        }).fail(function () { showRequestFailed(); }
         );
 
 }
@@ -519,7 +519,7 @@ function loadVisibleTileData() {
                 }
                 refreshVisibleTiles();
             }).fail(
-                function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+                function () { showRequestFailed(); }
             );
     }
 }
@@ -534,6 +534,29 @@ function showSuccess() {
 }
 function showActionSuccess() {
     $.notify($("#actionsuccess").text(), { className: 'success' });
+}
+
+// Error notification for a failed API request
+function showRequestFailed(message) {
+    $.notify(message || "Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
+}
+
+// Highlight the selected menu item
+function setActiveMenu(link) {
+    $(".header-right a").removeClass("active");
+    $(link).addClass("active");
+}
+
+// Allow the given warning numbers to show a notification again
+function allowWarningsToReappear(warningNumbers) {
+    $.each(warningNumbers, function (index, n) {
+        $("#warning" + n).removeData("notify");
+    });
+}
+
+// Enable/disable a button, dimming it when disabled
+function setButtonEnabled(selector, enabled) {
+    $(selector).prop('disabled', !enabled).css({ opacity: enabled ? 1.0 : 0.25 });
 }
 
 
@@ -551,7 +574,7 @@ function currentmonitorSubmitForm(form) {
 
             //Show spinner for 6 seconds, then refresh page
             $("#loading").show().delay(6000).hide("fast", function () {
-                $("#currentmonitor").click();
+                $("#currentmonitor").trigger('click');
             });
         },
         error: function (data) {
@@ -620,7 +643,6 @@ function configureModule(button, cellid, attempts) {
 
     $.getJSON("/api/modules", { c: cellid },
         function (data) {
-            var div = $("#settingConfig .settings");
             $('#c').val(data.settings.id);
             $('#m').val(data.settings.id);
 
@@ -641,19 +663,9 @@ function configureModule(button, cellid, attempts) {
                 $('#LoadRes').val(data.settings.LoadRes.toFixed(2));
                 $('#mVPerADC').val(data.settings.mVPerADC.toFixed(2));
 
-                if (data.settings.Prohibited) {
-                    $('#ActualVoltage').attr('disabled', 'disabled');
-                    $('#Calib').attr('disabled', 'disabled');
-                    $('#BypassThresholdmV').attr('disabled', 'disabled');
-                    $('#BypassOverTempShutdown').attr('disabled', 'disabled');
-                    $('#CalculateCalibration').hide();
-                } else {
-                    $('#ActualVoltage').removeAttr('disabled');
-                    $('#Calib').removeAttr('disabled');
-                    $('#BypassThresholdmV').removeAttr('disabled');
-                    $('#BypassOverTempShutdown').removeAttr('disabled');
-                    $('#CalculateCalibration').show();
-                }
+                // Some modules (e.g. v490 all-in-one) prohibit configuration changes
+                $('#ActualVoltage, #Calib, #BypassThresholdmV, #BypassOverTempShutdown').prop('disabled', !!data.settings.Prohibited);
+                $('#CalculateCalibration').toggle(!data.settings.Prohibited);
 
                 if (data.settings.ver === 490) {
                     $('#ParasiteVoltage').val(data.settings.Parasite);
@@ -664,34 +676,12 @@ function configureModule(button, cellid, attempts) {
                     $('#RunAwayMinmV').val(data.settings.RunAwayMinmV);
                     $('#RunAwayDiffmV').val(data.settings.RunAwayDiffmV);
 
-                    $('#v490_1').show();
-                    $('#v490_2').show();
-                    $('#v490_3').show();
-                    $('#v490_4').show();
-                    $('#v490_5').show();
-                    $('#v490_6').show();
+                    $('#v490_1, #v490_2, #v490_3, #v490_4, #v490_5, #v490_6').show();
 
-                    if (data.settings.Prohibited) {
-                        $('#FanSwitchOnT').attr('disabled', 'disabled');
-                        $('#RelayMinV').attr('disabled', 'disabled');
-                        $('#RelayRange').attr('disabled', 'disabled');
-                        $('#RunAwayMinmV').attr('disabled', 'disabled');
-                        $('#RunAwayDiffmV').attr('disabled', 'disabled');
-                    } else {
-                        $('#FanSwitchOnT').removeAttr('disabled');
-                        $('#RelayMinV').removeAttr('disabled');
-                        $('#RelayRange').removeAttr('disabled');
-                        $('#RunAwayMinmV').removeAttr('disabled');
-                        $('#RunAwayDiffmV').removeAttr('disabled');
-                    }
+                    $('#FanSwitchOnT, #RelayMinV, #RelayRange, #RunAwayMinmV, #RunAwayDiffmV').prop('disabled', !!data.settings.Prohibited);
 
                 } else {
-                    $('#v490_1').hide();
-                    $('#v490_2').hide();
-                    $('#v490_3').hide();
-                    $('#v490_4').hide();
-                    $('#v490_5').hide();
-                    $('#v490_6').hide();
+                    $('#v490_1, #v490_2, #v490_3, #v490_4, #v490_5, #v490_6').hide();
                 }
 
                 $("#settingConfig").show();
@@ -1118,11 +1108,9 @@ function updateChart(jsondata) {
                         markLine: {
                             silent: true, symbol: 'none', data: markLineData
                         },
-                        itemStyle: { color: '#55a1ea', barBorderRadius: [8, 8, 0, 0] },
+                        itemStyle: { color: '#55a1ea', borderRadius: [8, 8, 0, 0] },
                         label: {
-                            normal: {
-                                show: true, position: 'insideBottom', distance: 10, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Share Tech Mono'
-                            }
+                            show: true, position: 'insideBottom', distance: 10, align: 'left', verticalAlign: 'middle', rotate: 90, formatter: '{c}V', fontSize: 24, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                         }
                     }, {
                         xAxisIndex: 0,
@@ -1131,89 +1119,63 @@ function updateChart(jsondata) {
                         type: 'line',
                         data: [],
                         label: {
-                            normal: {
-                                show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#eeeeee', fontFamily: 'Share Tech Mono'
-                            }
+                            show: true, position: 'bottom', distance: 5, formatter: '{c}V', fontSize: 14, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                         },
                         symbolSize: 16,
                         symbol: ['circle'],
-                        itemStyle: {
-                            normal: {
-                                color: "#c1bdbd", lineStyle: { color: 'transparent' }
-                            }
-                        }
-                    }
-                    , {
+                        itemStyle: { color: "#c1bdbd" },
+                        // Only show the symbols, not the line between them
+                        lineStyle: { color: 'transparent' }
+                    }, {
                         xAxisIndex: 0,
                         name: 'Max V',
                         yAxisIndex: 0,
                         type: 'line',
                         data: [],
                         label: {
-                            normal: {
-                                show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Share Tech Mono'
-                            }
+                            show: true, position: 'top', distance: 5, formatter: '{c}V', fontSize: 14, color: '#c1bdbd', fontFamily: 'Share Tech Mono'
                         },
                         symbolSize: 16,
                         symbol: ['arrow'],
-                        itemStyle: {
-                            normal: {
-                                color: "#c1bdbd", lineStyle: { color: 'transparent' }
-                            }
-                        }
-                    }
-
-                    , {
+                        itemStyle: { color: "#c1bdbd" },
+                        lineStyle: { color: 'transparent' }
+                    }, {
                         xAxisIndex: 0,
                         name: 'Bypass',
                         yAxisIndex: 1,
                         type: 'line',
                         data: [],
                         label: {
-                            normal: {
-                                show: true, position: 'right', distance: 5, formatter: '{c}%', fontSize: 14, color: '#f0e400', fontFamily: 'Share Tech Mono'
-                            }
+                            show: true, position: 'right', distance: 5, formatter: '{c}%', fontSize: 14, color: '#f0e400', fontFamily: 'Share Tech Mono'
                         },
                         symbolSize: 16,
                         symbol: ['square'],
-                        itemStyle: { normal: { color: "#f0e400", lineStyle: { color: 'transparent' } } }
-                    }
-
-                    , {
+                        itemStyle: { color: "#f0e400" },
+                        lineStyle: { color: 'transparent' }
+                    }, {
                         xAxisIndex: 1,
                         yAxisIndex: 2,
                         name: 'BypassTemperature',
                         type: 'bar',
                         data: [],
-                        itemStyle: {
-                            color: '#55a1ea', barBorderRadius: [8, 8, 0, 0]
-                        },
+                        itemStyle: { color: '#55a1ea', borderRadius: [8, 8, 0, 0] },
                         label: {
-                            normal: {
-                                show: true, position: 'insideBottom', distance: 8,
-                                align: 'left', verticalAlign: 'middle',
-                                rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
-                            }
+                            show: true, position: 'insideBottom', distance: 8,
+                            align: 'left', verticalAlign: 'middle',
+                            rotate: 90, formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                         }
-                    }
-
-                    , {
+                    }, {
                         xAxisIndex: 1,
                         yAxisIndex: 2,
                         name: 'CellTemperature',
                         type: 'bar',
                         data: [],
-                        itemStyle: {
-                            color: '#55a1ea', barBorderRadius: [8, 8, 0, 0]
-                        },
+                        itemStyle: { color: '#55a1ea', borderRadius: [8, 8, 0, 0] },
                         label: {
-                            normal: {
-                                show: true, position: 'insideBottom', distance: 8,
-                                align: 'left', verticalAlign: 'middle', rotate: 90,
-                                formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
-                            }
+                            show: true, position: 'insideBottom', distance: 8,
+                            align: 'left', verticalAlign: 'middle', rotate: 90,
+                            formatter: '{c}°C', fontSize: 20, color: '#eeeeee', fontFamily: 'Share Tech Mono'
                         }
-
                     }
                 ],
                 grid: [
@@ -1229,7 +1191,7 @@ function updateChart(jsondata) {
             if (jsondata.voltages && jsondata.voltages.length > 24) {
                 // When lots of cell data is on screen, hide the labels to improve visability               
                 for (const element of option.series) {
-                    element.label.normal.show = false;
+                    element.label.show = false;
                 }
             }
 
@@ -1385,10 +1347,8 @@ $(function () {
     $("#avrprogconfirm").hide();
     $(".stat").hide();
 
-    //if (window.Graph3DAvailable === true) {
-        //Re-show this as pagecode would have hidden it
-        $("#graphOptions").show();
-    //}
+    //Re-show this as pagecode would have hidden it
+    $("#graphOptions").show();
 
     $("#more").on("click"
         , function (e) {
@@ -1434,7 +1394,7 @@ $(function () {
 
     $("#graph1").show();
     $("#graph2").hide();
-    $("#graphOptions a").click(function (event) {
+    $("#graphOptions a").on('click', function (event) {
         event.preventDefault();
         var choice = $(event.target).text();
         if (choice == "2D") {
@@ -1455,7 +1415,7 @@ $(function () {
         $(window).trigger('resize');
     });
 
-    $('#CalculateCalibration').click(function () {
+    $('#CalculateCalibration').on('click', function () {
         const currentReading = parseFloat($("#modulesRows > tr.selected > td:nth-child(3)").text());
         const currentCalib = parseFloat($("#Calib").val());
         const actualV = parseFloat($("#ActualVoltage").val());
@@ -1464,9 +1424,8 @@ $(function () {
         return true;
     });
 
-    $("#home").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#home").on('click', function () {
+        setActiveMenu(this);
         $(".graphs").show();
         $("#graph1").show();
         $("#graph2").hide();
@@ -1479,16 +1438,13 @@ $(function () {
         }
         refreshVisibleTiles();
 
-        //if (window.Graph3DAvailable === true) {
         $('#graphOptions').show();
-        //}
 
         return true;
     });
 
-    $("#tiles").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#tiles").on('click', function () {
+        setActiveMenu(this);
         //Use the home page for the grid, but hide graphs
         switchPage("#homePage");
         $(".graphs").hide();
@@ -1500,9 +1456,8 @@ $(function () {
     });
 
 
-    $("#history").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#history").on('click', function () {
+        setActiveMenu(this);
         switchPage("#historyPage");
 
         $.getJSON("/api/history",
@@ -1530,14 +1485,14 @@ $(function () {
                     $("#historyTable tbody").append(newRowContent);
                 }
 
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { showRequestFailed(); }
             );
 
         return true;
     });
 
 
-    $("#diagbutton").click(function () {
+    $("#diagbutton").on('click', function () {
         $.getJSON("/api/diagnostic",
             function (data) {
 
@@ -1594,15 +1549,14 @@ $(function () {
 
                 $("#diagnostics").show();
 
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { showRequestFailed(); }
             );
 
         return true;
     });
 
-    $("#about").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#about").on('click', function () {
+        setActiveMenu(this);
         switchPage("#aboutPage");
 
         $("#diagnostics").hide();
@@ -1610,18 +1564,17 @@ $(function () {
         $.getJSON("/api/settings",
             function (data) {
                 $("#HostName").html("<a href='http://" + data.settings.HostName + "'>" + data.settings.HostName + "</a>");
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { showRequestFailed(); }
             );
 
         return true;
     });
 
 
-    $("#modules").click(function () {
+    $("#modules").on('click', function () {
         $("#loading").show();
 
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+        setActiveMenu(this);
         //Remove existing table
         $("#modulesRows").find("tr").remove();
 
@@ -1635,14 +1588,13 @@ $(function () {
                 $("#g2").val(data.settings.bypassthreshold);
 
                 $("#modulesPage").show();
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { showRequestFailed(); }
             );
         return true;
     });
 
-    $("#settings").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#settings").on('click', function () {
+        setActiveMenu(this);
 
         $("#banksForm").hide();
         $("#settingsPage").show();
@@ -1728,7 +1680,7 @@ $(function () {
                 $("#sta_lost_ip").val(data.wifi.sta_lost_ip);
                 $("#sta_got_ip").val(data.wifi.sta_got_ip);
 
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { showRequestFailed(); }
             );
 
         return true;
@@ -1754,7 +1706,6 @@ $(function () {
                 });
 
                 //Loop through each rule updating the page
-                var i = 1;
                 var allrules = $(".settings table tbody tr td label");
                 $.each(data.rules, function (index, value) {
                     $("#rule" + (index) + "value").val(value.value).attr("data-origv", value.value).removeClass("modified");
@@ -1792,13 +1743,12 @@ $(function () {
                 }
 
                 $("#rulesForm").show();
-            }).fail(function () { $.notify("Read request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { showRequestFailed("Read request failed"); }
             );
     }
 
-    $("#rules").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#rules").on('click', function () {
+        setActiveMenu(this);
 
         $("#rulesForm").hide();
 
@@ -1808,9 +1758,8 @@ $(function () {
         return true;
     });
 
-    $("#currentmonitor").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#currentmonitor").on('click', function () {
+        setActiveMenu(this);
 
         switchPage("#diybmsCurrentMonitorPage");
 
@@ -1821,7 +1770,7 @@ $(function () {
                 $("#rs485databit").val(data.databits);
                 $("#rs485parity").val(data.parity);
                 $("#rs485stopbit").val(data.stopbits);
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { showRequestFailed(); }
             );
 
         refreshCurrentMonitorValues();
@@ -1832,14 +1781,13 @@ $(function () {
 
 
 
-    $("#currentmonrefresh").click(function (e) {
+    $("#currentmonrefresh").on('click', function (e) {
         e.preventDefault();
         refreshCurrentMonitorValues();
     });
 
-    $("#integration").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#integration").on('click', function () {
+        setActiveMenu(this);
 
         switchPage("#integrationPage");
 
@@ -1875,7 +1823,7 @@ $(function () {
                 $("#haForm").show();
                 $("#mqttForm").show();
                 $("#influxForm").show();
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { showRequestFailed(); }
             );
 
         return true;
@@ -1883,7 +1831,7 @@ $(function () {
 
 
 
-    $("#mount").click(function () {
+    $("#mount").on('click', function () {
         $.ajax({
             type: 'POST',
             url: '/post/sdmount',
@@ -1899,7 +1847,7 @@ $(function () {
     });
 
 
-    $("#savewifi").click(function () {
+    $("#savewifi").on('click', function () {
         $.ajax({
             type: 'POST',
             url: '/post/wificonfigtofile',
@@ -1914,7 +1862,7 @@ $(function () {
         });
     });
 
-    $("#saveconfig").click(function () {
+    $("#saveconfig").on('click', function () {
         $.ajax({
             type: 'POST',
             url: '/post/saveconfigtofile',
@@ -1931,7 +1879,7 @@ $(function () {
     });
 
 
-    $("#unmount").click(function () {
+    $("#unmount").on('click', function () {
         $.ajax({
             type: 'POST',
             url: '/post/sdunmount',
@@ -1947,7 +1895,7 @@ $(function () {
     });
 
 
-    $("#AVRProgDisable").click(function () {
+    $("#AVRProgDisable").on('click', function () {
         $.ajax({
             type: 'POST',
             url: '/post/disableavrprog',
@@ -1956,25 +1904,21 @@ $(function () {
         })
             .done(
                 function (data) {
-                    $("#AVRProgEnable").prop('disabled', false).css({ opacity: 1.0 });
-                    $("#AVRProgDisable").prop('disabled', true).css({ opacity: 0.25 });
-                    $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
-                    $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
+                    setButtonEnabled("#AVRProgEnable", true);
+                    setButtonEnabled("#AVRProgDisable", false);
+                    setButtonEnabled("#ProgAVR", false);
+                    setButtonEnabled("#ProgAVRCancel", false);
                     //Allow warning to trigger again
                     $("#warningXSS").removeData("notify");
                 })
             .fail(function (data) {
                 $("#avrinfo").html("Failed");
-            })
-            .always(function (data) {
-                //$("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
-                //$("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
             });
 
         return true;
     });
 
-    $("#AVRProgEnable").click(function () {
+    $("#AVRProgEnable").on('click', function () {
         $.ajax({
             type: 'POST',
             url: '/post/enableavrprog',
@@ -1983,31 +1927,27 @@ $(function () {
         })
             .done(
                 function (data) {
-                    $("#AVRProgEnable").prop('disabled', true).css({ opacity: 0.25 });
-                    $("#AVRProgDisable").prop('disabled', false).css({ opacity: 1.0 });
-                    $("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
-                    $("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+                    setButtonEnabled("#AVRProgEnable", false);
+                    setButtonEnabled("#AVRProgDisable", true);
+                    setButtonEnabled("#ProgAVR", true);
+                    setButtonEnabled("#ProgAVRCancel", true);
                 })
             .fail(function (data) {
                 $("#avrinfo").html("Failed");
-            })
-            .always(function (data) {
-                //$("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
-                //$("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
             });
 
         return true;
     });
 
-    $("#ProgAVRCancel").click(function () {
+    $("#ProgAVRCancel").on('click', function () {
         $("#avrprogconfirm").hide();
         $("#avrinfo").empty();
         return true;
     });
 
-    $("#ProgAVR").click(function () {
-        $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
-        $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
+    $("#ProgAVR").on('click', function () {
+        setButtonEnabled("#ProgAVR", false);
+        setButtonEnabled("#ProgAVRCancel", false);
         $("#avrinfo").empty();
 
         $.ajax({
@@ -2028,24 +1968,22 @@ $(function () {
                 $("#avrinfo").html("Failed");
             })
             .always(function (data) {
-                $("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
-                $("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+                setButtonEnabled("#ProgAVR", true);
+                setButtonEnabled("#ProgAVRCancel", true);
             });
 
         return true;
     });
 
-    $("#utility").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#utility").on('click', function () {
+        setActiveMenu(this);
         switchPage("#utilityPage");
 
         $("#setsoc").val(75.5);
     });
 
-    $("#avrprogrammer").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#avrprogrammer").on('click', function () {
+        setActiveMenu(this);
         switchPage("#avrprogPage");
 
         $.getJSON("/api/avrstorage",
@@ -2056,16 +1994,16 @@ $(function () {
 
                 if (data.ProgModeEnabled == true) {
                     //Programming mode enabled
-                    $("#AVRProgEnable").prop('disabled', true).css({ opacity: 0.25 });
-                    $("#AVRProgDisable").prop('disabled', false).css({ opacity: 1.0 });
+                    setButtonEnabled("#AVRProgEnable", false);
+                    setButtonEnabled("#AVRProgDisable", true);
 
-                    $("#ProgAVR").prop('disabled', false).css({ opacity: 1.0 });
-                    $("#ProgAVRCancel").prop('disabled', false).css({ opacity: 1.0 });
+                    setButtonEnabled("#ProgAVR", true);
+                    setButtonEnabled("#ProgAVRCancel", true);
                 } else {
-                    $("#AVRProgEnable").prop('disabled', false).css({ opacity: 1.0 });
-                    $("#AVRProgDisable").prop('disabled', true).css({ opacity: 0.25 });
-                    $("#ProgAVR").prop('disabled', true).css({ opacity: 0.25 });
-                    $("#ProgAVRCancel").prop('disabled', true).css({ opacity: 0.25 });
+                    setButtonEnabled("#AVRProgEnable", true);
+                    setButtonEnabled("#AVRProgDisable", false);
+                    setButtonEnabled("#ProgAVR", false);
+                    setButtonEnabled("#ProgAVRCancel", false);
                 }
 
                 if (data.avrprog.avrprog) {
@@ -2074,7 +2012,7 @@ $(function () {
                         var li = document.createElement("li");
                         $("#avrprog").append(li);
 
-                        var aref = $("<a href='#' data-index='" + index + "'>" + value.board + " (" + value.ver + ")</a>").on("click",
+                        var aref = $("<a href='#'>").attr("data-index", index).text(value.board + " (" + value.ver + ")").on("click",
 
                             function (event) {
                                 event.preventDefault();
@@ -2083,20 +2021,18 @@ $(function () {
                             }
                         );
 
-                        $(li).appendTo()
                         $(li).append(aref);
                     });
                 }
-            }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
+            }).fail(function () { showRequestFailed(); }
             );
 
         return true;
     });
 
 
-    $("#charging").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#charging").on('click', function () {
+        setActiveMenu(this);
         switchPage("#chargingPage");
         $.getJSON("/api/chargeconfig",
             function (data) {
@@ -2149,15 +2085,14 @@ $(function () {
                 DrawChargingGraph();
 
             }).fail(function () {
-                $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
+                showRequestFailed();
             }
             );
 
         return true;
     });
-    $("#storage").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
+    $("#storage").on('click', function () {
+        setActiveMenu(this);
         switchPage("#storagePage");
 
         $.getJSON("/api/storage",
@@ -2196,7 +2131,7 @@ $(function () {
                     function (name) { return name.endsWith(".json") && (name.startsWith("cfg_") || name.startsWith("upld_")); });
 
             }).fail(function () {
-                $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' });
+                showRequestFailed();
             }
             );
 
@@ -2204,7 +2139,7 @@ $(function () {
     });
 
 
-    $("form").unbind('submit').submit(function (e) {
+    $("form").off('submit').on('submit', function (e) {
         e.preventDefault();
 
         $.ajax({
@@ -2220,7 +2155,7 @@ $(function () {
         });
     });
 
-    $("#haForm").unbind('submit').submit(function (e) {
+    $("#haForm").off('submit').on('submit', function (e) {
         e.preventDefault();
 
         $.ajax({
@@ -2229,7 +2164,7 @@ $(function () {
             data: $("#haAPI").serialize(),
             success: function (data) {
                 showSuccess();
-                $("#integration").click();
+                $("#integration").trigger('click');
             },
             error: function (data) {
                 showFailure();
@@ -2238,7 +2173,7 @@ $(function () {
     });
 
 
-    $("#rulesForm").unbind('submit').submit(function (e) {
+    $("#rulesForm").off('submit').on('submit', function (e) {
         e.preventDefault();
         $.ajax({
             type: $(this).attr('method'),
@@ -2256,24 +2191,12 @@ $(function () {
         });
     });
 
-    $("#diybmsCurrentMonitorForm2").unbind('submit').submit(function (e) {
-        e.preventDefault();
-        currentmonitorSubmitForm(this);
-    });
-    $("#diybmsCurrentMonitorForm3").unbind('submit').submit(function (e) {
-        e.preventDefault();
-        currentmonitorSubmitForm(this);
-    });
-    $("#diybmsCurrentMonitorForm4").unbind('submit').submit(function (e) {
-        e.preventDefault();
-        currentmonitorSubmitForm(this);
-    });
-    $("#diybmsCurrentMonitorForm1").unbind('submit').submit(function (e) {
+    $("#diybmsCurrentMonitorForm1, #diybmsCurrentMonitorForm2, #diybmsCurrentMonitorForm3, #diybmsCurrentMonitorForm4").off('submit').on('submit', function (e) {
         e.preventDefault();
         currentmonitorSubmitForm(this);
     });
 
-    $("#globalSettingsForm").unbind('submit').submit(function (e) {
+    $("#globalSettingsForm").off('submit').on('submit', function (e) {
         e.preventDefault();
 
         $.ajax({
@@ -2284,10 +2207,7 @@ $(function () {
                 showSuccess();
 
                 //Allow warning to trigger again
-                $("#warning1").removeData("notify");
-                $("#warning2").removeData("notify");
-                $("#warning3").removeData("notify");
-                $("#warning4").removeData("notify");
+                allowWarningsToReappear([1, 2, 3, 4]);
             },
             error: function (data) {
                 showFailure();
@@ -2296,7 +2216,7 @@ $(function () {
     });
 
 
-    $("#settingsForm").unbind('submit').submit(function (e) {
+    $("#settingsForm").off('submit').on('submit', function (e) {
         e.preventDefault();
 
         $.ajax({
@@ -2308,10 +2228,7 @@ $(function () {
                 showSuccess();
 
                 //Allow warning to trigger again
-                $("#warning1").removeData("notify");
-                $("#warning2").removeData("notify");
-                $("#warning3").removeData("notify");
-                $("#warning4").removeData("notify");
+                allowWarningsToReappear([1, 2, 3, 4]);
 
             },
             error: function (data) {
@@ -2320,7 +2237,7 @@ $(function () {
         });
     });
 
-    $("#displaySettingForm").unbind('submit').submit(function (e) {
+    $("#displaySettingForm").off('submit').on('submit', function (e) {
         e.preventDefault();
 
         $.ajax({
@@ -2340,7 +2257,7 @@ $(function () {
 
 
 
-    $("#mqttEnabled").change(function () {
+    $("#mqttEnabled").on('change', function () {
         if ($(this).is(":checked")) {
             $("#mqttForm").removeAttr("novalidate");
         } else {
@@ -2348,7 +2265,7 @@ $(function () {
         }
     });
 
-    $("#influxEnabled").change(function () {
+    $("#influxEnabled").on('change', function () {
         if ($(this).is(":checked")) {
             $("#influxForm").removeAttr("novalidate");
         } else {
@@ -2379,13 +2296,13 @@ $(function () {
         options.data = (data.length > 0 ? data + '&' : '') + $.param({ xss: XSS_KEY });
     });
 
-    $(".stat").mouseenter(function () {
+    $(".stat").on('mouseenter', function () {
         $(this).addClass("hover");
-    }).mouseleave(function () {
+    }).on('mouseleave', function () {
         $(this).removeClass("hover");
     });
 
-    $(".stat").click(function () {
+    $(".stat").on('click', function () {
         if ($(this).hasClass("vistile") == false && $(this).hasClass("hide") == false) {
             $(this).addClass("vistile");
         } else {
@@ -2396,23 +2313,23 @@ $(function () {
         timer_postTileVisibiltity = setTimeout(postTileVisibiltity, 3500);
     });
 
-    $("#file_sel").change(function () { upload_firmware(); });
-    $("#uploadfw").click(function () { $("#file_sel").click(); });
+    $("#file_sel").on('change', function () { upload_firmware(); });
+    $("#uploadfw").on('click', function () { $("#file_sel").trigger('click'); });
 
-    $("#uploadfile").click(function () { $("#uploadfile_sel").click(); });
-    $("#uploadfile_sel").change(function () { upload_file(); });
+    $("#uploadfile").on('click', function () { $("#uploadfile_sel").trigger('click'); });
+    $("#uploadfile_sel").on('change', function () { upload_file(); });
 
     $("#progress").hide();
 
     $("#homePage").show();
 
-    $("#usedhcp").click(function () {
+    $("#usedhcp").on('click', function () {
         $("#new_ip").val("");
         $("#new_netmask").val("");
         $("#new_gw").val("");
         $("#new_dns1").val("");
         $("#new_dns2").val("");
-        $("#usedhcpsubmit").click();
+        $("#usedhcpsubmit").trigger('click');
     });
 
 
@@ -2423,7 +2340,7 @@ $(function () {
         .add("#kneemv")
         .add("#cellmaxspikemv")
         .add("#cur_val1")
-        .add("#cur_val2").focusout(function () {
+        .add("#cur_val2").on('focusout', function () {
             DrawChargingGraph();
         });
 
@@ -2433,7 +2350,7 @@ $(function () {
         .add("#kneemv")
         .add("#cellmaxspikemv")
         .add("#cur_val1")
-        .add("#cur_val2").change(function () {
+        .add("#cur_val2").on('change', function () {
             DrawChargingGraph();
         });
 
@@ -2454,7 +2371,7 @@ $(function () {
         case "#avrprogrammer":
         case "#utility":
         case "#history":
-            $(hash).click();
+            $(hash).trigger('click');
             break;
     }
 
