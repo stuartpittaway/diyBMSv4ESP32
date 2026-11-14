@@ -2014,7 +2014,7 @@
             .done(function (script, textStatus) {
               //Get GL library from CDN to avoid having it on ESP32 (save flash space)
               //if it fails to load (no internet) disable the 3d view
-              $.cachedScript('https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js')
+              $.cachedScript('https://cdn.jsdelivr.net/npm/echarts-gl@2.1.0/dist/echarts-gl.min.js')
                 .done(function (script, textStatus) {
                   //Script loaded
                   Graph3DAvailable = true
