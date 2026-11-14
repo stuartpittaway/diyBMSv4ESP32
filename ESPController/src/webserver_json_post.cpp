@@ -1058,7 +1058,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
         int32_t tempint32;
         if (GetKeyValue(httpbuf, keyBuffer, &tempint32, urlEncoded))
         {
-            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempint32);
+            ESP_LOGD(TAG, "%s=%i", keyBuffer, tempint32);
 
             mysettings.rulevalue[rule] = tempint32;
         }
@@ -1066,7 +1066,7 @@ esp_err_t post_saverules_json_handler(httpd_req_t *req, bool urlEncoded)
         snprintf(keyBuffer, sizeof(keyBuffer), "rule%ihyst", rule);
         if (GetKeyValue(httpbuf, keyBuffer, &tempint32, urlEncoded))
         {
-            ESP_LOGD(TAG, "%s=%u", keyBuffer, tempint32);
+            ESP_LOGD(TAG, "%s=%i", keyBuffer, tempint32);
 
             mysettings.rulehysteresis[rule] = tempint32;
         }
