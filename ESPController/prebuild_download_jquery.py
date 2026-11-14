@@ -21,8 +21,8 @@ import tempfile
 import urllib.error
 import urllib.request
 
-JQUERY_VERSION = "3.7.1"
-JQUERY_SHA384 = "sha384-1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs"
+JQUERY_VERSION = "4.0.0"
+JQUERY_SHA384 = "sha384-fgGyf7Mo7DURSOMnOy7ed+dkq5Job205Gnzu6QIg0BOHKaqt4D76Dt8VlDCzcMHV"
 JQUERY_URL = f"https://code.jquery.com/jquery-{JQUERY_VERSION}.min.js"
 JQUERY_LOCAL = os.path.join("web_src", "jquery.js")
 TIMEOUT_SECONDS = 15
