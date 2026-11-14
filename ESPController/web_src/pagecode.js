@@ -111,6 +111,17 @@ Object.freeze(TILE_IDS);
 
 var tileconfig = [];
 
+// Number of cells shown when the home page graph was created
+let graphCellCount = 0;
+
+// Should the home page graph show its bar labels? GRAPH_LABELS (Display Settings):
+// 0 = automatic, hidden above 24 cells as they become unreadable (#270), 1 = always, 2 = never (#313)
+function graphLabelsVisible() {
+    if (GRAPH_LABELS === 1) { return true; }
+    if (GRAPH_LABELS === 2) { return false; }
+    return graphCellCount <= 24;
+}
+
 var timer_postTileVisibiltity = null;
 
 function upload_file() {
@@ -1188,11 +1199,10 @@ function updateChart(jsondata) {
             };
 
 
-            if (jsondata.voltages && jsondata.voltages.length > 24) {
-                // When lots of cell data is on screen, hide the labels to improve visability               
-                for (const element of option.series) {
-                    element.label.show = false;
-                }
+            graphCellCount = jsondata.voltages ? jsondata.voltages.length : 0;
+            const showLabels = graphLabelsVisible();
+            for (const element of option.series) {
+                element.label.show = showLabels;
             }
 
             // use configuration item and data specified to show chart
@@ -1602,6 +1612,7 @@ $(function () {
         $("#VoltageHigh").val(DEFAULT_GRAPH_MAX_VOLTAGE);
         $("#VoltageLow").val(DEFAULT_GRAPH_MIN_VOLTAGE);
         $("#TFTSleep").val(TFT_SLEEP_SECONDS);
+        $("#GraphLabels").val(GRAPH_LABELS);
 
         switchPage("#settingsPage");
 
@@ -2249,6 +2260,12 @@ $(function () {
                 DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat($("#VoltageHigh").val());
                 DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat($("#VoltageLow").val());
                 TFT_SLEEP_SECONDS = parseInt($("#TFTSleep").val(), 10);
+                GRAPH_LABELS = parseInt($("#GraphLabels").val(), 10);
+                // Apply the label choice to the graph without a page reload
+                if (window.g1) {
+                    const show = graphLabelsVisible();
+                    window.g1.setOption({ series: window.g1.getOption().series.map(() => ({ label: { show } })) });
+                }
                 showSuccess();
             },
             error: function (data) {

@@ -146,6 +146,8 @@ struct diybms_eeprom_settings
   uint16_t graph_voltagelow;
   // Seconds before the TFT screen goes to sleep
   uint8_t tft_sleep_seconds;
+  // Bar labels on the home page graph: 0=automatic (hide above 24 cells), 1=always show, 2=never show
+  uint8_t graph_labels;
 
   uint8_t BypassOverTempShutdown;
   uint16_t BypassThresholdmV;

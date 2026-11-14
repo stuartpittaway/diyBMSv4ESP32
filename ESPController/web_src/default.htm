@@ -16,6 +16,7 @@
     var DEFAULT_GRAPH_MAX_VOLTAGE = parseFloat('%graph_voltagehigh%')
     var DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat('%graph_voltagelow%')
     var TFT_SLEEP_SECONDS = parseInt('%tft_sleep_seconds%', 10)
+    var GRAPH_LABELS = parseInt('%graph_labels%', 10)
     var XSS_KEY = '%XSS_KEY%'
   </script>
   <script type="text/javascript" src="/jquery.js" integrity="%integrity_file_jquery_js%"
@@ -1844,6 +1845,14 @@
               <option value="120">2 minutes</option>
               <option value="180">3 minutes</option>
               <option value="240">4 minutes</option>
+            </select>
+          </div>
+          <div>
+            <label for="GraphLabels">Graph bar labels</label>
+            <select name="GraphLabels" id="GraphLabels">
+              <option value="0">Automatic (hide above 24 cells)</option>
+              <option value="1">Always show</option>
+              <option value="2">Never show</option>
             </select>
           </div>
           <button type="submit">Save display settings</button>

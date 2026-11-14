@@ -54,6 +54,9 @@ String TemplateProcessor(const String &var)
   if (var == "tft_sleep_seconds")
     return String(mysettings.tft_sleep_seconds);
 
+  if (var == "graph_labels")
+    return String(mysettings.graph_labels);
+
   if (var == "integrity_file_jquery_js")
     return String(integrity_file_jquery_js);
 

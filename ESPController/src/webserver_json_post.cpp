@@ -364,6 +364,12 @@ esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req, bool urlEncoded
         mysettings.tft_sleep_seconds = sleepSeconds;
     }
 
+    uint8_t graphLabels;
+    if (GetKeyValue(httpbuf, "GraphLabels", &graphLabels, urlEncoded) && graphLabels <= 2)
+    {
+        mysettings.graph_labels = graphLabels;
+    }
+
     saveConfiguration();
 
     return SendSuccess(req);
