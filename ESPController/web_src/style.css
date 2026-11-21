@@ -93,7 +93,8 @@ a:hover{text-decoration-color:var(--text)}
 .header a.active{background-color:var(--accent-tint);color:var(--accent)}
 .header a:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-ring)}
 
-.logocontainer{float:left;width:191px;height:52px}
+.logocontainer{float:left;min-width:191px;height:52px;display:flex;align-items:center;gap:8px}
+.friendly-name{display:inline-block;max-width:260px;padding:2px 10px;border-radius:999px;background-color:var(--accent-tint);color:var(--accent);font-size:13px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .flexgrid{width:100%;display:flex;flex-wrap:wrap;justify-content:left}
 .flexgrid>div{flex:1}
 
@@ -140,6 +141,7 @@ form label{width:220px;display:inline-block;text-align:right;font-size:smaller;c
 form input,select{background-color:var(--field-bg);color:var(--text);border:1px solid var(--field-border);border-radius:6px;padding:5px 7px;font-size:13px;transition:border-color .15s,box-shadow .15s}
 form input{width:100px;display:inline-block;margin-left:5px;font-family:var(--font-mono)}
 form input[type='input']{width:225px}
+#FriendlyName{width:22em;max-width:100%;box-sizing:border-box}
 form input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring)}
 form input:read-only:not([type='checkbox']){background-color:transparent;color:var(--text-strong);border:dashed 1px var(--border-dashed)}
 /* Checkboxes in forms become toggle switches */
@@ -212,7 +214,7 @@ th{font-family:var(--font-ui);text-align:center;font-size:13px;color:var(--text-
 #graphOptions .v a.active{color:var(--value);text-decoration:underline}
 
 /* Toast notifications */
-.toasts{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;display:flex;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:min(400px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:hidden;pointer-events:none}
+.toasts{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:min(400px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:hidden;pointer-events:none}
 .toast{pointer-events:auto;text-align:center;cursor:pointer;padding:10px 14px;border-radius:8px;font-weight:700;color:var(--accent-text);background-color:var(--accent);box-shadow:0 4px 16px var(--shadow);overflow-wrap:anywhere;opacity:0;transform:translateY(-10px);transition:opacity .3s,transform .3s}
 .toast-show{opacity:1;transform:none}
 .toast-error{color:var(--danger-text);background-color:var(--danger)}
@@ -237,7 +239,8 @@ form input[type='input']{width:175px}
 #modulesTable .rows button{margin-left:2px}
 #modulesTable .th span{min-width:65px}
 .logo{width:75px;height:20px}
-.logocontainer{width:80px;height:28px}
+.logocontainer{min-width:80px;height:28px;gap:6px}
+.friendly-name{max-width:120px;font-size:11px;padding:1px 8px}
 .settings label{min-width:auto!important}
 }
 @media screen and (max-height:450px){

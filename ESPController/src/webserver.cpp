@@ -70,6 +70,24 @@ esp_err_t settings_js_handler(httpd_req_t *req)
   // Only pass on a valid two letter language code, the page falls back to English
   const char *language = (strlen(mysettings.language) == 2 && isalpha(mysettings.language[0]) && isalpha(mysettings.language[1])) ? mysettings.language : "en";
 
+  // Escape the friendly name so it is safe inside a single quoted JavaScript string.
+  // The page only ever displays it as text.
+  char friendlyName[sizeof(mysettings.friendly_name) * 4 + 1];
+  size_t fn = 0;
+  for (const char *c = mysettings.friendly_name; *c != 0 && fn + 5 < sizeof(friendlyName); c++)
+  {
+    const unsigned char ch = (unsigned char)*c;
+    if (ch < 0x20 || ch == 0x7F || ch == '\\' || ch == '\'' || ch == '"' || ch == '<' || ch == '>' || ch == '&')
+    {
+      fn += snprintf(&friendlyName[fn], 5, "\\x%02X", ch);
+    }
+    else
+    {
+      friendlyName[fn++] = (char)ch;
+    }
+  }
+  friendlyName[fn] = 0;
+
   int len = snprintf(httpbuf, BUFSIZE,
                      "const MAXIMUM_NUMBER_OF_BANKS=%u;"
                      "const MAXIMUM_NUMBER_OF_SERIES_MODULES=%u;"
@@ -79,6 +97,7 @@ esp_err_t settings_js_handler(httpd_req_t *req)
                      "var GRAPH_LABELS=%u;"
                      "var XSS_KEY='%s';"
                      "var LANGUAGE='%s';"
+                     "var FRIENDLY_NAME='%s';"
                      "var PLATFORM='ESP32';"
                      "var GIT_VERSION='%s';"
                      "var COMMIT_DATE_TIME='%s';"
@@ -86,7 +105,7 @@ esp_err_t settings_js_handler(httpd_req_t *req)
                      (unsigned)maximum_number_of_banks, (unsigned)maximum_controller_cell_modules,
                      (unsigned)mysettings.graph_voltagehigh, (unsigned)mysettings.graph_voltagelow,
                      (unsigned)mysettings.tft_sleep_seconds, (unsigned)mysettings.graph_labels,
-                     CookieValue, language, GIT_VERSION, COMMIT_DATE_TIME);
+                     CookieValue, language, friendlyName, GIT_VERSION, COMMIT_DATE_TIME);
 
   return httpd_resp_send(req, httpbuf, len);
 }

@@ -141,6 +141,13 @@ function applyGraphMode() {
 
 // Should the home page graph show its bar labels? GRAPH_LABELS (Display Settings):
 // 0 = automatic, hidden above 24 cells as they become unreadable (#270), 1 = always, 2 = never (#313)
+// Show the friendly name (Display Settings) in a small bubble next to the logo, hidden when blank
+function showFriendlyName() {
+    const name = (typeof FRIENDLY_NAME === 'string') ? FRIENDLY_NAME : '';
+    $("#friendlyNameBadge").text(name).toggle(name.length > 0);
+    document.title = name ? name + " - DIY BMS CONTROLLER v4" : "DIY BMS CONTROLLER v4";
+}
+
 function graphLabelsVisible() {
     if (GRAPH_LABELS === 1) { return true; }
     if (GRAPH_LABELS === 2) { return false; }
@@ -1458,6 +1465,7 @@ $(window).on('resize', function () {
 });
 
 $(function () {
+    showFriendlyName();
     $("#loading").show();
     $("#avrprogconfirm").hide();
     $(".stat").hide();
@@ -1793,6 +1801,7 @@ $(function () {
         $("#VoltageLow").val(DEFAULT_GRAPH_MIN_VOLTAGE);
         $("#TFTSleep").val(TFT_SLEEP_SECONDS);
         $("#GraphLabels").val(GRAPH_LABELS);
+        $("#FriendlyName").val(FRIENDLY_NAME);
 
         switchPage("#settingsPage");
 
@@ -2556,6 +2565,8 @@ $(function () {
                 DEFAULT_GRAPH_MIN_VOLTAGE = parseFloat($("#VoltageLow").val());
                 TFT_SLEEP_SECONDS = parseInt($("#TFTSleep").val(), 10);
                 GRAPH_LABELS = parseInt($("#GraphLabels").val(), 10);
+                FRIENDLY_NAME = $("#FriendlyName").val().trim();
+                showFriendlyName();
                 // Apply the label choice to the graph without a page reload
                 if (window.g1) {
                     const show = graphLabelsVisible();

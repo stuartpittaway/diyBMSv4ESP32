@@ -191,6 +191,9 @@ struct diybms_eeprom_settings
 
   char language[2 + 1];
 
+  // Optional friendly name/label for this DIYBMS instance, shown in the web page header (empty = none)
+  char friendly_name[32 + 1];
+
   ProtocolEmulation protocol;
   CanBusInverter canbusinverter;
   //CANBUS baud rate, 250=250k, 500=500k

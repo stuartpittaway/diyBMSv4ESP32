@@ -370,6 +370,31 @@ esp_err_t post_savedisplaysetting_json_handler(httpd_req_t *req, bool urlEncoded
         mysettings.graph_labels = graphLabels;
     }
 
+    // Friendly name is optional, an empty value clears it. Read into a larger buffer so a
+    // url encoded value is not truncated mid escape sequence, then limit to the stored size.
+    char friendlyName[(sizeof(mysettings.friendly_name) - 1) * 3 + 1];
+    if (GetTextFromKeyValue(httpbuf, "FriendlyName", friendlyName, sizeof(friendlyName), urlEncoded))
+    {
+        // Remove control characters
+        size_t o = 0;
+        for (size_t i = 0; friendlyName[i] != 0; i++)
+        {
+            if ((unsigned char)friendlyName[i] >= 0x20 && friendlyName[i] != 0x7F)
+                friendlyName[o++] = friendlyName[i];
+        }
+        friendlyName[o] = 0;
+
+        // Limit to 32 bytes, without cutting a UTF-8 multi-byte character in half
+        size_t maxLen = sizeof(mysettings.friendly_name) - 1;
+        if (strlen(friendlyName) > maxLen)
+        {
+            while (maxLen > 0 && ((unsigned char)friendlyName[maxLen] & 0xC0) == 0x80)
+                maxLen--;
+            friendlyName[maxLen] = 0;
+        }
+        strlcpy(mysettings.friendly_name, friendlyName, sizeof(mysettings.friendly_name));
+    }
+
     saveConfiguration();
 
     return SendSuccess(req);

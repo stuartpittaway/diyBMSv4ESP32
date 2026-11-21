@@ -42,6 +42,7 @@
   <div class="header">
     <div class="logocontainer">
       <img class="logo" src="logo.png" width="118" height="52" alt="DIYBMS" />
+      <span id="friendlyNameBadge" class="friendly-name" style="display:none"></span>
     </div>
     <div class="header-right">
       <div class="notify-container">
@@ -1939,6 +1940,10 @@
               <option value="1">Always show</option>
               <option value="2">Never show</option>
             </select>
+          </div>
+          <div>
+            <label for="FriendlyName">Friendly name</label>
+            <input type="text" name="FriendlyName" id="FriendlyName" maxlength="32" placeholder="Optional label shown in header" />
           </div>
           <button type="submit">Save display settings</button>
         </div>

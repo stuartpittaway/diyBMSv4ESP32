@@ -31,6 +31,7 @@ static const char rs485databits_JSONKEY[] = "rs485databits";
 static const char rs485parity_JSONKEY[] = "rs485parity";
 static const char rs485stopbits_JSONKEY[] = "rs485stopbits";
 static const char language_JSONKEY[] = "language";
+static const char friendly_name_JSONKEY[] = "friendly_name";
 static const char mqtt_enabled_JSONKEY[] = "enabled";
 static const char mqtt_basic_cell_reporting_JSONKEY[] = "basiccellrpt";
 static const char mqtt_uri_JSONKEY[] = "uri";
@@ -166,6 +167,7 @@ static const char influxdb_loggingFreqSeconds_NVSKEY[] = "inflogFreq";
 static const char tileconfig_NVSKEY[] = "tileconfig";
 static const char ntpServer_NVSKEY[] = "ntpServer";
 static const char language_NVSKEY[] = "language";
+static const char friendly_name_NVSKEY[] = "friendly_name";
 static const char mqtt_uri_NVSKEY[] = "mqtt_uri";
 static const char mqtt_topic_NVSKEY[] = "mqtt_topic";
 static const char mqtt_username_NVSKEY[] = "mqtt_usern";
@@ -514,6 +516,7 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
 
         MACRO_NVSWRITESTRING(ntpServer)
         MACRO_NVSWRITESTRING(language)
+        MACRO_NVSWRITESTRING(friendly_name)
         MACRO_NVSWRITESTRING(mqtt_uri)
         MACRO_NVSWRITESTRING(mqtt_topic)
         MACRO_NVSWRITESTRING(mqtt_username)
@@ -652,6 +655,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
 
         MACRO_NVSREADSTRING(ntpServer)
         MACRO_NVSREADSTRING(language)
+        MACRO_NVSREADSTRING(friendly_name)
         MACRO_NVSREADSTRING(mqtt_uri)
         MACRO_NVSREADSTRING(mqtt_topic)
         MACRO_NVSREADSTRING(mqtt_username)
@@ -767,6 +771,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->rs485stopbits = uart_stop_bits_t::UART_STOP_BITS_1;
 
     strncpy(_myset->language, "en", sizeof(_myset->language));
+    _myset->friendly_name[0] = 0;
 
     // Default to EMONPI default MQTT settings
     strncpy(_myset->mqtt_topic, "emon/diybms", sizeof(_myset->mqtt_topic));
@@ -1118,6 +1123,7 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     root[rs485parity_JSONKEY] = settings->rs485parity;
     root[rs485stopbits_JSONKEY] = settings->rs485stopbits;
     root[language_JSONKEY] = settings->language;
+    root[friendly_name_JSONKEY] = settings->friendly_name;
 
     root[homeassist_apikey_JSONKEY] = settings->homeassist_apikey;
 
@@ -1289,6 +1295,7 @@ static void applyBasicSettings(const JsonObject &root, diybms_eeprom_settings *s
     settings->rs485stopbits = root[rs485stopbits_JSONKEY];
 
     copyJsonString(settings->language, sizeof(settings->language), root[language_JSONKEY]);
+    copyJsonString(settings->friendly_name, sizeof(settings->friendly_name), root[friendly_name_JSONKEY]);
 
     settings->protocol = (ProtocolEmulation)root[protocol_JSONKEY];
     settings->canbusinverter = (CanBusInverter)root[canbusinverter_JSONKEY];
