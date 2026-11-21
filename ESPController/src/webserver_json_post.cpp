@@ -1232,51 +1232,63 @@ esp_err_t save_data_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    std::array<std::string, 30> uri_array = {
-        "savebankconfig", "saventp", "saveglobalsetting",
-        "savemqtt", "saveinfluxdb",
-        "saveconfigtofile", "wificonfigtofile",
-        "savesetting", "restartcontroller", "saverules",
-        "savedisplaysetting", "savestorage", "resetcounters",
-        "sdmount", "sdunmount", "enableavrprog",
-        "disableavrprog", "avrprog", "savers485settings",
-        "savecurrentmon", "savecmbasic", "savecmadvanced",
-        "savecmrelay", "restoreconfig", "savechargeconfig",
-        "visibletiles", "dailyahreset", "setsoc",
-        "savenetconfig", "newhaapikey"};
+    // Lookup table lives in flash (const POD), not built on the stack per request
+    struct PostRoute
+    {
+        const char *name;
+        esp_err_t (*handler)(httpd_req_t *req, bool urlEncoded);
+    };
+    static const PostRoute routes[] = {
+            {"savebankconfig", post_savebankconfig_json_handler},
+            {"saventp", post_saventp_json_handler},
+            {"saveglobalsetting", post_saveglobalsetting_json_handler},
+            {"savemqtt", post_savemqtt_json_handler},
+            {"saveinfluxdb", post_saveinfluxdbsetting_json_handler},
+            {"saveconfigtofile", post_saveconfigurationtoflash_json_handler},
+            {"wificonfigtofile", post_savewificonfigtosdcard_json_handler},
+            {"savesetting", post_savesetting_json_handler},
+            {"restartcontroller", post_restartcontroller_json_handler},
+            {"saverules", post_saverules_json_handler},
+            {"savedisplaysetting", post_savedisplaysetting_json_handler},
+            {"savestorage", post_savestorage_json_handler},
+            {"resetcounters", post_resetcounters_json_handler},
+            {"sdmount", post_sdmount_json_handler},
+            {"sdunmount", post_sdunmount_json_handler},
+            {"enableavrprog", post_enableavrprog_json_handler},
+            {"disableavrprog", post_disableavrprog_json_handler},
+            {"avrprog", post_avrprog_json_handler},
+            {"savers485settings", post_savers485settings_json_handler},
+            {"savecurrentmon", post_savecurrentmon_json_handler},
+            {"savecmbasic", post_savecmbasic_json_handler},
+            {"savecmadvanced", post_savecmadvanced_json_handler},
+            {"savecmrelay", post_savecmrelay_json_handler},
+            {"restoreconfig", post_restoreconfig_json_handler},
+            {"savechargeconfig", post_savechargeconfig_json_handler},
+            {"visibletiles", post_visibletiles_json_handler},
+            {"dailyahreset", post_resetdailyahcount_json_handler},
+            {"setsoc", post_setsoc_json_handler},
+            {"savenetconfig", post_savenetconfig_json_handler},
+            {"newhaapikey", post_homeassistant_apikey_json_handler},
+    };
 
-    std::array<std::function<esp_err_t(httpd_req_t * req, bool urlEncoded)>, 30> func_ptr = {
-        post_savebankconfig_json_handler, post_saventp_json_handler, post_saveglobalsetting_json_handler,
-        post_savemqtt_json_handler, post_saveinfluxdbsetting_json_handler,
-        post_saveconfigurationtoflash_json_handler, post_savewificonfigtosdcard_json_handler,
-        post_savesetting_json_handler, post_restartcontroller_json_handler, post_saverules_json_handler,
-        post_savedisplaysetting_json_handler, post_savestorage_json_handler, post_resetcounters_json_handler,
-        post_sdmount_json_handler, post_sdunmount_json_handler, post_enableavrprog_json_handler,
-        post_disableavrprog_json_handler, post_avrprog_json_handler, post_savers485settings_json_handler,
-        post_savecurrentmon_json_handler, post_savecmbasic_json_handler, post_savecmadvanced_json_handler,
-        post_savecmrelay_json_handler, post_restoreconfig_json_handler, post_savechargeconfig_json_handler,
-        post_visibletiles_json_handler, post_resetdailyahcount_json_handler, post_setsoc_json_handler,
-        post_savenetconfig_json_handler, post_homeassistant_apikey_json_handler};
-
-    auto name = std::string(req->uri);
-
-    if (name.rfind("/post/", 0) == 0)
+    const char *name = req->uri;
+    if (strncmp(name, "/post/", 6) == 0)
     {
         // skip over first 6 characters "/post/" characters
-        name = name.substr(6);
+        name += 6;
     }
 
-    for (size_t i = 0; i < uri_array.size(); i++)
+    for (const auto &route : routes)
     {
-        if (name.compare(uri_array.at(i)) == 0)
+        if (strcmp(name, route.name) == 0)
         {
             // Found it
-            ESP_LOGI(TAG, "API post: %s", name.c_str());
-            return func_ptr.at(i)(req, urlEncoded);
+            ESP_LOGI(TAG, "API post: %s", name);
+            return route.handler(req, urlEncoded);
         }
     }
 
-    ESP_LOGE(TAG, "No API post match: %s", name.c_str());
+    ESP_LOGE(TAG, "No API post match: %s", name);
 
     return httpd_resp_send_500(req);
 }

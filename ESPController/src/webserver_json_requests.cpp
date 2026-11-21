@@ -1426,53 +1426,55 @@ esp_err_t api_handler(httpd_req_t *req)
     return ESP_FAIL;
   }
 
-  const std::array<std::string, 17> uri_array = {
-      "monitor2", "monitor3", "integration",
-      "settings", "rules", "rs485settings",
-      "currentmonitor", "avrstatus", "modules",
-      "identifyModule", "storage", "avrstorage",
-      "chargeconfig", "tileconfig", "history",
-      "diagnostic", "otastatus"};
+  // Lookup table lives in flash (const POD), not built on the stack per request
+  struct ApiRoute
+  {
+    const char *name;
+    esp_err_t (*handler)(httpd_req_t *req);
+  };
+  static const ApiRoute routes[] = {
+      {"monitor2", content_handler_monitor2},
+      {"monitor3", content_handler_monitor3},
+      {"integration", content_handler_integration},
+      {"settings", content_handler_settings},
+      {"rules", content_handler_rules},
+      {"rs485settings", content_handler_rs485settings},
+      {"currentmonitor", content_handler_currentmonitor},
+      {"avrstatus", content_handler_avrstatus},
+      {"modules", content_handler_modules},
+      {"identifyModule", content_handler_identifymodule},
+      {"storage", content_handler_storage},
+      {"avrstorage", content_handler_avrstorage},
+      {"chargeconfig", content_handler_chargeconfig},
+      {"tileconfig", content_handler_tileconfig},
+      {"history", content_handler_history},
+      {"diagnostic", content_handler_diagnostic},
+      {"otastatus", ESP32Ota_StatusHandler},
+  };
 
-  const std::array<std::function<esp_err_t(httpd_req_t * req)>, 17> func_ptr = {
-      content_handler_monitor2, content_handler_monitor3, content_handler_integration,
-      content_handler_settings, content_handler_rules, content_handler_rs485settings,
-      content_handler_currentmonitor, content_handler_avrstatus, content_handler_modules,
-      content_handler_identifymodule, content_handler_storage, content_handler_avrstorage,
-      content_handler_chargeconfig, content_handler_tileconfig, content_handler_history,
-      content_handler_diagnostic, ESP32Ota_StatusHandler};
-
-  // Ensure arrays are equal length
-  assert(uri_array.size() == func_ptr.size());
-
-  auto name = std::string(req->uri);
-  if (name.rfind("/api/", 0) == 0)
+  const char *uri = req->uri;
+  if (strncmp(uri, "/api/", 5) == 0)
   {
     // skip over first 5 characters "/api/" characters
-    name = name.substr(5);
+    uri += 5;
   }
 
   // Don't forget URLs can have a querystring attached to them!
-  auto questionmark = name.find("?", 0);
-  if (questionmark != std::string::npos)
-  {
-    // Strip string at querystring
-    name = name.substr(0, questionmark);
-  }
+  size_t namelen = strcspn(uri, "?");
 
-  for (size_t i = 0; i < uri_array.size(); i++)
+  for (const auto &route : routes)
   {
-    if (name.compare(uri_array.at(i)) == 0)
+    if (strlen(route.name) == namelen && strncmp(uri, route.name, namelen) == 0)
     {
       // Found it
-      ESP_LOGI(TAG, "API call: %s", name.c_str());
+      ESP_LOGI(TAG, "API call: %.*s", (int)namelen, uri);
       httpd_resp_set_type(req, "application/json");
       setNoStoreCacheControl(req);
-      return func_ptr.at(i)(req);
+      return route.handler(req);
     }
   }
 
-  ESP_LOGE(TAG, "No API match: %s", name.c_str());
+  ESP_LOGE(TAG, "No API match: %s", uri);
 
   return httpd_resp_send_500(req);
 }
