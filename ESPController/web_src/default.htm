@@ -36,7 +36,6 @@
       <a id="integration" href="#integration">Integration</a>
       <a id="currentmonitor" href="#currentmonitor">Current Monitor</a>
       <a id="storage" href="#storage">Storage &amp; Logging</a>
-      <a id="avrprogrammer" href="#avrprogrammer">AVR Programmer</a>
       <a id="utility" href="#utility">Utilitites</a>
       <a id="about" href="#about">About</a>
     </div>
@@ -359,6 +358,7 @@
   <div class="page" id="modulesPage">
     <h1>Modules</h1>
     <div class="region wide">
+      <p id="modfwdiff" class="warning"></p>
       <table id="modulesTable">
         <thead>
           <tr>
@@ -373,6 +373,7 @@
             <th id="mpbpc" class="hide">Bad packet count</th>
             <th id="mppktr" class="hide">Packets received</th>
             <th id="mpbal" class="hide">Balance statistics</th>
+            <th id="mpfw">Firmware</th>
             <th></th>
           </tr>
         </thead>
@@ -395,13 +396,13 @@
             </div>
             <div>
               <label for="BypassOverTempShutdown">Bypass over temperature (&deg;C)</label>
-              <input type="number" min="20" max="90" step="1" name="BypassOverTempShutdown" id="BypassOverTempShutdown"
-                value="70" required="" />
+              <input type="number" id="BypassOverTempShutdown" value="70" readonly=""
+                title="Set for all modules in Module Settings below" />
             </div>
             <div>
               <label for="BypassThresholdmV">Bypass threshold voltage (mV)</label>
-              <input type="number" min="1800" max="4500" step="5" name="BypassThresholdmV" id="BypassThresholdmV"
-                value="" required="" />
+              <input type="number" id="BypassThresholdmV" value="" readonly=""
+                title="Set for all modules in Module Settings below" />
             </div>
             <div>
               <label for="Calib">Calibration multiplier</label>
@@ -460,23 +461,30 @@
       </div>
     </div>
     <div id="globalConfig" class="region">
-      <h2>Global Settings</h2>
-      <p id="gc1">Configure all modules to use following parameters:</p>
-      <form id="globalSettingsForm" method="POST" action="/post/saveglobalsetting" autocomplete="off">
-        <div class="settings">
-          <div>
-            <label for="g1">Bypass over temperature</label>
-            <input type="number" min="20" max="90" step="1" name="BypassOverTempShutdown" id="g1" value="65"
-              required="" />
+      <h2>Module Settings</h2>
+      <p id="gc1">Modules respond to the following parameters:</p>
+      <div class="gcrow">
+        <form id="globalSettingsForm" method="POST" action="/post/saveglobalsetting" autocomplete="off">
+          <div class="settings">
+            <div>
+              <label for="g1">Bypass over temperature</label>
+              <input type="number" min="20" max="90" step="1" name="BypassOverTempShutdown" id="g1" value="65"
+                required="" />
+            </div>
+            <div>
+              <label for="g2">Bypass threshold mV</label>
+              <input type="number" min="1800" max="4500" step="5" name="BypassThresholdmV" id="g2" value="4100"
+                required="" />
+            </div>
           </div>
-          <div>
-            <label for="g2">Bypass threshold mV</label>
-            <input type="number" min="1800" max="4500" step="5" name="BypassThresholdmV" id="g2" value="4100"
-              required="" />
-          </div>
+          <button id="globalSettingsButton" type="submit">Save module settings</button>
+        </form>
+        <div class="modcheck">
+          <button id="ModCheckFw" type="button">Check modules</button>
+          <p class="note" id="mc1">Reads the firmware checksum of all modules (column "Firmware").</p>
+          <p class="note"><span id="mc2">Last check:</span> <span id="modcheckinfo">-</span></p>
         </div>
-        <button id="globalSettingsButton" type="submit">Save settings</button>
-      </form>
+      </div>
     </div>
   </div>
 
@@ -1549,6 +1557,7 @@
           <button type="submit">Restart Controller</button>
         </div>
       </form>
+      <p id="restartinfo" class="note"></p>
 
       <h2>Set DIYBMS Current Monitor State Of Charge</h2>
       <form id="setSOCForm" method="POST" action="/post/setsoc" autocomplete="off">
@@ -1562,25 +1571,115 @@
       </form>
     </div>
 
-    <div class="region">
+    <div class="region" id="esp32otaregion">
       <h2 id="ap12">Controller Firmware Upgrade</h2>
-      <p>
+      <p id="ota1">
         Use this feature to upload a new firmware to a running controller. Recommend saving configuration before
         updating. Controller will reboot after update. This function will not update module firmware or files.
       </p>
-      <p>The file you need to upload is usually called "esp32-controller-firmware-over-the-air.bin".</p>
+      <p>
+        <span id="ota2">Running firmware:</span> <strong id="otaver">%GIT_VERSION%</strong>, %COMPILE_DATE_TIME%<span id="otacur"></span>
+      </p>
+      <p id="ota3">
+        The file you need to upload is usually called "esp32-controller-firmware-over-the-air.bin" (not the full flash
+        image). If the transfer or the image check fails, the current firmware stays active. The page reloads by itself
+        once the controller has restarted.
+      </p>
       <p>
         <img src="warning.png" width="48" height="41" alt="Warning" />
         Note: Do not attempt this when the battery is charging/discharging. The BMS will not operate whilst update is
         running, external interfaces like RS485 and CAN will be disabled during update.
       </p>
       <div>
-        <button id="uploadfw" type="button">Upload new firmware</button>
-        <input type="file" id="file_sel" style="display: none" />
-        <div class="progress">
-          <div class="progress__bar" id="progress"></div>
+        <input type="file" id="otafile" accept=".bin" />
+        <button type="button" id="OtaUpload">Upload new firmware</button>
+      </div>
+      <div class="prog" id="otaprog"><div></div></div>
+      <p id="otainfo" class="note"></p>
+    </div>
+    <div class="progcols">
+      <div class="region progcol" id="legacyregion">
+        <h2 id="lg1">AVR Programmer (ATtiny841) <span class="badge" id="lg2">ISP cable</span></h2>
+        <p class="note" id="lg3">Modules V4.0&ndash;V4.4 with ATtiny841, programmed one by one via the ISP connector on the controller. ATtiny1624 firmware is uploaded on the right.</p>
+        <p id="b11">Controller can program modules and devices using the files below. <strong>Do not
+            connect</strong> a
+          device to be programmed before enabling programming mode.</p>
+        <p>Instructions:
+          <ol>
+            <li>"Enable programming mode", this will stop SD card logging and TFT touch screen response.
+            </li>
+            <li>Select the relevant file to program</li>
+            <li>Read the warnings</li>
+            <li>Attach/connect device to be programmed to the ISP connector on the controller</li>
+            <li>Select "Program Device"</li>
+            <li>When complete, remove the device</li>
+            <li>Program other devices as needed</li>
+            <li>Disable programming mode</li>
+          </ol>
+        </p>
+        <ul id="avrprog">
+
+        </ul>
+        <div>
+          <button type="button" id="AVRProgEnable">Enable programming mode</button>
+          <button type="button" id="AVRProgDisable">Disable programming mode</button>
         </div>
-        <div class="status" id="status_div"></div>
+        <div id="avrprogconfirm">
+          <input type="hidden" value="" id="selectedavrindex" />
+          <img class="warnicon" src="warning.png" width="48" height="41" alt="Warning" />
+          <ul>
+            <li>Ensure you disconnect all battery and communication cables from the module/device before
+              programming.</li>
+            <li>Connect the module to the ISP port on the controller using a ribbon cable or adapter, ensure
+              the
+              notch is
+              aligned with pin 1 on the module.</li>
+            <li>Click 'Program Device' to start programming</li>
+            <li>Remove cable as soon as programming is complete</li>
+          </ul>
+          <button type="button" id="ProgAVR">Program Device</button>
+          <button type="button" id="ProgAVRCancel">Cancel</button>
+          <p id='avrinfo'></p>
+        </div>
+      </div>
+      <div class="region progcol" id="modfwregion">
+        <h2 id="mf1">ATtiny1624 &ndash; update all modules <span class="badge new" id="mf2">RX/TX chain</span></h2>
+        <p class="note" id="mf3">For modules with bootloader (V450_BL_*). The modules stay connected. Every module
+          compares its own firmware; modules that differ are updated one after the other, the others only
+          forward packets and keep measuring. Settings (calibration, bypass) are kept.</p>
+
+        <h3 id="mf4">1. Upload firmware</h3>
+        <div class="modfwupload">
+          <input type="file" id="modfwfile" accept=".bin,.hex" />
+          <select id="modfwbaud" title="Baud rate of the firmware">
+            <option value="10000">10K (10000)</option>
+            <option value="5000">5K (5000)</option>
+            <option value="9600">9K6 (9600)</option>
+            <option value="2400">Standard (2400)</option>
+          </select>
+          <button type="button" id="ModFwUpload">Upload</button>
+          <p id="modfwuploadinfo" class="note">.bin from <code>ATTINYCellModule/firmware_upload</code> or .hex
+            (also &quot;_with_bootloader.hex&quot;)</p>
+        </div>
+
+        <h3 id="mf5">2. Select firmware</h3>
+        <div id="modfwfiles" class="modfwlist"></div>
+        <p id="modfwwarn" class="warnline"></p>
+
+        <h3 id="mf6">3. Update all modules</h3>
+        <div>
+          <input type="hidden" value="" id="modfwindex" />
+          <button type="button" id="ModFwStart" disabled>Start update</button>
+          <button type="button" id="ModFwAbort">Abort</button>
+          <button type="button" id="ModFwCheck">Check modules</button>
+        </div>
+        <p id="modfwhead"></p>
+        <div class="prog" id="modfwprog"><div></div></div>
+        <p id="modfwinfo" class="note"></p>
+        <table id="modfwtable" class="mods">
+          <thead><tr><th id="mf7">Module</th><th id="mf8">Status</th><th id="mf9">Duration</th><th id="mf10">Retransmissions</th><th id="mf11">Firmware in module</th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -1840,52 +1939,6 @@
     </div>
 
     <!-- End of page-->
-  </div>
-
-  <div class="page" id="avrprogPage">
-    <h1>AVR Programmer</h1>
-    <div class="region">
-      <p id="b11">
-        Controller can program modules and devices using the files below.
-        <strong>Do not connect</strong>
-        a device to be programmed before enabling programming mode.
-      </p>
-      <p>Instructions:</p>
-      <ol>
-        <li>"Enable programming mode", this will stop SD card logging and TFT touch screen response.</li>
-        <li>Select the relevant file to program</li>
-        <li>Read the warnings</li>
-        <li>Attach/connect device to be programmed to the ISP connector on the controller</li>
-        <li>Select "Program Device"</li>
-        <li>When complete, remove the device</li>
-        <li>Program other devices as needed</li>
-        <li>Disable programming mode</li>
-      </ol>
-
-      <ul id="avrprog"></ul>
-      <div>
-        <button type="button" id="AVRProgEnable">Enable programming mode</button>
-        <button type="button" id="AVRProgDisable">Disable programming mode</button>
-      </div>
-      <div id="avrprogconfirm">
-        <input type="hidden" value="" id="selectedavrindex" />
-        <img class="warnicon" src="warning.png" width="48" height="41" alt="Warning" />
-        <ul>
-          <li>
-            Ensure you disconnect all battery and communication cables from the module/device before programming.
-          </li>
-          <li>
-            Connect the module to the ISP port on the controller using a ribbon cable or adapter, ensure the notch is
-            aligned with pin 1 on the module.
-          </li>
-          <li>Click 'Program Device' to start programming</li>
-          <li>Remove cable as soon as programming is complete</li>
-        </ul>
-        <button type="button" id="ProgAVR">Program Device</button>
-        <button type="button" id="ProgAVRCancel">Cancel</button>
-        <p id="avrinfo"></p>
-      </div>
-    </div>
   </div>
 
   <div class="page" id="storagePage">

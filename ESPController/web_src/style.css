@@ -111,3 +111,36 @@ form input:read-only{background-color:transparent;color:#fff;border:dashed 1px #
 #graphOptions .x{display:block;width:100%;text-align:right}
 #graphOptions .t{font-size:10pt;color:#c1bdbd}
 #graphOptions .v{font-size:22pt;font-family:'Share Tech Mono',monospace;font-weight:700;color:#55a1ea}
+/* Controller firmware upgrade progress bar (Utilities) */
+.prog{height:16px;background:#444;border-radius:8px;overflow:hidden;margin:4px 0 8px 0;max-width:600px;display:none}
+.prog>div{height:100%;width:0;background:#1e90ff;transition:width .4s}
+@keyframes progstripes{from{background-position:0 0}to{background-position:40px 0}}
+.prog.busy>div{background-image:linear-gradient(45deg,rgba(255,255,255,.25) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.25) 50%,rgba(255,255,255,.25) 75%,transparent 75%,transparent);background-size:40px 40px;animation:progstripes 1s linear infinite;min-width:40px}
+.note{font-size:.85em;opacity:.85}
+
+/* Module firmware update over the RX/TX chain */
+.modfwlist{margin:8px 0 12px 0}
+.modfwopt{display:flex;align-items:center;gap:12px;padding:10px 14px;margin:6px 0;border:2px solid #666;border-radius:6px;cursor:pointer;font-size:1.05em}
+.modfwopt input[type=radio]{width:22px;height:22px;margin:0;accent-color:#1e90ff;cursor:pointer;flex:none}
+.modfwopt .info{flex:1;text-align:left;display:block}
+.modfwopt .info span{display:block;width:auto;text-align:left}
+.modfwopt .info span.sub{font-size:.85em;opacity:.8;font-weight:normal}
+.modfwopt.sel{border-color:#1e90ff;background:rgba(30,144,255,.22);font-weight:bold}
+.modfwopt.warn .info span.sub{color:#ffb347;opacity:1}
+.modfwopt .del{flex:none}
+.modfwupload{margin-top:16px;padding-top:8px;border-top:1px solid #666}
+.progcols{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.progcols .progcol{flex:1 1 420px;min-width:0}
+.badge{display:inline-block;font-size:.7em;padding:2px 8px;border-radius:10px;background:#666;margin-left:8px;vertical-align:middle}
+.badge.new{background:#1e90ff}
+table.mods td,table.mods th{padding:3px 10px;text-align:left}
+td.st5{color:#7CFC00}td.st4{color:#1e90ff}td.st6{color:#ff6347;font-weight:bold}td.st3,td.st0{opacity:.7}
+.modfwupload select,.modfwupload button{margin-left:6px}
+.page .progcols .region{float:none;width:auto;margin-right:0}
+td.crcok{color:#7CFC00;font-family:monospace}td.crcdiff{color:#ffb347;font-family:monospace}
+.warnline{color:#ffb347;margin:4px 0}
+.progcols{clear:both}
+#globalConfig .gcrow{display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap}
+#globalConfig .gcrow>form{flex:0 1 auto;width:auto}#globalConfig .gcrow>.modcheck{flex:1 1 200px}
+.modcheck{padding-top:4px}.modcheck .note{margin:6px 0}
+#modulesRows td.fw{font-family:monospace}

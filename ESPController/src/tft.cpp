@@ -458,6 +458,15 @@ void init_tft_display()
     DrawTFT_ControlState();
 
     hal.TFTScreenBacklight(true);
+
+    // The backlight is on, so treat the screen as awake. Otherwise the display task never
+    // redraws and the start screen (with "WIFI not connected") stays until someone touches
+    // the screen. The screen switches off after 120 s, just like after a touch.
+    _lastScreenToDisplay = ScreenTemplateToDisplay::State;
+    _ScreenToDisplayDelay = 0;
+    _ScreenPageCounter = 0;
+    tftsleep_timer = 120;
+    _screen_awake = true;
 }
 
 // This task switches on/off the TFT screen, and triggers a redraw of its contents
@@ -1183,6 +1192,16 @@ void updatetftdisplay_task(void *param)
             tft.setTextDatum(TL_DATUM);
 
             ScreenTemplateToDisplay screenToDisplay = WhatScreenToDisplay();
+
+            // The WiFi line at the bottom is only drawn when the screen layout is prepared.
+            // At power up WiFi is not connected yet, so redraw everything whenever the WiFi
+            // state changes - otherwise "WIFI not connected" stays until the screen is touched.
+            static bool _lastWifiState = false;
+            if (_lastWifiState != wifi_isconnected)
+            {
+                _lastWifiState = wifi_isconnected;
+                force = 1;
+            }
 
             // Force will "force" a redraw of the full screen regardless
             // of previous state.

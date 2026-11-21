@@ -86,34 +86,6 @@ function upload_file() {
 
 }
 
-function upload_firmware() {
-    $("#progress").show();
-    $("#status_div").text("Upload in progress");
-    let data = document.getElementById("file_sel").files[0];
-    xhr = new XMLHttpRequest();
-    xhr.open("POST", "/ota", true);
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-    xhr.upload.addEventListener("progress", function (event) {
-        if (event.lengthComputable) {
-            document.getElementById("progress").style.width = (event.loaded / event.total) * 100 + "%";
-        }
-    });
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === XMLHttpRequest.DONE) {
-            let status = xhr.status;
-            if (status >= 200 && status < 400) {
-                $("#status_div").text("Upload accepted. BMS will reboot.");
-            } else {
-                $("#status_div").text("Upload rejected!");
-            }
-            $("#progress").hide();
-        }
-    };
-    xhr.send(data);
-    return false;
-}
-
-
 function CalculateChargeCurrent(value1, value2, highestCellVoltage, maximumchargecurrent, kneemv, cellmaxmv) {
     if (highestCellVoltage < kneemv) {
         // Voltage is below the knee voltage, so use full current
@@ -226,6 +198,51 @@ function switchPage(newPage) {
     $(".page").hide();
     $(newPage).show();
     $("#myNav").height("0%");
+}
+
+// Column "Firmware" on the Modules page: firmware checksum per module (FW_CMD_REPORT)
+var moduleFwCrc = [];
+var modulesFwNotify = true; // notify once per check
+function modulesFwFill() {
+    // find the most common checksum, mark modules that differ
+    var count = {}, best = "", bestn = 0;
+    $.each(moduleFwCrc, function (i, c) { if (c) { count[c] = (count[c] || 0) + 1; if (count[c] > bestn) { bestn = count[c]; best = c; } } });
+    $("#modulesRows > tr").each(function (index) {
+        var td = $(this).find("td.fw");
+        var c = index < moduleFwCrc.length ? moduleFwCrc[index] : "";
+        td.text(c ? c : "\u2013").toggleClass("crcdiff", !!c && c !== best);
+    });
+    // warning if modules run different firmware
+    var diff = [];
+    $.each(moduleFwCrc, function (i, c) { if (c && c !== best) { diff.push("module " + i + " (" + c + ")"); } });
+    if (diff.length > 0) {
+        $("#modfwdiff").text("Warning: different firmware - " + diff.join(", ") + ". Most modules have " + best +
+            ". Use Utilities > ATtiny1624 - update all modules to bring all modules to the same firmware.").show();
+    } else {
+        $("#modfwdiff").hide();
+    }
+    return diff.length;
+}
+function modulesFwRefresh() {
+    $.ajax({ type: "GET", url: "/api/modfwstatus", dataType: "json", timeout: 3000, cache: false })
+        .done(function (d) {
+            moduleFwCrc = d.fwcrc || [];
+            var ndiff = modulesFwFill();
+            // after a check also show a notification at the top right
+            if (ndiff > 0 && d.fwcrcbusy != 1 && modulesFwNotify) {
+                modulesFwNotify = false;
+                $.notify("Different firmware in " + ndiff + " module(s) - see Modules page", { autoHide: false, globalPosition: 'top right', className: 'warn' });
+            }
+            if (d.fwcrcbusy == 1 && $('#modulesPage').is(':visible')) {
+                $("#modcheckinfo").text("running ...");
+                setTimeout(modulesFwRefresh, 700);
+            } else {
+                // -1 (or implausible) = not checked since start up
+                var age = Number(d.fwcrcage);
+                $("#modcheckinfo").text(age >= 0 && age < 10000000 ? age + " s ago" : "-");
+                $("#ModCheckFw").prop('disabled', false);
+            }
+        });
 }
 
 function identifyModule(button, cellid) {
@@ -547,7 +564,7 @@ function configureModule(button, cellid, attempts) {
 
                 //Populate settings div
                 $('#ModuleId').val(data.settings.id);
-                $('#Version').html(data.settings.ver.toString() + ' / <a href="https://github.com/stuartpittaway/diyBMSv4ESP32/commit/' + data.settings.code.toString(16) + '" rel="noreferrer" target="_blank">' + data.settings.code.toString(16) + '</a>');
+                $('#Version').text(data.settings.ver.toString() + ' / ' + data.settings.code.toString(16));
                 $('#BypassOverTempShutdown').val(data.settings.BypassOverTempShutdown);
                 $('#BypassThresholdmV').val(data.settings.BypassThresholdmV);
                 $('#Calib').val(data.settings.Calib.toFixed(4));
@@ -559,14 +576,10 @@ function configureModule(button, cellid, attempts) {
                 if (data.settings.Prohibited) {
                     $('#ActualVoltage').attr('disabled', 'disabled');
                     $('#Calib').attr('disabled', 'disabled');
-                    $('#BypassThresholdmV').attr('disabled', 'disabled');
-                    $('#BypassOverTempShutdown').attr('disabled', 'disabled');
                     $('#CalculateCalibration').hide();
                 } else {
                     $('#ActualVoltage').removeAttr('disabled');
                     $('#Calib').removeAttr('disabled');
-                    $('#BypassThresholdmV').removeAttr('disabled');
-                    $('#BypassOverTempShutdown').removeAttr('disabled');
                     $('#CalculateCalibration').show();
                 }
 
@@ -921,9 +934,11 @@ function updateChart(jsondata) {
                     + bank[index]
                     + "</td><td>" + value + "</td><td></td><td class='hide'></td><td class='hide'></td>"
                     + "<td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td><td class='hide'></td>"
+                    + "<td class='fw'></td>"
                     + "<td><button type='button' onclick='return identifyModule(this," + index + ");'>Identify</button>"
                     + "<button type='button' onclick='return configureModule(this," + index + ",10);'>Configure</button></td></tr>")
             });
+            modulesFwFill();
         }
 
         var rows = $(tbody).find("tr");
@@ -1523,6 +1538,7 @@ $(function () {
         $("#settingConfig").hide();
 
         switchPage("#modulesPage");
+        modulesFwRefresh();
 
         $.getJSON("/api/settings",
             function (data) {
@@ -1936,13 +1952,386 @@ $(function () {
         switchPage("#utilityPage");
 
         $("#setsoc").val(75.5);
+        otaRefreshCurrent();
+        avrProgLoad();
     });
 
-    $("#avrprogrammer").click(function () {
-        $(".header-right a").removeClass("active");
-        $(this).addClass("active");
-        switchPage("#avrprogPage");
+    var modFwResultText = ["no reply", "no bootloader", "up to date", "waiting", "running", "updated", "FAILED"];
 
+    // all times in seconds
+    function modFwFmtTime(sec) {
+        return Math.max(0, Math.round(sec || 0)) + " s";
+    }
+
+    // CRC32 of the selected firmware (to compare with the modules)
+    function modFwSelectedCrc() {
+        var sel = $("input[name=modfwsel]:checked");
+        return sel.length ? String(sel.data("crc") || "") : "";
+    }
+
+    // Progress bar: animated upwards, reset (new run) without animation
+    var modFwLastPct = -1;
+    function modFwSetBar(pct) {
+        var bar = $("#modfwprog > div");
+        if (pct < modFwLastPct) {
+            bar.css("transition", "none").css("width", pct + "%");
+            bar[0].offsetWidth; // force a reflow, then enable the animation again
+            bar.css("transition", "");
+        } else {
+            bar.css("width", pct + "%");
+        }
+        modFwLastPct = pct;
+    }
+
+    function modFwStatusUpdate() {
+        $.getJSON("/api/modfwstatus", function (data) {
+            if (data.ctrlbaud) { modFwCtrlBaud = data.ctrlbaud; }
+            var head = "";
+            var pct = 0;
+            var elapsed = Math.round((data.elapsed || 0) / 1000);
+            if (data.busy) {
+                var n = data.modules ? data.modules.length : 0;
+                head = "<strong>Module " + data.module + "</strong> (" + (data.module + 1) + " of " + n + ") &ndash; " + data.phase;
+                if (data.chunks > 0 && data.phase == "Transfer") {
+                    head += " " + Math.round(100 * data.acked / data.chunks) + " %";
+                }
+                if (data.eta) {
+                    head += "<br/>Total: " + modFwFmtTime(elapsed) + " of approx. " + modFwFmtTime(elapsed + data.eta);
+                } else {
+                    head += "<br/>Total: " + modFwFmtTime(elapsed);
+                }
+                var todo = data.todo > 0 ? data.todo : 1;
+                var cur = data.chunks > 0 ? data.acked / data.chunks : 0;
+                pct = Math.min(100, Math.round(100 * (data.updated + data.failed + cur) / todo));
+            } else if (data.len > 0) {
+                head = "<strong>" + data.phase + "</strong> &ndash; " + data.updated + " of " + data.todo + " updated, " +
+                    data.failed + " failed, total " + modFwFmtTime(elapsed);
+                pct = 100;
+            } else {
+                head = data.phase;
+            }
+            $("#modfwhead").html(head);
+            if (data.busy || data.len > 0) { $("#modfwprog").show(); modFwSetBar(pct); }
+            else { $("#modfwprog").hide(); }
+            $("#modfwinfo").text(data.msg ? data.msg : "");
+
+            var mods = data.modules || [];
+            var crcs = data.fwcrc || [];
+            var count = Math.max(mods.length, crcs.length);
+            var want = modFwSelectedCrc();
+            var rows = [];
+            for (var index = 0; index < count; index++) {
+                var value = index < mods.length ? mods[index] : -1;
+                var crc = index < crcs.length ? crcs[index] : "";
+                var last = rows.length ? rows[rows.length - 1] : null;
+                // combine consecutive waiting modules without checksum (e.g. "3-15 waiting")
+                if (value == 3 && crc === "" && last && last.v == 3 && last.crc === "") { last.to = index; continue; }
+                rows.push({ from: index, to: index, v: value, crc: crc });
+            }
+            var tb = $("#modfwtable tbody");
+            tb.empty();
+            $.each(rows, function (k, row) {
+                var index = row.from, value = row.v;
+                var st = value >= 0 ? (modFwResultText[value] || value) : "&ndash;";
+                if (value == 4 && data.busy && index == data.module && data.chunks > 0) {
+                    st += " " + Math.round(100 * data.acked / data.chunks) + " %";
+                }
+                var secs = data.secs ? data.secs[index] : 0;
+                var rtx = data.rtx ? data.rtx[index] : 0;
+                var tr = $("<tr></tr>");
+                tr.append($("<td></td>").text(row.to > row.from ? row.from + "–" + row.to : index));
+                tr.append($("<td></td>").addClass("st" + value).html(st));
+                tr.append($("<td></td>").text(secs ? modFwFmtTime(secs) : ""));
+                tr.append($("<td></td>").text((value == 5 || value == 6 || value == 4) ? rtx : ""));
+                var ctd = $("<td></td>");
+                if (row.crc !== "") {
+                    ctd.text(row.crc);
+                    if (want !== "") { ctd.addClass(row.crc == want ? "crcok" : "crcdiff"); }
+                } else if (index < crcs.length) {
+                    ctd.html(data.fwcrcbusy ? "&hellip;" : "&ndash;");
+                }
+                tr.append(ctd);
+                tb.append(tr);
+            });
+
+            $("#ModFwStart").prop('disabled', data.busy == 1 || $("#modfwindex").val() === "");
+            if ((data.busy == 1 || data.fwcrcbusy == 1) && $("#utilityPage").is(":visible")) {
+                setTimeout(modFwStatusUpdate, data.busy == 1 ? 2000 : 700);
+            }
+        });
+    }
+
+    // Modules page: query the firmware checksum of all modules
+    $("#ModCheckFw").click(function () {
+        $("#ModCheckFw").prop('disabled', true);
+        modulesFwNotify = true;
+        $("#modcheckinfo").text("running ...");
+        $.ajax({ type: 'POST', url: '/post/modfwcheck', data: {}, timeout: 10000 })
+            .always(function () { setTimeout(modulesFwRefresh, 700); });
+        return true;
+    });
+
+    $("#ModFwCheck").click(function () {
+        $.ajax({ type: 'POST', url: '/post/modfwcheck', data: {}, timeout: 10000 })
+            .always(function () { setTimeout(modFwStatusUpdate, 700); setTimeout(modFwStatusUpdate, 2500); });
+        return true;
+    });
+
+    $("#ModFwStart").click(function () {
+        var sel = $("input[name=modfwsel]:checked");
+        if (sel.length == 0) { $("#modfwinfo").text("Please select a firmware first."); return true; }
+        if (!sel.data("fits")) {
+            $("#modfwinfo").text("Not started: firmware is for " + sel.data("baud") + " baud, the controller runs at " + modFwCtrlBaud + " baud.");
+            return true;
+        }
+        $("#ModFwStart").prop('disabled', true);
+        // reset the previous result ("Done", 100 %) right away, not only at the first status query
+        $("#modfwprog").show(); modFwSetBar(0);
+        $("#modfwhead").html("<strong>Start</strong> &ndash; version check &hellip;");
+        $("#modfwtable tbody").empty();
+        $.ajax({ type: 'POST', url: '/post/modfwstart', data: { file: $("#modfwindex").val() }, timeout: 30000 })
+            .done(function (data) {
+                $("#modfwinfo").text(data.message);
+                if (data.started) { setTimeout(modFwStatusUpdate, 1000); }
+                else { $("#ModFwStart").prop('disabled', false); }
+            })
+            .fail(function () { $("#modfwinfo").html("Error"); $("#ModFwStart").prop('disabled', false); });
+        return true;
+    });
+
+    $("#ModFwAbort").click(function () {
+        $.ajax({ type: 'POST', url: '/post/modfwabort', data: {}, timeout: 10000 })
+            .always(function () { setTimeout(modFwStatusUpdate, 500); });
+        return true;
+    });
+
+    var modFwCtrlBaud = 0;
+
+    function modFwRenderList(list) {
+        var box = $("#modfwfiles");
+        var keep = $("#modfwindex").val();
+        box.empty();
+        var count = 0;
+        $.each(list, function (index, value) {
+            if (value.chain != 1) { return; }
+            count++;
+            var fits = (modFwCtrlBaud == 0 || value.baud == modFwCtrlBaud);
+            var opt = $("<div class='modfwopt'></div>");
+            var rb = $("<input type='radio' name='modfwsel'>").val(index).data("fits", fits).data("baud", value.baud).data("crc", value.crc32 || "");
+            var info = $("<span class='info'></span>");
+            info.append($("<span></span>").text(value.board + (value.upload ? "  (uploaded)" : "")));
+            info.append($("<span class='sub'></span>").text("Version " + value.ver + " - " + value.len + " bytes - " + value.baud + " baud" +
+                (fits ? "" : "  - does not match the controller baud rate " + modFwCtrlBaud)));
+            opt.append(rb).append(info);
+            var del = $("<button type='button' class='del'>Remove</button>").on("click", function (ev) {
+                ev.preventDefault(); ev.stopPropagation();
+                if (!confirm("Remove firmware '" + value.board + "' from the list?")) { return; }
+                $.ajax({ type: 'POST', url: '/post/modfwdelete', data: { file: index }, timeout: 10000 })
+                    .done(function (d) { $("#modfwuploadinfo").text(d.message); $("#modfwindex").val(""); modFwReloadList(); })
+                    .fail(function () { $("#modfwuploadinfo").text("Remove failed"); });
+            });
+            opt.append(del);
+            if (!fits) { opt.addClass("warn"); }
+            opt.on("click", function () { if (!rb.prop("checked")) { rb.prop("checked", true).trigger("change"); } });
+            rb.on("change", function () {
+                $(".modfwopt").removeClass("sel");
+                opt.addClass("sel");
+                $("#modfwindex").val(index);
+                $("#ModFwStart").prop('disabled', false);
+                modFwStatusUpdate();
+                $("#modfwwarn").text(fits ? "" : "Warning: this firmware is for " + value.baud + " baud, the controller runs at " + modFwCtrlBaud +
+                    " baud. Change the baud rate in the settings first, otherwise the update is refused.");
+            });
+            if (String(index) === keep) { rb.prop("checked", true); opt.addClass("sel"); }
+            box.append(opt);
+        });
+        if (count == 0) {
+            box.append($("<p></p>").text("No firmware for the chain update available - upload a file above."));
+        }
+        if ($("input[name=modfwsel]:checked").length == 0) {
+            $("#modfwindex").val("");
+            $("#ModFwStart").prop('disabled', true);
+        }
+    }
+
+    function modFwReloadList() {
+        $.getJSON("/api/modfwstatus", function (st) {
+            if (st.ctrlbaud) {
+                modFwCtrlBaud = st.ctrlbaud;
+                $("#modfwbaud").val(String(st.ctrlbaud));
+            }
+            $.getJSON("/api/avrstorage", function (data) {
+                modFwRenderList((data.avrprog && data.avrprog.avrprog) ? data.avrprog.avrprog : []);
+            });
+        });
+    }
+
+    // Intel HEX -> binary from 0x0600 (the bootloader section is skipped)
+    function modFwHexToBin(text) {
+        var mem = {}, base = 0, lo = 0x10000, hi = 0;
+        var lines = text.split(/\r?\n/);
+        for (var k = 0; k < lines.length; k++) {
+            var l = lines[k].trim();
+            if (l.length == 0) { continue; }
+            if (l[0] != ':') { throw "Not an Intel HEX file"; }
+            var b = [];
+            for (var q = 1; q + 1 < l.length; q += 2) { b.push(parseInt(l.substr(q, 2), 16)); }
+            var sum = 0; for (var q2 = 0; q2 < b.length; q2++) { sum = (sum + b[q2]) & 0xFF; }
+            if (sum != 0) { throw "Checksum error in line " + (k + 1); }
+            var n = b[0], addr = (b[1] << 8) | b[2], type = b[3];
+            if (type == 0) {
+                for (var x = 0; x < n; x++) {
+                    var a = base + addr + x;
+                    if (a < 0x600) { continue; }
+                    mem[a] = b[4 + x];
+                    if (a < lo) { lo = a; }
+                    if (a + 1 > hi) { hi = a + 1; }
+                }
+            } else if (type == 1) { break; }
+            else if (type == 2) { base = ((b[4] << 8) | b[5]) << 4; }
+            else if (type == 4) { base = ((b[4] << 8) | b[5]) << 16; }
+        }
+        if (hi == 0) { throw "No data from address 0x0600 - is this a V450_BL firmware?"; }
+        if (lo != 0x600) { throw "Firmware starts at 0x" + lo.toString(16) + " instead of 0x600"; }
+        var out = new Uint8Array(hi - 0x600);
+        out.fill(0xFF);
+        for (var key in mem) { out[key - 0x600] = mem[key]; }
+        return out;
+    }
+
+    $("#ModFwUpload").click(function () {
+        var f = $("#modfwfile")[0].files[0];
+        if (!f) { $("#modfwuploadinfo").text("Please select a file first."); return true; }
+        var isHex = /\.hex$/i.test(f.name);
+        var reader = new FileReader();
+        reader.onload = function () {
+            var bin;
+            try {
+                bin = isHex ? modFwHexToBin(reader.result) : new Uint8Array(reader.result);
+            } catch (e) { $("#modfwuploadinfo").text("Error: " + e); return; }
+            if (bin.length < 2 || bin[0] != 0x0C || bin[1] != 0x94) {
+                $("#modfwuploadinfo").text("Error: file is not a module firmware linked at 0x0600 (use a V450_BL_* variant).");
+                return;
+            }
+            if (bin.length > 14848) { $("#modfwuploadinfo").text("Error: firmware too large (" + bin.length + " bytes, max. 14848)."); return; }
+            var label = f.name.replace(/\.(bin|hex)$/i, "").replace(/_with_bootloader$/i, "").replace(/[^A-Za-z0-9_.-]/g, "_").substr(0, 26);
+            var url = "/upload/modfw?xss=" + encodeURIComponent(XSS_KEY) + "&name=" + encodeURIComponent(label) + "&baud=" + $("#modfwbaud").val();
+            $("#ModFwUpload").prop('disabled', true);
+            $("#modfwuploadinfo").text("Uploading ... (" + bin.length + " bytes)");
+            fetch(url, { method: "POST", body: bin, headers: { "Content-Type": "application/octet-stream" }, credentials: "same-origin" })
+                .then(function (r) {
+                    return r.text().then(function (t) {
+                        try { return JSON.parse(t); } catch (e) { return { ok: 0, message: "Error HTTP " + r.status + ": " + t.substr(0, 120) }; }
+                    });
+                })
+                .then(function (d) { $("#modfwuploadinfo").text(d.message); if (d.ok) { $("#modfwfile").val(""); modFwReloadList(); } })
+                .catch(function (e) { $("#modfwuploadinfo").text("Upload failed (" + e + ") - refresh the page and try again"); })
+                .finally(function () { $("#ModFwUpload").prop('disabled', false); });
+        };
+        if (isHex) { reader.readAsText(f); } else { reader.readAsArrayBuffer(f); }
+        return true;
+    });
+
+    function otaSetBar(pct, busy) {
+        $("#otaprog").show().toggleClass("busy", !!busy);
+        $("#otaprog > div").css("width", pct + "%");
+    }
+
+    // Show running partition (app0/app1) and uptime next to the firmware version
+    function otaShowCurrent(d) {
+        var v = $("#otaver").text();
+        if (v.length > 8) { $("#otaver").text(v.substring(0, 8)).attr("title", v); }
+        if (d && d.part !== undefined) {
+            $("#otacur").text(", partition " + d.part + ", uptime " + Math.max(0, Math.round(d.uptime || 0)) + " s");
+        }
+        if (d && d.max) { otaMaxSize = d.max; }
+    }
+
+    var otaMaxSize = 0;
+
+    // After a firmware upload or "Restart Controller": wait until the controller has restarted,
+    // then reload the page. Restarted = uptime smaller than the time we have been waiting, or
+    // "Invalid cookie" (HTTP 400, the controller uses a new session key after a restart).
+    //   started   Date.now() when the restart was requested
+    //   info      element for the status messages
+    //   onTimeout called if the controller has not come back after 60 s (re-enable buttons etc.)
+    function ctrlWaitForRestart(started, info, onTimeout) {
+        var waited = Math.round((Date.now() - started) / 1000);
+        var next = function () {
+            if (waited >= 60) {
+                $(info).text("Controller did not come back within 60 s - check the display or power cycle the controller, then refresh the page (F5).");
+                if (onTimeout) { onTimeout(); }
+                return;
+            }
+            $(info).text("Controller is restarting ... " + waited + " s");
+            setTimeout(ctrlWaitForRestart, 1000, started, info, onTimeout);
+        };
+        $.ajax({ type: "GET", url: "/api/otastatus", dataType: "json", timeout: 2000, cache: false })
+            .done(function (d) {
+                if (d && d.uptime !== undefined && d.uptime <= waited + 5) {
+                    $(info).text("Controller has restarted (partition " + d.part + ") - reloading page ...");
+                    setTimeout(function () { location.reload(); }, 1500);
+                    return;
+                }
+                next();
+            })
+            .fail(function (x) {
+                if (x && x.status == 400) {
+                    $(info).text("Controller has restarted - reloading page ...");
+                    setTimeout(function () { location.reload(); }, 1000);
+                    return;
+                }
+                next();
+            });
+    }
+
+    function otaRefreshCurrent() {
+        $.ajax({ type: "GET", url: "/api/otastatus", dataType: "json", timeout: 3000, cache: false }).done(otaShowCurrent);
+    }
+
+    $("#OtaUpload").click(function () {
+        var f = $("#otafile")[0].files[0];
+        if (!f) { $("#otainfo").text("Please select the firmware file first."); return true; }
+        if (otaMaxSize > 0 && f.size > otaMaxSize) { $("#otainfo").text("File is too large for the OTA partition - is this the full flash image? Please use the over-the-air image."); return true; }
+        if (!confirm("Upload '" + f.name + "' to the controller? The controller restarts afterwards.")) { return true; }
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/ota?xss=" + encodeURIComponent(XSS_KEY), true);
+        xhr.setRequestHeader("Content-Type", "application/octet-stream");
+        otaSetBar(0, true);
+        $("#otainfo").text("Connecting ...");
+        $("#OtaUpload").prop('disabled', true);
+        xhr.upload.onprogress = function (e) {
+            if (e.lengthComputable) {
+                var p = Math.round(100 * e.loaded / e.total);
+                otaSetBar(Math.max(2, Math.min(p, 99)), p >= 99);
+                $("#otainfo").text(p >= 99 ? "Checking firmware ..." : "Uploading and writing ... " + p + " %");
+            }
+        };
+        xhr.onload = function () {
+            var d;
+            try { d = JSON.parse(xhr.responseText); } catch (e) { d = { ok: 0, message: "Error HTTP " + xhr.status }; }
+            if (d.ok) {
+                otaSetBar(100, true);
+                $("#otainfo").text(d.message);
+                var t0 = Date.now();
+                setTimeout(ctrlWaitForRestart, 2000, t0, "#otainfo", function () {
+                    otaSetBar(100, false);
+                    $("#OtaUpload").prop('disabled', false);
+                });
+            } else {
+                otaSetBar(0, false);
+                $("#otainfo").text(d.message);
+                $("#OtaUpload").prop('disabled', false);
+            }
+        };
+        xhr.onerror = function () { otaSetBar(0, false); $("#otainfo").text("Upload failed - refresh the page and try again."); $("#OtaUpload").prop('disabled', false); };
+        xhr.send(f);
+        return true;
+    });
+
+
+    // Load the firmware list for the AVR programmer (ISP) and the chain update (Utilities page)
+    function avrProgLoad() {
         $.getJSON("/api/avrstorage",
             function (data) {
                 $("#avrprog").empty();
@@ -1965,6 +2354,8 @@ $(function () {
 
                 if (data.avrprog.avrprog) {
                     $.each(data.avrprog.avrprog, function (index, value) {
+                        // ATtiny1624 firmware (chain update) does not belong into the ISP list
+                        if (value.chain == 1) { return; }
 
                         var li = document.createElement("li");
                         $("#avrprog").append(li);
@@ -1982,11 +2373,11 @@ $(function () {
                         $(li).append(aref);
                     });
                 }
+                modFwReloadList();
+                modFwStatusUpdate();
             }).fail(function () { $.notify("Request failed", { autoHide: true, globalPosition: 'top right', className: 'error' }); }
             );
-
-        return true;
-    });
+    }
 
 
     $("#charging").click(function () {
@@ -2135,6 +2526,22 @@ $(function () {
         });
     });
 
+    // Restart Controller: wait for the restart like after a firmware upload, then reload
+    $("#restartControllerForm").unbind('submit').submit(function (e) {
+        e.preventDefault();
+        $("#restartControllerForm button").prop('disabled', true);
+        $("#restartinfo").text("Restart requested ...");
+        var t0 = Date.now();
+        $.ajax({ type: 'POST', url: '/post/restartcontroller', data: $(this).serialize(), timeout: 5000 })
+            .always(function () {
+                setTimeout(ctrlWaitForRestart, 2000, t0, "#restartinfo", function () {
+                    $("#restartControllerForm button").prop('disabled', false);
+                });
+            });
+        return false;
+    });
+
+
     $("#haForm").unbind('submit').submit(function (e) {
         e.preventDefault();
 
@@ -2151,6 +2558,7 @@ $(function () {
             },
         });
     });
+
 
 
     $("#rulesForm").unbind('submit').submit(function (e) {
@@ -2272,7 +2680,7 @@ $(function () {
     });
 
     $.ajaxPrefilter(function (options, originalOptions, jqXHR) {
-        if (originalOptions.type.toUpperCase() !== 'POST' || options.type.toUpperCase() !== 'POST') {
+        if ((originalOptions.type || 'GET').toUpperCase() !== 'POST' || (options.type || 'GET').toUpperCase() !== 'POST') {
             return;
         }
 
@@ -2300,8 +2708,6 @@ $(function () {
         timer_postTileVisibiltity = setTimeout(postTileVisibiltity, 3500);
     });
 
-    $("#file_sel").change(function () { upload_firmware(); });
-    $("#uploadfw").click(function () { $("#file_sel").click(); });
 
     $("#uploadfile").click(function () { $("#uploadfile_sel").click(); });
     $("#uploadfile_sel").change(function () { upload_file(); });
@@ -2343,9 +2749,13 @@ $(function () {
 
     //On page ready
     queryBMS();
+    // report different module firmware (last check) on every page
+    setTimeout(modulesFwRefresh, 3000);
 
     //Automatically open correct sub-page based on hash
     let hash = $(location).attr('hash');
+    // old bookmarks: the AVR programmer page is now part of Utilities
+    if (hash == "#avrprogrammer") { hash = "#utility"; }
     switch (hash) {
         case "#tiles":
         case "#modules":
@@ -2355,7 +2765,6 @@ $(function () {
         case "#integration":
         case "#currentmonitor":
         case "#storage":
-        case "#avrprogrammer":
         case "#utility":
         case "#history":
             $(hash).click();

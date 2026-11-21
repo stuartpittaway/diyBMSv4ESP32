@@ -60,9 +60,19 @@ void diyBMSHAL::FlashNotificationLed(size_t times, uint32_t milliseconds)
   }
 }
 
+// Test variants (V450_BL_*_TEST) flash 20x fast instead of 4x slowly at power up,
+// so it is immediately visible on the module whether the chain update worked
+
+#ifndef POWERON_FLASHES
+#define POWERON_FLASHES 4
+#endif
+#ifndef POWERON_FLASH_MS
+#define POWERON_FLASH_MS 150
+#endif
+
 void diyBMSHAL::PowerOn_Notification_led()
 {
-  FlashNotificationLed(4, 150);
+  FlashNotificationLed(POWERON_FLASHES, POWERON_FLASH_MS);
 }
 
 void diyBMSHAL::double_tap_Notification_led()

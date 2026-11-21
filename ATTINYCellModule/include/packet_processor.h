@@ -16,6 +16,7 @@
 #include "defines.h"
 #include "settings.h"
 #include "crc16.h"
+#include "fwupdate_module.h"
 
 #define ADC_CELL_VOLTAGE 0
 #define ADC_INTERNAL_TEMP 1
@@ -93,6 +94,10 @@ public:
 
   //Count down which starts after the current cycle of bypass has completed (aka cool down period whilst voltage may rise again)
   uint8_t bypassHasJustFinished;
+
+  // Set by FW_ENTER_BOOT, main.cpp then starts the bootloader
+
+  volatile bool EnterBootloaderRequested = false;
 
   bool IsBypassActive()
   {
