@@ -1454,7 +1454,7 @@ esp_err_t api_handler(httpd_req_t *req)
 
   // Don't forget URLs can have a querystring attached to them!
   auto questionmark = name.find("?", 0);
-  if (questionmark > 0)
+  if (questionmark != std::string::npos)
   {
     // Strip string at querystring
     name = name.substr(0, questionmark);
