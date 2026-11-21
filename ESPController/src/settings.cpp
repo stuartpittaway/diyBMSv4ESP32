@@ -1224,6 +1224,16 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
 
 }
 
+// Copy a JSON string into a fixed size buffer, always null terminated.
+// Keeps the existing (default) value when the key is missing or not a string.
+static void copyJsonString(char *dest, size_t destSize, JsonVariantConst value)
+{
+    if (value.is<const char *>())
+    {
+        strlcpy(dest, value.as<const char *>(), destSize);
+    }
+}
+
 // helpers for JSONToSettings to keep complexity low
 static void applyBasicSettings(const JsonObject &root, diybms_eeprom_settings *settings)
 {
@@ -1244,7 +1254,7 @@ static void applyBasicSettings(const JsonObject &root, diybms_eeprom_settings *s
     settings->timeZone = root[timeZone_JSONKEY];
     settings->minutesTimeZone = root[minutesTimeZone_JSONKEY];
     settings->daylight = root[daylight_JSONKEY];
-    strncpy(settings->ntpServer, root[ntpServer_JSONKEY].as<String>().c_str(), sizeof(settings->ntpServer));
+    copyJsonString(settings->ntpServer, sizeof(settings->ntpServer), root[ntpServer_JSONKEY]);
 
     settings->loggingEnabled = root[loggingEnabled_JSONKEY];
     settings->loggingFrequencySeconds = root[loggingFrequencySeconds_JSONKEY];
@@ -1274,7 +1284,7 @@ static void applyBasicSettings(const JsonObject &root, diybms_eeprom_settings *s
     settings->rs485parity = root[rs485parity_JSONKEY];
     settings->rs485stopbits = root[rs485stopbits_JSONKEY];
 
-    strncpy(settings->language, root[language_JSONKEY].as<String>().c_str(), sizeof(settings->language));
+    copyJsonString(settings->language, sizeof(settings->language), root[language_JSONKEY]);
 
     settings->protocol = (ProtocolEmulation)root[protocol_JSONKEY];
     settings->canbusinverter = (CanBusInverter)root[canbusinverter_JSONKEY];
@@ -1313,7 +1323,7 @@ static void applyBasicSettings(const JsonObject &root, diybms_eeprom_settings *s
     settings->soh_lifetime_battery_cycles = root[soh_lifetime_battery_cycles_JSONKEY];
     settings->soh_eol_capacity = root[soh_eol_capacity_JSONKEY];
 
-    strncpy(settings->homeassist_apikey, root[homeassist_apikey_JSONKEY].as<String>().c_str(), sizeof(settings->homeassist_apikey));
+    copyJsonString(settings->homeassist_apikey, sizeof(settings->homeassist_apikey), root[homeassist_apikey_JSONKEY]);
 }
 
 static void applyMqttSettings(const JsonObject &root, diybms_eeprom_settings *settings)
@@ -1324,10 +1334,10 @@ static void applyMqttSettings(const JsonObject &root, diybms_eeprom_settings *se
 
     settings->mqtt_enabled = mqtt[mqtt_enabled_JSONKEY];
     settings->mqtt_basic_cell_reporting = mqtt[mqtt_basic_cell_reporting_JSONKEY];
-    strncpy(settings->mqtt_uri, mqtt[mqtt_uri_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_uri));
-    strncpy(settings->mqtt_topic, mqtt[mqtt_topic_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_topic));
-    strncpy(settings->mqtt_username, mqtt[mqtt_username_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_username));
-    strncpy(settings->mqtt_password, mqtt[mqtt_password_JSONKEY].as<String>().c_str(), sizeof(settings->mqtt_password));
+    copyJsonString(settings->mqtt_uri, sizeof(settings->mqtt_uri), mqtt[mqtt_uri_JSONKEY]);
+    copyJsonString(settings->mqtt_topic, sizeof(settings->mqtt_topic), mqtt[mqtt_topic_JSONKEY]);
+    copyJsonString(settings->mqtt_username, sizeof(settings->mqtt_username), mqtt[mqtt_username_JSONKEY]);
+    copyJsonString(settings->mqtt_password, sizeof(settings->mqtt_password), mqtt[mqtt_password_JSONKEY]);
 }
 
 static void applyInfluxdbSettings(const JsonObject &root, diybms_eeprom_settings *settings)
@@ -1337,10 +1347,10 @@ static void applyInfluxdbSettings(const JsonObject &root, diybms_eeprom_settings
         return;
 
     settings->influxdb_enabled = influxdb[influxdb_enabled_JSONKEY];
-    strncpy(settings->influxdb_apitoken, influxdb[influxdb_apitoken_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_apitoken));
-    strncpy(settings->influxdb_databasebucket, influxdb[influxdb_databasebucket_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_databasebucket));
-    strncpy(settings->influxdb_orgid, influxdb[influxdb_orgid_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_orgid));
-    strncpy(settings->influxdb_serverurl, influxdb[influxdb_serverurl_JSONKEY].as<String>().c_str(), sizeof(settings->influxdb_serverurl));
+    copyJsonString(settings->influxdb_apitoken, sizeof(settings->influxdb_apitoken), influxdb[influxdb_apitoken_JSONKEY]);
+    copyJsonString(settings->influxdb_databasebucket, sizeof(settings->influxdb_databasebucket), influxdb[influxdb_databasebucket_JSONKEY]);
+    copyJsonString(settings->influxdb_orgid, sizeof(settings->influxdb_orgid), influxdb[influxdb_orgid_JSONKEY]);
+    copyJsonString(settings->influxdb_serverurl, sizeof(settings->influxdb_serverurl), influxdb[influxdb_serverurl_JSONKEY]);
     settings->influxdb_loggingFreqSeconds = influxdb[influxdb_loggingFreqSeconds_JSONKEY];
 }
 
