@@ -285,6 +285,7 @@ void Rules::RunRules(
         setRuleStatus(Rule::ModuleUnderTemperatureExternal, false);
 
         // Abort processing any more rules until controller is stable/running state
+        UpdateActiveRuleCount();
         return;
     }
 
@@ -403,7 +404,11 @@ void Rules::RunRules(
         setRuleStatus(Rule::BankRange, false);
     }
 
-    // Total up the active rules
+    UpdateActiveRuleCount();
+}
+
+void Rules::UpdateActiveRuleCount()
+{
     active_rule_count = 0;
 
     for (const auto &v : rule_outcome)

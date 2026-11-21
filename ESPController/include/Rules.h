@@ -77,6 +77,9 @@ private:
 
     bool SharedChargingDischargingRules(const diybms_eeprom_settings *mysettings) const;
 
+    /// @brief Recount the number of TRUE values in rule_outcome
+    void UpdateActiveRuleCount();
+
     /// @brief Calculate future time (specified in minutes)
     /// @param minutes number of minutes to delay for
     /// @return microseconds "ticks" for esp_timer
