@@ -893,6 +893,7 @@ void SaveWIFI(const wifi_eeprom_settings *wifi)
         ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "DNS1", wifi->wifi_dns1));
         ESP_ERROR_CHECK(nvs_set_u32(nvs_handle, "DNS2", wifi->wifi_dns2));
         ESP_ERROR_CHECK(nvs_set_u8(nvs_handle, "MANUALCONFIG", wifi->manualConfig));
+        ESP_ERROR_CHECK(nvs_commit(nvs_handle));
         nvs_close(nvs_handle);
     }
 }
