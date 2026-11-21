@@ -2350,7 +2350,8 @@ $(function () {
                 $("#total_ah_charge").val(Math.trunc(data.chargeconfig.total_mah_charge / 1000));
                 $("#total_ah_discharge").val(Math.trunc(data.chargeconfig.total_mah_discharge / 1000));
                 $("#estimate_bat_cycle").val(data.chargeconfig.estimatebatterycycle);
-                $("#stateofhealth").val((data.chargeconfig.stateofhealth).toFixed(2));
+                // stateofhealth arrives as null if the controller calculated NaN/infinity (JSON has no NaN)
+                $("#stateofhealth").val(data.chargeconfig.stateofhealth == null ? "" : data.chargeconfig.stateofhealth.toFixed(2));
 
                 $("#chargevolt").val((data.chargeconfig.chargevolt / 10.0).toFixed(1));
                 $("#chargecurrent").val((data.chargeconfig.chargecurrent / 10.0).toFixed(1));

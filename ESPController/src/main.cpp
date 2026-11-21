@@ -3326,6 +3326,16 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
 void CalculateStateOfHealth(diybms_eeprom_settings *settings)
 {
   float batcap_mah = 1000.0F * settings->nominalbatcap;
+
+  // Avoid divide by zero (NaN/infinity) if the capacity or expected cycle count is not set
+  if (batcap_mah <= 0.0F || settings->soh_lifetime_battery_cycles == 0)
+  {
+    ESP_LOGW(TAG, "State of health not calculated, nominal capacity or lifetime cycles is zero");
+    settings->soh_estimated_battery_cycles = 0;
+    settings->soh_percent = 100.0F;
+    return;
+  }
+
   float in = (float)settings->soh_total_milliamphour_in / batcap_mah;
   float out = (float)settings->soh_total_milliamphour_out / batcap_mah;
   // Take worst case number of cycles
