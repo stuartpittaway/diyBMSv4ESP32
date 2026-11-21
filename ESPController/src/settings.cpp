@@ -987,7 +987,10 @@ static void enforceNumericLimits(diybms_eeprom_settings *settings, const diybms_
     else if (settings->sensitivity > 1000)
         settings->sensitivity = 1000;
 
-    if (settings->current_value1 > 1000)
+    // Must be at least 1, zero causes a divide by zero in CalculateDynamicChargeCurrent
+    if (settings->current_value1 < 1)
+        settings->current_value1 = 1;
+    else if (settings->current_value1 > 1000)
         settings->current_value1 = 1000;
     if (settings->current_value2 > 1000)
         settings->current_value2 = 1000;

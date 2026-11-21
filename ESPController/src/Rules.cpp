@@ -546,11 +546,6 @@ void Rules::CalculateDynamicChargeCurrent(const diybms_eeprom_settings *mysettin
     ESP_LOGD(TAG, "value1=%f", value1);
     ESP_LOGD(TAG, "value2=%f", value2);
 
-    // This is always 1 :-)
-    double knee_voltage = 0 / 100.0F;
-    double at_knee = pow(value1, knee_voltage * pow(knee_voltage, value2));
-    ESP_LOGD(TAG, "at_knee=%f", at_knee);
-
     double target_cell_voltage = (mysettings->cellmaxmv - mysettings->kneemv) / 100.0F;
     double at_target_cell_voltage = pow(value1, target_cell_voltage * pow(target_cell_voltage, value2));
     ESP_LOGD(TAG, "at_target_cell_voltage=%f", at_target_cell_voltage);
@@ -559,12 +554,13 @@ void Rules::CalculateDynamicChargeCurrent(const diybms_eeprom_settings *mysettin
     double at_actual_cell_voltage = pow(value1, actual_cell_voltage * pow(actual_cell_voltage, value2));
     ESP_LOGD(TAG, "at_actual_cell_voltage=%f", at_actual_cell_voltage);
 
-    double percent = 1 - (at_actual_cell_voltage / at_knee) / at_target_cell_voltage;
+    // (the value at the knee voltage is always pow(value1, 0) = 1, so it is not part of the calculation)
+    double percent = 1 - at_actual_cell_voltage / at_target_cell_voltage;
     ESP_LOGD(TAG, "percent=%f", percent);
 
-    if (percent < 0.01)
+    if (!(percent >= 0.01))
     {
-        // Catch small values and also negatives, 1% is the lowest we go...
+        // Catch small values, negatives and NaN/inf results, 1% is the lowest we go...
         percent = 0.01;
     }
 
