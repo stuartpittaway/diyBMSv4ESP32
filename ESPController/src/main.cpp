@@ -103,9 +103,6 @@ bool net_services_started = false;
 
 History history = History();
 
-// holds modbus data
-uint8_t frame[256];
-
 CardAction card_action = CardAction::Idle;
 
 // Screen variables in tft.cpp
@@ -2561,7 +2558,7 @@ static void PublishCurrentMonitor(const currentmonitoring_struct &newvalues)
 }
 
 // Extract the current monitor MODBUS registers into our internal STRUCTURE variables
-void ProcessDIYBMSCurrentMonitorRegisterReply(uint8_t length)
+void ProcessDIYBMSCurrentMonitorRegisterReply(const uint8_t *frame, uint8_t length)
 {
   // Build the new values in a private copy, then publish them in one go (see PublishCurrentMonitor)
   // so other tasks never see a part decoded/byte swapped struct.
@@ -3033,6 +3030,9 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
 // RS485 receive
 [[noreturn]] void rs485_rx(void *)
 {
+  // Holds the received MODBUS reply, only used by this task
+  uint8_t frame[256];
+
   for (;;)
   {
     // If Pylon Tech RS485 protocol emulation is enabled, MODBUS current shunt can't be used
@@ -3145,7 +3145,7 @@ void send_ext_canbus_message(const uint32_t identifier, const uint8_t *buffer, c
             {
               if (id == mysettings.currentMonitoringModBusAddress && cmd == 3)
               {
-                ProcessDIYBMSCurrentMonitorRegisterReply(length);
+                ProcessDIYBMSCurrentMonitorRegisterReply(frame, length);
 
                 if (_tft_screen_available)
                 {
