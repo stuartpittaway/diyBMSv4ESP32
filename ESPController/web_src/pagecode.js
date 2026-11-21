@@ -55,6 +55,58 @@ function themeToken(name) {
     return getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
 }
 
+// Colour themes (style.css). 'blue' (Blue slate) is the :root default, the others are
+// <html data-theme="...">. The choice is saved per browser, not on the controller; the inline
+// script in default.htm applies it before the page draws. Keep its list in step with this one.
+const THEMES = ['blue', 'teal', 'original', 'daylight'];
+const THEME_STORAGE_KEY = 'diybmsTheme';
+
+function currentTheme() {
+    const t = document.documentElement.getAttribute('data-theme');
+    return THEMES.includes(t) ? t : 'blue';
+}
+
+function applyTheme(theme) {
+    if (!THEMES.includes(theme)) { theme = 'blue'; }
+    if (theme === 'blue') {
+        document.documentElement.removeAttribute('data-theme');
+    } else {
+        document.documentElement.setAttribute('data-theme', theme);
+    }
+    try {
+        if (theme === 'blue') {
+            localStorage.removeItem(THEME_STORAGE_KEY);
+        } else {
+            localStorage.setItem(THEME_STORAGE_KEY, theme);
+        }
+    } catch (e) {
+        // Storage blocked (private window etc.) - theme still applies until the page is reloaded
+    }
+    rebuildCharts();
+}
+
+// ECharts copies the theme colours when a chart is created, so throw the charts away and let
+// them be created again with the new colours. g1/g2 (home page) are re-created by updateChart()
+// when the home page is showing, g3 (charge current graph) by DrawChargingGraph().
+function rebuildCharts() {
+    ['g1', 'g2', 'g3'].forEach(function (name) {
+        if (window[name]) {
+            window[name].dispose();
+            window[name] = null;
+        }
+    });
+    if (lastMonitorData != null) {
+        try {
+            updateChart(lastMonitorData);
+        } catch (e) {
+            console.error("updateChart failed", e);
+        }
+    }
+    if ($('#graph3').is(':visible')) {
+        DrawChargingGraph();
+    }
+}
+
 const INTERNALRULENUMBER = {
     EmergencyStop: 0,
     BMSError: 1,
@@ -1804,6 +1856,7 @@ $(function () {
         $("#TFTSleep").val(TFT_SLEEP_SECONDS);
         $("#GraphLabels").val(GRAPH_LABELS);
         $("#FriendlyName").val(FRIENDLY_NAME);
+        $("#Theme").val(currentTheme());
 
         switchPage("#settingsPage");
 
@@ -2555,6 +2608,11 @@ $(function () {
                 showFailure();
             },
         });
+    });
+
+    // Theme is a browser setting: apply and save as soon as it changes, it is not part of the form post
+    $("#Theme").on('change', function () {
+        applyTheme(this.value);
     });
 
     $("#displaySettingForm").off('submit').on('submit', function (e) {

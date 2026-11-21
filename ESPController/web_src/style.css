@@ -4,14 +4,87 @@
   The --chart-* tokens are read by pagecode.js (themeToken) for the ECharts graphs,
   keep those as 6 digit hex (#rrggbb) as the code appends an alpha channel to some of them.
 
-  Theme: "instrument panel" - cool slate surfaces, a single teal accent,
-  and green/amber/red reserved for meaning (charging/discharging/alarm).
+  Themes are chosen per browser in Display Settings and saved in localStorage
+  (applyTheme() in pagecode.js; an inline script in default.htm sets <html data-theme>
+  before the page draws). :root holds the default theme, Blue slate. Every other theme
+  must define every colour token below; only the fonts are shared.
+  Green/amber/red are reserved for meaning (charging/discharging/alarm) in every theme.
 */
+
+/* Blue slate (default) - dark slate surfaces, blue accent */
 :root{
   color-scheme:dark;
   --font-ui:"Noticia Text",system-ui,-apple-system,"Segoe UI",Roboto,Arial,Helvetica,sans-serif;
   --font-mono:'Reddit Mono',ui-monospace,Consolas,monospace;
 
+  --bg:#10151c;
+  --bg-gradient:radial-gradient(1200px 500px at 50% -150px,#1d2836 0%,rgba(16,21,28,0) 70%);
+  --header-bg:rgba(16,21,28,.85);
+  --surface:#18202a;
+  --surface-2:#222c38;
+  --border:#2c3847;
+  --border-strong:#3a4859;
+  --border-dashed:#4f5f73;
+  --field-bg:#121922;
+  --field-border:#334152;
+  --row-alt:rgba(255,255,255,.025);
+  --row-hover:rgba(76,159,254,.07);
+  --logo-bg:transparent;
+  --illus-bg:transparent;
+
+  --text:#e6edf3;
+  --text-muted:#9eabba;
+  --text-dim:#66758a;
+  --text-strong:#fff;
+  --text-on-bright:#06140a;
+
+  --accent:#4c9ffe;
+  --accent-hover:#79b8ff;
+  --accent-text:#04172e;
+  --accent-tint:rgba(76,159,254,.14);
+  --accent-ring:rgba(76,159,254,.4);
+  --value:#8cc2ff;
+
+  --ok:#3fb950;
+  --ok-tint:rgba(63,185,80,.15);
+  --warn:#e3a23b;
+  --warn-tint:rgba(227,162,59,.16);
+  --danger:#f0605a;
+  --danger-tint:rgba(240,96,90,.16);
+  --danger-text:#fff;
+
+  --overlay-bg:rgba(10,14,19,.94);
+  --overlay-link:#9eabba;
+  --overlay-link-hover:#4c9ffe;
+  --shadow:rgba(0,0,0,.5);
+  --shadow-card:0 1px 3px rgba(0,0,0,.35);
+  --progress-1:#4c9ffe;
+  --progress-2:#3b8ae6;
+  --progress-3:#2f6fb3;
+
+  /* Charts (pagecode.js) */
+  --chart-bank-1:#3d8be0;
+  --chart-bank-2:#2f6fb3;
+  --chart-bank-3:#8fb4d9;
+  --chart-bank-4:#6b7f99;
+  --chart-bar:#3d8be0;
+  --chart-bypass:#f0605a;
+  --chart-highest:#f472b6;
+  --chart-lowest:#f2c14e;
+  --chart-pwm:#fde047;
+  --chart-minmax:#9eabba;
+  --chart-emphasis:#ffffff;
+  --chart-emphasis-label:#cbd5e1;
+  --chart-axis:#9eabba;
+  --chart-axis-label:#cbd5e1;
+  --chart-label:#e6edf3;
+  --chart-label-outline:#10151c;
+  --chart-tooltip:#3a4859;
+}
+
+/* Instrument panel - near-black slate, teal accent */
+:root[data-theme="teal"]{
+  color-scheme:dark;
   --bg:#0b0f14;
   --bg-gradient:radial-gradient(1200px 500px at 50% -150px,#17212c 0%,rgba(11,15,20,0) 70%);
   --header-bg:rgba(11,15,20,.82);
@@ -24,6 +97,8 @@
   --field-border:#2d3846;
   --row-alt:rgba(255,255,255,.025);
   --row-hover:rgba(45,212,191,.06);
+  --logo-bg:transparent;
+  --illus-bg:transparent;
 
   --text:#e6edf3;
   --text-muted:#8b98a9;
@@ -55,7 +130,6 @@
   --progress-2:#14b8a6;
   --progress-3:#0d9488;
 
-  /* Charts (pagecode.js) */
   --chart-bank-1:#14a394;
   --chart-bank-2:#2b8fd6;
   --chart-bank-3:#6366f1;
@@ -73,6 +147,142 @@
   --chart-label:#e6edf3;
   --chart-label-outline:#0b0f14;
   --chart-tooltip:#334155;
+}
+
+/* Original - the pre November 2026 grey gradient and dodger blue accent */
+:root[data-theme="original"]{
+  color-scheme:dark;
+  --bg:#000;
+  --bg-gradient:linear-gradient(to bottom,#212121,#272727,#2e2e2e,#343434,#3b3b3b,#393939,#363636,#343434,#282828,#1d1d1d,#121212,#000);
+  --header-bg:rgba(0,0,0,.35);
+  --surface:#525252;
+  --surface-2:#5e5e5e;
+  --border:#404040;
+  --border-strong:#313131;
+  --border-dashed:#888888;
+  --field-bg:#3a3a3a;
+  --field-border:#6a6a6a;
+  --row-alt:rgba(255,255,255,.04);
+  --row-hover:rgba(30,144,255,.12);
+  --logo-bg:transparent;
+  --illus-bg:transparent;
+
+  --text:#e8e8e8;
+  --text-muted:#c1bdbd;
+  --text-dim:#808080;
+  --text-strong:#fff;
+  --text-on-bright:#000;
+
+  --accent:#1e90ff;
+  --accent-hover:#0066cc;
+  --accent-text:#fff;
+  --accent-tint:rgba(30,144,255,.22);
+  --accent-ring:rgba(30,144,255,.45);
+  --value:#55a1ea;
+
+  --ok:#49be3b;
+  --ok-tint:rgba(73,190,59,.2);
+  --warn:#ff9933;
+  --warn-tint:rgba(255,153,51,.2);
+  --danger:#ca3e47;
+  --danger-tint:rgba(202,62,71,.25);
+  --danger-text:#fff;
+
+  --overlay-bg:rgba(0,0,0,.8);
+  --overlay-link:#818181;
+  --overlay-link-hover:#f1f1f1;
+  --shadow:rgba(0,0,0,.6);
+  --shadow-card:0 1px 3px rgba(0,0,0,.45);
+  --progress-1:#336ffc;
+  --progress-2:#036ffc;
+  --progress-3:#1163cf;
+
+  --chart-bank-1:#55a1ea;
+  --chart-bank-2:#33628f;
+  --chart-bank-3:#498fd0;
+  --chart-bank-4:#6d8ea0;
+  --chart-bar:#55a1ea;
+  --chart-bypass:#b44247;
+  --chart-highest:#8c265d;
+  --chart-lowest:#b6a016;
+  --chart-pwm:#f0e400;
+  --chart-minmax:#c1bdbd;
+  --chart-emphasis:#ffffff;
+  --chart-emphasis-label:#aaaaaa;
+  --chart-axis:#c1bdbd;
+  --chart-axis-label:#ffffff;
+  --chart-label:#eeeeee;
+  --chart-label-outline:#313131;
+  --chart-tooltip:#6a7985;
+}
+
+/* Daylight - light theme for bright rooms and phones outdoors.
+   Bars are a lighter blue so the dark bar labels stay readable.
+   The logo and calibration drawing are made for dark backgrounds, so they get a dark backing. */
+:root[data-theme="daylight"]{
+  color-scheme:light;
+  --bg:#eef1f4;
+  --bg-gradient:radial-gradient(1200px 500px at 50% -150px,#ffffff 0%,rgba(238,241,244,0) 70%);
+  --header-bg:rgba(255,255,255,.88);
+  --surface:#ffffff;
+  --surface-2:#e6ebf0;
+  --border:#d5dce4;
+  --border-strong:#b8c3cf;
+  --border-dashed:#9aa6b4;
+  --field-bg:#f7f9fb;
+  --field-border:#c3ccd6;
+  --row-alt:rgba(16,24,40,.03);
+  --row-hover:rgba(31,111,209,.06);
+  --logo-bg:#1d2530;
+  --illus-bg:#1d2530;
+
+  --text:#17202b;
+  --text-muted:#556274;
+  --text-dim:#8a96a5;
+  --text-strong:#0b1118;
+  --text-on-bright:#fff;
+
+  --accent:#1f6fd1;
+  --accent-hover:#185bb0;
+  --accent-text:#fff;
+  --accent-tint:rgba(31,111,209,.1);
+  --accent-ring:rgba(31,111,209,.3);
+  --value:#1458b0;
+
+  --ok:#1f8f3a;
+  --ok-tint:rgba(31,143,58,.12);
+  --warn:#b7700b;
+  --warn-tint:rgba(183,112,11,.13);
+  --danger:#c9302c;
+  --danger-tint:rgba(201,48,44,.1);
+  --danger-text:#fff;
+
+  --overlay-bg:rgba(238,241,244,.96);
+  --overlay-link:#556274;
+  --overlay-link-hover:#1f6fd1;
+  --shadow:rgba(16,24,40,.18);
+  --shadow-card:0 1px 2px rgba(16,24,40,.08);
+  --progress-1:#1f6fd1;
+  --progress-2:#3b82e0;
+  --progress-3:#185bb0;
+
+  --chart-bank-1:#6fa8ec;
+  --chart-bank-2:#a9c7ee;
+  --chart-bank-3:#8e9be0;
+  --chart-bank-4:#a7b4c4;
+  --chart-bar:#6fa8ec;
+  --chart-bypass:#c9302c;
+  --chart-highest:#e0609f;
+  --chart-lowest:#f0a340;
+  --chart-pwm:#a88a00;
+  --chart-minmax:#556274;
+  --chart-emphasis:#0b1118;
+  --chart-emphasis-label:#334155;
+  --chart-axis:#556274;
+  --chart-axis-label:#17202b;
+  --chart-label:#17202b;
+  --chart-label-outline:#ffffff;
+  --chart-tooltip:#556274;
 }
 
 *{box-sizing:border-box}
@@ -93,6 +303,7 @@ a:hover{text-decoration-color:var(--text)}
 .header a.active{background-color:var(--accent-tint);color:var(--accent)}
 .header a:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-ring)}
 
+.logo{background-color:var(--logo-bg);border-radius:6px}
 .logocontainer{float:left;min-width:191px;height:52px;display:flex;align-items:center;gap:8px}
 .friendly-name{display:inline-block;max-width:260px;padding:2px 10px;border-radius:999px;background-color:var(--accent-tint);color:var(--accent);font-size:13px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .flexgrid{width:100%;display:flex;flex-wrap:wrap;justify-content:left}
@@ -271,7 +482,7 @@ form input[type='checkbox'],form input[type='checkbox']::before{transition:none}
 .calibsum div{display:flex;justify-content:space-between;gap:16px}
 .calibsum b{font-family:var(--font-mono);color:var(--value)}
 #calibHint{font-size:12px;color:var(--text-muted);margin:8px 0 0 0;max-width:260px}
-.calibsvg{width:340px;max-width:100%;height:auto}
+.calibsvg{width:340px;max-width:100%;height:auto;background-color:var(--illus-bg);border-radius:8px}
 #Calib.calchanged{outline:2px solid var(--ok)}
 @media screen and (min-width:1100px){.cfgrow{flex-wrap:nowrap}}
 /* Controller firmware upgrade progress bar (Utilities) */
