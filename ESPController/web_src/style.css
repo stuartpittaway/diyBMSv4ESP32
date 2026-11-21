@@ -9,8 +9,8 @@
 */
 :root{
   color-scheme:dark;
-  --font-ui:system-ui,-apple-system,"Segoe UI",Roboto,Arial,Helvetica,sans-serif;
-  --font-mono:'Share Tech Mono',ui-monospace,Consolas,monospace;
+  --font-ui:"Noticia Text",system-ui,-apple-system,"Segoe UI",Roboto,Arial,Helvetica,sans-serif;
+  --font-mono:'Reddit Mono',ui-monospace,Consolas,monospace;
 
   --bg:#0b0f14;
   --bg-gradient:radial-gradient(1200px 500px at 50% -150px,#17212c 0%,rgba(11,15,20,0) 70%);
