@@ -21,7 +21,6 @@
 #define USE_ESP_IDF_LOG 1
 static constexpr const char *const TAG = "diybms";
 
-#define CONFIG_DISABLE_HAL_LOCKS 1
 
 #include "esp_log.h"
 #include "esp_netif.h"

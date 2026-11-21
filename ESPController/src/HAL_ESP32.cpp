@@ -1,7 +1,6 @@
 #define USE_ESP_IDF_LOG 1
 static constexpr const char *const TAG = "diybms-hal";
 
-#define CONFIG_DISABLE_HAL_LOCKS 1
 
 #include <esp_ipc.h>
 #include "defines.h"

@@ -30,7 +30,6 @@ INA229-Q1 AEC-Q100, 85-V, 20-Bit, Ultra-Precise Power/Energy/Charge Monitor With
 https://www.ti.com/lit/ds/symlink/ina229-q1.pdf?ts=1599057970767
 */
 
-#define CONFIG_DISABLE_HAL_LOCKS 1
 
 #pragma once
 

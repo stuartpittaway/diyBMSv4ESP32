@@ -4,7 +4,8 @@ FOR DIYBMS ESP32 CONTROLLER PCB - THIS IS THE LARGER
 PCB WITH RS485/CANBUS/TFT DISPLAY
 */
 
-#define CONFIG_DISABLE_HAL_LOCKS 1
+// Do NOT define CONFIG_DISABLE_HAL_LOCKS here: the Arduino SPI/SD libraries are built with HAL locks enabled,
+// and defining it changes sizeof(SPIClass), which corrupts memory next to the vspi object.
 
 #include <Arduino.h>
 #include "driver/i2c.h"
