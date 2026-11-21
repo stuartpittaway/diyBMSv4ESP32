@@ -95,6 +95,12 @@ rest:
         unit_of_measurement: "%"
         device_class: "battery"
 
+      - unique_id: "diybms.nominal_remaining_kwh"
+        value_template: "{% if 'nomremainkwh' in value_json %}{{ value_json.nomremainkwh }}{% else %}0{% endif %}"
+        name: "DIYBMS Nominal remaining energy"
+        unit_of_measurement: "kWh"
+        device_class: "energy_storage"
+
       - unique_id: "diybms.dynamic_charge_voltage"
         value_template: "{% if 'dyncv' in value_json %}{{ value_json.dyncv }}{% else %}0{% endif %}"
         name: "DIYBMS Dynamic charge voltage"

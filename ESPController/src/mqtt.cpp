@@ -337,7 +337,7 @@ void MQTTCurrentMonitoring(const currentmonitoring_struct *currentMonitor)
 
         if (mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_MODBUS || mysettings.currentMonitoringDevice == CurrentMonitorDevice::DIYBMS_CURRENT_MON_INTERNAL)
         {
-            status.append(",\"mAhIn\":").append(std::to_string(currentMonitor->modbus.milliamphour_in)).append(",\"mAhOut\":").append(std::to_string(currentMonitor->modbus.milliamphour_out)).append(",\"DailymAhIn\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_in)).append(",\"DailymAhOut\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_out)).append(",\"temperature\":").append(std::to_string(currentMonitor->modbus.temperature)).append(",\"relayState\":").append(std::to_string(currentMonitor->RelayState ? 1 : 0)).append(",\"soc\":").append(float_to_string(currentMonitor->stateofcharge));
+            status.append(",\"mAhIn\":").append(std::to_string(currentMonitor->modbus.milliamphour_in)).append(",\"mAhOut\":").append(std::to_string(currentMonitor->modbus.milliamphour_out)).append(",\"DailymAhIn\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_in)).append(",\"DailymAhOut\":").append(std::to_string(currentMonitor->modbus.daily_milliamphour_out)).append(",\"temperature\":").append(std::to_string(currentMonitor->modbus.temperature)).append(",\"relayState\":").append(std::to_string(currentMonitor->RelayState ? 1 : 0)).append(",\"soc\":").append(float_to_string(currentMonitor->stateofcharge)).append(",\"nomremainkwh\":").append(float_to_string(NominalRemainingKwh(mysettings, currentMonitor->stateofcharge)));
         }
     }
     status.append("}");

@@ -200,6 +200,8 @@ struct diybms_eeprom_settings
   uint16_t canbusbaud;
   //Nominal battery capacity (amp hours) 
   uint16_t nominalbatcap;
+  // Nominal cell voltage in millivolts (e.g. 3200 for LFP), used for nominal kWh remaining
+  uint16_t nominalcellmv;
   // Maximum charge voltage - scale 0.1
   uint16_t chargevolt;
   // Maximum charge current - scale 0.1
@@ -531,5 +533,14 @@ struct wifi_eeprom_settings
   uint32_t wifi_dns2;
   uint8_t manualConfig;
 };
+
+// Nominal energy remaining (kWh) = nominal capacity (Ah) x SoC x (series cells x nominal cell voltage)
+// This is an estimate: it ignores voltage sag and the discharge curve.
+inline float NominalRemainingKwh(const diybms_eeprom_settings &settings, float stateofcharge)
+{
+  const float remaining_ah = (float)settings.nominalbatcap * (stateofcharge / 100.0F);
+  const float nominal_pack_volts = (float)settings.totalNumberOfSeriesModules * ((float)settings.nominalcellmv / 1000.0F);
+  return (remaining_ah * nominal_pack_volts) / 1000.0F;
+}
 
 #endif

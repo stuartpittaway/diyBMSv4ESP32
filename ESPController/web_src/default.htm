@@ -114,6 +114,10 @@
       <span class="x t" title="State of charge">S.o.C:</span>
       <span class="x v"></span>
     </div>
+    <div id="nomremainkwh" class="stat">
+      <span class="x t" title="Nominal energy remaining (kWh): nominal capacity Ah x SoC x series cells x nominal cell voltage">Nominal kWh remaining:</span>
+      <span class="x v"></span>
+    </div>
     <div id="current" class="stat">
       <span class="x t">Current:</span>
       <span class="x v"></span>
@@ -1114,6 +1118,11 @@
           <div>
             <label for="nominalbatcap">Nominal Battery Capacity (Amp-hours)</label>
             <input id="nominalbatcap" name="nominalbatcap" value="" type="number" min="1" max="9999" step="1" />
+          </div>
+
+          <div>
+            <label for="nominalcellmv" title="Used to estimate nominal kWh remaining (cells in series x this voltage x nominal Ah x SoC). LFP=3200, NMC=3600-3700, LTO=2300">Nominal cell voltage (mV)</label>
+            <input id="nominalcellmv" name="nominalcellmv" value="" type="number" min="1000" max="5000" step="10" />
           </div>
           <p>State of Health</p>
 

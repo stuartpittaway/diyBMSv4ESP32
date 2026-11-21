@@ -531,6 +531,7 @@ esp_err_t post_savechargeconfig_json_handler(httpd_req_t *req, bool urlEncoded)
     GetKeyValue(httpbuf, "canbusbaud", &mysettings.canbusbaud, urlEncoded);
 
     GetKeyValue(httpbuf, "nominalbatcap", &mysettings.nominalbatcap, urlEncoded);
+    GetKeyValue(httpbuf, "nominalcellmv", &mysettings.nominalcellmv, urlEncoded);
     GetKeyValue(httpbuf, "cellminmv", &mysettings.cellminmv, urlEncoded);
     GetKeyValue(httpbuf, "cellmaxmv", &mysettings.cellmaxmv, urlEncoded);
     GetKeyValue(httpbuf, "kneemv", &mysettings.kneemv, urlEncoded);

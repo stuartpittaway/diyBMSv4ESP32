@@ -49,6 +49,7 @@ static const char canbusinverter_JSONKEY[] = "canbusinverter";
 static const char canbusbaud_JSONKEY[] = "canbusbaud";
 static const char canbus_equipment_addr_JSONKEY[] = "canbusequip";
 static const char nominalbatcap_JSONKEY[] = "nominalbatcap";
+static const char nominalcellmv_JSONKEY[] = "nominalcellmv";
 static const char chargevolt_JSONKEY[] = "chargevolt";
 static const char chargecurrent_JSONKEY[] = "chargecurrent";
 static const char dischargecurrent_JSONKEY[] = "dischargecurrent";
@@ -139,6 +140,7 @@ static const char canbusinverter_NVSKEY[] = "canbusinverter";
 static const char canbusbaud_NVSKEY[] = "canbusbaud";
 static const char canbus_equipment_addr_NVSKEY[] = "canbusequip";
 static const char nominalbatcap_NVSKEY[] = "nominalbatcap";
+static const char nominalcellmv_NVSKEY[] = "nomcellmv";
 static const char chargevolt_NVSKEY[] = "cha_volt";
 static const char chargecurrent_NVSKEY[] = "cha_current";
 static const char dischargecurrent_NVSKEY[] = "dis_current";
@@ -484,6 +486,7 @@ void SaveConfiguration(const diybms_eeprom_settings *settings)
         MACRO_NVSWRITE(currentMonitoring_tempcompenabled)
 
         MACRO_NVSWRITE(nominalbatcap)
+        MACRO_NVSWRITE(nominalcellmv)
 
         MACRO_NVSWRITE(chargevolt)
         MACRO_NVSWRITE(chargecurrent)
@@ -623,6 +626,7 @@ void LoadConfiguration(diybms_eeprom_settings *settings)
 
         MACRO_NVSREAD_UINT8(canbus_equipment_addr)
         MACRO_NVSREAD(nominalbatcap)
+        MACRO_NVSREAD(nominalcellmv)
         MACRO_NVSREAD(chargevolt)
         MACRO_NVSREAD(chargecurrent)
         MACRO_NVSREAD(dischargecurrent)
@@ -716,6 +720,7 @@ void DefaultConfiguration(diybms_eeprom_settings *_myset)
     _myset->canbus_equipment_addr = 0;
     _myset->canbusbaud = 500;
     _myset->nominalbatcap = 280;    // Scale 1
+    _myset->nominalcellmv = 3200;   // mV per cell (LFP)
     _myset->chargevolt = 565;       // Scale 0.1
     _myset->chargecurrent = 650;    // Scale 0.1
     _myset->dischargecurrent = 650; // Scale 0.1
@@ -1189,6 +1194,7 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
     root[canbusbaud_JSONKEY] = settings->canbusbaud;
     root[canbus_equipment_addr_JSONKEY] = settings->canbus_equipment_addr;
     root[nominalbatcap_JSONKEY] = settings->nominalbatcap;
+    root[nominalcellmv_JSONKEY] = settings->nominalcellmv;
 
     root[chargevolt_JSONKEY] = settings->chargevolt;
     root[chargecurrent_JSONKEY] = settings->chargecurrent;
@@ -1302,6 +1308,7 @@ static void applyBasicSettings(const JsonObject &root, diybms_eeprom_settings *s
     settings->canbusbaud = root[canbusbaud_JSONKEY];
     settings->canbus_equipment_addr = root[canbus_equipment_addr_JSONKEY];
     settings->nominalbatcap = root[nominalbatcap_JSONKEY];
+    settings->nominalcellmv = root[nominalcellmv_JSONKEY] | 3200;
     settings->chargevolt = root[chargevolt_JSONKEY];
     settings->chargecurrent = root[chargecurrent_JSONKEY];
     settings->dischargecurrent = root[dischargecurrent_JSONKEY];

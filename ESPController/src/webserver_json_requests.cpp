@@ -659,6 +659,7 @@ esp_err_t content_handler_chargeconfig(httpd_req_t *req)
   settings["canbusbaud"] = mysettings.canbusbaud;
   settings["equip_addr"] = mysettings.canbus_equipment_addr;
   settings["nominalbatcap"] = mysettings.nominalbatcap;
+  settings["nominalcellmv"] = mysettings.nominalcellmv;
 
   settings["expectedlifetime_cycles"] = mysettings.soh_lifetime_battery_cycles;
   settings["eol_capacity"] = mysettings.soh_eol_capacity;
@@ -1067,6 +1068,8 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
 
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"(,"time100":%u,"time20":%u,"time10":%u)", time100, time20, time10);
 
+    bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, R"(,"nomremainkwh":%.2f)", NominalRemainingKwh(mysettings, currentMonitor.stateofcharge));
+
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "}");
   }
   else
@@ -1395,11 +1398,12 @@ esp_err_t ha_handler(httpd_req_t *req)
   if (mysettings.currentMonitoringEnabled && currentMonitor.validReadings)
   {
     bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused,
-                           R"(,"c":%.4f,"v":%.4f,"pwr":%.2f,"soc":%.2f)",
+                           R"(,"c":%.4f,"v":%.4f,"pwr":%.2f,"soc":%.2f,"nomremainkwh":%.2f)",
                            currentMonitor.modbus.current,
                            currentMonitor.modbus.voltage,
                            currentMonitor.modbus.power,
-                           currentMonitor.stateofcharge);
+                           currentMonitor.stateofcharge,
+                           NominalRemainingKwh(mysettings, currentMonitor.stateofcharge));
   }
 
   if (mysettings.protocol != ProtocolEmulation::EMULATION_DISABLED && mysettings.dynamiccharge)
