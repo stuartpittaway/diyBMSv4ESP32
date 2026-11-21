@@ -93,7 +93,7 @@ public:
         if (h == nullptr)
         {
             // malloc failed
-            return httpd_resp_set_status(req, HTTPD_500);
+            return httpd_resp_send_500(req);
         }
 
         // Take a copy of all the historic readings, this allows the loops further on to work optimaly in creating JSON.
