@@ -940,6 +940,17 @@ bool LoadWIFI(wifi_eeprom_settings *wifi)
 // helper that applies numeric and range limits
 static void enforceNumericLimits(diybms_eeprom_settings *settings, const diybms_eeprom_settings &defaults)
 {
+    // Bank and module counts are used as array indexes (per bank arrays, cmi[]), so they must be bounded
+    if (settings->totalNumberOfBanks < 1 || settings->totalNumberOfBanks > maximum_number_of_banks ||
+        settings->totalNumberOfSeriesModules < 1 ||
+        (uint16_t)settings->totalNumberOfBanks * settings->totalNumberOfSeriesModules > maximum_controller_cell_modules)
+    {
+        ESP_LOGE(TAG, "Invalid bank/module count (%u x %u), using defaults",
+                 settings->totalNumberOfBanks, settings->totalNumberOfSeriesModules);
+        settings->totalNumberOfBanks = defaults.totalNumberOfBanks;
+        settings->totalNumberOfSeriesModules = defaults.totalNumberOfSeriesModules;
+    }
+
     if (settings->influxdb_loggingFreqSeconds < 5)
         settings->influxdb_loggingFreqSeconds = defaults.influxdb_loggingFreqSeconds;
 

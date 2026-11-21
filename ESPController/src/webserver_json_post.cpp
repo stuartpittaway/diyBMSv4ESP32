@@ -31,7 +31,7 @@ esp_err_t post_savebankconfig_json_handler(httpd_req_t *req, bool urlEncoded)
 
                 if (GetKeyValue(httpbuf, "interpacketgap", &interpacketgap, urlEncoded))
                 {
-                    if (totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
+                    if (totalBanks <= maximum_number_of_banks && totalSeriesModules * totalBanks <= maximum_controller_cell_modules)
                     {
                         mysettings.totalNumberOfSeriesModules = totalSeriesModules;
                         mysettings.totalNumberOfBanks = totalBanks;
