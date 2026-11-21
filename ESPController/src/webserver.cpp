@@ -52,7 +52,7 @@ esp_err_t SendSuccess(httpd_req_t *req)
   ESP_LOGD(TAG, "Success");
   httpd_resp_set_type(req, "application/json");
   setNoStoreCacheControl(req);
-  int bufferused = snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "{\"success\":true}");
+  int bufferused = snprintf(httpbuf, BUFSIZE, "{\"success\":true}");
   return httpd_resp_send(req, httpbuf, bufferused);
 }
 
