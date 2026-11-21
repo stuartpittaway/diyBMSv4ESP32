@@ -90,9 +90,9 @@ private:
     std::array<bool, RELAY_RULES> rule_outcome;
 
 public:
-    static const std::array<std::string, 1 + MAXIMUM_RuleNumber> RuleTextDescription;
-    static const std::array<std::string, 1 + MAXIMUM_InternalWarningCode> InternalWarningCodeDescription;
-    static const std::array<std::string, 1 + MAXIMUM_InternalErrorCode> InternalErrorCodeDescription;
+    static const std::array<const char *, 1 + MAXIMUM_RuleNumber> RuleTextDescription;
+    static const std::array<const char *, 1 + MAXIMUM_InternalWarningCode> InternalWarningCodeDescription;
+    static const std::array<const char *, 1 + MAXIMUM_InternalErrorCode> InternalErrorCodeDescription;
 
     // Number of TRUE values in array rule_outcome
     uint8_t active_rule_count;

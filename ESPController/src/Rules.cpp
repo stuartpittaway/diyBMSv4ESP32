@@ -4,7 +4,7 @@ static constexpr const char *const TAG = "diybms-rules";
 #include "Rules.h"
 
 // Its critical these are in the same order as "enum Rule", and occupy the same index position
-const std::array<std::string, 1 + MAXIMUM_RuleNumber> Rules::RuleTextDescription = {
+const std::array<const char *, 1 + MAXIMUM_RuleNumber> Rules::RuleTextDescription = {
     "EmergencyStop",
     "BMSError",
     "CurrentMonitorOverCurrentAmps",
@@ -22,7 +22,7 @@ const std::array<std::string, 1 + MAXIMUM_RuleNumber> Rules::RuleTextDescription
     "Timer2",
     "Timer1"};
 
-const std::array<std::string, 1 + MAXIMUM_InternalWarningCode> Rules::InternalWarningCodeDescription =
+const std::array<const char *, 1 + MAXIMUM_InternalWarningCode> Rules::InternalWarningCodeDescription =
     {
         "NoWarning",
         "ModuleInconsistantBypassVoltage",
@@ -35,7 +35,7 @@ const std::array<std::string, 1 + MAXIMUM_InternalWarningCode> Rules::InternalWa
         "DischargePrevented",
         "NoExternalTempSensor"};
 
-const std::array<std::string, 1 + MAXIMUM_InternalErrorCode> Rules::InternalErrorCodeDescription =
+const std::array<const char *, 1 + MAXIMUM_InternalErrorCode> Rules::InternalErrorCodeDescription =
     {
         "NoError",
         "CommunicationsError",
@@ -187,7 +187,7 @@ void Rules::SetWarning(InternalWarningCode warncode)
 
     WarningCodes.at(warncode) = warncode;
     numberOfActiveWarnings++;
-    ESP_LOGI(TAG, "Set warning %i:%s", warncode, InternalWarningCodeDescription.at(warncode).c_str());
+    ESP_LOGI(TAG, "Set warning %i:%s", warncode, InternalWarningCodeDescription.at(warncode));
 }
 
 void Rules::SetError(InternalErrorCode err)
@@ -203,7 +203,7 @@ void Rules::SetError(InternalErrorCode err)
 
     ErrorCodes.at(err) = err;
     numberOfActiveErrors++;
-    ESP_LOGI(TAG, "Set error %i:%s", err, InternalErrorCodeDescription.at(err).c_str());
+    ESP_LOGI(TAG, "Set error %i:%s", err, InternalErrorCodeDescription.at(err));
 }
 
 /// @brief Run rules against cell/bank data
@@ -775,7 +775,7 @@ void Rules::setRuleStatus(Rule r, bool value)
     if (ruleOutcome(r) != value)
     {
         rule_outcome.at(r) = value;
-        ESP_LOGI(TAG, "Rule %s state=%u", RuleTextDescription.at(r).c_str(), (uint8_t)value);
+        ESP_LOGI(TAG, "Rule %s state=%u", RuleTextDescription.at(r), (uint8_t)value);
     }
 }
 

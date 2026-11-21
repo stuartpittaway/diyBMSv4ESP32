@@ -1143,7 +1143,7 @@ void GenerateSettingsJSONDocument(JsonDocument &doc, diybms_eeprom_settings *set
         {
             // Map enum to string so when this file is re-imported we are not locked to specific index offsets
             // which may no longer map to the correct rule
-            elementName = String(Rules::RuleTextDescription.at(rr).c_str());
+            elementName = String(Rules::RuleTextDescription.at(rr));
         }
         else
         {
@@ -1369,7 +1369,7 @@ static void applyRulesSettings(const JsonObject &root, diybms_eeprom_settings *s
         {
             auto it = std::find_if(Rules::RuleTextDescription.begin(),
                                    Rules::RuleTextDescription.end(),
-                                   [key](const std::string &desc) { return desc == key; });
+                                   [key](const char *desc) { return strcmp(desc, key) == 0; });
             if (it != Rules::RuleTextDescription.end())
             {
                 size_t rulenumber = std::distance(Rules::RuleTextDescription.begin(), it);
@@ -1380,7 +1380,7 @@ static void applyRulesSettings(const JsonObject &root, diybms_eeprom_settings *s
                 JsonArray states = v["state"].as<JsonArray>();
 
                 ESP_LOGI(TAG, "Matched to rule %u:%s, value=%i,hysteresis=%i", rulenumber,
-                         Rules::RuleTextDescription.at(rulenumber).c_str(),
+                         Rules::RuleTextDescription.at(rulenumber),
                          settings->rulevalue[rulenumber],
                          settings->rulehysteresis[rulenumber]);
 
