@@ -22,6 +22,9 @@
 // Total number of cells a single controler can handle (memory limitation)
 const uint8_t maximum_controller_cell_modules =200;
 
+// Value reported in the temperature fields of CellModuleInfo when a module has no (or has not yet read a) temperature sensor
+const int8_t TEMPERATURE_NOT_AVAILABLE = -40;
+
 typedef union
 {
   float value;

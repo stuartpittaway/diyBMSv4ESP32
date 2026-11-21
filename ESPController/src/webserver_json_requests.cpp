@@ -1200,7 +1200,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
     if (i)
       bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
-    if (cmi[i].valid && cmi[i].internalTemp != -40)
+    if (cmi[i].valid && cmi[i].internalTemp != TEMPERATURE_NOT_AVAILABLE)
     {
       bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%i", cmi[i].internalTemp);
     }
@@ -1225,7 +1225,7 @@ esp_err_t content_handler_monitor2(httpd_req_t *req)
     if (i)
       bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, ",");
 
-    if (cmi[i].valid && cmi[i].externalTemp != -40)
+    if (cmi[i].valid && cmi[i].externalTemp != TEMPERATURE_NOT_AVAILABLE)
     {
       bufferused += snprintf(&httpbuf[bufferused], BUFSIZE - bufferused, "%i", cmi[i].externalTemp);
     }

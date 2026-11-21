@@ -371,8 +371,8 @@ void clearModuleValues(uint8_t m)
   cmi[m].badPacketCount = 0;
   cmi[m].inBypass = false;
   cmi[m].bypassOverTemp = false;
-  cmi[m].internalTemp = -40;
-  cmi[m].externalTemp = -40;
+  cmi[m].internalTemp = TEMPERATURE_NOT_AVAILABLE;
+  cmi[m].externalTemp = TEMPERATURE_NOT_AVAILABLE;
 
   cmi[m].FanSwitchOnTemperature = 0;
   cmi[m].RelayMinmV = 0;

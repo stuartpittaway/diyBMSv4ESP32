@@ -80,6 +80,9 @@ private:
     /// @brief Recount the number of TRUE values in rule_outcome
     void UpdateActiveRuleCount();
 
+    /// @brief Apply a rule with hysteresis: switch ON when triggerCondition is true, OFF when resetCondition is true
+    void UpdateRule(Rule r, bool triggerCondition, bool resetCondition);
+
     /// @brief Calculate future time (specified in minutes)
     /// @param minutes number of minutes to delay for
     /// @return microseconds "ticks" for esp_timer
@@ -167,8 +170,9 @@ public:
         }
         if (chargemode == ChargingMode::absorb || chargemode == ChargingMode::floating)
         {
-            // Calculate seconds from microseconds
-            return (int32_t)((ChargingTimer - esp_timer_get_time()) / (int64_t)1E6);
+            // Calculate seconds from microseconds, never negative (timer has expired but mode not yet changed)
+            const int64_t remaining = (ChargingTimer - esp_timer_get_time()) / (int64_t)1E6;
+            return remaining > 0 ? (int32_t)remaining : 0;
         }
         // All other charge modes return zero
         return 0;
