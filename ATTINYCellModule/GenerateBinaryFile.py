@@ -1,6 +1,7 @@
 import os
 from os import path
 import json
+import zlib
 from shutil import copyfile
 
 Import("env")
@@ -21,6 +22,24 @@ def generatejson(target, source, env):
 
     if (not os.path.exists(source)):
         raise Exception("Source file not found")
+
+    my_flags0 = env.ParseFlags(env['BUILD_FLAGS'])
+    defines0 = {}
+    for d in my_flags0.get("CPPDEFINES", []):
+        if isinstance(d, (list, tuple)):
+            defines0[d[0]] = d[1] if len(d) > 1 else None
+        else:
+            defines0[d] = None
+    if "FW_WITH_BOOTLOADER" in defines0:
+        # ATtiny1624 with bootloader: not copied into the controller file system, the image is
+        # uploaded through the web interface instead (Utilities -> ATtiny1624 module update)
+        upfolder = os.path.join(env.get('PROJECT_DIR'), 'firmware_upload')
+        if not os.path.exists(upfolder):
+            os.mkdir(upfolder)
+        upname = "%s_%s.bin" % (env["PIOENV"], env["git_sha_short"])
+        copyfile(source, os.path.join(upfolder, upname))
+        print("Image for upload: firmware_upload/%s" % upname)
+        return
 
     avrfolder = os.path.join(env.get('PROJECT_DIR'), '..', 'ESPController', 'data', 'avr')
 
@@ -77,8 +96,19 @@ def generatejson(target, source, env):
             break
 
     if str(env["BOARD_MCU"]).lower()=="attiny1624":
+        entry = {'board': board, 'name':  newfilename, 'ver': env["git_sha_short"],'mcu':signature,'efuse':0,'hfuse':0,'lfuse':0}
+        if "FW_WITH_BOOTLOADER" in defines:
+            # Image for the update over the RX/TX chain (application from 0x0600, without bootloader)
+
+            with open(source, 'rb') as binfile:
+                image = binfile.read()
+            entry['chain'] = 1
+            entry['boardver'] = int(defines.get("DIYBMSMODULEVERSION"))
+            entry['baud'] = int(defines.get("DIYBMSBAUD"))
+            entry['len'] = len(image)
+            entry['crc32'] = "%08x" % (zlib.crc32(image) & 0xffffffff)
         #Add the new entry
-        data['avrprog'].append({'board': board, 'name':  newfilename, 'ver': env["git_sha_short"],'mcu':signature,'efuse':0,'hfuse':0,'lfuse':0})
+        data['avrprog'].append(entry)
 
     if str(env["BOARD_MCU"]).lower()=="attiny824":
         #Add the new entry

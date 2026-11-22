@@ -2,6 +2,14 @@
 static constexpr const char *const TAG = "diybms-rx";
 
 #include "PacketReceiveProcessor.h"
+#include "ModuleFirmwareUpdateTask.h"
+
+// Module is in the bootloader for a firmware update -> its values in the packet are invalid
+
+static inline bool SkipModule(uint8_t m)
+{
+  return ModuleFwUpdate_ModuleInBootloader() == (int16_t)m;
+}
 
 bool PacketReceiveProcessor::HasCommsTimedOut() const
 {
@@ -149,6 +157,11 @@ void PacketReceiveProcessor::ProcessReplyBadPacketCount()
   uint8_t q = 0;
   for (uint8_t i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++)
   {
+    if (SkipModule(i))
+    {
+      q++;
+      continue;
+    }
     cmi[i].badPacketCount = _packetbuffer.moduledata[q];
     q++;
   }
@@ -162,6 +175,11 @@ void PacketReceiveProcessor::ProcessReplyTemperature()
   uint8_t q = 0;
   for (uint8_t i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++)
   {
+    if (SkipModule(i))
+    {
+      q++;
+      continue;
+    }
     cmi[i].internalTemp = ((_packetbuffer.moduledata[q] & 0xFF00) >> 8) - 40;
     cmi[i].externalTemp = (_packetbuffer.moduledata[q] & 0x00FF) - 40;
     q++;
@@ -173,6 +191,11 @@ void PacketReceiveProcessor::ProcessReplyReadBalanceCurrentCounter()
   uint8_t q = 0;
   for (uint8_t i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++)
   {
+    if (SkipModule(i))
+    {
+      q++;
+      continue;
+    }
     cmi[i].BalanceCurrentCount = _packetbuffer.moduledata[q];
     q++;
   }
@@ -182,6 +205,11 @@ void PacketReceiveProcessor::ProcessReplyReadPacketReceivedCounter()
   uint8_t q = 0;
   for (uint8_t i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++)
   {
+    if (SkipModule(i))
+    {
+      q++;
+      continue;
+    }
     cmi[i].PacketReceivedCount = _packetbuffer.moduledata[q];
     q++;
   }
@@ -193,6 +221,11 @@ void PacketReceiveProcessor::ProcessReplyBalancePower()
   uint8_t q = 0;
   for (uint8_t i = _packetbuffer.start_address; i <= _packetbuffer.end_address; i++)
   {
+    if (SkipModule(i))
+    {
+      q++;
+      continue;
+    }
     cmi[i].PWMValue = _packetbuffer.moduledata[q];
     q++;
   }
@@ -207,6 +240,11 @@ void PacketReceiveProcessor::ProcessReplyVoltage()
 
   for (uint8_t i = 0; i <= _packetbuffer.end_address - _packetbuffer.start_address; i++)
   {
+
+    if (SkipModule(_packetbuffer.start_address + i))
+    {
+      continue;
+    }
 
     CellModuleInfo *cellptr = &cmi[_packetbuffer.start_address + i];
 
@@ -251,6 +289,11 @@ void PacketReceiveProcessor::ProcessReplyAdditionalSettings()
 void PacketReceiveProcessor::ProcessReplySettings()
 {
   uint8_t m = _packetbuffer.start_address;
+
+  if (SkipModule(m))
+  {
+    return;
+  }
 
   // TODO: Validate m here to prevent array overflow
   cmi[m].settingsCached = true;

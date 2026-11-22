@@ -15,8 +15,8 @@ $("#about").text("Informationen");
 
 $("#modulesPage > h1").text("Modul Seiten");
 
-$("#globalConfig > h2").text("Globale Einstellungen");
-$("#globalConfig > p").text("Konfigurieren Sie alle Module so, dass sie die folgenden Parameter verwenden:");
+$("#globalConfig > h2").text("Modul Einstellungen");
+$("#globalConfig > p").text("Module reagieren auf folgende Parameter:");
 
 $("#mpBank").text("Gruppe");
 $("#mpModule").text("Modul");
@@ -302,3 +302,32 @@ $("label[for='cmVOLTUL']").text("Relaisauslöser: Unterspannung");
 
 //<label for="cmPOL">Relay Trigger: Power</label>
 $("label[for='cmPOL']").text("Relaisauslöser: Stromversorgung");
+
+// Controller Firmware Upgrade (Utilities)
+$("#ap12").text("Controller-Firmware aktualisieren");
+$("#ota1").text("Neue Firmware auf den laufenden Controller laden. Vorher am besten die Konfiguration sichern. Der Controller startet danach neu. Modul-Firmware und Dateien werden dabei nicht aktualisiert.");
+$("#ota2").text("Laufende Firmware:");
+$("#ota3").text("Die Datei heißt normalerweise \"esp32-controller-firmware-over-the-air.bin\" (nicht das komplette Flash-Image). Schlägt die Übertragung oder die Prüfung fehl, bleibt die bisherige Firmware aktiv. Nach dem Neustart lädt die Seite von selbst neu.");
+$("#OtaUpload").text("Neue Firmware hochladen");
+
+// Module firmware update (Utilities)
+$("#lg1").html("AVR-Programmierer (ATtiny841) <span class=\"badge\">ISP-Kabel</span>");
+$("#lg3").text("Module V4.0–V4.4 mit ATtiny841, einzeln über den ISP-Stecker am Controller. ATtiny1624-Firmware wird rechts hochgeladen.");
+$("#mf1").html("ATtiny1624 – alle Module aktualisieren <span class=\"badge new\">RX/TX-Kette</span>");
+$("#mf3").text("Für Module mit Bootloader (V450_BL_*). Die Module bleiben angeschlossen. Jedes Modul vergleicht seine Firmware selbst; abweichende Module werden nacheinander aktualisiert, die anderen leiten nur weiter und messen normal. Einstellungen (Kalibrierung, Bypass) bleiben erhalten.");
+$("#mf4").text("1. Firmware hochladen");
+$("#mf5").text("2. Firmware auswählen");
+$("#mf6").text("3. Alle Module aktualisieren");
+$("#mf7").text("Modul");
+$("#mf9").text("Dauer");
+$("#mf10").text("Wiederholungen");
+$("#mf11").text("Firmware im Modul");
+$("#ModFwUpload").text("Hochladen");
+$("#ModFwStart").text("Update starten");
+$("#ModFwAbort").text("Abbrechen");
+$("#ModFwCheck").text("Module prüfen");
+
+// Modules page: firmware check
+$("#ModCheckFw").text("Module prüfen");
+$("#mc1").text("Liest die Firmware-Prüfsumme aller Module (Spalte \"Firmware\").");
+$("#mc2").text("Zuletzt geprüft:");

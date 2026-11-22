@@ -4,3 +4,4 @@
 .gcc-flags.json
 .pio
 EmbeddedFiles_Defines.h
+firmware_upload/
