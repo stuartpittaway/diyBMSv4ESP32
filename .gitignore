@@ -35,6 +35,8 @@
 *.i*86
 *.x86_64
 *.hex
+# prebuilt ATtiny1624 bootloader, needed by ATTINYCellModule/buildscript_bootloader.py (V450_BL_*)
+!ATTINYBootloader/prebuilt/*.hex
 
 # Debug files
 *.dSYM/
